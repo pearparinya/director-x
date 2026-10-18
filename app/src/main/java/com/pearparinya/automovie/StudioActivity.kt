@@ -295,7 +295,7 @@ class StudioActivity : AppCompatActivity() {
                     File(pendingRecovery,"recovery.txt").writeText("กู้ภาพ ${pictures.size} ไฟล์\n" + failedZipEntries.joinToString("\n"))
                     runOnUiThread {
                         importing=false; dialog.dismiss(); render()
-                        notice("กู้ภาพที่สมบูรณ์ไว้แล้ว ${pictures.size} ไฟล์ • ZIP ขาด story.json\n\nดาวน์โหลด story.json จาก ChatGPT แล้วเลือกผ่านเมนู 2 อีกครั้ง แอปจะรวมภาพที่กู้ไว้ให้อัตโนมัติ ไม่ต้องเลือก ZIP ซ้ำ")
+                        notice("กู้ภาพที่สมบูรณ์ไว้แล้ว ${pictures.size} ไฟล์ • ZIP ขาด story.json\n\nนำเข้า story.json ผ่านเมนูนำเข้าบทอีกครั้ง แอปจะรวมภาพที่กู้ไว้ให้อัตโนมัติ ไม่ต้องเลือก ZIP ซ้ำ")
                     }
                     return@Thread
                 }
@@ -389,20 +389,9 @@ class StudioActivity : AppCompatActivity() {
     }
     override fun onResume() {
         super.onResume()
-        val retry = pendingStoryShare
-        if (retry != null) {
-            pendingStoryShare = null
-            AlertDialog.Builder(this).setTitle("ตรวจข้อมูลใน ChatGPT")
-                .setMessage("$pendingStorySummary\nตรวจว่าช่องพิมพ์ใน ChatGPT มีคำสั่งและภาพครบก่อนกดส่ง\nหากเป็นแชทเปล่า ให้กลับมากด ‘คัดลอกแล้วเปิดใหม่’ จากนั้นแตะช่องพิมพ์ค้างและเลือก วาง")
-                .setPositiveButton("ข้อมูลเข้าครบแล้ว") { _, _ -> pendingReceipt?.invoke(); pendingReceipt = null; render() }
-                .setNeutralButton("ส่งข้อมูลอีกครั้ง") { _, _ -> retry() }
-                .setNegativeButton("คัดลอกแล้วเปิดใหม่") { _, _ ->
-                    val command = File(project,"last_command.txt").takeIf { it.exists() }
-                        ?: File(project,"last_story_command.txt").takeIf { it.exists() }
-                    command?.let { copyCommand(it.readText()) }
-                    retry()
-                }.showDirector()
-        } else if (!importing) updater.checkAutomatically()
+        pendingStoryShare=null
+        pendingReceipt=null
+        if(!importing) updater.checkAutomatically()
     }
     private fun rows(p: JSONObject): List<JSONObject> {
         val result = mutableListOf<JSONObject>()
@@ -864,18 +853,12 @@ class StudioActivity : AppCompatActivity() {
         dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(24),(resources.displayMetrics.heightPixels*0.82).toInt())
     }
     private fun showImportReceipt(batchSummary: String = "") {
-        val story = plan ?: return
-        val scenes = rows(story)
-        val imageCount = scenes.count { image(it).isFile && image(it).length() > 0 }
-        val covers = coverNames(story)
-        val coverCount = covers.count { coverFile(it).isFile && coverFile(it).length() > 0 }
-        val missing = scenes.size - imageCount
-        val missingCovers = covers.size - coverCount
-        val message = batchSummary.takeIf { it.isNotBlank() }?.let { "$it\n\n" }.orEmpty() + "เรื่อง: ${story.optString("title")}\nภาพฉาก $imageCount/${scenes.size} • ปก $coverCount/${covers.size}" +
-            if (missing == 0 && missingCovers == 0) "\nภาพและปกครบแล้ว พร้อมทำวิดีโอ" else "\nยังขาดภาพฉาก $missing ภาพ และปก $missingCovers ภาพ เพิ่มไฟล์ผ่านเมนู 2 หรือตรวจงานที่ขาด"
-        AlertDialog.Builder(this).setTitle("บันทึกชุดงานแล้ว").setMessage(message)
-            .setPositiveButton("ไปเมนู 3 — ทำวิดีโอ") { _, _ -> moviesMenu() }
-            .setNegativeButton("กลับหน้าหลัก", null).showDirector()
+        val story=plan ?: return
+        val issues=FlowProductionPack.issues(story)
+        val text=batchSummary+"\nเรื่อง: ${story.optString("title")}\n${story.getJSONArray("episodes").length()} EP • ${rows(story).size} ซีน\n"+
+            if(issues.isEmpty()) "บทพร้อมส่งออกคำสั่ง Flow • ไม่ต้องมีภาพฉากก่อน" else "ตรวจข้อมูลก่อนส่งออก:\n"+issues.take(12).joinToString("\n")
+        AlertDialog.Builder(this).setTitle("นำเข้าไฟล์แล้ว").setMessage(text)
+            .setPositiveButton("กลับหน้าหลัก") { _,_ -> render() }.showDirector()
     }
     private fun notice(text: String) { AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setMessage(text).setPositiveButton("ตกลง", null).showDirector() }
     private fun background(block: () -> Unit) {
@@ -1448,7 +1431,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
     private fun copyCommand(text: String) {
         (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
             .setPrimaryClip(ClipData.newPlainText("DIRECTOR X",text))
-        notice("คัดลอกแล้ว เปิด ChatGPT หรือ Flow แล้วเลือกวาง")
+        notice("คัดลอกคำสั่งแล้ว • นำไปวางในเครื่องมือที่ต้องการ")
     }
     private fun saveStory() {
         val p = plan ?: return
@@ -1641,7 +1624,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         val draftFile=File(project,"drafts/${key(s)}.json")
         val draft=runCatching { if(draftFile.exists()) JSONObject(draftFile.readText()) else s }.getOrDefault(s)
         val previousGroup=s.optString("continuity_group")
-        val fields = listOf("action" to "เหตุการณ์", "dialogue" to "บทพูด", "speaker" to "ผู้พูด", "narration" to "เสียงบรรยาย", "location" to "สถานที่", "continuity_group" to "กลุ่มความต่อเนื่อง", "props" to "อุปกรณ์", "story_time" to "เวลาในเรื่อง", "story_day" to "วันในเรื่อง เช่น DAY01", "activity" to "กิจกรรม เช่น meeting / home / sleep", "wardrobe_event" to "ช่วงชุด เช่น DAY01_MEETING", "image_prompt" to "คำสั่งภาพ", "framing" to "ระยะภาพ (ว่าง = ตามการกระทำ)", "lighting" to "แสงตามฉาก", "flow_prompt" to "คำสั่ง Flow เดิม (สร้างใหม่จากข้อมูลฉาก)", "flow_action" to "การกระทำสำหรับวิดีโอ (English)", "start_state" to "สถานะต้นฉาก", "end_state" to "สถานะท้ายฉาก")
+        val fields = listOf("action" to "เหตุการณ์", "dialogue" to "บทพูด", "speaker" to "ผู้พูด", "narration" to "เสียงบรรยาย", "location" to "สถานที่", "continuity_group" to "กลุ่มความต่อเนื่อง", "props" to "อุปกรณ์", "story_time" to "เวลาในเรื่อง", "story_day" to "วันในเรื่อง เช่น DAY01", "activity" to "กิจกรรม เช่น meeting / home / sleep", "wardrobe_event" to "ช่วงชุด เช่น DAY01_MEETING", "image_prompt" to "คำสั่งภาพ", "framing" to "ระยะภาพ (ว่าง = ตามการกระทำ)", "lighting" to "แสงตามฉาก", "flow_prompt" to "VIDEO PROMPT (แก้ให้ตรงกับบทและชุดปัจจุบัน)", "flow_action" to "การกระทำสำหรับวิดีโอ (English)", "start_state" to "สถานะต้นฉาก", "end_state" to "สถานะท้ายฉาก")
         val panel = LinearLayout(this).apply { orientation = 1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
         val inputs = fields.map { (key,label) -> key to EditText(this).apply { hint = label; setText(draft.optString(key,s.optString(key))); panel.addView(this) } }
         val cast = s.optJSONArray("characters") ?: JSONArray()
