@@ -1174,7 +1174,7 @@ class StudioActivity : AppCompatActivity() {
             choiceMenu("งานวิดีโอและ EP",listOf("EP / ซีน • รับภาพและคลิป","รวม EP / ดาวน์โหลด MP4")) { if(it==0) episodesMenu() else moviesMenu() }
         }
         label("เครื่องมือเสริม",15,true)
-        button("🧪 ทดสอบคำสั่งภาพ / คลิป • เลือกตัวละคร",false) { flowTestMenu() }
+        button("🧪 ทดสอบสร้างวิดีโอ • เลือกตัวละคร",false) { flowTestMenu() }
         button("🎭 MASTER และข้อมูลตัวละคร",false) { characterMasters() }
         button("⬇ ดาวน์โหลดแม่บทเริ่มงาน + MASTER",false) { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
         splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
@@ -1206,7 +1206,7 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun flowTestMenu() {
         val ids=FlowProductionPack.names.keys.toList(); val checked=BooleanArray(ids.size)
-        val dialog=AlertDialog.Builder(this).setTitle("เลือกตัวละครทดสอบ")
+        val dialog=AlertDialog.Builder(this).setTitle("เลือกตัวละครทดสอบวิดีโอ")
             .setMultiChoiceItems(ids.map { FlowProductionPack.names.getValue(it) }.toTypedArray(),checked) { _,i,value -> checked[i]=value }
             .setPositiveButton("ตั้งค่าฉาก",null).setNegativeButton("ยกเลิก",null).create()
         dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
@@ -1222,20 +1222,13 @@ class StudioActivity : AppCompatActivity() {
         val location=EditText(this).apply { hint="สถานที่และเวลา"; setText("ห้องนั่งเล่นตอนบ่าย แสงธรรมชาติ"); panel.addView(this) }
         val action=EditText(this).apply { hint="ท่าทาง / การกระทำ"; setText("ยืนข้างโต๊ะ ถือแก้วน้ำอย่างผ่อนคลาย"); panel.addView(this) }
         val outfit=EditText(this).apply { hint="ชุดที่ต้องการ (ว่าง = เลือกตามกิจกรรม)"; panel.addView(this) }
-        AlertDialog.Builder(this).setTitle("คำสั่งทดสอบ • ${ids.joinToString { FlowProductionPack.names.getValue(it) }}")
+        AlertDialog.Builder(this).setTitle("ทดสอบสร้างวิดีโอ • ${ids.joinToString { FlowProductionPack.names.getValue(it) }}")
             .setView(panel).setPositiveButton("สร้างคำสั่ง") { _,_ ->
                 val files=ids.associateWith { id -> File(filesDir,"character_masters/$id.master") }
                 val names=files.mapValues { (_,file) -> masterExportName(file,false).orEmpty() }
                 runCatching { FlowTestPrompt.build(ids,names,listOf("home","meeting","sleep")[activity.selectedItemPosition],location.text.toString(),action.text.toString(),outfit.text.toString()) }
                     .onSuccess { code ->
-                        choiceMenu("เลือกคำสั่งทดสอบ",listOf("IMAGE PROMPT • ทดสอบภาพ","VIDEO PROMPT • ทดสอบคลิป","ดู / บันทึกคำสั่งรวม")) { index ->
-                            val part=when(index) {
-                                0 -> code.substringAfter("IMAGE PROMPT\n").substringBefore("\nVIDEO PROMPT\n")
-                                1 -> code.substringAfter("VIDEO PROMPT\n").substringBefore("\nวิธีทดสอบ:")
-                                else -> code
-                            }
-                            showFlowCode(if(index==0) "IMAGE PROMPT" else if(index==1) "VIDEO PROMPT • ตรวจภาพเฟรมแรกก่อน" else "คำสั่งทดสอบรวม",part,"FLOW_TEST_${ids.joinToString("_")}_${index}.txt")
-                        }
+                        showFlowCode("คำสั่งทดสอบสร้างวิดีโอ • แนบ MASTER ที่เลือก",code,"FLOW_VIDEO_TEST_${ids.joinToString("_")}.txt")
                     }
                     .onFailure { notice(it.message ?: "ตรวจข้อมูลทดสอบ") }
             }.setNegativeButton("ยกเลิก",null).showDirector()

@@ -16,27 +16,19 @@ internal object FlowTestPrompt {
             "${FlowProductionPack.names[id]} -> ${filenames.getValue(id)}\n${FlowProductionPack.dna.getValue(id)}\nScene outfit: $clothes. Screen position: $position."
         }.joinToString("\n\n")
         return """
-FLOW TEST • IMAGE + VIDEO • 9:16
-แนบ MASTER เฉพาะรายชื่อต่อไปนี้ ต้องแนบภาพจริง ไม่ใช่แค่ชื่อไฟล์
-$people
-
-IMAGE PROMPT
-Photorealistic adult Thai drama, vertical 9:16. Only the following matched reference characters appear:
-$people
-Preserve each reference face, hair, skin tone, overall proportions and adult charm without increasing or reducing proportions. Replace reference clothes with the scene outfits stated above. Keep identities separate, no face blending or duplicated people. Natural clothing fit and fabric drape.
-Location: $location
-First-frame setup and action: $action
-Eye-level medium shot showing faces and hands, realistic scene lighting. No captions, added text or watermark.
+แนบภาพ MASTER: ${selected.joinToString(" | ") { "${FlowProductionPack.names.getValue(it)} = ${filenames.getValue(it)}" }}
+FLOW TEST • VIDEO ONLY • 8 seconds • 9:16
 
 VIDEO PROMPT
-8 seconds, vertical 9:16, locked-off static camera, one continuous subtle action. Use the generated and reviewed scene image as the first frame. Confirm the planned character map against that actual frame before running:
+Create a photorealistic 8-second vertical 9:16 video using the attached character reference images directly as identity references, not as the scene background or the opening composition. Only these adult characters appear:
 $people
+Preserve each person's reference facial geometry, eyes, nose, lips, jawline, hairstyle and skin tone. Maintain the reference shoulder width, chest volume, waist width, hips and their relative proportions without slimming, enlargement, face blending or duplicated people. Fit the new clothes to the original body, with realistic fabric drape. Replace reference clothing with the specified scene outfits from the start of the video; no on-screen wardrobe transformation.
 Location: $location
 Action: $action
-Preserve the first-frame identities, outfits, positions and props. No dialogue or narration in this visual test; all mouths stay closed. No camera movement, cuts, captions or watermark. Hold the ending briefly.
+Start already in the described location and outfits. Eye-level medium shot showing faces and hands. Locked-off static camera, one continuous subtle action, no camera movement or cuts. Preserve identities, body proportions, outfits and props throughout. No dialogue or narration in this visual test; all mouths stay closed. No captions, added text or watermark. Hold the ending briefly.
 
-วิธีทดสอบ: แนบ MASTER ที่ระบุใน Flow -> ใช้ IMAGE PROMPT -> ตรวจภาพจริง -> แนบภาพฉากนั้นเป็นเฟรมแรก -> ใช้ VIDEO PROMPT
-นี่เป็นไฟล์คำสั่ง ยังไม่ได้สร้างภาพหรือทดสอบผลจาก Flow
+วิธีทดสอบ: แนบภาพ MASTER เฉพาะคนที่เลือกในโหมดวิดีโอที่รองรับภาพอ้างอิงตัวละคร แล้ววางคำสั่งนี้ ไม่ต้องสร้างภาพฉากก่อน หากโหมดที่เลือกไม่รองรับภาพอ้างอิงตัวละครโดยตรง ให้เปลี่ยนเป็นโหมดที่รองรับก่อนทดสอบ
+นี่เป็นไฟล์คำสั่ง ยังไม่ได้สร้างหรือทดสอบผลวิดีโอจาก Flow และไม่รับประกันความเหมือนทุกจุด
         """.trimIndent()
     }
 }

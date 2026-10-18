@@ -38,9 +38,9 @@ class FlowProductionPackTest {
                 stages.forEach { assertTrue(home.contains(it)) }
                 assertTrue(home.contains("รอนำเข้าบท"))
                 assertTrue(home.contains("รอบทสำหรับจับคู่คลิป"))
-                assertTrue(home.indexOf("รับ MP4 / รวม EP / ดาวน์โหลด") < home.indexOf("ทดสอบคำสั่งภาพ / คลิป"))
+                assertTrue(home.indexOf("รับ MP4 / รวม EP / ดาวน์โหลด") < home.indexOf("ทดสอบสร้างวิดีโอ"))
                 assertFalse(home.contains("เครื่องมือภาพเดิม"))
-                assertTrue(home.contains("ทดสอบคำสั่งภาพ / คลิป"))
+                assertTrue(home.contains("ทดสอบสร้างวิดีโอ"))
             } }
         } finally {
             prefs.edit().putString("project",previousProject).putBoolean("legacy_image_workflow",previousLegacy).commit()
@@ -75,7 +75,7 @@ class FlowProductionPackTest {
                 scenario.onActivity {
                     assertFalse(home(it).contains("ส่งออกบทฉบับนี้แล้ว"))
                     assertTrue(home(it).contains("พร้อมส่งออกคำสั่ง"))
-                    assertTrue(home(it).contains("ทดสอบคำสั่งภาพ / คลิป"))
+                    assertTrue(home(it).contains("ทดสอบสร้างวิดีโอ"))
                 }
             }
         } finally { prefs.edit().putString("project",previous).commit(); folder.deleteRecursively() }
@@ -86,7 +86,10 @@ class FlowProductionPackTest {
         assertTrue(single.contains("MIND_MASTER.jpg"))
         assertFalse(single.contains("GAWIN_MASTER"))
         assertFalse(single.contains("RINLADA_MASTER"))
-        assertTrue(single.contains("IMAGE PROMPT")); assertTrue(single.contains("VIDEO PROMPT"))
+        assertFalse(single.contains("IMAGE PROMPT")); assertTrue(single.contains("VIDEO PROMPT"))
+        assertTrue(single.startsWith("แนบภาพ MASTER: เมย์ = MIND_MASTER.jpg"))
+        assertFalse(single.contains("as the first frame"))
+        assertTrue(single.contains("reference images directly"))
         val pair=FlowTestPrompt.build(listOf("gawin","rinlada"),refs,"meeting","ห้องประชุม","ถือแฟ้ม","เสื้อคอสูงสีฟ้า")
         assertTrue(pair.contains("เสื้อคอสูงสีฟ้า")); assertTrue(pair.contains("GAWIN_MASTER.jpg")); assertTrue(pair.contains("RINLADA_MASTER.png"))
         assertFalse(pair.contains("MIND_MASTER")); assertFalse(pair.contains("ChatGPT"))
