@@ -24,20 +24,37 @@ class FlowProductionPackTest {
         val prefs=context.getSharedPreferences("studio",0)
         val previousProject=prefs.getString("project",null)
         val previousLegacy=prefs.getBoolean("legacy_image_workflow",false)
-        prefs.edit().putString("project",UUID.randomUUID().toString()).putBoolean("legacy_image_workflow",false).commit()
+        prefs.edit().putString("project",UUID.randomUUID().toString()).putBoolean("legacy_image_workflow",true).commit()
         try {
             ActivityScenario.launch(StudioActivity::class.java).use { scenario -> scenario.onActivity { activity ->
                 fun text(view: View): String = (if(view is TextView) view.text.toString() else "") +
                     (if(view is ViewGroup) (0 until view.childCount).joinToString("\n") { text(view.getChildAt(it)) } else "")
                 val home=text(activity.window.decorView)
-                assertTrue(home.contains("DIRECTOR FLOW STUDIO"))
+                assertTrue(home.contains("FLOW STUDIO"))
                 assertTrue(home.contains("ตอนละอย่างน้อย 3 นาที"))
                 assertTrue(home.contains("ส่งออก ZIP สำหรับ Flow"))
-                assertFalse(home.contains("รับบทและภาพจาก ChatGPT"))
+                assertFalse(home.contains("ChatGPT"))
+                assertFalse(home.contains("ล็อก"))
+                assertFalse(home.contains("เครื่องมือภาพเดิม"))
+                assertTrue(home.contains("ทดสอบคำสั่งภาพ / คลิป"))
             } }
         } finally {
             prefs.edit().putString("project",previousProject).putBoolean("legacy_image_workflow",previousLegacy).commit()
         }
+    }
+    @Test fun testCommandsOnlyUseSelectedMastersAndHonorSceneSettings() {
+        val refs=mapOf("gawin" to "GAWIN_MASTER.jpg","rinlada" to "RINLADA_MASTER.png","mind" to "MIND_MASTER.jpg")
+        val single=FlowTestPrompt.build(listOf("mind"),refs,"home","ห้องครัว","ถือแก้วน้ำ","")
+        assertTrue(single.contains("MIND_MASTER.jpg"))
+        assertFalse(single.contains("GAWIN_MASTER"))
+        assertFalse(single.contains("RINLADA_MASTER"))
+        assertTrue(single.contains("IMAGE PROMPT")); assertTrue(single.contains("VIDEO PROMPT"))
+        val pair=FlowTestPrompt.build(listOf("gawin","rinlada"),refs,"meeting","ห้องประชุม","ถือแฟ้ม","เสื้อคอสูงสีฟ้า")
+        assertTrue(pair.contains("เสื้อคอสูงสีฟ้า")); assertTrue(pair.contains("GAWIN_MASTER.jpg")); assertTrue(pair.contains("RINLADA_MASTER.png"))
+        assertFalse(pair.contains("MIND_MASTER")); assertFalse(pair.contains("ChatGPT"))
+        assertTrue(pair.contains("No dialogue or narration"))
+        assertTrue(runCatching { FlowTestPrompt.build(emptyList(),refs,"home","ห้องครัว","ยืน","") }.isFailure)
+        assertTrue(runCatching { FlowTestPrompt.build(listOf("mind"),emptyMap(),"home","ห้องครัว","ยืน","") }.isFailure)
     }
     private fun plan(count: Int, scenes: Int): JSONObject {
         val eps=JSONArray()
