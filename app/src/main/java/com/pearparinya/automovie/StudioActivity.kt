@@ -1149,7 +1149,15 @@ class StudioActivity : AppCompatActivity() {
         val clipCount=current?.let { rows(it).count { scene -> video(scene).isFile && video(scene).length()>0 } } ?: 0
         val finished=episodes!=null && episodes.length()>0 && (0 until episodes.length()).all { i ->
             val ep=episodes.getJSONObject(i).getInt("ep")
-            latestMovie(ep)?.let { job -> runCatching { readMovieState(job).optString("fingerprint")==movieFingerprint(ep) }.getOrDefault(false) } ?: false
+            latestMovie(ep)?.let { job -> runCatching {
+                val specFile=File(job,"spec.json")
+                val spec=JSONObject(specFile.readText())
+                val scenes=orderedMovieScenes(episodes.getJSONObject(i))
+                val inputs=listOf(coverFile("EP%02d_COVER_9x16".format(ep)))+scenes.map { video(it) }
+                val saved=spec.getJSONArray("clips")
+                saved.length()==scenes.size && (0 until saved.length()).all { saved.getString(it)==video(scenes[it]).path } &&
+                    spec.optString("cover")==inputs.first().path && inputs.all { it.isFile && it.lastModified()<=specFile.lastModified() }
+            }.getOrDefault(false) } ?: false
         }
         val active=when { current==null -> if(prepared) 2 else 1; !exported -> 3; else -> 4 }
         label(if(current==null) "ยังไม่มีบท • เริ่มขั้นตอน 1 หรือนำเข้าบทที่มีแล้ว" else "${current.optString("title")} • ${episodes!!.length()} EP • คลิป $clipCount/$sceneCount",14,true)
