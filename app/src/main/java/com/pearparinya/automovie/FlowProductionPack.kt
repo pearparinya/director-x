@@ -16,7 +16,7 @@ internal object FlowProductionPack {
         "mind" to "May: adult fictional woman, chin-length chestnut-auburn bob, softly rounded oval face, full cheeks and coral-pink lips. Match her own MASTER; preserve original overall proportions. Do not give her Rinrada's long hair or jewelry."
     )
     fun masterCommand(category: String, channel: String): String = """
-DIRECTOR FLOW STUDIO — สร้างไฟล์คำสั่ง ไม่สร้างภาพหรือวิดีโอใน ChatGPT
+DIRECTOR FLOW STUDIO — สร้างไฟล์คำสั่ง ไม่สร้างภาพหรือวิดีโอใน ระบบวางบท
 ช่อง: $channel
 หมวด: $category
 สร้างเรื่องใหม่จนจบ เลือกจำนวน EP ตามโครงเรื่อง เช่น 4–7 ตอนหรือมากกว่าหากจำเป็น พร้อมเหตุผล ไม่ล็อกไว้ที่ 4 ตอน ทุก EP ยาวอย่างน้อย 180 วินาทีจากผลรวมเวลาซีนจริง ไม่รวมปก ใช้ซีนละ 8 วินาที ค่าเริ่มต้น 24 ซีน = 192 วินาที ห้ามยืดเวลาด้วยซีนซ้ำหรือข้อความแทนเนื้อหา
@@ -25,7 +25,7 @@ ${dna.values.joinToString("\n")}
 คงใบหน้า ผม สีผิว สัดส่วนและเสน่ห์ความเซ็กซี่ตามภาพอ้างอิงของตัวละครผู้ใหญ่ ไม่เพิ่มหรือลดสัดส่วนเอง เปลี่ยนชุดจาก MASTER ให้เหมาะกับเวลาและกิจกรรม แต่เหตุการณ์ต่อเนื่องใช้ชุดเดิม สร้าง wardrobe ledger ก่อนเขียนซีน
 IMAGE PROMPT ภาษาอังกฤษเต็มในแต่ละซีน: เฉพาะตัวละครที่อยู่จริง ชื่อและชื่อไฟล์ MASTER ตรงคน DNA เต็ม ชุด สี เนื้อผ้า ท่าทาง สถานะต้นคลิป สถานที่ พร็อพ แสง ระยะภาพ และตำแหน่งตัวละคร ห้ามอ้าง 'เหมือนซีนก่อน' แทนรายละเอียด
 VIDEO PROMPT ภาษาอังกฤษ บทพูดไทย: 8 seconds, vertical 9:16, locked-off static camera, one continuous action; supplied scene image as first frame. ระบุผู้พูดหนึ่งคนด้วยชื่อ ผม ชุด และตำแหน่ง คนอื่นปิดปาก ห้ามพูดทับ เสียงประจำตัวคงที่ ไม่รวมเสียงบรรยายกับบทพูดในซีนเดียว ระบุเป้าหมายสายตา สถานะเริ่มและจบคลิป บทพูดต้องพูดจบใน 8 วินาที ไม่มีข้อความหรือลายน้ำ ต้องตรวจตำแหน่งกับภาพจริงก่อนใช้วิดีโอ
-ส่ง ZIP จริงหนึ่งไฟล์: story.json, CHARACTER_MEMORY.json, WARDROBE_LEDGER.txt, CONTINUITY_LEDGER.txt, EP/EP01_FLOW.txt แยกตามจำนวนตอนจริง, COVERS/EP01_COVER_9x16.txt และ COVERS/EP01_COVER_16x9.txt แยกทุก EP ไม่ฝังคำสั่งปกซ้ำใน EP ไม่สร้างภาพใน ChatGPT
+ส่ง ZIP จริงหนึ่งไฟล์: story.json, CHARACTER_MEMORY.json, WARDROBE_LEDGER.txt, CONTINUITY_LEDGER.txt, EP/EP01_FLOW.txt แยกตามจำนวนตอนจริง, COVERS/EP01_COVER_9x16.txt และ COVERS/EP01_COVER_16x9.txt แยกทุก EP ไม่ฝังคำสั่งปกซ้ำใน EP ไม่สร้างภาพใน ระบบวางบท
 ปกแต่ละใบ: IMAGE PROMPT เต็ม ใช้ชุดประจำ EP ออกแบบแต่ละสัดส่วนใหม่ รายการข้อความไทยตรงชื่อช่อง ชื่อเรื่อง เลข EP และชื่อตอน จัดตัวอักษรไม่ทับหน้า เว้นขอบ ไม่มีโลโก้หรือข้อความอื่น
 story.json ต้องเป็น UTF-8 และมีรูปแบบนี้ (เพิ่ม EP และซีนให้ครบ ห้ามส่งตัวอย่างนี้แทนบทเต็ม):
 {"schema_version":3,"production_mode":"flow_commands","character_mode":"original","channel":"$channel","category":"$category","title":"ชื่อเรื่องไทย","tagline":"คำโปรย","duration_seconds":8,"aspect_ratio":"9:16","episode_count":4,"scene_count":96,"episodes":[{"ep":1,"title":"ชื่อตอน","tagline":"คำโปรยตอน","scene_count":24,"scenes":[{"scene":1,"duration_seconds":8,"story_day":"DAY01","story_time":"เช้า","activity":"home","wardrobe_event":"DAY01_HOME","continuity_group":"DAY01_HOME","location":"สถานที่","characters":[{"name":"เมย์","master":"MIND_MASTER.png","outfit":"ชุดเต็ม","visual_description":"ลักษณะจาก MASTER ภาษาอังกฤษ","screen_position":"frame-left"}],"start_state":"สถานะต้นคลิป","end_state":"สถานะจบคลิป","action":"เหตุการณ์ไทย","dialogue":"บทพูดไทยหรือว่าง","speaker":"ชื่อผู้พูดหรือว่าง","narration":"เสียงบรรยายหรือว่าง","image_prompt":"Full English IMAGE PROMPT","flow_prompt":"Full English VIDEO PROMPT with Thai speech"}]}]}
@@ -83,7 +83,7 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
             }
             put("CHARACTER_MEMORY.json",refs.toString(2))
             put("MASTER_COMMAND.txt",masterCommand(category,channel))
-            put("README.txt","DIRECTOR FLOW STUDIO\n${if(plan==null) "ชุดแม่บทเริ่มงาน ยังไม่มีบท EP" else "ชุดคำสั่งจากบท ตรวจข้อความแล้ว ยังไม่ได้สร้างภาพหรือวิดีโอ"}\n1. แนบ MASTER กับ MASTER_COMMAND เพื่อให้ AI วางบทและเขียนพรอมป์ ไม่สร้างภาพใน ChatGPT\n2. นำเข้า story.json ในแอป ตรวจเวลาตอนละอย่างน้อย 3 นาที แล้วส่งออก ZIP คำสั่ง\n3. ใน Flow แนบ MASTER เฉพาะคนในซีน สร้างภาพจาก IMAGE PROMPT ตรวจภาพ แล้วใช้เป็นเฟรมแรกกับ VIDEO PROMPT\n4. ตรวจผู้พูด ชุดและตำแหน่งกับภาพจริงทุกครั้ง ไม่ถือว่า Flow จำจากแชตอื่น\n5. นำเข้า MP4 และรวม EP ในแอปได้\n")
+            put("README.txt","DIRECTOR FLOW STUDIO\n${if(plan==null) "ชุดแม่บทเริ่มงาน ยังไม่มีบท EP" else "ชุดคำสั่งจากบท ตรวจข้อความแล้ว ยังไม่ได้สร้างภาพหรือวิดีโอ"}\n1. แนบ MASTER กับ MASTER_COMMAND เพื่อให้ AI วางบทและเขียนพรอมป์ ไม่สร้างภาพใน ระบบวางบท\n2. นำเข้า story.json ในแอป ตรวจเวลาตอนละอย่างน้อย 3 นาที แล้วส่งออก ZIP คำสั่ง\n3. ใน Flow แนบ MASTER เฉพาะคนในซีน สร้างภาพจาก IMAGE PROMPT ตรวจภาพ แล้วใช้เป็นเฟรมแรกกับ VIDEO PROMPT\n4. ตรวจผู้พูด ชุดและตำแหน่งกับภาพจริงทุกครั้ง ไม่ถือว่า Flow จำจากแชตอื่น\n5. นำเข้า MP4 และรวม EP ในแอปได้\n")
             if(plan!=null) {
                 fun mappedPrompt(raw: String): String {
                     var text=raw

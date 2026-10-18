@@ -199,7 +199,7 @@ class StudioActivity : AppCompatActivity() {
         if(!file.exists()) { notice("เพิ่ม MASTER ก่อน"); return }
         val source=masterExportName(file,false) ?: run { notice("อ่านภาพ MASTER ไม่ได้"); return }
         val command=ImagePromptPolicy.productionMaster(name,source,promptProfile(id,file))
-        shareText(command,includeMasters=false,referenceImages=listOf(source.substringBeforeLast('.') to file))
+        showFlowCode("คำสั่งเตรียม MASTER ใน Flow",command,"${id.uppercase()}_MASTER_COMMAND.txt")
     }
     private fun reviewMaster(id: String, name: String, file: File) {
         if(!file.exists()) { notice("ยังไม่มี MASTER"); return }
@@ -295,7 +295,7 @@ class StudioActivity : AppCompatActivity() {
                     File(pendingRecovery,"recovery.txt").writeText("กู้ภาพ ${pictures.size} ไฟล์\n" + failedZipEntries.joinToString("\n"))
                     runOnUiThread {
                         importing=false; dialog.dismiss(); render()
-                        notice("กู้ภาพที่สมบูรณ์ไว้แล้ว ${pictures.size} ไฟล์ • ZIP ขาด story.json\n\nดาวน์โหลด story.json จาก ChatGPT แล้วเลือกผ่านเมนู 2 อีกครั้ง แอปจะรวมภาพที่กู้ไว้ให้อัตโนมัติ ไม่ต้องเลือก ZIP ซ้ำ")
+                        notice("กู้ภาพที่สมบูรณ์ไว้แล้ว ${pictures.size} ไฟล์ • ZIP ขาด story.json\n\nนำเข้า story.json ผ่านเมนูนำเข้าบทอีกครั้ง แอปจะรวมภาพที่กู้ไว้ให้อัตโนมัติ ไม่ต้องเลือก ZIP ซ้ำ")
                     }
                     return@Thread
                 }
@@ -389,20 +389,9 @@ class StudioActivity : AppCompatActivity() {
     }
     override fun onResume() {
         super.onResume()
-        val retry = pendingStoryShare
-        if (retry != null) {
-            pendingStoryShare = null
-            AlertDialog.Builder(this).setTitle("ตรวจข้อมูลใน ChatGPT")
-                .setMessage("$pendingStorySummary\nตรวจว่าช่องพิมพ์ใน ChatGPT มีคำสั่งและภาพครบก่อนกดส่ง\nหากเป็นแชทเปล่า ให้กลับมากด ‘คัดลอกแล้วเปิดใหม่’ จากนั้นแตะช่องพิมพ์ค้างและเลือก วาง")
-                .setPositiveButton("ข้อมูลเข้าครบแล้ว") { _, _ -> pendingReceipt?.invoke(); pendingReceipt = null; render() }
-                .setNeutralButton("ส่งข้อมูลอีกครั้ง") { _, _ -> retry() }
-                .setNegativeButton("คัดลอกแล้วเปิดใหม่") { _, _ ->
-                    val command = File(project,"last_command.txt").takeIf { it.exists() }
-                        ?: File(project,"last_story_command.txt").takeIf { it.exists() }
-                    command?.let { copyCommand(it.readText()) }
-                    retry()
-                }.showDirector()
-        } else if (!importing) updater.checkAutomatically()
+        pendingStoryShare=null
+        pendingReceipt=null
+        if(!importing) updater.checkAutomatically()
     }
     private fun rows(p: JSONObject): List<JSONObject> {
         val result = mutableListOf<JSONObject>()
@@ -533,95 +522,7 @@ class StudioActivity : AppCompatActivity() {
         header.addView(heading)
         root.addView(header)
         
-        if (!prefs.getBoolean("legacy_image_workflow",false)) { flowHome(); return }
-        button("↶ กลับ DIRECTOR FLOW STUDIO",false) { prefs.edit().putBoolean("legacy_image_workflow",false).apply(); render() }
-        val p = plan
-        val summary = LinearLayout(this).apply {
-            orientation = 1; setPadding(dp(10),dp(6),dp(10),dp(6))
-            background = backdrop(Color.rgb(245,243,235),Color.rgb(225,233,240),Color.rgb(175,190,205))
-            layoutParams = LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,dp(12),0,dp(16)) }
-        }
-        fun summaryText(value: String, size: Float, color: Int, bold: Boolean = false) {
-            summary.addView(TextView(this).apply { text = value; textSize = size; setTextColor(color); setPadding(0,dp(3),0,dp(3)); if (bold) setTypeface(null,Typeface.BOLD) })
-        }
-        if (p != null) {
-            val hero=coverNames(p).sortedBy { if(it.endsWith("16x9")) 0 else 1 }.map { coverFile(it) }.firstOrNull { it.exists() } ?: rows(p).map { image(it) }.firstOrNull { it.exists() }
-            if(hero != null) summary.addView(ImageView(this).apply {
-                setImageBitmap(previewBitmap(Uri.fromFile(hero))); scaleType=ImageView.ScaleType.FIT_CENTER
-                adjustViewBounds=true
-                layoutParams=LinearLayout.LayoutParams(-1,-2); contentDescription="ภาพหนังที่กำลังสร้าง"
-                setOnClickListener { fullImage(hero,p.optString("title")) }
-            })
-            val last=prefs.getString("last_scene_${project.name}",null) ?: File(project,"last_scene.txt").takeIf { it.exists() }?.readText()
-            if(last != null) summaryText("ทำล่าสุด • $last",12f,Color.rgb(71,85,106),true)
-        }
-        if (p == null) {
-            summaryText(if (File(project,"command_sent").exists()) "ส่งไป ChatGPT แล้ว • รอรับบทและภาพในขั้นตอน 2" else "🎬 พร้อมสร้างเรื่องใหม่ • ครบทุก EP",14f,navy,true)
-        } else {
-            val scenes = rows(p); val count = scenes.count { image(it).exists() }
-            summaryText(p.getString("title"),17f,navy,true)
-            summaryText(p.optString("channel", originalChannel),12f,Color.rgb(71,85,106))
-            summaryText(p.getString("category"),12f,Color.rgb(71,85,106))
-            p.optString("tagline").takeIf { it.isNotBlank() }?.let { summaryText(it,13f,navy) }
-            p.optString("episode_reason").takeIf { it.isNotBlank() }?.let { summaryText("เหตุผลจำนวน EP • $it",12f,Color.rgb(71,85,106)) }
-            val episodes = p.getJSONArray("episodes")
-            for (i in 0 until episodes.length()) {
-                val ep = episodes.getJSONObject(i)
-                summaryText("EP ${ep.getInt("ep")} • ${ep.optString("title")} • ${ep.getJSONArray("scenes").length()} ซีน",12f,Color.rgb(71,85,106))
-            }
-            summaryText("${p.getJSONArray("episodes").length()} EP  •  ${scenes.size} ฉาก  •  ภาพ $count/${scenes.size}",14f,Color.rgb(134,87,20),true)
-            val names = coverNames(p)
-            summaryText("วิดีโอ ${scenes.count { video(it).exists() }}/${scenes.size} • ตรวจรับ ${scenes.count { it.optString("user_review") == "approved" }}/${scenes.size}",12f,Color.rgb(71,85,106))
-            summaryText("ปก ${names.count { coverFile(it).exists() }}/${names.size} • ทุก EP มี 9:16 และ 16:9",12f,Color.rgb(134,87,20),true)
-            summary.addView(ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply {
-                max = scenes.size; progress = count
-                progressTintList = ColorStateList.valueOf(gold)
-                progressBackgroundTintList = ColorStateList.valueOf(Color.rgb(48,46,40))
-                layoutParams = LinearLayout.LayoutParams(-1,dp(8)).apply { topMargin = dp(8) }
-            })
-        }
-        root.addView(summary)
-        if (p != null) {
-            button("▶ ทำต่อจากฉากล่าสุด") { resumeScene() }
-            button("🎞️ EP และฉาก • ภาพ / วิดีโอ", false) { episodesMenu() }
-            button("🔎 ตรวจงานที่ขาด", false) { auditStory() }
-        }
-        val packageReceived = p != null
-        val sent = packageReceived || File(project,"command_sent").exists()
-        val videosComplete = p != null && rows(p).isNotEmpty() && rows(p).all { video(it).exists() }
-        val imagesComplete = p != null && rows(p).isNotEmpty() && rows(p).all { image(it).isFile } && coverNames(p).all { coverFile(it).isFile }
-        val currentStep = when {
-            !sent -> 1
-            p == null || !imagesComplete -> 2
-            !videosComplete -> 3
-            else -> 4
-        }
-        val complete = p != null && rows(p).all { image(it).exists() && video(it).exists() } && coverNames(p).all { coverFile(it).exists() }
-        label(if (complete) "ภาพ วิดีโอ และปกครบแล้ว • ส่งออกชุดงานได้" else if (p != null) "ขั้นตอน $currentStep • ทำวิดีโอและส่งออกหนัง" else if (sent) "ขั้นตอน 2 • รับไฟล์จาก ChatGPT กลับเข้าแอป" else "ขั้นตอน 1 • เลือกเรื่องแล้วส่งไป ChatGPT", 14, true)
-        stepCard(1, "🎬", if (sent) "ส่งคำสั่งแล้ว ✓" else "สร้างเรื่องและส่งไป ChatGPT", if (sent) "ล็อกการสร้างซ้ำ • เริ่มเรื่องใหม่ใช้ปุ่มด้านล่าง" else "ตรวจ MASTER → เลือกช่องและแนว → ส่งคำสั่งไป ChatGPT", enabled = !sent, completed = sent, currentStep = currentStep) { planning() }
-        stepCard(2, "🎨", if (p == null) "รับบทและภาพจาก ChatGPT" else "รับบทแล้ว ✓ • นำเข้า ZIP ราย EP", if (p == null) "นำเข้า story.json ก่อน → นำเข้า ZIP ภาพและปกของแต่ละ EP" else "นำเข้า ZIP ภาพและปกราย EP ต่อได้ • ตรวจงานที่ขาดก่อนทำวิดีโอ", completed = imagesComplete, currentStep = currentStep) { packagePicker.launch(arrayOf("*/*")) }
-        stepCard(3, "🎥", "วิดีโอผ่าน Flow / Veo", "ใช้ภาพและคำสั่งสร้างคลิปใน Flow → นำเข้า MP4 รายฉาก → รวม EP พร้อมปกเปิด 3 วินาที", enabled = p != null, completed = videosComplete, currentStep = currentStep) { moviesMenu() }
-        stepCard(4, "⬇", "ดาวน์โหลดหนัง EP เป็น MP4", "รวม EP ให้สำเร็จก่อน → บันทึก / แชร์ MP4 ชื่อเรื่อง + เลข EP + ชื่อตอน", enabled = videosComplete, currentStep = currentStep) { moviesMenu() }
-        if (p != null) button("📦 ส่งออกชุดงาน / สำรอง ZIP", false) {
-            val current = plan ?: return@button
-            exportEpisode = null; backupMode = false
-            val title = current.getString("title")
-            if (!Regex("[ก-๙]").containsMatchIn(title)) {
-                val input = EditText(this).apply { hint = "ชื่อเรื่องภาษาไทย" }
-                AlertDialog.Builder(this).setTitle("ตั้งชื่อเรื่องภาษาไทยก่อนบันทึก").setView(input).setPositiveButton("บันทึกชื่อ") { _, _ ->
-                    val thai = input.text.toString().trim()
-                    if (!Regex("[ก-๙]").containsMatchIn(thai)) notice("กรุณาใส่ชื่อเรื่องภาษาไทย")
-                    else { current.put("title",thai); File(project,"story.json").writeText(current.toString(2)); render(); zipPicker.launch(StoryFiles.zipName(thai)) }
-                }.setNegativeButton("ยกเลิก",null).showDirector()
-            } else zipPicker.launch(StoryFiles.zipName(title))
-        }
-        if (p != null) button("🎨 สร้าง / ปรับปกจากภาพฉาก",false) { sendCoverCommands() }
-        splitActions("⚙️ ตั้งค่า / สำรอง", "✨ เริ่มเรื่องใหม่", { settingsMenu() }, {
-            AlertDialog.Builder(this).setTitle("เริ่มเรื่องใหม่?").setMessage("เรื่องปัจจุบันเก็บไว้ในรายการเรื่องที่บันทึก สามารถกลับมาทำต่อได้")
-                .setPositiveButton("เริ่มเรื่องใหม่") { _,_ -> prefs.edit().putString("project", UUID.randomUUID().toString()).apply(); render() }.setNegativeButton("ทำเรื่องเดิมต่อ",null).showDirector()
-        }, colors = listOf(menuColors[3], menuColors[4]))
-        splitActions("🎭 คลังตัวละคร / MASTER", "🖼️ ทดลองสร้างรูป", { castMenu() }, { testImageMenu() })
-        splitActions("📚 เรื่องของฉัน", "🏠 หน้าหลัก", { storiesMenu() }, { render() })
+        flowHome()
     }
     private fun splitActions(left: String, right: String, leftAction: () -> Unit, rightAction: () -> Unit, colors: List<IntArray> = listOf(menuColors[1], menuColors[2])) {
         val row = LinearLayout(this).apply {
@@ -952,18 +853,12 @@ class StudioActivity : AppCompatActivity() {
         dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(24),(resources.displayMetrics.heightPixels*0.82).toInt())
     }
     private fun showImportReceipt(batchSummary: String = "") {
-        val story = plan ?: return
-        val scenes = rows(story)
-        val imageCount = scenes.count { image(it).isFile && image(it).length() > 0 }
-        val covers = coverNames(story)
-        val coverCount = covers.count { coverFile(it).isFile && coverFile(it).length() > 0 }
-        val missing = scenes.size - imageCount
-        val missingCovers = covers.size - coverCount
-        val message = batchSummary.takeIf { it.isNotBlank() }?.let { "$it\n\n" }.orEmpty() + "เรื่อง: ${story.optString("title")}\nภาพฉาก $imageCount/${scenes.size} • ปก $coverCount/${covers.size}" +
-            if (missing == 0 && missingCovers == 0) "\nภาพและปกครบแล้ว พร้อมทำวิดีโอ" else "\nยังขาดภาพฉาก $missing ภาพ และปก $missingCovers ภาพ เพิ่มไฟล์ผ่านเมนู 2 หรือตรวจงานที่ขาด"
-        AlertDialog.Builder(this).setTitle("บันทึกชุดงานแล้ว").setMessage(message)
-            .setPositiveButton("ไปเมนู 3 — ทำวิดีโอ") { _, _ -> moviesMenu() }
-            .setNegativeButton("กลับหน้าหลัก", null).showDirector()
+        val story=plan ?: return
+        val issues=FlowProductionPack.issues(story)
+        val text=batchSummary+"\nเรื่อง: ${story.optString("title")}\n${story.getJSONArray("episodes").length()} EP • ${rows(story).size} ซีน\n"+
+            if(issues.isEmpty()) "บทพร้อมส่งออกคำสั่ง Flow • ไม่ต้องมีภาพฉากก่อน" else "ตรวจข้อมูลก่อนส่งออก:\n"+issues.take(12).joinToString("\n")
+        AlertDialog.Builder(this).setTitle("นำเข้าไฟล์แล้ว").setMessage(text)
+            .setPositiveButton("กลับหน้าหลัก") { _,_ -> render() }.showDirector()
     }
     private fun notice(text: String) { AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setMessage(text).setPositiveButton("ตกลง", null).showDirector() }
     private fun background(block: () -> Unit) {
@@ -1220,47 +1115,117 @@ class StudioActivity : AppCompatActivity() {
             }
         }
     }
-    private fun flowHome() {
-        label("DIRECTOR FLOW STUDIO • บทและไฟล์คำสั่ง",20,true)
-        label("สร้างภาพและวิดีโอใน Flow • ตอนละอย่างน้อย 3 นาที • ค่าเริ่มต้น 24 ซีน × 8 วินาที = 3:12 • จำนวน EP ตามพล็อต",14)
-        label("MASTER: กวิน / รินรดา / เมย์ • ความจำอยู่ในแอปและ ZIP ต้องแนบภาพใน Flow ทุกครั้งที่จำเป็น",13)
-        val current=plan
-        if(current!=null) label("เรื่อง: ${current.optString("title")} • ${current.getJSONArray("episodes").length()} EP",16,true)
-        stepCard(1,"📝","วางบทและเขียนคำสั่ง","เลือกแนว → ส่งให้ AI เขียนบทและพรอมป์เป็นไฟล์ ไม่สร้างภาพใน ChatGPT",currentStep=if(current==null) 1 else 2) { flowPlanning() }
-        stepCard(2,"📥","นำเข้า story.json / ZIP บท","รับไฟล์บทที่ AI สร้างกลับเข้าแอป • ไม่ต้องมีภาพฉาก",currentStep=if(current==null) 1 else 2) { packagePicker.launch(arrayOf("*/*")) }
-        stepCard(3,"📦","ส่งออก ZIP สำหรับ Flow","EP แยกไฟล์ + คำสั่งปกแยกสัดส่วน + MASTER 3 คน + ความจำและแผนความต่อเนื่อง",enabled=current!=null,currentStep=3) {
-            val p=plan ?: return@stepCard
-            val problems=FlowProductionPack.issues(p)
-            if(problems.isNotEmpty()) notice(problems.take(30).joinToString("\n"))
-            else { starterFlowPack=false; flowPackPicker.launch("DIRECTOR_FLOW_COMMANDS.zip") }
-        }
-        stepCard(4,"🎥","รับ MP4 จาก Flow / รวม EP","หลังสร้างภาพและคลิปใน Flow นำเข้า MP4 แล้วรวมเป็นตอน",enabled=current!=null,currentStep=4) { moviesMenu() }
-        button("🎭 ดู / เปลี่ยน MASTER และความจำ",false) { globalCharacterMenuForFlow() }
-        button("⬇ ดาวน์โหลดแม่บทเริ่มงาน + MASTER 3 คน",false) { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
-        if(current!=null) {
-            button("🔎 ตรวจความพร้อมคำสั่ง / เวลาแต่ละ EP",false) {
-                val problems=FlowProductionPack.issues(current)
-                notice(if(problems.isEmpty()) "ผ่านการตรวจข้อความและเวลาทุก EP ≥3 นาที • ยังไม่ได้ตรวจภาพหรือรัน Flow" else problems.take(40).joinToString("\n"))
-            }
-            button("🎞️ เปิด EP และซีน",false) { episodesMenu() }
-        }
-        button("📚 เรื่องที่บันทึก / ตั้งค่า",false) { choiceMenu("จัดการ",listOf("เรื่องที่บันทึก","ตั้งค่า","เริ่มเรื่องใหม่","เครื่องมือภาพเดิม")) { i -> when(i) {
-            0 -> storiesMenu()
-            1 -> settingsMenu()
-            2 -> { prefs.edit().putString("project",UUID.randomUUID().toString()).apply(); render() }
-            3 -> { prefs.edit().putBoolean("legacy_image_workflow",true).apply(); render() }
-        } } }
+    private val flowCodePicker = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        if(uri!=null) runCatching {
+            val text=prefs.getString("pending_flow_code","").orEmpty()
+            require(text.isNotBlank()) { "ไม่มีคำสั่งให้บันทึก" }
+            contentResolver.openOutputStream(uri)!!.use { it.write(text.toByteArray(Charsets.UTF_8)) }
+        }.onSuccess { notice("บันทึกไฟล์คำสั่งแล้ว") }.onFailure { notice("บันทึกไม่สำเร็จ: ${it.message}") }
     }
-    private fun globalCharacterMenuForFlow() { characterMasters() }
+    private fun showFlowCode(title: String, code: String, filename: String) {
+        val text=TextView(this).apply {
+            this.text=code; textSize=13f; typeface=Typeface.MONOSPACE; setTextIsSelectable(true)
+            setPadding(dp(16),dp(12),dp(16),dp(12)); setTextColor(ice); setBackgroundColor(navy)
+        }
+        AlertDialog.Builder(this).setTitle(title).setMessage("คำสั่งสำหรับคัดลอกหรือบันทึก • ยังไม่ได้สร้างภาพหรือวิดีโอ")
+            .setView(ScrollView(this).apply { addView(text) })
+            .setPositiveButton("คัดลอก") { _,_ -> copyCommand(code) }
+            .setNeutralButton("บันทึก TXT") { _,_ -> prefs.edit().putString("pending_flow_code",code).apply(); flowCodePicker.launch(filename) }
+            .setNegativeButton("ปิด",null).showDirector()
+    }
+    private fun flowHome() {
+        label("FLOW STUDIO",22,true)
+        label("ตอนละอย่างน้อย 3 นาที • 24 ซีน × 8 วินาที = 3:12 • จำนวนตอนตามพล็อต",13)
+        val current=plan
+        label(if(current==null) "ยังไม่มีบท • เริ่มจากเตรียมคำสั่งวางบทหรือนำเข้าไฟล์" else "${current.optString("title")} • ${current.getJSONArray("episodes").length()} EP",15,true)
+        button("🧪 ทดสอบคำสั่งภาพ / คลิป • เลือกตัวละคร") { flowTestMenu() }
+        button("📝 เตรียมคำสั่งวางบท") { flowPlanning() }
+        button("📥 นำเข้าบท / ZIP / ไฟล์ฉาก",false) { packagePicker.launch(arrayOf("*/*")) }
+        button("📦 ส่งออก ZIP สำหรับ Flow",false) {
+            val p=plan
+            if(p==null) notice("นำเข้า story.json ก่อนส่งออกคำสั่งราย EP • ใช้เมนูเตรียมคำสั่งวางบทเพื่อเริ่มงาน")
+            else {
+                val issues=FlowProductionPack.issues(p)
+                if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n"))
+                else { starterFlowPack=false; flowPackPicker.launch("DIRECTOR_FLOW_COMMANDS.zip") }
+            }
+        }
+        button("🎞️ EP / ซีน / รับคลิปและรวมตอน",false) {
+            if(current==null) notice("นำเข้า story.json ก่อนจัดการ EP และคลิป")
+            else choiceMenu("จัดการ EP",listOf("คำสั่งและไฟล์รายซีน","รับคลิป / รวม EP")) { if(it==0) episodesMenu() else moviesMenu() }
+        }
+        button("🎭 MASTER และข้อมูลตัวละคร",false) { characterMasters() }
+        splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
+    }
+    private fun flowSettings() {
+        choiceMenu("ตั้งค่า Flow Studio",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่")) { i -> when(i) {
+            0 -> updater.check()
+            1 -> { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
+            2 -> if(plan==null) notice("ยังไม่มีเรื่องให้สำรอง") else { backupMode=true; zipPicker.launch("DIRECTOR_FLOW_BACKUP.zip") }
+            3 -> restorePicker.launch(arrayOf("application/zip"))
+            4 -> AlertDialog.Builder(this).setTitle("เริ่มเรื่องใหม่")
+                .setMessage("เรื่องปัจจุบันยังอยู่ในรายการเรื่องที่บันทึก")
+                .setPositiveButton("เริ่มใหม่") { _,_ -> prefs.edit().putString("project",UUID.randomUUID().toString()).apply(); render() }
+                .setNegativeButton("ยกเลิก",null).showDirector()
+        } }
+    }
     private fun flowPlanning() {
-        choiceMenu("เลือกหมวดสำหรับ Flow",categories) { index ->
-            val premise=EditText(this).apply { hint="แนวคิดเรื่อง (เว้นว่างให้ AI คิดใหม่)" }
-            AlertDialog.Builder(this).setTitle("วางบท • EP ละ 3 นาทีขึ้นไป")
-                .setMessage("AI เลือกจำนวน EP ตามเรื่อง เช่น 4–7 ตอน • 24 ซีนต่อ EP เป็นค่าเริ่มต้น • ส่งออกไฟล์คำสั่ง ไม่สร้างภาพ")
-                .setView(premise).setPositiveButton("ส่งคำสั่งพร้อม MASTER") { _,_ ->
-                    shareText(FlowProductionPack.masterCommand(categories[index],originalChannel)+"\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" },useNewMasters=false,includeMasters=true,selectedMasterKeys=FlowProductionPack.names.keys.toList())
+        choiceMenu("หมวดสำหรับวางบท",categories) { index ->
+            val premise=EditText(this).apply { hint="แนวคิดเรื่อง (เว้นว่างให้คิดใหม่)" }
+            AlertDialog.Builder(this).setTitle("เตรียมคำสั่งวางบท")
+                .setMessage("เลือกจำนวนตอนตามพล็อต • ทุกตอนอย่างน้อย 3 นาที • ผลลัพธ์เป็นไฟล์บทและคำสั่ง Flow")
+                .setView(premise).setPositiveButton("ดูคำสั่ง") { _,_ ->
+                    showFlowCode("คำสั่งวางบท",FlowProductionPack.masterCommand(categories[index],originalChannel)+"\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" },"FLOW_STORY_COMMAND.txt")
                 }.setNegativeButton("ยกเลิก",null).showDirector()
         }
+    }
+    private fun flowTestMenu() {
+        val ids=FlowProductionPack.names.keys.toList(); val checked=BooleanArray(ids.size)
+        val dialog=AlertDialog.Builder(this).setTitle("เลือกตัวละครทดสอบ")
+            .setMultiChoiceItems(ids.map { FlowProductionPack.names.getValue(it) }.toTypedArray(),checked) { _,i,value -> checked[i]=value }
+            .setPositiveButton("ตั้งค่าฉาก",null).setNegativeButton("ยกเลิก",null).create()
+        dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val selected=ids.filterIndexed { i,_ -> checked[i] }
+            if(selected.isEmpty()) Toast.makeText(this,"เลือกอย่างน้อย 1 คน",Toast.LENGTH_SHORT).show()
+            else { dialog.dismiss(); flowTestSetup(selected) }
+        } }; dialog.show()
+    }
+    private fun flowTestSetup(ids: List<String>) {
+        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+        val activity=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ลำลอง / อยู่บ้าน","ประชุม / ทำงาน","ชุดนอน")) }
+        panel.addView(activity)
+        val location=EditText(this).apply { hint="สถานที่และเวลา"; setText("ห้องนั่งเล่นตอนบ่าย แสงธรรมชาติ"); panel.addView(this) }
+        val action=EditText(this).apply { hint="ท่าทาง / การกระทำ"; setText("ยืนข้างโต๊ะ ถือแก้วน้ำอย่างผ่อนคลาย"); panel.addView(this) }
+        val outfit=EditText(this).apply { hint="ชุดที่ต้องการ (ว่าง = เลือกตามกิจกรรม)"; panel.addView(this) }
+        AlertDialog.Builder(this).setTitle("คำสั่งทดสอบ • ${ids.joinToString { FlowProductionPack.names.getValue(it) }}")
+            .setView(panel).setPositiveButton("สร้างคำสั่ง") { _,_ ->
+                val files=ids.associateWith { id -> File(filesDir,"character_masters/$id.master") }
+                val names=files.mapValues { (_,file) -> masterExportName(file,false).orEmpty() }
+                runCatching { FlowTestPrompt.build(ids,names,listOf("home","meeting","sleep")[activity.selectedItemPosition],location.text.toString(),action.text.toString(),outfit.text.toString()) }
+                    .onSuccess { code ->
+                        choiceMenu("เลือกคำสั่งทดสอบ",listOf("IMAGE PROMPT • ทดสอบภาพ","VIDEO PROMPT • ทดสอบคลิป","ดู / บันทึกคำสั่งรวม")) { index ->
+                            val part=when(index) {
+                                0 -> code.substringAfter("IMAGE PROMPT\n").substringBefore("\nVIDEO PROMPT\n")
+                                1 -> code.substringAfter("VIDEO PROMPT\n").substringBefore("\nวิธีทดสอบ:")
+                                else -> code
+                            }
+                            showFlowCode(if(index==0) "IMAGE PROMPT" else if(index==1) "VIDEO PROMPT • ตรวจภาพเฟรมแรกก่อน" else "คำสั่งทดสอบรวม",part,"FLOW_TEST_${ids.joinToString("_")}_${index}.txt")
+                        }
+                    }
+                    .onFailure { notice(it.message ?: "ตรวจข้อมูลทดสอบ") }
+            }.setNegativeButton("ยกเลิก",null).showDirector()
+    }
+    private fun flowSceneMenu(s: JSONObject) {
+        choiceMenu(key(s),listOf("IMAGE PROMPT","VIDEO PROMPT","แก้บท / ชุด / สถานที่","นำเข้าภาพจาก Flow","นำเข้าคลิป MP4","ดูภาพ / เทียบ MASTER","ดูคลิป","เวอร์ชันไฟล์")) { i -> when(i) {
+            0 -> showFlowCode("IMAGE PROMPT",s.optString("image_prompt"),"${key(s)}_IMAGE.txt")
+            1 -> showFlowCode("VIDEO PROMPT • ตรวจผู้พูดกับภาพจริงก่อนใช้",s.optString("flow_prompt"),"${key(s)}_VIDEO.txt")
+            2 -> editScene(s)
+            3 -> { mediaSlot=key(s); mediaKind="image"; mediaProject=project.name; sceneMediaPicker.launch(arrayOf("image/*")) }
+            4 -> { mediaSlot=key(s); mediaKind="video"; mediaProject=project.name; sceneMediaPicker.launch(arrayOf("video/mp4")) }
+            5 -> compareScene(s)
+            6 -> playVideo(s)
+            7 -> versionsMenu(s)
+        } }
     }
 
     private fun planning() {
@@ -1475,7 +1440,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
     private fun copyCommand(text: String) {
         (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
             .setPrimaryClip(ClipData.newPlainText("DIRECTOR X",text))
-        notice("คัดลอกแล้ว เปิด ChatGPT หรือ Flow แล้วเลือกวาง")
+        notice("คัดลอกคำสั่งแล้ว • นำไปวางในเครื่องมือที่ต้องการ")
     }
     private fun saveStory() {
         val p = plan ?: return
@@ -1508,8 +1473,8 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         }) { index ->
             val ep = episodes.getJSONObject(index).getInt("ep")
             val scenes = rows(p).filter { it.getInt("ep") == ep }
-            choiceMenu("EP $ep • เลือกฉาก",scenes.map { "${key(it)} • ${if (image(it).exists()) "มีภาพ" else "ขาดภาพ"} • ${if (video(it).exists()) "มีวิดีโอ" else "รอวิดีโอ"}" } + "📦 ส่งออก EP นี้") { i ->
-                if (i == scenes.size) { exportEpisode = ep; backupMode = false; zipPicker.launch(StoryFiles.zipName(p.optString("title")+"_EP%02d".format(ep))) }
+            choiceMenu("EP $ep • เลือกฉาก",scenes.map { "${key(it)} • ${if (image(it).exists()) "มีภาพ" else "ขาดภาพ"} • ${if (video(it).exists()) "มีวิดีโอ" else "รอวิดีโอ"}" } + "📦 ส่งออก ZIP คำสั่งทั้งเรื่อง") { i ->
+                if (i == scenes.size) { val issues=FlowProductionPack.issues(p); if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else { starterFlowPack=false; flowPackPicker.launch("DIRECTOR_FLOW_COMMANDS.zip") } }
                 else sceneMenu(scenes[i])
             }
         }
@@ -1575,29 +1540,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
     }
     private fun sceneMenu(s: JSONObject) {
         rememberScene(s)
-        val choices = listOf("🖼️ ดูภาพ / เทียบ MASTER", if(prefs.getBoolean("legacy_image_workflow",false)) "🎬 สร้างภาพผ่าน ChatGPT" else "📋 IMAGE PROMPT สำหรับ Flow", "✏️ แก้บท ชุด และสถานที่", "🛠️ แก้ภาพเฉพาะส่วนผ่าน ChatGPT", "📋 คัดลอกคำสั่ง Flow", "📥 นำเข้าภาพฉากนี้", "🎥 นำเข้าวิดีโอฉากนี้", "▶ ดูวิดีโอ", "🗂️ เวอร์ชันภาพ / วิดีโอ", "✅ ตรวจรับภาพ / ต้องแก้", "➡ ฉากถัดไป", "🗣️ กำหนดคนพูดจากภาพ", "👤 ทดสอบรูปร่างรายคนในชุดฉากนี้", "📐 ตรวจรูปร่างรายคน / บันทึกจุดผิด", "🧾 คำสั่งล่าสุด / บันทึกผลจาก ChatGPT")
-        choiceMenu("${key(s)} • ${s.optString("location")}",choices) { i -> when(i) {
-            0 -> compareScene(s)
-            1 -> if(prefs.getBoolean("legacy_image_workflow",false)) sendSceneImage(plan!!,s) else copyCommand(s.optString("image_prompt"))
-            2 -> editScene(s)
-            3 -> repairScene(s)
-            4 -> copyFlowCommand(s)
-            5 -> { mediaSlot = key(s); mediaKind = "image"; mediaProject = project.name; sceneMediaPicker.launch(arrayOf("image/*")) }
-            6 -> { mediaSlot = key(s); mediaKind = "video"; mediaProject = project.name; sceneMediaPicker.launch(arrayOf("video/mp4")) }
-            7 -> playVideo(s)
-            8 -> versionsMenu(s)
-            9 -> choiceMenu("ตรวจรับ ${key(s)}",listOf("ผ่าน • ผู้ใช้ตรวจแล้ว", "ต้องแก้ • ยังไม่ผ่าน")) { result ->
-                if (!image(s).exists()) notice("ยังไม่มีภาพให้ตรวจรับ") else {
-                    s.put("user_review",if(result == 0) "approved" else "needs_revision"); saveStory(); render()
-                }
-            }
-            10 -> { val scenes = rows(plan!!); val next = scenes.indexOfFirst { key(it) == key(s) }+1
-                if (next in scenes.indices) sceneMenu(scenes[next]) else notice("ถึงฉากสุดท้ายแล้ว") }
-            11 -> mapFlowCharacters(s)
-            12 -> sceneBodyCheck(s,false)
-            13 -> sceneBodyCheck(s,true)
-            14 -> imageRequestResult(s)
-        } }
+        flowSceneMenu(s)
     }
     private fun imageRequestResult(scene: JSONObject) {
         val requests=File(project,"image_requests").listFiles()?.filter { it.extension=="json" }?.mapNotNull { file ->
@@ -1690,7 +1633,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         val draftFile=File(project,"drafts/${key(s)}.json")
         val draft=runCatching { if(draftFile.exists()) JSONObject(draftFile.readText()) else s }.getOrDefault(s)
         val previousGroup=s.optString("continuity_group")
-        val fields = listOf("action" to "เหตุการณ์", "dialogue" to "บทพูด", "speaker" to "ผู้พูด", "narration" to "เสียงบรรยาย", "location" to "สถานที่", "continuity_group" to "กลุ่มความต่อเนื่อง", "props" to "อุปกรณ์", "story_time" to "เวลาในเรื่อง", "story_day" to "วันในเรื่อง เช่น DAY01", "activity" to "กิจกรรม เช่น meeting / home / sleep", "wardrobe_event" to "ช่วงชุด เช่น DAY01_MEETING", "image_prompt" to "คำสั่งภาพ", "framing" to "ระยะภาพ (ว่าง = ตามการกระทำ)", "lighting" to "แสงตามฉาก", "flow_prompt" to "คำสั่ง Flow เดิม (สร้างใหม่จากข้อมูลฉาก)", "flow_action" to "การกระทำสำหรับวิดีโอ (English)", "start_state" to "สถานะต้นฉาก", "end_state" to "สถานะท้ายฉาก")
+        val fields = listOf("action" to "เหตุการณ์", "dialogue" to "บทพูด", "speaker" to "ผู้พูด", "narration" to "เสียงบรรยาย", "location" to "สถานที่", "continuity_group" to "กลุ่มความต่อเนื่อง", "props" to "อุปกรณ์", "story_time" to "เวลาในเรื่อง", "story_day" to "วันในเรื่อง เช่น DAY01", "activity" to "กิจกรรม เช่น meeting / home / sleep", "wardrobe_event" to "ช่วงชุด เช่น DAY01_MEETING", "image_prompt" to "คำสั่งภาพ", "framing" to "ระยะภาพ (ว่าง = ตามการกระทำ)", "lighting" to "แสงตามฉาก", "flow_prompt" to "VIDEO PROMPT (แก้ให้ตรงกับบทและชุดปัจจุบัน)", "flow_action" to "การกระทำสำหรับวิดีโอ (English)", "start_state" to "สถานะต้นฉาก", "end_state" to "สถานะท้ายฉาก")
         val panel = LinearLayout(this).apply { orientation = 1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
         val inputs = fields.map { (key,label) -> key to EditText(this).apply { hint = label; setText(draft.optString(key,s.optString(key))); panel.addView(this) } }
         val cast = s.optJSONArray("characters") ?: JSONArray()
