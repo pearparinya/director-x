@@ -1202,7 +1202,16 @@ class StudioActivity : AppCompatActivity() {
                 val files=ids.associateWith { id -> File(filesDir,"character_masters/$id.master") }
                 val names=files.mapValues { (_,file) -> masterExportName(file,false).orEmpty() }
                 runCatching { FlowTestPrompt.build(ids,names,listOf("home","meeting","sleep")[activity.selectedItemPosition],location.text.toString(),action.text.toString(),outfit.text.toString()) }
-                    .onSuccess { showFlowCode("IMAGE / VIDEO PROMPT",it,"FLOW_TEST_${ids.joinToString("_")}.txt") }
+                    .onSuccess { code ->
+                        choiceMenu("เลือกคำสั่งทดสอบ",listOf("IMAGE PROMPT • ทดสอบภาพ","VIDEO PROMPT • ทดสอบคลิป","ดู / บันทึกคำสั่งรวม")) { index ->
+                            val part=when(index) {
+                                0 -> code.substringAfter("IMAGE PROMPT\n").substringBefore("\nVIDEO PROMPT\n")
+                                1 -> code.substringAfter("VIDEO PROMPT\n").substringBefore("\nวิธีทดสอบ:")
+                                else -> code
+                            }
+                            showFlowCode(if(index==0) "IMAGE PROMPT" else if(index==1) "VIDEO PROMPT • ตรวจภาพเฟรมแรกก่อน" else "คำสั่งทดสอบรวม",part,"FLOW_TEST_${ids.joinToString("_")}_${index}.txt")
+                        }
+                    }
                     .onFailure { notice(it.message ?: "ตรวจข้อมูลทดสอบ") }
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
