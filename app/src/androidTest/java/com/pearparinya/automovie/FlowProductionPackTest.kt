@@ -34,13 +34,51 @@ class FlowProductionPackTest {
                 assertTrue(home.contains("ตอนละอย่างน้อย 3 นาที"))
                 assertTrue(home.contains("ส่งออก ZIP สำหรับ Flow"))
                 assertFalse(home.contains("ChatGPT"))
-                assertFalse(home.contains("ล็อก"))
+                                val stages=listOf("วางบทและเขียนคำสั่ง","นำเข้าบท / ZIP","ส่งออก ZIP สำหรับ Flow","รับ MP4 / รวม EP / ดาวน์โหลด")
+                stages.forEach { assertTrue(home.contains(it)) }
+                assertTrue(home.contains("รอนำเข้าบท"))
+                assertTrue(home.contains("รอบทสำหรับจับคู่คลิป"))
+                assertTrue(home.indexOf("รับ MP4 / รวม EP / ดาวน์โหลด") < home.indexOf("ทดสอบคำสั่งภาพ / คลิป"))
                 assertFalse(home.contains("เครื่องมือภาพเดิม"))
                 assertTrue(home.contains("ทดสอบคำสั่งภาพ / คลิป"))
             } }
         } finally {
             prefs.edit().putString("project",previousProject).putBoolean("legacy_image_workflow",previousLegacy).commit()
         }
+    }
+    @Test fun productionStagesUnlockAfterImportAndExportStatusExpiresWhenStoryChanges() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val prefs=context.getSharedPreferences("studio",0)
+        val previous=prefs.getString("project",null)
+        val id=UUID.randomUUID().toString()
+        val folder=File(context.filesDir,"studio/$id").apply { mkdirs() }
+        val story=File(folder,"story.json").apply { writeText(plan(4,23).toString()) }
+        prefs.edit().putString("project",id).commit()
+        try {
+            ActivityScenario.launch(StudioActivity::class.java).use { scenario ->
+                fun home(activity: StudioActivity): String {
+                    fun text(view: View): String = (if(view is TextView) view.text.toString() else "") +
+                        (if(view is ViewGroup) (0 until view.childCount).joinToString("\n") { text(view.getChildAt(it)) } else "")
+                    return text(activity.window.decorView)
+                }
+                scenario.onActivity { a ->
+                    assertTrue(home(a).contains("นำเข้าบทแล้ว"))
+                    assertTrue(home(a).contains("พร้อมส่งออกคำสั่ง"))
+                    assertTrue(home(a).contains("รับคลิป / ทำต่อได้"))
+                    assertFalse(home(a).contains("รอนำเข้าบท"))
+                }
+                File(folder,"flow_pack_exported.sha256").writeText(EpisodeMedia.digest(story))
+                scenario.recreate()
+                scenario.onActivity { assertTrue(home(it).contains("ส่งออกบทฉบับนี้แล้ว")) }
+                story.writeText(JSONObject(story.readText()).put("title","ชื่อเรื่องแก้ไขแล้ว").toString())
+                scenario.recreate()
+                scenario.onActivity {
+                    assertFalse(home(it).contains("ส่งออกบทฉบับนี้แล้ว"))
+                    assertTrue(home(it).contains("พร้อมส่งออกคำสั่ง"))
+                    assertTrue(home(it).contains("ทดสอบคำสั่งภาพ / คลิป"))
+                }
+            }
+        } finally { prefs.edit().putString("project",previous).commit(); folder.deleteRecursively() }
     }
     @Test fun testCommandsOnlyUseSelectedMastersAndHonorSceneSettings() {
         val refs=mapOf("gawin" to "GAWIN_MASTER.jpg","rinlada" to "RINLADA_MASTER.png","mind" to "MIND_MASTER.jpg")
