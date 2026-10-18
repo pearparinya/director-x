@@ -85,6 +85,14 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
             put("MASTER_COMMAND.txt",masterCommand(category,channel))
             put("README.txt","DIRECTOR FLOW STUDIO\n${if(plan==null) "ชุดแม่บทเริ่มงาน ยังไม่มีบท EP" else "ชุดคำสั่งจากบท ตรวจข้อความแล้ว ยังไม่ได้สร้างภาพหรือวิดีโอ"}\n1. แนบ MASTER กับ MASTER_COMMAND เพื่อให้ AI วางบทและเขียนพรอมป์ ไม่สร้างภาพใน ChatGPT\n2. นำเข้า story.json ในแอป ตรวจเวลาตอนละอย่างน้อย 3 นาที แล้วส่งออก ZIP คำสั่ง\n3. ใน Flow แนบ MASTER เฉพาะคนในซีน สร้างภาพจาก IMAGE PROMPT ตรวจภาพ แล้วใช้เป็นเฟรมแรกกับ VIDEO PROMPT\n4. ตรวจผู้พูด ชุดและตำแหน่งกับภาพจริงทุกครั้ง ไม่ถือว่า Flow จำจากแชตอื่น\n5. นำเข้า MP4 และรวม EP ในแอปได้\n")
             if(plan!=null) {
+                fun mappedPrompt(raw: String): String {
+                    var text=raw
+                    names.keys.forEach { id ->
+                        val filename=refs.getJSONObject(id).getString("file").substringAfterLast('/')
+                        text=text.replace(Regex("${id.uppercase()}_MASTER[.](png|jpg|jpeg|webp)",RegexOption.IGNORE_CASE),filename)
+                    }
+                    return text
+                }
                 put("story.json",plan.toString(2))
                 val wardrobe=StringBuilder(); val continuity=StringBuilder(); val eps=plan.getJSONArray("episodes")
                 for(i in 0 until eps.length()) {
@@ -98,7 +106,7 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
                             wardrobe.append("$key • ${person.getString("name")} • ${s.optString("story_day")} • ${s.optString("wardrobe_event")} • ${person.getString("outfit")}\n")
                             "${person.getString("name")} → ${refs.getJSONObject(id).getString("file")}\n${dna[id]}\nOutfit: ${person.getString("outfit")}; planned position: ${person.getString("screen_position")}"
                         }
-                        text.append("\n=== $key | 8 seconds | 9:16 ===\nREFERENCES (attach only these people):\n$refsForScene\nเหตุการณ์: ${s.getString("action")}\nผู้พูด: ${s.optString("speaker")}\nบทพูด: ${s.optString("dialogue")}\nเสียงบรรยาย: ${s.optString("narration")}\nIMAGE PROMPT (Flow):\n${s.getString("image_prompt")}\nVIDEO PROMPT (Flow, after checking generated first frame):\n${s.getString("flow_prompt")}\n")
+                        text.append("\n=== $key | 8 seconds | 9:16 ===\nREFERENCES (attach only these people):\n$refsForScene\nเหตุการณ์: ${s.getString("action")}\nผู้พูด: ${s.optString("speaker")}\nบทพูด: ${s.optString("dialogue")}\nเสียงบรรยาย: ${s.optString("narration")}\nIMAGE PROMPT (Flow):\nOnly the following adult characters appear; preserve their matched reference identities and original proportions. Replace reference clothes with the stated episode outfits.\n$refsForScene\n${mappedPrompt(s.getString("image_prompt"))}\nVIDEO PROMPT (Flow, after checking generated first frame):\nCharacter map (verify planned positions against the first frame):\n$refsForScene\n${mappedPrompt(s.getString("flow_prompt"))}\n")
                         continuity.append("$key • START ${s.getString("start_state")} • END ${s.getString("end_state")}\n")
                     }
                     put("EP/EP%02d_FLOW.txt".format(number),"Duration: $total seconds\n$text")
