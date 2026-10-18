@@ -97,6 +97,20 @@ class FlowProductionPackTest {
         assertTrue(runCatching { FlowTestPrompt.build(emptyList(),refs,"home","ห้องครัว","ยืน","") }.isFailure)
         assertTrue(runCatching { FlowTestPrompt.build(listOf("mind"),emptyMap(),"home","ห้องครัว","ยืน","") }.isFailure)
     }
+    @Test fun attachmentFilenamesMatchUsersFlowAssetsAndRejectAmbiguousNames() {
+        val refs=FlowTestPrompt.attachmentDefaults
+        assertEquals("1000026557.png",refs["gawin"])
+        assertEquals("1000026586.png",refs["mind"])
+        assertEquals("1000026584.png",refs["rinlada"])
+        val code=FlowTestPrompt.build(listOf("rinlada"),refs,"home","ห้องนั่งเล่น","ถือแก้วน้ำ","")
+        assertTrue(code.startsWith("แนบภาพ MASTER: รินรดา = 1000026584.png"))
+        assertFalse(code.contains("1000026557")); assertFalse(code.contains("1000026586"))
+        assertTrue(code.contains("chest-to-waist ratio"))
+        assertTrue(runCatching { FlowTestPrompt.build(listOf("mind","rinlada"),mapOf("mind" to "same.png","rinlada" to "same.png"),"home","room","stand","") }.isFailure)
+        assertTrue(runCatching { FlowTestPrompt.build(listOf("mind"),mapOf("mind" to "../photo.png"),"home","room","stand","") }.isFailure)
+        val custom=FlowTestPrompt.build(listOf("mind"),mapOf("mind" to "my_may.jpg"),"home","room","stand","")
+        assertTrue(custom.startsWith("แนบภาพ MASTER: เมย์ = my_may.jpg"))
+    }
     private fun plan(count: Int, scenes: Int): JSONObject {
         val eps=JSONArray()
         repeat(count) { e ->

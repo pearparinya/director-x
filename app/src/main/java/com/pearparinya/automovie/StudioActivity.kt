@@ -1217,17 +1217,29 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun flowTestSetup(ids: List<String>) {
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+        panel.addView(TextView(this).apply { text="ชื่อไฟล์ต้องตรงกับภาพที่แนบจริงใน Flow แก้ได้รายคน • ใช้เฉพาะ MASTER ต้นฉบับ ไม่ใช้ภาพผลทดสอบที่เพี้ยน" })
+        val filenameFields=ids.associateWith { id ->
+            panel.addView(TextView(this).apply { text="${FlowProductionPack.names.getValue(id)} • ชื่อไฟล์ใน Flow" })
+            EditText(this).apply {
+                setSingleLine(true)
+                setText(prefs.getString("flow_attachment_$id",FlowTestPrompt.attachmentDefaults.getValue(id)))
+                panel.addView(this)
+            }
+        }
         val activity=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ลำลอง / อยู่บ้าน","ประชุม / ทำงาน","ชุดนอน")) }
         panel.addView(activity)
         val location=EditText(this).apply { hint="สถานที่และเวลา"; setText("ห้องนั่งเล่นตอนบ่าย แสงธรรมชาติ"); panel.addView(this) }
         val action=EditText(this).apply { hint="ท่าทาง / การกระทำ"; setText("ยืนข้างโต๊ะ ถือแก้วน้ำอย่างผ่อนคลาย"); panel.addView(this) }
         val outfit=EditText(this).apply { hint="ชุดที่ต้องการ (ว่าง = เลือกตามกิจกรรม)"; panel.addView(this) }
         AlertDialog.Builder(this).setTitle("ทดสอบสร้างวิดีโอ • ${ids.joinToString { FlowProductionPack.names.getValue(it) }}")
-            .setView(panel).setPositiveButton("สร้างคำสั่ง") { _,_ ->
+            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างคำสั่ง") { _,_ ->
                 val files=ids.associateWith { id -> File(filesDir,"character_masters/$id.master") }
-                val names=files.mapValues { (_,file) -> masterExportName(file,false).orEmpty() }
-                runCatching { FlowTestPrompt.build(ids,names,listOf("home","meeting","sleep")[activity.selectedItemPosition],location.text.toString(),action.text.toString(),outfit.text.toString()) }
+                val names=filenameFields.mapValues { (_,field) -> field.text.toString().trim() }
+                runCatching {
+                    require(files.values.all { it.isFile && it.length()>0 }) { "ขาดภาพ MASTER ของตัวละครที่เลือก" }
+                    FlowTestPrompt.build(ids,names,listOf("home","meeting","sleep")[activity.selectedItemPosition],location.text.toString(),action.text.toString(),outfit.text.toString()) }
                     .onSuccess { code ->
+                        prefs.edit().apply { names.forEach { (id,name) -> putString("flow_attachment_$id",name) } }.apply()
                         showFlowCode("คำสั่งทดสอบสร้างวิดีโอ • แนบ MASTER ที่เลือก",code,"FLOW_VIDEO_TEST_${ids.joinToString("_")}.txt")
                     }
                     .onFailure { notice(it.message ?: "ตรวจข้อมูลทดสอบ") }
