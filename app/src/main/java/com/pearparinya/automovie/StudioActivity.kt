@@ -533,6 +533,8 @@ class StudioActivity : AppCompatActivity() {
         header.addView(heading)
         root.addView(header)
         
+        if (!prefs.getBoolean("legacy_image_workflow",false)) { flowHome(); return }
+        button("↶ กลับ DIRECTOR FLOW STUDIO",false) { prefs.edit().putBoolean("legacy_image_workflow",false).apply(); render() }
         val p = plan
         val summary = LinearLayout(this).apply {
             orientation = 1; setPadding(dp(10),dp(6),dp(10),dp(6))
@@ -1201,6 +1203,66 @@ class StudioActivity : AppCompatActivity() {
                 shareText("ใช้ภาพฉากที่แนบจากชุดงานที่นำเข้าเป็นต้นแบบปก แก้จากภาพเดิม โดยคงชุดและสถานที่ของภาพนั้น\nสิ่งที่ผู้ใช้ขอปรับ: ${edits.text.toString().ifBlank { "ออกแบบปกให้สวยงาม อ่านชัด" }}\n$commands\nแสดงปกจริงแยกไฟล์ และรวมเฉพาะปกที่สร้างใน ZIP สำหรับนำเข้ากลับ DIRECTOR X หากสร้างไม่ได้ให้แจ้งตามจริง", includeMasters = false, referenceImages = references.map { key(it) to image(it) })
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
+    private var starterFlowPack = false
+    private val flowPackPicker = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if(uri!=null) {
+            val current=if(starterFlowPack) null else plan?.let { JSONObject(it.toString()) }
+            val sources=FlowProductionPack.names.keys.associateWith { id ->
+                if(current==null) File(filesDir,"character_masters/$id.master")
+                else File(project,"original_masters/$id.master").takeIf { it.exists() } ?: File(filesDir,"character_masters/$id.master")
+            }
+            val memory=JSONObject()
+            sources.forEach { (id,file) -> memory.put(id,characterMemory.read(id,file)) }
+            background {
+                contentResolver.openOutputStream(uri)!!.use { output ->
+                    FlowProductionPack.write(output,current,sources,memory,current?.optString("category") ?: categories.first(),current?.optString("channel") ?: originalChannel)
+                }
+            }
+        }
+    }
+    private fun flowHome() {
+        label("DIRECTOR FLOW STUDIO • บทและไฟล์คำสั่ง",20,true)
+        label("สร้างภาพและวิดีโอใน Flow • ตอนละอย่างน้อย 3 นาที • ค่าเริ่มต้น 24 ซีน × 8 วินาที = 3:12 • จำนวน EP ตามพล็อต",14)
+        label("MASTER: กวิน / รินรดา / เมย์ • ความจำอยู่ในแอปและ ZIP ต้องแนบภาพใน Flow ทุกครั้งที่จำเป็น",13)
+        val current=plan
+        if(current!=null) label("เรื่อง: ${current.optString("title")} • ${current.getJSONArray("episodes").length()} EP",16,true)
+        stepCard(1,"📝","วางบทและเขียนคำสั่ง","เลือกแนว → ส่งให้ AI เขียนบทและพรอมป์เป็นไฟล์ ไม่สร้างภาพใน ChatGPT",currentStep=if(current==null) 1 else 2) { flowPlanning() }
+        stepCard(2,"📥","นำเข้า story.json / ZIP บท","รับไฟล์บทที่ AI สร้างกลับเข้าแอป • ไม่ต้องมีภาพฉาก",currentStep=if(current==null) 1 else 2) { packagePicker.launch(arrayOf("*/*")) }
+        stepCard(3,"📦","ส่งออก ZIP สำหรับ Flow","EP แยกไฟล์ + คำสั่งปกแยกสัดส่วน + MASTER 3 คน + ความจำและแผนความต่อเนื่อง",enabled=current!=null,currentStep=3) {
+            val p=plan ?: return@stepCard
+            val problems=FlowProductionPack.issues(p)
+            if(problems.isNotEmpty()) notice(problems.take(30).joinToString("\n"))
+            else { starterFlowPack=false; flowPackPicker.launch("DIRECTOR_FLOW_COMMANDS.zip") }
+        }
+        stepCard(4,"🎥","รับ MP4 จาก Flow / รวม EP","หลังสร้างภาพและคลิปใน Flow นำเข้า MP4 แล้วรวมเป็นตอน",enabled=current!=null,currentStep=4) { moviesMenu() }
+        button("🎭 ดู / เปลี่ยน MASTER และความจำ",false) { globalCharacterMenuForFlow() }
+        button("⬇ ดาวน์โหลดแม่บทเริ่มงาน + MASTER 3 คน",false) { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
+        if(current!=null) {
+            button("🔎 ตรวจความพร้อมคำสั่ง / เวลาแต่ละ EP",false) {
+                val problems=FlowProductionPack.issues(current)
+                notice(if(problems.isEmpty()) "ผ่านการตรวจข้อความและเวลาทุก EP ≥3 นาที • ยังไม่ได้ตรวจภาพหรือรัน Flow" else problems.take(40).joinToString("\n"))
+            }
+            button("🎞️ เปิด EP และซีน",false) { episodesMenu() }
+        }
+        button("📚 เรื่องที่บันทึก / ตั้งค่า",false) { choiceMenu("จัดการ",listOf("เรื่องที่บันทึก","ตั้งค่า","เริ่มเรื่องใหม่","เครื่องมือภาพเดิม")) { i -> when(i) {
+            0 -> storiesMenu()
+            1 -> settingsMenu()
+            2 -> { prefs.edit().putString("project",UUID.randomUUID().toString()).apply(); render() }
+            3 -> { prefs.edit().putBoolean("legacy_image_workflow",true).apply(); render() }
+        } } }
+    }
+    private fun globalCharacterMenuForFlow() { characterMasters() }
+    private fun flowPlanning() {
+        choiceMenu("เลือกหมวดสำหรับ Flow",categories) { index ->
+            val premise=EditText(this).apply { hint="แนวคิดเรื่อง (เว้นว่างให้ AI คิดใหม่)" }
+            AlertDialog.Builder(this).setTitle("วางบท • EP ละ 3 นาทีขึ้นไป")
+                .setMessage("AI เลือกจำนวน EP ตามเรื่อง เช่น 4–7 ตอน • 24 ซีนต่อ EP เป็นค่าเริ่มต้น • ส่งออกไฟล์คำสั่ง ไม่สร้างภาพ")
+                .setView(premise).setPositiveButton("ส่งคำสั่งพร้อม MASTER") { _,_ ->
+                    shareText(FlowProductionPack.masterCommand(categories[index],originalChannel)+"\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" },useNewMasters=false,includeMasters=true,selectedMasterKeys=FlowProductionPack.names.keys.toList())
+                }.setNegativeButton("ยกเลิก",null).showDirector()
+        }
+    }
+
     private fun planning() {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1469,6 +1531,9 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         return FlowScenePrompt.build(flowSpec(s))
     }
     private fun copyFlowCommand(s: JSONObject) {
+        if(!prefs.getBoolean("legacy_image_workflow",false)) {
+            copyCommand(s.optString("flow_prompt")); notice("คัดลอก VIDEO PROMPT แล้ว • ใช้ภาพที่สร้างใน Flow เป็นเฟรมแรก ตรวจผู้พูดและตำแหน่งในภาพจริงก่อนรัน"); return
+        }
         if (!image(s).exists()) { notice("นำเข้าภาพฉากนี้ก่อน เพื่อจับคู่ผู้พูดกับคนในภาพจริง"); return }
         if (!flowMappingCurrent(s) || FlowScenePrompt.issues(flowSpec(s)).isNotEmpty()) mapFlowCharacters(s)
         else copyCommand(flowCommand(s))
@@ -1510,10 +1575,10 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
     }
     private fun sceneMenu(s: JSONObject) {
         rememberScene(s)
-        val choices = listOf("🖼️ ดูภาพ / เทียบ MASTER", "🎬 สร้างภาพผ่าน ChatGPT", "✏️ แก้บท ชุด และสถานที่", "🛠️ แก้ภาพเฉพาะส่วนผ่าน ChatGPT", "📋 คัดลอกคำสั่ง Flow", "📥 นำเข้าภาพฉากนี้", "🎥 นำเข้าวิดีโอฉากนี้", "▶ ดูวิดีโอ", "🗂️ เวอร์ชันภาพ / วิดีโอ", "✅ ตรวจรับภาพ / ต้องแก้", "➡ ฉากถัดไป", "🗣️ กำหนดคนพูดจากภาพ", "👤 ทดสอบรูปร่างรายคนในชุดฉากนี้", "📐 ตรวจรูปร่างรายคน / บันทึกจุดผิด", "🧾 คำสั่งล่าสุด / บันทึกผลจาก ChatGPT")
+        val choices = listOf("🖼️ ดูภาพ / เทียบ MASTER", if(prefs.getBoolean("legacy_image_workflow",false)) "🎬 สร้างภาพผ่าน ChatGPT" else "📋 IMAGE PROMPT สำหรับ Flow", "✏️ แก้บท ชุด และสถานที่", "🛠️ แก้ภาพเฉพาะส่วนผ่าน ChatGPT", "📋 คัดลอกคำสั่ง Flow", "📥 นำเข้าภาพฉากนี้", "🎥 นำเข้าวิดีโอฉากนี้", "▶ ดูวิดีโอ", "🗂️ เวอร์ชันภาพ / วิดีโอ", "✅ ตรวจรับภาพ / ต้องแก้", "➡ ฉากถัดไป", "🗣️ กำหนดคนพูดจากภาพ", "👤 ทดสอบรูปร่างรายคนในชุดฉากนี้", "📐 ตรวจรูปร่างรายคน / บันทึกจุดผิด", "🧾 คำสั่งล่าสุด / บันทึกผลจาก ChatGPT")
         choiceMenu("${key(s)} • ${s.optString("location")}",choices) { i -> when(i) {
             0 -> compareScene(s)
-            1 -> sendSceneImage(plan!!,s)
+            1 -> if(prefs.getBoolean("legacy_image_workflow",false)) sendSceneImage(plan!!,s) else copyCommand(s.optString("image_prompt"))
             2 -> editScene(s)
             3 -> repairScene(s)
             4 -> copyFlowCommand(s)

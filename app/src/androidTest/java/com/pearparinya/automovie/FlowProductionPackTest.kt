@@ -1,0 +1,85 @@
+package com.pearparinya.automovie
+
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.core.app.ActivityScenario
+import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
+import androidx.test.platform.app.InstrumentationRegistry
+import org.json.JSONArray
+import org.json.JSONObject
+import org.junit.Assert.*
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.util.UUID
+import java.util.zip.ZipInputStream
+
+@RunWith(AndroidJUnit4::class)
+class FlowProductionPackTest {
+    @Test fun primaryHomeOffersTextPlanningAndPackExportWithoutAnImageGate() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val prefs=context.getSharedPreferences("studio",0)
+        val previousProject=prefs.getString("project",null)
+        val previousLegacy=prefs.getBoolean("legacy_image_workflow",false)
+        prefs.edit().putString("project",UUID.randomUUID().toString()).putBoolean("legacy_image_workflow",false).commit()
+        try {
+            ActivityScenario.launch(StudioActivity::class.java).use { scenario -> scenario.onActivity { activity ->
+                fun text(view: View): String = (if(view is TextView) view.text.toString() else "") +
+                    (if(view is ViewGroup) (0 until view.childCount).joinToString("\n") { text(view.getChildAt(it)) } else "")
+                val home=text(activity.window.decorView)
+                assertTrue(home.contains("DIRECTOR FLOW STUDIO"))
+                assertTrue(home.contains("ตอนละอย่างน้อย 3 นาที"))
+                assertTrue(home.contains("ส่งออก ZIP สำหรับ Flow"))
+                assertFalse(home.contains("รับบทและภาพจาก ChatGPT"))
+            } }
+        } finally {
+            prefs.edit().putString("project",previousProject).putBoolean("legacy_image_workflow",previousLegacy).commit()
+        }
+    }
+    private fun plan(count: Int, scenes: Int): JSONObject {
+        val eps=JSONArray()
+        repeat(count) { e ->
+            val rows=JSONArray()
+            repeat(scenes) { n -> rows.put(JSONObject().put("scene",n+1).put("duration_seconds",8).put("action","เมย์ยืนถือซอง")
+                .put("image_prompt","May holds a sealed envelope, medium shot, photorealistic 9:16.")
+                .put("flow_prompt","8 seconds. May looks down at the envelope. No speech.")
+                .put("location","ห้องนั่งเล่น").put("start_state","ซองปิด").put("end_state","มองซอง")
+                .put("characters",JSONArray().put(JSONObject().put("name","เมย์").put("master","MIND_MASTER.png").put("outfit","เสื้อสีครีม กางเกงขายาว")
+                    .put("visual_description","short auburn bob").put("screen_position","frame-left")))) }
+            eps.put(JSONObject().put("ep",e+1).put("title","ตอน ${e+1}").put("scenes",rows))
+        }
+        return JSONObject().put("title","ซองบนโต๊ะ").put("episodes",eps)
+    }
+    @Test fun minimumDurationAndSpeakerValidationUseActualScenes() {
+        assertTrue(FlowProductionPack.issues(plan(4,22)).any { it.contains("176") })
+        assertTrue(FlowProductionPack.issues(plan(7,23)).isEmpty())
+        val p=plan(1,23); val s=p.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
+        s.put("dialogue","หยุดก่อน").put("speaker","กวิน")
+        assertTrue(FlowProductionPack.issues(p).any { it.contains("ผู้พูด") })
+    }
+    @Test fun zipContainsSeparateEpisodesCoversAndExactMastersWithoutGeneratedMedia() {
+        val root=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,UUID.randomUUID().toString()).apply { mkdirs() }
+        try {
+            val context=InstrumentationRegistry.getInstrumentation().targetContext
+            val masters=FlowProductionPack.names.keys.associateWith { id -> File(root,"$id.png").apply { context.assets.open("character_masters/${id.uppercase()}_MASTER.png").use { writeBytes(it.readBytes()) } } }
+            val output=ByteArrayOutputStream()
+            FlowProductionPack.write(output,plan(7,23),masters,JSONObject().put("mind",JSONObject().put("face","custom face")),"หมวด","ช่อง")
+            val files=mutableMapOf<String,ByteArray>()
+            ZipInputStream(ByteArrayInputStream(output.toByteArray())).use { zip -> while(true) { val entry=zip.nextEntry ?: break; assertFalse(entry.name.contains("..")); assertNull(files.put(entry.name,zip.readBytes())) } }
+            assertEquals(7,files.keys.count { it.startsWith("DIRECTOR_FLOW/EP/") })
+            assertEquals(14,files.keys.count { it.startsWith("DIRECTOR_FLOW/COVERS/") })
+            val memory=JSONObject(String(files.getValue("DIRECTOR_FLOW/CHARACTER_MEMORY.json"),Charsets.UTF_8))
+            masters.forEach { (id,file) -> assertArrayEquals(file.readBytes(),files.getValue("DIRECTOR_FLOW/"+memory.getJSONObject(id).getString("file"))) }
+            assertEquals("custom face",memory.getJSONObject("mind").getJSONObject("profile").getString("face"))
+            val ep=String(files.getValue("DIRECTOR_FLOW/EP/EP07_FLOW.txt"),Charsets.UTF_8)
+            assertTrue(ep.contains("184 seconds")); assertTrue(ep.contains("EP07_SC023")); assertFalse(ep.contains("COVER"))
+            assertTrue(String(files.getValue("DIRECTOR_FLOW/COVERS/EP07_COVER_16x9.txt"),Charsets.UTF_8).contains("May:"))
+            assertFalse(files.keys.any { it.endsWith(".mp4") })
+            val starter=ByteArrayOutputStream(); FlowProductionPack.write(starter,null,masters,JSONObject(),"หมวด","ช่อง")
+            assertTrue(starter.size()>0)
+        } finally { root.deleteRecursively() }
+    }
+}
