@@ -1,6 +1,10 @@
 package com.pearparinya.automovie
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.core.app.ActivityScenario
+import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONArray
 import org.json.JSONObject
@@ -15,6 +19,26 @@ import java.util.zip.ZipInputStream
 
 @RunWith(AndroidJUnit4::class)
 class FlowProductionPackTest {
+    @Test fun primaryHomeOffersTextPlanningAndPackExportWithoutAnImageGate() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val prefs=context.getSharedPreferences("studio",0)
+        val previousProject=prefs.getString("project",null)
+        val previousLegacy=prefs.getBoolean("legacy_image_workflow",false)
+        prefs.edit().putString("project",UUID.randomUUID().toString()).putBoolean("legacy_image_workflow",false).commit()
+        try {
+            ActivityScenario.launch(StudioActivity::class.java).use { scenario -> scenario.onActivity { activity ->
+                fun text(view: View): String = (if(view is TextView) view.text.toString() else "") +
+                    (if(view is ViewGroup) (0 until view.childCount).joinToString("\n") { text(view.getChildAt(it)) } else "")
+                val home=text(activity.window.decorView)
+                assertTrue(home.contains("DIRECTOR FLOW STUDIO"))
+                assertTrue(home.contains("ตอนละอย่างน้อย 3 นาที"))
+                assertTrue(home.contains("ส่งออก ZIP สำหรับ Flow"))
+                assertFalse(home.contains("รับบทและภาพจาก ChatGPT"))
+            } }
+        } finally {
+            prefs.edit().putString("project",previousProject).putBoolean("legacy_image_workflow",previousLegacy).commit()
+        }
+    }
     private fun plan(count: Int, scenes: Int): JSONObject {
         val eps=JSONArray()
         repeat(count) { e ->
