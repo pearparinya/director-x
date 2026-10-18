@@ -705,9 +705,9 @@ class StudioActivity : AppCompatActivity() {
         }
         shareText(command,includeMasters=false,referenceImages=references)
     }
-    private fun stepCard(number: Int, icon: String, title: String, detail: String, enabled: Boolean = true, completed: Boolean = false, currentStep: Int, action: () -> Unit) {
-        val active = number == currentStep
-        val status = if (completed) "เสร็จแล้ว" else if (enabled) "พร้อมใช้งาน" else "ล็อก • รอขั้นตอนก่อนหน้า"
+    private fun stepCard(number: Int, icon: String, title: String, detail: String, enabled: Boolean = true, completed: Boolean = false, currentStep: Int, statusText: String? = null, action: () -> Unit) {
+        val active = enabled && !completed && number == currentStep
+        val status = statusText ?: if (completed) "เสร็จแล้ว" else if (enabled) "พร้อมใช้งาน" else "รอข้อมูลขั้นตอนก่อนหน้า"
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(-1,-2)
@@ -748,7 +748,7 @@ class StudioActivity : AppCompatActivity() {
             setTypeface(null,Typeface.BOLD)
         })
         card.addView(TextView(this).apply {
-            text = "$title  ${if (enabled) "›" else if (completed) "✓" else "🔒"}"; textSize = 16f
+            text = "$title  ${if (completed) "✓" else if (enabled) "›" else "🔒"}"; textSize = 16f
             setTypeface(null,Typeface.BOLD); setTextColor(if(enabled || completed) ice else muted)
             setPadding(0,dp(7),0,0)
         })
@@ -1106,12 +1106,15 @@ class StudioActivity : AppCompatActivity() {
                 if(current==null) File(filesDir,"character_masters/$id.master")
                 else File(project,"original_masters/$id.master").takeIf { it.exists() } ?: File(filesDir,"character_masters/$id.master")
             }
+            val destination=project
+            val storyRevision=if(current!=null) File(destination,"story.json").takeIf { it.isFile }?.let { EpisodeMedia.digest(it) } else null
             val memory=JSONObject()
             sources.forEach { (id,file) -> memory.put(id,characterMemory.read(id,file)) }
             background {
                 contentResolver.openOutputStream(uri)!!.use { output ->
                     FlowProductionPack.write(output,current,sources,memory,current?.optString("category") ?: categories.first(),current?.optString("channel") ?: originalChannel)
                 }
+                if(storyRevision!=null) File(destination,"flow_pack_exported.sha256").writeText(storyRevision)
             }
         }
     }
@@ -1134,27 +1137,38 @@ class StudioActivity : AppCompatActivity() {
             .setNegativeButton("ปิด",null).showDirector()
     }
     private fun flowHome() {
-        label("FLOW STUDIO",22,true)
+        label("FLOW STUDIO • งานผลิตจริง",22,true)
         label("ตอนละอย่างน้อย 3 นาที • 24 ซีน × 8 วินาที = 3:12 • จำนวนตอนตามพล็อต",13)
         val current=plan
-        label(if(current==null) "ยังไม่มีบท • เริ่มจากเตรียมคำสั่งวางบทหรือนำเข้าไฟล์" else "${current.optString("title")} • ${current.getJSONArray("episodes").length()} EP",15,true)
-        button("🧪 ทดสอบคำสั่งภาพ / คลิป • เลือกตัวละคร") { flowTestMenu() }
-        button("📝 เตรียมคำสั่งวางบท") { flowPlanning() }
-        button("📥 นำเข้าบท / ZIP / ไฟล์ฉาก",false) { packagePicker.launch(arrayOf("*/*")) }
-        button("📦 ส่งออก ZIP สำหรับ Flow",false) {
-            val p=plan
-            if(p==null) notice("นำเข้า story.json ก่อนส่งออกคำสั่งราย EP • ใช้เมนูเตรียมคำสั่งวางบทเพื่อเริ่มงาน")
-            else {
-                val issues=FlowProductionPack.issues(p)
-                if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n"))
-                else { starterFlowPack=false; flowPackPicker.launch("DIRECTOR_FLOW_COMMANDS.zip") }
-            }
+        val storyFile=File(project,"story.json")
+        val issues=current?.let { FlowProductionPack.issues(it) }.orEmpty()
+        val prepared=current!=null || File(project,"flow_story_command.txt").isFile
+        val exported=current!=null && storyFile.isFile && File(project,"flow_pack_exported.sha256").takeIf { it.isFile }?.readText()==EpisodeMedia.digest(storyFile)
+        val episodes=current?.getJSONArray("episodes")
+        val sceneCount=current?.let { rows(it).size } ?: 0
+        val clipCount=current?.let { rows(it).count { scene -> video(scene).isFile && video(scene).length()>0 } } ?: 0
+        val finished=episodes!=null && episodes.length()>0 && (0 until episodes.length()).all { i ->
+            val ep=episodes.getJSONObject(i).getInt("ep")
+            latestMovie(ep)?.let { job -> runCatching { readMovieState(job).optString("fingerprint")==movieFingerprint(ep) }.getOrDefault(false) } ?: false
         }
-        button("🎞️ EP / ซีน / รับคลิปและรวมตอน",false) {
-            if(current==null) notice("นำเข้า story.json ก่อนจัดการ EP และคลิป")
-            else choiceMenu("จัดการ EP",listOf("คำสั่งและไฟล์รายซีน","รับคลิป / รวม EP")) { if(it==0) episodesMenu() else moviesMenu() }
+        val active=when { current==null -> if(prepared) 2 else 1; !exported -> 3; else -> 4 }
+        label(if(current==null) "ยังไม่มีบท • เริ่มขั้นตอน 1 หรือนำเข้าบทที่มีแล้ว" else "${current.optString("title")} • ${episodes!!.length()} EP • คลิป $clipCount/$sceneCount",14,true)
+        stepCard(1,"📝","วางบทและเขียนคำสั่ง","เลือกแนวและแนวคิด • สร้างคำสั่งวางบทครบทุก EP • คัดลอกหรือบันทึก TXT",completed=prepared,currentStep=active,
+            statusText=if(prepared) "เตรียมคำสั่ง / มีบทแล้ว" else "พร้อมเริ่มวางบท") { flowPlanning() }
+        stepCard(2,"📥","นำเข้าบท / ZIP","นำเข้า story.json หรือ ZIP บท • ไม่ต้องรอภาพฉาก • เพิ่มไฟล์ภาพและคลิปภายหลังได้",completed=current!=null,currentStep=active,
+            statusText=if(current!=null) "นำเข้าบทแล้ว • เพิ่มไฟล์ได้" else "รอนำเข้า story.json / ZIP") { packagePicker.launch(arrayOf("*/*")) }
+        stepCard(3,"📦","ส่งออก ZIP สำหรับ Flow",if(current==null) "ต้องนำเข้า story.json ก่อน • ชุดงานมีคำสั่ง EP ปก MASTER และความจำตัวละคร" else if(issues.isNotEmpty()) "บทต้องแก้ ${issues.size} จุด • แตะดูรายการก่อนส่งออก" else "คำสั่งแยก EP + ปก + MASTER ทั้ง 3 คน • ทุก EP อย่างน้อย 3 นาที",
+            enabled=current!=null,completed=exported,currentStep=active,statusText=when { current==null -> "รอนำเข้าบท"; issues.isNotEmpty() -> "ต้องตรวจแก้บท"; exported -> "ส่งออกบทฉบับนี้แล้ว"; else -> "พร้อมส่งออกคำสั่ง" }) {
+            if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else { starterFlowPack=false; flowPackPicker.launch("DIRECTOR_FLOW_COMMANDS.zip") }
         }
+        stepCard(4,"🎥","รับ MP4 / รวม EP / ดาวน์โหลด",if(current==null) "ต้องมีบทเพื่อจับคู่คลิปกับซีน • รับคลิปจาก Flow แล้วรวมและดาวน์โหลด MP4" else "รับคลิป $clipCount/$sceneCount • จัดลำดับ รวม EP พร้อมปก แล้วดู / ดาวน์โหลด / แชร์ MP4",
+            enabled=current!=null,completed=finished,currentStep=active,statusText=when { current==null -> "รอบทสำหรับจับคู่คลิป"; finished -> "รวม EP ครบแล้ว"; clipCount<sceneCount -> "รับคลิป / ทำต่อได้"; else -> "คลิปครบ • พร้อมรวม EP" }) {
+            choiceMenu("งานวิดีโอและ EP",listOf("EP / ซีน • รับภาพและคลิป","รวม EP / ดาวน์โหลด MP4")) { if(it==0) episodesMenu() else moviesMenu() }
+        }
+        label("เครื่องมือเสริม",15,true)
+        button("🧪 ทดสอบคำสั่งภาพ / คลิป • เลือกตัวละคร",false) { flowTestMenu() }
         button("🎭 MASTER และข้อมูลตัวละคร",false) { characterMasters() }
+        button("⬇ ดาวน์โหลดแม่บทเริ่มงาน + MASTER",false) { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
         splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
     }
     private fun flowSettings() {
@@ -1175,7 +1189,10 @@ class StudioActivity : AppCompatActivity() {
             AlertDialog.Builder(this).setTitle("เตรียมคำสั่งวางบท")
                 .setMessage("เลือกจำนวนตอนตามพล็อต • ทุกตอนอย่างน้อย 3 นาที • ผลลัพธ์เป็นไฟล์บทและคำสั่ง Flow")
                 .setView(premise).setPositiveButton("ดูคำสั่ง") { _,_ ->
-                    showFlowCode("คำสั่งวางบท",FlowProductionPack.masterCommand(categories[index],originalChannel)+"\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" },"FLOW_STORY_COMMAND.txt")
+                    val code=FlowProductionPack.masterCommand(categories[index],originalChannel)+"\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" }
+                    File(project,"flow_story_command.txt").writeText(code)
+                    render()
+                    showFlowCode("คำสั่งวางบท",code,"FLOW_STORY_COMMAND.txt")
                 }.setNegativeButton("ยกเลิก",null).showDirector()
         }
     }
