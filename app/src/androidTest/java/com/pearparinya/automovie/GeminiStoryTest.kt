@@ -64,6 +64,41 @@ class GeminiStoryTest {
         assertTrue(runCatching { GeminiStoryEngine.validateOutline(outline(),4) }.isFailure)
         assertTrue(runCatching { GeminiStoryEngine.validateBatch(batch("Write exactly scenes 1 to 6 for EP 1").apply { getJSONArray("scenes").getJSONObject(0).put("duration_seconds",10) },1,1) }.isFailure)
     }
+    @Test fun mixedAudioIsRepairedOnceAndResumeUsesValidatedChunks() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val folder=File(context.cacheDir,"gemini-audio-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            var bad=false; var repairs=0
+            val story=GeminiStoryEngine(folder,{ prompt,_ ->
+                if(prompt.contains("Plan a complete story")) outline() else {
+                    assertTrue(prompt.contains("AUDIO FIELDS"))
+                    batch(prompt).apply {
+                        if(prompt.contains("Your previous JSON failed validation")) { repairs++; assertTrue(prompt.contains("บทพูดกับบรรยายต้องแยกซีน")) }
+                        else if(!bad) { bad=true; getJSONArray("scenes").getJSONObject(0)
+                            .put("speaker","เมย์").put("dialogue","ซองนี้ของใครคะ").put("narration","เธอถามด้วยความสงสัย") }
+                    }
+                }
+            }).run(spec())
+            assertEquals(1,repairs); assertTrue(FlowProductionPack.issues(story).isEmpty())
+            assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_ -> error("must use cache") }).run(spec()).toString())
+        } finally { folder.deleteRecursively() }
+    }
+    @Test fun repeatedInvalidAudioStopsWithoutSavingOrUnboundedRetry() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val folder=File(context.cacheDir,"gemini-invalid-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            var batches=0
+            val failure=runCatching { GeminiStoryEngine(folder,{ prompt,_ ->
+                if(prompt.contains("Plan a complete story")) outline() else {
+                    batches++; batch(prompt).apply { getJSONArray("scenes").getJSONObject(0)
+                        .put("speaker","เมย์").put("dialogue","ใครส่งมา").put("narration","เธอถาม") }
+                }
+            }).run(spec()) }
+            assertTrue(failure.isFailure); assertEquals(2,batches)
+            assertTrue(failure.exceptionOrNull()!!.message!!.contains("หลังแก้ 1 ครั้ง"))
+            assertTrue(File(folder,"outline.json").exists()); assertFalse(File(folder,"EP01_01.json").exists())
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun keyIsEncryptedOutsideBackupsAndCanBeDeleted() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         // Preserve any settings on a developer device; CI starts with none.
