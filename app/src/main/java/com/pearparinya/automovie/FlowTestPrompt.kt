@@ -27,6 +27,8 @@ VIDEO PROMPT
 Create a photorealistic 8-second vertical 9:16 video using the attached character reference images directly as identity references, not as the scene background or the opening composition. Match each filename exclusively to its named person below. Do not borrow identity or body shape from other attachments or previously generated scenes. Only these adult characters appear:
 $people
 Preserve each person's reference facial geometry, eyes, nose, lips, jawline, hairstyle and skin tone. Maintain the reference shoulder width, chest volume, waist width, hip width, upper-arm thickness, chest-to-waist ratio and waist-to-hip ratio without slimming, enlargement, face blending or duplicated people. Fit the new clothes to the original body, with realistic fabric drape. Replace reference clothing with the specified scene outfits from the start of the video; no on-screen wardrobe transformation.
+${FlowVisualDirection.identity}
+${FlowVisualDirection.color}
 Location: $location
 Action: $action
 Start already in the described location and outfits. Eye-level head-to-upper-thigh framing, natural portrait perspective without wide-angle distortion, showing faces and hands. Locked-off static camera, one continuous subtle action, no camera movement or cuts. Preserve identities, body proportions, outfits and props throughout. No dialogue or narration in this visual test; all mouths stay closed. No captions, added text or watermark. Hold the ending briefly.
