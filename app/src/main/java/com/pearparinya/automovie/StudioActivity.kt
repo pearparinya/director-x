@@ -66,6 +66,16 @@ internal fun neutralIdentityGuide(source: String, aspect: String): String =
 
 /** Whole-story workspace. Legacy preferences and character masters stay untouched. */
 class StudioActivity : AppCompatActivity() {
+    private val storyUiHandler=android.os.Handler(android.os.Looper.getMainLooper())
+    private var geminiStatusView: TextView?=null
+    private val storyPoll=object: Runnable { override fun run() {
+        if(!isFinishing) {
+            val status=readGeminiStatus()
+            geminiStatusView?.text=geminiStatusText(status)
+            if(plan==null && File(project,"story.json").isFile && !importing) render()
+            storyUiHandler.postDelayed(this,1500)
+        }
+    } }
     private val characterMemory by lazy {
         CharacterMemoryStore(File(filesDir,"character_memory"), JSONObject(assets.open("character_profiles.json").bufferedReader().use { it.readText() }))
     }
@@ -393,9 +403,17 @@ class StudioActivity : AppCompatActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        adoptGeminiProject(intent)
         val masterError = runCatching { installCharacterMasters() }.exceptionOrNull()
         render()
         if (masterError != null) notice("ติดตั้ง MASTER ตัวละครไม่สำเร็จ กรุณาเปิดแอปอีกครั้ง")
+    }
+    private fun adoptGeminiProject(incoming: Intent?) {
+        val id=incoming?.getStringExtra("gemini_project") ?: return
+        if(Regex("[a-zA-Z0-9-]+").matches(id) && File(base,"$id/gemini_job/spec.json").isFile) prefs.edit().putString("project",id).apply()
+    }
+    override fun onNewIntent(incoming: Intent) {
+        super.onNewIntent(incoming); setIntent(incoming); adoptGeminiProject(incoming); render()
     }
     private fun installCharacterMasters() {
         CharacterMasterUpgrade.install(filesDir) { path -> assets.open(path).use { it.readBytes() } }
@@ -404,7 +422,13 @@ class StudioActivity : AppCompatActivity() {
         super.onResume()
         pendingStoryShare=null
         pendingReceipt=null
-        if(!importing) updater.checkAutomatically()
+        storyUiHandler.removeCallbacks(storyPoll)
+        storyUiHandler.post(storyPoll)
+        if(!importing && !GeminiStoryService.running) updater.checkAutomatically()
+    }
+    override fun onPause() {
+        storyUiHandler.removeCallbacks(storyPoll)
+        super.onPause()
     }
     private fun rows(p: JSONObject): List<JSONObject> {
         val result = mutableListOf<JSONObject>()
@@ -1220,7 +1244,7 @@ class StudioActivity : AppCompatActivity() {
         }
         val active=when { current==null -> if(prepared) 2 else 1; !exported -> 3; else -> 4 }
         label(if(current==null) "ยังไม่มีบท • เริ่มขั้นตอน 1 หรือนำเข้าบทที่มีแล้ว" else "${current.optString("title")} • ${episodes!!.length()} EP • คลิป $clipCount/$sceneCount",14,true)
-        stepCard(1,"📝","วางบทและเขียนคำสั่ง","เลือกแนวและแนวคิด • สร้างคำสั่งวางบทครบทุก EP • คัดลอกหรือบันทึก TXT",completed=prepared,currentStep=active,
+        stepCard(1,"📝","วางบทและเขียนคำสั่ง","เลือกแนวเรื่อง → Gemini เขียนบทและรับกลับในแอป → ส่งออก Flow • ตั้งค่า API Key ครั้งแรก",completed=prepared,currentStep=active,
             statusText=if(prepared) "เตรียมคำสั่ง / มีบทแล้ว" else "พร้อมเริ่มวางบท") { flowPlanning() }
         stepCard(2,"📥","นำเข้าบท / ZIP","นำเข้า story.json หรือ ZIP บท • ไม่ต้องรอภาพฉาก • เพิ่มไฟล์ภาพและคลิปภายหลังได้",completed=current!=null,currentStep=active,
             statusText=if(current!=null) "นำเข้าบทแล้ว • เพิ่มไฟล์ได้" else "รอนำเข้า story.json / ZIP") { packagePicker.launch(arrayOf("*/*")) }
@@ -1232,6 +1256,11 @@ class StudioActivity : AppCompatActivity() {
             enabled=current!=null,completed=finished,currentStep=active,statusText=when { current==null -> "รอบทสำหรับจับคู่คลิป"; finished -> "รวม EP ครบแล้ว"; clipCount<sceneCount -> "รับคลิป / ทำต่อได้"; else -> "คลิปครบ • พร้อมรวม EP" }) {
             choiceMenu("งานวิดีโอและ EP",listOf("EP / ซีน • รับภาพและคลิป","รวม EP / ดาวน์โหลด MP4")) { if(it==0) episodesMenu() else moviesMenu() }
         }
+        if(File(project,"gemini_job/spec.json").isFile) {
+            geminiStatusView=TextView(this).apply { text=geminiStatusText(readGeminiStatus()); setTextColor(ice); textSize=14f; setPadding(dp(8),dp(8),dp(8),dp(8)) }
+            root.addView(geminiStatusView)
+            button("🤖 งานเขียนบท • ดูสถานะ / ทำต่อ",false) { geminiJobMenu() }
+        } else geminiStatusView=null
         label("เครื่องมือเสริม",15,true)
         button("🧪 ทดสอบสร้างวิดีโอ • เลือกตัวละคร",false) { flowTestMenu() }
         button("🎭 MASTER และข้อมูลตัวละคร",false) { characterMasters() }
@@ -1239,7 +1268,7 @@ class StudioActivity : AppCompatActivity() {
         splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
     }
     private fun flowSettings() {
-        choiceMenu("ตั้งค่า Flow Studio",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่")) { i -> when(i) {
+        choiceMenu("ตั้งค่า Flow Studio",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","Gemini API • ตั้งค่าการเขียนบท")) { i -> when(i) {
             0 -> updater.check()
             1 -> { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
             2 -> if(plan==null) notice("ยังไม่มีเรื่องให้สำรอง") else { backupMode=true; zipPicker.launch("DIRECTOR_FLOW_BACKUP.zip") }
@@ -1248,9 +1277,86 @@ class StudioActivity : AppCompatActivity() {
                 .setMessage("เรื่องปัจจุบันยังอยู่ในรายการเรื่องที่บันทึก")
                 .setPositiveButton("เริ่มใหม่") { _,_ -> prefs.edit().putString("project",UUID.randomUUID().toString()).apply(); render() }
                 .setNegativeButton("ยกเลิก",null).showDirector()
+            5 -> geminiSettings()
         } }
     }
+    private fun readGeminiStatus(): JSONObject? = runCatching { GeminiStoryFiles.read(File(project,"gemini_job/status.json")) }.getOrNull()
+    private fun geminiStatusText(status: JSONObject?): String {
+        if(status==null) return "Gemini • ยังไม่เริ่มงาน"
+        val state=status.optString("state")
+        if(state=="running" && (!GeminiStoryService.running || GeminiStoryService.projectId!=project.name)) return "Gemini • งานหยุดกลางทาง กดทำต่อจากช่วงที่บันทึกไว้"
+        return "Gemini • ${status.optInt("percent")}% • ${status.optString("message")}"
+    }
+    private fun geminiSettings(afterSave: (() -> Unit)?=null) {
+        val settings=GeminiSettings(this)
+        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+        panel.addView(TextView(this).apply { text="สร้างคีย์ที่ Google AI Studio แล้วใส่บนเครื่องนี้ คีย์เข้ารหัสและไม่ส่งออกในสำรองข้อมูล • ส่งเฉพาะข้อความบท/ลักษณะตัวละคร ไม่ส่งรูป MASTER • Free Tier มีโควตาและเงื่อนไขข้อมูล ค่าบริการขึ้นกับบัญชี Google ของคุณ" })
+        val key=EditText(this).apply { hint=if(settings.hasKey()) "มีคีย์แล้ว • ว่างเพื่อใช้คีย์เดิม" else "Gemini API Key"; inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD; setSingleLine(true); panel.addView(this) }
+        val model=EditText(this).apply { hint="ชื่อโมเดล"; setSingleLine(true); setText(settings.model()); panel.addView(this) }
+        panel.addView(Button(this).apply { text="เปิด Google AI Studio"; setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://aistudio.google.com/apikey"))) } })
+        val dialog=AlertDialog.Builder(this).setTitle("Gemini • ตั้งค่าครั้งแรก")
+            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึก",null)
+            .setNeutralButton("ลบคีย์") { _,_ -> settings.clear(); notice("ลบ API Key จากเครื่องแล้ว") }.setNegativeButton("ปิด",null).showDirector()
+        dialog.getButton(-1).setOnClickListener {
+            runCatching { settings.save(key.text.toString().trim().ifBlank { settings.key() },model.text.toString().trim()) }
+                .onSuccess { dialog.dismiss(); afterSave?.invoke() ?: notice("บันทึกแล้ว • เข้าขั้นตอน 1 เพื่อสร้างบท") }
+                .onFailure { Toast.makeText(this,it.message ?: "บันทึกไม่ได้",Toast.LENGTH_LONG).show() }
+        }
+    }
+    private fun startGeminiJob(folder: File) {
+        if(GeminiStoryService.running) { notice("มีงานเขียนบทกำลังทำงานอยู่ กรุณารอหรือหยุดงานเดิมก่อน"); return }
+        runCatching {
+            val intent=Intent(this,GeminiStoryService::class.java).putExtra("project",folder.name)
+            androidx.core.content.ContextCompat.startForegroundService(this,intent)
+        }.onFailure { notice("เริ่มงานไม่ได้ กรุณาเปิดแอปค้างไว้แล้วลองใหม่") }
+    }
+    private fun geminiJobMenu() {
+        val state=readGeminiStatus()?.optString("state")
+        if(state=="complete" && plan!=null) { episodesMenu(); return }
+        if(GeminiStoryService.running) {
+            AlertDialog.Builder(this).setTitle("กำลังเขียนบท")
+                .setMessage(geminiStatusText(readGeminiStatus())+"\nออกจากหน้านี้ได้ แอปบันทึกทุกช่วงที่ผ่านตรวจไว้")
+                .setPositiveButton("ดูต่อ",null).setNeutralButton("หยุดงาน") { _,_ -> startService(Intent(this,GeminiStoryService::class.java).setAction(GeminiStoryService.CANCEL)) }
+                .setNegativeButton("ปิด",null).showDirector()
+        } else {
+            AlertDialog.Builder(this).setTitle("เขียนบทต่อจากที่บันทึก")
+                .setMessage(geminiStatusText(readGeminiStatus())+"\nจะใช้คีย์และโมเดลที่ตั้งค่าปัจจุบัน เขียนเฉพาะช่วงที่ยังไม่สำเร็จ")
+                .setPositiveButton("ทำต่อ") { _,_ ->
+                    if(!GeminiSettings(this).hasKey()) geminiSettings { geminiJobMenu() }
+                    else runCatching {
+                        val specFile=File(project,"gemini_job/spec.json"); val spec=GeminiStoryFiles.read(specFile).put("model",GeminiSettings(this).model())
+                        GeminiStoryFiles.write(specFile,spec); startGeminiJob(project)
+                    }.onFailure { notice("อ่านงานเดิมไม่ได้ กรุณาเริ่มเรื่องใหม่") }
+                }.setNeutralButton("ตั้งค่า API") { _,_ -> geminiSettings() }.setNegativeButton("ปิด",null).showDirector()
+        }
+    }
     private fun flowPlanning() {
+        if(GeminiStoryService.running) { geminiJobMenu(); return }
+        val settings=GeminiSettings(this)
+        if(!settings.hasKey()) { geminiSettings { flowPlanning() }; return }
+        choiceMenu("เลือกแนวเรื่อง • สร้างบทในแอป",categories) { index ->
+            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+            val premise=EditText(this).apply { hint="แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
+            val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); panel.addView(this) }
+            panel.addView(TextView(this).apply { text="24 ซีน/EP • ซีนละ 8 วินาที = 3:12 • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้ • ใช้โมเดล ${settings.model()} • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ของคุณภายหลัง" })
+            AlertDialog.Builder(this).setTitle("สร้างบทด้วย Gemini")
+                .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
+                    runCatching {
+                        val folder=File(base,UUID.randomUUID().toString()).apply { mkdirs() }
+                        FlowProductionPack.names.keys.forEach { id ->
+                            val source=File(filesDir,"character_masters/$id.master")
+                            require(masterExportName(source,false)!=null) { "ขาด MASTER ของ ${FlowProductionPack.names[id]}" }
+                            File(folder,"original_masters/$id.master").apply { parentFile!!.mkdirs(); source.copyTo(this) }
+                        }
+                        val count=if(episodes.selectedItemPosition==0) 0 else episodes.selectedItemPosition+2
+                        GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),JSONObject().put("category",categories[index]).put("channel",originalChannel)
+                            .put("premise",premise.text.toString()).put("episodes",count).put("model",settings.model()))
+                        prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
+                    }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
+                }.setNeutralButton("ใช้แชร์ไฟล์แทน") { _,_ -> flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
+        }
+    }
+    private fun flowPlanningShare() {
         choiceMenu("หมวดสำหรับวางบท",categories) { index ->
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (เว้นว่างให้คิดใหม่)" }
             fun prepare(): String {
@@ -1851,11 +1957,12 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         AlertDialog.Builder(this).setTitle("ตรวจงาน • ${p.optString("title")}").setView(ScrollView(this).apply { addView(text) }).setPositiveButton("ปิด",null).setNeutralButton("คัดลอก") { _,_ -> copyCommand(report) }.showDirector()
     }
     private fun storiesMenu() {
-        val folders = base.listFiles()?.filter { File(it,"story.json").exists() }?.sortedByDescending { File(it,"story.json").lastModified() }.orEmpty()
+        val folders = base.listFiles()?.filter { File(it,"story.json").exists() || File(it,"gemini_job/spec.json").exists() }?.sortedByDescending { maxOf(File(it,"story.json").lastModified(),File(it,"gemini_job/status.json").lastModified()) }.orEmpty()
         choiceMenu("📚 เรื่องของฉัน",folders.map { f ->
-            runCatching { JSONObject(File(f,"story.json").readText()).optString("title") }.getOrDefault(f.name) + if(File(f,"archived").exists()) " • เก็บแล้ว" else ""
+            runCatching { JSONObject(File(f,"story.json").readText()).optString("title") }.getOrElse { runCatching { GeminiStoryFiles.read(File(f,"gemini_job/outline.json")).getString("title")+" • ยังเขียนไม่จบ" }.getOrDefault("งานเขียนบทที่ยังไม่จบ") } + if(File(f,"archived").exists()) " • เก็บแล้ว" else ""
         }) { i ->
             prefs.edit().putString("project",folders[i].name).apply(); render()
+            if(plan==null) { geminiJobMenu(); return@choiceMenu }
             choiceMenu("จัดการเรื่อง",listOf("▶ ทำต่อ", "✏️ เปลี่ยนชื่อ", "📑 ทำสำเนา", "📁 เก็บ / เปิดใช้งาน", "🗑️ ลบเรื่อง")) { action -> when(action) {
                 0 -> resumeScene()
                 1 -> { val input = EditText(this).apply { setText(plan?.optString("title")) }
