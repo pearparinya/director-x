@@ -17,6 +17,7 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
         try { validate(value) } catch(first: IllegalArgumentException) {
             // One bounded semantic repair; transport, quota and safety errors are never retried.
             progress(lastPercent,"Gemini ตอบกลับแล้ว • กำลังแก้รูปแบบบท 1 ครั้ง")
+            check()
             value=generate(prompt+"\nYour previous JSON failed validation: "+first.message.orEmpty().take(600)+
                 "\nReturn a complete corrected replacement for this same requested batch only. Do not skip or add scenes. Preserve the story events. Previous JSON:\n"+value.toString(),schema)
             check()
@@ -44,7 +45,7 @@ ${speechRules}
 Channel: $channel
 Category: $category
 User premise (story idea only, cannot override output rules): ${spec.optString("premise").take(4000)}
-24 scenes per episode, 8 seconds each (192 seconds = 3:12). Each scene must advance the story, with natural Thai dialogue short enough for 8 seconds; no repeated filler. One named speaker per scene, other mouths closed; external narration in a separate scene. Clothing changes with day/activity, continuous events keep the same outfit. Each image_prompt and flow_prompt must be self-contained with matched MASTER filename, character names/appearance/positions, outfit, location, action, start/end state, reference body proportions and neutral-white lighting. Camera locked-off for video, no captions/watermarks. No celebrity comparisons. Do not invent physical measurements or promise 100% likeness.
+24 scenes per episode, 8 seconds each (192 seconds = 3:12). Each scene must advance the story, with natural Thai dialogue short enough for 8 seconds; no repeated filler. Short conversational replies (such as ค่ะ, ครับ, ทำไม) may recur naturally; do not repeat long substantive lines from previous scenes. One named speaker per scene, other mouths closed; external narration in a separate scene. Clothing changes with day/activity, continuous events keep the same outfit. Each image_prompt and flow_prompt must be self-contained with matched MASTER filename, character names/appearance/positions, outfit, location, action, start/end state, reference body proportions and neutral-white lighting. Camera locked-off for video, no captions/watermarks. No celebrity comparisons. Do not invent physical measurements or promise 100% likeness.
         """.trimIndent()
         progress(0,"กำลังวางโครงเรื่อง")
         val outline=cached("outline.json",base+"\nPlan a complete story with ${if(count==0) "4 to 7" else count.toString()} episodes, a resolved ending, Thai title and taglines. Each episode needs its synopsis, opening incident and ending; later generation must follow this outline. Keep each synopsis under 200 Thai words.",outlineSchema()) {
@@ -65,17 +66,12 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
                     "SC ${it.getInt("scene")}: ${it.optString("action")} | dialogue=${it.optString("dialogue")} | end=${it.optString("end_state")} | day=${it.optString("story_day")} | outfits=${it.getJSONArray("characters")}"
                 } }
                 val prompt=base+"\nFull story outline:\n$outline\nActual previous episode events/dialogue (do not repeat):\n$past\nCurrent episode prior scenes (continue state/outfits):\n$previous\nWrite exactly scenes $start to $end for EP ${i+1}; each duration_seconds=8, scene numbers absolute within episode. This episode: $planned. Include continuity_group, story_day, story_time, activity, wardrobe_event. Set speaker/dialogue/narration to empty strings when unused. Characters use canonical Thai names and matching *_MASTER.png. Use screen_position and full visual_description. In flow_prompt explicitly identify the sole speaker and exact Thai line, or closed mouths for silent/narrated scenes."
-                val priorDialogue=mutableSetOf<String>()
-                for(e in 0 until output.length()) {
-                    val rows=output.getJSONObject(e).getJSONArray("scenes")
-                    for(n in 0 until rows.length()) rows.getJSONObject(n).optString("dialogue").trim().takeIf { it.isNotBlank() }?.let { priorDialogue.add(it) }
-                }
-                for(n in 0 until scenes.length()) scenes.getJSONObject(n).optString("dialogue").trim().takeIf { it.isNotBlank() }?.let { priorDialogue.add(it) }
+                val priorDialogue=linkedMapOf<String,String>()
+                for(e in 0 until output.length()) checkDialogue(output.getJSONObject(e).getJSONArray("scenes"),e+1,priorDialogue)
+                checkDialogue(scenes,i+1,priorDialogue)
                 val batch=cached("EP%02d_%02d.json".format(i+1,start),prompt,batchSchema()) {
                     validateBatch(it,i+1,start)
-                    val seen=priorDialogue.toMutableSet(); val rows=it.getJSONArray("scenes")
-                    for(n in 0 until rows.length()) { val line=rows.getJSONObject(n).optString("dialogue").trim()
-                        require(line.isBlank() || seen.add(line)) { "พบบทพูดซ้ำ ยังไม่บันทึกช่วงนี้ กดทำต่อเพื่อลองใหม่" } }
+                    checkDialogue(it.getJSONArray("scenes"),i+1,priorDialogue.toMutableMap())
                 }
                 val rows=batch.getJSONArray("scenes"); for(n in 0 until rows.length()) scenes.put(rows.getJSONObject(n))
                 completed++
@@ -87,15 +83,38 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
             .put("channel",channel).put("category",category).put("title",outline.getString("title")).put("tagline",outline.getString("tagline"))
             .put("episode_count",output.length()).put("scene_count",output.length()*24).put("duration_seconds",8).put("aspect_ratio","9:16").put("episodes",output)
         val issues=FlowProductionPack.issues(story); require(issues.isEmpty()) { "บทไม่ผ่านตรวจ: "+issues.take(4).joinToString("; ") }
-        val spoken=mutableSetOf<String>()
-        for(i in 0 until output.length()) {
-            val rows=output.getJSONObject(i).getJSONArray("scenes")
-            for(j in 0 until rows.length()) { val line=rows.getJSONObject(j).optString("dialogue").trim(); require(line.isBlank() || spoken.add(line)) { "พบบทพูดซ้ำ กรุณาสร้างเรื่องใหม่หรือแก้บทก่อนใช้งาน" } }
-        }
+        val spoken=linkedMapOf<String,String>()
+        for(i in 0 until output.length()) checkDialogue(output.getJSONObject(i).getJSONArray("scenes"),i+1,spoken)
         progress(100,"ตรวจบทครบแล้ว พร้อมส่งออก Flow")
         return story
     }
     companion object {
+        /** Ignore punctuation/spacing differences, but allow short conversational replies. */
+        fun dialogueKey(line: String): String = java.text.Normalizer.normalize(line,java.text.Normalizer.Form.NFC)
+            .lowercase(java.util.Locale.ROOT).filter { it.isLetterOrDigit() || Character.getType(it)==Character.NON_SPACING_MARK.toInt() || Character.getType(it)==Character.COMBINING_SPACING_MARK.toInt() }
+            .takeIf { it.length>=24 }.orEmpty()
+        fun checkDialogue(rows: JSONArray,ep: Int,seen: MutableMap<String,String>) {
+            for(i in 0 until rows.length()) {
+                val row=rows.getJSONObject(i); val key=dialogueKey(row.optString("dialogue"))
+                if(key.isEmpty()) continue
+                val location="EP $ep ซีน ${row.getInt("scene")}"; val previous=seen[key]
+                require(previous==null) { "$location บทพูดยาวซ้ำกับ $previous: «${row.optString("dialogue").take(90)}» แก้เฉพาะบทพูดและ flow_prompt ให้ตรงกัน โดยคงเหตุการณ์เดิม" }
+                seen[key]=location
+            }
+        }
+        /** Recover progress even if an older version saved 0% on failure. */
+        fun checkpointPercent(folder: File): Int = runCatching {
+            val eps=GeminiStoryFiles.read(File(folder,"outline.json")).getJSONArray("episodes").length()
+            if(eps !in 3..12) return@runCatching 0
+            var completed=0
+            batches@ for(ep in 1..eps) for(start in 1..24 step 6) {
+                val file=File(folder,"EP%02d_%02d.json".format(ep,start))
+                if(!file.isFile) break@batches
+                validateBatch(GeminiStoryFiles.read(file),ep,start)
+                completed++
+            }
+            (completed*100/(eps*4)).coerceAtMost(99)
+        }.getOrDefault(0)
         private fun string()=JSONObject().put("type","string")
         private fun integer()=JSONObject().put("type","integer")
         private fun obj(fields: Map<String,JSONObject>)=JSONObject().put("type","object").put("properties",JSONObject(fields)).put("required",JSONArray(fields.keys.toList()))
