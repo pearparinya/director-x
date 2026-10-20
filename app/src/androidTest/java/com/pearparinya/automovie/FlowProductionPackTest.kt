@@ -106,6 +106,7 @@ class FlowProductionPackTest {
         assertTrue(code.startsWith("แนบภาพ MASTER: รินรดา = 1000026584.png"))
         assertFalse(code.contains("1000026557")); assertFalse(code.contains("1000026586"))
         assertTrue(code.contains("chest-to-waist ratio"))
+        assertTrue(code.contains("FINAL COLOR DIRECTION"))
         assertTrue(runCatching { FlowTestPrompt.build(listOf("mind","rinlada"),mapOf("mind" to "same.png","rinlada" to "same.png"),"home","room","stand","") }.isFailure)
         assertTrue(runCatching { FlowTestPrompt.build(listOf("mind"),mapOf("mind" to "../photo.png"),"home","room","stand","") }.isFailure)
         val custom=FlowTestPrompt.build(listOf("mind"),mapOf("mind" to "my_may.jpg"),"home","room","stand","")
@@ -132,13 +133,29 @@ class FlowProductionPackTest {
         s.put("dialogue","หยุดก่อน").put("speaker","กวิน")
         assertTrue(FlowProductionPack.issues(p).any { it.contains("ผู้พูด") })
     }
+    @Test fun posterDirectionKeepsExactTextAndUsesAspectSpecificSafeZones() {
+        val title="หลักฐาน 100% บนโต๊ะ"
+        val vertical=FlowVisualDirection.cover("9x16","เมย์ → MIND_MASTER.jpg","ช่อง",title,2,"ชื่อ EP","คำโปรย","ซองบนโต๊ะ")
+        assertTrue(vertical.contains(title)); assertTrue(vertical.contains("EP.02 : ชื่อ EP"))
+        assertTrue(vertical.contains("1080 x 1920")); assertTrue(vertical.contains("x=12-78% and y=52-78%"))
+        assertTrue(vertical.contains("one compact group")); assertTrue(vertical.contains("No yellow/orange cast"))
+        assertTrue(vertical.contains("chest-to-waist")); assertTrue(vertical.contains("without revealing the ending"))
+        val horizontal=FlowVisualDirection.cover("16x9","เมย์ → MIND_MASTER.jpg","ช่อง",title,2,"ชื่อ EP","คำโปรย","ซองบนโต๊ะ")
+        assertTrue(horizontal.contains("1920 x 1080")); assertTrue(horizontal.contains("do not crop the vertical poster"))
+        assertFalse(horizontal.contains("1080 x 1920"))
+        assertTrue(runCatching { FlowVisualDirection.layout("1x1") }.isFailure)
+    }
     @Test fun zipContainsSeparateEpisodesCoversAndExactMastersWithoutGeneratedMedia() {
         val root=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,UUID.randomUUID().toString()).apply { mkdirs() }
         try {
             val context=InstrumentationRegistry.getInstrumentation().targetContext
             val masters=FlowProductionPack.names.keys.associateWith { id -> File(root,"$id.png").apply { context.assets.open("character_masters/${id.uppercase()}_MASTER.png").use { writeBytes(it.readBytes()) } } }
             val output=ByteArrayOutputStream()
-            FlowProductionPack.write(output,plan(7,23),masters,JSONObject().put("mind",JSONObject().put("face","custom face")),"หมวด","ช่อง")
+            val story=plan(7,23)
+            story.getJSONArray("episodes").getJSONObject(6).getJSONArray("scenes").getJSONObject(1).getJSONArray("characters").put(
+                JSONObject().put("name","รินรดา").put("master","RINLADA_MASTER.png").put("outfit","ชุดทำงานสีขาว")
+                    .put("visual_description","long dark wavy hair").put("screen_position","frame-right"))
+            FlowProductionPack.write(output,story,masters,JSONObject().put("mind",JSONObject().put("face","custom face")),"หมวด","ช่อง")
             val files=mutableMapOf<String,ByteArray>()
             ZipInputStream(ByteArrayInputStream(output.toByteArray())).use { zip -> while(true) { val entry=zip.nextEntry ?: break; assertFalse(entry.name.contains("..")); assertNull(files.put(entry.name,zip.readBytes())) } }
             assertEquals(7,files.keys.count { it.startsWith("DIRECTOR_FLOW/EP/") })
@@ -149,6 +166,10 @@ class FlowProductionPackTest {
             val ep=String(files.getValue("DIRECTOR_FLOW/EP/EP07_FLOW.txt"),Charsets.UTF_8)
             assertTrue(ep.contains("184 seconds")); assertTrue(ep.contains("EP07_SC023")); assertFalse(ep.contains("COVER"))
             assertTrue(String(files.getValue("DIRECTOR_FLOW/COVERS/EP07_COVER_16x9.txt"),Charsets.UTF_8).contains("May:"))
+            val cover=String(files.getValue("DIRECTOR_FLOW/COVERS/EP07_COVER_9x16.txt"),Charsets.UTF_8)
+            assertTrue(cover.contains("Rinrada:")); assertTrue(cover.contains("ชุดทำงานสีขาว"))
+            assertTrue(cover.startsWith("แนบภาพ MASTER")); assertTrue(cover.contains("one compact group"))
+            assertTrue(cover.contains("No yellow/orange cast")); assertTrue(ep.contains("FINAL COLOR DIRECTION"))
             assertFalse(files.keys.any { it.endsWith(".mp4") })
             val starter=ByteArrayOutputStream(); FlowProductionPack.write(starter,null,masters,JSONObject(),"หมวด","ช่อง")
             assertTrue(starter.size()>0)

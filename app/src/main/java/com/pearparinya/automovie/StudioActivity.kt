@@ -1060,7 +1060,20 @@ class StudioActivity : AppCompatActivity() {
     private fun coverCommand(p: JSONObject, ep: JSONObject): String {
         val number = ep.getInt("ep")
         val title = ep.optString("title").ifBlank { "ตั้งชื่อตอนภาษาไทยจากเหตุการณ์ของ EP นี้ ใช้ชื่อเดียวกันทั้งสองปก" }
-        return "สร้างปกของ EP $number แยก 2 ไฟล์ EP%02d_COVER_9x16.png (9:16) และ EP%02d_COVER_16x9.png (16:9) จัดองค์ประกอบใหม่ตามสัดส่วนแต่ละภาพ ${ImagePromptPolicy.coverReference("MASTER รายคน")} สื่อเหตุการณ์เด่น: %s ข้อความ 3 บรรทัดจัดกึ่งกลางในพื้นที่กลางภาพ เว้นขอบซ้ายขวา 10%% ขอบบนล่าง 20%% อ่านชัดบนมือถือ ไม่ทับใบหน้า บรรทัด 1 (เล็กกว่า): %s | บรรทัด 2 (ใหญ่ที่สุด): %s | บรรทัด 3 (ขนาดรอง): EP %02d • %s ปรับขนาดอักษรให้ข้อความครบในแต่ละบรรทัด".format(number,number,ep.getJSONArray("scenes").getJSONObject(ep.getJSONArray("scenes").length()-1).optString("action"),p.optString("channel",originalChannel),p.getString("title"),number,title)
+        val scenes=ep.getJSONArray("scenes")
+        val people=linkedMapOf<String,JSONObject>()
+        for(i in 0 until scenes.length()) {
+            val cast=scenes.getJSONObject(i).getJSONArray("characters")
+            for(j in 0 until cast.length()) { val person=cast.getJSONObject(j); people.putIfAbsent(person.getString("name"),person) }
+        }
+        val refs=people.values.joinToString("\n") { person ->
+            val master=masterFor(person)
+            "${person.getString("name")} → ${masterExportName(master,false) ?: person.optString("master")} • ${person.optString("visual_description")} • Outfit: ${person.optString("outfit")}"
+        }
+        return listOf("9x16","16x9").joinToString("\n\n") { ratio ->
+            FlowVisualDirection.cover(ratio,refs,p.optString("channel",originalChannel),p.getString("title"),number,title,
+                ep.optString("tagline").ifBlank { p.optString("tagline") },ep.optString("cover_incident").ifBlank { scenes.getJSONObject(0).optString("action") })
+        }
     }
     private fun sendCoverCommands() {
         val p = plan ?: return notice("นำเข้าบทและภาพฉากจาก ZIP ก่อนสร้างปก")
@@ -1247,8 +1260,8 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun flowSceneMenu(s: JSONObject) {
         choiceMenu(key(s),listOf("IMAGE PROMPT","VIDEO PROMPT","แก้บท / ชุด / สถานที่","นำเข้าภาพจาก Flow","นำเข้าคลิป MP4","ดูภาพ / เทียบ MASTER","ดูคลิป","เวอร์ชันไฟล์")) { i -> when(i) {
-            0 -> showFlowCode("IMAGE PROMPT",s.optString("image_prompt"),"${key(s)}_IMAGE.txt")
-            1 -> showFlowCode("VIDEO PROMPT • ตรวจผู้พูดกับภาพจริงก่อนใช้",s.optString("flow_prompt"),"${key(s)}_VIDEO.txt")
+            0 -> showFlowCode("IMAGE PROMPT",s.optString("image_prompt")+"\n"+FlowVisualDirection.identity+"\n"+FlowVisualDirection.color,"${key(s)}_IMAGE.txt")
+            1 -> showFlowCode("VIDEO PROMPT • ตรวจผู้พูดกับภาพจริงก่อนใช้",s.optString("flow_prompt")+"\n"+FlowVisualDirection.identity+"\n"+FlowVisualDirection.color,"${key(s)}_VIDEO.txt")
             2 -> editScene(s)
             3 -> { mediaSlot=key(s); mediaKind="image"; mediaProject=project.name; sceneMediaPicker.launch(arrayOf("image/*")) }
             4 -> { mediaSlot=key(s); mediaKind="video"; mediaProject=project.name; sceneMediaPicker.launch(arrayOf("video/mp4")) }

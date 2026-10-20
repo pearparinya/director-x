@@ -22,10 +22,17 @@ DIRECTOR FLOW STUDIO — สร้างไฟล์คำสั่ง ไม่
 สร้างเรื่องใหม่จนจบ เลือกจำนวน EP ตามโครงเรื่อง เช่น 4–7 ตอนหรือมากกว่าหากจำเป็น พร้อมเหตุผล ไม่ล็อกไว้ที่ 4 ตอน ทุก EP ยาวอย่างน้อย 180 วินาทีจากผลรวมเวลาซีนจริง ไม่รวมปก ใช้ซีนละ 8 วินาที ค่าเริ่มต้น 24 ซีน = 192 วินาที ห้ามยืดเวลาด้วยซีนซ้ำหรือข้อความแทนเนื้อหา
 ใช้ภาพ MASTER ที่แนบตรงรายคน กวิน=GAWIN_MASTER / รินรดา=RINLADA_MASTER / เมย์=MIND_MASTER เท่านั้น ภาพล่าสุดมีลำดับเหนือคำบรรยาย เก็บข้อมูลตัวละครใน CHARACTER_MEMORY.json ไม่อ้างว่า Flow จำภาพจากแชตอื่นได้
 ${dna.values.joinToString("\n")}
+${FlowVisualDirection.identity}
+${FlowVisualDirection.color}
 คงใบหน้า ผม สีผิว สัดส่วนและเสน่ห์ความเซ็กซี่ตามภาพอ้างอิงของตัวละครผู้ใหญ่ ไม่เพิ่มหรือลดสัดส่วนเอง เปลี่ยนชุดจาก MASTER ให้เหมาะกับเวลาและกิจกรรม แต่เหตุการณ์ต่อเนื่องใช้ชุดเดิม สร้าง wardrobe ledger ก่อนเขียนซีน
 IMAGE PROMPT ภาษาอังกฤษเต็มในแต่ละซีน: เฉพาะตัวละครที่อยู่จริง ชื่อและชื่อไฟล์ MASTER ตรงคน DNA เต็ม ชุด สี เนื้อผ้า ท่าทาง สถานะต้นคลิป สถานที่ พร็อพ แสง ระยะภาพ และตำแหน่งตัวละคร ห้ามอ้าง 'เหมือนซีนก่อน' แทนรายละเอียด
 VIDEO PROMPT ภาษาอังกฤษ บทพูดไทย: 8 seconds, vertical 9:16, locked-off static camera, one continuous action; supplied scene image as first frame. ระบุผู้พูดหนึ่งคนด้วยชื่อ ผม ชุด และตำแหน่ง คนอื่นปิดปาก ห้ามพูดทับ เสียงประจำตัวคงที่ ไม่รวมเสียงบรรยายกับบทพูดในซีนเดียว ระบุเป้าหมายสายตา สถานะเริ่มและจบคลิป บทพูดต้องพูดจบใน 8 วินาที ไม่มีข้อความหรือลายน้ำ ต้องตรวจตำแหน่งกับภาพจริงก่อนใช้วิดีโอ
 ส่ง ZIP จริงหนึ่งไฟล์: story.json, CHARACTER_MEMORY.json, WARDROBE_LEDGER.txt, CONTINUITY_LEDGER.txt, EP/EP01_FLOW.txt แยกตามจำนวนตอนจริง, COVERS/EP01_COVER_9x16.txt และ COVERS/EP01_COVER_16x9.txt แยกทุก EP ไม่ฝังคำสั่งปกซ้ำใน EP ไม่สร้างภาพใน ระบบวางบท
+คำสั่งปกต้องใช้มาตรฐานต่อไปนี้เต็มทุกใบ:
+${FlowVisualDirection.poster}
+${FlowVisualDirection.layout("9x16")}
+${FlowVisualDirection.layout("16x9")}
+จัดชื่อช่อง ชื่อเรื่อง EP และคำโปรยเป็นกลุ่มเดียว ชื่อเรื่องใหญ่ที่สุด ชุดตรง EP ใช้เหตุการณ์เปิดปม ไม่เปิดเผยตอนจบ
 ปกแต่ละใบ: IMAGE PROMPT เต็ม ใช้ชุดประจำ EP ออกแบบแต่ละสัดส่วนใหม่ รายการข้อความไทยตรงชื่อช่อง ชื่อเรื่อง เลข EP และชื่อตอน จัดตัวอักษรไม่ทับหน้า เว้นขอบ ไม่มีโลโก้หรือข้อความอื่น
 story.json ต้องเป็น UTF-8 และมีรูปแบบนี้ (เพิ่ม EP และซีนให้ครบ ห้ามส่งตัวอย่างนี้แทนบทเต็ม):
 {"schema_version":3,"production_mode":"flow_commands","character_mode":"original","channel":"$channel","category":"$category","title":"ชื่อเรื่องไทย","tagline":"คำโปรย","duration_seconds":8,"aspect_ratio":"9:16","episode_count":4,"scene_count":96,"episodes":[{"ep":1,"title":"ชื่อตอน","tagline":"คำโปรยตอน","scene_count":24,"scenes":[{"scene":1,"duration_seconds":8,"story_day":"DAY01","story_time":"เช้า","activity":"home","wardrobe_event":"DAY01_HOME","continuity_group":"DAY01_HOME","location":"สถานที่","characters":[{"name":"เมย์","master":"MIND_MASTER.png","outfit":"ชุดเต็ม","visual_description":"ลักษณะจาก MASTER ภาษาอังกฤษ","screen_position":"frame-left"}],"start_state":"สถานะต้นคลิป","end_state":"สถานะจบคลิป","action":"เหตุการณ์ไทย","dialogue":"บทพูดไทยหรือว่าง","speaker":"ชื่อผู้พูดหรือว่าง","narration":"เสียงบรรยายหรือว่าง","image_prompt":"Full English IMAGE PROMPT","flow_prompt":"Full English VIDEO PROMPT with Thai speech"}]}]}
@@ -91,7 +98,7 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
                         val filename=refs.getJSONObject(id).getString("file").substringAfterLast('/')
                         text=text.replace(Regex("${id.uppercase()}_MASTER[.](png|jpg|jpeg|webp)",RegexOption.IGNORE_CASE),filename)
                     }
-                    return text
+                    return text+"\n"+FlowVisualDirection.identity+"\n"+FlowVisualDirection.color
                 }
                 put("story.json",plan.toString(2))
                 val wardrobe=StringBuilder(); val continuity=StringBuilder(); val eps=plan.getJSONArray("episodes")
@@ -110,11 +117,22 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
                         continuity.append("$key • START ${s.getString("start_state")} • END ${s.getString("end_state")}\n")
                     }
                     put("EP/EP%02d_FLOW.txt".format(number),"Duration: $total seconds\n$text")
-                    for(ratio in listOf("9x16","16x9")) put("COVERS/EP%02d_COVER_%s.txt".format(number,ratio),"Attach the matching MASTER images from MASTERS. Create premium Thai drama poster, ${ratio.replace('x',':')}. Match each character identity and original proportions, no identity blending. Episode %02d wardrobe and full reference map:\n%s\nExact Thai text only:\n%s\n%s\nEP %02d • %s\nKeep text clear, inside safe margins, away from faces. Recompose for this aspect, no watermark.\n".format(number,(0 until scenes.getJSONObject(0).getJSONArray("characters").length()).joinToString("\n") { c ->
-                        val person=scenes.getJSONObject(0).getJSONArray("characters").getJSONObject(c)
-                        val id=StoryIdentity.keyFor(person.getString("name"))!!
-                        "${refs.getJSONObject(id).getString("file")} • ${dna[id]} • replacing reference outfit with: ${person.getString("outfit")}"
-                    },plan.optString("channel",channel),plan.getString("title"),number,ep.optString("title")))
+                    // A later character can be central to the episode even if absent from scene one.
+                    val coverPeople=linkedMapOf<String,JSONObject>()
+                    for(j in 0 until scenes.length()) {
+                        val cast=scenes.getJSONObject(j).getJSONArray("characters")
+                        for(c in 0 until cast.length()) {
+                            val person=cast.getJSONObject(c); val id=StoryIdentity.keyFor(person.getString("name"))!!
+                            if(id !in coverPeople) coverPeople[id]=person
+                        }
+                    }
+                    val coverRefs=coverPeople.entries.joinToString("\n") { (id,person) ->
+                        "${person.getString("name")} → ${refs.getJSONObject(id).getString("file")}\n${dna[id]}\nEpisode outfit: ${person.getString("outfit")}"
+                    }
+                    val cue=ep.optString("cover_incident").ifBlank { scenes.getJSONObject(0).getString("action") }
+                    for(ratio in listOf("9x16","16x9")) put("COVERS/EP%02d_COVER_%s.txt".format(number,ratio),
+                        FlowVisualDirection.cover(ratio,coverRefs,plan.optString("channel",channel),plan.getString("title"),number,
+                            ep.optString("title"),ep.optString("tagline").ifBlank { plan.optString("tagline") },cue))
                 }
                 put("WARDROBE_LEDGER.txt",wardrobe.toString()); put("CONTINUITY_LEDGER.txt",continuity.toString())
                 put("DELIVERY_CHECK.txt","Text validation passed: ${eps.length()} EP, every episode >=180 seconds. MASTER hashes included. Images/video/Flow execution not tested.")
