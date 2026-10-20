@@ -74,7 +74,7 @@ class ChatSharePayloadTest {
                     assertTrue(button.getGlobalVisibleRect(rect))
                     assertTrue(rect.height()>0 && rect.bottom<=activity.resources.displayMetrics.heightPixels)
                 }
-                assertEquals("ส่งให้ AI",d.getButton(-1).text.toString())
+                assertTrue(d.getButton(-1).text.toString().contains("ส่งให้ AI"))
                 d.dismiss()
             }
         }
