@@ -22,6 +22,7 @@ class GeminiStoryService : Service() {
     private var client: GeminiClient?=null
     private var worker: Thread?=null
     private lateinit var folder: File
+    private var lastPercent=0
     override fun onBind(intent: Intent?): IBinder?=null
     override fun onStartCommand(intent: Intent?,flags: Int,startId: Int): Int {
         if(intent?.action==CANCEL) { cancelled=true; client?.cancel(); return START_NOT_STICKY }
@@ -29,6 +30,7 @@ class GeminiStoryService : Service() {
         val id=intent?.getStringExtra("project") ?: run { stopSelf(); return START_NOT_STICKY }
         if(!Regex("[a-zA-Z0-9-]+").matches(id)) { stopSelf(); return START_NOT_STICKY }
         folder=File(filesDir,"studio/$id/gemini_job")
+        lastPercent=GeminiStoryEngine.checkpointPercent(folder)
         running=true; projectId=id; cancelled=false
         val manager=getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(NotificationChannel(CHANNEL,"เขียนบทด้วย Gemini",NotificationManager.IMPORTANCE_LOW))
@@ -52,7 +54,7 @@ class GeminiStoryService : Service() {
                     } finally { lock.release() }
                 }
             } catch(e: Exception) {
-                if(::folder.isInitialized) status(if(cancelled || e is CancellationException) "paused" else "failed",0,
+                if(::folder.isInitialized) status(if(cancelled || e is CancellationException) "paused" else "failed",lastPercent,
                     if(cancelled || e is CancellationException) "หยุดแล้ว • บันทึกช่วงที่เสร็จไว้ กดทำต่อได้" else safeError(e))
             } finally {
                 client=null; running=false; projectId=null
@@ -67,7 +69,8 @@ class GeminiStoryService : Service() {
         else -> (e.message ?: "เขียนบทไม่สำเร็จ").take(350)
     }
     private fun status(state: String,percent: Int,message: String) {
-        GeminiStoryFiles.write(File(folder,"status.json"),JSONObject().put("state",state).put("percent",percent).put("message",message).put("updated",System.currentTimeMillis()))
+        lastPercent=if(state=="complete") 100 else maxOf(lastPercent,percent.coerceIn(0,99))
+        GeminiStoryFiles.write(File(folder,"status.json"),JSONObject().put("state",state).put("percent",lastPercent).put("message",message).put("updated",System.currentTimeMillis()))
         getSystemService(NotificationManager::class.java).notify(ID,notification(message))
     }
     private fun notification(message: String): Notification {

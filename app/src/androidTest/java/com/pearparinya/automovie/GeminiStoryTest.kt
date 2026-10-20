@@ -99,6 +99,43 @@ class GeminiStoryTest {
             assertTrue(File(folder,"outline.json").exists()); assertFalse(File(folder,"EP01_01.json").exists())
         } finally { folder.deleteRecursively() }
     }
+    @Test fun shortRepliesCanRepeatButLongRepeatedLinesIdentifyBothScenes() {
+        val rows=batch("Write exactly scenes 1 to 6 for EP 1").getJSONArray("scenes")
+        for(i in 0 until rows.length()) rows.getJSONObject(i).put("speaker","เมย์").put("dialogue",if(i%2==0) "ค่ะ" else "ทำไม")
+        val seen=linkedMapOf<String,String>()
+        GeminiStoryEngine.checkDialogue(rows,1,seen)
+        GeminiStoryEngine.checkDialogue(rows,2,seen)
+        assertTrue(seen.isEmpty())
+        val line="ฉันเก็บเอกสารฉบับนี้ไว้เพราะมันเป็นหลักฐานสำคัญของครอบครัวเรา"
+        rows.getJSONObject(0).put("dialogue",line)
+        GeminiStoryEngine.checkDialogue(rows,1,seen)
+        val next=batch("Write exactly scenes 7 to 12 for EP 2").getJSONArray("scenes")
+        next.getJSONObject(0).put("dialogue",line+" !")
+        val error=runCatching { GeminiStoryEngine.checkDialogue(next,2,seen) }.exceptionOrNull()!!
+        assertTrue(error.message!!.contains("EP 2 ซีน 7")); assertTrue(error.message!!.contains("EP 1 ซีน 1"))
+    }
+    @Test fun repeatedShortRepliesFinishWholeStoryAndRecoverOldZeroProgress() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val folder=File(context.cacheDir,"gemini-replies-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            var calls=0
+            val make: (String,JSONObject)->JSONObject = { prompt,_ ->
+                calls++
+                if(calls==6) error(GeminiClient.errorFor(503))
+                if(prompt.contains("Plan a complete story")) outline() else batch(prompt).apply {
+                    val rows=getJSONArray("scenes")
+                    for(i in 0 until rows.length()) rows.getJSONObject(i).put("speaker","เมย์").put("dialogue","ค่ะ")
+                }
+            }
+            assertTrue(runCatching { GeminiStoryEngine(folder,make).run(spec()) }.isFailure)
+            assertEquals(33,GeminiStoryEngine.checkpointPercent(folder))
+            GeminiStoryFiles.write(File(folder,"status.json"),JSONObject().put("percent",0))
+            assertEquals(33,GeminiStoryEngine.checkpointPercent(folder))
+            val story=GeminiStoryEngine(folder,make).run(spec())
+            assertEquals(72,story.getInt("scene_count")); assertTrue(FlowProductionPack.issues(story).isEmpty())
+            assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_ -> error("cache only") }).run(spec()).toString())
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun keyIsEncryptedOutsideBackupsAndCanBeDeleted() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         // Preserve any settings on a developer device; CI starts with none.
