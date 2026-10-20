@@ -48,6 +48,19 @@ internal fun buildChatShareIntent(text: String, uris: ArrayList<Uri>): Intent =
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 
+/** Mixed document and image transfer; the receiving AI still controls submission and execution. */
+internal fun buildStoryPackageIntent(text: String, uris: ArrayList<Uri>): Intent {
+    require(uris.size == 4) { "ต้องมีไฟล์คำสั่งและ MASTER 3 ภาพ" }
+    return Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+        type="*/*"
+        putExtra(Intent.EXTRA_TEXT,text)
+        putExtra(Intent.EXTRA_SUBJECT,"DIRECTOR X • เขียนบทและส่งกลับ story.json")
+        putParcelableArrayListExtra(Intent.EXTRA_STREAM,uris)
+        clipData=ClipData.newPlainText("คำสั่งวางบท",text).apply { uris.forEach { addItem(ClipData.Item(it)) } }
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+}
+
 internal fun neutralIdentityGuide(source: String, aspect: String): String =
     ImagePromptPolicy.identity(source) + "\n" + ImagePromptPolicy.style(aspect) + " ไม่มีข้อความหรือลายน้ำ หากสร้างไม่ได้ให้แจ้งตามจริง"
 
@@ -1138,16 +1151,49 @@ class StudioActivity : AppCompatActivity() {
             contentResolver.openOutputStream(uri)!!.use { it.write(text.toByteArray(Charsets.UTF_8)) }
         }.onSuccess { notice("บันทึกไฟล์คำสั่งแล้ว") }.onFailure { notice("บันทึกไม่สำเร็จ: ${it.message}") }
     }
-    private fun showFlowCode(title: String, code: String, filename: String) {
+    private fun sendStoryPackage(code: String) {
+        runCatching {
+            val destination=File(cacheDir,"character_master_exports/${UUID.randomUUID()}").apply { mkdirs() }
+            val uris=arrayListOf<Uri>()
+            val command=File(destination,"FLOW_STORY_COMMAND.txt").apply { writeText(code,Charsets.UTF_8) }
+            uris.add(FileProvider.getUriForFile(this,"$packageName.fileprovider",command))
+            FlowProductionPack.names.keys.forEach { id ->
+                val source=File(project,"original_masters/$id.master").takeIf { it.isFile } ?: File(filesDir,"character_masters/$id.master")
+                val name=masterExportName(source,false) ?: error("อ่าน MASTER ของ ${FlowProductionPack.names[id]} ไม่ได้")
+                val image=File(destination,name); source.copyTo(image)
+                uris.add(FileProvider.getUriForFile(this,"$packageName.fileprovider",image))
+            }
+            val intro="อ่าน FLOW_STORY_COMMAND.txt และ MASTER ทั้ง 3 ภาพที่แนบ แล้วเริ่มเขียนบทตามคำสั่ง สร้าง story.json และ ZIP บทให้ดาวน์โหลดเพื่อนำกลับเข้า DIRECTOR X ไม่สร้างภาพหรือวิดีโอในขั้นตอนนี้\n\n$code"
+            val intent=buildStoryPackageIntent(intro,uris)
+            val chooser=Intent.createChooser(intent,"เลือกแอป AI สำหรับเขียนบท").apply {
+                clipData=intent.clipData; addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(chooser)
+        }.onFailure { notice("ส่งชุดวางบทไม่สำเร็จ: ${it.message}\nใช้ดูคำสั่งหรือบันทึกไฟล์เพื่อลองใหม่ได้") }
+    }
+    private fun showFlowCode(title: String, code: String, filename: String): AlertDialog {
         val text=TextView(this).apply {
             this.text=code; textSize=13f; typeface=Typeface.MONOSPACE; setTextIsSelectable(true)
             setPadding(dp(16),dp(12),dp(16),dp(12)); setTextColor(ice); setBackgroundColor(navy)
         }
-        AlertDialog.Builder(this).setTitle(title).setMessage("คำสั่งสำหรับคัดลอกหรือบันทึก • ยังไม่ได้สร้างภาพหรือวิดีโอ")
-            .setView(ScrollView(this).apply { addView(text) })
-            .setPositiveButton("คัดลอก") { _,_ -> copyCommand(code) }
+        // Bound only the scroll area, leaving dialog title and action buttons visible.
+        val scroll=ScrollView(this).apply { addView(text) }
+        val frame=FrameLayout(this).apply {
+            addView(scroll,FrameLayout.LayoutParams(-1,-1))
+            layoutParams=android.view.ViewGroup.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.48f).toInt())
+        }
+        val builder=AlertDialog.Builder(this).setTitle(title)
+            .setMessage(if(filename=="FLOW_STORY_COMMAND.txt") "ส่งคำสั่ง + MASTER 3 ภาพให้ AI เขียนบท → รับ story.json → นำเข้าขั้นตอน 2 • แอปปลายทางอาจให้กดส่งอีกครั้ง" else "ไฟล์คำสั่งสำหรับใช้งานใน Flow • ยังไม่ได้สร้างภาพหรือวิดีโอ")
+            .setView(frame)
+            .setPositiveButton(if(filename=="FLOW_STORY_COMMAND.txt") "ส่งให้ AI" else "คัดลอก") { _,_ ->
+                if(filename=="FLOW_STORY_COMMAND.txt") sendStoryPackage(code) else copyCommand(code)
+            }
             .setNeutralButton("บันทึก TXT") { _,_ -> prefs.edit().putString("pending_flow_code",code).apply(); flowCodePicker.launch(filename) }
-            .setNegativeButton("ปิด",null).showDirector()
+            .setNegativeButton("ปิด",null)
+        val dialog=builder.showDirector()
+        frame.layoutParams=frame.layoutParams.apply { height=(resources.displayMetrics.heightPixels*0.48f).toInt() }
+        frame.requestLayout()
+        return dialog
     }
     private fun flowHome() {
         label("FLOW STUDIO • งานผลิตจริง",22,true)
@@ -1207,14 +1253,17 @@ class StudioActivity : AppCompatActivity() {
     private fun flowPlanning() {
         choiceMenu("หมวดสำหรับวางบท",categories) { index ->
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (เว้นว่างให้คิดใหม่)" }
-            AlertDialog.Builder(this).setTitle("เตรียมคำสั่งวางบท")
-                .setMessage("เลือกจำนวนตอนตามพล็อต • ทุกตอนอย่างน้อย 3 นาที • ผลลัพธ์เป็นไฟล์บทและคำสั่ง Flow")
-                .setView(premise).setPositiveButton("ดูคำสั่ง") { _,_ ->
-                    val code=FlowProductionPack.masterCommand(categories[index],originalChannel)+"\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" }
-                    File(project,"flow_story_command.txt").writeText(code)
-                    render()
-                    showFlowCode("คำสั่งวางบท",code,"FLOW_STORY_COMMAND.txt")
-                }.setNegativeButton("ยกเลิก",null).showDirector()
+            fun prepare(): String {
+                val code=FlowProductionPack.masterCommand(categories[index],originalChannel)+"\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" }
+                File(project,"flow_story_command.txt").writeText(code)
+                render()
+                return code
+            }
+            AlertDialog.Builder(this).setTitle("ส่งข้อมูลให้ AI วางบท")
+                .setMessage("แอปแนบคำสั่งและ MASTER 3 ภาพให้เอง เลือกแอป AI ที่รับไฟล์ แล้วตรวจไฟล์แนบและกดส่งในแอปนั้น ผลลัพธ์ที่ต้องรับกลับ: story.json / ZIP บท เพื่อนำเข้าขั้นตอน 2 • ยังไม่ใช่การเรียก API อัตโนมัติ")
+                .setView(premise).setPositiveButton("ส่งคำสั่ง + MASTER") { _,_ -> sendStoryPackage(prepare()) }
+                .setNeutralButton("ดูคำสั่งก่อน") { _,_ -> showFlowCode("คำสั่งวางบท",prepare(),"FLOW_STORY_COMMAND.txt") }
+                .setNegativeButton("ยกเลิก",null).showDirector()
         }
     }
     private fun flowTestMenu() {
