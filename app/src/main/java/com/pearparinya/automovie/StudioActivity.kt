@@ -1244,6 +1244,11 @@ class StudioActivity : AppCompatActivity() {
         }
         val active=when { current==null -> if(prepared) 2 else 1; !exported -> 3; else -> 4 }
         label(if(current==null) "ยังไม่มีบท • เริ่มขั้นตอน 1 หรือนำเข้าบทที่มีแล้ว" else "${current.optString("title")} • ${episodes!!.length()} EP • คลิป $clipCount/$sceneCount",14,true)
+        if(File(project,"gemini_job/spec.json").isFile) {
+            geminiStatusView=TextView(this).apply { text=geminiStatusText(readGeminiStatus()); setTextColor(ice); textSize=14f; setPadding(dp(8),dp(8),dp(8),dp(8)) }
+            root.addView(geminiStatusView)
+            button("🤖 งานเขียนบท • ดูสถานะ / ทำต่อ",false) { geminiJobMenu() }
+        } else geminiStatusView=null
         stepCard(1,"📝","วางบทและเขียนคำสั่ง","เลือกแนวเรื่อง → Gemini เขียนบทและรับกลับในแอป → ส่งออก Flow • ตั้งค่า API Key ครั้งแรก",completed=prepared,currentStep=active,
             statusText=if(prepared) "เตรียมคำสั่ง / มีบทแล้ว" else "พร้อมเริ่มวางบท") { flowPlanning() }
         stepCard(2,"📥","นำเข้าบท / ZIP","นำเข้า story.json หรือ ZIP บท • ไม่ต้องรอภาพฉาก • เพิ่มไฟล์ภาพและคลิปภายหลังได้",completed=current!=null,currentStep=active,
@@ -1256,11 +1261,6 @@ class StudioActivity : AppCompatActivity() {
             enabled=current!=null,completed=finished,currentStep=active,statusText=when { current==null -> "รอบทสำหรับจับคู่คลิป"; finished -> "รวม EP ครบแล้ว"; clipCount<sceneCount -> "รับคลิป / ทำต่อได้"; else -> "คลิปครบ • พร้อมรวม EP" }) {
             choiceMenu("งานวิดีโอและ EP",listOf("EP / ซีน • รับภาพและคลิป","รวม EP / ดาวน์โหลด MP4")) { if(it==0) episodesMenu() else moviesMenu() }
         }
-        if(File(project,"gemini_job/spec.json").isFile) {
-            geminiStatusView=TextView(this).apply { text=geminiStatusText(readGeminiStatus()); setTextColor(ice); textSize=14f; setPadding(dp(8),dp(8),dp(8),dp(8)) }
-            root.addView(geminiStatusView)
-            button("🤖 งานเขียนบท • ดูสถานะ / ทำต่อ",false) { geminiJobMenu() }
-        } else geminiStatusView=null
         label("เครื่องมือเสริม",15,true)
         button("🧪 ทดสอบสร้างวิดีโอ • เลือกตัวละคร",false) { flowTestMenu() }
         button("🎭 MASTER และข้อมูลตัวละคร",false) { characterMasters() }
