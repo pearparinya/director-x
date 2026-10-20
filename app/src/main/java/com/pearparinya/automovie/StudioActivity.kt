@@ -403,9 +403,17 @@ class StudioActivity : AppCompatActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        adoptGeminiProject(intent)
         val masterError = runCatching { installCharacterMasters() }.exceptionOrNull()
         render()
         if (masterError != null) notice("ติดตั้ง MASTER ตัวละครไม่สำเร็จ กรุณาเปิดแอปอีกครั้ง")
+    }
+    private fun adoptGeminiProject(incoming: Intent?) {
+        val id=incoming?.getStringExtra("gemini_project") ?: return
+        if(Regex("[a-zA-Z0-9-]+").matches(id) && File(base,"$id/gemini_job/spec.json").isFile) prefs.edit().putString("project",id).apply()
+    }
+    override fun onNewIntent(incoming: Intent) {
+        super.onNewIntent(incoming); setIntent(incoming); adoptGeminiProject(incoming); render()
     }
     private fun installCharacterMasters() {
         CharacterMasterUpgrade.install(filesDir) { path -> assets.open(path).use { it.readBytes() } }
@@ -1949,11 +1957,12 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         AlertDialog.Builder(this).setTitle("ตรวจงาน • ${p.optString("title")}").setView(ScrollView(this).apply { addView(text) }).setPositiveButton("ปิด",null).setNeutralButton("คัดลอก") { _,_ -> copyCommand(report) }.showDirector()
     }
     private fun storiesMenu() {
-        val folders = base.listFiles()?.filter { File(it,"story.json").exists() }?.sortedByDescending { File(it,"story.json").lastModified() }.orEmpty()
+        val folders = base.listFiles()?.filter { File(it,"story.json").exists() || File(it,"gemini_job/spec.json").exists() }?.sortedByDescending { maxOf(File(it,"story.json").lastModified(),File(it,"gemini_job/status.json").lastModified()) }.orEmpty()
         choiceMenu("📚 เรื่องของฉัน",folders.map { f ->
-            runCatching { JSONObject(File(f,"story.json").readText()).optString("title") }.getOrDefault(f.name) + if(File(f,"archived").exists()) " • เก็บแล้ว" else ""
+            runCatching { JSONObject(File(f,"story.json").readText()).optString("title") }.getOrElse { runCatching { GeminiStoryFiles.read(File(f,"gemini_job/outline.json")).getString("title")+" • ยังเขียนไม่จบ" }.getOrDefault("งานเขียนบทที่ยังไม่จบ") } + if(File(f,"archived").exists()) " • เก็บแล้ว" else ""
         }) { i ->
             prefs.edit().putString("project",folders[i].name).apply(); render()
+            if(plan==null) { geminiJobMenu(); return@choiceMenu }
             choiceMenu("จัดการเรื่อง",listOf("▶ ทำต่อ", "✏️ เปลี่ยนชื่อ", "📑 ทำสำเนา", "📁 เก็บ / เปิดใช้งาน", "🗑️ ลบเรื่อง")) { action -> when(action) {
                 0 -> resumeScene()
                 1 -> { val input = EditText(this).apply { setText(plan?.optString("title")) }

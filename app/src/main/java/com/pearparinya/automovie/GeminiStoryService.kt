@@ -36,7 +36,7 @@ class GeminiStoryService : Service() {
         if(Build.VERSION.SDK_INT>=29) startForeground(ID,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else startForeground(ID,notification)
         worker=Thread {
             try {
-                File(folder,"run.lock").apply { parentFile!!.mkdirs() }.outputStream(true).channel.use { channel ->
+                java.io.FileOutputStream(File(folder,"run.lock").apply { parentFile!!.mkdirs() },true).channel.use { channel ->
                     val lock=channel.tryLock() ?: error("งานนี้กำลังทำงานอยู่")
                     try {
                         val spec=GeminiStoryFiles.read(File(folder,"spec.json")); val settings=GeminiSettings(this)
@@ -46,8 +46,8 @@ class GeminiStoryService : Service() {
                         val story=GeminiStoryEngine(folder,{ prompt,schema -> client!!.generate(prompt,schema) },{cancelled}) { percent,message -> status("running",percent,message) }.run(spec)
                         if(cancelled) throw CancellationException()
                         val target=File(folder.parentFile,"story.json")
-                        require(!target.exists()) { "พบ story.json เดิมในโครงการนี้ ไม่เขียนทับ" }
-                        GeminiStoryFiles.write(target,story)
+                        if(target.exists()) require(GeminiStoryFiles.read(target).toString()==story.toString()) { "พบ story.json ที่แก้ไขแล้ว ไม่เขียนทับ" }
+                        else GeminiStoryFiles.write(target,story)
                         status("complete",100,"บทพร้อมแล้ว ${story.getInt("episode_count")} EP • ${story.getInt("scene_count")} ซีน • ส่งออก Flow ได้ทันที")
                     } finally { lock.release() }
                 }
@@ -71,7 +71,7 @@ class GeminiStoryService : Service() {
         getSystemService(NotificationManager::class.java).notify(ID,notification(message))
     }
     private fun notification(message: String): Notification {
-        val open=PendingIntent.getActivity(this,0,Intent(this,StudioActivity::class.java),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val open=PendingIntent.getActivity(this,0,Intent(this,StudioActivity::class.java).putExtra("gemini_project",projectId),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val stop=PendingIntent.getService(this,1,Intent(this,GeminiStoryService::class.java).setAction(CANCEL),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         return Notification.Builder(this,CHANNEL).setSmallIcon(R.drawable.studio_movie).setContentTitle("DIRECTOR X • เขียนบท")
             .setContentText(message).setContentIntent(open).setOngoing(true).addAction(Notification.Action.Builder(null,"หยุด",stop).build()).build()
