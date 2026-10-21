@@ -15,12 +15,13 @@ import javax.crypto.spec.GCMParameterSpec
 
 /** Personal BYOK: key is entered on-device, encrypted by Android Keystore, excluded from backups. */
 internal class GeminiSettings(context: Context,private val provider: StoryProvider=StoryProvider.GEMINI) {
+    private val keyAlias="director_${provider.id}"
     private val folder=File(context.noBackupFilesDir,provider.id).apply { mkdirs() }
     private val file=File(folder,"settings.json")
     private fun secret(): SecretKey {
         val store=KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        return (store.getKey("director_${provider.id}",null) as? SecretKey) ?: KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES,"AndroidKeyStore").apply {
-            init(KeyGenParameterSpec.Builder("director_${provider.id}",KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+        return (store.getKey(keyAlias,null) as? SecretKey) ?: KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES,"AndroidKeyStore").apply {
+            init(KeyGenParameterSpec.Builder(keyAlias,KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).build())
         }.generateKey()
     }
