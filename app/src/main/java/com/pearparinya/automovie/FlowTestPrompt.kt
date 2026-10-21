@@ -28,6 +28,9 @@ Location: $location
 Action: $action
 Start already in the described location and outfits. Eye-level head-to-upper-thigh framing, natural portrait perspective without wide-angle distortion, showing faces and hands. Locked-off static camera, one continuous subtle action, no camera movement or cuts. Preserve identities, body proportions, outfits and props throughout. No dialogue or narration in this visual test; all mouths stay closed. No captions, added text or watermark. Hold the ending briefly.
 
+${FlowVisualDirection.referencePriority}
+${FlowVisualDirection.referenceReview}
+
 แนบภาพเฉพาะคนในรายการด้านบน ใช้โหมดวิดีโอที่รองรับภาพอ้างอิงตัวละคร ไม่ต้องสร้างภาพฉากก่อน ตรวจว่าภาพแต่ละคนจับคู่กับรหัสถูกต้อง คำสั่งนี้ไม่เปลี่ยน MASTER และไม่รับประกันความเหมือนทุกจุด
         """.trimIndent()
     }
