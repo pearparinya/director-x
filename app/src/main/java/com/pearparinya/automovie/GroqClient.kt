@@ -14,6 +14,7 @@ internal class GroqClient(private val apiKey: String,private val model: String,p
     override fun generate(prompt: String,schema: JSONObject): JSONObject {
         if(cancelled()) throw CancellationException()
         pacer.await(cancelled,onWait)
+        onWait(0)
         val body=request(model,prompt,schema)
         val conn=URL(ENDPOINT).openConnection() as HttpURLConnection
         connection=conn

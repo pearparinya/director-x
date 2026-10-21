@@ -46,7 +46,7 @@ class GeminiStoryService : Service() {
                         provider=StoryProvider.from(spec.optString("provider","gemini"))
                         val settings=GeminiSettings(this,provider)
                         val key=settings.key(); require(key.isNotBlank()) { "ตั้งค่า ${provider.label} API Key ก่อนเริ่ม" }
-                        client=if(provider==StoryProvider.GROQ) GroqClient(key,spec.getString("model"),{ cancelled }) { seconds -> status("running",lastPercent,"Groq • พักระหว่างคำขอ $seconds วินาที • ลดโอกาสชนโควตาฟรี") } else GeminiClient(key,spec.getString("model")) { cancelled }
+                        client=if(provider==StoryProvider.GROQ) GroqClient(key,spec.getString("model"),{ cancelled }) { seconds -> status("running",lastPercent,if(seconds>0) "Groq • พักระหว่างคำขอ $seconds วินาที • ลดโอกาสชนโควตาฟรี" else "Groq • กำลังส่งคำขอ / รอคำตอบบท") } else GeminiClient(key,spec.getString("model")) { cancelled }
                         status("running",0,"กำลังเขียนบท • ไม่ได้สร้างวิดีโอ")
                         val story=GeminiStoryEngine(folder,{ prompt,schema -> client!!.generate(prompt,schema) },{cancelled}) { percent,message -> status("running",percent,message) }.run(spec)
                         if(cancelled) throw CancellationException()
