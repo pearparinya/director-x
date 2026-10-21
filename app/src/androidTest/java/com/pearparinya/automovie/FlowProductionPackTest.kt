@@ -80,37 +80,21 @@ class FlowProductionPackTest {
             }
         } finally { prefs.edit().putString("project",previous).commit(); folder.deleteRecursively() }
     }
-    @Test fun testCommandsOnlyUseSelectedMastersAndHonorSceneSettings() {
-        val refs=mapOf("gawin" to "GAWIN_MASTER.jpg","rinlada" to "RINLADA_MASTER.png","mind" to "MIND_MASTER.jpg")
-        val single=FlowTestPrompt.build(listOf("mind"),refs,"home","ห้องครัว","ถือแก้วน้ำ","")
-        assertTrue(single.contains("MIND_MASTER.jpg"))
-        assertFalse(single.contains("GAWIN_MASTER"))
-        assertFalse(single.contains("RINLADA_MASTER"))
-        assertFalse(single.contains("IMAGE PROMPT")); assertTrue(single.contains("VIDEO PROMPT"))
-        assertTrue(single.startsWith("แนบภาพ MASTER: เมย์ = MIND_MASTER.jpg"))
-        assertFalse(single.contains("as the first frame"))
-        assertTrue(single.contains("reference images directly"))
-        val pair=FlowTestPrompt.build(listOf("gawin","rinlada"),refs,"meeting","ห้องประชุม","ถือแฟ้ม","เสื้อคอสูงสีฟ้า")
-        assertTrue(pair.contains("เสื้อคอสูงสีฟ้า")); assertTrue(pair.contains("GAWIN_MASTER.jpg")); assertTrue(pair.contains("RINLADA_MASTER.png"))
-        assertFalse(pair.contains("MIND_MASTER")); assertFalse(pair.contains("ChatGPT"))
-        assertTrue(pair.contains("No dialogue or narration"))
-        assertTrue(runCatching { FlowTestPrompt.build(emptyList(),refs,"home","ห้องครัว","ยืน","") }.isFailure)
-        assertTrue(runCatching { FlowTestPrompt.build(listOf("mind"),emptyMap(),"home","ห้องครัว","ยืน","") }.isFailure)
-    }
-    @Test fun attachmentFilenamesMatchUsersFlowAssetsAndRejectAmbiguousNames() {
-        val refs=FlowTestPrompt.attachmentDefaults
-        assertEquals("1000026557.png",refs["gawin"])
-        assertEquals("1000026586.png",refs["mind"])
-        assertEquals("1000026584.png",refs["rinlada"])
-        val code=FlowTestPrompt.build(listOf("rinlada"),refs,"home","ห้องนั่งเล่น","ถือแก้วน้ำ","")
-        assertTrue(code.startsWith("แนบภาพ MASTER: รินรดา = 1000026584.png"))
-        assertFalse(code.contains("1000026557")); assertFalse(code.contains("1000026586"))
-        assertTrue(code.contains("chest-to-waist ratio"))
-        assertTrue(code.contains("FINAL COLOR DIRECTION"))
-        assertTrue(runCatching { FlowTestPrompt.build(listOf("mind","rinlada"),mapOf("mind" to "same.png","rinlada" to "same.png"),"home","room","stand","") }.isFailure)
-        assertTrue(runCatching { FlowTestPrompt.build(listOf("mind"),mapOf("mind" to "../photo.png"),"home","room","stand","") }.isFailure)
-        val custom=FlowTestPrompt.build(listOf("mind"),mapOf("mind" to "my_may.jpg"),"home","room","stand","")
-        assertTrue(custom.startsWith("แนบภาพ MASTER: เมย์ = my_may.jpg"))
+    @Test fun referenceLabelsLeadCommandsWithoutImageFilenames() {
+        val single=FlowTestPrompt.build(listOf("mind"),"home","ห้องครัว","ถือแก้วน้ำ","")
+        assertTrue(single.startsWith("แนบภาพตัวละคร: เมย์"))
+        assertTrue(single.indexOf("CHARACTER_MIND")<single.indexOf("VIDEO PROMPT"))
+        assertFalse(single.contains("CHARACTER_GAWIN")); assertFalse(single.contains("CHARACTER_RINLADA"))
+        assertFalse(single.contains("IMAGE PROMPT")); assertTrue(single.contains("reference images directly"))
+        val pair=FlowTestPrompt.build(listOf("gawin","rinlada"),"meeting","ห้องประชุม","ถือแฟ้ม","เสื้อคอสูงสีฟ้า")
+        assertTrue(pair.startsWith("แนบภาพตัวละคร: กวิน + รินรดา"))
+        assertTrue(pair.contains("เสื้อคอสูงสีฟ้า")); assertTrue(pair.contains("CHARACTER_GAWIN")); assertTrue(pair.contains("CHARACTER_RINLADA"))
+        assertFalse(pair.contains("CHARACTER_MIND")); assertTrue(pair.contains("No dialogue or narration"))
+        assertFalse(Regex("(?i)[.](png|jpg|jpeg|webp)").containsMatchIn(pair))
+        assertTrue(runCatching { FlowTestPrompt.build(emptyList(),"home","ห้องครัว","ยืน","") }.isFailure)
+        val old="MASTERS/GAWIN_MASTER.jpg RINLADA_MASTER.PNG MIND_MASTER.webp GAWIN_MASTER"
+        val migrated=FlowReferencePrompt.normalize(old)
+        assertFalse(migrated.contains("MASTER")); assertTrue(migrated.contains("CHARACTER_MIND"))
     }
     private fun plan(count: Int, scenes: Int): JSONObject {
         val eps=JSONArray()
@@ -145,7 +129,7 @@ class FlowProductionPackTest {
         assertFalse(horizontal.contains("1080 x 1920"))
         assertTrue(runCatching { FlowVisualDirection.layout("1x1") }.isFailure)
     }
-    @Test fun zipContainsSeparateEpisodesCoversAndExactMastersWithoutGeneratedMedia() {
+    @Test fun compactZipContainsSelfContainedEpisodeBlocksAndExactMasters() {
         val root=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,UUID.randomUUID().toString()).apply { mkdirs() }
         try {
             val context=InstrumentationRegistry.getInstrumentation().targetContext
@@ -158,18 +142,23 @@ class FlowProductionPackTest {
             FlowProductionPack.write(output,story,masters,JSONObject().put("mind",JSONObject().put("face","custom face")),"หมวด","ช่อง")
             val files=mutableMapOf<String,ByteArray>()
             ZipInputStream(ByteArrayInputStream(output.toByteArray())).use { zip -> while(true) { val entry=zip.nextEntry ?: break; assertFalse(entry.name.contains("..")); assertNull(files.put(entry.name,zip.readBytes())) } }
-            assertEquals(7,files.keys.count { it.startsWith("DIRECTOR_FLOW/EP/") })
-            assertEquals(14,files.keys.count { it.startsWith("DIRECTOR_FLOW/COVERS/") })
-            val memory=JSONObject(String(files.getValue("DIRECTOR_FLOW/CHARACTER_MEMORY.json"),Charsets.UTF_8))
+            assertEquals(7,files.keys.count { Regex("DIRECTOR_FLOW/EP[0-9]+[.]txt").matches(it) })
+            assertEquals(12,files.size)
+            assertFalse(files.keys.any { it.contains("COVERS/") })
+            val memory=JSONObject(String(files.getValue("DIRECTOR_FLOW/BACKUP/story.json"),Charsets.UTF_8)).getJSONObject("character_memory")
             masters.forEach { (id,file) -> assertArrayEquals(file.readBytes(),files.getValue("DIRECTOR_FLOW/"+memory.getJSONObject(id).getString("file"))) }
             assertEquals("custom face",memory.getJSONObject("mind").getJSONObject("profile").getString("face"))
-            val ep=String(files.getValue("DIRECTOR_FLOW/EP/EP07_FLOW.txt"),Charsets.UTF_8)
-            assertTrue(ep.contains("184 seconds")); assertTrue(ep.contains("EP07_SC023")); assertFalse(ep.contains("COVER"))
-            assertTrue(String(files.getValue("DIRECTOR_FLOW/COVERS/EP07_COVER_16x9.txt"),Charsets.UTF_8).contains("May:"))
-            val cover=String(files.getValue("DIRECTOR_FLOW/COVERS/EP07_COVER_9x16.txt"),Charsets.UTF_8)
-            assertTrue(cover.contains("Rinrada:")); assertTrue(cover.contains("ชุดทำงานสีขาว"))
-            assertTrue(cover.startsWith("แนบภาพ MASTER")); assertTrue(cover.contains("one compact group"))
-            assertTrue(cover.contains("No yellow/orange cast")); assertTrue(ep.contains("FINAL COLOR DIRECTION"))
+            val ep=String(files.getValue("DIRECTOR_FLOW/EP07.txt"),Charsets.UTF_8)
+            assertTrue(ep.contains("184 seconds")); assertTrue(ep.contains("EP07_SC023")); assertTrue(ep.contains("COVER 9x16")); assertTrue(ep.contains("COVER 16x9"))
+            assertTrue(ep.contains("Rinrada:")); assertTrue(ep.contains("ชุดทำงานสีขาว"))
+            assertTrue(ep.startsWith("แนบภาพตัวละคร")); assertTrue(ep.contains("one compact group"))
+            assertTrue(ep.contains("No yellow/orange cast")); assertTrue(ep.contains("FINAL COLOR DIRECTION"))
+            assertFalse(Regex("(?i)[.](png|jpg|jpeg|webp)").containsMatchIn(ep))
+            val scene=FlowReferencePrompt.scene(story.getJSONArray("episodes").getJSONObject(6).getJSONArray("scenes").getJSONObject(1),7,"video")
+            assertTrue(scene.startsWith("แนบภาพตัวละคร: เมย์ + รินรดา"))
+            assertTrue(scene.indexOf("CHARACTER_RINLADA")<scene.indexOf("VIDEO PROMPT"))
+            assertFalse(scene.contains("CHARACTER_GAWIN"))
+            assertTrue(files.containsKey("DIRECTOR_FLOW/START.txt"))
             assertFalse(files.keys.any { it.endsWith(".mp4") })
             val starter=ByteArrayOutputStream(); FlowProductionPack.write(starter,null,masters,JSONObject(),"หมวด","ช่อง")
             assertTrue(starter.size()>0)
