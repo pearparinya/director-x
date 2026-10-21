@@ -82,6 +82,8 @@ class FlowProductionPackTest {
     }
     @Test fun referenceLabelsLeadCommandsWithoutImageFilenames() {
         val single=FlowTestPrompt.build(listOf("mind"),"home","ห้องครัว","ถือแก้วน้ำ","")
+        assertTrue(single.contains(FlowVisualDirection.referencePriority))
+        assertTrue(single.contains(FlowVisualDirection.referenceReview))
         assertTrue(single.startsWith("แนบภาพตัวละคร: เมย์"))
         assertTrue(single.indexOf("CHARACTER_MIND")<single.indexOf("VIDEO PROMPT"))
         assertFalse(single.contains("CHARACTER_GAWIN")); assertFalse(single.contains("CHARACTER_RINLADA"))
@@ -155,6 +157,9 @@ class FlowProductionPackTest {
             assertTrue(ep.contains("No yellow/orange cast")); assertTrue(ep.contains("FINAL COLOR DIRECTION"))
             assertFalse(Regex("(?i)[.](png|jpg|jpeg|webp)").containsMatchIn(ep))
             val scene=FlowReferencePrompt.scene(story.getJSONArray("episodes").getJSONObject(6).getJSONArray("scenes").getJSONObject(1),7,"video")
+            assertTrue(scene.indexOf(FlowVisualDirection.referencePriority)>scene.indexOf("VIDEO PROMPT"))
+            assertTrue(scene.trimEnd().endsWith(FlowVisualDirection.referenceReview))
+            assertTrue(ep.contains(FlowVisualDirection.referencePriority))
             assertTrue(scene.startsWith("แนบภาพตัวละคร: เมย์ + รินรดา"))
             assertTrue(scene.indexOf("CHARACTER_RINLADA")<scene.indexOf("VIDEO PROMPT"))
             assertFalse(scene.contains("CHARACTER_GAWIN"))

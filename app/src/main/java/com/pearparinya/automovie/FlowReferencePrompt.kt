@@ -26,6 +26,6 @@ internal object FlowReferencePrompt {
         val intro=header(people(scene))+"\n=== $key | 8 seconds | 9:16 ===\nเหตุการณ์: ${scene.getString("action")}\nสถานที่: ${scene.getString("location")}\nสถานะต้น: ${scene.getString("start_state")}\nสถานะจบ: ${scene.getString("end_state")}\nผู้พูด: ${scene.optString("speaker")}\nบทพูด: ${scene.optString("dialogue")}\nเสียงบรรยาย: ${scene.optString("narration")}\n${FlowVisualDirection.identity}\n${FlowVisualDirection.color}\n"
         val image=if(kind==null || kind=="image") "\nIMAGE PROMPT (Flow):\n"+normalize(scene.getString("image_prompt"))+"\n" else ""
         val video=if(kind==null || kind=="video") "\nVIDEO PROMPT (Flow • ตรวจผู้พูดและตำแหน่งกับภาพจริงก่อนสร้าง):\n"+normalize(scene.getString("flow_prompt"))+"\n" else ""
-        return intro+image+video
+        return intro+image+video+"\n"+FlowVisualDirection.referencePriority+"\n"+FlowVisualDirection.color+"\n"+FlowVisualDirection.referenceReview+"\n"
     }
 }
