@@ -7,11 +7,13 @@ import java.net.URL
 import java.util.concurrent.CancellationException
 
 /** Fixed Groq endpoint; credentials never enter prompts, files, URLs or error messages. */
-internal class GroqClient(private val apiKey: String,private val model: String,private val cancelled: () -> Boolean): StoryTextClient {
+internal class GroqClient(private val apiKey: String,private val model: String,private val cancelled: () -> Boolean,private val onWait: (Int)->Unit={}): StoryTextClient {
+    private val pacer=GroqRequestPacer()
     @Volatile private var connection: HttpURLConnection?=null
     override fun cancel() { connection?.disconnect() }
     override fun generate(prompt: String,schema: JSONObject): JSONObject {
         if(cancelled()) throw CancellationException()
+        pacer.await(cancelled,onWait)
         val body=request(model,prompt,schema)
         val conn=URL(ENDPOINT).openConnection() as HttpURLConnection
         connection=conn
@@ -68,5 +70,22 @@ internal class GroqClient(private val apiKey: String,private val model: String,p
             in 500..599 -> "บริการ Groq ขัดข้องชั่วคราว (HTTP $status) กดทำต่อภายหลัง"
             else -> "เชื่อมต่อ Groq ไม่สำเร็จ (HTTP $status)"
         }
+    }
+}
+
+/** Conservative pacing for the free plan, not a quota guarantee or automatic retry. */
+internal class GroqRequestPacer(private val now: () -> Long={ android.os.SystemClock.elapsedRealtime() },
+    private val pause: (Long) -> Unit={ Thread.sleep(it) }) {
+    private var next=0L
+    fun await(cancelled: () -> Boolean,onWait: (Int)->Unit) {
+        var reported=-1
+        while(true) {
+            if(cancelled()) throw CancellationException()
+            val remaining=next-now(); if(remaining<=0) break
+            val seconds=((remaining+999)/1000).toInt()
+            if(reported<0 || (seconds%10==0 && seconds!=reported)) { onWait(seconds); reported=seconds }
+            pause(minOf(250L,remaining))
+        }
+        next=now()+65_000L
     }
 }

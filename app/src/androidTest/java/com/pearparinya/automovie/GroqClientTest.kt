@@ -32,6 +32,14 @@ class GroqClientTest {
         assertTrue(GroqClient.errorFor(429).contains("โควตา"))
         assertTrue(GroqClient.errorFor(401).contains("Groq API Key"))
     }
+    @Test fun pacingWaitsBetweenCallsAndCanBeCancelledWithoutSleepingInTests() {
+        var time=100L; var waits=0; var stop=false
+        val pacer=GroqRequestPacer({ time },{ time+=it; waits++ })
+        pacer.await({false},{ fail("first request should start immediately") })
+        pacer.await({false},{ assertTrue(it in 1..65) })
+        assertEquals(65100L,time); assertTrue(waits>0)
+        assertTrue(runCatching { pacer.await({stop},{ stop=true }) }.exceptionOrNull() is java.util.concurrent.CancellationException)
+    }
     @Test fun providerKeysAndModelsAreEncryptedSeparatelyWithoutChangingOldGeminiKey() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val settings=StoryProvider.entries.associateWith { GeminiSettings(context,it) }
