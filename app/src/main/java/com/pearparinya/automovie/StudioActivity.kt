@@ -1249,7 +1249,7 @@ class StudioActivity : AppCompatActivity() {
             root.addView(geminiStatusView)
             button("🤖 งานเขียนบท • ดูสถานะ / ทำต่อ",false) { geminiJobMenu() }
         } else geminiStatusView=null
-        stepCard(1,"📝","วางบทและเขียนคำสั่ง","เลือกแนวเรื่อง → Gemini เขียนบทและรับกลับในแอป → ส่งออก Flow • ตั้งค่า API Key ครั้งแรก",completed=prepared,currentStep=active,
+        stepCard(1,"📝","วางบทและเขียนคำสั่ง","เลือกแนวเรื่อง → AI เขียนบทและรับกลับในแอป → ส่งออก Flow • ตั้งค่า API Key ครั้งแรก",completed=prepared,currentStep=active,
             statusText=if(prepared) "เตรียมคำสั่ง / มีบทแล้ว" else "พร้อมเริ่มวางบท") { flowPlanning() }
         stepCard(2,"📥","นำเข้าบท / ZIP","นำเข้า story.json หรือ ZIP บท • ไม่ต้องรอภาพฉาก • เพิ่มไฟล์ภาพและคลิปภายหลังได้",completed=current!=null,currentStep=active,
             statusText=if(current!=null) "นำเข้าบทแล้ว • เพิ่มไฟล์ได้" else "รอนำเข้า story.json / ZIP") { packagePicker.launch(arrayOf("*/*")) }
@@ -1268,7 +1268,7 @@ class StudioActivity : AppCompatActivity() {
         splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
     }
     private fun flowSettings() {
-        choiceMenu("ตั้งค่า Flow Studio",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","Gemini API • ตั้งค่าการเขียนบท")) { i -> when(i) {
+        choiceMenu("ตั้งค่า Flow Studio",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","Groq / Gemini API • ตั้งค่าการเขียนบท")) { i -> when(i) {
             0 -> updater.check()
             1 -> { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
             2 -> if(plan==null) notice("ยังไม่มีเรื่องให้สำรอง") else { backupMode=true; zipPicker.launch("DIRECTOR_FLOW_BACKUP.zip") }
@@ -1282,24 +1282,31 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun readGeminiStatus(): JSONObject? = runCatching { GeminiStoryFiles.read(File(project,"gemini_job/status.json")) }.getOrNull()
     private fun geminiStatusText(status: JSONObject?): String {
-        if(status==null) return "Gemini • ยังไม่เริ่มงาน"
+        val provider=runCatching { StoryProvider.from(status?.optString("provider","gemini") ?: StoryProvider.selected(this).id) }.getOrDefault(StoryProvider.GEMINI)
+        if(status==null) return "${provider.label} • ยังไม่เริ่มงาน"
         val state=status.optString("state")
-        if(state=="running" && (!GeminiStoryService.running || GeminiStoryService.projectId!=project.name)) return "Gemini • งานหยุดกลางทาง กดทำต่อจากช่วงที่บันทึกไว้"
-        return "Gemini • ${status.optInt("percent")}% • ${status.optString("message")}"
+        if(state=="running" && (!GeminiStoryService.running || GeminiStoryService.projectId!=project.name)) return "${provider.label} • งานหยุดกลางทาง กดทำต่อจากช่วงที่บันทึกไว้"
+        return "${provider.label} • ${status.optInt("percent")}% • ${status.optString("message")}"
     }
     private fun geminiSettings(afterSave: (() -> Unit)?=null) {
-        val settings=GeminiSettings(this)
+        choiceMenu("เลือก API เขียนบท",StoryProvider.entries.map { it.label+if(it==StoryProvider.selected(this)) " • เลือกอยู่" else "" }) { index ->
+            storyProviderSettings(StoryProvider.entries[index],afterSave)
+        }
+    }
+    private fun storyProviderSettings(provider: StoryProvider,afterSave: (() -> Unit)?=null) {
+        val settings=GeminiSettings(this,provider)
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-        panel.addView(TextView(this).apply { text="สร้างคีย์ที่ Google AI Studio แล้วใส่บนเครื่องนี้ คีย์เข้ารหัสและไม่ส่งออกในสำรองข้อมูล • ส่งเฉพาะข้อความบท/ลักษณะตัวละคร ไม่ส่งรูป MASTER • Free Tier มีโควตาและเงื่อนไขข้อมูล ค่าบริการขึ้นกับบัญชี Google ของคุณ" })
-        val key=EditText(this).apply { hint=if(settings.hasKey()) "มีคีย์แล้ว • ว่างเพื่อใช้คีย์เดิม" else "Gemini API Key"; inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD; setSingleLine(true); panel.addView(this) }
+        panel.addView(TextView(this).apply { text="${provider.label} • ใส่คีย์บนเครื่องนี้ คีย์แต่ละบริการเก็บแยกและเข้ารหัส ไม่ส่งออกในสำรองข้อมูล • ส่งเฉพาะข้อความบท/ลักษณะตัวละคร ไม่ส่งรูป MASTER • แผนฟรีมีโควตา ค่าบริการและเงื่อนไขข้อมูลขึ้นกับบัญชีของคุณ ไม่มีการเปิดแผนเสียเงินหรือสลับบริการเอง" })
+        val key=EditText(this).apply { hint=if(settings.hasKey()) "มีคีย์แล้ว • ว่างเพื่อใช้คีย์เดิม" else "${provider.label} API Key"; inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD; setSingleLine(true); panel.addView(this) }
         val model=EditText(this).apply { hint="ชื่อโมเดล"; setSingleLine(true); setText(settings.model()); panel.addView(this) }
-        panel.addView(Button(this).apply { text="เปิด Google AI Studio"; setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://aistudio.google.com/apikey"))) } })
-        val dialog=AlertDialog.Builder(this).setTitle("Gemini • ตั้งค่าครั้งแรก")
-            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึก",null)
-            .setNeutralButton("ลบคีย์") { _,_ -> settings.clear(); notice("ลบ API Key จากเครื่องแล้ว") }.setNegativeButton("ปิด",null).showDirector()
+        if(provider==StoryProvider.GROQ) panel.addView(TextView(this).apply { text="โมเดลที่รองรับ: "+GroqClient.MODELS.joinToString(" / ")+" • ครั้งละ 2 ซีน • เว้นคำขออย่างน้อย 65 วินาทีเพื่อลดการชนโควตาฟรี • หยุด / ทำต่อได้" })
+        panel.addView(Button(this).apply { text="สร้างคีย์ ${provider.label}"; setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(provider.keyUrl))) } })
+        val dialog=AlertDialog.Builder(this).setTitle("${provider.label} • ตั้งค่า API")
+            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึกและเลือกใช้",null)
+            .setNeutralButton("ลบคีย์") { _,_ -> settings.clear(); notice("ลบคีย์ ${provider.label} จากเครื่องแล้ว") }.setNegativeButton("ปิด",null).showDirector()
         dialog.getButton(-1).setOnClickListener {
-            runCatching { settings.save(key.text.toString().trim().ifBlank { settings.key() },model.text.toString().trim()) }
-                .onSuccess { dialog.dismiss(); afterSave?.invoke() ?: notice("บันทึกแล้ว • เข้าขั้นตอน 1 เพื่อสร้างบท") }
+            runCatching { settings.save(key.text.toString().trim().ifBlank { settings.key() },model.text.toString().trim()); StoryProvider.select(this,provider) }
+                .onSuccess { dialog.dismiss(); afterSave?.invoke() ?: notice("เลือก ${provider.label} แล้ว • งานเดิมกดทำต่อ / เรื่องใหม่เข้าขั้นตอน 1 • ยังไม่ได้ทดสอบเรียก API") }
                 .onFailure { Toast.makeText(this,it.message ?: "บันทึกไม่ได้",Toast.LENGTH_LONG).show() }
         }
     }
@@ -1320,11 +1327,11 @@ class StudioActivity : AppCompatActivity() {
                 .setNegativeButton("ปิด",null).showDirector()
         } else {
             AlertDialog.Builder(this).setTitle("เขียนบทต่อจากที่บันทึก")
-                .setMessage(geminiStatusText(readGeminiStatus())+"\nจะใช้คีย์และโมเดลที่ตั้งค่าปัจจุบัน เขียนเฉพาะช่วงที่ยังไม่สำเร็จ")
+                .setMessage(geminiStatusText(readGeminiStatus())+"\nจะใช้ ${StoryProvider.selected(this).label} และโมเดลที่ตั้งค่าปัจจุบัน เขียนเฉพาะช่วงที่ยังไม่สำเร็จ")
                 .setPositiveButton("ทำต่อ") { _,_ ->
-                    if(!GeminiSettings(this).hasKey()) geminiSettings { geminiJobMenu() }
+                    if(!GeminiSettings(this,StoryProvider.selected(this)).hasKey()) geminiSettings { geminiJobMenu() }
                     else runCatching {
-                        val specFile=File(project,"gemini_job/spec.json"); val spec=GeminiStoryFiles.read(specFile).put("model",GeminiSettings(this).model())
+                        val specFile=File(project,"gemini_job/spec.json"); val spec=GeminiStoryFiles.read(specFile).put("provider",StoryProvider.selected(this).id).put("model",GeminiSettings(this,StoryProvider.selected(this)).model())
                         GeminiStoryFiles.write(specFile,spec); startGeminiJob(project)
                     }.onFailure { notice("อ่านงานเดิมไม่ได้ กรุณาเริ่มเรื่องใหม่") }
                 }.setNeutralButton("ตั้งค่า API") { _,_ -> geminiSettings() }.setNegativeButton("ปิด",null).showDirector()
@@ -1332,14 +1339,15 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun flowPlanning() {
         if(GeminiStoryService.running) { geminiJobMenu(); return }
-        val settings=GeminiSettings(this)
+        val provider=StoryProvider.selected(this)
+        val settings=GeminiSettings(this,provider)
         if(!settings.hasKey()) { geminiSettings { flowPlanning() }; return }
         choiceMenu("เลือกแนวเรื่อง • สร้างบทในแอป",categories) { index ->
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
             val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); panel.addView(this) }
             panel.addView(TextView(this).apply { text="24 ซีน/EP • ซีนละ 8 วินาที = 3:12 • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้ • ใช้โมเดล ${settings.model()} • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ของคุณภายหลัง" })
-            AlertDialog.Builder(this).setTitle("สร้างบทด้วย Gemini")
+            AlertDialog.Builder(this).setTitle("สร้างบทด้วย ${provider.label}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
                     runCatching {
                         val folder=File(base,UUID.randomUUID().toString()).apply { mkdirs() }
@@ -1350,7 +1358,7 @@ class StudioActivity : AppCompatActivity() {
                         }
                         val count=if(episodes.selectedItemPosition==0) 0 else episodes.selectedItemPosition+2
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),JSONObject().put("category",categories[index]).put("channel",originalChannel)
-                            .put("premise",premise.text.toString()).put("episodes",count).put("model",settings.model()))
+                            .put("premise",premise.text.toString()).put("episodes",count).put("provider",provider.id).put("model",settings.model()))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
                 }.setNeutralButton("ใช้แชร์ไฟล์แทน") { _,_ -> flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()

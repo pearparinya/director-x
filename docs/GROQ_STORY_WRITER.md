@@ -1,0 +1,11 @@
+# Groq text writer — DIRECTOR X 2.10
+
+Settings → Groq / Gemini API → Groq → create personal key at https://console.groq.com/keys → save and select. Default: openai/gpt-oss-120b; optional openai/gpt-oss-20b. Both support strict JSON Schema according to https://console.groq.com/docs/structured-outputs (checked 2026-10-21).
+
+Keys stay encrypted in separate Android Keystore-backed, no-backup settings. Existing Gemini keys remain untouched. No keys enter source, prompts, project exports, logs or URLs. Only text is sent, never MASTER images. Free tier quotas and account billing apply; saving does not verify a live API request. No automatic provider/model fallback or billing upgrade.
+
+New stories use the selected provider. To resume an unfinished Gemini story with Groq, save/select Groq, open the existing story, and press Resume. The app updates its provider/model and reuses the existing outline and validated checkpoints. Groq creates two scenes per request; old six-scene files are read unchanged. Mixed checkpoint lengths remain resumable across providers. Progress is based on scenes, not request count. All 24 scenes/EP, audio rules, identity checks and exports remain in effect.
+
+Fixed endpoint: https://api.groq.com/openai/v1/chat/completions. Bearer authorization, TLS, no redirects, bounded response, 120-second read timeout, max_completion_tokens 3072 for scene batches / 4096 for outlines, low reasoning, strict schema with recursive additionalProperties=false. Only complete stop responses are parsed. Quota/transport/safety errors stop without discarding checkpoints; one semantic correction is permitted. Context uses the whole story outline in compact form plus recent actual scene state. No live keys or real network generation are used in CI; Thai story quality and account quota must be evaluated on-device.
+
+Groq requests are paced at least 65 seconds apart within a writing session to reduce free-tier TPM collisions. Waiting is visible and cancellable; it does not retry failed calls, guarantee quota availability or change billing.
