@@ -11,7 +11,6 @@ internal object FlowVisualDirection {
         else -> error("Unsupported cover aspect ratio")
     }
     fun cover(ratio: String, references: String, channel: String, story: String, ep: Int, episode: String, tagline: String, incident: String): String = """
-แนบภาพ MASTER เฉพาะตัวละครในรายการนี้:
 $references
 
 POSTER PROMPT

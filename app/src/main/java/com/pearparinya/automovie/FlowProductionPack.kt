@@ -20,14 +20,14 @@ DIRECTOR FLOW STUDIO — สร้างไฟล์คำสั่ง ไม่
 ช่อง: $channel
 หมวด: $category
 สร้างเรื่องใหม่จนจบ เลือกจำนวน EP ตามโครงเรื่อง เช่น 4–7 ตอนหรือมากกว่าหากจำเป็น พร้อมเหตุผล ไม่ล็อกไว้ที่ 4 ตอน ทุก EP ยาวอย่างน้อย 180 วินาทีจากผลรวมเวลาซีนจริง ไม่รวมปก ใช้ซีนละ 8 วินาที ค่าเริ่มต้น 24 ซีน = 192 วินาที ห้ามยืดเวลาด้วยซีนซ้ำหรือข้อความแทนเนื้อหา
-ใช้ภาพ MASTER ที่แนบตรงรายคน กวิน=GAWIN_MASTER / รินรดา=RINLADA_MASTER / เมย์=MIND_MASTER เท่านั้น ภาพล่าสุดมีลำดับเหนือคำบรรยาย เก็บข้อมูลตัวละครใน CHARACTER_MEMORY.json ไม่อ้างว่า Flow จำภาพจากแชตอื่นได้
+แนบภาพตัวละคร: กวิน + รินรดา + เมย์ จับคู่ CHARACTER_GAWIN=กวิน / CHARACTER_RINLADA=รินรดา / CHARACTER_MIND=เมย์ ใช้เป็นรหัสอ้างอิงในพรอมป์ ไม่ใช่ชื่อไฟล์ ส่วน master ใน story.json เป็นข้อมูลภายในสำหรับแอป ภาพล่าสุดมีลำดับเหนือคำบรรยาย เก็บข้อมูลตัวละครใน CHARACTER_MEMORY.json ไม่อ้างว่า Flow จำภาพจากแชตอื่นได้
 ${dna.values.joinToString("\n")}
 ${FlowVisualDirection.identity}
 ${FlowVisualDirection.color}
 คงใบหน้า ผม สีผิว สัดส่วนและเสน่ห์ความเซ็กซี่ตามภาพอ้างอิงของตัวละครผู้ใหญ่ ไม่เพิ่มหรือลดสัดส่วนเอง เปลี่ยนชุดจาก MASTER ให้เหมาะกับเวลาและกิจกรรม แต่เหตุการณ์ต่อเนื่องใช้ชุดเดิม สร้าง wardrobe ledger ก่อนเขียนซีน
-IMAGE PROMPT ภาษาอังกฤษเต็มในแต่ละซีน: เฉพาะตัวละครที่อยู่จริง ชื่อและชื่อไฟล์ MASTER ตรงคน DNA เต็ม ชุด สี เนื้อผ้า ท่าทาง สถานะต้นคลิป สถานที่ พร็อพ แสง ระยะภาพ และตำแหน่งตัวละคร ห้ามอ้าง 'เหมือนซีนก่อน' แทนรายละเอียด
+IMAGE PROMPT ภาษาอังกฤษเต็มในแต่ละซีน: ขึ้นต้นด้วยรายชื่อคนที่ต้องแนบและรหัส CHARACTER_GAWIN / CHARACTER_RINLADA / CHARACTER_MIND ไม่อ้างชื่อไฟล์หรือนามสกุลในพรอมป์ เฉพาะตัวละครที่อยู่จริง DNA เต็ม ชุด สี เนื้อผ้า ท่าทาง สถานะต้นคลิป สถานที่ พร็อพ แสง ระยะภาพ และตำแหน่งตัวละคร ห้ามอ้าง 'เหมือนซีนก่อน' แทนรายละเอียด
 VIDEO PROMPT ภาษาอังกฤษ บทพูดไทย: 8 seconds, vertical 9:16, locked-off static camera, one continuous action; supplied scene image as first frame. ระบุผู้พูดหนึ่งคนด้วยชื่อ ผม ชุด และตำแหน่ง คนอื่นปิดปาก ห้ามพูดทับ เสียงประจำตัวคงที่ ไม่รวมเสียงบรรยายกับบทพูดในซีนเดียว ระบุเป้าหมายสายตา สถานะเริ่มและจบคลิป บทพูดต้องพูดจบใน 8 วินาที ไม่มีข้อความหรือลายน้ำ ต้องตรวจตำแหน่งกับภาพจริงก่อนใช้วิดีโอ
-ส่ง ZIP จริงหนึ่งไฟล์: story.json, CHARACTER_MEMORY.json, WARDROBE_LEDGER.txt, CONTINUITY_LEDGER.txt, EP/EP01_FLOW.txt แยกตามจำนวนตอนจริง, COVERS/EP01_COVER_9x16.txt และ COVERS/EP01_COVER_16x9.txt แยกทุก EP ไม่ฝังคำสั่งปกซ้ำใน EP ไม่สร้างภาพใน ระบบวางบท
+ส่ง ZIP จริงหนึ่งไฟล์: START.txt รวมวิธีใช้และข้อมูลตัวละคร, EP01.txt แยกตามจำนวนตอนจริง แต่ละไฟล์รวมคำสั่งปก 9:16 / 16:9 และทุกซีน, BACKUP/story.json รวมข้อมูลความจำและความต่อเนื่อง ไม่สร้างภาพในระบบวางบท
 คำสั่งปกต้องใช้มาตรฐานต่อไปนี้เต็มทุกใบ:
 ${FlowVisualDirection.poster}
 ${FlowVisualDirection.layout("9x16")}
@@ -83,60 +83,43 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
             names.forEach { (id,name) ->
                 val file=masters.getValue(id)
                 val signature=ByteArray(12).also { bytes -> file.inputStream().use { it.read(bytes) } }
-                val ext=when { signature.size>=2 && signature[0]==0xff.toByte() && signature[1]==0xd8.toByte() -> "jpg"; signature.size>=4 && String(signature.copyOfRange(0,4))=="RIFF" -> "webp"; else -> "png" }
+                val ext=when { signature[0]==0xff.toByte() && signature[1]==0xd8.toByte() -> "jpg"; String(signature.copyOfRange(0,4))=="RIFF" -> "webp"; else -> "png" }
                 val path="MASTERS/${id.uppercase()}_MASTER.$ext"
                 zip.putNextEntry(ZipEntry("DIRECTOR_FLOW/$path")); file.inputStream().use { it.copyTo(zip) }; zip.closeEntry()
-                refs.put(id,JSONObject().put("name",name).put("file",path).put("dna",dna[id]).put("sha256",EpisodeMedia.digest(file)).put("profile",memory.optJSONObject(id) ?: JSONObject()))
+                refs.put(id,JSONObject().put("name",name).put("reference_label",FlowReferencePrompt.alias(id)).put("file",path).put("dna",dna[id]).put("sha256",EpisodeMedia.digest(file)).put("profile",memory.optJSONObject(id) ?: JSONObject()))
             }
-            put("CHARACTER_MEMORY.json",refs.toString(2))
-            put("MASTER_COMMAND.txt",masterCommand(category,channel))
-            put("README.txt","DIRECTOR FLOW STUDIO\n${if(plan==null) "ชุดแม่บทเริ่มงาน ยังไม่มีบท EP" else "ชุดคำสั่งจากบท ตรวจข้อความแล้ว ยังไม่ได้สร้างภาพหรือวิดีโอ"}\n1. แนบ MASTER กับ MASTER_COMMAND เพื่อให้ AI วางบทและเขียนพรอมป์ ไม่สร้างภาพใน ระบบวางบท\n2. นำเข้า story.json ในแอป ตรวจเวลาตอนละอย่างน้อย 3 นาที แล้วส่งออก ZIP คำสั่ง\n3. ใน Flow แนบ MASTER เฉพาะคนในซีน สร้างภาพจาก IMAGE PROMPT ตรวจภาพ แล้วใช้เป็นเฟรมแรกกับ VIDEO PROMPT\n4. ตรวจผู้พูด ชุดและตำแหน่งกับภาพจริงทุกครั้ง ไม่ถือว่า Flow จำจากแชตอื่น\n5. นำเข้า MP4 และรวม EP ในแอปได้\n")
-            if(plan!=null) {
-                fun mappedPrompt(raw: String): String {
-                    var text=raw
-                    names.keys.forEach { id ->
-                        val filename=refs.getJSONObject(id).getString("file").substringAfterLast('/')
-                        text=text.replace(Regex("${id.uppercase()}_MASTER[.](png|jpg|jpeg|webp)",RegexOption.IGNORE_CASE),filename)
-                    }
-                    return text+"\n"+FlowVisualDirection.identity+"\n"+FlowVisualDirection.color
-                }
-                put("story.json",plan.toString(2))
-                val wardrobe=StringBuilder(); val continuity=StringBuilder(); val eps=plan.getJSONArray("episodes")
+            val allPeople=names.map { (id,name) -> JSONObject().put("name",name).put("outfit","เลือกชุดใหม่ตามบท").put("screen_position","ตามบท") }
+            val start=StringBuilder(FlowReferencePrompt.header(allPeople))
+            start.append("\nDIRECTOR FLOW • เริ่มใช้งาน\nเปิด EPxx.txt ที่ต้องการ แต่ละตอนรวมปก 2 สัดส่วนและทุกซีนไว้แล้ว เลือกคัดลอกหนึ่งบล็อกตั้งแต่บรรทัดแนบภาพจนจบบล็อก แนบเฉพาะภาพคนที่ระบุในบล็อกนั้น สร้างทีละปกหรือทีละซีน ไม่ส่งทั้งตอนไปให้ Flow สร้างครั้งเดียว\nรูปจริงอยู่ใน MASTERS ส่วนชื่ออ้างอิงในคำสั่งเป็นรหัส CHARACTER ไม่ขึ้นกับชื่อไฟล์หรือชื่ออัปโหลด\nตรวจภาพ ผู้พูด ชุดและตำแหน่งก่อนสร้างคลิป นำ MP4 กลับเข้าแอปเพื่อรวมตอน BACKUP/story.json ใช้นำกลับเข้าแอปและเก็บข้อมูลความจำ/ความต่อเนื่อง ไม่ต้องแนบไฟล์นี้ใน Flow\nยังไม่ได้สร้างหรือทดสอบภาพและวิดีโอจริง\n")
+            if(plan==null) start.append("\nชุดแม่บทเริ่มงาน ยังไม่มีบท EP\n").append(masterCommand(category,channel))
+            else {
+                val backup=JSONObject(plan.toString()).put("character_memory",refs)
+                put("BACKUP/story.json",backup.toString(2))
+                val eps=plan.getJSONArray("episodes")
                 for(i in 0 until eps.length()) {
                     val ep=eps.getJSONObject(i); val number=ep.getInt("ep"); val scenes=ep.getJSONArray("scenes")
-                    val text=StringBuilder("EP %02d • %s\n".format(number,ep.optString("title")))
+                    val coverPeople=linkedMapOf<String,JSONObject>()
                     var total=0
                     for(j in 0 until scenes.length()) {
-                        val s=scenes.getJSONObject(j); val key="EP%02d_SC%03d".format(number,s.getInt("scene")); total+=s.optInt("duration_seconds",8)
-                        val cast=s.getJSONArray("characters"); val refsForScene=(0 until cast.length()).joinToString("\n") { k ->
-                            val person=cast.getJSONObject(k); val id=StoryIdentity.keyFor(person.getString("name"))!!
-                            wardrobe.append("$key • ${person.getString("name")} • ${s.optString("story_day")} • ${s.optString("wardrobe_event")} • ${person.getString("outfit")}\n")
-                            "${person.getString("name")} → ${refs.getJSONObject(id).getString("file")}\n${dna[id]}\nOutfit: ${person.getString("outfit")}; planned position: ${person.getString("screen_position")}"
-                        }
-                        text.append("\n=== $key | 8 seconds | 9:16 ===\nREFERENCES (attach only these people):\n$refsForScene\nเหตุการณ์: ${s.getString("action")}\nผู้พูด: ${s.optString("speaker")}\nบทพูด: ${s.optString("dialogue")}\nเสียงบรรยาย: ${s.optString("narration")}\nIMAGE PROMPT (Flow):\nOnly the following adult characters appear; preserve their matched reference identities and original proportions. Replace reference clothes with the stated episode outfits.\n$refsForScene\n${mappedPrompt(s.getString("image_prompt"))}\nVIDEO PROMPT (Flow, after checking generated first frame):\nCharacter map (verify planned positions against the first frame):\n$refsForScene\n${mappedPrompt(s.getString("flow_prompt"))}\n")
-                        continuity.append("$key • START ${s.getString("start_state")} • END ${s.getString("end_state")}\n")
-                    }
-                    put("EP/EP%02d_FLOW.txt".format(number),"Duration: $total seconds\n$text")
-                    // A later character can be central to the episode even if absent from scene one.
-                    val coverPeople=linkedMapOf<String,JSONObject>()
-                    for(j in 0 until scenes.length()) {
-                        val cast=scenes.getJSONObject(j).getJSONArray("characters")
-                        for(c in 0 until cast.length()) {
-                            val person=cast.getJSONObject(c); val id=StoryIdentity.keyFor(person.getString("name"))!!
+                        val scene=scenes.getJSONObject(j); total+=scene.optInt("duration_seconds",8)
+                        FlowReferencePrompt.people(scene).forEach { person ->
+                            val id=StoryIdentity.keyFor(person.getString("name"))!!
                             if(id !in coverPeople) coverPeople[id]=person
                         }
                     }
-                    val coverRefs=coverPeople.entries.joinToString("\n") { (id,person) ->
-                        "${person.getString("name")} → ${refs.getJSONObject(id).getString("file")}\n${dna[id]}\nEpisode outfit: ${person.getString("outfit")}"
-                    }
+                    val text=StringBuilder(FlowReferencePrompt.header(coverPeople.values.toList()))
+                    text.append("\nEP %02d • %s\nDuration: %d seconds\nเลือกคัดลอกปกหรือซีนทีละบล็อก พร้อมรายการแนบภาพด้านบนของบล็อกนั้น\n".format(number,ep.optString("title"),total))
                     val cue=ep.optString("cover_incident").ifBlank { scenes.getJSONObject(0).getString("action") }
-                    for(ratio in listOf("9x16","16x9")) put("COVERS/EP%02d_COVER_%s.txt".format(number,ratio),
-                        FlowVisualDirection.cover(ratio,coverRefs,plan.optString("channel",channel),plan.getString("title"),number,
-                            ep.optString("title"),ep.optString("tagline").ifBlank { plan.optString("tagline") },cue))
+                    for(ratio in listOf("9x16","16x9")) {
+                        text.append("\n=== COVER $ratio • BEGIN ===\n").append(FlowVisualDirection.cover(ratio,FlowReferencePrompt.header(coverPeople.values.toList()),plan.optString("channel",channel),plan.getString("title"),number,
+                            ep.optString("title"),ep.optString("tagline").ifBlank { plan.optString("tagline") },FlowReferencePrompt.normalize(cue))).append("\n=== COVER $ratio • END ===\n")
+                    }
+                    for(j in 0 until scenes.length()) text.append("\n").append(FlowReferencePrompt.scene(scenes.getJSONObject(j),number)).append("=== END SCENE ===\n")
+                    put("EP%02d.txt".format(number),text.toString())
                 }
-                put("WARDROBE_LEDGER.txt",wardrobe.toString()); put("CONTINUITY_LEDGER.txt",continuity.toString())
-                put("DELIVERY_CHECK.txt","Text validation passed: ${eps.length()} EP, every episode >=180 seconds. MASTER hashes included. Images/video/Flow execution not tested.")
+                start.append("\nบทพร้อม ").append(eps.length()).append(" EP • ตรวจเวลาทุก EP อย่างน้อย 180 วินาทีแล้ว\n")
             }
+            put("START.txt",start.toString())
         }
     }
 }

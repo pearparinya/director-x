@@ -1393,15 +1393,7 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun flowTestSetup(ids: List<String>) {
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-        panel.addView(TextView(this).apply { text="ชื่อไฟล์ต้องตรงกับภาพที่แนบจริงใน Flow แก้ได้รายคน • ใช้เฉพาะ MASTER ต้นฉบับ ไม่ใช้ภาพผลทดสอบที่เพี้ยน" })
-        val filenameFields=ids.associateWith { id ->
-            panel.addView(TextView(this).apply { text="${FlowProductionPack.names.getValue(id)} • ชื่อไฟล์ใน Flow" })
-            EditText(this).apply {
-                setSingleLine(true)
-                setText(prefs.getString("flow_attachment_$id",FlowTestPrompt.attachmentDefaults.getValue(id)))
-                panel.addView(this)
-            }
-        }
+        panel.addView(TextView(this).apply { text="แนบภาพตัวละครที่เลือกตามรหัสอ้างอิงด้านบนคำสั่ง ไม่ต้องเปลี่ยนชื่อไฟล์หรือกรอกนามสกุล" })
         val activity=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ลำลอง / อยู่บ้าน","ประชุม / ทำงาน","ชุดนอน")) }
         panel.addView(activity)
         val location=EditText(this).apply { hint="สถานที่และเวลา"; setText("ห้องนั่งเล่นตอนบ่าย แสงธรรมชาติ"); panel.addView(this) }
@@ -1410,12 +1402,10 @@ class StudioActivity : AppCompatActivity() {
         AlertDialog.Builder(this).setTitle("ทดสอบสร้างวิดีโอ • ${ids.joinToString { FlowProductionPack.names.getValue(it) }}")
             .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างคำสั่ง") { _,_ ->
                 val files=ids.associateWith { id -> File(filesDir,"character_masters/$id.master") }
-                val names=filenameFields.mapValues { (_,field) -> field.text.toString().trim() }
                 runCatching {
                     require(files.values.all { it.isFile && it.length()>0 }) { "ขาดภาพ MASTER ของตัวละครที่เลือก" }
-                    FlowTestPrompt.build(ids,names,listOf("home","meeting","sleep")[activity.selectedItemPosition],location.text.toString(),action.text.toString(),outfit.text.toString()) }
+                    FlowTestPrompt.build(ids,listOf("home","meeting","sleep")[activity.selectedItemPosition],location.text.toString(),action.text.toString(),outfit.text.toString()) }
                     .onSuccess { code ->
-                        prefs.edit().apply { names.forEach { (id,name) -> putString("flow_attachment_$id",name) } }.apply()
                         showFlowCode("คำสั่งทดสอบสร้างวิดีโอ • แนบ MASTER ที่เลือก",code,"FLOW_VIDEO_TEST_${ids.joinToString("_")}.txt")
                     }
                     .onFailure { notice(it.message ?: "ตรวจข้อมูลทดสอบ") }
@@ -1423,8 +1413,8 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun flowSceneMenu(s: JSONObject) {
         choiceMenu(key(s),listOf("IMAGE PROMPT","VIDEO PROMPT","แก้บท / ชุด / สถานที่","นำเข้าภาพจาก Flow","นำเข้าคลิป MP4","ดูภาพ / เทียบ MASTER","ดูคลิป","เวอร์ชันไฟล์")) { i -> when(i) {
-            0 -> showFlowCode("IMAGE PROMPT",s.optString("image_prompt")+"\n"+FlowVisualDirection.identity+"\n"+FlowVisualDirection.color,"${key(s)}_IMAGE.txt")
-            1 -> showFlowCode("VIDEO PROMPT • ตรวจผู้พูดกับภาพจริงก่อนใช้",s.optString("flow_prompt")+"\n"+FlowVisualDirection.identity+"\n"+FlowVisualDirection.color,"${key(s)}_VIDEO.txt")
+            0 -> showFlowCode("IMAGE PROMPT",FlowReferencePrompt.scene(s,s.optInt("ep",1),"image"),"${key(s)}_IMAGE.txt")
+            1 -> showFlowCode("VIDEO PROMPT • ตรวจผู้พูดกับภาพจริงก่อนใช้",FlowReferencePrompt.scene(s,s.optInt("ep",1),"video"),"${key(s)}_VIDEO.txt")
             2 -> editScene(s)
             3 -> { mediaSlot=key(s); mediaKind="image"; mediaProject=project.name; sceneMediaPicker.launch(arrayOf("image/*")) }
             4 -> { mediaSlot=key(s); mediaKind="video"; mediaProject=project.name; sceneMediaPicker.launch(arrayOf("video/mp4")) }
@@ -1703,7 +1693,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
     }
     private fun copyFlowCommand(s: JSONObject) {
         if(!prefs.getBoolean("legacy_image_workflow",false)) {
-            copyCommand(s.optString("flow_prompt")); notice("คัดลอก VIDEO PROMPT แล้ว • ใช้ภาพที่สร้างใน Flow เป็นเฟรมแรก ตรวจผู้พูดและตำแหน่งในภาพจริงก่อนรัน"); return
+            copyCommand(FlowReferencePrompt.scene(s,s.optInt("ep",1),"video")); notice("คัดลอก VIDEO PROMPT แล้ว • ใช้ภาพที่สร้างใน Flow เป็นเฟรมแรก ตรวจผู้พูดและตำแหน่งในภาพจริงก่อนรัน"); return
         }
         if (!image(s).exists()) { notice("นำเข้าภาพฉากนี้ก่อน เพื่อจับคู่ผู้พูดกับคนในภาพจริง"); return }
         if (!flowMappingCurrent(s) || FlowScenePrompt.issues(flowSpec(s)).isNotEmpty()) mapFlowCharacters(s)
