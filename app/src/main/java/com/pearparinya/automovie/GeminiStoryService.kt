@@ -19,10 +19,11 @@ class GeminiStoryService : Service() {
         private const val ID=160
     }
     @Volatile private var cancelled=false
-    private var client: GeminiClient?=null
+    private var client: StoryTextClient?=null
     private var worker: Thread?=null
     private lateinit var folder: File
     private var lastPercent=0
+    private var provider=StoryProvider.GEMINI
     override fun onBind(intent: Intent?): IBinder?=null
     override fun onStartCommand(intent: Intent?,flags: Int,startId: Int): Int {
         if(intent?.action==CANCEL) { cancelled=true; client?.cancel(); return START_NOT_STICKY }
@@ -33,7 +34,7 @@ class GeminiStoryService : Service() {
         lastPercent=GeminiStoryEngine.checkpointPercent(folder)
         running=true; projectId=id; cancelled=false
         val manager=getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL,"เขียนบทด้วย Gemini",NotificationManager.IMPORTANCE_LOW))
+        manager.createNotificationChannel(NotificationChannel(CHANNEL,"เขียนบทด้วย AI",NotificationManager.IMPORTANCE_LOW))
         val notification=notification("กำลังเริ่มเขียนบท")
         if(Build.VERSION.SDK_INT>=29) startForeground(ID,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else startForeground(ID,notification)
         worker=Thread {
@@ -41,9 +42,11 @@ class GeminiStoryService : Service() {
                 java.io.FileOutputStream(File(folder,"run.lock").apply { parentFile!!.mkdirs() },true).channel.use { channel ->
                     val lock=channel.tryLock() ?: error("งานนี้กำลังทำงานอยู่")
                     try {
-                        val spec=GeminiStoryFiles.read(File(folder,"spec.json")); val settings=GeminiSettings(this)
-                        val key=settings.key(); require(key.isNotBlank()) { "ตั้งค่า Gemini API Key ก่อนเริ่ม" }
-                        client=GeminiClient(key,spec.getString("model")) { cancelled }
+                        val spec=GeminiStoryFiles.read(File(folder,"spec.json"))
+                        provider=StoryProvider.from(spec.optString("provider","gemini"))
+                        val settings=GeminiSettings(this,provider)
+                        val key=settings.key(); require(key.isNotBlank()) { "ตั้งค่า ${provider.label} API Key ก่อนเริ่ม" }
+                        client=if(provider==StoryProvider.GROQ) GroqClient(key,spec.getString("model")) { cancelled } else GeminiClient(key,spec.getString("model")) { cancelled }
                         status("running",0,"กำลังเขียนบท • ไม่ได้สร้างวิดีโอ")
                         val story=GeminiStoryEngine(folder,{ prompt,schema -> client!!.generate(prompt,schema) },{cancelled}) { percent,message -> status("running",percent,message) }.run(spec)
                         if(cancelled) throw CancellationException()
@@ -64,13 +67,13 @@ class GeminiStoryService : Service() {
         return START_NOT_STICKY
     }
     private fun safeError(e: Exception): String = when(e) {
-        is java.net.SocketTimeoutException -> "เชื่อมต่อ Gemini หมดเวลา งานที่เสร็จบันทึกไว้ กดทำต่อได้"
-        is java.io.IOException -> "เชื่อมต่อ Gemini ไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วกดทำต่อ"
+        is java.net.SocketTimeoutException -> "เชื่อมต่อ ${provider.label} หมดเวลา งานที่เสร็จบันทึกไว้ กดทำต่อได้"
+        is java.io.IOException -> "เชื่อมต่อ ${provider.label} ไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วกดทำต่อ"
         else -> (e.message ?: "เขียนบทไม่สำเร็จ").take(350)
     }
     private fun status(state: String,percent: Int,message: String) {
         lastPercent=if(state=="complete") 100 else maxOf(lastPercent,percent.coerceIn(0,99))
-        GeminiStoryFiles.write(File(folder,"status.json"),JSONObject().put("state",state).put("percent",lastPercent).put("message",message).put("updated",System.currentTimeMillis()))
+        GeminiStoryFiles.write(File(folder,"status.json"),JSONObject().put("provider",provider.id).put("state",state).put("percent",lastPercent).put("message",message).put("updated",System.currentTimeMillis()))
         getSystemService(NotificationManager::class.java).notify(ID,notification(message))
     }
     private fun notification(message: String): Notification {

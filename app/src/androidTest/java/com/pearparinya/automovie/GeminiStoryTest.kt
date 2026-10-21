@@ -18,7 +18,7 @@ class GeminiStoryTest {
     private fun batch(prompt: String): JSONObject {
         val match=Regex("Write exactly scenes ([0-9]+) to ([0-9]+) for EP ([0-9]+)").find(prompt)!!
         val start=match.groupValues[1].toInt(); val ep=match.groupValues[3].toInt()
-        return JSONObject().put("scenes",JSONArray().apply { repeat(6) { n ->
+        return JSONObject().put("scenes",JSONArray().apply { repeat(match.groupValues[2].toInt()-start+1) { n ->
             put(JSONObject().put("scene",start+n).put("duration_seconds",8)
                 .put("characters",JSONArray().put(JSONObject().put("name","เมย์").put("master","MIND_MASTER.png").put("outfit","เสื้อครีม กางเกงเบจ")
                     .put("visual_description","short auburn bob").put("screen_position","center")))
@@ -134,6 +134,28 @@ class GeminiStoryTest {
             val story=GeminiStoryEngine(folder,make).run(spec())
             assertEquals(72,story.getInt("scene_count")); assertTrue(FlowProductionPack.issues(story).isEmpty())
             assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_ -> error("cache only") }).run(spec()).toString())
+        } finally { folder.deleteRecursively() }
+    }
+    @Test fun groqResumesLegacySixSceneCheckpointsUsingTwoSceneRequests() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"groq-resume-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            var calls=0
+            assertTrue(runCatching { GeminiStoryEngine(folder,{ prompt,_ ->
+                calls++; if(calls==4) error("offline")
+                if(prompt.contains("Plan a complete story")) outline() else batch(prompt)
+            }).run(spec()) }.isFailure)
+            val saved=File(folder,"EP01_01.json").readBytes()
+            var resumed=0
+            val story=GeminiStoryEngine(folder,{ prompt,_ ->
+                resumed++; val range=Regex("Write exactly scenes ([0-9]+) to ([0-9]+)").find(prompt)!!
+                assertEquals(1,range.groupValues[2].toInt()-range.groupValues[1].toInt())
+                batch(prompt)
+            }).run(spec().put("provider","groq"))
+            assertEquals(30,resumed); assertEquals(72,story.getInt("scene_count"))
+            assertArrayEquals(saved,File(folder,"EP01_01.json").readBytes())
+            assertTrue(FlowProductionPack.issues(story).isEmpty())
+            assertEquals(99,GeminiStoryEngine.checkpointPercent(folder))
+            assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_ -> error("must use cache") }).run(spec().put("provider","groq")).toString())
         } finally { folder.deleteRecursively() }
     }
     @Test fun keyIsEncryptedOutsideBackupsAndCanBeDeleted() {

@@ -6,10 +6,10 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.CancellationException
 
-internal class GeminiClient(private val apiKey: String, private val model: String, private val cancelled: () -> Boolean) {
+internal class GeminiClient(private val apiKey: String, private val model: String, private val cancelled: () -> Boolean): StoryTextClient {
     @Volatile private var connection: HttpURLConnection?=null
-    fun cancel() { connection?.disconnect() }
-    fun generate(prompt: String,schema: JSONObject): JSONObject {
+    override fun cancel() { connection?.disconnect() }
+    override fun generate(prompt: String,schema: JSONObject): JSONObject {
         if(cancelled()) throw CancellationException()
         require(Regex("gemini-[a-zA-Z0-9.-]+").matches(model))
         val body=JSONObject().put("contents",JSONArray().put(JSONObject().put("role","user")
