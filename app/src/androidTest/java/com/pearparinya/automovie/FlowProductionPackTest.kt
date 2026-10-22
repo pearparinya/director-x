@@ -30,7 +30,9 @@ class FlowProductionPackTest {
                 fun text(view: View): String = (if(view is TextView) view.text.toString() else "") +
                     (if(view is ViewGroup) (0 until view.childCount).joinToString("\n") { text(view.getChildAt(it)) } else "")
                 val home=text(activity.window.decorView)
-                assertTrue(home.contains("FLOW STUDIO"))
+                assertTrue(home.contains("DIRECTOR X"))
+                assertFalse(home.contains("FLOW STUDIO"))
+                assertFalse(home.contains("พร้อมใช้ใน Flow"))
                 assertTrue(home.contains("ตอนละอย่างน้อย 3 นาที"))
                 assertTrue(home.contains("ส่งออก ZIP สำหรับ Flow"))
                 assertFalse(home.contains("ChatGPT"))
