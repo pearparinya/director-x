@@ -16,7 +16,7 @@ internal object FlowProductionPack {
         "mind" to "May: adult fictional woman, chin-length chestnut-auburn bob, softly rounded oval face, full cheeks and coral-pink lips. Match her own MASTER; preserve original overall proportions. Do not give her Rinrada's long hair or jewelry."
     )
     fun masterCommand(category: String, channel: String): String = """
-DIRECTOR FLOW STUDIO — สร้างไฟล์คำสั่ง ไม่สร้างภาพหรือวิดีโอใน ระบบวางบท
+DIRECTOR X — สร้างไฟล์คำสั่ง ไม่สร้างภาพหรือวิดีโอใน ระบบวางบท
 ช่อง: $channel
 หมวด: $category
 สร้างเรื่องใหม่จนจบ เลือกจำนวน EP ตามโครงเรื่อง เช่น 4–7 ตอนหรือมากกว่าหากจำเป็น พร้อมเหตุผล ไม่ล็อกไว้ที่ 4 ตอน ทุก EP ยาวอย่างน้อย 180 วินาทีจากผลรวมเวลาซีนจริง ไม่รวมปก ใช้ซีนละ 8 วินาที ค่าเริ่มต้น 24 ซีน = 192 วินาที ห้ามยืดเวลาด้วยซีนซ้ำหรือข้อความแทนเนื้อหา
@@ -90,7 +90,7 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
             }
             val allPeople=names.map { (id,name) -> JSONObject().put("name",name).put("outfit","เลือกชุดใหม่ตามบท").put("screen_position","ตามบท") }
             val start=StringBuilder(FlowReferencePrompt.header(allPeople))
-            start.append("\nDIRECTOR FLOW • เริ่มใช้งาน\nเปิด EPxx.txt ที่ต้องการ แต่ละตอนรวมปก 2 สัดส่วนและทุกซีนไว้แล้ว เลือกคัดลอกหนึ่งบล็อกตั้งแต่บรรทัดแนบภาพจนจบบล็อก แนบเฉพาะภาพคนที่ระบุในบล็อกนั้น สร้างทีละปกหรือทีละซีน ไม่ส่งทั้งตอนไปให้ Flow สร้างครั้งเดียว\nรูปจริงอยู่ใน MASTERS ส่วนชื่ออ้างอิงในคำสั่งเป็นรหัส CHARACTER ไม่ขึ้นกับชื่อไฟล์หรือชื่ออัปโหลด\nตรวจภาพ ผู้พูด ชุดและตำแหน่งก่อนสร้างคลิป นำ MP4 กลับเข้าแอปเพื่อรวมตอน BACKUP/story.json ใช้นำกลับเข้าแอปและเก็บข้อมูลความจำ/ความต่อเนื่อง ไม่ต้องแนบไฟล์นี้ใน Flow\nยังไม่ได้สร้างหรือทดสอบภาพและวิดีโอจริง\n")
+            start.append("\nDIRECTOR X • เริ่มใช้งาน\nเปิด EPxx.txt ที่ต้องการ แต่ละตอนรวมปก 2 สัดส่วนและทุกซีนไว้แล้ว เลือกคัดลอกหนึ่งบล็อกตั้งแต่บรรทัดแนบภาพจนจบบล็อก แนบเฉพาะภาพคนที่ระบุในบล็อกนั้น สร้างทีละปกหรือทีละซีน ไม่ส่งทั้งตอนไปให้ Flow สร้างครั้งเดียว\nรูปจริงอยู่ใน MASTERS ส่วนชื่ออ้างอิงในคำสั่งเป็นรหัส CHARACTER ไม่ขึ้นกับชื่อไฟล์หรือชื่ออัปโหลด\nตรวจภาพ ผู้พูด ชุดและตำแหน่งก่อนสร้างคลิป นำ MP4 กลับเข้าแอปเพื่อรวมตอน BACKUP/story.json ใช้นำกลับเข้าแอปและเก็บข้อมูลความจำ/ความต่อเนื่อง ไม่ต้องแนบไฟล์นี้ใน Flow\nยังไม่ได้สร้างหรือทดสอบภาพและวิดีโอจริง\n")
             if(plan==null) start.append("\nชุดแม่บทเริ่มงาน ยังไม่มีบท EP\n").append(masterCommand(category,channel))
             else {
                 val backup=JSONObject(plan.toString()).put("character_memory",refs)
