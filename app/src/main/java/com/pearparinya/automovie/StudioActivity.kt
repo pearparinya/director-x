@@ -506,7 +506,7 @@ class StudioActivity : AppCompatActivity() {
         val host = LinearLayout(this).apply { orientation = 1; setBackgroundColor(navy) }
         host.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         host.addView(TextView(this).apply {
-            text = "Flow • Veo 3.1 Lite • ${plan?.optInt("duration_seconds",8) ?: 8} วินาที • ${plan?.optString("aspect_ratio","9:16") ?: "9:16"}\nพัฒนาโดย : นายปริญญา จันทร์จักษุ"
+            text = "Veo 3.1 Lite • ${plan?.optInt("duration_seconds",8) ?: 8} วินาที • ${plan?.optString("aspect_ratio","9:16") ?: "9:16"}\nพัฒนาโดย : นายปริญญา จันทร์จักษุ"
             textSize = 11f; gravity = Gravity.CENTER; setTextColor(muted)
             setPadding(dp(10),dp(6),dp(10),dp(6))
             background = backdrop(navy,navy)
@@ -555,7 +555,6 @@ class StudioActivity : AppCompatActivity() {
         }
         brandLine("DIRECTOR X ${packageManager.getPackageInfo(packageName, 0).versionName}", 20, 14, gold, true, 1)
         brandLine("ผู้กำกับอัจฉริยะ", 16, 12, ice, true, 0)
-        brandLine("พร้อมใช้ใน Flow", 12, 10, muted, false, 1)
         header.addView(heading)
         root.addView(header)
         
@@ -1220,7 +1219,6 @@ class StudioActivity : AppCompatActivity() {
         return dialog
     }
     private fun flowHome() {
-        label("FLOW STUDIO • งานผลิตจริง",22,true)
         label("ตอนละอย่างน้อย 3 นาที • 24 ซีน × 8 วินาที = 3:12 • จำนวนตอนตามพล็อต",13)
         val current=plan
         val storyFile=File(project,"story.json")
@@ -1268,7 +1266,7 @@ class StudioActivity : AppCompatActivity() {
         splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
     }
     private fun flowSettings() {
-        choiceMenu("ตั้งค่า Flow Studio",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","Groq / Gemini API • ตั้งค่าการเขียนบท")) { i -> when(i) {
+        choiceMenu("ตั้งค่า DIRECTOR X",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","Groq / Gemini API • ตั้งค่าการเขียนบท")) { i -> when(i) {
             0 -> updater.check()
             1 -> { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
             2 -> if(plan==null) notice("ยังไม่มีเรื่องให้สำรอง") else { backupMode=true; zipPicker.launch("DIRECTOR_FLOW_BACKUP.zip") }
