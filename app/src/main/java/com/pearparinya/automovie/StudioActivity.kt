@@ -1253,7 +1253,7 @@ class StudioActivity : AppCompatActivity() {
             statusText=if(current!=null) "นำเข้าบทแล้ว • เพิ่มไฟล์ได้" else "รอนำเข้า story.json / ZIP") { packagePicker.launch(arrayOf("*/*")) }
         stepCard(3,"📦","ส่งออก ZIP สำหรับ Flow",if(current==null) "ต้องนำเข้า story.json ก่อน • ชุดงานมีคำสั่ง EP ปก MASTER และความจำตัวละคร" else if(issues.isNotEmpty()) "บทต้องแก้ ${issues.size} จุด • แตะดูรายการก่อนส่งออก" else "คำสั่งแยก EP + ปก + MASTER ทั้ง 3 คน • ทุก EP อย่างน้อย 3 นาที",
             enabled=current!=null,completed=exported,currentStep=active,statusText=when { current==null -> "รอนำเข้าบท"; issues.isNotEmpty() -> "ต้องตรวจแก้บท"; exported -> "ส่งออกบทฉบับนี้แล้ว"; else -> "พร้อมส่งออกคำสั่ง" }) {
-            if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else { starterFlowPack=false; flowPackPicker.launch("DIRECTOR_FLOW_COMMANDS.zip") }
+            if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else { starterFlowPack=false; flowPackPicker.launch(StoryFiles.zipName(plan?.optString("title").orEmpty())) }
         }
         stepCard(4,"🎥","รับ MP4 / รวม EP / ดาวน์โหลด",if(current==null) "ต้องมีบทเพื่อจับคู่คลิปกับซีน • รับคลิปจาก Flow แล้วรวมและดาวน์โหลด MP4" else "รับคลิป $clipCount/$sceneCount • จัดลำดับ รวม EP พร้อมปก แล้วดู / ดาวน์โหลด / แชร์ MP4",
             enabled=current!=null,completed=finished,currentStep=active,statusText=when { current==null -> "รอบทสำหรับจับคู่คลิป"; finished -> "รวม EP ครบแล้ว"; clipCount<sceneCount -> "รับคลิป / ทำต่อได้"; else -> "คลิปครบ • พร้อมรวม EP" }) {
@@ -1269,7 +1269,7 @@ class StudioActivity : AppCompatActivity() {
         choiceMenu("ตั้งค่า DIRECTOR X",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","Groq / Gemini API • ตั้งค่าการเขียนบท")) { i -> when(i) {
             0 -> updater.check()
             1 -> { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
-            2 -> if(plan==null) notice("ยังไม่มีเรื่องให้สำรอง") else { backupMode=true; zipPicker.launch("DIRECTOR_FLOW_BACKUP.zip") }
+            2 -> if(plan==null) notice("ยังไม่มีเรื่องให้สำรอง") else { backupMode=true; zipPicker.launch(StoryFiles.zipName(plan!!.optString("title")+"_สำรอง")) }
             3 -> restorePicker.launch(arrayOf("application/zip"))
             4 -> AlertDialog.Builder(this).setTitle("เริ่มเรื่องใหม่")
                 .setMessage("เรื่องปัจจุบันยังอยู่ในรายการเรื่องที่บันทึก")
@@ -1668,7 +1668,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             val ep = episodes.getJSONObject(index).getInt("ep")
             val scenes = rows(p).filter { it.getInt("ep") == ep }
             choiceMenu("EP $ep • เลือกฉาก",scenes.map { "${key(it)} • ${if (image(it).exists()) "มีภาพ" else "ขาดภาพ"} • ${if (video(it).exists()) "มีวิดีโอ" else "รอวิดีโอ"}" } + "📦 ส่งออก ZIP คำสั่งทั้งเรื่อง") { i ->
-                if (i == scenes.size) { val issues=FlowProductionPack.issues(p); if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else { starterFlowPack=false; flowPackPicker.launch("DIRECTOR_FLOW_COMMANDS.zip") } }
+                if (i == scenes.size) { val issues=FlowProductionPack.issues(p); if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else { starterFlowPack=false; flowPackPicker.launch(StoryFiles.zipName(plan?.optString("title").orEmpty())) } }
                 else sceneMenu(scenes[i])
             }
         }
