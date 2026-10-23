@@ -36,6 +36,9 @@ class SceneFrameReviewTest {
             }
             reopened.getJSONArray("characters").getJSONObject(0).put("outfit","navy")
             assertFalse(SceneFrameReview.current(reopened,frame,listOf(master)))
+            SceneFrameReview.approve(scene,frame,listOf(master),"resolved cream")
+            assertTrue(SceneFrameReview.current(scene,frame,listOf(master),"resolved cream"))
+            assertFalse(SceneFrameReview.current(scene,frame,listOf(master),"resolved navy"))
             master.delete()
             assertFalse(SceneFrameReview.current(scene,frame,listOf(master)))
             assertTrue(runCatching { SceneFrameReview.approve(scene,frame,listOf(master)) }.isFailure)

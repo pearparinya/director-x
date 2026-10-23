@@ -1251,7 +1251,7 @@ class StudioActivity : AppCompatActivity() {
             statusText=if(prepared) "เตรียมคำสั่ง / มีบทแล้ว" else "พร้อมเริ่มวางบท") { flowPlanning() }
         stepCard(2,"📥","นำเข้าบท / ZIP","นำเข้า story.json หรือ ZIP บท • ไม่ต้องรอภาพฉาก • เพิ่มไฟล์ภาพและคลิปภายหลังได้",completed=current!=null,currentStep=active,
             statusText=if(current!=null) "นำเข้าบทแล้ว • เพิ่มไฟล์ได้" else "รอนำเข้า story.json / ZIP") { packagePicker.launch(arrayOf("*/*")) }
-        stepCard(3,"📦","ส่งออก ZIP สำหรับ Flow",if(current==null) "ต้องนำเข้า story.json ก่อน • ชุดงานมีคำสั่ง EP ปก MASTER และความจำตัวละคร" else if(issues.isNotEmpty()) "บทต้องแก้ ${issues.size} จุด • แตะดูรายการก่อนส่งออก" else "คำสั่งแยก EP + ปก + MASTER ทั้ง 3 คน • ทุก EP อย่างน้อย 3 นาที",
+        stepCard(3,"📦","ส่งออก ZIP สำหรับ Flow",if(current==null) "ต้องนำเข้า story.json ก่อน • ชุดงานมีคำสั่ง EP ปก MASTER และความจำตัวละคร" else if(issues.isNotEmpty()) "บทต้องแก้ ${issues.size} จุด • แตะดูรายการก่อนส่งออก" else "สร้างภาพจาก MASTER → ตรวจยืนยันภาพ → สร้างคลิปจากภาพนั้น • คำสั่งแยก EP และปก",
             enabled=current!=null,completed=exported,currentStep=active,statusText=when { current==null -> "รอนำเข้าบท"; issues.isNotEmpty() -> "ต้องตรวจแก้บท"; exported -> "ส่งออกบทฉบับนี้แล้ว"; else -> "พร้อมส่งออกคำสั่ง" }) {
             if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else { starterFlowPack=false; flowPackPicker.launch(StoryFiles.zipName(plan?.optString("title").orEmpty())) }
         }
@@ -1686,10 +1686,10 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
     private fun flowMappingCurrent(s: JSONObject): Boolean = image(s).exists() &&
         s.optLong("flow_image_revision",-1L) == image(s).lastModified()
     private fun flowCommand(s: JSONObject): String {
-        if (!flowMappingCurrent(s)) return "ยังไม่พร้อมส่ง Flow • เปิดภาพ ${key(s)} และยืนยันลักษณะ/ตำแหน่งผู้พูดในเมนูกำหนดตัวละครก่อน ไม่เดาตำแหน่งจากข้อความบท"
+        if (!sceneFrameApproved(s) || FlowScenePrompt.issues(flowSpec(s)).isNotEmpty()) return "ยังไม่พร้อมส่ง Flow • เปิดภาพ ${key(s)} และยืนยันลักษณะ/ตำแหน่งผู้พูดในเมนูกำหนดตัวละครก่อน ไม่เดาตำแหน่งจากข้อความบท"
         return FlowScenePrompt.build(flowSpec(s))
     }
-    private fun sceneFrameApproved(s: JSONObject): Boolean = SceneFrameReview.current(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) })
+    private fun sceneFrameApproved(s: JSONObject): Boolean = SceneFrameReview.current(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) },flowSpec(s).toString())
     private fun reviewedVideoCommand(s: JSONObject, copy: Boolean=false) {
         if(!image(s).isFile) { notice("สร้างภาพฉากใน Flow แล้วนำเข้าภาพก่อน จากนั้นเทียบ MASTER และยืนยันภาพ"); return }
         if(!sceneFrameApproved(s) || FlowScenePrompt.issues(flowSpec(s)).isNotEmpty()) { compareScene(s); return }
@@ -1725,7 +1725,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             val issues=FlowScenePrompt.issues(flowSpec(candidate))
             if (issues.isNotEmpty()) notice(issues.joinToString("\n")) else {
                 s.put("characters",people).put("speaker",candidate.optString("speaker")).put("flow_image_revision",image(s).lastModified())
-                val approved=runCatching { SceneFrameReview.approve(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) }) }
+                val approved=runCatching { SceneFrameReview.approve(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) },flowSpec(s).toString()) }
                 if(approved.isFailure) { notice(approved.exceptionOrNull()?.message ?: "ยืนยันภาพไม่ได้"); return@setOnClickListener }
                 saveStory(); dialog.dismiss(); reviewedVideoCommand(s)
             }

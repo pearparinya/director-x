@@ -13,19 +13,19 @@ internal object SceneFrameReview {
         is JSONArray -> (0 until value.length()).joinToString(prefix="[",postfix="]") { canonical(value.opt(it)) }
         else -> JSONObject.valueToString(value)
     }
-    fun fingerprint(scene: JSONObject, image: File, masters: List<File>): String? {
+    fun fingerprint(scene: JSONObject, image: File, masters: List<File>, resolvedFacts: String=""): String? {
         if(!image.isFile || image.length()==0L || masters.isEmpty() || masters.any { !it.isFile || it.length()==0L }) return null
         return runCatching {
             val facts=JSONObject(); fields.forEach { facts.put(it,scene.opt(it) ?: JSONObject.NULL) }
-            val input=canonical(facts)+"|"+EpisodeMedia.digest(image)+"|"+masters.joinToString("|") { EpisodeMedia.digest(it) }
+            val input=canonical(facts)+"|"+resolvedFacts+"|"+EpisodeMedia.digest(image)+"|"+masters.joinToString("|") { EpisodeMedia.digest(it) }
             MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
         }.getOrNull()
     }
-    fun current(scene: JSONObject, image: File, masters: List<File>): Boolean {
-        val actual=fingerprint(scene,image,masters) ?: return false
+    fun current(scene: JSONObject, image: File, masters: List<File>, resolvedFacts: String=""): Boolean {
+        val actual=fingerprint(scene,image,masters,resolvedFacts) ?: return false
         return scene.optString("approved_frame_sha256")==actual
     }
-    fun approve(scene: JSONObject,image: File,masters: List<File>) {
-        scene.put("approved_frame_sha256",requireNotNull(fingerprint(scene,image,masters)) { "ขาดภาพฉากหรือ MASTER" })
+    fun approve(scene: JSONObject,image: File,masters: List<File>, resolvedFacts: String="") {
+        scene.put("approved_frame_sha256",requireNotNull(fingerprint(scene,image,masters,resolvedFacts)) { "ขาดภาพฉากหรือ MASTER" })
     }
 }
