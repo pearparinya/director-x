@@ -160,6 +160,8 @@ class FlowProductionPackTest {
             assertFalse(Regex("(?i)[.](png|jpg|jpeg|webp)").containsMatchIn(ep))
             val scene=FlowReferencePrompt.scene(story.getJSONArray("episodes").getJSONObject(6).getJSONArray("scenes").getJSONObject(1),7,"video")
             assertTrue(scene.indexOf(FlowVisualDirection.referencePriority)>scene.indexOf("VIDEO PROMPT"))
+            assertTrue(scene.contains("START FRAME"))
+            assertTrue(scene.contains("แม่แบบหลังตรวจภาพเท่านั้น"))
             assertTrue(scene.trimEnd().endsWith(FlowVisualDirection.referenceReview))
             assertTrue(ep.contains(FlowVisualDirection.referencePriority))
             assertTrue(scene.startsWith("แนบภาพตัวละคร: เมย์ + รินรดา"))
