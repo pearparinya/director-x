@@ -11,7 +11,7 @@ internal object SceneFrameReview {
     private fun canonical(value: Any?): String = when(value) {
         is JSONObject -> value.keys().asSequence().toList().sorted().joinToString(prefix="{",postfix="}") { JSONObject.quote(it)+":"+canonical(value.opt(it)) }
         is JSONArray -> (0 until value.length()).joinToString(prefix="[",postfix="]") { canonical(value.opt(it)) }
-        else -> JSONObject.valueToString(value)
+        else -> JSONArray().put(value).toString()
     }
     fun fingerprint(scene: JSONObject, image: File, masters: List<File>, resolvedFacts: String=""): String? {
         if(!image.isFile || image.length()==0L || masters.isEmpty() || masters.any { !it.isFile || it.length()==0L }) return null
