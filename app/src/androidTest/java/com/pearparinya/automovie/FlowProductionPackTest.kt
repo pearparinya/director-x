@@ -100,6 +100,33 @@ class FlowProductionPackTest {
         val migrated=FlowReferencePrompt.normalize(old)
         assertFalse(migrated.contains("MASTER")); assertTrue(migrated.contains("CHARACTER_MIND"))
     }
+    @Test fun registeredSupportingCharactersHaveOwnReferencesAndCannotBorrowALeadIdentity() {
+        val extra=JSONObject().put("name","หมอณัฐ").put("master","SUPPORT_AB12CD34_MASTER.png").put("visual_description","adult fictional man, short gray hair")
+        val story=plan(1,23).put("supporting_characters",JSONArray().put(extra))
+        val rows=story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes")
+        for(i in 0 until rows.length()) rows.getJSONObject(i).getJSONArray("characters").put(JSONObject(extra.toString()).put("outfit","white medical coat").put("screen_position","right"))
+        assertTrue(FlowProductionPack.issues(story).isEmpty())
+        val command=FlowReferencePrompt.scene(rows.getJSONObject(0),1,"image")
+        assertTrue(command.startsWith("แนบภาพตัวละคร: เมย์ + หมอณัฐ"))
+        assertTrue(command.contains("CHARACTER_SUPPORT_AB12CD34")); assertTrue(command.contains("white medical coat"))
+        assertFalse(command.contains("SUPPORT_AB12CD34_MASTER.png"))
+        val unknown=JSONObject(story.toString()).put("supporting_characters",JSONArray())
+        assertTrue(FlowProductionPack.issues(unknown).any { it.contains("MASTER ไม่ตรงคน") })
+        val borrowed=JSONObject(extra.toString()).put("master","GAWIN_MASTER.png")
+        assertFalse(FlowCast.matches(story,borrowed))
+        assertTrue(StoryFiles.isMaster("SUPPORT_AB12CD34_MASTER.jpg"))
+        val root=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,UUID.randomUUID().toString()).apply { mkdirs() }
+        try {
+            val masters=FlowCast.definitions(story).associate { p -> val id=FlowCast.id(p)!!; id to File(root,id).apply { writeBytes(byteArrayOf(0xff.toByte(),0xd8.toByte(),0xff.toByte(),0x01)) } }
+            val output=ByteArrayOutputStream(); FlowProductionPack.write(output,story,masters,JSONObject(),"หมวด","ช่อง")
+            val files=mutableMapOf<String,ByteArray>(); ZipInputStream(ByteArrayInputStream(output.toByteArray())).use { z -> while(true) { val e=z.nextEntry ?: break; files[e.name]=z.readBytes() } }
+            assertArrayEquals(masters.getValue("support_ab12cd34").readBytes(),files.getValue("DIRECTOR_FLOW/MASTERS/SUPPORT_AB12CD34_MASTER.jpg"))
+            val backup=JSONObject(String(files.getValue("DIRECTOR_FLOW/BACKUP/story.json"),Charsets.UTF_8))
+            assertEquals("หมอณัฐ",backup.getJSONArray("supporting_characters").getJSONObject(0).getString("name"))
+            val six=JSONArray(); repeat(6) { i -> val scene=JSONObject(rows.getJSONObject(i).toString()).put("scene",i+1); listOf("story_day","story_time","activity","wardrobe_event","continuity_group").forEach { scene.put(it,"DAY01_HOME") }; six.put(scene) }
+            GeminiStoryEngine.validateBatch(JSONObject().put("scenes",six),1,1,6,story.getJSONArray("supporting_characters"))
+        } finally { root.deleteRecursively() }
+    }
     private fun plan(count: Int, scenes: Int): JSONObject {
         val eps=JSONArray()
         repeat(count) { e ->
@@ -146,25 +173,32 @@ class FlowProductionPackTest {
             FlowProductionPack.write(output,story,masters,JSONObject().put("mind",JSONObject().put("face","custom face")),"หมวด","ช่อง")
             val files=mutableMapOf<String,ByteArray>()
             ZipInputStream(ByteArrayInputStream(output.toByteArray())).use { zip -> while(true) { val entry=zip.nextEntry ?: break; assertFalse(entry.name.contains("..")); assertNull(files.put(entry.name,zip.readBytes())) } }
-            assertEquals(7,files.keys.count { Regex("DIRECTOR_FLOW/EP[0-9]+[.]txt").matches(it) })
-            assertEquals(12,files.size)
+            assertEquals(7,files.keys.count { Regex("DIRECTOR_FLOW/EP[0-9]+_IMAGES[.]txt").matches(it) })
+            assertEquals(20,files.size)
             assertFalse(files.keys.any { it.contains("COVERS/") })
             val memory=JSONObject(String(files.getValue("DIRECTOR_FLOW/BACKUP/story.json"),Charsets.UTF_8)).getJSONObject("character_memory")
             masters.forEach { (id,file) -> assertArrayEquals(file.readBytes(),files.getValue("DIRECTOR_FLOW/"+memory.getJSONObject(id).getString("file"))) }
             assertEquals("custom face",memory.getJSONObject("mind").getJSONObject("profile").getString("face"))
-            val ep=String(files.getValue("DIRECTOR_FLOW/EP07.txt"),Charsets.UTF_8)
+            val ep=String(files.getValue("DIRECTOR_FLOW/EP07_IMAGES.txt"),Charsets.UTF_8)
             assertTrue(ep.contains("184 seconds")); assertTrue(ep.contains("EP07_SC023")); assertTrue(ep.contains("COVER 9x16")); assertTrue(ep.contains("COVER 16x9"))
             assertTrue(ep.contains("Rinrada:")); assertTrue(ep.contains("ชุดทำงานสีขาว"))
             assertTrue(ep.startsWith("แนบภาพตัวละคร")); assertTrue(ep.contains("one compact group"))
             assertTrue(ep.contains("No yellow/orange cast")); assertTrue(ep.contains("FINAL COLOR DIRECTION"))
             assertFalse(Regex("(?i)[.](png|jpg|jpeg|webp)").containsMatchIn(ep))
+            assertFalse(ep.contains("VIDEO PROMPT"))
+            val video=String(files.getValue("DIRECTOR_FLOW/EP07_VIDEOS_FLOW.txt"),Charsets.UTF_8)
+            assertTrue(video.contains("EP07_SC023")); assertTrue(video.contains("VIDEO PROMPT")); assertFalse(video.contains("IMAGE PROMPT"))
+            val cover=String(files.getValue("DIRECTOR_FLOW/COVER_STORY.txt"),Charsets.UTF_8)
+            assertTrue(cover.startsWith("แนบภาพตัวละคร: กวิน + รินรดา + เมย์"))
+            assertTrue(cover.contains("1080 x 1920")); assertTrue(cover.contains("1920 x 1080"))
+            assertFalse(cover.contains("EP.00")); assertTrue(cover.contains(story.getString("title")))
             val scene=FlowReferencePrompt.scene(story.getJSONArray("episodes").getJSONObject(6).getJSONArray("scenes").getJSONObject(1),7,"video")
             assertTrue(scene.indexOf(FlowVisualDirection.referencePriority)>scene.indexOf("VIDEO PROMPT"))
             assertTrue(scene.contains("START FRAME"))
             assertTrue(scene.contains("แม่แบบหลังตรวจภาพเท่านั้น"))
             assertTrue(scene.trimEnd().endsWith(FlowVisualDirection.referenceReview))
             assertTrue(ep.contains(FlowVisualDirection.referencePriority))
-            assertTrue(scene.startsWith("แนบภาพตัวละคร: เมย์ + รินรดา"))
+            assertTrue(scene.startsWith("แนบภาพฉาก: EP07_SC002 เป็นเฟรมเริ่มต้น • ตัวละคร: เมย์ + รินรดา"))
             assertTrue(scene.indexOf("CHARACTER_RINLADA")<scene.indexOf("VIDEO PROMPT"))
             assertFalse(scene.contains("CHARACTER_GAWIN"))
             assertTrue(files.containsKey("DIRECTOR_FLOW/START.txt"))

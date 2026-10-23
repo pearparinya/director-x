@@ -1,0 +1,9 @@
+# DIRECTOR X 2.16 — story cover, split commands and supporting cast
+
+Every production export uses the story title for its ZIP filename. Contents: START.txt, COVER_STORY.txt (overall story cover in both portrait and landscape, three lead references, no episode number), EPxx_IMAGES.txt (episode covers and image-only scene prompts), EPxx_VIDEOS_FLOW.txt (video-only conditional templates), original image references in MASTERS and BACKUP/story.json. Five episodes with no supporting cast produce 16 files. Existing downloaded ZIPs are not rewritten; export again without regenerating a completed script.
+
+Each image block starts with a short Thai list of people to attach. CHARACTER labels describe reference identities, not image filenames; no renaming is required. Scene outfits are explicit and must replace reference outfits, while continuous events retain the same wardrobe. Video templates identify the reviewed scene image as the start frame and show who should be in that frame. The ready-video gate from 2.15 remains in place.
+
+MASTER menu now offers the three leads, a supporting-cast registry for new stories, and cast of the current story. Each supporting adult needs a distinct name, actual image and user-entered visual/role description. Up to eight registered supports are copied into new projects and supplied to script generation. Unknown/unregistered supports and borrowed lead reference IDs fail validation. Imported original-mode story packages can include supporting_characters and their exact references. Editing an existing story is not automatic casting: existing completed scripts remain unchanged. Cast of the current story allows replacing a supporting person's image.
+
+Tests cover split image/video content, overall cover ratios and absence of a dummy EP number, exact reference bytes, distinct supporting identity and roster validation, batch validation and original workflow regression. No live Flow/ChatGPT image generation is certified.
