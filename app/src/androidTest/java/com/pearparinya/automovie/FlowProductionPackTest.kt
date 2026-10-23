@@ -123,7 +123,7 @@ class FlowProductionPackTest {
             assertArrayEquals(masters.getValue("support_ab12cd34").readBytes(),files.getValue("DIRECTOR_FLOW/MASTERS/SUPPORT_AB12CD34_MASTER.jpg"))
             val backup=JSONObject(String(files.getValue("DIRECTOR_FLOW/BACKUP/story.json"),Charsets.UTF_8))
             assertEquals("หมอณัฐ",backup.getJSONArray("supporting_characters").getJSONObject(0).getString("name"))
-            val six=JSONArray(); repeat(6) { i -> val scene=JSONObject(rows.getJSONObject(i).toString()).put("scene",i+1); listOf("story_day","story_time","activity","wardrobe_event","continuity_group").forEach { scene.put(it,"DAY01_HOME") }; six.put(scene) }
+            val six=JSONArray(); repeat(6) { i -> val scene=JSONObject(rows.getJSONObject(i).toString()).put("scene",i+1).put("speaker","").put("dialogue","").put("narration",""); listOf("story_day","story_time","activity","wardrobe_event","continuity_group").forEach { scene.put(it,"DAY01_HOME") }; six.put(scene) }
             GeminiStoryEngine.validateBatch(JSONObject().put("scenes",six),1,1,6,story.getJSONArray("supporting_characters"))
         } finally { root.deleteRecursively() }
     }
