@@ -1255,9 +1255,9 @@ class StudioActivity : AppCompatActivity() {
             enabled=current!=null,completed=exported,currentStep=active,statusText=when { current==null -> "รอนำเข้าบท"; issues.isNotEmpty() -> "ต้องตรวจแก้บท"; exported -> "ส่งออกบทฉบับนี้แล้ว"; else -> "พร้อมส่งออกคำสั่ง" }) {
             if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else { starterFlowPack=false; flowPackPicker.launch(StoryFiles.zipName(plan?.optString("title").orEmpty())) }
         }
-        stepCard(4,"🎥","รับ MP4 / รวม EP / ดาวน์โหลด",if(current==null) "ต้องมีบทเพื่อจับคู่คลิปกับซีน • รับคลิปจาก Flow แล้วรวมและดาวน์โหลด MP4" else "รับคลิป $clipCount/$sceneCount • จัดลำดับ รวม EP พร้อมปก แล้วดู / ดาวน์โหลด / แชร์ MP4",
+        stepCard(4,"🎥","รับ MP4 / รวม EP / ดาวน์โหลด",if(current==null) "ต้องมีบทเพื่อจับคู่คลิปกับซีน • รับคลิปจาก Flow แล้วรวมและดาวน์โหลด MP4" else "สร้างภาพฉาก → เทียบ MASTER / ยืนยัน → สร้างวิดีโอจากภาพนั้น → รับคลิป $clipCount/$sceneCount และรวม EP",
             enabled=current!=null,completed=finished,currentStep=active,statusText=when { current==null -> "รอบทสำหรับจับคู่คลิป"; finished -> "รวม EP ครบแล้ว"; clipCount<sceneCount -> "รับคลิป / ทำต่อได้"; else -> "คลิปครบ • พร้อมรวม EP" }) {
-            choiceMenu("งานวิดีโอและ EP",listOf("EP / ซีน • รับภาพและคลิป","รวม EP / ดาวน์โหลด MP4")) { if(it==0) episodesMenu() else moviesMenu() }
+            choiceMenu("งานวิดีโอและ EP",listOf("EP / ซีน • ตรวจภาพก่อนสร้างคลิป","รวม EP / ดาวน์โหลด MP4")) { if(it==0) episodesMenu() else moviesMenu() }
         }
         label("เครื่องมือเสริม",15,true)
         button("🧪 ทดสอบสร้างวิดีโอ • เลือกตัวละคร",false) { flowTestMenu() }
@@ -1410,9 +1410,9 @@ class StudioActivity : AppCompatActivity() {
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
     private fun flowSceneMenu(s: JSONObject) {
-        choiceMenu(key(s),listOf("IMAGE PROMPT","VIDEO PROMPT","แก้บท / ชุด / สถานที่","นำเข้าภาพจาก Flow","นำเข้าคลิป MP4","ดูภาพ / เทียบ MASTER","ดูคลิป","เวอร์ชันไฟล์")) { i -> when(i) {
+        choiceMenu("${key(s)} • ${if(sceneFrameApproved(s)) "ภาพผ่านแล้ว" else "รอตรวจภาพ"}",listOf("1. สร้างภาพฉากจาก MASTER","3. สร้างวิดีโอจากภาพที่ผ่าน","แก้บท / ชุด / สถานที่","นำเข้าภาพจาก Flow","นำเข้าคลิป MP4","2. เทียบ MASTER / ยืนยันภาพ","ดูคลิป","เวอร์ชันไฟล์")) { i -> when(i) {
             0 -> showFlowCode("IMAGE PROMPT",FlowReferencePrompt.scene(s,s.optInt("ep",1),"image"),"${key(s)}_IMAGE.txt")
-            1 -> showFlowCode("VIDEO PROMPT • ตรวจผู้พูดกับภาพจริงก่อนใช้",FlowReferencePrompt.scene(s,s.optInt("ep",1),"video"),"${key(s)}_VIDEO.txt")
+            1 -> reviewedVideoCommand(s)
             2 -> editScene(s)
             3 -> { mediaSlot=key(s); mediaKind="image"; mediaProject=project.name; sceneMediaPicker.launch(arrayOf("image/*")) }
             4 -> { mediaSlot=key(s); mediaKind="video"; mediaProject=project.name; sceneMediaPicker.launch(arrayOf("video/mp4")) }
@@ -1689,23 +1689,19 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         if (!flowMappingCurrent(s)) return "ยังไม่พร้อมส่ง Flow • เปิดภาพ ${key(s)} และยืนยันลักษณะ/ตำแหน่งผู้พูดในเมนูกำหนดตัวละครก่อน ไม่เดาตำแหน่งจากข้อความบท"
         return FlowScenePrompt.build(flowSpec(s))
     }
-    private fun copyFlowCommand(s: JSONObject) {
-        if(!prefs.getBoolean("legacy_image_workflow",false)) {
-            copyCommand(FlowReferencePrompt.scene(s,s.optInt("ep",1),"video")); notice("คัดลอก VIDEO PROMPT แล้ว • ใช้ภาพที่สร้างใน Flow เป็นเฟรมแรก ตรวจผู้พูดและตำแหน่งในภาพจริงก่อนรัน"); return
-        }
-        if (!image(s).exists()) { notice("นำเข้าภาพฉากนี้ก่อน เพื่อจับคู่ผู้พูดกับคนในภาพจริง"); return }
-        if (!flowMappingCurrent(s) || FlowScenePrompt.issues(flowSpec(s)).isNotEmpty()) mapFlowCharacters(s)
-        else copyCommand(flowCommand(s))
+    private fun sceneFrameApproved(s: JSONObject): Boolean = SceneFrameReview.current(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) })
+    private fun reviewedVideoCommand(s: JSONObject, copy: Boolean=false) {
+        if(!image(s).isFile) { notice("สร้างภาพฉากใน Flow แล้วนำเข้าภาพก่อน จากนั้นเทียบ MASTER และยืนยันภาพ"); return }
+        if(!sceneFrameApproved(s) || FlowScenePrompt.issues(flowSpec(s)).isNotEmpty()) { compareScene(s); return }
+        val code="แนบภาพฉากที่ยืนยันแล้วของ ${key(s)} เป็น START FRAME\nไม่ใช้ภาพ MASTER แทนเฟรมเริ่มต้น และไม่สร้างหน้าตา/ชุดใหม่\n"+
+            FlowScenePrompt.build(flowSpec(s))+"\n"+FlowVisualDirection.color+"\nPreserve the approved first-frame faces and body proportions throughout all frames. No body or face morphing.\n"+FlowVisualDirection.referenceReview
+        if(copy) copyCommand(code) else showFlowCode("วิดีโอจากภาพที่ยืนยันแล้ว",code,"${key(s)}_VIDEO.txt")
     }
+    private fun copyFlowCommand(s: JSONObject) { reviewedVideoCommand(s,true) }
     private fun mapFlowCharacters(s: JSONObject) {
         if (!image(s).exists()) { notice("นำเข้าภาพฉากนี้ก่อนกำหนดตัวละคร"); return }
         val cast = s.optJSONArray("characters") ?: JSONArray()
-        if (cast.length() == 0) {
-            val issues=FlowScenePrompt.issues(flowSpec(s))
-            if (issues.isEmpty()) { s.put("flow_image_revision",image(s).lastModified()); saveStory(); copyCommand(flowCommand(s)) }
-            else notice("บทฉากนี้ขาดรายการ characters กรุณาเพิ่มรายชื่อตัวละครใน story.json แล้วนำเข้าบทที่แก้ไข")
-            return
-        }
+        if (cast.length() == 0) { notice("บทฉากนี้ขาดรายการตัวละคร กรุณาแก้บทก่อนยืนยันภาพ"); return }
         val panel = LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
         panel.addView(TextView(this).apply { text="เทียบภาพจริง: ระบุทรงผม/ลักษณะเด่น และตำแหน่งของแต่ละคน ไม่เดาจากชื่อ หากบทพูดกับเสียงบรรยายมีพร้อมกันให้แก้บทแยกก่อน" })
         panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(image(s)))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(280)) })
@@ -1716,10 +1712,12 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             val position=EditText(this).apply { hint="ตำแหน่งจากภาพ เช่น ซ้าย / กลาง / ขวา"; setText(person.optString("screen_position")); panel.addView(this) }
             appearance to position
         }
+        val checks=listOf("ตรวจใบหน้า ผม และตัวตนตรง MASTER รายคนแล้ว","ตรวจรูปร่าง หน้าอก เอว สะโพก และแขนตามต้นฉบับแล้ว","ตรวจชุด สีภาพ มือ และอุปกรณ์แล้ว","ตรวจตำแหน่งและผู้พูดในภาพจริงแล้ว").map { label -> CheckBox(this).apply { text=label; panel.addView(this) } }
         val speaker=EditText(this).apply { hint="ผู้พูดหนึ่งคน (ชื่อในรายการ) หรือว่างเมื่อไม่มีบทพูด"; setText(s.optString("speaker")); panel.addView(this) }
-        val dialog=AlertDialog.Builder(this).setTitle("จับคู่ผู้พูดกับภาพ • ${key(s)}")
-            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันและคัดลอก",null).setNegativeButton("ยกเลิก",null).create()
+        val dialog=AlertDialog.Builder(this).setTitle("ยืนยันภาพฉาก • ${key(s)}")
+            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันภาพและเปิดคำสั่ง",null).setNegativeButton("ยกเลิก",null).create()
         dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            if(checks.any { !it.isChecked }) { notice("ตรวจภาพและทำเครื่องหมายให้ครบก่อนยืนยัน"); return@setOnClickListener }
             val candidate=JSONObject(s.toString())
             val people=candidate.getJSONArray("characters")
             descriptions.forEachIndexed { i, fields -> people.getJSONObject(i).put("visual_description",fields.first.text.toString().trim()).put("screen_position",fields.second.text.toString().trim()) }
@@ -1727,7 +1725,9 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             val issues=FlowScenePrompt.issues(flowSpec(candidate))
             if (issues.isNotEmpty()) notice(issues.joinToString("\n")) else {
                 s.put("characters",people).put("speaker",candidate.optString("speaker")).put("flow_image_revision",image(s).lastModified())
-                saveStory(); dialog.dismiss(); copyCommand(flowCommand(s))
+                val approved=runCatching { SceneFrameReview.approve(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) }) }
+                if(approved.isFailure) { notice(approved.exceptionOrNull()?.message ?: "ยืนยันภาพไม่ได้"); return@setOnClickListener }
+                saveStory(); dialog.dismiss(); reviewedVideoCommand(s)
             }
         } }
         dialog.show()
@@ -1816,7 +1816,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         }
         picture("ผลลัพธ์ • ${key(s)} • ${s.optString("user_review","รอตรวจ")}",image(s))
         panel.addView(TextView(this).apply { text = "ตรวจใบหน้า ผม รูปร่าง ชุด และมือเทียบ MASTER • ให้ผู้ใช้ประเมินจากภาพจริง\n${sceneCastDescription(s)}\n${s.optString("action")}\n${s.optString("dialogue")}" })
-        AlertDialog.Builder(this).setTitle("เปรียบเทียบต้นฉบับ").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ปิด",null).showDirector()
+        AlertDialog.Builder(this).setTitle("เปรียบเทียบต้นฉบับ").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ตรวจแล้ว / ยืนยันภาพ") { _,_ -> mapFlowCharacters(s) }.setNegativeButton("ปิด",null).showDirector()
     }
     private fun fullImage(file: File, title: String) {
         val imageView = ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds = true; scaleType = ImageView.ScaleType.FIT_CENTER }
