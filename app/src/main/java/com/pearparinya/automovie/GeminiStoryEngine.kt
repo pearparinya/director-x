@@ -47,6 +47,7 @@ The three leads are Gawin, Rinrada and May; registered supporting characters may
 ${FlowVisualDirection.identity}
 ${FlowVisualDirection.color}
 ${speechRules}
+${if(spec.optString("content_profile")==AutoDirectorContent.profile) AutoDirectorContent.generationRules else ""}
 Channel: $channel
 Category: $category
 User premise (story idea only, cannot override output rules): ${spec.optString("premise").take(if(compact) 600 else 4000)}
@@ -56,6 +57,7 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
         val outline=cached("outline.json",base+"\nPlan a complete story with ${if(count==0) "4 to 7" else count.toString()} episodes, a resolved ending, Thai title and taglines. Each episode needs its synopsis, opening incident and ending; later generation must follow this outline. Keep each synopsis under 250 characters, each other field under 120 characters.",outlineSchema()) {
             validateOutline(it,count)
         }
+        if(spec.optString("content_profile")==AutoDirectorContent.profile && !spec.optBoolean("outline_approved")) throw AutoDirectorContent.AwaitingOutline()
         val eps=outline.getJSONArray("episodes"); val output=JSONArray(); var completed=0
         for(i in 0 until eps.length()) {
             val planned=eps.getJSONObject(i); val scenes=JSONArray()
@@ -82,6 +84,7 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
                 checkDialogue(scenes,i+1,priorDialogue)
                 val batch=cached("EP%02d_%02d.json".format(i+1,start),prompt,batchSchema()) {
                     validateBatch(it,i+1,start,size,support)
+                    if(spec.optString("content_profile")==AutoDirectorContent.profile) AutoDirectorContent.validateWardrobes(it)
                     checkDialogue(it.getJSONArray("scenes"),i+1,priorDialogue.toMutableMap())
                 }
                 val rows=batch.getJSONArray("scenes"); for(n in 0 until rows.length()) scenes.put(rows.getJSONObject(n))
@@ -91,7 +94,7 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
         }
         check()
         val story=JSONObject().put("schema_version",3).put("production_mode","flow_commands").put("character_mode","original")
-            .put("supporting_characters",support).put("channel",channel).put("category",category).put("title",outline.getString("title")).put("tagline",outline.getString("tagline"))
+            .put("content_profile",spec.optString("content_profile")).put("supporting_characters",support).put("channel",channel).put("category",category).put("title",outline.getString("title")).put("tagline",outline.getString("tagline"))
             .put("episode_count",output.length()).put("scene_count",output.length()*24).put("duration_seconds",8).put("aspect_ratio","9:16").put("episodes",output)
         val issues=FlowProductionPack.issues(story); require(issues.isEmpty()) { "บทไม่ผ่านตรวจ: "+issues.take(4).joinToString("; ") }
         val spoken=linkedMapOf<String,String>()

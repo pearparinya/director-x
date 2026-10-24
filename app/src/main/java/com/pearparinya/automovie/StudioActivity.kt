@@ -1211,12 +1211,12 @@ class StudioActivity : AppCompatActivity() {
             layoutParams=android.view.ViewGroup.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.48f).toInt())
         }
         val builder=AlertDialog.Builder(this).setTitle(title)
-            .setMessage(if(filename=="FLOW_STORY_COMMAND.txt") "ส่งคำสั่ง + MASTER 3 ภาพให้ AI เขียนบท → รับ story.json → นำเข้าขั้นตอน 2 • แอปปลายทางอาจให้กดส่งอีกครั้ง" else "ไฟล์คำสั่งสำหรับใช้งานใน Flow • ยังไม่ได้สร้างภาพหรือวิดีโอ")
+            .setMessage(if(filename.startsWith("AD_")) "ภาพและปก: คัดลอกไป Gemini พร้อมภาพอ้างอิง • XML: คัดลอกคำสั่งทีละฉากไป Flow หลังตรวจภาพ • แอปไม่ได้สร้างสื่อในขั้นตอนนี้" else if(filename=="FLOW_STORY_COMMAND.txt") "ส่งคำสั่ง + MASTER 3 ภาพให้ AI เขียนบท → รับ story.json → นำเข้าขั้นตอน 2 • แอปปลายทางอาจให้กดส่งอีกครั้ง" else "ไฟล์คำสั่งสำหรับใช้งานใน Flow • ยังไม่ได้สร้างภาพหรือวิดีโอ")
             .setView(frame)
             .setPositiveButton(if(filename=="FLOW_STORY_COMMAND.txt") "ส่งให้ AI" else "คัดลอก") { _,_ ->
                 if(filename=="FLOW_STORY_COMMAND.txt") sendStoryPackage(code) else copyCommand(code)
             }
-            .setNeutralButton("บันทึก TXT") { _,_ -> prefs.edit().putString("pending_flow_code",code).apply(); flowCodePicker.launch(filename) }
+            .setNeutralButton("บันทึกไฟล์") { _,_ -> prefs.edit().putString("pending_flow_code",code).apply(); flowCodePicker.launch(filename) }
             .setNegativeButton("ปิด",null)
         val dialog=builder.showDirector()
         frame.layoutParams=frame.layoutParams.apply { height=(resources.displayMetrics.heightPixels*0.48f).toInt() }
@@ -1265,6 +1265,7 @@ class StudioActivity : AppCompatActivity() {
             choiceMenu("งานวิดีโอและ EP",listOf("EP / ซีน • ตรวจภาพก่อนสร้างคลิป","รวม EP / ดาวน์โหลด MP4")) { if(it==0) episodesMenu() else moviesMenu() }
         }
         label("เครื่องมือเสริม",15,true)
+        button("⚙️ AutoDirector v18 • ภาพ Gemini / วิดีโอ Flow",false) { autoDirectorMenu() }
         button("🧪 ทดสอบสร้างวิดีโอ • เลือกตัวละคร",false) { flowTestMenu() }
         button("🎭 MASTER และข้อมูลตัวละคร",false) { choiceMenu("ตัวละคร",listOf("ตัวละครหลัก 3 คน","ตัวละครเสริมสำหรับเรื่องใหม่","ตัวละครของเรื่องที่เปิด")) { when(it) { 0 -> characterMasters(); 1 -> supportingCastMenu(); else -> castMenu() } } }
         button("⬇ ดาวน์โหลดแม่บทเริ่มงาน + MASTER",false) { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
@@ -1322,7 +1323,21 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun geminiJobMenu() {
         val state=readGeminiStatus()?.optString("state")
-        if(state=="complete" && plan!=null) { episodesMenu(); return }
+        if(state=="complete" && plan!=null) { if(plan!!.optString("content_profile")==AutoDirectorContent.profile) autoDirectorMenu() else episodesMenu(); return }
+        val specFile=File(project,"gemini_job/spec.json")
+        val outlineFile=File(project,"gemini_job/outline.json")
+        val pendingSpec=runCatching { GeminiStoryFiles.read(specFile) }.getOrNull()
+        if(!GeminiStoryService.running && pendingSpec?.optString("content_profile")==AutoDirectorContent.profile && !pendingSpec.optBoolean("outline_approved") && outlineFile.isFile) {
+            runCatching {
+                val outline=GeminiStoryFiles.read(outlineFile).put("channel",pendingSpec.optString("channel")).put("category",pendingSpec.optString("category"))
+                val dialog=showFlowCode("Phase 1 • ตรวจโครงเรื่อง",AutoDirectorContent.outline(outline),"AD_01_OUTLINE.txt")
+                dialog.getButton(-1).text="ยืนยัน • เตรียมเนื้อหา"
+                dialog.getButton(-1).setOnClickListener {
+                    GeminiStoryFiles.write(specFile,pendingSpec.put("outline_approved",true)); dialog.dismiss(); startGeminiJob(project)
+                }
+            }.onFailure { notice(it.message ?: "อ่านโครงเรื่องไม่ได้") }
+            return
+        }
         if(GeminiStoryService.running) {
             AlertDialog.Builder(this).setTitle("กำลังเขียนบท")
                 .setMessage(geminiStatusText(readGeminiStatus())+"\nออกจากหน้านี้ได้ แอปบันทึกทุกช่วงที่ผ่านตรวจไว้")
@@ -1340,17 +1355,58 @@ class StudioActivity : AppCompatActivity() {
                 }.setNeutralButton("ตั้งค่า API") { _,_ -> geminiSettings() }.setNegativeButton("ปิด",null).showDirector()
         }
     }
-    private fun flowPlanning() {
+    private fun autoDirectorMenu() {
+        choiceMenu("AutoDirector v18",listOf("สร้างเรื่องใหม่ • สุ่มหมวด / พล็อต","Phase 1 • ดูโครงเรื่องที่เปิด","Phase 2–4 • ทำงานทีละ EP","ส่งออก ZIP • Gemini + บทพูด + Flow XML")) { action ->
+            if(action==0) { flowPlanning(true); return@choiceMenu }
+            val story=plan
+            if(story==null) { if(File(project,"gemini_job/spec.json").isFile) geminiJobMenu() else notice("ยังไม่มีบท กรุณาสร้างเรื่องใหม่หรือนำเข้าบทก่อน"); return@choiceMenu }
+            if(story.optString("content_profile")!=AutoDirectorContent.profile) {
+                notice("เรื่องนี้ใช้รูปแบบเดิม เลือกสร้างเรื่องใหม่ใน AutoDirector v18 เพื่อใช้บท 24 ฉาก เสื้อผ้า 4 ส่วน และไฟล์ Gemini / Flow XML"); return@choiceMenu
+            }
+            val revision=EpisodeMedia.digest(File(project,"story.json"))
+            val phaseKey="autodirector_${project.name}_$revision"
+            when(action) {
+                1 -> {
+                    showFlowCode("Phase 1 • โครงเรื่อง",AutoDirectorContent.outline(story),"AD_01_OUTLINE.txt")
+                    prefs.edit().putBoolean(phaseKey+"_outline",true).apply()
+                }
+                2 -> {
+                    if(!prefs.getBoolean(phaseKey+"_outline",false)) { notice("เริ่มจาก Phase 1 เพื่อดูโครงเรื่องก่อน"); return@choiceMenu }
+                    val eps=story.getJSONArray("episodes")
+                    choiceMenu("เลือก EP",(0 until eps.length()).map { i -> "EP.${i+1} ${eps.getJSONObject(i).optString("title")}" }) { index ->
+                        val number=eps.getJSONObject(index).getInt("ep"); val key=phaseKey+"_ep$number"
+                        choiceMenu("EP.$number • เลือกทำทีละขั้น",listOf("สร้างภาพ EP.$number • Gemini + ปก","สร้างบท EP.$number","สร้าง XML EP.$number • Flow")) { stage ->
+                            val reached=prefs.getInt(key,0)
+                            if(stage>reached) { notice("กรุณาเปิดขั้นตอนก่อนหน้าให้ครบก่อน"); return@choiceMenu }
+                            val code=when(stage) {
+                                0 -> AutoDirectorContent.covers(story)+"\n\n"+AutoDirectorContent.images(story,number)
+                                1 -> AutoDirectorContent.dialogue(story,number)
+                                else -> AutoDirectorContent.flowXml(story,number)
+                            }
+                            val file=when(stage) { 0 -> "AD_EP%02d_IMAGES_GEMINI.txt"; 1 -> "AD_EP%02d_DIALOGUE.txt"; else -> "AD_EP%02d_FLOW.xml" }.format(number)
+                            showFlowCode("Phase ${stage+2} • EP.$number",code,file)
+                            prefs.edit().putInt(key,maxOf(reached,stage+1)).apply()
+                        }
+                    }
+                }
+                3 -> {
+                    val issues=FlowProductionPack.issues(story)
+                    if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else { starterFlowPack=false; flowPackPicker.launch(StoryFiles.zipName(story.optString("title"))) }
+                }
+            }
+        }
+    }
+    private fun flowPlanning(autoDirector: Boolean = false) {
         if(GeminiStoryService.running) { geminiJobMenu(); return }
         val provider=StoryProvider.selected(this)
         val settings=GeminiSettings(this,provider)
-        if(!settings.hasKey()) { geminiSettings { flowPlanning() }; return }
-        choiceMenu("เลือกแนวเรื่อง • สร้างบทในแอป",categories) { index ->
+        if(!settings.hasKey()) { geminiSettings { flowPlanning(autoDirector) }; return }
+        val configure: (Int) -> Unit = { index ->
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
             val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); panel.addView(this) }
             panel.addView(TextView(this).apply { text="24 ซีน/EP • ซีนละ 8 วินาที = 3:12 • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้ • ใช้โมเดล ${settings.model()} • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ของคุณภายหลัง" })
-            AlertDialog.Builder(this).setTitle("สร้างบทด้วย ${provider.label}")
+            AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v18 • ${categories[index]}" else "สร้างบทด้วย ${provider.label}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
                     runCatching {
                         val folder=File(base,UUID.randomUUID().toString()).apply { mkdirs() }
@@ -1368,11 +1424,12 @@ class StudioActivity : AppCompatActivity() {
                         }
                         val count=if(episodes.selectedItemPosition==0) 0 else episodes.selectedItemPosition+2
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),JSONObject().put("category",categories[index]).put("channel",originalChannel)
-                            .put("supporting_characters",support).put("premise",premise.text.toString()).put("episodes",count).put("provider",provider.id).put("model",settings.model()))
+                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("supporting_characters",support).put("premise",premise.text.toString()).put("episodes",count).put("provider",provider.id).put("model",settings.model()))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
-                }.setNeutralButton("ใช้แชร์ไฟล์แทน") { _,_ -> flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
+                }.setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
         }
+        if(autoDirector) configure(categories.indices.random()) else choiceMenu("เลือกแนวเรื่อง • สร้างบทในแอป",categories,action=configure)
     }
     private fun flowPlanningShare() {
         choiceMenu("หมวดสำหรับวางบท",categories) { index ->
@@ -1422,8 +1479,9 @@ class StudioActivity : AppCompatActivity() {
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
     private fun flowSceneMenu(s: JSONObject) {
-        choiceMenu("${key(s)} • ${if(sceneFrameApproved(s)) "ภาพผ่านแล้ว" else "รอตรวจภาพ"}",listOf("1. สร้างภาพฉากจาก MASTER","3. สร้างวิดีโอจากภาพที่ผ่าน","แก้บท / ชุด / สถานที่","นำเข้าภาพจาก Flow","นำเข้าคลิป MP4","2. เทียบ MASTER / ยืนยันภาพ","ดูคลิป","เวอร์ชันไฟล์")) { i -> when(i) {
-            0 -> showFlowCode("IMAGE PROMPT",FlowReferencePrompt.scene(s,s.optInt("ep",1),"image"),"${key(s)}_IMAGE.txt")
+        choiceMenu("${key(s)} • ${if(sceneFrameApproved(s)) "ภาพผ่านแล้ว" else "รอตรวจภาพ"}",listOf("1. สร้างภาพฉากจาก MASTER","3. สร้างวิดีโอจากภาพที่ผ่าน","แก้บท / ชุด / สถานที่","นำเข้าภาพจาก Gemini / Flow","นำเข้าคลิป MP4","2. เทียบ MASTER / ยืนยันภาพ","ดูคลิป","เวอร์ชันไฟล์")) { i -> when(i) {
+            0 -> if(plan?.optString("content_profile")==AutoDirectorContent.profile) showFlowCode("IMAGE PROMPT • Gemini",AutoDirectorContent.sceneImage(plan!!,s),"AD_${key(s)}_IMAGE_GEMINI.txt")
+                else showFlowCode("IMAGE PROMPT",FlowReferencePrompt.scene(s,s.optInt("ep",1),"image"),"${key(s)}_IMAGE.txt")
             1 -> reviewedVideoCommand(s)
             2 -> editScene(s)
             3 -> { mediaSlot=key(s); mediaKind="image"; mediaProject=project.name; sceneMediaPicker.launch(arrayOf("image/*")) }
@@ -1717,10 +1775,10 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
     }
     private fun sceneFrameApproved(s: JSONObject): Boolean = SceneFrameReview.current(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) },flowSpec(s).toString())
     private fun reviewedVideoCommand(s: JSONObject, copy: Boolean=false) {
-        if(!image(s).isFile) { notice("สร้างภาพฉากใน Flow แล้วนำเข้าภาพก่อน จากนั้นเทียบ MASTER และยืนยันภาพ"); return }
+        if(!image(s).isFile) { notice("สร้างภาพฉากใน Gemini / Flow แล้วนำเข้าภาพก่อน จากนั้นเทียบ MASTER และยืนยันภาพ"); return }
         if(!sceneFrameApproved(s) || FlowScenePrompt.issues(flowSpec(s)).isNotEmpty()) { compareScene(s); return }
         val code="แนบภาพฉากที่ยืนยันแล้วของ ${key(s)} เป็น START FRAME\nไม่ใช้ภาพ MASTER แทนเฟรมเริ่มต้น และไม่สร้างหน้าตา/ชุดใหม่\n"+
-            FlowScenePrompt.build(flowSpec(s))+"\n"+FlowVisualDirection.color+"\nPreserve the approved first-frame faces and body proportions throughout all frames. No body or face morphing.\n"+FlowVisualDirection.referenceReview
+            FlowScenePrompt.build(if(plan?.optString("content_profile")==AutoDirectorContent.profile) AutoDirectorContent.externalSpec(plan!!,flowSpec(s)) else flowSpec(s))+"\n"+FlowVisualDirection.color+"\nPreserve the approved first-frame faces and body proportions throughout all frames. No body or face morphing.\n"+FlowVisualDirection.referenceReview
         if(copy) copyCommand(code) else showFlowCode("วิดีโอจากภาพที่ยืนยันแล้ว",code,"${key(s)}_VIDEO.txt")
     }
     private fun copyFlowCommand(s: JSONObject) { reviewedVideoCommand(s,true) }
