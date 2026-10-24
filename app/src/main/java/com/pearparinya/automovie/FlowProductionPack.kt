@@ -105,13 +105,16 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
                 if(plan.optString("content_profile")==AutoDirectorContent.profile) {
                     put("AUTODIRECTOR/01_OUTLINE.txt",AutoDirectorContent.outline(plan))
                     put("AUTODIRECTOR/02_COVER_STORY_GEMINI.txt",AutoDirectorContent.covers(plan))
+                    put("AUTODIRECTOR/ALL_GEMINI_NEXT.txt",AutoDirectorContent.geminiNext(plan))
                     val episodes=plan.getJSONArray("episodes")
                     for(e in 0 until episodes.length()) {
                         val number=episodes.getJSONObject(e).getInt("ep")
                         put("AUTODIRECTOR/EP%02d_IMAGES_GEMINI.txt".format(number),AutoDirectorContent.images(plan,number))
+                        put("AUTODIRECTOR/EP%02d_GEMINI_NEXT.txt".format(number),AutoDirectorContent.geminiNext(plan,number))
                         put("AUTODIRECTOR/EP%02d_DIALOGUE.txt".format(number),AutoDirectorContent.dialogue(plan,number))
                         put("AUTODIRECTOR/EP%02d_FLOW.xml".format(number),AutoDirectorContent.flowXml(plan,number))
                     }
+                    start.append("\nGemini NEXT: เปิด AUTODIRECTOR/ALL_GEMINI_NEXT.txt เพื่อคัดลอกทั้งเรื่อง หรือ EPxx_GEMINI_NEXT.txt เฉพาะตอน แนบ MASTER ตามรายการ วางคำสั่งครั้งเดียว สร้างทีละภาพแล้วพิมพ์ next; ไม่สร้างวิดีโอใน Gemini ถ้าข้อความยาวเกินช่องแชตให้แนบไฟล์ TXT พร้อม MASTER แล้วสั่งอ่านไฟล์และเริ่มคิว\n")
                     start.append("\nAutoDirector v18: ใช้ไฟล์ใน AUTODIRECTOR ตามลำดับ โครงเรื่อง → ปกรวม Gemini → ภาพ Gemini ราย EP → บทพูด → XML สำหรับคัดลอกไป Flow ภาพอ้างอิงอยู่ใน MASTERS โดย The Man=GAWIN, Woman 1=RINLADA, Woman 2=MIND; ตัวเสริม Supporting ตามรหัสไฟล์ XML เป็นเอกสารจัดบท ไม่ใช่ไฟล์รัน Flow และยังต้องตรวจภาพจริงก่อนใช้\n")
                 }
                 val leads=names.map { (id,name) ->
