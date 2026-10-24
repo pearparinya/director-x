@@ -57,8 +57,8 @@ class GeminiStoryService : Service() {
                     } finally { lock.release() }
                 }
             } catch(e: Exception) {
-                if(::folder.isInitialized) status(if(cancelled || e is CancellationException) "paused" else "failed",lastPercent,
-                    if(cancelled || e is CancellationException) "หยุดแล้ว • บันทึกช่วงที่เสร็จไว้ กดทำต่อได้" else safeError(e))
+                if(::folder.isInitialized) status(if(e is AutoDirectorContent.AwaitingOutline) "awaiting_outline" else if(cancelled || e is CancellationException) "paused" else "failed",lastPercent,
+                    if(e is AutoDirectorContent.AwaitingOutline) e.message.orEmpty() else if(cancelled || e is CancellationException) "หยุดแล้ว • บันทึกช่วงที่เสร็จไว้ กดทำต่อได้" else safeError(e))
             } finally {
                 client=null; running=false; projectId=null
                 stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()

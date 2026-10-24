@@ -50,6 +50,10 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
             val ep=eps.getJSONObject(i); val scenes=ep.optJSONArray("scenes")
             if(ep.optInt("ep")!=i+1) add("เลข EP ต้องเรียงจาก 1")
             if(scenes==null || scenes.length()==0) { add("EP ${i+1} ไม่มีซีน"); continue }
+            if(plan.optString("content_profile")==AutoDirectorContent.profile) {
+                if(scenes.length()!=24) add("AutoDirector EP ${i+1} ต้องมี 24 ฉาก")
+                runCatching { AutoDirectorContent.validateWardrobes(ep) }.exceptionOrNull()?.let { add(it.message ?: "ชุดต้องครบ 4 ส่วน") }
+            }
             var total=0
             for(j in 0 until scenes.length()) {
                 val s=scenes.getJSONObject(j); val id="EP${i+1} ซีน${j+1}"
@@ -98,6 +102,18 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
             else {
                 val backup=JSONObject(plan.toString()).put("character_memory",refs)
                 put("BACKUP/story.json",backup.toString(2))
+                if(plan.optString("content_profile")==AutoDirectorContent.profile) {
+                    put("AUTODIRECTOR/01_OUTLINE.txt",AutoDirectorContent.outline(plan))
+                    put("AUTODIRECTOR/02_COVER_STORY_GEMINI.txt",AutoDirectorContent.covers(plan))
+                    val episodes=plan.getJSONArray("episodes")
+                    for(e in 0 until episodes.length()) {
+                        val number=episodes.getJSONObject(e).getInt("ep")
+                        put("AUTODIRECTOR/EP%02d_IMAGES_GEMINI.txt".format(number),AutoDirectorContent.images(plan,number))
+                        put("AUTODIRECTOR/EP%02d_DIALOGUE.txt".format(number),AutoDirectorContent.dialogue(plan,number))
+                        put("AUTODIRECTOR/EP%02d_FLOW.xml".format(number),AutoDirectorContent.flowXml(plan,number))
+                    }
+                    start.append("\nAutoDirector v18: ใช้ไฟล์ใน AUTODIRECTOR ตามลำดับ โครงเรื่อง → ปกรวม Gemini → ภาพ Gemini ราย EP → บทพูด → XML สำหรับคัดลอกไป Flow ภาพอ้างอิงอยู่ใน MASTERS โดย The Man=GAWIN, Woman 1=RINLADA, Woman 2=MIND; ตัวเสริม Supporting ตามรหัสไฟล์ XML เป็นเอกสารจัดบท ไม่ใช่ไฟล์รัน Flow และยังต้องตรวจภาพจริงก่อนใช้\n")
+                }
                 val leads=names.map { (id,name) ->
                     val epRows=plan.getJSONArray("episodes")
                     var found: JSONObject?=null
