@@ -1211,9 +1211,9 @@ class StudioActivity : AppCompatActivity() {
             layoutParams=android.view.ViewGroup.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.48f).toInt())
         }
         val builder=AlertDialog.Builder(this).setTitle(title)
-            .setMessage(if(filename.startsWith("AD_")) "ภาพและปก: คัดลอกไป Gemini พร้อมภาพอ้างอิง • XML: คัดลอกคำสั่งทีละฉากไป Flow หลังตรวจภาพ • แอปไม่ได้สร้างสื่อในขั้นตอนนี้" else if(filename=="FLOW_STORY_COMMAND.txt") "ส่งคำสั่ง + MASTER 3 ภาพให้ AI เขียนบท → รับ story.json → นำเข้าขั้นตอน 2 • แอปปลายทางอาจให้กดส่งอีกครั้ง" else "ไฟล์คำสั่งสำหรับใช้งานใน Flow • ยังไม่ได้สร้างภาพหรือวิดีโอ")
+            .setMessage(if(filename.contains("GEMINI_NEXT")) "คัดลอกทั้งหมดครั้งเดียวไป Gemini พร้อม MASTER ที่ระบุ • สร้างทีละภาพแล้วพิมพ์ next • ถ้าข้อความยาวเกินช่องแชต ให้บันทึกไฟล์แนบพร้อม MASTER แล้วสั่งให้อ่านไฟล์และเริ่มคิว • ต้องตรวจผลจริง ภาพไม่ได้สร้างในแอป" else if(filename.startsWith("AD_")) "ภาพและปก: คัดลอกไป Gemini พร้อมภาพอ้างอิง • XML: คัดลอกคำสั่งทีละฉากไป Flow หลังตรวจภาพ • แอปไม่ได้สร้างสื่อในขั้นตอนนี้" else if(filename=="FLOW_STORY_COMMAND.txt") "ส่งคำสั่ง + MASTER 3 ภาพให้ AI เขียนบท → รับ story.json → นำเข้าขั้นตอน 2 • แอปปลายทางอาจให้กดส่งอีกครั้ง" else "ไฟล์คำสั่งสำหรับใช้งานใน Flow • ยังไม่ได้สร้างภาพหรือวิดีโอ")
             .setView(frame)
-            .setPositiveButton(if(filename=="FLOW_STORY_COMMAND.txt") "ส่งให้ AI" else "คัดลอก") { _,_ ->
+            .setPositiveButton(if(filename=="FLOW_STORY_COMMAND.txt") "ส่งให้ AI" else if(filename.contains("GEMINI_NEXT")) "คัดลอกทั้งหมด" else "คัดลอก") { _,_ ->
                 if(filename=="FLOW_STORY_COMMAND.txt") sendStoryPackage(code) else copyCommand(code)
             }
             .setNeutralButton("บันทึกไฟล์") { _,_ -> prefs.edit().putString("pending_flow_code",code).apply(); flowCodePicker.launch(filename) }
@@ -1356,7 +1356,7 @@ class StudioActivity : AppCompatActivity() {
         }
     }
     private fun autoDirectorMenu() {
-        choiceMenu("AutoDirector v18",listOf("สร้างเรื่องใหม่ • สุ่มหมวด / พล็อต","Phase 1 • ดูโครงเรื่องที่เปิด","Phase 2–4 • ทำงานทีละ EP","ส่งออก ZIP • Gemini + บทพูด + Flow XML")) { action ->
+        choiceMenu("AutoDirector v18",listOf("สร้างเรื่องใหม่ • สุ่มหมวด / พล็อต","Phase 1 • ดูโครงเรื่องที่เปิด","Phase 2–4 • ทำงานทีละ EP","ส่งออก ZIP • Gemini + บทพูด + Flow XML","คัดลอกทั้งหมด • Gemini next")) { action ->
             if(action==0) { flowPlanning(true); return@choiceMenu }
             val story=plan
             if(story==null) { if(File(project,"gemini_job/spec.json").isFile) geminiJobMenu() else notice("ยังไม่มีบท กรุณาสร้างเรื่องใหม่หรือนำเข้าบทก่อน"); return@choiceMenu }
@@ -1379,14 +1379,22 @@ class StudioActivity : AppCompatActivity() {
                             val reached=prefs.getInt(key,0)
                             if(stage>reached) { notice("กรุณาเปิดขั้นตอนก่อนหน้าให้ครบก่อน"); return@choiceMenu }
                             val code=when(stage) {
-                                0 -> AutoDirectorContent.covers(story)+"\n\n"+AutoDirectorContent.images(story,number)
+                                0 -> AutoDirectorContent.geminiNext(story,number)
                                 1 -> AutoDirectorContent.dialogue(story,number)
                                 else -> AutoDirectorContent.flowXml(story,number)
                             }
-                            val file=when(stage) { 0 -> "AD_EP%02d_IMAGES_GEMINI.txt"; 1 -> "AD_EP%02d_DIALOGUE.txt"; else -> "AD_EP%02d_FLOW.xml" }.format(number)
+                            val file=when(stage) { 0 -> "AD_EP%02d_GEMINI_NEXT.txt"; 1 -> "AD_EP%02d_DIALOGUE.txt"; else -> "AD_EP%02d_FLOW.xml" }.format(number)
                             showFlowCode("Phase ${stage+2} • EP.$number",code,file)
                             prefs.edit().putInt(key,maxOf(reached,stage+1)).apply()
                         }
+                    }
+                }
+                4 -> {
+                    val eps=story.getJSONArray("episodes")
+                    choiceMenu("Gemini • คัดลอกครั้งเดียวแล้วพิมพ์ next",listOf("ทั้งเรื่อง • ปกรวม + ทุก EP + ทุกซีน")+(0 until eps.length()).map { i -> "เฉพาะ EP.${eps.getJSONObject(i).getInt("ep")} • ปกรวม + ปก EP + ทุกซีน" }) { index ->
+                        val number=if(index==0) null else eps.getJSONObject(index-1).getInt("ep")
+                        val filename=if(number==null) "AD_ALL_GEMINI_NEXT.txt" else "AD_EP%02d_GEMINI_NEXT.txt".format(number)
+                        showFlowCode("Gemini NEXT • ${if(number==null) "ทั้งเรื่อง" else "EP.$number"}",AutoDirectorContent.geminiNext(story,number),filename)
                     }
                 }
                 3 -> {
@@ -1716,9 +1724,11 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         }.getOrNull()
     }
     private fun copyCommand(text: String) {
-        (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
-            .setPrimaryClip(ClipData.newPlainText("DIRECTOR X",text))
-        notice("คัดลอกคำสั่งแล้ว • นำไปวางในเครื่องมือที่ต้องการ")
+        runCatching {
+            (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                .setPrimaryClip(ClipData.newPlainText("DIRECTOR X",text))
+        }.onSuccess { notice("คัดลอกคำสั่งแล้ว • นำไปวางในเครื่องมือที่ต้องการ") }
+            .onFailure { notice("คัดลอกไม่ได้หรือข้อความยาวเกินคลิปบอร์ด • เลือกบันทึกไฟล์แล้วแนบใน Gemini หรือเลือกเฉพาะ EP") }
     }
     private fun saveStory() {
         val p = plan ?: return

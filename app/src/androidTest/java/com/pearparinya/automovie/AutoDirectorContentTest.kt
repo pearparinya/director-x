@@ -77,7 +77,7 @@ class AutoDirectorContentTest {
             val bytes=ByteArrayOutputStream(); FlowProductionPack.write(bytes,story(),refs,JSONObject(),"หมวด","ช่อง")
             val entries=linkedMapOf<String,ByteArray>()
             ZipInputStream(ByteArrayInputStream(bytes.toByteArray())).use { zip -> while(true) { val entry=zip.nextEntry ?: break; entries[entry.name]=zip.readBytes() } }
-            listOf("01_OUTLINE.txt","02_COVER_STORY_GEMINI.txt","EP01_IMAGES_GEMINI.txt","EP01_DIALOGUE.txt","EP01_FLOW.xml").forEach { assertTrue(entries.containsKey("DIRECTOR_FLOW/AUTODIRECTOR/$it")) }
+            listOf("01_OUTLINE.txt","02_COVER_STORY_GEMINI.txt","EP01_IMAGES_GEMINI.txt","EP01_DIALOGUE.txt","EP01_FLOW.xml","ALL_GEMINI_NEXT.txt","EP01_GEMINI_NEXT.txt").forEach { assertTrue(entries.containsKey("DIRECTOR_FLOW/AUTODIRECTOR/$it")) }
             refs.forEach { (id,file) -> assertArrayEquals(file.readBytes(),entries.getValue("DIRECTOR_FLOW/MASTERS/${id.uppercase()}_MASTER.jpg")) }
             assertTrue(String(entries.getValue("DIRECTOR_FLOW/START.txt"),Charsets.UTF_8).contains("AUTODIRECTOR"))
         } finally { folder.deleteRecursively() }
@@ -94,5 +94,32 @@ class AutoDirectorContentTest {
             val next=runCatching { GeminiStoryEngine(folder,{ _,_ -> calls++; error("reached scene generation") }).run(spec.put("outline_approved",true)) }
             assertEquals("reached scene generation",next.exceptionOrNull()?.message); assertEquals(2,calls)
         } finally { folder.deleteRecursively() }
+    }
+    @Test fun nextQueueContainsEachCoverAndSceneOnceAndCanSelectOneEpisode() {
+        val p=story(); val eps=p.getJSONArray("episodes")
+        val second=JSONObject(eps.getJSONObject(0).toString()).put("ep",2)
+        val support=JSONObject().put("name","หมอณัฐ").put("master","SUPPORT_AB12CD34_MASTER.png")
+            .put("visual_description","adult fictional doctor with gray hair")
+            .put("outfit","Top: white coat; Bottom: trousers; Shoes: loafers; Accessories: none").put("screen_position","far right")
+        p.put("supporting_characters",JSONArray().put(support))
+        second.getJSONArray("scenes").getJSONObject(23).getJSONArray("characters").put(support)
+        eps.put(second)
+        val tasks=AutoDirectorContent.imageTasks(p)
+        assertEquals(54,tasks.size); assertEquals(tasks.size,tasks.map { it.id }.distinct().size)
+        assertEquals(listOf("STORY_COVER_9x16","STORY_COVER_16x9","EP01_COVER_9x16","EP01_COVER_16x9","EP01_SC001"),tasks.take(5).map { it.id })
+        assertEquals("EP01_SC024",tasks[27].id); assertEquals("EP02_COVER_9x16",tasks[28].id)
+        assertEquals("EP02_SC024",tasks.last().id)
+        assertEquals(3,tasks.count { it.ratio=="16:9" })
+        val single=AutoDirectorContent.imageTasks(p,2)
+        assertEquals(28,single.size); assertFalse(single.any { it.id.startsWith("EP01_") })
+        assertTrue(runCatching { AutoDirectorContent.imageTasks(p,9) }.isFailure)
+        val command=AutoDirectorContent.geminiNext(p)
+        assertEquals(54,Regex("=== TASK [0-9]+/54 ").findAll(command).count())
+        assertTrue(command.contains("Supporting AB12CD34 = ภาพต้นฉบับ SUPPORT_AB12CD34_MASTER"))
+        assertTrue(command.contains("retry")); assertTrue(command.contains("PENDING")); assertTrue(command.contains("ไปที่ รหัสภาพ"))
+        assertTrue(command.contains("ห้ามรายงาน DONE หรือเพิ่มตัวนับ"))
+        assertTrue(command.contains("ครบ 54 ภาพแล้ว")); assertTrue(command.contains("ไม่อ้างว่าจำข้ามแชตได้"))
+        assertFalse(command.contains("กรุณาพิมพ์ 'สร้างบท")); assertFalse(command.contains("VIDEO PROMPT"))
+        assertTrue(command.trimEnd().endsWith("ถ้าไม่มีภาพอ้างอิงให้ขอภาพก่อน"))
     }
 }

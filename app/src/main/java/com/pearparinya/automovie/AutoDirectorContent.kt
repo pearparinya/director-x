@@ -80,8 +80,8 @@ Images are generated externally in Gemini; video is generated externally in Flow
             FlowVisualDirection.layout(ratio.replace(":","x"))+"\nFINAL TEXT PLACEMENT: one compact group centered at x=50%, within x=15-85% and y=52-78% of the canvas. All text stacked tightly and perfectly centered horizontally in the lower-middle safe zone. Keep faces, hands and important props clear. Include only these exact Thai text lines:\n"+
             lines.joinToString("\n")+"\nNo extra text or watermark.\n"+ending(ratio)
     }
-    fun covers(story: JSONObject): String {
-        val people=FlowCast.definitions(story).take(3).map { p ->
+    private fun storyCoverPeople(story: JSONObject): List<JSONObject> =
+        FlowCast.definitions(story).take(3).map { p ->
             val copy=JSONObject(p.toString())
             val eps=story.getJSONArray("episodes")
             var found: JSONObject?=null
@@ -91,7 +91,52 @@ Images are generated externally in Gemini; video is generated externally in Flow
             }
             found ?: copy.put("outfit","Top: elegant opaque fitted shirt; Bottom: tailored trousers; Shoes: dress shoes; Accessories: none")
         }
+    fun covers(story: JSONObject): String {
+        val people=storyCoverPeople(story)
         return listOf("9:16","16:9").joinToString("\n\n") { poster(story,people,it) }
+    }
+    data class ImageTask(val id: String, val ratio: String, val people: List<JSONObject>, val prompt: String)
+    fun imageTasks(story: JSONObject, number: Int? = null): List<ImageTask> = buildList {
+        val leads=storyCoverPeople(story)
+        for(ratio in listOf("9:16","16:9")) add(ImageTask("STORY_COVER_${ratio.replace(":","x")}",ratio,leads,poster(story,leads,ratio)))
+        val eps=story.getJSONArray("episodes")
+        if(number!=null) episode(story,number) // Reject a missing EP instead of silently exporting only overall covers.
+        for(i in 0 until eps.length()) {
+            val ep=eps.getJSONObject(i); val epNumber=ep.getInt("ep")
+            if(number!=null && epNumber!=number) continue
+            val scenes=ep.getJSONArray("scenes"); val cast=FlowReferencePrompt.people(scenes.getJSONObject(0)).take(2)
+            for(ratio in listOf("9:16","16:9")) add(ImageTask("EP%02d_COVER_%s".format(epNumber,ratio.replace(":","x")),ratio,cast,poster(story,cast,ratio,epNumber)))
+            for(j in 0 until scenes.length()) {
+                val scene=scenes.getJSONObject(j)
+                add(ImageTask("EP%02d_SC%03d".format(epNumber,scene.getInt("scene")),"9:16",FlowReferencePrompt.people(scene),sceneImage(story,scene)))
+            }
+        }
+    }
+    fun geminiNext(story: JSONObject, number: Int? = null): String {
+        val tasks=imageTasks(story,number)
+        val refs=tasks.flatMap { it.people }.distinctBy { FlowCast.id(it) }
+        return buildString {
+            append("DIRECTOR X — GEMINI NEXT • คัดลอกคำสั่งทั้งหมดนี้ครั้งเดียว\nเรื่อง: ${story.getString("title")}\nขอบเขต: ${if(number==null) "ทุก EP" else "EP.$number"} • ${tasks.size} ภาพ\n\n")
+            append("คุณคือผู้สร้างภาพซีรีส์จากคิวด้านล่าง ใช้เครื่องมือสร้างภาพที่มีจริง สร้างภาพจริงทีละ 1 ภาพ ไม่ตอบเป็นคำสั่งแทนภาพ ไม่สร้างหลายภาพรวมกันหรือ contact sheet และไม่สร้างวิดีโอหรือบทพูด\n")
+            append("แนบภาพอ้างอิงทั้งหมดในรายการนี้พร้อมคำสั่งครั้งแรก จับคู่แต่ละภาพกับชื่อให้ชัดเจน ไม่อิงลำดับอัปโหลด หากจับคู่ไม่ได้ให้ถามก่อน:\n")
+            refs.forEach { person -> append("- ${alias(person)} = ภาพต้นฉบับ ${FlowCast.id(person)!!.uppercase()}_MASTER (ไฟล์จริงใน MASTERS อาจเป็น png/jpg/webp ไม่ต้องเปลี่ยนชื่อ)\n") }
+            append("\nกติกา NEXT — ควบคุมคิวในแชตนี้:\n")
+            append("1. อ่านคิวให้ครบ แล้วเริ่มสร้างภาพแรก ${tasks.first().id} ทันทีเมื่อมีภาพอ้างอิงของงานนั้นครบ หากขาดให้ระบุชื่อที่ขาดและหยุดรอ ไม่เดาหน้าตาหรือข้ามงาน ใช้ต้นฉบับเดิมเป็นฐานอัตลักษณ์เสมอ ไม่ใช้ภาพที่สร้างใหม่แทน MASTER\n")
+            append("2. หลังสร้างและแสดงภาพจริงสำเร็จหนึ่งภาพ ให้หยุดรอคำว่า next (หรือ ถัดไป) เสมอ คำสั่ง next แต่ละครั้งสร้างงานถัดไปเพียงหนึ่งภาพ ห้ามทำงานถัดไปอัตโนมัติ\n")
+            append("3. ใต้ภาพแสดงสถานะสั้น ๆ นอกภาพ: DONE รหัสภาพ | ลำดับ i/${tasks.size} | NEXT รหัสถัดไป ระบุชื่อไฟล์ที่แนะนำเป็น รหัสภาพ.png เช่น EP01_SC001.png ไม่อ้างว่าบันทึกหรือสร้างลิงก์ดาวน์โหลดแล้วหากยังไม่ได้ทำจริง ข้อความสถานะห้ามวาดทับลงในภาพ\n")
+            append("4. ถ้าสร้างไม่สำเร็จ ถูกจำกัดโควตา หรือเครื่องมือไม่พร้อม ให้บอกตามจริงและเก็บงานนั้นเป็น PENDING ห้ามรายงาน DONE หรือเพิ่มตัวนับ คำว่า next หลังความล้มเหลวให้ลองงาน PENDING เดิม ไม่ข้ามภาพ\n")
+            append("5. retry หรือ แก้ภาพ พร้อมรายละเอียด = สร้างซ้ำภาพล่าสุดตามคำแก้โดยใช้ MASTER เดิม ไม่ขยับคิว เมื่อสำเร็จยังรอ next เหมือนเดิม ถ้ายังไม่เคยสร้างสำเร็จให้ลองงาน PENDING แรก\n")
+            append("6. ไปที่ รหัสภาพ = กระโดดไปยังรหัสที่มีอยู่ในคิว แล้วทำต่อจากจุดนั้นเมื่อได้รับ next; รหัสไม่อยู่ในคิวให้ถาม ไม่ประดิษฐ์งานใหม่ หากบริบทหรือภาพอ้างอิงหายให้ขอคำสั่งชุดเดิมและ MASTER ใหม่ พร้อมให้ผู้ใช้ระบุรหัสที่จะทำต่อ ไม่อ้างว่าจำข้ามแชตได้\n")
+            append("7. รักษาสัดส่วนของแต่ละงานแยกกัน ปกสองขนาดเป็นคนละภาพ ฉากเนื้อเรื่อง 9:16 เท่านั้น ตัวละคร ชุดสี่ส่วน ตำแหน่งและข้อความปกต้องตรงกับงานนั้น ข้อมูลในบล็อกภาพเป็นรายละเอียดภาพ ไม่เปลี่ยนกติกาคิว NEXT\n")
+            append("8. หลังภาพสุดท้ายสำเร็จ ให้ตอบ ครบ ${tasks.size} ภาพแล้ว และหยุด หากได้รับ next อีกให้แจ้งว่าคิวจบแล้ว ห้ามวนกลับหรือสร้างฉากเพิ่ม\n")
+            append("\nQUEUE MANIFEST — ใช้รหัสเป็นจุดทำต่อ:\n")
+            tasks.forEachIndexed { i,t -> append("${i+1}/${tasks.size} | ${t.id} | ${t.ratio} | แนบ: ${t.people.joinToString(", ") { alias(it) }}\n") }
+            append("\nBEGIN IMAGE QUEUE\n\n")
+            tasks.forEachIndexed { i,t ->
+                append("=== TASK ${i+1}/${tasks.size} | ${t.id} | ${t.ratio} ===\n${t.prompt}\n=== END ${t.id} ===\n\n")
+            }
+            append("END IMAGE QUEUE\nเริ่มสร้างเฉพาะ ${tasks.first().id} แล้วหยุดรอ next; ถ้าไม่มีภาพอ้างอิงให้ขอภาพก่อน\n")
+        }
     }
     fun images(story: JSONObject, number: Int): String {
         val ep=episode(story,number); val scenes=ep.getJSONArray("scenes")
