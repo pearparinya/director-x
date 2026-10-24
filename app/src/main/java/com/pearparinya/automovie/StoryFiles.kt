@@ -26,7 +26,7 @@ internal object StoryFiles {
         val ratio = if (it.groupValues[2].startsWith("9")) "9x16" else "16x9"
         if (ep == null || ep < 1) null else "EP%02d_COVER_%s".format(ep, ratio)
     }
-    fun isMaster(name: String): Boolean = Regex("^(?:CHARACTER[_ -]*\\d+|(?:GAWIN|RINLADA|MIND)[_ -]*MASTER|MASTER[_ -]*\\d+)(?:[_. (]|$)", RegexOption.IGNORE_CASE).containsMatchIn(name)
+    fun isMaster(name: String): Boolean = Regex("^(?:CHARACTER[_ -]*\\d+|(?:GAWIN|RINLADA|MIND|SUPPORT_[A-Fa-f0-9]{8})[_ -]*MASTER|MASTER[_ -]*\\d+)(?:[_. (]|$)", RegexOption.IGNORE_CASE).containsMatchIn(name)
     fun packageName(path: String): String {
         val normalized = path.replace('\\', '/')
         val name = normalized.substringAfterLast('/')

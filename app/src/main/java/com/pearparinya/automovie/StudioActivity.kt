@@ -82,7 +82,7 @@ class StudioActivity : AppCompatActivity() {
     private val detailedImageProfiles get() = prefs.getBoolean("detailed_image_profiles",false)
     private fun promptProfile(id: String, source: File): String =
         if(detailedImageProfiles) characterMemory.brief(id,source) else ""
-    private fun memoryId(person: JSONObject): String = StoryIdentity.keyFor(person.optString("name")) ?: person.optString("master").ifBlank { person.optString("name") }
+    private fun memoryId(person: JSONObject): String = FlowCast.id(person) ?: person.optString("master").ifBlank { person.optString("name") }
     private fun memoryBrief(person: JSONObject): String {
         val profile=characterMemory.read(memoryId(person),masterFor(person))
         return ((listOf("face","hair") + BodyReferencePolicy.fields.map { it.first }).map { profile.optString(it) } +
@@ -358,6 +358,7 @@ class StudioActivity : AppCompatActivity() {
                     // Reimporting the same story must retain images already received.
                     val sameStory = plan?.let { old -> old.optString("title") == candidate.optString("title") && old.optString("category") == candidate.optString("category") && rows(old).map { it.toString() } == rows(candidate).map { it.toString() } } == true
                     val folder = if (sameStory) project else File(base, UUID.randomUUID().toString()).apply { mkdirs() }
+                    importOriginalReferences(pictures,folder,candidate)
                     importNewMasters(masters, folder, candidate)
                     if (candidate.optString("character_mode","original") == "original") {
                         listOf("gawin","rinlada","mind").forEach { id ->
@@ -376,6 +377,7 @@ class StudioActivity : AppCompatActivity() {
                     File(project,"package_imported").writeText(System.currentTimeMillis().toString())
                 } else {
                     require(plan != null) { "ยังไม่มีบท กรุณานำเข้า story.json หรือ ZIP ที่มีบทก่อน" }
+                    importOriginalReferences(pictures,project,plan!!)
                     importNewMasters(masters)
                 }
                 checkedVideos.forEach { (id,temp) ->
@@ -445,6 +447,7 @@ class StudioActivity : AppCompatActivity() {
     private fun validate(p: JSONObject) {
         require(p.getString("title").isNotBlank()) { "ไม่มีชื่อเรื่อง" }
         val mode = p.optString("character_mode", "original")
+        if(mode=="original") require(FlowCast.issues(p).isEmpty()) { FlowCast.issues(p).joinToString("\n") }
         require(mode in listOf("original", "new")) { "รูปแบบตัวละครไม่ถูกต้อง" }
         require(p.getString("category") in (if (mode == "new") otherGenres else categories)) { "หมวดหมู่ไม่ตรงกับรูปแบบช่อง" }
         if (mode == "new") require(p.optString("channel").isNotBlank()) { "กรุณาระบุชื่อช่องในบท" }
@@ -479,7 +482,7 @@ class StudioActivity : AppCompatActivity() {
                         require(person.optString("name").isNotBlank() && names.add(person.getString("name"))) { "ชื่อหรือรายการตัวละครไม่ถูกต้อง" }
                         require(person.optString("outfit").isNotBlank()) { "ฉากขาดชุดของ ${person.optString("name")}" }
                         val master = person.optString("master")
-                        require(if (mode == "original") StoryIdentity.matchesMaster(person.getString("name"), master) else Regex("^CHARACTER_[0-9]+[.]png$").matches(master)) { "MASTER ไม่ตรงกับตัวละคร ${person.optString("name")}" }
+                        require(if (mode == "original") FlowCast.matches(p,person) else Regex("^CHARACTER_[0-9]+[.]png$").matches(master)) { "MASTER ไม่ตรงกับตัวละคร ${person.optString("name")}" }
                     }
                 }
                 for (field in listOf("action", "image_prompt", "flow_prompt")) require(s.getString(field).isNotBlank()) { "ฉากขาด $field" }
@@ -1151,7 +1154,9 @@ class StudioActivity : AppCompatActivity() {
     private val flowPackPicker = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if(uri!=null) {
             val current=if(starterFlowPack) null else plan?.let { JSONObject(it.toString()) }
-            val sources=FlowProductionPack.names.keys.associateWith { id ->
+            val sources=FlowCast.definitions(current).associate { person ->
+                val id=FlowCast.id(person)!!
+                id to
                 if(current==null) File(filesDir,"character_masters/$id.master")
                 else File(project,"original_masters/$id.master").takeIf { it.exists() } ?: File(filesDir,"character_masters/$id.master")
             }
@@ -1261,7 +1266,7 @@ class StudioActivity : AppCompatActivity() {
         }
         label("เครื่องมือเสริม",15,true)
         button("🧪 ทดสอบสร้างวิดีโอ • เลือกตัวละคร",false) { flowTestMenu() }
-        button("🎭 MASTER และข้อมูลตัวละคร",false) { characterMasters() }
+        button("🎭 MASTER และข้อมูลตัวละคร",false) { choiceMenu("ตัวละคร",listOf("ตัวละครหลัก 3 คน","ตัวละครเสริมสำหรับเรื่องใหม่","ตัวละครของเรื่องที่เปิด")) { when(it) { 0 -> characterMasters(); 1 -> supportingCastMenu(); else -> castMenu() } } }
         button("⬇ ดาวน์โหลดแม่บทเริ่มงาน + MASTER",false) { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
         splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
     }
@@ -1354,9 +1359,16 @@ class StudioActivity : AppCompatActivity() {
                             require(masterExportName(source,false)!=null) { "ขาด MASTER ของ ${FlowProductionPack.names[id]}" }
                             File(folder,"original_masters/$id.master").apply { parentFile!!.mkdirs(); source.copyTo(this) }
                         }
+                        val support=readSupportingCast()
+                        for(i in 0 until support.length()) {
+                            val person=support.getJSONObject(i); val id=FlowCast.id(person)!!
+                            val source=File(filesDir,"supporting_masters/$id.master")
+                            require(source.isFile) { "ขาดภาพของ ${person.getString("name")}" }
+                            File(folder,"original_masters/$id.master").apply { parentFile!!.mkdirs(); source.copyTo(this) }
+                        }
                         val count=if(episodes.selectedItemPosition==0) 0 else episodes.selectedItemPosition+2
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),JSONObject().put("category",categories[index]).put("channel",originalChannel)
-                            .put("premise",premise.text.toString()).put("episodes",count).put("provider",provider.id).put("model",settings.model()))
+                            .put("supporting_characters",support).put("premise",premise.text.toString()).put("episodes",count).put("provider",provider.id).put("model",settings.model()))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
                 }.setNeutralButton("ใช้แชร์ไฟล์แทน") { _,_ -> flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
@@ -1533,6 +1545,20 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
     @Deprecated("Android legacy back callback")
     override fun onBackPressed() { if (!importing) super.onBackPressed() }
     private fun displayName(uri: Uri): String = if (uri.scheme == "file") File(uri.path!!).name else contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null,null,null)?.use { if (it.moveToFirst()) it.getString(0) else "" } ?: ""
+    private fun importOriginalReferences(pictures: List<Uri>, folder: File, story: JSONObject) {
+        if(story.optString("character_mode","original")!="original") return
+        FlowCast.definitions(story).forEach { person ->
+            val id=FlowCast.id(person) ?: return@forEach
+            val source=pictures.firstOrNull { displayName(it).substringBeforeLast('.').equals("${id.uppercase()}_MASTER",true) } ?: return@forEach
+            val target=File(folder,"original_masters/$id.master"); target.parentFile!!.mkdirs()
+            val temp=File(target.parentFile,target.name+".pending")
+            try {
+                contentResolver.openInputStream(source)!!.use { input -> temp.outputStream().use { input.copyTo(it) } }
+                require(masterExportName(temp,false)!=null) { "อ่านภาพอ้างอิงของ ${person.getString("name")} ไม่ได้" }
+                check(temp.renameTo(target)) { "บันทึกภาพอ้างอิงไม่ได้" }
+            } finally { temp.delete() }
+        }
+    }
     private fun importNewMasters(uris: List<Uri>, folder: File = project, story: JSONObject? = plan) {
         if (uris.isEmpty()) return
         require(story?.optString("character_mode") == "new") { "ภาพ CHARACTER ใช้กับช่องอื่นเท่านั้น" }
@@ -1864,7 +1890,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             val requested=person.optString("master"); val exact=File(project,"masters/$requested")
             return if(exact.exists()) exact else File(project,"masters").listFiles()?.firstOrNull { it.nameWithoutExtension.equals(requested.substringBeforeLast('.'),true) } ?: exact
         }
-        val id = StoryIdentity.keyFor(person.optString("name")) ?: return File(project,"missing.master")
+        val id = FlowCast.id(person) ?: return File(project,"missing.master")
         return File(project,"original_masters/$id.master").takeIf { it.exists() } ?: File(filesDir,"character_masters/$id.master")
     }
     private fun repairScene(s: JSONObject) {
@@ -2049,6 +2075,51 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             } finally { temp.delete() }
         }
     }
+    private fun readSupportingCast(): JSONArray = runCatching { JSONArray(File(filesDir,"supporting_cast.json").readText()) }.getOrDefault(JSONArray())
+    private val supportImagePicker=registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val pending=prefs.getString("pending_support",null); prefs.edit().remove("pending_support").apply()
+        if(uri!=null && pending!=null) runCatching {
+            val person=JSONObject(pending); val id=FlowCast.id(person)!!
+            val file=File(filesDir,"supporting_masters/$id.master"); file.parentFile!!.mkdirs()
+            val temp=File(file.parentFile,file.name+".pending")
+            try {
+                contentResolver.openInputStream(uri)!!.use { input -> temp.outputStream().use { input.copyTo(it) } }
+                require(masterExportName(temp,false)!=null) { "อ่านภาพตัวละครเสริมไม่ได้" }
+                check(temp.renameTo(file))
+                val list=readSupportingCast(); list.put(person)
+                require(FlowCast.issues(JSONObject().put("supporting_characters",list)).isEmpty()) { "ชื่อซ้ำหรือข้อมูลตัวละครเสริมไม่ถูกต้อง" }
+                File(filesDir,"supporting_cast.json").writeText(list.toString(2))
+            } finally { temp.delete() }
+        }.onSuccess { notice("บันทึกตัวละครเสริมแล้ว • ใช้กับเรื่องใหม่ที่สร้างต่อจากนี้") }.onFailure { notice(it.message ?: "บันทึกไม่ได้") }
+    }
+    private fun supportingCastMenu() {
+        val roster=readSupportingCast()
+        choiceMenu("ตัวละครเสริม • ใช้กับเรื่องใหม่",(0 until roster.length()).map { roster.getJSONObject(it).getString("name") }+"เพิ่มตัวละครเสริม") { index ->
+            if(index==roster.length()) {
+                if(roster.length()>=8) { notice("รองรับตัวละครเสริมไม่เกิน 8 คน"); return@choiceMenu }
+                val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+                val name=EditText(this).apply { hint="ชื่อตัวละครเสริม"; panel.addView(this) }
+                val description=EditText(this).apply { hint="ผู้ใหญ่ • บทบาท / ใบหน้า / ผม / รูปร่างที่เห็นจากภาพ"; panel.addView(this) }
+                AlertDialog.Builder(this).setTitle("เพิ่มตัวละครเสริมพร้อมภาพต้นฉบับ").setView(panel).setPositiveButton("เลือกภาพ") { _,_ ->
+                    val value=name.text.toString().trim()
+                    if(value.isBlank() || description.text.isBlank() || StoryIdentity.keyFor(value)!=null || (0 until roster.length()).any { roster.getJSONObject(it).getString("name")==value }) notice("ระบุชื่อไม่ซ้ำและคำบรรยายจากภาพ")
+                    else {
+                        val id=UUID.randomUUID().toString().take(8).uppercase()
+                        val person=JSONObject().put("name",value).put("master","SUPPORT_${id}_MASTER.png").put("visual_description","adult fictional character; "+description.text.toString())
+                        prefs.edit().putString("pending_support",person.toString()).apply(); supportImagePicker.launch(arrayOf("image/*"))
+                    }
+                }.setNegativeButton("ยกเลิก",null).showDirector()
+            } else {
+                val person=roster.getJSONObject(index); val file=File(filesDir,"supporting_masters/${FlowCast.id(person)}.master")
+                choiceMenu(person.getString("name"),listOf("ดูภาพต้นฉบับ","นำออกจากเรื่องใหม่")) { action ->
+                    if(action==0) fullImage(file,person.getString("name")) else {
+                        val remaining=JSONArray(); for(i in 0 until roster.length()) if(i!=index) remaining.put(roster.getJSONObject(i))
+                        File(filesDir,"supporting_cast.json").writeText(remaining.toString(2)); notice("นำออกจากรายการเรื่องใหม่แล้ว เรื่องเดิมยังเก็บภาพของตัวเอง")
+                    }
+                }
+            }
+        }
+    }
     private fun castMenu() {
         val p=plan ?: return characterMasters()
         val people=rows(p).flatMap { scene -> scene.optJSONArray("characters")?.let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.orEmpty() }.distinctBy { it.optString("name") }
@@ -2056,7 +2127,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             val person=people[i]; val name=person.optString("name")
             choiceMenu(name,listOf("🖼️ ดู MASTER", "📷 เปลี่ยน MASTER รายเรื่อง", "✏️ บทบาทตัวละคร", "🧠 ข้อมูลใบหน้า ผม และรูปร่าง", "📦 ใช้ MASTER ล่าสุดเฉพาะเรื่องนี้", "เตรียม MASTER มาตรฐาน", "ตรวจภาพ MASTER")) { action -> when(action) {
                 0 -> { val file=masterFor(person); if(file.exists()) fullImage(file,name) else notice("ยังไม่มี MASTER") }
-                1 -> { val id=StoryIdentity.keyFor(name)
+                1 -> { val id=FlowCast.id(person)
                     val file=if(p.optString("character_mode","original")=="new") masterFor(person) else if(id!=null) File(project,"original_masters/$id.master") else return@choiceMenu
                     AlertDialog.Builder(this).setMessage("เปลี่ยน MASTER ของ $name เฉพาะเรื่องนี้ • ฉากที่ใช้คนนี้จะถูกระบุว่าต้องตรวจใหม่")
                         .setPositiveButton("เลือกรูป") { _,_ -> castTarget=name to file; castPicker.launch(arrayOf("image/*")) }.setNegativeButton("ยกเลิก",null).showDirector() }

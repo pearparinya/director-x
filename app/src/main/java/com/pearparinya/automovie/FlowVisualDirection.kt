@@ -12,6 +12,8 @@ internal object FlowVisualDirection {
         "16x9" -> "Horizontal 16:9, 1920 x 1080 pixels. Recompose subjects and negative space specifically for landscape; do not crop the vertical poster. Keep one compact lower-center text group within x=15-85% and y=52-78%, leaving at least 10% side margins and 20% bottom clearance. Keep faces clear."
         else -> error("Unsupported cover aspect ratio")
     }
+    fun storyCover(ratio: String, references: String, channel: String, story: String, tagline: String, incident: String): String =
+        cover(ratio,references,channel,story,0,"",tagline,incident).replace("EP.00 : \n", "").replace("Episode story cue:","Overall story cue:")
     fun cover(ratio: String, references: String, channel: String, story: String, ep: Int, episode: String, tagline: String, incident: String): String = """
 $references
 
