@@ -106,6 +106,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                 }
                 val rows=batch.getJSONArray("scenes"); for(n in 0 until rows.length()) {
                     val scene=JSONObject(rows.getJSONObject(n).toString())
+                    if(ChannelCatalog.performance(spec).isNotBlank()) scene.put("story_tone","comedy")
                     for(field in listOf("image_prompt","flow_prompt")) scene.put(field,LandscapeProduction.reframeText(scene.getString(field)))
                     scenes.put(scene)
                 }
