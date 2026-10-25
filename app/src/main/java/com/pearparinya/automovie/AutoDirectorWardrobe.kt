@@ -17,6 +17,15 @@ internal object AutoDirectorWardrobe {
             labels.first { it.equals(m.groupValues[1],true) } to value
         }.toMap()
     }
+    fun v45Details(outfit: String) {
+        val parts=parts(outfit)
+        for(label in listOf("Top","Bottom","Shoes")) {
+            val value=parts.getValue(label)
+            if(label=="Bottom" && absentBottom(normalized(value))) continue
+            require(Regex("(?i)\\bshade\\s*=\\s*[^;#]+#[0-9a-f]{6}\\b").containsMatchIn(value)) { "$label ต้องระบุ shade=ชื่อเฉดสี #RRGGBB" }
+        }
+        require(Regex("(?i)\\bsleeves\\s*=\\s*(long-sleeve|short-sleeve|three-quarter-sleeve|cap-sleeve|sleeveless|strapless|one-sleeve)\\b").containsMatchIn(parts.getValue("Top"))) { "Top ต้องระบุ sleeves=ความยาวแขนเสื้อให้ชัดเจน" }
+    }
     fun shots(story: JSONObject): List<Shot> {
         val eps=story.getJSONArray("episodes")
         return (0 until eps.length()).flatMap { i -> val ep=eps.getJSONObject(i); val scenes=ep.optJSONArray("scenes") ?: return@flatMap emptyList()
@@ -36,6 +45,7 @@ internal object AutoDirectorWardrobe {
     }
     fun issues(shots: List<Shot>): List<String> = buildList {
         val ledger=linkedMapOf<String,Pair<Map<String,String>,String>>()
+        val rawLedger=linkedMapOf<String,Pair<String,String>>()
         val days=linkedMapOf<String,MutableMap<String,Pair<Map<String,String>,String>>>()
         shots.forEach { shot ->
             if(shot.scene.optJSONArray("characters")==null) return@forEach // General story validation reports missing cast.
@@ -63,6 +73,10 @@ internal object AutoDirectorWardrobe {
                 val changed=labels.filter { conflict.first[it]!=exact[it] }
                 add("$where: ชุด/เครื่องประดับไม่ต่อเนื่อง (${changed.joinToString()}) ต้องคัดลอกค่าจาก ${conflict.second} ทุกส่วน วันเดียวกันห้ามเปลี่ยนชุด แม้เปลี่ยนสถานที่ กิจกรรม หรือ EP")
             }
+            val raw=person.getString("outfit")
+            val oldRaw=keys.mapNotNull { rawLedger[it] }.firstOrNull()
+            if(conflict==null && oldRaw!=null && oldRaw.first!=raw) add("$where: ชุดวันเดียวกันต้องเหมือน ${oldRaw.second} ทุกตัวอักษร รวมตัวพิมพ์ ช่องว่างและเครื่องหมาย ห้ามเรียบเรียงใหม่")
+            keys.forEach { rawLedger.putIfAbsent(it,raw to where) }
             // Preserve the original authority even after a conflicting row, also across group/event aliases.
             val entry=previous ?: (exact to where)
             keys.forEach { ledger.putIfAbsent(it,entry) }
@@ -80,7 +94,7 @@ internal object AutoDirectorWardrobe {
     fun contract(scene: JSONObject): String = """
 WARDROBE / ACCESSORY CONTINUITY LOCK
 Story day: ${scene.optString("story_day")} | wardrobe_event: ${scene.optString("wardrobe_event")} | continuity_group: ${scene.optString("continuity_group")}
-DAILY LOCK: Keep the exact stated Top, Bottom, Shoes and Accessories throughout this entire story_day, even if location, activity, time of day, wardrobe_event, continuity_group, framing or EP changes. Copy the complete descriptions verbatim; never replace them with 'same as before'. A different story_day needs a new planned top and trousers/skirt or a new one-piece dress; shoes and accessories may be reused only when explicitly listed. Preserve garment color, fabric, neckline, sleeve and hem length, fit, fastenings and patterns. Preserve every accessory's type, count, metal/color, shape and exact wearing position/side. Accessories: none means no earrings, necklace, pendant, rings, watch, bracelet or added hair ornament. Reference-image jewelry is not wardrobe authority; use only the stated current-scene accessory list. Reference images supply identity, hair and body only: never copy their shirt, blouse, trousers, skirt, dress or outfit into the story. Do not invent missing jewelry or garment details. A frame used for continuity must first be checked against these exact clothes and accessories and the original identity references.
+DAILY LOCK: Keep the exact stated Top, Bottom, Shoes and Accessories throughout this entire story_day, even if location, activity, time of day, wardrobe_event, continuity_group, framing or EP changes. Copy the complete descriptions verbatim; never replace them with 'same as before'. A different story_day needs a new planned top and trousers/skirt or a new one-piece dress; shoes and accessories may be reused only when explicitly listed. Preserve the exact named shade and HEX color, fabric, neckline, explicit sleeve length and hem length, fit, fastenings and patterns. Repeat the entire outfit character-for-character, including capitalization, spaces and punctuation. Preserve every accessory's type, count, metal/color, shape and exact wearing position/side. Accessories: none means no earrings, necklace, pendant, rings, watch, bracelet or added hair ornament. Reference-image jewelry is not wardrobe authority; use only the stated current-scene accessory list. Reference images supply identity, hair and body only: never copy their shirt, blouse, trousers, skirt, dress or outfit into the story. Do not invent missing jewelry or garment details. A frame used for continuity must first be checked against these exact clothes and accessories and the original identity references.
 During next, retry or image edits, keep clothes and jewelry unchanged. A request to repair wardrobe means restore this day's exact list, not design a new outfit. Only a clearly identified new story_day permits another planned outfit. A new event or activity within the same day does not unlock clothing.
     """.trimIndent()
 }

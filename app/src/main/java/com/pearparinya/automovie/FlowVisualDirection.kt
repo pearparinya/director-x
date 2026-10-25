@@ -19,6 +19,7 @@ $references
 POSTER PROMPT
 ${layout(ratio)}
 $identity
+${BodyReferencePolicy.preciseIdentity}
 $color
 $poster
 Episode story cue: $incident

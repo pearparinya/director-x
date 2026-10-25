@@ -54,7 +54,7 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
             if(scenes==null || scenes.length()==0) { add("EP ${i+1} ไม่มีซีน"); continue }
             if(plan.optString("content_profile")==AutoDirectorContent.profile) {
                 if(scenes.length()!=24) add("AutoDirector EP ${i+1} ต้องมี 24 ฉาก")
-                runCatching { AutoDirectorContent.validateWardrobes(ep) }.exceptionOrNull()?.let { add(it.message ?: "ชุดต้องครบ 4 ส่วน") }
+                runCatching { AutoDirectorContent.validateWardrobes(ep,plan.optInt("autodirector_version")>=AutoDirectorContent.version) }.exceptionOrNull()?.let { add(it.message ?: "ชุดต้องครบ 4 ส่วน") }
             }
             var total=0
             for(j in 0 until scenes.length()) {
@@ -118,7 +118,7 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
                         put("AUTODIRECTOR/EP%02d_FLOW.xml".format(number),AutoDirectorContent.flowXml(plan,number))
                     }
                     start.append("\nGemini NEXT: เปิด AUTODIRECTOR/ALL_GEMINI_NEXT.txt เพื่อคัดลอกทั้งเรื่อง หรือ EPxx_GEMINI_NEXT.txt เฉพาะตอน แนบ MASTER ตามรายการ วางคำสั่งครั้งเดียว สร้างทีละภาพแล้วพิมพ์ next; ไม่สร้างวิดีโอใน Gemini ถ้าข้อความยาวเกินช่องแชตให้แนบไฟล์ TXT พร้อม MASTER แล้วสั่งอ่านไฟล์และเริ่มคิว\n")
-                    start.append("\nAutoDirector v18: ใช้ไฟล์ใน AUTODIRECTOR ตามลำดับ โครงเรื่อง → ปกรวม Gemini → ภาพ Gemini ราย EP → บทพูด → XML สำหรับคัดลอกไป Flow ภาพอ้างอิงอยู่ใน MASTERS โดย The Man=GAWIN, Woman 1=RINLADA, Woman 2=MIND; ตัวเสริม Supporting ตามรหัสไฟล์ XML เป็นเอกสารจัดบท ไม่ใช่ไฟล์รัน Flow และยังต้องตรวจภาพจริงก่อนใช้\n")
+                    start.append("\nAutoDirector v45: ใช้ไฟล์ใน AUTODIRECTOR ตามลำดับ โครงเรื่อง → ปกรวม Gemini → ภาพ Gemini ราย EP → บทพูด → XML สำหรับคัดลอกไป Flow ภาพอ้างอิงอยู่ใน MASTERS โดย The Man=GAWIN, Woman 1=RINLADA, Woman 2=MIND; ตัวเสริม Supporting ตามรหัสไฟล์ XML เป็นเอกสารจัดบท ไม่ใช่ไฟล์รัน Flow และยังต้องตรวจภาพจริงก่อนใช้\n")
                 }
                 val leads=names.map { (id,name) ->
                     val epRows=plan.getJSONArray("episodes")

@@ -3,7 +3,7 @@ package com.pearparinya.automovie
 /** One text contract for all covers; scene-image text restrictions do not apply to posters. */
 internal object CoverTypography {
     fun lines(channel: String,story: String,ep: Int?=null,episode: String="",tagline: String=""): List<String> =
-        listOf(channel,story,if(ep==null) tagline else "EP.${ep.toString().padStart(2,'0')} : $episode")
+        listOf(channel,story,if(ep==null) tagline else "ตอนที่ $ep $episode")
 
     fun prompt(channel: String,story: String,ep: Int?=null,episode: String="",tagline: String=""): String {
         val missing=buildList {
@@ -21,7 +21,7 @@ BEGIN EXACT COVER TEXT
 ${lines(channel,story,ep,episode,tagline).joinToString("\n")}
 END EXACT COVER TEXT
 Do not draw the BEGIN/END labels. Draw only the three required entries. Thai spelling, punctuation and wording must match exactly. Main story title largest; channel smaller; ${if(ep==null) "story tagline" else "episode number and episode title"} secondary. Do not add ${if(ep==null) "episode labels" else "a fourth tagline line"}.
-Stack the text as one compact group centered horizontally at x=50%, within x=15-85% and y=52-78% (lower-middle safe zone). Keep faces clear. Use legible Thai display type and local contrast support; resize or wrap long entries without dropping words or clipping letters.
+Stack the text as one compact group centered horizontally at x=50%, within x=15-85% and y=52-78% (lower-middle safe zone). Keep faces clear. Professional movie poster layout. Add a dark localized gradient behind the text only for maximum contrast; keep the faces, skin and scene bright cool-white. Use MASSIVE, bold, glowing 3D cinematic Thai typography with controlled bevels and restrained glow that preserves every letter; resize or wrap long entries without dropping words or clipping letters.
 COVER TEXT CHECK BEFORE DONE: verify every required entry is visibly present and readable inside the image. If missing, misspelled or cropped, repair this same cover while preserving cast, locked wardrobe and composition; do not advance to next. If the tool cannot render the lettering, report PENDING and ask for correction instead of claiming DONE. No extra text or watermark.
         """.trimIndent()
     }

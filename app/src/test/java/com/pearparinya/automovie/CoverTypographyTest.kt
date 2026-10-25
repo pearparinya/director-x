@@ -6,9 +6,9 @@ import org.junit.Test
 class CoverTypographyTest {
     @Test fun storyAndEpisodeHaveTheirExactThreeRequiredEntries() {
         assertEquals(listOf("ชื่อช่อง","ชื่อเรื่อง 100%","คำโปรยเรื่อง"),CoverTypography.lines("ชื่อช่อง","ชื่อเรื่อง 100%",tagline="คำโปรยเรื่อง"))
-        assertEquals(listOf("ชื่อช่อง","ชื่อเรื่อง 100%","EP.03 : ชื่อตอน"),CoverTypography.lines("ชื่อช่อง","ชื่อเรื่อง 100%",3,"ชื่อตอน","ห้ามแสดงคำโปรย EP"))
+        assertEquals(listOf("ชื่อช่อง","ชื่อเรื่อง 100%","ตอนที่ 3 ชื่อตอน"),CoverTypography.lines("ชื่อช่อง","ชื่อเรื่อง 100%",3,"ชื่อตอน","ห้ามแสดงคำโปรย EP"))
         val poster=CoverTypography.prompt("ชื่อช่อง","ชื่อเรื่อง",3,"ชื่อตอน","คำโปรยที่ไม่ใช้")
-        assertTrue(poster.contains("BEGIN EXACT COVER TEXT\nชื่อช่อง\nชื่อเรื่อง\nEP.03 : ชื่อตอน\nEND EXACT COVER TEXT"))
+        assertTrue(poster.contains("BEGIN EXACT COVER TEXT\nชื่อช่อง\nชื่อเรื่อง\nตอนที่ 3 ชื่อตอน\nEND EXACT COVER TEXT"))
         assertFalse(poster.contains("คำโปรยที่ไม่ใช้"))
         assertTrue(poster.contains("INSIDE THE ACTUAL IMAGE")); assertTrue(poster.contains("PENDING"))
         assertTrue(poster.contains("do not advance to next"))

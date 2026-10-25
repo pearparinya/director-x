@@ -4,15 +4,17 @@ import org.json.JSONObject
 
 /** Portable production documents. XML organizes prompts; it is not a Flow API. */
 internal object AutoDirectorContent {
-    class AwaitingOutline : IllegalStateException("โครงเรื่องพร้อมแล้ว • ดูและยืนยันก่อนเตรียมคำสั่งภาพ Gemini")
+    class AwaitingOutline : IllegalStateException("✅ โครงเรื่องพร้อม พิมพ์ 'สร้างภาพ EP.1'")
+    const val version = 45
+    const val imageStart = "Generate a 16:9 image exactly as described, RAW photo:"
     const val profile = "autodirector_v18"
     const val dailyWardrobe = "DAILY WARDROBE RULE — higher priority than generic activity/event styling: Assign one exact four-part outfit per character per canonical story_day (DAY01, DAY02, ...). The same day keeps identical Top, Bottom, Shoes and Accessories across locations, activities, times, event/group IDs, temporary absences and EP boundaries. Only a new story_day permits a new outfit; plan a different top AND trousers/skirt, or a different one-piece dress with Bottom: none. Shoes and accessories may repeat across days if explicitly listed. Repeat each day's complete garment/accessory descriptions verbatim. Never use reference photos as a wardrobe source: reference images define facial identity, hair and body only. Design new story clothes; do not copy any attached shirt, blouse, trousers, skirt, dress or outfit. If clothes are unclear, ask rather than inheriting reference clothing. If the assigned daily outfit accidentally matches a reference-image outfit, stop and request a revised full-day wardrobe before generating; do not silently redesign a single scene or reuse the source garments."
     const val femaleFashion = "ADULT WOMEN'S FASHION DIRECTION: Sexy, confident adult-drama editorial styling for fictional women age 25+. Plan figure-hugging clothes that visibly define the reference waist, hips and natural curves. Specify a deep V-neck, plunging neckline or low-cut sweetheart neckline with visible natural cleavage; use fitted blouses, fitted tops or bodycon dresses with opaque, fully lined bust coverage. Do not default to high-neck tops, buttoned-to-the-neck shirts, loose shapeless garments or closed jackets that cover the specified neckline. The breasts remain covered except for the neckline/cleavage: no visible nipples or areolae, sheer panels, underbust exposure or nudity. Keep the original reference anatomy and proportions; do not enlarge the bust or reshape the body to achieve the style. Select the exact garment, neckline and four-part outfit during script planning, then lock that same outfit and every accessory throughout the entire story_day. Do not borrow any garment from the attached identity images."
-    const val generationRules = """AutoDirector v18 production profile. All characters are fictional adults (age 25+).
+    const val generationRules = """AutoDirector Studio v45 production profile. TEXT COMMAND WRITER ONLY: never generate images or videos. Work one phase at a time and stop after its requested output. All characters are fictional adults (age 25+).
 The Man is the husband, Woman 1 the wife, Woman 2 the affair partner. Use the existing internal canonical names and MASTER IDs in JSON only; the app maps them to these external aliases.
 Write a new dramatic plot in the selected category with 24 complete scenes per episode. Vary conversation, argument, monologue, silent reaction and external narration across the story. Alternate speakers across scenes, never overlap speakers within one 8-second shot.
 Every character outfit MUST explicitly list four labeled parts in English: Top: ...; Bottom: ...; Shoes: ...; Accessories: ... (write none if absent). Keep the same four parts for the entire story_day; change the top and trousers/skirt only when story_day changes. Match each reference's actual proportions without enlarging or reducing anatomy.
-WARDROBE DETAIL AND LOCK: Top must specify exact garment type, color, fabric, neckline, sleeve length, fit and pattern/fastenings. Bottom must specify garment type, color, fabric, length and fit. Shoes must specify type, color and heel/sole. Accessories must enumerate each item, count, material/color, shape and exact placement (left/right ear, neck, wrist, finger); explicitly state absent items or none. Do not abbreviate as same outfit or same jewelry. The first wardrobe for a character on each story_day is the immutable authority: repeat the complete four-part string verbatim for that person in later shots, across absences and EP cuts. Keep wardrobe_event and continuity_group stable for continuous scenes, regardless of camera framing, emotion or who speaks. A wardrobe change requires a new canonical story_day. New wardrobe_event, continuity_group, location, activity, time, framing or mood within the same day cannot change clothing. Never copy jewelry from MASTER when it differs from the exact scene Accessories list.
+WARDROBE DETAIL AND LOCK: Top must specify exact garment type, named precise shade and HEX color (shade=deep ruby red #9B111E), fabric, neckline, explicit sleeve field (sleeves=long-sleeve / short-sleeve / three-quarter-sleeve / cap-sleeve / sleeveless / strapless / one-sleeve), fit and pattern/fastenings. Bottom and Shoes also require shade=<precise shade name> #RRGGBB; Bottom: none is allowed for a one-piece dress. The complete four-part outfit must match character-for-character, including case, whitespace and punctuation, throughout the day. Bottom must specify garment type, color, fabric, length and fit. Shoes must specify type, color and heel/sole. Accessories must enumerate each item, count, material/color, shape and exact placement (left/right ear, neck, wrist, finger); explicitly state absent items or none. Do not abbreviate as same outfit or same jewelry. The first wardrobe for a character on each story_day is the immutable authority: repeat the complete four-part string verbatim for that person in later shots, across absences and EP cuts. Keep wardrobe_event and continuity_group stable for continuous scenes, regardless of camera framing, emotion or who speaks. A wardrobe change requires a new canonical story_day. New wardrobe_event, continuity_group, location, activity, time, framing or mood within the same day cannot change clothing. Never copy jewelry from MASTER when it differs from the exact scene Accessories list.
 Preserve exact reference facial geometry, hairstyle, hair length and hair color; never mix identities or bleach natural skin. Image framing and positions must be explicit, left/center/right for group shots. For narrated or silent scenes all mouths closed, lips sealed. For dialogue scenes only the named speaker may open their mouth.
 Images are generated externally in Gemini; video is generated externally in Flow from a reviewed scene image. Bright cool-neutral white, 5500K daylight-balanced lighting, no yellow cast or dark shadows, preserve detail and highlights. Night scenes stay at night with bright neutral artificial light. No text on scene images. Do not claim a measured or guaranteed 100% identity match."""
     private val labels = mapOf("gawin" to "The Man", "rinlada" to "Woman 1", "mind" to "Woman 2")
@@ -33,11 +35,12 @@ Images are generated externally in Gemini; video is generated externally in Flow
         return result
     }
     private fun speech(raw: String) = raw.trim().takeUnless { it.lowercase() in listOf("none", "ไม่มี", "n/a") }.orEmpty()
-    fun validateWardrobes(batch: JSONObject) {
+    fun validateWardrobes(batch: JSONObject,strictDetails: Boolean=false) {
         val scenes=batch.getJSONArray("scenes")
         for(i in 0 until scenes.length()) FlowReferencePrompt.people(scenes.getJSONObject(i)).forEach { person ->
             val outfit=person.getString("outfit")
             AutoDirectorWardrobe.parts(outfit)
+            if(strictDetails) AutoDirectorWardrobe.v45Details(outfit)
         }
     }
     private fun speaker(scene: JSONObject): String = FlowReferencePrompt.people(scene).firstOrNull {
@@ -51,7 +54,7 @@ Images are generated externally in Gemini; video is generated externally in Flow
             "EXACT WARDROBE — ${normalize(p.optString("outfit"),story)}. These four parts override any stale clothing/jewelry in appearance or reference images. Preserve every listed garment and accessory exactly; no added/removed jewelry, no color, material, shape, count, side or placement changes.\n" +
             "Position: ${p.optString("screen_position").ifBlank { "compose around the reserved text area" }}."
     }
-    private const val identity = dailyWardrobe + "\nRequest exact reference facial identity, hairstyle, hair length and hair color. Match each adult woman's reference bust volume and natural silhouette 1:1 relative to shoulders, waist and hips; no enlargement, reduction, blending or anatomical redesign. Adult-drama fashion target: sexy fitted clothes, clearly defined waist/hips and natural curves, deep or low-cut necklines with visible natural cleavage as specified by the script. Preserve the exact locked scene outfit and neckline; do not add a camisole, scarf, high collar, closed jacket or extra fabric that hides the planned neckline. Do not change an already locked outfit to apply a new style while rendering, retrying or editing a scene. Opaque lined clothes cover nipples and areolae; no nudity or transparent bust fabric. Preserve each reference's natural skin tone and visible skin texture. Compare actual outputs with the original references; identity lock is a prompt target, not a verified percentage."
+    private const val identity = BodyReferencePolicy.preciseIdentity + "\n" + dailyWardrobe + "\nRequest exact reference facial identity, hairstyle, hair length and hair color. Match each adult woman's reference bust volume and natural silhouette 1:1 relative to shoulders, waist and hips; no enlargement, reduction, blending or anatomical redesign. Adult-drama fashion target: sexy fitted clothes, clearly defined waist/hips and natural curves, deep or low-cut necklines with visible natural cleavage as specified by the script. Preserve the exact locked scene outfit and neckline; do not add a camisole, scarf, high collar, closed jacket or extra fabric that hides the planned neckline. Do not change an already locked outfit to apply a new style while rendering, retrying or editing a scene. Opaque lined clothes cover nipples and areolae; no nudity or transparent bust fabric. Preserve each reference's natural skin tone and visible skin texture. Compare actual outputs with the original references; identity lock is a prompt target, not a verified percentage."
     private fun ending(ratio: String) = "Generate a 16:9 horizontal image, 1920 x 1080 pixels.\nMasterpiece, 8k, 5500K daylight, pure bright white studio lighting, strict cool white tone, zero yellow light, extremely bright, absolutely no dark shadows. Preserve highlight detail and skin texture; daylight-balanced artificial lighting for night interiors."
     private fun episode(story: JSONObject, number: Int): JSONObject {
         val eps=story.getJSONArray("episodes")
@@ -67,7 +70,7 @@ Images are generated externally in Gemini; video is generated externally in Flow
             }
             append("6. จำนวนตอน: ${eps.length()}\n")
             for(i in 0 until eps.length()) { val ep=eps.getJSONObject(i); append("ตอนที่ ${ep.getInt("ep")} ${ep.optString("title")} • ${ep.optJSONArray("scenes")?.length() ?: 24} ฉาก\n") }
-            append("\nกรุณาพิมพ์ 'สร้างภาพ EP.1' เพื่อดำเนินการต่อ\nในแอปให้เลือกปุ่มสร้างภาพของ EP ที่ต้องการ • ระบบเตรียมคำสั่ง ยังไม่ได้สร้างภาพจริง")
+            append("\n✅ โครงเรื่องพร้อม พิมพ์ 'สร้างภาพ EP.1'\nHARD STOP • จบ Phase 1 • ส่งออกข้อความเท่านั้น")
         }
     }
     private fun poster(story: JSONObject, people: List<JSONObject>, ratio: String, number: Int? = null): String {
@@ -75,7 +78,7 @@ Images are generated externally in Gemini; video is generated externally in Flow
         val heading=if(number==null) "หน้าปกรวม" else "หน้าปกตอน EP.$number"
         val typography=CoverTypography.prompt(story.optString("channel"),story.getString("title"),number,ep?.optString("title").orEmpty(),story.optString("tagline"))
         val cue=ep?.optString("cover_incident")?.ifBlank { ep.optString("tagline") } ?: story.optString("tagline")
-        return "[$heading $ratio] [แนบรูป: ${people.joinToString(", ") { alias(it) }}]\n" +
+        return "[$heading $ratio] [แนบรูป: ${people.joinToString(", ") { alias(it) }}]\n$imageStart\n" +
             binding(people,story)+"\n$identity\nLandscape covers use the exact locked daily outfits and accessory lists. Recompose the camera only; do not redesign clothes or jewelry.\nCinematic waist-up medium close-up, zoomed in closely, dynamic dramatic editorial poses, intense eye contact, natural three-quarter body angles and reference proportions. NO full body, NO stiff standing. No collage. Story cue: ${normalize(cue,story)}\n"+
             FlowVisualDirection.layout(ratio.replace(":","x"))+"\n"+typography+"\n"+ending(ratio)
     }
@@ -100,6 +103,9 @@ Images are generated externally in Gemini; video is generated externally in Flow
     data class ImageTask(val id: String, val ratio: String, val people: List<JSONObject>, val prompt: String)
     fun imageTasks(story: JSONObject, number: Int? = null): List<ImageTask> = buildList {
         LandscapeProduction.requirePlan(story)
+        if(story.optInt("autodirector_version")>=version) {
+            val episodes=story.getJSONArray("episodes"); for(i in 0 until episodes.length()) validateWardrobes(episodes.getJSONObject(i),true)
+        }
         val leads=storyCoverPeople(story)
         for(ratio in listOf("16:9")) add(ImageTask("STORY_COVER_${ratio.replace(":","x")}",ratio,leads,poster(story,leads,ratio)))
         val eps=story.getJSONArray("episodes")
@@ -149,16 +155,15 @@ Images are generated externally in Gemini; video is generated externally in Flow
     }
     fun images(story: JSONObject, number: Int): String {
         LandscapeProduction.requirePlan(story)
-        val ep=episode(story,number); val scenes=ep.getJSONArray("scenes")
-        val coverCast=FlowReferencePrompt.people(scenes.getJSONObject(0)).take(2)
-        val blocks=listOf("16:9").map { poster(story,coverCast,it,number) }.toMutableList()
-        for(i in 0 until scenes.length()) blocks.add(sceneImage(story,scenes.getJSONObject(i)))
-        return blocks.joinToString("\n\n")+"\n\nกรุณาพิมพ์ 'สร้างบท EP.$number' เพื่อดำเนินการต่อ"
+        require(episode(story,number).getJSONArray("scenes").length()==24) { "Phase 2 ต้องมีฉากครบ 24 ฉาก" }
+        return "AUTODIRECTOR v45 — TEXT COMMANDS ONLY • ห้ามสร้างภาพจริงใน Phase นี้ • 26 คำสั่ง (ปกรวม + ปก EP + 24 ซีน)\n\n"+
+            imageTasks(story,number).joinToString("\n\n") { it.prompt }+
+            "\n\n✅ โค้ดคำสั่งภาพเสร็จสิ้น! พิมพ์ 'สร้างบท EP.$number'\nHARD STOP • จบ Phase 2"
     }
     fun sceneImage(story: JSONObject, s: JSONObject): String {
         LandscapeProduction.requirePlan(story)
         val people=FlowReferencePrompt.people(s)
-        return "[ฉากที่ ${s.getInt("scene")}] [แนบรูป: ${people.joinToString(", ") { alias(it) }}]\n"+
+        return "[ฉากที่ ${s.getInt("scene")}] [แนบรูป: ${people.joinToString(", ") { alias(it) }}]\n$imageStart\n"+
                 binding(people,story)+"\n$identity\n"+AutoDirectorWardrobe.contract(s)+"\n"+
                 "Location: ${normalize(s.getString("location"),story)}. Action: ${normalize(s.getString("action"),story)}. Start state: ${normalize(s.getString("start_state"),story)}. End-state continuity target: ${normalize(s.getString("end_state"),story)}.\n"+
                 "${normalize(s.getString("image_prompt"),story)}\nFINAL OVERRIDES: Use only the attached identities and current four-part wardrobes above. Explicit left/center/right placement for all listed people. "+
@@ -176,9 +181,9 @@ Images are generated externally in Gemini; video is generated externally in Flow
         val scenes=episode(story,number).getJSONArray("scenes")
         return (0 until scenes.length()).joinToString("\n\n") { i ->
             val s=scenes.getJSONObject(i); val line=speech(s.optString("dialogue")); val vo=speech(s.optString("narration"))
-            "[ฉากที่ ${s.getInt("scene")}] 8 วินาที\nการแสดง: ${normalize(s.getString("action"),story)}\n"+
-                when { line.isNotEmpty() -> "${speaker(s)}: $line\nคนอื่นปิดปาก ไม่พูดแทรก"; vo.isNotEmpty() -> "VO (ผู้บรรยายภายนอก): $vo\nทุกคน mouth closed, lips sealed"; else -> "ไม่มีบทพูด • ทุกคน mouth closed, lips sealed" }
-        }+"\n\nกรุณาพิมพ์ 'สร้าง XML EP.$number'"
+            "[ฉากที่ ${s.getInt("scene")}] 8 วินาที\nการแสดง: ${s.getString("action")}\n"+
+                when { line.isNotEmpty() -> "${FlowReferencePrompt.people(s).firstOrNull { it.optString("name")==s.optString("speaker") || StoryIdentity.keyFor(s.optString("speaker"))?.let { key -> FlowCast.id(it)==key }==true }?.optString("name") ?: s.optString("speaker")}: $line\nคนอื่นปิดปาก ไม่พูดแทรก"; vo.isNotEmpty() -> "VO (ผู้บรรยายภายนอก): $vo\nทุกคน mouth closed, lips sealed"; else -> "ไม่มีบทพูด • ทุกคน mouth closed, lips sealed" }
+        }+"\n\n✅ บทเสร็จสิ้น! พิมพ์ 'สร้าง XML EP.$number'\nHARD STOP • จบ Phase 3"
     }
     private fun xml(value: String) = value.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;")
     fun flowXml(story: JSONObject, number: Int): String {
@@ -190,14 +195,17 @@ Images are generated externally in Gemini; video is generated externally in Flow
             for(i in 0 until scenes.length()) {
                 val s=scenes.getJSONObject(i); val id="EP%02d_SC%03d".format(number,s.getInt("scene")); val line=speech(s.optString("dialogue")); val vo=speech(s.optString("narration"))
                 append("\n  <scene id=\"$id\" duration_seconds=\"8\" aspect_ratio=\"16:9\">\n    <start_frame>$id — ภาพฉากที่ตรวจเทียบ MASTER และยืนยันผู้พูดแล้วเท่านั้น</start_frame>\n")
-                val audio=when { line.isNotEmpty() -> "Only ${speaker(s)} speaks this exact Thai line: $line. All others mouth closed, lips sealed."; vo.isNotEmpty() -> "External male VO: $vo. All visible characters mouth closed, lips sealed."; else -> "Silent acting, no dialogue or narration; all mouths closed, lips sealed." }
+                val audio=when { line.isNotEmpty() -> "Only ${speaker(s)} speaks the exact Thai text from the sibling dialogue tag. All others mouth closed, lips sealed."; vo.isNotEmpty() -> "External male VO uses the sibling dialogue tag. All visible characters mouth closed, lips sealed."; else -> "Silent acting, no dialogue or narration; all mouths closed, lips sealed." }
                 val spec=FlowSceneSpec(FlowReferencePrompt.people(s).map { FlowPerson(it.getString("name"),it.getString("visual_description"),it.getString("screen_position"),it.getString("outfit")) },s.optString("speaker"),line,vo,s.optString("flow_action").ifBlank { s.getString("action") },s.getString("location"),s.getString("start_state"),s.getString("end_state"),8,"16:9")
-                val motion=FlowScenePrompt.build(externalSpec(story,spec))+" FINAL AUDIO: $audio"
+                var direction=FlowScenePrompt.build(externalSpec(story,spec))
+                if(line.isNotEmpty()) direction=direction.replace(line,"[exact Thai speech in sibling dialogue tag]")
+                if(vo.isNotEmpty()) direction=direction.replace(vo,"[exact Thai narration in sibling dialogue tag]")
+                val motion=direction+" FINAL AUDIO: $audio"
                 append("    <motion_prompt>${xml(motion)}</motion_prompt>\n    <dialogue speaker=\"${xml(if(line.isNotEmpty()) speaker(s) else if(vo.isNotEmpty()) "VO" else "") }\">${xml(line.ifEmpty { vo })}</dialogue>\n")
                 append("    <lighting temperature=\"5500K\" tone=\"cool_white\" source=\"reviewed_start_frame\">Preserve reviewed frame lighting; no yellow cast, no dark shadows.</lighting>\n    <typography_safe_zone position=\"lower_middle\" enabled=\"false\">Scene video has no typography; cover text belongs on separate cover images.</typography_safe_zone>\n  </scene>\n")
             }
             val hasNext=story.getJSONArray("episodes").let { eps -> (0 until eps.length()).any { eps.getJSONObject(it).getInt("ep")>number } }
-            append("  <next_step>${if(hasNext) "หากมีตอนต่อไปพิมพ์ 'สร้างภาพ EP.${number+1}'" else "หากจบพิมพ์ 'เสร็จสิ้น'"}</next_step>\n</flow>\n")
+            append("  <next_step>${if(hasNext) "✅ เสร็จสิ้น พิมพ์ 'สร้างภาพ EP.${number+1}'" else "✅ เสร็จสิ้น พิมพ์ 'เสร็จสิ้น'"}</next_step>\n</flow>\n")
         }
     }
 }
