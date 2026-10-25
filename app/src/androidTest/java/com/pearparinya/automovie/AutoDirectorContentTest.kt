@@ -57,7 +57,7 @@ class AutoDirectorContentTest {
     @Test fun everyCoverPathIncludesExactTextWhileScenesStayTextFree() {
         val p=story()
         val storyText="BEGIN EXACT COVER TEXT\n${p.getString("channel")}\nความจริงหลังซอง\nใครกันที่ปิดบัง\nEND EXACT COVER TEXT"
-        val epText="BEGIN EXACT COVER TEXT\n${p.getString("channel")}\nความจริงหลังซอง\nEP.01 : ซองลับ\nEND EXACT COVER TEXT"
+        val epText="BEGIN EXACT COVER TEXT\n${p.getString("channel")}\nความจริงหลังซอง\nตอนที่ 1 ซองลับ\nEND EXACT COVER TEXT"
         assertTrue(AutoDirectorContent.covers(p).contains(storyText))
         assertTrue(AutoDirectorContent.images(p,1).contains(epText))
         val tasks=AutoDirectorContent.imageTasks(p,1)
@@ -67,6 +67,27 @@ class AutoDirectorContentTest {
         assertTrue(queue.contains(storyText)); assertTrue(queue.contains(epText)); assertTrue(queue.contains("ไม่รับ next เพื่อข้ามปก"))
         assertTrue(FlowVisualDirection.storyCover("16x9","refs",p.getString("channel"),p.getString("title"),p.getString("tagline"),"cue").contains(storyText))
         assertTrue(FlowVisualDirection.cover("16x9","refs",p.getString("channel"),p.getString("title"),1,"ซองลับ","ไม่แสดงเป็นบรรทัดที่สี่","cue").contains(epText))
+    }
+    @Test fun v45WritesTwentySixTextCommandsAndStopsWithThaiDialogueAndEnglishMotionNames() {
+        val p=story().put("autodirector_version",45)
+        val outfit="Top: fitted blouse, shade=deep ruby red #9B111E; sleeves=long-sleeve; Bottom: fitted skirt, shade=ink black #101010; Shoes: heels, shade=jet black #0A0A0A; Accessories: none"
+        val scenes=p.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes")
+        for(i in 0 until scenes.length()) {
+            val people=scenes.getJSONObject(i).getJSONArray("characters")
+            for(j in 0 until people.length()) people.getJSONObject(j).put("outfit",outfit)
+        }
+        val code=AutoDirectorContent.images(p,1)
+        assertEquals(26,Regex(Regex.escape(AutoDirectorContent.imageStart)).findAll(code).count())
+        assertTrue(code.contains("TEXT COMMANDS ONLY")); assertTrue(code.contains("HARD STOP"))
+        assertTrue(code.contains(BodyReferencePolicy.preciseIdentity)); assertTrue(code.contains("glowing 3D")); assertTrue(code.contains("dark localized gradient"))
+        assertTrue(code.contains("✅ โค้ดคำสั่งภาพเสร็จสิ้น! พิมพ์ 'สร้างบท EP.1'"))
+        assertTrue(AutoDirectorContent.outline(p).contains("✅ โครงเรื่องพร้อม พิมพ์ 'สร้างภาพ EP.1'"))
+        val speech=AutoDirectorContent.dialogue(p,1)
+        assertTrue("Thai speaker must follow the scene speaker",speech.contains("รินรดา:")); assertFalse(speech.contains("Woman 1:"))
+        assertTrue(speech.contains("✅ บทเสร็จสิ้น! พิมพ์ 'สร้าง XML EP.1'"))
+        val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(AutoDirectorContent.flowXml(p,1).toByteArray(Charsets.UTF_8)))
+        val motion=doc.getElementsByTagName("motion_prompt")
+        for(i in 0 until motion.length) listOf("กวิน","รินรดา","เมย์").forEach { assertFalse(motion.item(i).textContent.contains(it)) }
     }
     @Test fun xmlIsParseablePreservesThaiSpeechAndNeverUsesStaleAudio() {
         val p=story(); val text=AutoDirectorContent.flowXml(p,1)

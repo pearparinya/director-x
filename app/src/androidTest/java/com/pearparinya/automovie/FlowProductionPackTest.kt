@@ -152,7 +152,7 @@ class FlowProductionPackTest {
         val title="หลักฐาน 100% บนโต๊ะ"
         assertTrue(runCatching { FlowVisualDirection.cover("9x16","ref","ช่อง",title,2,"ชื่อ EP","คำโปรย","ซองบนโต๊ะ") }.isFailure)
         val horizontal=FlowVisualDirection.cover("16x9","เมย์ → MIND_MASTER.jpg","ช่อง",title,2,"ชื่อ EP","คำโปรย","ซองบนโต๊ะ")
-        assertTrue(horizontal.contains(title)); assertTrue(horizontal.contains("EP.02 : ชื่อ EP"))
+        assertTrue(horizontal.contains(title)); assertTrue(horizontal.contains("ตอนที่ 2 ชื่อ EP"))
         assertTrue(horizontal.contains("one compact group")); assertTrue(horizontal.contains("chest-to-waist")); assertTrue(horizontal.contains("without revealing the ending"))
         assertTrue(horizontal.contains("1920 x 1080")); assertTrue(horizontal.contains("native widescreen key art"))
         assertFalse(horizontal.contains("1080 x 1920"))
@@ -179,7 +179,7 @@ class FlowProductionPackTest {
             assertEquals("custom face",memory.getJSONObject("mind").getJSONObject("profile").getString("face"))
             val ep=String(files.getValue("DIRECTOR_FLOW/EP07_IMAGES.txt"),Charsets.UTF_8)
             assertTrue(ep.contains("184 seconds")); assertTrue(ep.contains("EP07_SC023")); assertFalse(ep.contains("COVER 9x16")); assertTrue(ep.contains("COVER 16x9"))
-            assertTrue(ep.contains("BEGIN EXACT COVER TEXT\nช่อง\nซองบนโต๊ะ\nEP.07 : ตอน 7\nEND EXACT COVER TEXT"))
+            assertTrue(ep.contains("BEGIN EXACT COVER TEXT\nช่อง\nซองบนโต๊ะ\nตอนที่ 7 ตอน 7\nEND EXACT COVER TEXT"))
             assertTrue(ep.contains("Rinrada:")); assertTrue(ep.contains("ชุดทำงานสีขาว"))
             assertTrue(ep.startsWith("แนบภาพตัวละคร")); assertTrue(ep.contains("one compact group"))
             assertTrue(ep.contains("No yellow/orange cast")); assertTrue(ep.contains("FINAL COLOR DIRECTION"))

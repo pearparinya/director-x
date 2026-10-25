@@ -14,7 +14,7 @@ ${if(profile.isNotBlank()) "ข้อมูลอ้างอิงรายค�
     """.trimIndent()
 
     fun identity(source: String) =
-        "ใช้ $source ให้ตรงตัวละครรายคน คงใบหน้า ทรงผม สีผิว สัดส่วนรูปร่างโดยรวมตามภาพอ้างอิงของตัวละครผู้ใหญ่ โดยไม่เพิ่มหรือลดสัดส่วนเอง $referenceAppeal ชุดยึดบทของฉากปัจจุบัน"
+        "ใช้ $source ให้ตรงตัวละครรายคน คงใบหน้า ทรงผม สีผิว สัดส่วนรูปร่างโดยรวมตามภาพอ้างอิงของตัวละครผู้ใหญ่ โดยไม่เพิ่มหรือลดสัดส่วนเอง $referenceAppeal ชุดยึดบทของฉากปัจจุบัน\n${BodyReferencePolicy.preciseIdentity}"
 
     fun style(aspect: String, framing: String = "", lighting: String = "") =
         "ภาพถ่ายสมจริง $aspect • ${framing.ifBlank { "จัดระยะให้เห็นใบหน้าและการกระทำครบตามฉาก" }} • ${lighting.ifBlank { "แสงเหมาะกับเวลาและสถานที่ตามบท" }}"

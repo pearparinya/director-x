@@ -56,6 +56,20 @@ class AutoDirectorWardrobeTest {
         assertTrue(AutoDirectorWardrobe.issues(listOf(shot(1,scene(1,dress)),shot(2,scene(1,dress.replace("red opaque","blue opaque"),day="DAY02")))).isEmpty())
         assertTrue(AutoDirectorWardrobe.issues(listOf(shot(1,scene(1,day="")))).any { it.contains("story_day") })
     }
+    @Test fun sameDayTextCannotChangeCapitalizationSpacingOrPunctuation() {
+        for(changed in listOf(clothes.replace("white","White"),clothes.replace("silk ","silk  "),clothes+";")) {
+            assertTrue(AutoDirectorWardrobe.issues(listOf(shot(1,scene(1)),shot(2,scene(2,changed)))).any { it.contains("ทุกตัวอักษร") })
+        }
+    }
+    @Test fun v45RequiresPreciseShadeHexAndExplicitSleeveLength() {
+        val precise="Top: fitted deep-V silk blouse, shade=deep ruby red #9B111E; sleeves=long-sleeve; Bottom: fitted wool skirt, shade=ink black #101010; Shoes: closed-toe heels, shade=jet black #0A0A0A; Accessories: none"
+        AutoDirectorWardrobe.v45Details(precise)
+        AutoDirectorWardrobe.v45Details(precise.replace("fitted wool skirt, shade=ink black #101010","none"))
+        listOf(precise.replace("sleeves=long-sleeve","sleeves=unknown"),precise.replace("#9B111E","red"),precise.replace("#0A0A0A","black")).forEach {
+            assertTrue(runCatching { AutoDirectorWardrobe.v45Details(it) }.isFailure)
+        }
+        assertTrue(runCatching { AutoDirectorWardrobe.v45Details(clothes) }.isFailure)
+    }
     @Test fun completePartsAllowExplicitNoneButRejectPlaceholdersDuplicatesAndEmptyJewelry() {
         assertEquals(4,AutoDirectorWardrobe.parts(clothes).size)
         val simple="Top: white shirt; Bottom: black trousers; Shoes: black loafers; Accessories: none"

@@ -1278,7 +1278,7 @@ class StudioActivity : AppCompatActivity() {
         }
         if(current!=null && current.optString("aspect_ratio","9:16")!="16:9") button("↔ สร้างสำเนาเรื่องแนวนอน 16:9",false) { landscapeCopyMenu() }
         label("เครื่องมือเสริม",15,true)
-        button("⚙️ AutoDirector v18 • ภาพ Gemini / วิดีโอ Flow",false) { autoDirectorMenu() }
+        button("⚙️ AutoDirector v45 • ภาพ Gemini / วิดีโอ Flow",false) { autoDirectorMenu() }
         button("🧪 ทดสอบสร้างวิดีโอ • เลือกตัวละคร",false) { flowTestMenu() }
         button("🎭 MASTER และข้อมูลตัวละคร",false) { choiceMenu("ตัวละคร",listOf("ตัวละครหลัก 3 คน","ตัวละครเสริมสำหรับเรื่องใหม่","ตัวละครของเรื่องที่เปิด")) { when(it) { 0 -> characterMasters(); 1 -> supportingCastMenu(); else -> castMenu() } } }
         button("⬇ ดาวน์โหลดแม่บทเริ่มงาน + MASTER",false) { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
@@ -1437,12 +1437,12 @@ class StudioActivity : AppCompatActivity() {
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
     private fun autoDirectorMenu() {
-        choiceMenu("AutoDirector v18",listOf("สร้างเรื่องใหม่ • สุ่มหมวด / พล็อต","Phase 1 • ดูโครงเรื่องที่เปิด","Phase 2–4 • ทำงานทีละ EP","ส่งออก ZIP • Gemini + บทพูด + Flow XML","คัดลอกทั้งหมด • Gemini next")) { action ->
+        choiceMenu("AutoDirector v45",listOf("สร้างเรื่องใหม่ • สุ่มหมวด / พล็อต","Phase 1 • ดูโครงเรื่องที่เปิด","Phase 2–4 • ทำงานทีละ EP","ส่งออก ZIP • Gemini + บทพูด + Flow XML","คัดลอกทั้งหมด • Gemini next")) { action ->
             if(action==0) { flowPlanning(true); return@choiceMenu }
             val story=plan
             if(story==null) { if(File(project,"gemini_job/spec.json").isFile) geminiJobMenu() else notice("ยังไม่มีบท กรุณาสร้างเรื่องใหม่หรือนำเข้าบทก่อน"); return@choiceMenu }
             if(story.optString("content_profile")!=AutoDirectorContent.profile) {
-                notice("เรื่องนี้ใช้รูปแบบเดิม เลือกสร้างเรื่องใหม่ใน AutoDirector v18 เพื่อใช้บท 24 ฉาก เสื้อผ้า 4 ส่วน และไฟล์ Gemini / Flow XML"); return@choiceMenu
+                notice("เรื่องนี้ใช้รูปแบบเดิม เลือกสร้างเรื่องใหม่ใน AutoDirector v45 เพื่อใช้บท 24 ฉาก เสื้อผ้า 4 ส่วน และไฟล์ Gemini / Flow XML"); return@choiceMenu
             }
             if(story.optString("aspect_ratio","9:16")!="16:9") { landscapeCopyMenu(); return@choiceMenu }
             val wardrobeIssues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(story))
@@ -1463,11 +1463,11 @@ class StudioActivity : AppCompatActivity() {
                             val reached=prefs.getInt(key,0)
                             if(stage>reached) { notice("กรุณาเปิดขั้นตอนก่อนหน้าให้ครบก่อน"); return@choiceMenu }
                             val code=when(stage) {
-                                0 -> AutoDirectorContent.geminiNext(story,number)
+                                0 -> AutoDirectorContent.images(story,number)
                                 1 -> AutoDirectorContent.dialogue(story,number)
                                 else -> AutoDirectorContent.flowXml(story,number)
                             }
-                            val file=when(stage) { 0 -> "AD_EP%02d_GEMINI_NEXT.txt"; 1 -> "AD_EP%02d_DIALOGUE.txt"; else -> "AD_EP%02d_FLOW.xml" }.format(number)
+                            val file=when(stage) { 0 -> "AD_EP%02d_IMAGES_GEMINI.txt"; 1 -> "AD_EP%02d_DIALOGUE.txt"; else -> "AD_EP%02d_FLOW.xml" }.format(number)
                             showFlowCode("Phase ${stage+2} • EP.$number",code,file)
                             prefs.edit().putInt(key,maxOf(reached,stage+1)).apply()
                         }
@@ -1498,7 +1498,7 @@ class StudioActivity : AppCompatActivity() {
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
             val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); panel.addView(this) }
             panel.addView(TextView(this).apply { text="24 ซีน/EP • ซีนละ 8 วินาที = 3:12 • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้ • ${StoryProvider.label(this@StudioActivity)} • ใช้โมเดลที่ตั้งไว้ • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ของคุณภายหลัง" })
-            AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v18 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
+            AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
                     runCatching {
                         val folder=File(base,UUID.randomUUID().toString()).apply { mkdirs() }
@@ -1516,12 +1516,12 @@ class StudioActivity : AppCompatActivity() {
                         }
                         val count=if(episodes.selectedItemPosition==0) 0 else episodes.selectedItemPosition+2
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,JSONObject().put("category",categories[index]).put("channel",originalChannel)
-                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("supporting_characters",support).put("premise",premise.text.toString()).put("episodes",count)))
+                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("supporting_characters",support).put("premise",premise.text.toString()).put("episodes",count)))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
                 }.setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
         }
-        if(autoDirector) configure(categories.indices.random()) else choiceMenu("เลือกแนวเรื่อง • สร้างบทในแอป",categories,action=configure)
+        if(autoDirector) configure(categories.indices.random(kotlin.random.Random(System.currentTimeMillis()))) else choiceMenu("เลือกแนวเรื่อง • สร้างบทในแอป",categories,action=configure)
     }
     private fun flowPlanningShare() {
         choiceMenu("หมวดสำหรับวางบท",categories) { index ->
