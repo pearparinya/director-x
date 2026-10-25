@@ -1524,7 +1524,7 @@ R${appVersion()} • BUILD เวอร์ชั่น ${packageManager.getPacka
 ANDROID PROFESSIONAL • LEAN MASTER • AUTO-CONTEXT
 
 CHANNEL:
-สตอรี่หลังบ้าน - ซีรีส์สั้นดราม่าผัวเมีย
+${ChannelCatalog.channel}
 
 SYSTEM MODE:
 LEAN MASTER PROMPT = ON

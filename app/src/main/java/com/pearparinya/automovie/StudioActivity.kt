@@ -174,12 +174,13 @@ class StudioActivity : AppCompatActivity() {
             if (scroll.height > available) scroll.layoutParams = LinearLayout.LayoutParams(-1,available.coerceAtLeast(dp(80)))
         }
     }
-    private val categories = listOf(
+    private val legacyCategories = listOf(
         "The Broken Vows | บันทึกรอยร้าวชีวิตคู่",
         "Sweet Revenge | เกมรักซ่อนลวง บทเรียนรสแซ่บ",
         "Family Secrets | ความลับใต้ชายคา...ที่ไม่มีใครกล้าพูด",
         "Twisted Truth | พล็อตหักมุม...ความจริงใต้เตียง",
         "Healing Hearts | ซ่อมรักหลังบ้าน ซีรีส์ฮีลใจ")
+    private val categories = ChannelCatalog.topics.map { ChannelCatalog.category(it) }
     private var masterSlot: String?
         get() = prefs.getString("master_slot", null)
         set(value) { prefs.edit().putString("master_slot", value).apply() }
@@ -264,7 +265,7 @@ class StudioActivity : AppCompatActivity() {
         "✨ แฟนตาซี\nโลกจินตนาการและพลังวิเศษ",
         "🔥 แอ็กชัน\nภารกิจ การไล่ล่าและการต่อสู้",
         "🌷 อบอุ่นหัวใจ\nความหวัง การช่วยเหลือและกำลังใจ")
-    private val originalChannel = "สตอรี่หลังบ้าน - ซีรีส์สั้นดราม่าผัวเมีย"
+    private val originalChannel = ChannelCatalog.channel
     private val planPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) background {
             val text = contentResolver.openInputStream(uri)!!.bufferedReader().use { it.readText() }
@@ -453,7 +454,7 @@ class StudioActivity : AppCompatActivity() {
         val mode = p.optString("character_mode", "original")
         if(mode=="original") require(FlowCast.issues(p).isEmpty()) { FlowCast.issues(p).joinToString("\n") }
         require(mode in listOf("original", "new")) { "รูปแบบตัวละครไม่ถูกต้อง" }
-        require(p.getString("category") in (if (mode == "new") otherGenres else categories)) { "หมวดหมู่ไม่ตรงกับรูปแบบช่อง" }
+        require(p.getString("category") in (if (mode == "new") otherGenres else categories + legacyCategories)) { "หมวดหมู่ไม่ตรงกับรูปแบบช่อง" }
         if (mode == "new") require(p.optString("channel").isNotBlank()) { "กรุณาระบุชื่อช่องในบท" }
         val eps = p.getJSONArray("episodes")
         require(eps.length() > 0) { "ไม่มี EP" }
@@ -1230,7 +1231,7 @@ class StudioActivity : AppCompatActivity() {
         return dialog
     }
     private fun flowHome() {
-        label("ตอนละอย่างน้อย 3 นาที • 24 ซีน × 8 วินาที = 3:12 • จำนวนตอนตามพล็อต",13)
+        label("เลือกคลิปสั้น / คลิปยาว • เลือกเวลาต่อ EP • ซีนละ 8 วินาที • 16:9",13)
         val current=plan
         val storyFile=File(project,"story.json")
         val issues=current?.let { FlowProductionPack.issues(it) }.orEmpty()
@@ -1390,6 +1391,7 @@ class StudioActivity : AppCompatActivity() {
         if(!GeminiStoryService.running && pendingSpec?.optString("content_profile")==AutoDirectorContent.profile && !pendingSpec.optBoolean("outline_approved") && outlineFile.isFile) {
             runCatching {
                 val outline=GeminiStoryFiles.read(outlineFile).put("channel",pendingSpec.optString("channel")).put("category",pendingSpec.optString("category"))
+                ClipPlan.copy(pendingSpec,outline)
                 val dialog=showFlowCode("Phase 1 • ตรวจโครงเรื่อง",AutoDirectorContent.outline(outline),"AD_01_OUTLINE.txt")
                 dialog.getButton(-1).text="ยืนยัน • เตรียมเนื้อหา"
                 dialog.getButton(-1).setOnClickListener {
@@ -1442,7 +1444,7 @@ class StudioActivity : AppCompatActivity() {
             val story=plan
             if(story==null) { if(File(project,"gemini_job/spec.json").isFile) geminiJobMenu() else notice("ยังไม่มีบท กรุณาสร้างเรื่องใหม่หรือนำเข้าบทก่อน"); return@choiceMenu }
             if(story.optString("content_profile")!=AutoDirectorContent.profile) {
-                notice("เรื่องนี้ใช้รูปแบบเดิม เลือกสร้างเรื่องใหม่ใน AutoDirector v45 เพื่อใช้บท 24 ฉาก เสื้อผ้า 4 ส่วน และไฟล์ Gemini / Flow XML"); return@choiceMenu
+                notice("เรื่องนี้ใช้รูปแบบเดิม เลือกสร้างเรื่องใหม่ใน AutoDirector v45 เพื่อเลือกเวลาคลิป เสื้อผ้า 4 ส่วน และไฟล์ Gemini / Flow XML"); return@choiceMenu
             }
             if(story.optString("aspect_ratio","9:16")!="16:9") { landscapeCopyMenu(); return@choiceMenu }
             val wardrobeIssues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(story))
@@ -1488,16 +1490,30 @@ class StudioActivity : AppCompatActivity() {
             }
         }
     }
+    private fun chooseChannelTopic(done: (Int) -> Unit) {
+        choiceMenu("เลือกหมวดหลัก • สตอรี่ทรงโต",ChannelCatalog.groups.map { it.title }) { group ->
+            choiceMenu("เลือกหมวดย่อย",ChannelCatalog.groups[group].topics.map { "[${it.id}] ${it.title}\n${it.premise}" }) { topic ->
+                done(ChannelCatalog.topics.indexOf(ChannelCatalog.groups[group].topics[topic]))
+            }
+        }
+    }
+    private fun chooseClip(done: (String,Int) -> Unit) {
+        choiceMenu("เลือกรูปแบบ • ทุกแบบแนวนอน 16:9",listOf("คลิปสั้น","คลิปยาว")) { format ->
+            val times=if(format==0) ClipPlan.shortSeconds else ClipPlan.longSeconds
+            choiceMenu("เวลาเนื้อหาต่อ EP • ไม่รวมปกเปิด 3 วินาที",times.map { ClipPlan.label(it)+(if(it==if(format==0) 60 else 300) " • แนะนำเริ่มต้น" else "") }) { index -> done(if(format==0) "short" else "long",times[index]) }
+        }
+    }
     private fun flowPlanning(autoDirector: Boolean = false) {
         if(GeminiStoryService.running) { geminiJobMenu(); return }
         val provider=StoryProvider.selected(this)
         val settings=GeminiSettings(this,provider)
         if(!StoryProvider.ready(this)) { geminiSettings { flowPlanning(autoDirector) }; return }
         val configure: (Int) -> Unit = { index ->
+            chooseClip { format, seconds ->
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
-            val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); panel.addView(this) }
-            panel.addView(TextView(this).apply { text="24 ซีน/EP • ซีนละ 8 วินาที = 3:12 • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้ • ${StoryProvider.label(this@StudioActivity)} • ใช้โมเดลที่ตั้งไว้ • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ของคุณภายหลัง" })
+            val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("1 EP • จบในตอน","ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); panel.addView(this) }
+            panel.addView(TextView(this).apply { text="${if(format=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(seconds)} ต่อ EP • ไม่รวมปกเปิด 3 วินาที • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้ • ${StoryProvider.label(this@StudioActivity)} • ใช้โมเดลที่ตั้งไว้ • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ของคุณภายหลัง" })
             AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
                     runCatching {
@@ -1514,20 +1530,22 @@ class StudioActivity : AppCompatActivity() {
                             require(source.isFile) { "ขาดภาพของ ${person.getString("name")}" }
                             File(folder,"original_masters/$id.master").apply { parentFile!!.mkdirs(); source.copyTo(this) }
                         }
-                        val count=if(episodes.selectedItemPosition==0) 0 else episodes.selectedItemPosition+2
-                        GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,JSONObject().put("category",categories[index]).put("channel",originalChannel)
+                        val count=when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
+                        GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",originalChannel)
                             .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("supporting_characters",support).put("premise",premise.text.toString()).put("episodes",count)))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
                 }.setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
         }
-        if(autoDirector) configure(categories.indices.random(kotlin.random.Random(System.currentTimeMillis()))) else choiceMenu("เลือกแนวเรื่อง • สร้างบทในแอป",categories,action=configure)
+        }
+        chooseChannelTopic(configure)
     }
     private fun flowPlanningShare() {
-        choiceMenu("หมวดสำหรับวางบท",categories) { index ->
+        chooseChannelTopic { index ->
+            chooseClip { format, seconds ->
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (เว้นว่างให้คิดใหม่)" }
             fun prepare(): String {
-                val code=FlowProductionPack.masterCommand(categories[index],originalChannel)+"\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" }
+                val code=FlowProductionPack.masterCommand(categories[index],originalChannel)+"\n"+ChannelCatalog.direction(categories[index])+"\nUSER DURATION OVERRIDE: ${ClipPlan.scenes(seconds)} scenes per EP, 8 seconds each, ${ClipPlan.time(ClipPlan.scenes(seconds)*8)} content per EP. Supersedes default 24 scenes and 180-second minimum above. Set clip_plan_version=1, clip_format=$format, target_seconds=$seconds, scenes_per_episode=${ClipPlan.scenes(seconds)} in story.json.\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" }
                 File(project,"flow_story_command.txt").writeText(code)
                 render()
                 return code
@@ -1538,6 +1556,7 @@ class StudioActivity : AppCompatActivity() {
                 .setNeutralButton("ดูคำสั่งก่อน") { _,_ -> showFlowCode("คำสั่งวางบท",prepare(),"FLOW_STORY_COMMAND.txt") }
                 .setNegativeButton("ยกเลิก",null).showDirector()
         }
+    }
     }
     private fun flowTestMenu() {
         val ids=FlowProductionPack.names.keys.toList(); val checked=BooleanArray(ids.size)
@@ -1636,7 +1655,7 @@ class StudioActivity : AppCompatActivity() {
             text = "ตรวจภาพต้นฉบับก่อนส่ง • เลือกช่องด้านล่างเมื่อพร้อม"; textSize = 12f
             setTextColor(ice); setPadding(0,dp(6),0,dp(10))
         })
-        option(true, "🎬 สตอรี่หลังบ้าน\nซีรีส์สั้นดราม่าผัวเมีย", intArrayOf(Color.rgb(255,204,86), Color.rgb(255,174,38))) {
+        option(true, "🎬 สตอรี่ทรงโต\nซีรีส์ลับฉบับผู้ใหญ่", intArrayOf(Color.rgb(255,204,86), Color.rgb(255,174,38))) {
             chooseGenre(originalChannel, "original")
         }
         option(false, "🎬 ระบบกำกับละครอัจฉริยะ\nสร้างละครครบทุกแนว", intArrayOf(Color.rgb(73,218,242), Color.rgb(32,169,228))) {
@@ -1652,6 +1671,7 @@ class StudioActivity : AppCompatActivity() {
         dialog.window?.setLayout(resources.displayMetrics.widthPixels - dp(24), -2)
     }
     private fun chooseGenre(channel: String, mode: String) {
+        if(mode=="original") { flowPlanning(); return }
         val choices = if (mode == "original") categories else otherGenres
         val labels = if (mode == "original") choices.mapIndexed { index, category -> "${menuIcon(index)} $category" } else genreLabels
         val title = if (mode == "original") "🎬 เลือกหมวดหมู่\n$channel" else "🎬 $smartDirector\nเลือกแนวละคร • 10 แนว"
@@ -1669,7 +1689,7 @@ class StudioActivity : AppCompatActivity() {
 ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "รินรดา","mind" to "เมย์").joinToString("\n") { (id,name) -> val source=File(filesDir,"character_masters/$id.master"); "$name → ${masterExportName(source,false) ?: "ขาด MASTER"}${promptProfile(id,source).takeIf { it.isNotBlank() }?.let { ": $it" }.orEmpty()}" } else "ออกแบบตัวละครใหม่แยกรายคน ไม่ใช้ใบหน้าของโปรไฟล์เดิม"}
 ก่อนเริ่มสร้างภาพ ต้องแสดงข้อมูลโครงการในแชตให้ครบ ห้ามข้าม: ชื่อช่อง "$channel", ชื่อหมวด "$category", ชื่อเรื่องภาษาไทย, คำโปรยเรื่องสั้น 1–2 ประโยค, จำนวน EP ทั้งหมด, เหตุผลที่เลือกจำนวน EP หนึ่งประโยค และจำนวนซีนรวม
 ตามด้วยตารางทุก EP: เลข EP | ชื่อตอนภาษาไทย | คำโปรยตอนสั้น | จำนวนซีน | เวลารวม (จำนวนซีน × 8 วินาที) ต้องระบุจำนวนจริง ไม่ใช้คำว่าแล้วแต่เนื้อหาแทนตัวเลข
-ชื่อช่องและหมวดใช้ค่าจากแอปตรงตามนี้ ไม่เปลี่ยนชื่อช่องเอง ตั้งชื่อเรื่องและชื่อทุก EP ใหม่ให้เข้ากับเนื้อหา ${if (mode == "original") "รูปแบบซีรีส์สั้นสตอรี่หลังบ้าน ดราม่าชีวิตคู่ มีจุดเปิดเรื่อง ปมและจุดจบชัดเจนแต่ละ EP พร้อมเส้นเรื่องต่อเนื่อง" else "รูปแบบหนัง/ละครหลายแนว ให้โทนเรื่อง จังหวะ ความสัมพันธ์ และบทสรุปตรงกับแนวที่เลือก ถ้าเรื่องจบในตอนเดียวใช้ 1 EP ถ้าต้องต่อเนื่องแบ่งหลาย EP อย่างมีเหตุผล"}
+ชื่อช่องและหมวดใช้ค่าจากแอปตรงตามนี้ ไม่เปลี่ยนชื่อช่องเอง ตั้งชื่อเรื่องและชื่อทุก EP ใหม่ให้เข้ากับเนื้อหา ${if (mode == "original") "รูปแบบสตอรี่ทรงโต ซีรีส์ลับฉบับผู้ใหญ่ ดราม่าความสัมพันธ์ มีจุดเปิดเรื่อง ปมและจุดจบชัดเจนแต่ละ EP พร้อมเส้นเรื่องต่อเนื่อง" else "รูปแบบหนัง/ละครหลายแนว ให้โทนเรื่อง จังหวะ ความสัมพันธ์ และบทสรุปตรงกับแนวที่เลือก ถ้าเรื่องจบในตอนเดียวใช้ 1 EP ถ้าต้องต่อเนื่องแบ่งหลาย EP อย่างมีเหตุผล"}
 วางบทครบทุก EP ก่อนสร้างภาพ เก็บข้อมูลสรุปเดียวกันใน story.json และตรวจตัวเลขให้ตรงกับจำนวนสมาชิก episodes และ scenes จริง ห้ามส่ง JSON ตัวอย่างที่มีแค่ฉากเดียวแทนบทเต็ม
 ตั้งชื่อเรื่องเป็นภาษาไทยเท่านั้น ใส่ชื่อภาษาไทยในค่า title ของ story.json และตั้งชื่อไฟล์ ZIP เป็นชื่อเรื่องภาษาไทย.zip ห้ามใช้ชื่อหมวดภาษาอังกฤษเป็นชื่อเรื่องหรือชื่อ ZIP
 สร้างชื่อเรื่องและพล็อตให้ตรงหมวดนี้ ใช้ค่า category ใน story.json เป็น "$category" ตรงทุกตัวอักษร

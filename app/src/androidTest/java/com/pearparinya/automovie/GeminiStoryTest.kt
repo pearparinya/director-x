@@ -30,6 +30,38 @@ class GeminiStoryTest {
         } })
     }
     private fun spec()=JSONObject().put("category","แนว").put("channel","ช่อง").put("episodes",3).put("premise","ซองบนโต๊ะ")
+    @Test fun selectedClipDurationsCompleteResumeAndExportWithoutLegacyMinimum() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        assertEquals(6,ChannelCatalog.groups.size)
+        assertEquals((1..24).toList(),ChannelCatalog.topics.map { it.id })
+        for(format in listOf("short","long")) for(seconds in if(format=="short") ClipPlan.shortSeconds else ClipPlan.longSeconds) {
+            val folder=File(context.cacheDir,"selected-clip-${UUID.randomUUID()}").apply { mkdirs() }
+            try {
+                val selected=ClipPlan.apply(spec().put("episodes",1).put("channel",ChannelCatalog.channel)
+                    .put("category",ChannelCatalog.category(ChannelCatalog.topics.first())),format,seconds)
+                GeminiStoryFiles.write(File(folder,"spec.json"),selected)
+                var fail=true
+                val generate: (String,JSONObject)->JSONObject = { prompt,_ ->
+                    assertTrue(prompt.contains("Exactly ${ClipPlan.scenes(seconds)} scenes per episode"))
+                    if(prompt.contains("Plan a complete story")) outline().apply { put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0))) }
+                    else { if(fail) { fail=false; error("simulated interruption") }; batch(prompt) }
+                }
+                assertTrue(runCatching { GeminiStoryEngine(folder,generate).run(selected) }.isFailure)
+                val story=GeminiStoryEngine(folder,generate).run(selected)
+                assertEquals(ClipPlan.scenes(seconds),story.getInt("scene_count"))
+                assertEquals(seconds,story.getInt("target_seconds"))
+                assertEquals(1,story.getInt("subcategory_id"))
+                assertEquals(99,GeminiStoryEngine.checkpointPercent(folder))
+                assertTrue(FlowProductionPack.issues(story).toString(),FlowProductionPack.issues(story).isEmpty())
+                assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_-> error("must reuse completed checkpoints") }).run(selected).toString())
+                val rows=story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes")
+                rows.remove(rows.length()-1)
+                assertTrue(FlowProductionPack.issues(story).any { it.contains("จำนวนซีนหรือเวลา") })
+            } finally { folder.deleteRecursively() }
+        }
+        assertTrue(runCatching { ClipPlan.count(ClipPlan.apply(JSONObject(),"short",600)) }.isFailure)
+        assertEquals(24,ClipPlan.count(JSONObject()))
+    }
     @Test fun hybridSharesSamePromptAndCompletesWithFallbackWithoutRewritingCheckpoints() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val folder=File(context.cacheDir,"hybrid-story-${UUID.randomUUID()}").apply { mkdirs() }

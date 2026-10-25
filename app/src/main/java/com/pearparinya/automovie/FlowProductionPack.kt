@@ -19,6 +19,7 @@ internal object FlowProductionPack {
 DIRECTOR X — สร้างไฟล์คำสั่ง ไม่สร้างภาพหรือวิดีโอใน ระบบวางบท
 ช่อง: $channel
 หมวด: $category
+${ChannelCatalog.direction(category)}
 สร้างเรื่องใหม่จนจบ เลือกจำนวน EP ตามโครงเรื่อง เช่น 4–7 ตอนหรือมากกว่าหากจำเป็น พร้อมเหตุผล ไม่ล็อกไว้ที่ 4 ตอน ทุก EP ยาวอย่างน้อย 180 วินาทีจากผลรวมเวลาซีนจริง ไม่รวมปก ใช้ซีนละ 8 วินาที ค่าเริ่มต้น 24 ซีน = 192 วินาที ห้ามยืดเวลาด้วยซีนซ้ำหรือข้อความแทนเนื้อหา
 แนบภาพตัวละคร: กวิน + รินรดา + เมย์ จับคู่ CHARACTER_GAWIN=กวิน / CHARACTER_RINLADA=รินรดา / CHARACTER_MIND=เมย์ ใช้เป็นรหัสอ้างอิงในพรอมป์ ไม่ใช่ชื่อไฟล์ ส่วน master ใน story.json เป็นข้อมูลภายในสำหรับแอป ภาพล่าสุดมีลำดับเหนือคำบรรยาย เก็บข้อมูลตัวละครใน CHARACTER_MEMORY.json ไม่อ้างว่า Flow จำภาพจากแชตอื่นได้
 ${dna.values.joinToString("\n")}
@@ -58,7 +59,8 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
             if(ep.optInt("ep")!=i+1) add("เลข EP ต้องเรียงจาก 1")
             if(scenes==null || scenes.length()==0) { add("EP ${i+1} ไม่มีซีน"); continue }
             if(plan.optString("content_profile")==AutoDirectorContent.profile) {
-                if(scenes.length()!=24) add("AutoDirector EP ${i+1} ต้องมี 24 ฉาก")
+                val expected=runCatching { ClipPlan.count(plan) }.getOrDefault(24)
+                if(scenes.length()!=expected) add("AutoDirector EP ${i+1} ต้องมี $expected ฉาก")
                 runCatching { AutoDirectorContent.validateWardrobes(ep,plan.optInt("autodirector_version")>=AutoDirectorContent.version) }.exceptionOrNull()?.let { add(it.message ?: "ชุดต้องครบ 4 ส่วน") }
             }
             var total=0
@@ -83,7 +85,11 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
                 if(dialogue.isNotBlank() && people.none { it.optString("name")==s.optString("speaker") || StoryIdentity.keyFor(s.optString("speaker"))?.let { key -> key==FlowCast.id(it) }==true }) add("$id ผู้พูดไม่อยู่ในฉาก")
                 if(dialogue.isNotBlank() && s.optString("narration").trim() !in listOf("","ไม่มี","none")) add("$id บทพูดกับบรรยายต้องแยกซีน")
             }
-            if(total<minimumSeconds) add("EP ${i+1} ยาว $total วินาที ต้องอย่างน้อย $minimumSeconds")
+            if(plan.optInt("clip_plan_version")==1) {
+                runCatching { ClipPlan.count(plan) }.fold(onSuccess={ expected ->
+                    if(scenes.length()!=expected || total!=expected*8) add("EP ${i+1} จำนวนซีนหรือเวลาไม่ตรงที่เลือก: ต้อง $expected ซีน ${expected*8} วินาที"); Unit
+                },onFailure={ add("รูปแบบหรือระยะเวลาคลิปไม่ถูกต้อง"); Unit })
+            } else if(total<minimumSeconds) add("EP ${i+1} ยาว $total วินาที ต้องอย่างน้อย $minimumSeconds")
         }
     }
     fun write(output: OutputStream, plan: JSONObject?, masters: Map<String,File>, memory: JSONObject, category: String, channel: String) {
@@ -165,7 +171,7 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
                     put("EP%02d_IMAGES.txt".format(number),text.toString())
                     put("EP%02d_VIDEOS_FLOW.txt".format(number),videos.toString())
                 }
-                start.append("\nบทพร้อม ").append(eps.length()).append(" EP • ตรวจเวลาทุก EP อย่างน้อย 180 วินาทีแล้ว\n")
+                start.append("\nบทพร้อม ").append(eps.length()).append(" EP • ตรวจเวลาทุก EP ตามรูปแบบที่เลือกแล้ว\n")
             }
             put("START.txt",start.toString())
         }

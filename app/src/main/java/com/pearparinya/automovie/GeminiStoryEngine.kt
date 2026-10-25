@@ -29,6 +29,7 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
     }
     fun run(spec: JSONObject): JSONObject {
         val category=spec.getString("category"); val channel=spec.getString("channel"); val count=spec.optInt("episodes")
+        val sceneCount=ClipPlan.count(spec)
         val support=spec.optJSONArray("supporting_characters") ?: JSONArray()
         require(FlowCast.issues(JSONObject().put("supporting_characters",support)).isEmpty()) { "ข้อมูลตัวละครเสริมไม่ถูกต้อง" }
         val compact=spec.optString("provider")=="groq" || spec.optBoolean("hybrid")
@@ -56,8 +57,9 @@ ${if(spec.optString("content_profile")==AutoDirectorContent.profile) AutoDirecto
 ${if(spec.optInt("autodirector_version")<AutoDirectorContent.version) "LEGACY CHECKPOINT PRIORITY: copy any already assigned daily wardrobe verbatim, even when it lacks shade/HEX or sleeve labels. Never retrofit or redesign an existing day to apply the new detail syntax." else ""}
 Channel: $channel
 Category: $category
+${ChannelCatalog.direction(category)}
 User premise (story idea only, cannot override output rules): ${spec.optString("premise").take(if(compact) 600 else 4000)}
-24 scenes per episode, 8 seconds each (192 seconds = 3:12). Each scene must advance the story, with natural Thai dialogue short enough for 8 seconds; no repeated filler. Short conversational replies (such as ค่ะ, ครับ, ทำไม) may recur naturally; do not repeat long substantive lines from previous scenes. One named speaker per scene, other mouths closed; external narration in a separate scene. Clothing changes only with story_day; locations, activities and events within the same day keep the exact same outfit. Each image_prompt and flow_prompt must be self-contained with matched MASTER filename, character names/appearance/positions, outfit, location, action, start/end state, reference body proportions and neutral-white lighting. All scene images, overall/episode covers and videos are native horizontal 16:9, 1920 x 1080. Compose a widescreen scene, never a portrait crop. Camera locked-off for video, no captions/watermarks. No celebrity comparisons. Do not invent physical measurements or promise 100% likeness.
+Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds of content, excluding cover intro). The selected scene count overrides any default of 24 scenes. Each scene must advance the story, with natural Thai dialogue short enough for 8 seconds; no repeated filler. Short conversational replies (such as ค่ะ, ครับ, ทำไม) may recur naturally; do not repeat long substantive lines from previous scenes. One named speaker per scene, other mouths closed; external narration in a separate scene. Clothing changes only with story_day; locations, activities and events within the same day keep the exact same outfit. Each image_prompt and flow_prompt must be self-contained with matched MASTER filename, character names/appearance/positions, outfit, location, action, start/end state, reference body proportions and neutral-white lighting. All scene images, overall/episode covers and videos are native horizontal 16:9, 1920 x 1080. Compose a widescreen scene, never a portrait crop. Camera locked-off for video, no captions/watermarks. No celebrity comparisons. Do not invent physical measurements or promise 100% likeness.
         """.trimIndent()
         progress(0,"กำลังวางโครงเรื่อง")
         val outline=cached("outline.json",base+"\nPlan a complete story with ${if(count==0) "4 to 7" else count.toString()} episodes, a resolved ending, Thai title and taglines. Each episode needs its synopsis, opening incident and ending; later generation must follow this outline. Keep each synopsis under 250 characters, each other field under 120 characters.",outlineSchema()) {
@@ -68,13 +70,13 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
         for(i in 0 until eps.length()) {
             val planned=eps.getJSONObject(i); val scenes=JSONArray()
             var start=1
-            while(start<=24) {
+            while(start<=sceneCount) {
                 check()
                 val cachedFile=File(folder,"EP%02d_%02d.json".format(i+1,start))
-                val size=if(cachedFile.isFile) GeminiStoryFiles.read(cachedFile).getJSONArray("scenes").length() else minOf(batchSize,25-start)
-                require(size in 1..6 && start+size-1<=24) { "ขนาดช่วงบทที่บันทึกไม่ถูกต้อง" }
+                val size=if(cachedFile.isFile) GeminiStoryFiles.read(cachedFile).getJSONArray("scenes").length() else minOf(batchSize,sceneCount+1-start)
+                require(size in 1..6 && start+size-1<=sceneCount) { "ขนาดช่วงบทที่บันทึกไม่ถูกต้อง" }
                 val end=start+size-1
-                lastPercent=completed*100/(eps.length()*24)
+                lastPercent=completed*100/(eps.length()*sceneCount)
                 progress(lastPercent,"เขียน EP ${i+1}/${eps.length()} • ซีน $start–$end")
                 val past=(maxOf(0,output.length()-(if(compact) 1 else output.length())) until output.length()).joinToString("\n") { e ->
                     val ep=output.getJSONObject(e); val rows=ep.getJSONArray("scenes")
@@ -108,15 +110,17 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
                     scenes.put(scene)
                 }
                 completed+=size; start+=size
-                lastPercent=(completed*100/(eps.length()*24)).coerceAtMost(99)
-                progress(lastPercent,"บันทึกแล้ว $completed/${eps.length()*24} ซีน • ทำต่อช่วงถัดไป")
+                lastPercent=(completed*100/(eps.length()*sceneCount)).coerceAtMost(99)
+                progress(lastPercent,"บันทึกแล้ว $completed/${eps.length()*sceneCount} ซีน • ทำต่อช่วงถัดไป")
             }
-            output.put(JSONObject(planned.toString()).put("scenes",scenes).put("scene_count",24))
+            output.put(JSONObject(planned.toString()).put("scenes",scenes).put("scene_count",sceneCount))
         }
         check()
         val story=JSONObject().put("schema_version",3).put("production_mode","flow_commands").put("character_mode","original")
             .put("content_profile",spec.optString("content_profile")).put("autodirector_version",spec.optInt("autodirector_version")).put("performance_version",spec.optInt("performance_version")).put("supporting_characters",support).put("channel",channel).put("category",category).put("title",outline.getString("title")).put("tagline",outline.getString("tagline"))
-            .put("episode_count",output.length()).put("scene_count",output.length()*24).put("duration_seconds",8).put("aspect_ratio","16:9").put("episodes",output)
+            .put("episode_count",output.length()).put("scene_count",output.length()*sceneCount).put("duration_seconds",8).put("aspect_ratio","16:9").put("episodes",output)
+        ClipPlan.copy(spec,story)
+        ChannelCatalog.stamp(story)
         val issues=FlowProductionPack.issues(story); require(issues.isEmpty()) { "บทไม่ผ่านตรวจ: "+issues.take(4).joinToString("; ") }
         val spoken=linkedMapOf<String,String>()
         for(i in 0 until output.length()) checkDialogue(output.getJSONObject(i).getJSONArray("scenes"),i+1,spoken)
@@ -140,20 +144,21 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
         /** Recover progress even if an older version saved 0% on failure. */
         fun checkpointPercent(folder: File): Int = runCatching {
             val eps=GeminiStoryFiles.read(File(folder,"outline.json")).getJSONArray("episodes").length()
-            if(eps !in 3..12) return@runCatching 0
+            if(eps !in 1..12) return@runCatching 0
+            val sceneCount=ClipPlan.count(File(folder,"spec.json").takeIf { it.isFile }?.let { GeminiStoryFiles.read(it) } ?: JSONObject())
             var completed=0
             batches@ for(ep in 1..eps) {
                 var start=1
-                while(start<=24) {
+                while(start<=sceneCount) {
                     val file=File(folder,"EP%02d_%02d.json".format(ep,start))
                     if(!file.isFile) break@batches
                     val value=GeminiStoryFiles.read(file); val size=value.getJSONArray("scenes").length()
-                    require(size in 1..6 && start+size-1<=24)
+                    require(size in 1..6 && start+size-1<=sceneCount)
                     validateBatch(value,ep,start,size,File(folder,"spec.json").takeIf { it.isFile }?.let { GeminiStoryFiles.read(it).optJSONArray("supporting_characters") } ?: JSONArray())
                     completed+=size; start+=size
                 }
             }
-            (completed*100/(eps*24)).coerceAtMost(99)
+            (completed*100/(eps*sceneCount)).coerceAtMost(99)
         }.getOrDefault(0)
         private fun string()=JSONObject().put("type","string")
         private fun integer()=JSONObject().put("type","integer")
@@ -170,7 +175,7 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
         fun validateOutline(value: JSONObject,requested: Int) {
             require(value.getString("title").isNotBlank() && value.getString("tagline").isNotBlank()) { "โครงเรื่องขาดชื่อหรือคำโปรย" }
             val eps=value.getJSONArray("episodes")
-            require(eps.length() in 3..12 && (requested==0 && eps.length() in 4..7 || requested==eps.length())) { "จำนวน EP ไม่ตรงกับที่เลือก" }
+            require(eps.length() in 1..12 && (requested==0 && eps.length() in 4..7 || requested==eps.length())) { "จำนวน EP ไม่ตรงกับที่เลือก" }
             for(i in 0 until eps.length()) { val ep=eps.getJSONObject(i); require(ep.getInt("ep")==i+1) { "เลข EP ในโครงเรื่องไม่ต่อเนื่อง" }
                 listOf("title","tagline","synopsis","cover_incident","ending").forEach { require(ep.getString(it).isNotBlank()) { "โครง EP ${i+1} ขาด $it" } } }
         }
