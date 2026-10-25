@@ -24,7 +24,7 @@ ${if(profile.isNotBlank()) "ข้อมูลอ้างอิงรายค�
               continuity: String = "", filename: String = "", changeWardrobe: Boolean = true): String = buildString {
         append("สร้างภาพฉากละครจากไฟล์อ้างอิงที่แนบ ${if(changeWardrobe) "ใช้ชุดที่ระบุสำหรับฉากนี้ เปลี่ยนชุดเมื่อวันเวลา กิจกรรม หรือบทกำหนด เหตุการณ์ต่อเนื่องให้ใช้ชุดเดิม" else "คงเครื่องแต่งกายตามภาพอ้างอิง"} สร้างภาพจริงหนึ่งภาพ\n${identity(source)}\nตัวละครและชุด:\n$cast\nสถานที่: $location\nการกระทำ: $action\n${style(aspect,framing,lighting)}\n")
         if (continuity.isNotBlank()) append("ความต่อเนื่อง: $continuity\n")
-        append("ไม่มีข้อความหรือลายน้ำ")
+        append("${PerformanceDirection.guide}\nFreeze one meaningful expressive instant, not a sequence or collage.\nไม่มีข้อความหรือลายน้ำ")
         if (filename.isNotBlank()) append("\nชื่อไฟล์: $filename")
         append("\nหากสร้างไม่ได้ให้แจ้งตามจริง")
     }

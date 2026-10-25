@@ -49,6 +49,8 @@ ${FlowVisualDirection.color}
 ${AutoDirectorContent.femaleFashion}
 ${AutoDirectorContent.dailyWardrobe}
 ${BodyReferencePolicy.preciseIdentity}
+${PerformanceDirection.guide}
+${PerformanceDirection.planning}
 ${speechRules}
 ${if(spec.optString("content_profile")==AutoDirectorContent.profile) AutoDirectorContent.generationRules else ""}
 ${if(spec.optInt("autodirector_version")<AutoDirectorContent.version) "LEGACY CHECKPOINT PRIORITY: copy any already assigned daily wardrobe verbatim, even when it lacks shade/HEX or sleeve labels. Never retrofit or redesign an existing day to apply the new detail syntax." else ""}
@@ -76,10 +78,10 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
                 progress(lastPercent,"เขียน EP ${i+1}/${eps.length()} • ซีน $start–$end")
                 val past=(maxOf(0,output.length()-(if(compact) 1 else output.length())) until output.length()).joinToString("\n") { e ->
                     val ep=output.getJSONObject(e); val rows=ep.getJSONArray("scenes")
-                    "EP ${e+1}: "+(maxOf(0,rows.length()-(if(compact) 4 else rows.length())) until rows.length()).joinToString(" | ") { n -> rows.getJSONObject(n).let { "${it.optString("action").take(if(compact) 150 else 10000)} / ${it.optString("dialogue")}" } }
+                    "EP ${e+1}: "+(maxOf(0,rows.length()-(if(compact) 4 else rows.length())) until rows.length()).joinToString(" | ") { n -> rows.getJSONObject(n).let { "${it.optString("action").take(if(compact) 150 else 10000)} / ${it.optString("dialogue")} | emotional continuity=${PerformanceDirection.continuity(it)}" } }
                 }
                 val previous=(maxOf(0,scenes.length()-(if(compact) 2 else scenes.length())) until scenes.length()).joinToString("\n") { n -> scenes.getJSONObject(n).let {
-                    "SC ${it.getInt("scene")}: ${it.optString("action")} | dialogue=${it.optString("dialogue")} | end=${it.optString("end_state")} | day=${it.optString("story_day")} | outfits=${if(compact) (0 until it.getJSONArray("characters").length()).joinToString { n -> it.getJSONArray("characters").getJSONObject(n).let { p -> p.optString("name")+"="+p.optString("outfit") } } else it.getJSONArray("characters")}"
+                    "SC ${it.getInt("scene")}: ${it.optString("action")} | dialogue=${it.optString("dialogue")} | end=${it.optString("end_state")} | day=${it.optString("story_day")} | emotional continuity=${PerformanceDirection.continuity(it)} | outfits=${if(compact) (0 until it.getJSONArray("characters").length()).joinToString { n -> it.getJSONArray("characters").getJSONObject(n).let { p -> p.optString("name")+"="+p.optString("outfit") } } else it.getJSONArray("characters")}"
                 } }
                 val storyOutline=if(compact) (0 until eps.length()).joinToString("\n") { e -> eps.getJSONObject(e).let { "EP ${e+1}: ${it.optString("synopsis").take(250)}; ending=${it.optString("ending").take(120)}" } } else outline.toString()
                 val priorWardrobe=(0 until output.length()).flatMap { e -> AutoDirectorWardrobe.batch(e+1,output.getJSONObject(e).getJSONArray("scenes")) }+AutoDirectorWardrobe.batch(i+1,scenes)
@@ -94,6 +96,9 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
                         AutoDirectorContent.validateWardrobes(it,spec.optInt("autodirector_version")>=AutoDirectorContent.version)
                         val wardrobeIssues=AutoDirectorWardrobe.issues(priorWardrobe+AutoDirectorWardrobe.batch(i+1,it.getJSONArray("scenes")))
                         require(wardrobeIssues.isEmpty()) { wardrobeIssues.take(6).joinToString("; ") }
+                    }
+                    if(spec.optInt("performance_version")>=1) {
+                        val scenes=it.getJSONArray("scenes"); for(n in 0 until scenes.length()) PerformanceDirection.validate(scenes.getJSONObject(n))
                     }
                     checkDialogue(it.getJSONArray("scenes"),i+1,priorDialogue.toMutableMap())
                 }
@@ -110,7 +115,7 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
         }
         check()
         val story=JSONObject().put("schema_version",3).put("production_mode","flow_commands").put("character_mode","original")
-            .put("content_profile",spec.optString("content_profile")).put("autodirector_version",spec.optInt("autodirector_version")).put("supporting_characters",support).put("channel",channel).put("category",category).put("title",outline.getString("title")).put("tagline",outline.getString("tagline"))
+            .put("content_profile",spec.optString("content_profile")).put("autodirector_version",spec.optInt("autodirector_version")).put("performance_version",spec.optInt("performance_version")).put("supporting_characters",support).put("channel",channel).put("category",category).put("title",outline.getString("title")).put("tagline",outline.getString("tagline"))
             .put("episode_count",output.length()).put("scene_count",output.length()*24).put("duration_seconds",8).put("aspect_ratio","16:9").put("episodes",output)
         val issues=FlowProductionPack.issues(story); require(issues.isEmpty()) { "บทไม่ผ่านตรวจ: "+issues.take(4).joinToString("; ") }
         val spoken=linkedMapOf<String,String>()
@@ -157,7 +162,7 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
         fun outlineSchema(): JSONObject = obj(linkedMapOf("title" to string(),"tagline" to string(),"episodes" to array(obj(linkedMapOf(
             "ep" to integer(),"title" to string(),"tagline" to string(),"synopsis" to string(),"cover_incident" to string(),"ending" to string())))))
         fun batchSchema(): JSONObject {
-            val person=obj(linkedMapOf("name" to string(),"master" to string(),"outfit" to string(),"visual_description" to string(),"screen_position" to string()))
+            val person=obj(linkedMapOf("name" to string(),"master" to string(),"outfit" to string(),"visual_description" to string(),"screen_position" to string(),"performance" to obj(PerformanceDirection.fields.associateWith { string() })))
             val fields=linkedMapOf("scene" to integer(),"duration_seconds" to integer(),"characters" to array(person))
             listOf("story_day","story_time","activity","wardrobe_event","continuity_group","location","start_state","end_state","action","speaker","dialogue","narration","image_prompt","flow_prompt").forEach { fields[it]=string() }
             return obj(linkedMapOf("scenes" to array(obj(fields))))

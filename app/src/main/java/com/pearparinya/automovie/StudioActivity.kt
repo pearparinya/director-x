@@ -1043,7 +1043,7 @@ class StudioActivity : AppCompatActivity() {
             val master=masterFor(person)
             val exported=masterExportName(master,person.optString("master").startsWith("CHARACTER",true)) ?: person.optString("master")
             listOf("${person.optString("name")} → $exported",(if(detailedImageProfiles) memoryBrief(person) else ""),
-                "ชุด: ${sceneWardrobe(scene,person)}")
+                "ชุด: ${sceneWardrobe(scene,person)}",PerformanceDirection.text(person).takeIf { it.isNotBlank() }?.let { "การแสดง: $it" }.orEmpty())
                 .filter { it.isNotBlank() }.joinToString(" | ") }
     }
     private fun storySceneCommand(p: JSONObject, scene: JSONObject): String {
@@ -1516,7 +1516,7 @@ class StudioActivity : AppCompatActivity() {
                         }
                         val count=if(episodes.selectedItemPosition==0) 0 else episodes.selectedItemPosition+2
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,JSONObject().put("category",categories[index]).put("channel",originalChannel)
-                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("supporting_characters",support).put("premise",premise.text.toString()).put("episodes",count)))
+                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("supporting_characters",support).put("premise",premise.text.toString()).put("episodes",count)))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
                 }.setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
@@ -1859,7 +1859,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         val cast = s.optJSONArray("characters") ?: JSONArray()
         return FlowSceneSpec((0 until cast.length()).map { i ->
             val person = cast.getJSONObject(i)
-            FlowPerson(person.optString("name"), person.optString("visual_description"), person.optString("screen_position"), sceneWardrobe(s,person))
+            FlowPerson(person.optString("name"), person.optString("visual_description"), person.optString("screen_position"), sceneWardrobe(s,person),PerformanceDirection.text(person))
         }, s.optString("speaker"), s.optString("dialogue"), s.optString("narration"),
             s.optString("flow_action").ifBlank { s.optString("action") }, s.optString("location"),
             s.optString("start_state"), s.optString("end_state"),

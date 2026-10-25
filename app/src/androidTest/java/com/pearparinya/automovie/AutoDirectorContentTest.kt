@@ -89,6 +89,31 @@ class AutoDirectorContentTest {
         val motion=doc.getElementsByTagName("motion_prompt")
         for(i in 0 until motion.length) listOf("กวิน","รินรดา","เมย์").forEach { assertFalse(motion.item(i).textContent.contains(it)) }
     }
+    @Test fun individualActingTravelsIntoImageDialogueAndXmlWithoutChangingSpeech() {
+        val p=story().put("performance_version",1)
+        val scenes=p.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes")
+        for(i in 0 until scenes.length()) {
+            val scene=scenes.getJSONObject(i); val people=scene.getJSONArray("characters")
+            for(j in 0 until people.length()) {
+                val person=people.getJSONObject(j)
+                val performance=JSONObject(); PerformanceDirection.fields.forEach { performance.put(it,"controlled individual choice $j") }
+                performance.put("gaze","meet รินรดา eyes")
+                performance.put("voice",if(person.getString("name")==scene.optString("speaker") && scene.optString("dialogue").isNotBlank()) "low measured Thai delivery" else "silent")
+                performance.put("thai_direction","เก็บความกลัวไว้ สบตาอีกฝ่ายแล้วค่อยคลายมือ")
+                person.put("performance",performance)
+            }
+            PerformanceDirection.validate(scene)
+        }
+        val images=AutoDirectorContent.images(p,1)
+        assertTrue(images.contains("emotion: controlled individual choice 0")); assertTrue(images.contains("emotion: controlled individual choice 2"))
+        assertTrue(images.contains("gaze: meet Woman 1 eyes")); assertFalse(images.contains("meet รินรดา eyes"))
+        val script=AutoDirectorContent.dialogue(p,1)
+        listOf("กวิน","รินรดา","เมย์").forEach { assertTrue(script.contains("กำกับ $it: เก็บความกลัวไว้")) }
+        val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(AutoDirectorContent.flowXml(p,1).toByteArray(Charsets.UTF_8)))
+        assertTrue(doc.getElementsByTagName("motion_prompt").item(0).textContent.contains("INDIVIDUAL PERFORMANCE — Woman 1"))
+        assertTrue(doc.getElementsByTagName("motion_prompt").item(0).textContent.contains("gaze: meet Woman 1 eyes"))
+        assertEquals(scenes.getJSONObject(0).getString("dialogue"),doc.getElementsByTagName("dialogue").item(0).textContent)
+    }
     @Test fun xmlIsParseablePreservesThaiSpeechAndNeverUsesStaleAudio() {
         val p=story(); val text=AutoDirectorContent.flowXml(p,1)
         val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(text.toByteArray(Charsets.UTF_8)))
