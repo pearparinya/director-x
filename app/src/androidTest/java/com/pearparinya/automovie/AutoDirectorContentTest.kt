@@ -77,7 +77,7 @@ class AutoDirectorContentTest {
             val bytes=ByteArrayOutputStream(); FlowProductionPack.write(bytes,story(),refs,JSONObject(),"หมวด","ช่อง")
             val entries=linkedMapOf<String,ByteArray>()
             ZipInputStream(ByteArrayInputStream(bytes.toByteArray())).use { zip -> while(true) { val entry=zip.nextEntry ?: break; entries[entry.name]=zip.readBytes() } }
-            listOf("01_OUTLINE.txt","02_COVER_STORY_GEMINI.txt","EP01_IMAGES_GEMINI.txt","EP01_DIALOGUE.txt","EP01_FLOW.xml","ALL_GEMINI_NEXT.txt","EP01_GEMINI_NEXT.txt").forEach { assertTrue(entries.containsKey("DIRECTOR_FLOW/AUTODIRECTOR/$it")) }
+            listOf("01_OUTLINE.txt","02_COVER_STORY_GEMINI.txt","EP01_IMAGES_GEMINI.txt","EP01_DIALOGUE.txt","EP01_FLOW.xml","ALL_GEMINI_NEXT.txt","EP01_GEMINI_NEXT.txt","WARDROBE_LOCKS.txt").forEach { assertTrue(entries.containsKey("DIRECTOR_FLOW/AUTODIRECTOR/$it")) }
             refs.forEach { (id,file) -> assertArrayEquals(file.readBytes(),entries.getValue("DIRECTOR_FLOW/MASTERS/${id.uppercase()}_MASTER.jpg")) }
             assertTrue(String(entries.getValue("DIRECTOR_FLOW/START.txt"),Charsets.UTF_8).contains("AUTODIRECTOR"))
         } finally { folder.deleteRecursively() }
@@ -121,5 +121,9 @@ class AutoDirectorContentTest {
         assertTrue(command.contains("ครบ 54 ภาพแล้ว")); assertTrue(command.contains("ไม่อ้างว่าจำข้ามแชตได้"))
         assertFalse(command.contains("กรุณาพิมพ์ 'สร้างบท")); assertFalse(command.contains("VIDEO PROMPT"))
         assertTrue(command.trimEnd().endsWith("ถ้าไม่มีภาพอ้างอิงให้ขอภาพก่อน"))
+        assertTrue(command.contains("WARDROBE LEDGER")); assertTrue(command.contains("WARDROBE / ACCESSORY CONTINUITY LOCK"))
+        val last=second.getJSONArray("scenes").getJSONObject(23).getJSONArray("characters").getJSONObject(0)
+        last.put("outfit",last.getString("outfit").replace("white shirt","red shirt"))
+        assertTrue(runCatching { AutoDirectorContent.geminiNext(p) }.isFailure)
     }
 }

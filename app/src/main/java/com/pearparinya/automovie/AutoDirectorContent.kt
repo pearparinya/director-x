@@ -10,6 +10,7 @@ internal object AutoDirectorContent {
 The Man is the husband, Woman 1 the wife, Woman 2 the affair partner. Use the existing internal canonical names and MASTER IDs in JSON only; the app maps them to these external aliases.
 Write a new dramatic plot in the selected category with 24 complete scenes per episode. Vary conversation, argument, monologue, silent reaction and external narration across the story. Alternate speakers across scenes, never overlap speakers within one 8-second shot.
 Every character outfit MUST explicitly list four labeled parts in English: Top: ...; Bottom: ...; Shoes: ...; Accessories: ... (write none if absent). Keep the same four parts in continuous events; change them for a new day or activity. Use elegant fitted editorial fashion and scene-appropriate low necklines for adult women, fully clothed, SFW, no visible nipples or transparent fabric. Match each reference's actual proportions without enlarging or reducing anatomy.
+WARDROBE DETAIL AND LOCK: Top must specify exact garment type, color, fabric, neckline, sleeve length, fit and pattern/fastenings. Bottom must specify garment type, color, fabric, length and fit. Shoes must specify type, color and heel/sole. Accessories must enumerate each item, count, material/color, shape and exact placement (left/right ear, neck, wrist, finger); explicitly state absent items or none. Do not abbreviate as same outfit or same jewelry. The first wardrobe in a continuous event is the immutable authority: repeat the complete four-part string verbatim for that person in later shots, across absences and EP cuts. Keep wardrobe_event and continuity_group stable for continuous scenes, regardless of camera framing, emotion or who speaks. A wardrobe change requires an explicit scripted transition and new wardrobe_event AND continuity_group, not a new camera shot or a change of mood. Never copy jewelry from MASTER when it differs from the exact scene Accessories list.
 Preserve exact reference facial geometry, hairstyle, hair length and hair color; never mix identities or bleach natural skin. Image framing and positions must be explicit, left/center/right for group shots. For narrated or silent scenes all mouths closed, lips sealed. For dialogue scenes only the named speaker may open their mouth.
 Images are generated externally in Gemini; video is generated externally in Flow from a reviewed scene image. Bright cool-neutral white, 5500K daylight-balanced lighting, no yellow cast or dark shadows, preserve detail and highlights. Night scenes stay at night with bright neutral artificial light. No text on scene images. Do not claim a measured or guaranteed 100% identity match."""
     private val labels = mapOf("gawin" to "The Man", "rinlada" to "Woman 1", "mind" to "Woman 2")
@@ -34,9 +35,7 @@ Images are generated externally in Gemini; video is generated externally in Flow
         val scenes=batch.getJSONArray("scenes")
         for(i in 0 until scenes.length()) FlowReferencePrompt.people(scenes.getJSONObject(i)).forEach { person ->
             val outfit=person.getString("outfit")
-            require(listOf("Top", "Bottom", "Shoes", "Accessories").all { part ->
-                Regex("(?i)\\b$part\\s*:\\s*[^;\\n]+").containsMatchIn(outfit)
-            }) { "AutoDirector: ชุดของ ${person.optString("name")} ต้องระบุ Top / Bottom / Shoes / Accessories ครบ 4 ส่วน" }
+            AutoDirectorWardrobe.parts(outfit)
         }
     }
     private fun speaker(scene: JSONObject): String = FlowReferencePrompt.people(scene).firstOrNull {
@@ -47,7 +46,7 @@ Images are generated externally in Gemini; video is generated externally in Flow
     private fun binding(people: List<JSONObject>, story: JSONObject): String = people.joinToString("\n") { p ->
         val appearance = p.optString("visual_description").ifBlank { FlowProductionPack.dna[FlowCast.id(p)].orEmpty() }
         "${alias(p)}: attached original reference only; ${normalize(appearance,story)}\n" +
-            "Wardrobe — ${normalize(p.optString("outfit"),story)}. Four parts: Top / Bottom / Shoes / Accessories; keep the stated outfit, do not copy reference clothing.\n" +
+            "EXACT WARDROBE — ${normalize(p.optString("outfit"),story)}. These four parts override any stale clothing/jewelry in appearance or reference images. Preserve every listed garment and accessory exactly; no added/removed jewelry, no color, material, shape, count, side or placement changes.\n" +
             "Position: ${p.optString("screen_position").ifBlank { "compose around the reserved text area" }}."
     }
     private const val identity = "Request exact reference facial identity, hairstyle, hair length and hair color. Match each adult woman's reference bust volume and natural silhouette 1:1 relative to shoulders, waist and hips; no enlargement, reduction, blending or anatomical redesign. Elegant fitted editorial fashion, scene-appropriate neckline, strictly SFW, opaque clothes, absolutely no visible nipples. Preserve each reference's natural skin tone and visible skin texture. Compare actual outputs with the original references; identity lock is a prompt target, not a verified percentage."
@@ -76,7 +75,7 @@ Images are generated externally in Gemini; video is generated externally in Flow
             else listOf(story.optString("channel"), "ตอนที่ $number ${ep.optString("title")}")
         val cue=ep?.optString("cover_incident")?.ifBlank { ep.optString("tagline") } ?: story.optString("tagline")
         return "[$heading $ratio] [แนบรูป: ${people.joinToString(", ") { alias(it) }}]\n" +
-            binding(people,story)+"\n$identity\nCinematic waist-up medium close-up, zoomed in closely, dynamic dramatic editorial poses, intense eye contact, natural three-quarter body angles and reference proportions. NO full body, NO stiff standing. No collage. Story cue: ${normalize(cue,story)}\n"+
+            binding(people,story)+"\n$identity\nBoth cover ratios use these identical full outfits and accessory lists. Recompose the camera only; do not redesign clothes or jewelry.\nCinematic waist-up medium close-up, zoomed in closely, dynamic dramatic editorial poses, intense eye contact, natural three-quarter body angles and reference proportions. NO full body, NO stiff standing. No collage. Story cue: ${normalize(cue,story)}\n"+
             FlowVisualDirection.layout(ratio.replace(":","x"))+"\nFINAL TEXT PLACEMENT: one compact group centered at x=50%, within x=15-85% and y=52-78% of the canvas. All text stacked tightly and perfectly centered horizontally in the lower-middle safe zone. Keep faces, hands and important props clear. Include only these exact Thai text lines:\n"+
             lines.joinToString("\n")+"\nNo extra text or watermark.\n"+ending(ratio)
     }
@@ -113,6 +112,8 @@ Images are generated externally in Gemini; video is generated externally in Flow
         }
     }
     fun geminiNext(story: JSONObject, number: Int? = null): String {
+        val wardrobeIssues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(story))
+        require(wardrobeIssues.isEmpty()) { wardrobeIssues.take(12).joinToString("\n") }
         val tasks=imageTasks(story,number)
         val refs=tasks.flatMap { it.people }.distinctBy { FlowCast.id(it) }
         return buildString {
@@ -120,6 +121,9 @@ Images are generated externally in Gemini; video is generated externally in Flow
             append("คุณคือผู้สร้างภาพซีรีส์จากคิวด้านล่าง ใช้เครื่องมือสร้างภาพที่มีจริง สร้างภาพจริงทีละ 1 ภาพ ไม่ตอบเป็นคำสั่งแทนภาพ ไม่สร้างหลายภาพรวมกันหรือ contact sheet และไม่สร้างวิดีโอหรือบทพูด\n")
             append("แนบภาพอ้างอิงทั้งหมดในรายการนี้พร้อมคำสั่งครั้งแรก จับคู่แต่ละภาพกับชื่อให้ชัดเจน ไม่อิงลำดับอัปโหลด หากจับคู่ไม่ได้ให้ถามก่อน:\n")
             refs.forEach { person -> append("- ${alias(person)} = ภาพต้นฉบับ ${FlowCast.id(person)!!.uppercase()}_MASTER (ไฟล์จริงใน MASTERS อาจเป็น png/jpg/webp ไม่ต้องเปลี่ยนชื่อ)\n") }
+            append("\nWARDROBE LEDGER — คัดลอกชุดและเครื่องประดับเต็มทุกซีน ห้ามเปลี่ยนระหว่างสร้างภาพ:\n")
+            append(normalize(AutoDirectorWardrobe.catalog(AutoDirectorWardrobe.shots(story)),story)).append("\n")
+            append("กฎต่อเนื่อง: next / retry / แก้ภาพ ต้องรักษาชุดและเครื่องประดับตามรายการเดิมทุกชิ้น รวมสี วัสดุ จำนวน รูปทรง ข้างและตำแหน่งที่สวม ไม่ออกแบบใหม่ คำขอแก้ชุดหมายถึงคืนชุดให้ตรงรายการล็อก ไม่เปลี่ยนเป็นชุดอื่น ถ้ารายละเอียดไม่พอให้ถาม ไม่เดา และการเปลี่ยนมุมภาพไม่ใช่เหตุให้เปลี่ยนชุด หลังผู้ใช้ตรวจภาพว่าตรงบัญชีชุดแล้วพิมพ์ next ให้ใช้ภาพที่ยอมรับล่าสุดของเหตุการณ์เดียวกันช่วยคงชุดและเครื่องประดับ คง MASTER ต้นฉบับเป็นหลักของใบหน้าและรูปร่าง หากภาพก่อนผิดชุดห้ามใช้เป็นต้นแบบ; เมื่อแก้สำเร็จให้ใช้ฉบับแก้ที่ยอมรับแล้วแทนฉบับเดิม\n")
             append("\nกติกา NEXT — ควบคุมคิวในแชตนี้:\n")
             append("1. อ่านคิวให้ครบ แล้วเริ่มสร้างภาพแรก ${tasks.first().id} ทันทีเมื่อมีภาพอ้างอิงของงานนั้นครบ หากขาดให้ระบุชื่อที่ขาดและหยุดรอ ไม่เดาหน้าตาหรือข้ามงาน ใช้ต้นฉบับเดิมเป็นฐานอัตลักษณ์เสมอ ไม่ใช้ภาพที่สร้างใหม่แทน MASTER\n")
             append("2. หลังสร้างและแสดงภาพจริงสำเร็จหนึ่งภาพ ให้หยุดรอคำว่า next (หรือ ถัดไป) เสมอ คำสั่ง next แต่ละครั้งสร้างงานถัดไปเพียงหนึ่งภาพ ห้ามทำงานถัดไปอัตโนมัติ\n")
@@ -148,7 +152,7 @@ Images are generated externally in Gemini; video is generated externally in Flow
     fun sceneImage(story: JSONObject, s: JSONObject): String {
         val people=FlowReferencePrompt.people(s)
         return "[ฉากที่ ${s.getInt("scene")}] [แนบรูป: ${people.joinToString(", ") { alias(it) }}]\n"+
-                binding(people,story)+"\n$identity\n"+
+                binding(people,story)+"\n$identity\n"+AutoDirectorWardrobe.contract(s)+"\n"+
                 "Location: ${normalize(s.getString("location"),story)}. Action: ${normalize(s.getString("action"),story)}. Start state: ${normalize(s.getString("start_state"),story)}. End-state continuity target: ${normalize(s.getString("end_state"),story)}.\n"+
                 "${normalize(s.getString("image_prompt"),story)}\nFINAL OVERRIDES: Use only the attached identities and current four-part wardrobes above. Explicit left/center/right placement for all listed people. "+
                 (if(speech(s.optString("dialogue")).isEmpty()) "All characters: mouth closed, lips sealed. " else "Only ${speaker(s)} is speaking; all others mouth closed, lips sealed. ")+

@@ -1363,6 +1363,8 @@ class StudioActivity : AppCompatActivity() {
             if(story.optString("content_profile")!=AutoDirectorContent.profile) {
                 notice("เรื่องนี้ใช้รูปแบบเดิม เลือกสร้างเรื่องใหม่ใน AutoDirector v18 เพื่อใช้บท 24 ฉาก เสื้อผ้า 4 ส่วน และไฟล์ Gemini / Flow XML"); return@choiceMenu
             }
+            val wardrobeIssues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(story))
+            if(action>=2 && wardrobeIssues.isNotEmpty()) { notice(wardrobeIssues.take(12).joinToString("\n")); return@choiceMenu }
             val revision=EpisodeMedia.digest(File(project,"story.json"))
             val phaseKey="autodirector_${project.name}_$revision"
             when(action) {
@@ -1488,7 +1490,10 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun flowSceneMenu(s: JSONObject) {
         choiceMenu("${key(s)} • ${if(sceneFrameApproved(s)) "ภาพผ่านแล้ว" else "รอตรวจภาพ"}",listOf("1. สร้างภาพฉากจาก MASTER","3. สร้างวิดีโอจากภาพที่ผ่าน","แก้บท / ชุด / สถานที่","นำเข้าภาพจาก Gemini / Flow","นำเข้าคลิป MP4","2. เทียบ MASTER / ยืนยันภาพ","ดูคลิป","เวอร์ชันไฟล์")) { i -> when(i) {
-            0 -> if(plan?.optString("content_profile")==AutoDirectorContent.profile) showFlowCode("IMAGE PROMPT • Gemini",AutoDirectorContent.sceneImage(plan!!,s),"AD_${key(s)}_IMAGE_GEMINI.txt")
+            0 -> if(plan?.optString("content_profile")==AutoDirectorContent.profile) {
+                val issues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(plan!!))
+                if(issues.isNotEmpty()) notice(issues.take(12).joinToString("\n")) else showFlowCode("IMAGE PROMPT • Gemini",AutoDirectorContent.sceneImage(plan!!,s),"AD_${key(s)}_IMAGE_GEMINI.txt")
+            }
                 else showFlowCode("IMAGE PROMPT",FlowReferencePrompt.scene(s,s.optInt("ep",1),"image"),"${key(s)}_IMAGE.txt")
             1 -> reviewedVideoCommand(s)
             2 -> editScene(s)
@@ -1785,6 +1790,10 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
     }
     private fun sceneFrameApproved(s: JSONObject): Boolean = SceneFrameReview.current(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) },flowSpec(s).toString())
     private fun reviewedVideoCommand(s: JSONObject, copy: Boolean=false) {
+        if(plan?.optString("content_profile")==AutoDirectorContent.profile) {
+            val issues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(plan!!))
+            if(issues.isNotEmpty()) { notice(issues.take(12).joinToString("\n")); return }
+        }
         if(!image(s).isFile) { notice("สร้างภาพฉากใน Gemini / Flow แล้วนำเข้าภาพก่อน จากนั้นเทียบ MASTER และยืนยันภาพ"); return }
         if(!sceneFrameApproved(s) || FlowScenePrompt.issues(flowSpec(s)).isNotEmpty()) { compareScene(s); return }
         val code="แนบภาพฉากที่ยืนยันแล้วของ ${key(s)} เป็น START FRAME\nไม่ใช้ภาพ MASTER แทนเฟรมเริ่มต้น และไม่สร้างหน้าตา/ชุดใหม่\n"+
