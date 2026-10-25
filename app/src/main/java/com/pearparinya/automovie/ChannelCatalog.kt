@@ -4,6 +4,26 @@ import org.json.JSONObject
 
 internal object ChannelCatalog {
     const val channel = "สตอรี่ทรงโต - ซีรีส์ลับฉบับผู้ใหญ่"
+    data class MainCategory(val id: String,val name: String,val style: String,val tone: String,val icon: String,val direction: String) {
+        val label get() = "$name ($style)"
+        val menuLabel get() = "$icon $name\n($style)"
+    }
+    val mainCategories = listOf(
+        MainCategory("domestic_secrets","ความลับในรั้วบ้าน","ดราม่าครอบครัว • ความลับ • หักมุม","drama","🏡","Family drama anchored in the home: conflicting loyalties, a meaningful household secret and a credible twist. Family relationships are non-sexual. Vary the household, adult roles, secret and resolution; never force an affair or inheritance plot every time."),
+        MainCategory("betrayal_rivalry","ชิงรักหักสวาทและทรยศ","ดราม่าความรัก • รักสามเส้า • หักหลัง","drama","💔","Relationship drama about trust, rivalry and betrayal. Build layered adult motives, consequences and a clear emotional resolution. A love triangle is an option, not a compulsory preset. Do not assign permanent spouse or villain roles to the reference actors."),
+        MainCategory("office_career","ที่ทำงานและสายอาชีพ","ดราม่าในที่ทำงาน • ความรัก • ชิงอำนาจ","drama","🏢","Workplace drama about professional ambitions, affection and power. Give the work conflict a concrete stake and credible occupation-specific setting. Vary the profession and hierarchy; do not always choose a boss-secretary affair. Do not turn the main story into a sitcom."),
+        MainCategory("high_society_underworld","สังคมไฮโซและวงการสีเทา","ดราม่าหรูหรา • อาชญากรรม • ระทึกขวัญ","drama","💎","Elegant high-society crime suspense: public image, concealed interests, pressure and a consequential reveal. Use tension and restrained, location-appropriate sound rather than comedy stings. Do not provide actionable criminal methods or graphic violence."),
+        MainCategory("revenge_disguise","ล้างแค้นและปลอมตัว","ดราม่าเข้มข้น • สืบความจริง • หักเหลี่ยม","drama","🔥","Intense revenge, investigation or disguise drama: a personal wrong, strategic discovery, a fair but surprising reversal and consequences. Disguise changes the role or cover story, not the actor's face/body identity. Vary the grievance, evidence and ending without adding criminal tutorials."),
+        MainCategory("age_status_romance","รักต่างวัยและสถานะต่างขั้ว","โรแมนติกดราม่า • ต่างวัย • ต่างฐานะ","drama","❤️","Consensual adult romantic drama across age or social status: competing expectations, mutual agency and earned emotional development. Everyone is 25+. Financial dependence is not consent; no sexual debt repayment. Vary occupations and obstacles without forcing a patron-student premise."),
+        MainCategory("office_sitcom","ออฟฟิศป่วนฮา","ซิตคอม • ตลกสถานการณ์ • มุกในที่ทำงาน","comedy","😂","Workplace sitcom: an everyday work problem, contrasting colleagues, setup, escalating misunderstandings and a satisfying comic payoff. Invent a fresh office incident and roles rather than prescribing clumsy secretary, scared boss or coffee rivalry. Keep the primary tone playful and the setting work-related."),
+        MainCategory("neighborhood_comedy","เพื่อนบ้านสายฮาและชีวิตประจำวัน","คอมเมดี้เบาสมอง • เรื่องใกล้ตัว • อบอุ่น","comedy","🏘️","Warm everyday neighborhood comedy: a small relatable inconvenience, neighbors with different habits, safe situational humor and an affectionate resolution. Vary the place, task and misunderstanding; do not require delivery, pet or watering-plant plots. Do not force crime, dark betrayal or humiliation."),
+        MainCategory("romantic_misunderstanding","รักวุ่นชวนเข้าใจผิด","โรแมนติกคอมเมดี้ • ความเข้าใจผิด • รักวุ่นวาย","comedy","💞","Romantic comedy: a plausible adult misunderstanding, contrasting wants, playful chemistry, clarification and a romantic or hopeful payoff. Both romance and comedy remain central. Vary the trigger and resolution; mistaken identity and wrong appointments are optional ideas, not a fixed plot."),
+        MainCategory("career_buddy_comedy","คู่ป่วนต่างอาชีพ","คอมเมดี้คู่หู • ภารกิจวุ่น • คนต่างขั้ว","comedy","🎭","Buddy comedy pairing adults from different professions or approaches on one concrete shared task. Their contrasting skills create a safe comic escalation and cooperative payoff. Romance is optional. Vary the professions and task; do not lock the pair to tutor-student or cook-partner roles."))
+    private fun main(category: String) = mainCategories.firstOrNull { category==it.label || category==it.name }
+    private fun main(value: JSONObject) = main(value.optString("category")) ?: mainCategories.firstOrNull { it.id==value.optString("category_id") }
+    val acceptedCategories get() = mainCategories.flatMap { listOf(it.label,it.name) } + topics.map { category(it) } + groups.map { it.title }
+    fun genre(value: JSONObject): String = main(value)?.let { "SELECTED GENRE: ${it.id}. ${it.direction} Preserve the written scene and assigned speech; genre direction does not add events, characters or sounds." }.orEmpty()
+    private const val creative = "MAIN CATEGORY ONLY: Invent a fresh Thai title, central incident, adult occupations/relationships, obstacles, escalation and ending inside the selected category. There is no mandatory subcategory or canned incident to reproduce. Maintain the selected setting and primary tone through outline, every scene, acting, covers and sound. A twist must deepen this genre rather than switch it. Use only registered reference actors and decide roles freely; names/reference identities are not automatic husband-wife-affair roles. After outline approval keep the agreed roles, motives and continuity stable across EPs."
     data class Topic(val id: Int, val title: String, val premise: String, val tone: String = "drama")
     data class Group(val title: String, val topics: List<Topic>)
     val groups = listOf(
@@ -55,15 +75,25 @@ internal object ChannelCatalog {
     val topics get() = groups.flatMap { it.topics }
     fun category(topic: Topic) = groups.first { topic in it.topics }.title + " / " + topic.title
     fun stamp(value: JSONObject): JSONObject {
+        main(value)?.let { selected ->
+            value.put("category_version",2).put("category_id",selected.id).put("main_category",selected.name).put("category_style",selected.style).put("story_tone",selected.tone)
+            listOf("subcategory","subcategory_id").forEach { value.remove(it) }
+            return value
+        }
         val topic=topics.firstOrNull { category(it)==value.optString("category") } ?: return value
         return value.put("main_category",groups.first { topic in it.topics }.title).put("subcategory",topic.title).put("subcategory_id",topic.id).put("story_tone",topic.tone)
     }
     const val safety = "All characters are fictional adults aged 25 or older. Non-explicit adult relationship drama; consensual romance only. No sexual or romantic stepfamily relationships, sexual coercion, sexual debt repayment, or intimate imagery. Family plots concern inheritance and secrets. Female styling follows the MASTER identity and existing SFW wardrobe rules."
     const val comedy = "COMEDY PERFORMANCE DIRECTION: Adult romantic sitcom and situational comedy. Prioritize a readable setup, misunderstanding, one safe physical or prop gag, reaction pause and payoff. Balance confidence with embarrassment and let each character retain dignity and agency. Use distinct expressive eyes, a brief double-take and playful Thai delivery when supported by the action. Do not force dark betrayal, threats, tears or a hidden villain into a comic premise. One principal action per 8-second shot; distribute setup and payoff across separate scenes when needed. No extra voices, audible laughs, canned laugh track, gasps, overlapping dialogue or ad-libs. Preserve the exact assigned speech and silent listeners. Freeze one comic instant in stills, no montage. Maintain MASTER anatomy and exact daily wardrobe. No revealing clothing accidents, transparent or wet-clothing gags, breast-focused framing or anatomy exaggeration. Any contact is consensual; no sexual activity with an intoxicated person. Props, animals and movement remain safe; no fire stunts. Use playful adult ensemble cover expressions and a relevant comedy prop, not an ominous affair-poster pose."
-    fun performance(value: JSONObject): String = if(value.optString("story_tone")=="comedy" || topics.any { it.tone=="comedy" && category(it)==value.optString("category") }) comedy else ""
-    fun direction(selectedCategory: String): String = topics.firstOrNull { category(it)==selectedCategory }?.let {
-        safety+"\nSelected premise: "+it.premise+if(it.tone=="comedy") "\n$comedy" else ""
-    }.orEmpty()
+    fun performance(value: JSONObject): String = if(value.optString("story_tone")=="comedy" || main(value)?.tone=="comedy" || topics.any { it.tone=="comedy" && category(it)==value.optString("category") }) comedy else ""
+    fun direction(selectedCategory: String): String {
+        main(selectedCategory)?.let { selected ->
+            return safety+"\n$creative\nSelected category: ${selected.label}\n${selected.direction}"+(if(selected.tone=="comedy") "\n$comedy" else "\nMaintain drama/suspense and use realistic emotional beats; no automatic comedy sound effects.")
+        }
+        return topics.firstOrNull { category(it)==selectedCategory }?.let {
+            safety+"\nSelected premise: "+it.premise+if(it.tone=="comedy") "\n$comedy" else ""
+        }.orEmpty()
+    }
 }
 
 internal object ClipPlan {

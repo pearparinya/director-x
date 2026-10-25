@@ -32,7 +32,7 @@ internal object SceneCommandCards {
             for(ratio in listOf("9x16","16x9")) add(Card("ปกรวม • ${if(ratio=="9x16") "แนวตั้ง 9:16" else "แนวนอน 16:9"}",FlowVisualDirection.storyCover(ratio,storyRefs,story.optString("channel"),story.getString("title"),story.optString("tagline"),first.getString("action"))))
             for(ratio in listOf("9x16","16x9")) add(Card("ปก EP.$number • ${if(ratio=="9x16") "แนวตั้ง 9:16" else "แนวนอน 16:9"}",FlowVisualDirection.cover(ratio,refs,story.optString("channel"),story.getString("title"),number,ep.optString("title"),story.optString("tagline"),first.getString("action"))))
             for(i in 0 until scenes.length()) add(Card("ซีน ${scenes.getJSONObject(i).getInt("scene")} • ภาพแนวตั้ง 9:16",FlowReferencePrompt.scene(scenes.getJSONObject(i),number,"image")))
-        }
+        }.map { it.copy(command=it.command+"\n"+ChannelCatalog.genre(story)) }
     }
     fun videos(story: JSONObject,number: Int): List<Card> {
         LandscapeProduction.requirePlan(story)
@@ -41,7 +41,7 @@ internal object SceneCommandCards {
             val s=rows.getJSONObject(i)
             val spec=FlowSceneSpec(FlowReferencePrompt.people(s).map { FlowPerson(it.getString("name"),it.getString("visual_description"),it.getString("screen_position"),it.getString("outfit"),PerformanceDirection.text(it)) },s.optString("speaker"),s.optString("dialogue"),s.optString("narration"),s.optString("flow_action").ifBlank { s.getString("action") },s.getString("location"),s.getString("start_state"),s.getString("end_state"),8,"9:16",SoundDesign.notes(s))
             val mapped=if(story.optString("content_profile")==AutoDirectorContent.profile) AutoDirectorContent.externalSpec(story,spec) else spec
-            Card("ซีน ${s.getInt("scene")} • วิดีโอแนวตั้ง 9:16 • 8 วินาที","TEMPLATE • แนบภาพซีน ${s.getInt("scene")} ที่ตรวจ MASTER ชุด และตำแหน่งผู้พูดแล้วก่อนใช้\n"+FlowScenePrompt.build(mapped))
+            Card("ซีน ${s.getInt("scene")} • วิดีโอแนวตั้ง 9:16 • 8 วินาที","TEMPLATE • แนบภาพซีน ${s.getInt("scene")} ที่ตรวจ MASTER ชุด และตำแหน่งผู้พูดแล้วก่อนใช้\n"+FlowScenePrompt.build(mapped)+"\n"+ChannelCatalog.genre(story))
         }
     }
     fun join(cards: List<Card>) = cards.joinToString("\n\n") { "=== ${it.title} ===\n${it.command}" }
