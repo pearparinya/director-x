@@ -19,6 +19,7 @@ class PerformanceDirectionTest {
         val wife=JSONObject().put("name","รินรดา").put("master","RINLADA_MASTER.png").put("performance",performance("hurt beneath dignity","silent"))
         val scene=JSONObject().put("characters",JSONArray().put(man).put(wife)).put("speaker","กวิน").put("dialogue","ฟังผมก่อน")
         PerformanceDirection.validate(scene)
+        assertTrue(PerformanceDirection.continuity(scene).contains("รินรดา: arc=composure -> hurt -> reclaimed dignity"))
         val text=PerformanceDirection.scene(scene)
         assertTrue(text.contains("กวิน PERFORMANCE: emotion: fear beneath reassurance"))
         assertTrue(text.contains("รินรดา PERFORMANCE: emotion: hurt beneath dignity"))

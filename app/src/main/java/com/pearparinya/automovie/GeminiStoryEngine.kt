@@ -78,10 +78,10 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
                 progress(lastPercent,"เขียน EP ${i+1}/${eps.length()} • ซีน $start–$end")
                 val past=(maxOf(0,output.length()-(if(compact) 1 else output.length())) until output.length()).joinToString("\n") { e ->
                     val ep=output.getJSONObject(e); val rows=ep.getJSONArray("scenes")
-                    "EP ${e+1}: "+(maxOf(0,rows.length()-(if(compact) 4 else rows.length())) until rows.length()).joinToString(" | ") { n -> rows.getJSONObject(n).let { "${it.optString("action").take(if(compact) 150 else 10000)} / ${it.optString("dialogue")}" } }
+                    "EP ${e+1}: "+(maxOf(0,rows.length()-(if(compact) 4 else rows.length())) until rows.length()).joinToString(" | ") { n -> rows.getJSONObject(n).let { "${it.optString("action").take(if(compact) 150 else 10000)} / ${it.optString("dialogue")} | emotional continuity=${PerformanceDirection.continuity(it)}" } }
                 }
                 val previous=(maxOf(0,scenes.length()-(if(compact) 2 else scenes.length())) until scenes.length()).joinToString("\n") { n -> scenes.getJSONObject(n).let {
-                    "SC ${it.getInt("scene")}: ${it.optString("action")} | dialogue=${it.optString("dialogue")} | end=${it.optString("end_state")} | day=${it.optString("story_day")} | outfits=${if(compact) (0 until it.getJSONArray("characters").length()).joinToString { n -> it.getJSONArray("characters").getJSONObject(n).let { p -> p.optString("name")+"="+p.optString("outfit") } } else it.getJSONArray("characters")}"
+                    "SC ${it.getInt("scene")}: ${it.optString("action")} | dialogue=${it.optString("dialogue")} | end=${it.optString("end_state")} | day=${it.optString("story_day")} | emotional continuity=${PerformanceDirection.continuity(it)} | outfits=${if(compact) (0 until it.getJSONArray("characters").length()).joinToString { n -> it.getJSONArray("characters").getJSONObject(n).let { p -> p.optString("name")+"="+p.optString("outfit") } } else it.getJSONArray("characters")}"
                 } }
                 val storyOutline=if(compact) (0 until eps.length()).joinToString("\n") { e -> eps.getJSONObject(e).let { "EP ${e+1}: ${it.optString("synopsis").take(250)}; ending=${it.optString("ending").take(120)}" } } else outline.toString()
                 val priorWardrobe=(0 until output.length()).flatMap { e -> AutoDirectorWardrobe.batch(e+1,output.getJSONObject(e).getJSONArray("scenes")) }+AutoDirectorWardrobe.batch(i+1,scenes)
