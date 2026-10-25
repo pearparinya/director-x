@@ -22,6 +22,7 @@ $identity
 ${BodyReferencePolicy.preciseIdentity}
 $color
 $poster
+${PerformanceDirection.guide}
 Episode story cue: $incident
 Use the listed reference map and episode outfits; never substitute a different person's body or face.
 TYPOGRAPHY: Thai display typography with balanced spacing, strong legibility at phone-thumbnail size and subtle local contrast support. Keep all text together as one compact group; never scatter the three required entries across the canvas. Main story title is largest, channel smaller, and the required third entry secondary. No text over faces, no clipped letters. Restrained burgundy/charcoal type with selective metallic accents is allowed without tinting the skin or the entire image yellow.

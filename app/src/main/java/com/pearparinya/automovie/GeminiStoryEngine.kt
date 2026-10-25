@@ -49,6 +49,8 @@ ${FlowVisualDirection.color}
 ${AutoDirectorContent.femaleFashion}
 ${AutoDirectorContent.dailyWardrobe}
 ${BodyReferencePolicy.preciseIdentity}
+${PerformanceDirection.guide}
+${PerformanceDirection.planning}
 ${speechRules}
 ${if(spec.optString("content_profile")==AutoDirectorContent.profile) AutoDirectorContent.generationRules else ""}
 ${if(spec.optInt("autodirector_version")<AutoDirectorContent.version) "LEGACY CHECKPOINT PRIORITY: copy any already assigned daily wardrobe verbatim, even when it lacks shade/HEX or sleeve labels. Never retrofit or redesign an existing day to apply the new detail syntax." else ""}
@@ -95,6 +97,9 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
                         val wardrobeIssues=AutoDirectorWardrobe.issues(priorWardrobe+AutoDirectorWardrobe.batch(i+1,it.getJSONArray("scenes")))
                         require(wardrobeIssues.isEmpty()) { wardrobeIssues.take(6).joinToString("; ") }
                     }
+                    if(spec.optInt("performance_version")>=1) {
+                        val scenes=it.getJSONArray("scenes"); for(n in 0 until scenes.length()) PerformanceDirection.validate(scenes.getJSONObject(n))
+                    }
                     checkDialogue(it.getJSONArray("scenes"),i+1,priorDialogue.toMutableMap())
                 }
                 val rows=batch.getJSONArray("scenes"); for(n in 0 until rows.length()) {
@@ -110,7 +115,7 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
         }
         check()
         val story=JSONObject().put("schema_version",3).put("production_mode","flow_commands").put("character_mode","original")
-            .put("content_profile",spec.optString("content_profile")).put("autodirector_version",spec.optInt("autodirector_version")).put("supporting_characters",support).put("channel",channel).put("category",category).put("title",outline.getString("title")).put("tagline",outline.getString("tagline"))
+            .put("content_profile",spec.optString("content_profile")).put("autodirector_version",spec.optInt("autodirector_version")).put("performance_version",spec.optInt("performance_version")).put("supporting_characters",support).put("channel",channel).put("category",category).put("title",outline.getString("title")).put("tagline",outline.getString("tagline"))
             .put("episode_count",output.length()).put("scene_count",output.length()*24).put("duration_seconds",8).put("aspect_ratio","16:9").put("episodes",output)
         val issues=FlowProductionPack.issues(story); require(issues.isEmpty()) { "บทไม่ผ่านตรวจ: "+issues.take(4).joinToString("; ") }
         val spoken=linkedMapOf<String,String>()
@@ -157,7 +162,7 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
         fun outlineSchema(): JSONObject = obj(linkedMapOf("title" to string(),"tagline" to string(),"episodes" to array(obj(linkedMapOf(
             "ep" to integer(),"title" to string(),"tagline" to string(),"synopsis" to string(),"cover_incident" to string(),"ending" to string())))))
         fun batchSchema(): JSONObject {
-            val person=obj(linkedMapOf("name" to string(),"master" to string(),"outfit" to string(),"visual_description" to string(),"screen_position" to string()))
+            val person=obj(linkedMapOf("name" to string(),"master" to string(),"outfit" to string(),"visual_description" to string(),"screen_position" to string(),"performance" to obj(PerformanceDirection.fields.associateWith { string() })))
             val fields=linkedMapOf("scene" to integer(),"duration_seconds" to integer(),"characters" to array(person))
             listOf("story_day","story_time","activity","wardrobe_event","continuity_group","location","start_state","end_state","action","speaker","dialogue","narration","image_prompt","flow_prompt").forEach { fields[it]=string() }
             return obj(linkedMapOf("scenes" to array(obj(fields))))

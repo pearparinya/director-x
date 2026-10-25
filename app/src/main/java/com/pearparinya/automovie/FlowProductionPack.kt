@@ -26,6 +26,8 @@ ${FlowVisualDirection.identity}
 ${FlowVisualDirection.color}
 ${AutoDirectorContent.femaleFashion}
 ${AutoDirectorContent.dailyWardrobe}
+${PerformanceDirection.guide}
+${PerformanceDirection.planning}
 คงใบหน้า ผม สีผิว สัดส่วนและเสน่ห์ความเซ็กซี่ตามภาพอ้างอิงของตัวละครผู้ใหญ่ ไม่เพิ่มหรือลดสัดส่วนเอง ห้ามคัดลอกชุดจาก MASTER ออกแบบชุดใหม่ตามบท วันเดียวกันใช้เสื้อ กางเกง/กระโปรง รองเท้าและเครื่องประดับเดิมทั้งวัน แม้เปลี่ยนสถานที่หรือกิจกรรม วันใหม่ต้องวางชุดใหม่ สร้าง wardrobe ledger ก่อนเขียนซีน
 IMAGE PROMPT ภาษาอังกฤษเต็มในแต่ละซีน: ขึ้นต้นด้วยรายชื่อคนที่ต้องแนบและรหัส CHARACTER_GAWIN / CHARACTER_RINLADA / CHARACTER_MIND ไม่อ้างชื่อไฟล์หรือนามสกุลในพรอมป์ เฉพาะตัวละครที่อยู่จริง DNA เต็ม ชุด สี เนื้อผ้า ท่าทาง สถานะต้นคลิป สถานที่ พร็อพ แสง ระยะภาพ และตำแหน่งตัวละคร ห้ามอ้าง 'เหมือนซีนก่อน' แทนรายละเอียด
 VIDEO PROMPT ภาษาอังกฤษ บทพูดไทย: 8 seconds, horizontal 16:9, locked-off static camera, one continuous action; supplied scene image as first frame. ระบุผู้พูดหนึ่งคนด้วยชื่อ ผม ชุด และตำแหน่ง คนอื่นปิดปาก ห้ามพูดทับ เสียงประจำตัวคงที่ ไม่รวมเสียงบรรยายกับบทพูดในซีนเดียว ระบุเป้าหมายสายตา สถานะเริ่มและจบคลิป บทพูดต้องพูดจบใน 8 วินาที ไม่มีข้อความหรือลายน้ำ ต้องตรวจตำแหน่งกับภาพจริงก่อนใช้วิดีโอ
@@ -45,6 +47,9 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
         if(plan.optString("character_mode","original")!="original") add("ชุดนี้ใช้ตัวละครหลัก 3 คนและตัวละครเสริมที่ลงทะเบียนในเรื่อง กรุณาใช้เครื่องมือเดิมสำหรับโหมดตัวละครใหม่ทั้งหมด")
         if(plan.optString("title").isBlank()) add("ขาดชื่อเรื่อง")
         if(plan.optString("aspect_ratio","9:16")!="16:9") add("ชุด Flow นี้กำหนดภาพฉาก 16:9")
+        if(plan.optInt("performance_version")>=1 && plan.optJSONArray("episodes")!=null) {
+            AutoDirectorWardrobe.shots(plan).forEach { shot -> runCatching { PerformanceDirection.validate(shot.scene) }.exceptionOrNull()?.let { add("EP${shot.ep} SC${shot.scene.optInt("scene")}: ${it.message}") } }
+        }
         if(plan.optString("content_profile")==AutoDirectorContent.profile && plan.optJSONArray("episodes")!=null) addAll(AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(plan)))
         val eps=plan.optJSONArray("episodes")
         if(eps==null || eps.length()==0) { add("ยังไม่มี EP"); return@buildList }
