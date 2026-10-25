@@ -80,7 +80,7 @@ Images are generated externally in Gemini; video is generated externally in Flow
         val typography=CoverTypography.prompt(story.optString("channel"),story.getString("title"),number,ep?.optString("title").orEmpty(),story.optString("tagline"))
         val cue=ep?.optString("cover_incident")?.ifBlank { ep.optString("tagline") } ?: story.optString("tagline")
         return "[$heading $ratio] [แนบรูป: ${people.joinToString(", ") { alias(it) }}]\n$imageStart\n" +
-            binding(people,story)+"\n$identity\n${PerformanceDirection.guide}\nFreeze one expressive story-supported instant, not a sequence.\nLandscape covers use the exact locked daily outfits and accessory lists. Recompose the camera only; do not redesign clothes or jewelry.\nCinematic waist-up medium close-up, zoomed in closely, dynamic dramatic editorial poses, intense eye contact, natural three-quarter body angles and reference proportions. NO full body, NO stiff standing. No collage. Story cue: ${normalize(cue,story)}\n"+
+            binding(people,story)+"\n$identity\n${PerformanceDirection.guide}\n${ChannelCatalog.performance(story)}\nFreeze one expressive story-supported instant, not a sequence.\nLandscape covers use the exact locked daily outfits and accessory lists. Recompose the camera only; do not redesign clothes or jewelry.\nCinematic waist-up medium close-up, zoomed in closely, ${if(ChannelCatalog.performance(story).isNotBlank()) "playful sitcom ensemble poses, distinct comic reactions and a story-relevant prop," else "dynamic dramatic editorial poses, intense eye contact,"} natural three-quarter body angles and reference proportions. NO full body, NO stiff standing. No collage. Story cue: ${normalize(cue,story)}\n"+
             FlowVisualDirection.layout(ratio.replace(":","x"))+"\n"+typography+"\n"+ending(ratio)
     }
     private fun storyCoverPeople(story: JSONObject): List<JSONObject> =
@@ -166,7 +166,7 @@ Images are generated externally in Gemini; video is generated externally in Flow
         LandscapeProduction.requirePlan(story)
         val people=FlowReferencePrompt.people(s)
         return "[ฉากที่ ${s.getInt("scene")}] [แนบรูป: ${people.joinToString(", ") { alias(it) }}]\n$imageStart\n"+
-                binding(people,story)+"\n$identity\n${PerformanceDirection.guide}\nFreeze one expressive instant from the stated action; never render a multi-beat sequence or collage.\n"+AutoDirectorWardrobe.contract(s)+"\n"+
+                binding(people,story)+"\n$identity\n${PerformanceDirection.guide}\n${ChannelCatalog.performance(story)}\nFreeze one expressive instant from the stated action; never render a multi-beat sequence or collage.\n"+AutoDirectorWardrobe.contract(s)+"\n"+
                 "Location: ${normalize(s.getString("location"),story)}. Action: ${normalize(s.getString("action"),story)}. Start state: ${normalize(s.getString("start_state"),story)}. End-state continuity target: ${normalize(s.getString("end_state"),story)}.\n"+
                 "${normalize(s.getString("image_prompt"),story)}\nFINAL OVERRIDES: Use only the attached identities and current four-part wardrobes above. Explicit left/center/right placement for all listed people. "+
                 (if(speech(s.optString("dialogue")).isEmpty()) "All characters: mouth closed, lips sealed. " else "Only ${speaker(s)} is speaking; all others mouth closed, lips sealed. ")+
@@ -202,7 +202,7 @@ Images are generated externally in Gemini; video is generated externally in Flow
                 var direction=FlowScenePrompt.build(externalSpec(story,spec))
                 if(line.isNotEmpty()) direction=direction.replace(line,"[exact Thai speech in sibling dialogue tag]")
                 if(vo.isNotEmpty()) direction=direction.replace(vo,"[exact Thai narration in sibling dialogue tag]")
-                val motion=direction+" FINAL AUDIO: $audio"
+                val motion=direction+"\n"+ChannelCatalog.performance(story)+" FINAL AUDIO: $audio"
                 append("    <motion_prompt>${xml(motion)}</motion_prompt>\n    <dialogue speaker=\"${xml(if(line.isNotEmpty()) speaker(s) else if(vo.isNotEmpty()) "VO" else "") }\">${xml(line.ifEmpty { vo })}</dialogue>\n")
                 append("    <lighting temperature=\"5500K\" tone=\"cool_white\" source=\"reviewed_start_frame\">Preserve reviewed frame lighting; no yellow cast, no dark shadows.</lighting>\n    <typography_safe_zone position=\"lower_middle\" enabled=\"false\">Scene video has no typography; cover text belongs on separate cover images.</typography_safe_zone>\n  </scene>\n")
             }

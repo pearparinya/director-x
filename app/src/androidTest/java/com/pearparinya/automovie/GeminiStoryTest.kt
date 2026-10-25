@@ -32,8 +32,8 @@ class GeminiStoryTest {
     private fun spec()=JSONObject().put("category","แนว").put("channel","ช่อง").put("episodes",3).put("premise","ซองบนโต๊ะ")
     @Test fun selectedClipDurationsCompleteResumeAndExportWithoutLegacyMinimum() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals(6,ChannelCatalog.groups.size)
-        assertEquals((1..24).toList(),ChannelCatalog.topics.map { it.id })
+        assertEquals(10,ChannelCatalog.groups.size)
+        assertEquals((1..35).toList(),ChannelCatalog.topics.map { it.id })
         for(format in listOf("short","long")) for(seconds in if(format=="short") ClipPlan.shortSeconds else ClipPlan.longSeconds) {
             val folder=File(context.cacheDir,"selected-clip-${UUID.randomUUID()}").apply { mkdirs() }
             try {
@@ -61,6 +61,37 @@ class GeminiStoryTest {
         }
         assertTrue(runCatching { ClipPlan.count(ClipPlan.apply(JSONObject(),"short",600)) }.isFailure)
         assertEquals(24,ClipPlan.count(JSONObject()))
+    }
+    @Test fun comedyCatalogGuidesNewStoriesWithoutChangingExistingCategoryIds() {
+        val expected=listOf("Clumsy Secretary","The Scaredy Boss","Pantry Rivalry","The Oblivious Neighbor","Delivery Disaster","Pet Lover's Panic","Gym Fail","Camping Chaos","Drunk Confession","The Clueless Tutor","Cooking Disaster")
+        assertEquals(24,ChannelCatalog.topics.count { it.tone=="drama" })
+        assertEquals(expected,ChannelCatalog.topics.filter { it.tone=="comedy" }.map { it.title.substringAfter(" ") })
+        assertEquals("🧹 Maid's Secret",ChannelCatalog.topics.first().title)
+        assertEquals("🎬 Backstage Drama",ChannelCatalog.topics[23].title)
+        ChannelCatalog.topics.forEach { topic ->
+            val category=ChannelCatalog.category(topic)
+            val data=ChannelCatalog.stamp(JSONObject().put("category",category))
+            assertEquals(topic.id,data.getInt("subcategory_id"))
+            assertEquals(topic.tone,data.getString("story_tone"))
+            assertTrue(data.getString("main_category").isNotBlank())
+            assertEquals(topic.tone=="comedy",ChannelCatalog.direction(category).contains(ChannelCatalog.comedy))
+        }
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val folder=File(context.cacheDir,"comedy-story-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val selected=ClipPlan.apply(spec().put("episodes",1).put("category",ChannelCatalog.category(ChannelCatalog.topics[24])),"short",30)
+            val story=GeminiStoryEngine(folder,{ prompt,_ ->
+                assertTrue(prompt.contains(ChannelCatalog.comedy))
+                if(prompt.contains("Plan a complete story")) outline().apply { put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0))) } else batch(prompt)
+            }).run(selected)
+            assertEquals(25,story.getInt("subcategory_id"))
+            assertEquals("comedy",story.getString("story_tone"))
+            val scene=story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
+            assertEquals("comedy",scene.getString("story_tone"))
+            assertTrue(FlowReferencePrompt.scene(scene,1,"video").contains(ChannelCatalog.comedy))
+            assertTrue(FlowProductionPack.masterCommand(selected.getString("category"),ChannelCatalog.channel).contains(ChannelCatalog.comedy))
+            assertTrue(ChannelCatalog.performance(JSONObject().put("category",ChannelCatalog.category(ChannelCatalog.topics.first()))).isBlank())
+        } finally { folder.deleteRecursively() }
     }
     @Test fun hybridSharesSamePromptAndCompletesWithFallbackWithoutRewritingCheckpoints() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
