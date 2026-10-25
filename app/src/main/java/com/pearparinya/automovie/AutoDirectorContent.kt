@@ -92,8 +92,8 @@ Images are generated externally in Gemini; video is generated externally in Flow
                 for(j in 0 until scenes.length()) if(found==null) found=FlowReferencePrompt.people(scenes.getJSONObject(j)).firstOrNull { FlowCast.id(it)==FlowCast.id(p) }
             }
             found ?: copy.put("outfit",if(FlowCast.id(p)=="gawin")
-                "Top: charcoal opaque cotton fitted open-collar long-sleeve shirt, plain, black buttons; Bottom: black tailored full-length wool trousers; Shoes: black leather dress shoes, flat sole; Accessories: none"
-                else "Top: ${if(FlowCast.id(p)=="rinlada") "white" else "burgundy"} opaque lined silk fitted long-sleeve blouse, deep V-neck with visible natural cleavage, tailored waist, plain fabric; Bottom: black high-waisted knee-length fitted pencil skirt; Shoes: black leather closed-toe 5 cm heels; Accessories: none")
+                "Top: opaque cotton fitted open-collar shirt, shade=charcoal #36454F, sleeves=long-sleeve, plain, black buttons; Bottom: tailored full-length wool trousers, shade=ink black #101010; Shoes: leather dress shoes, flat sole, shade=jet black #0A0A0A; Accessories: none"
+                else "Top: opaque lined silk fitted blouse, shade=${if(FlowCast.id(p)=="rinlada") "porcelain white #F4F1EA" else "burgundy #800020"}, sleeves=long-sleeve, deep V-neck with visible natural cleavage, tailored waist, plain fabric; Bottom: high-waisted knee-length fitted pencil skirt, shade=ink black #101010; Shoes: leather closed-toe 5 cm heels, shade=jet black #0A0A0A; Accessories: none")
         }
     fun covers(story: JSONObject): String {
         LandscapeProduction.requirePlan(story)
