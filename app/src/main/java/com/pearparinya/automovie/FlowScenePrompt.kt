@@ -37,7 +37,7 @@ internal object FlowScenePrompt {
             s.cast.forEach { append("- ${label(it)}\n") }
             if (s.startState.isNotBlank()) append("START STATE: ${s.startState}\n")
             append("LOCATION: ${s.location}\nONE ACTION: ${s.action}\n")
-            append("${PerformanceDirection.guide}\nPERFORMANCE BEATS: ${if(s.duration==8) "0-2s receive the cue; 2-6s perform the single stated action with assigned speech; 6-8s small silent response and held end-state" else "receive the cue, perform the single stated action, then hold a small response"}. Fit all beats naturally inside ${s.duration} seconds. Performance notes never authorize extra voices; the audio rules below control all speech.\n")
+            append("${PerformanceDirection.guide}\nPERFORMANCE BEATS: ${if(s.duration==8) "0-2s receive the cue; 2-6s perform the single stated action with assigned speech; 6-8s small silent response and held end-state" else "receive the cue, perform the single stated action, then hold a small response"}. Fit all beats naturally inside ${s.duration} seconds. Beat boundaries are approximate: finishing the exact assigned line naturally takes priority; never speed up, truncate or add words to force a beat. Performance notes never authorize extra voices; the audio rules below control all speech.\n")
             s.cast.forEach { person -> append("INDIVIDUAL PERFORMANCE — ${person.name}: ${person.performance.ifBlank { "use the stated action and start/end emotional context; restrained, distinct reactions only" }}\n") }
             if (dialogue.isNotEmpty() && talking != null) {
                 append("ONLY SPEAKER: ${label(talking)}. Only this person's lips move for the following Thai dialogue, said once: “$dialogue”.\n")
