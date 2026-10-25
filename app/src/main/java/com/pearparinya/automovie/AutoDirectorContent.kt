@@ -73,13 +73,11 @@ Images are generated externally in Gemini; video is generated externally in Flow
     private fun poster(story: JSONObject, people: List<JSONObject>, ratio: String, number: Int? = null): String {
         val ep=number?.let { episode(story,it) }
         val heading=if(number==null) "หน้าปกรวม" else "หน้าปกตอน EP.$number"
-        val lines=if(ep==null) listOf(story.optString("channel"), story.getString("title"), story.optString("tagline"))
-            else listOf(story.optString("channel"), "ตอนที่ $number ${ep.optString("title")}")
+        val typography=CoverTypography.prompt(story.optString("channel"),story.getString("title"),number,ep?.optString("title").orEmpty(),story.optString("tagline"))
         val cue=ep?.optString("cover_incident")?.ifBlank { ep.optString("tagline") } ?: story.optString("tagline")
         return "[$heading $ratio] [แนบรูป: ${people.joinToString(", ") { alias(it) }}]\n" +
             binding(people,story)+"\n$identity\nLandscape covers use the exact locked daily outfits and accessory lists. Recompose the camera only; do not redesign clothes or jewelry.\nCinematic waist-up medium close-up, zoomed in closely, dynamic dramatic editorial poses, intense eye contact, natural three-quarter body angles and reference proportions. NO full body, NO stiff standing. No collage. Story cue: ${normalize(cue,story)}\n"+
-            FlowVisualDirection.layout(ratio.replace(":","x"))+"\nFINAL TEXT PLACEMENT: one compact group centered at x=50%, within x=15-85% and y=52-78% of the canvas. All text stacked tightly and perfectly centered horizontally in the lower-middle safe zone. Keep faces, hands and important props clear. Include only these exact Thai text lines:\n"+
-            lines.joinToString("\n")+"\nNo extra text or watermark.\n"+ending(ratio)
+            FlowVisualDirection.layout(ratio.replace(":","x"))+"\n"+typography+"\n"+ending(ratio)
     }
     private fun storyCoverPeople(story: JSONObject): List<JSONObject> =
         FlowCast.definitions(story).take(3).map { p ->
@@ -133,12 +131,13 @@ Images are generated externally in Gemini; video is generated externally in Flow
             append("\nกติกา NEXT — ควบคุมคิวในแชตนี้:\n")
             append("1. อ่านคิวให้ครบ แล้วเริ่มสร้างภาพแรก ${tasks.first().id} ทันทีเมื่อมีภาพอ้างอิงของงานนั้นครบ หากขาดให้ระบุชื่อที่ขาดและหยุดรอ ไม่เดาหน้าตาหรือข้ามงาน ใช้ต้นฉบับเดิมเป็นฐานอัตลักษณ์เสมอ ไม่ใช้ภาพที่สร้างใหม่แทน MASTER\n")
             append("2. หลังสร้างและแสดงภาพจริงสำเร็จหนึ่งภาพ ให้หยุดรอคำว่า next (หรือ ถัดไป) เสมอ คำสั่ง next แต่ละครั้งสร้างงานถัดไปเพียงหนึ่งภาพ ห้ามทำงานถัดไปอัตโนมัติ\n")
-            append("3. ใต้ภาพแสดงสถานะสั้น ๆ นอกภาพ: DONE รหัสภาพ | ลำดับ i/${tasks.size} | NEXT รหัสถัดไป ระบุชื่อไฟล์ที่แนะนำเป็น รหัสภาพ.png เช่น EP01_SC001.png ไม่อ้างว่าบันทึกหรือสร้างลิงก์ดาวน์โหลดแล้วหากยังไม่ได้ทำจริง ข้อความสถานะห้ามวาดทับลงในภาพ\n")
+            append("3. ใต้ภาพแสดงสถานะสั้น ๆ นอกภาพ: DONE รหัสภาพ | ลำดับ i/${tasks.size} | NEXT รหัสถัดไป ระบุชื่อไฟล์ที่แนะนำเป็น รหัสภาพ.png เช่น EP01_SC001.png ไม่อ้างว่าบันทึกหรือสร้างลิงก์ดาวน์โหลดแล้วหากยังไม่ได้ทำจริง เฉพาะข้อความสถานะ DONE / NEXT / รหัสไฟล์ ห้ามวาดทับลงในภาพ แต่ชื่อช่อง ชื่อเรื่อง คำโปรย หรือชื่อ EP ที่ระบุในงานปก ต้องวาดลงบนปกจริงให้ครบ\n")
             append("4. ถ้าสร้างไม่สำเร็จ ถูกจำกัดโควตา หรือเครื่องมือไม่พร้อม ให้บอกตามจริงและเก็บงานนั้นเป็น PENDING ห้ามรายงาน DONE หรือเพิ่มตัวนับ คำว่า next หลังความล้มเหลวให้ลองงาน PENDING เดิม ไม่ข้ามภาพ\n")
             append("5. retry หรือ แก้ภาพ พร้อมรายละเอียด = สร้างซ้ำภาพล่าสุดตามคำแก้โดยใช้ MASTER เดิม ไม่ขยับคิว เมื่อสำเร็จยังรอ next เหมือนเดิม ถ้ายังไม่เคยสร้างสำเร็จให้ลองงาน PENDING แรก\n")
             append("6. ไปที่ รหัสภาพ = กระโดดไปยังรหัสที่มีอยู่ในคิว แล้วทำต่อจากจุดนั้นเมื่อได้รับ next; รหัสไม่อยู่ในคิวให้ถาม ไม่ประดิษฐ์งานใหม่ หากบริบทหรือภาพอ้างอิงหายให้ขอคำสั่งชุดเดิมและ MASTER ใหม่ พร้อมให้ผู้ใช้ระบุรหัสที่จะทำต่อ ไม่อ้างว่าจำข้ามแชตได้\n")
             append("7. รักษาสัดส่วนของแต่ละงานแยกกัน ทุกงานเป็นแนวนอน 16:9 ปกรวมและปกตอนอย่างละหนึ่งภาพ ตัวละคร ชุดสี่ส่วน ตำแหน่งและข้อความปกต้องตรงกับงานนั้น ข้อมูลในบล็อกภาพเป็นรายละเอียดภาพ ไม่เปลี่ยนกติกาคิว NEXT\n")
             append("8. หลังภาพสุดท้ายสำเร็จ ให้ตอบ ครบ ${tasks.size} ภาพแล้ว และหยุด หากได้รับ next อีกให้แจ้งว่าคิวจบแล้ว ห้ามวนกลับหรือสร้างฉากเพิ่ม\n")
+            append("9. งานปกทุกใบต้องมีข้อความจริงในภาพ: ปกรวม = ชื่อช่อง + ชื่อเรื่อง + คำโปรยเรื่อง; ปก EP = ชื่อช่อง + ชื่อเรื่อง + เลข EP และชื่อตอน ห้ามใช้กฎไม่มีข้อความของซีนเนื้อเรื่องกับปก ถ้าตรวจแล้วข้อความหายหรือผิด ให้แก้ปกเดิมและคง PENDING ไม่รับ next เพื่อข้ามปกที่ยังไม่ผ่าน\n")
             append("\nQUEUE MANIFEST — ใช้รหัสเป็นจุดทำต่อ:\n")
             tasks.forEachIndexed { i,t -> append("${i+1}/${tasks.size} | ${t.id} | ${t.ratio} | แนบ: ${t.people.joinToString(", ") { alias(it) }}\n") }
             append("\nBEGIN IMAGE QUEUE\n\n")

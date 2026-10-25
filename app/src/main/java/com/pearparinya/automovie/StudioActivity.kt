@@ -1102,7 +1102,7 @@ class StudioActivity : AppCompatActivity() {
     private fun coverFile(name: String, folder: File = project) = File(folder, "covers/$name.img")
     private fun coverCommand(p: JSONObject, ep: JSONObject): String {
         val number = ep.getInt("ep")
-        val title = ep.optString("title").ifBlank { "ตั้งชื่อตอนภาษาไทยจากเหตุการณ์ของ EP นี้ ใช้ชื่อตอนเดียวกันกับบท" }
+        val title = ep.optString("title")
         val scenes=ep.getJSONArray("scenes")
         val people=linkedMapOf<String,JSONObject>()
         for(i in 0 until scenes.length()) {
@@ -1149,7 +1149,9 @@ class StudioActivity : AppCompatActivity() {
                 val commands = references.joinToString("\n\n") { scene ->
                     val ep = (0 until eps.length()).map { eps.getJSONObject(it) }.first { it.getInt("ep") == scene.getInt("ep") }
                     val number = ep.getInt("ep")
-                    "สร้างปก EP $number จากภาพ ${key(scene)} ที่แนบ เป็นหนึ่งไฟล์ EP%02d_COVER_16x9.png จัดองค์ประกอบใหม่ให้เหมาะกับแต่ละสัดส่วน ${ImagePromptPolicy.coverReference("ภาพฉากที่แนบ")} รักษาเหตุการณ์: %s ข้อความไทย 3 บรรทัดในพื้นที่กลางภาพ เว้นขอบซ้ายขวา 10%% บนล่าง 20%% ไม่ทับใบหน้า: บรรทัด 1 ขนาดเล็ก %s | บรรทัด 2 ใหญ่ที่สุด %s | บรรทัด 3 EP %02d • %s ปรับขนาดให้ครบ อ่านชัดบนมือถือ".format(number,scene.optString("action"),p.optString("channel",originalChannel),p.getString("title"),number,ep.optString("title").ifBlank { "ตั้งชื่อตอนภาษาไทยตามเหตุการณ์" })
+                    "สร้างปกแนวนอน 16:9 EP $number จากภาพ ${key(scene)} ที่แนบ หนึ่งภาพ ชื่อไฟล์ EP%02d_COVER_16x9.png\n".format(number)+
+                        ImagePromptPolicy.coverReference("ภาพฉากที่แนบ")+"\nเหตุการณ์: ${scene.optString("action")}\n"+
+                        CoverTypography.prompt(p.optString("channel",originalChannel),p.getString("title"),number,ep.optString("title"))
                 }
                 shareText("ใช้ภาพฉากที่แนบจากชุดงานที่นำเข้าเป็นต้นแบบปก แก้จากภาพเดิม โดยคงชุดและสถานที่ของภาพนั้น\nสิ่งที่ผู้ใช้ขอปรับ: ${edits.text.toString().ifBlank { "ออกแบบปกให้สวยงาม อ่านชัด" }}\n$commands\nแสดงปกจริงแยกไฟล์ และรวมเฉพาะปกที่สร้างใน ZIP สำหรับนำเข้ากลับ DIRECTOR X หากสร้างไม่ได้ให้แจ้งตามจริง", includeMasters = false, referenceImages = references.map { key(it) to image(it) })
             }.setNegativeButton("ยกเลิก",null).showDirector()

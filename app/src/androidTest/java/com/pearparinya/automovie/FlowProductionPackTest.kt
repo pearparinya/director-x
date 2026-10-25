@@ -139,7 +139,7 @@ class FlowProductionPackTest {
                     .put("visual_description","short auburn bob").put("screen_position","frame-left")))) }
             eps.put(JSONObject().put("ep",e+1).put("title","ตอน ${e+1}").put("scenes",rows))
         }
-        return JSONObject().put("aspect_ratio","16:9").put("title","ซองบนโต๊ะ").put("episodes",eps)
+        return JSONObject().put("aspect_ratio","16:9").put("title","ซองบนโต๊ะ").put("tagline","ความลับในซอง").put("episodes",eps)
     }
     @Test fun minimumDurationAndSpeakerValidationUseActualScenes() {
         assertTrue(FlowProductionPack.issues(plan(4,22)).any { it.contains("176") })
@@ -179,6 +179,7 @@ class FlowProductionPackTest {
             assertEquals("custom face",memory.getJSONObject("mind").getJSONObject("profile").getString("face"))
             val ep=String(files.getValue("DIRECTOR_FLOW/EP07_IMAGES.txt"),Charsets.UTF_8)
             assertTrue(ep.contains("184 seconds")); assertTrue(ep.contains("EP07_SC023")); assertFalse(ep.contains("COVER 9x16")); assertTrue(ep.contains("COVER 16x9"))
+            assertTrue(ep.contains("BEGIN EXACT COVER TEXT\nช่อง\nซองบนโต๊ะ\nEP.07 : ตอน 7\nEND EXACT COVER TEXT"))
             assertTrue(ep.contains("Rinrada:")); assertTrue(ep.contains("ชุดทำงานสีขาว"))
             assertTrue(ep.startsWith("แนบภาพตัวละคร")); assertTrue(ep.contains("one compact group"))
             assertTrue(ep.contains("No yellow/orange cast")); assertTrue(ep.contains("FINAL COLOR DIRECTION"))
@@ -189,6 +190,7 @@ class FlowProductionPackTest {
             val cover=String(files.getValue("DIRECTOR_FLOW/COVER_STORY.txt"),Charsets.UTF_8)
             assertTrue(cover.startsWith("แนบภาพตัวละคร: กวิน + รินรดา + เมย์"))
             assertFalse(cover.contains("1080 x 1920")); assertTrue(cover.contains("1920 x 1080"))
+            assertTrue(cover.contains("BEGIN EXACT COVER TEXT\nช่อง\nซองบนโต๊ะ\nความลับในซอง\nEND EXACT COVER TEXT"))
             assertFalse(cover.contains("EP.00")); assertTrue(cover.contains(story.getString("title")))
             val scene=FlowReferencePrompt.scene(story.getJSONArray("episodes").getJSONObject(6).getJSONArray("scenes").getJSONObject(1),7,"video")
             assertTrue(scene.indexOf(FlowVisualDirection.referencePriority)>scene.indexOf("VIDEO PROMPT"))

@@ -54,6 +54,20 @@ class AutoDirectorContentTest {
         p.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0).getJSONArray("characters").getJSONObject(0).put("outfit","white shirt")
         assertTrue(runCatching { AutoDirectorContent.validateWardrobes(p.getJSONArray("episodes").getJSONObject(0)) }.isFailure)
     }
+    @Test fun everyCoverPathIncludesExactTextWhileScenesStayTextFree() {
+        val p=story()
+        val storyText="BEGIN EXACT COVER TEXT\n${p.getString("channel")}\nความจริงหลังซอง\nใครกันที่ปิดบัง\nEND EXACT COVER TEXT"
+        val epText="BEGIN EXACT COVER TEXT\n${p.getString("channel")}\nความจริงหลังซอง\nEP.01 : ซองลับ\nEND EXACT COVER TEXT"
+        assertTrue(AutoDirectorContent.covers(p).contains(storyText))
+        assertTrue(AutoDirectorContent.images(p,1).contains(epText))
+        val tasks=AutoDirectorContent.imageTasks(p,1)
+        assertTrue(tasks.first().prompt.contains(storyText)); assertTrue(tasks[1].prompt.contains(epText))
+        assertFalse(tasks[2].prompt.contains("BEGIN EXACT COVER TEXT"))
+        val queue=AutoDirectorContent.geminiNext(p,1)
+        assertTrue(queue.contains(storyText)); assertTrue(queue.contains(epText)); assertTrue(queue.contains("ไม่รับ next เพื่อข้ามปก"))
+        assertTrue(FlowVisualDirection.storyCover("16x9","refs",p.getString("channel"),p.getString("title"),p.getString("tagline"),"cue").contains(storyText))
+        assertTrue(FlowVisualDirection.cover("16x9","refs",p.getString("channel"),p.getString("title"),1,"ซองลับ","ไม่แสดงเป็นบรรทัดที่สี่","cue").contains(epText))
+    }
     @Test fun xmlIsParseablePreservesThaiSpeechAndNeverUsesStaleAudio() {
         val p=story(); val text=AutoDirectorContent.flowXml(p,1)
         val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(text.toByteArray(Charsets.UTF_8)))
