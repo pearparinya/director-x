@@ -23,7 +23,8 @@ internal object SimpleProductionCommands {
     private const val identity="Fictional adults 25+. Match each person's own attached MASTER: face, hairstyle, skin and natural body proportions. No mixing, enlarging or slimming. MASTER supplies identity only; use the exact planned outfit and accessories below, never reference clothing. Opaque lined editorial fashion; natural anatomy and fabric."
     private fun cast(people: List<JSONObject>,poster: Boolean=false)=people.mapIndexed { i,p ->
         val position=if(!poster) p.optString("screen_position") else when(people.size) { 1 -> "center"; 2 -> if(i==0) "left" else "right"; else -> listOf("left","center","right")[i] }
-        "${p.getString("name")} | MASTER: ${p.getString("master")} | position: $position\nOutfit: ${p.getString("outfit")}"
+        val alias=when(FlowCast.id(p)) { "gawin" -> "Kawin / Gawin"; "rinlada" -> "Rinrada / Rinlada"; "mind" -> "May / Mind"; else -> p.getString("name") }
+        "${p.getString("name")} ($alias) | MASTER: ${p.getString("master")} | position: $position\nOutfit: ${p.getString("outfit")}"
     }.joinToString("\n")
     private fun acting(scene: JSONObject)=FlowReferencePrompt.people(scene).mapNotNull { person ->
         person.optJSONObject("performance")?.let { p ->
@@ -105,7 +106,7 @@ ${scene.optString("production_video_note").takeIf { it.isNotBlank() }?.let { "Lo
             append("${if(images) "${tasks.size} ภาพ: ปก $coverCount + ซีน ${tasks.size-coverCount}" else "${tasks.size} ซีน × 8 วินาที = ${tasks.size*8} วินาที (ไม่รวมปกเปิด)"}\n")
             append("สารบัญ — หัวข้อและรหัสเป็นป้ายกำกับ ห้ามวาดลงซีน:\n")
             tasks.forEachIndexed { i,t -> append("${i+1}. ${t.id} | ${t.title}\n") }
-            if(images) append("\nแนบ MASTER ตามชื่อในแต่ละงาน เริ่มภาพแรกเท่านั้น; next = ภาพถัดไปหลังภาพปัจจุบันสำเร็จและตรวจแล้ว\nแก้ภาพ <รหัส> / retry = แก้งานนั้น ไม่เลื่อนคิว ไม่เปลี่ยนอัตลักษณ์หรือชุดประจำวัน; ไปที่ <รหัส> = ทำต่อจากรายการที่มีในสารบัญ\nทุกครั้งแจ้ง ล่าสุด: <รหัส> | สถานะ DONE/PENDING | ถัดไป: <รหัส>; หากไม่สำเร็จ ข้อความปกผิด หรือขาดอ้างอิงให้คง PENDING ห้ามข้าม\nDONE หมายถึงผู้ใช้ตรวจผลจริงแล้ว ไม่ใช่คะแนนรับรองอัตลักษณ์จากคำสั่ง หากบริบทหายให้ขอไฟล์และ MASTER พร้อมระบุรหัสทำต่อใหม่\nปกมีข้อความตามรายการเท่านั้น ซีนไม่มีข้อความ ทุกคำสั่งใช้ขนาดของตนเอง; ครบรายการแล้วหยุด\n")
+            if(images) append("\nแนบ MASTER ตามชื่อตัวละคร ไม่อิงลำดับอัปโหลด ไม่ต้องเปลี่ยนชื่อรูปจริง เริ่มภาพแรกเท่านั้น; next = ภาพถัดไปหลังภาพปัจจุบันสำเร็จและตรวจแล้ว\nแก้ภาพ <รหัส> / retry = แก้งานนั้น ไม่เลื่อนคิว ไม่เปลี่ยนอัตลักษณ์หรือชุดประจำวัน; ไปที่ <รหัส> = ทำต่อจากรายการที่มีในสารบัญ\nทุกครั้งแจ้ง ล่าสุด: <รหัส> | สถานะ DONE/PENDING | ถัดไป: <รหัส>; หากไม่สำเร็จ ข้อความปกผิด หรือขาดอ้างอิงให้คง PENDING ห้ามข้าม\nDONE หมายถึงผู้ใช้ตรวจผลจริงแล้ว ไม่ใช่คะแนนรับรองอัตลักษณ์จากคำสั่ง หากบริบทหายให้ขอไฟล์และ MASTER พร้อมระบุรหัสทำต่อใหม่\nปกมีข้อความตามรายการเท่านั้น ซีนไม่มีข้อความ ทุกคำสั่งใช้ขนาดของตนเอง; ครบรายการแล้วหยุด\n")
             else append("\nคัดลอกทีละบล็อกพร้อมภาพ PNG รหัสเดียวกันเป็นเฟรมเริ่มต้น ไฟล์นี้ไม่ใช่การรัน Flow ทั้ง EP อัตโนมัติ; แต่ละบล็อกรวมภาพ การแสดง บทพูดและเสียงแล้ว\n")
             tasks.forEachIndexed { i,t -> append("\n\n${block(t,i,images)}") }
         }
