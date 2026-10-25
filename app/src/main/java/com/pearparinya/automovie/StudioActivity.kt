@@ -1391,6 +1391,7 @@ class StudioActivity : AppCompatActivity() {
         if(!GeminiStoryService.running && pendingSpec?.optString("content_profile")==AutoDirectorContent.profile && !pendingSpec.optBoolean("outline_approved") && outlineFile.isFile) {
             runCatching {
                 val outline=GeminiStoryFiles.read(outlineFile).put("channel",pendingSpec.optString("channel")).put("category",pendingSpec.optString("category"))
+                ClipPlan.copy(pendingSpec,outline)
                 val dialog=showFlowCode("Phase 1 • ตรวจโครงเรื่อง",AutoDirectorContent.outline(outline),"AD_01_OUTLINE.txt")
                 dialog.getButton(-1).text="ยืนยัน • เตรียมเนื้อหา"
                 dialog.getButton(-1).setOnClickListener {
@@ -1443,7 +1444,7 @@ class StudioActivity : AppCompatActivity() {
             val story=plan
             if(story==null) { if(File(project,"gemini_job/spec.json").isFile) geminiJobMenu() else notice("ยังไม่มีบท กรุณาสร้างเรื่องใหม่หรือนำเข้าบทก่อน"); return@choiceMenu }
             if(story.optString("content_profile")!=AutoDirectorContent.profile) {
-                notice("เรื่องนี้ใช้รูปแบบเดิม เลือกสร้างเรื่องใหม่ใน AutoDirector v45 เพื่อใช้บท 24 ฉาก เสื้อผ้า 4 ส่วน และไฟล์ Gemini / Flow XML"); return@choiceMenu
+                notice("เรื่องนี้ใช้รูปแบบเดิม เลือกสร้างเรื่องใหม่ใน AutoDirector v45 เพื่อเลือกเวลาคลิป เสื้อผ้า 4 ส่วน และไฟล์ Gemini / Flow XML"); return@choiceMenu
             }
             if(story.optString("aspect_ratio","9:16")!="16:9") { landscapeCopyMenu(); return@choiceMenu }
             val wardrobeIssues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(story))
@@ -1499,7 +1500,7 @@ class StudioActivity : AppCompatActivity() {
     private fun chooseClip(done: (String,Int) -> Unit) {
         choiceMenu("เลือกรูปแบบ • ทุกแบบแนวนอน 16:9",listOf("คลิปสั้น","คลิปยาว")) { format ->
             val times=if(format==0) ClipPlan.shortSeconds else ClipPlan.longSeconds
-            choiceMenu("เวลาเนื้อหาต่อ EP • ไม่รวมปกเปิด 3 วินาที",times.map { ClipPlan.label(it) }) { index -> done(if(format==0) "short" else "long",times[index]) }
+            choiceMenu("เวลาเนื้อหาต่อ EP • ไม่รวมปกเปิด 3 วินาที",times.map { ClipPlan.label(it)+(if(it==if(format==0) 60 else 300) " • แนะนำเริ่มต้น" else "") }) { index -> done(if(format==0) "short" else "long",times[index]) }
         }
     }
     private fun flowPlanning(autoDirector: Boolean = false) {

@@ -44,7 +44,7 @@ internal object ChannelCatalog {
         return value.put("main_category",groups.first { topic in it.topics }.title).put("subcategory",topic.title).put("subcategory_id",topic.id)
     }
     const val safety = "All characters are fictional adults aged 25 or older. Non-explicit adult relationship drama; consensual romance only. No sexual or romantic stepfamily relationships, sexual coercion, sexual debt repayment, or intimate imagery. Family plots concern inheritance and secrets. Female styling follows the MASTER identity and existing SFW wardrobe rules."
-    fun direction(category: String): String = topics.firstOrNull { category(it)==category }?.let { safety+"\nSelected premise: "+it.premise }.orEmpty()
+    fun direction(selectedCategory: String): String = topics.firstOrNull { category(it)==selectedCategory }?.let { safety+"\nSelected premise: "+it.premise }.orEmpty()
 }
 
 internal object ClipPlan {

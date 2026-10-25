@@ -86,8 +86,8 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
             }
             if(plan.optInt("clip_plan_version")==1) {
                 runCatching { ClipPlan.count(plan) }.fold(onSuccess={ expected ->
-                    if(scenes.length()!=expected || total!=expected*8) add("EP ${i+1} จำนวนซีนหรือเวลาไม่ตรงที่เลือก: ต้อง $expected ซีน ${expected*8} วินาที")
-                },onFailure={ add("รูปแบบหรือระยะเวลาคลิปไม่ถูกต้อง") })
+                    if(scenes.length()!=expected || total!=expected*8) add("EP ${i+1} จำนวนซีนหรือเวลาไม่ตรงที่เลือก: ต้อง $expected ซีน ${expected*8} วินาที"); Unit
+                },onFailure={ add("รูปแบบหรือระยะเวลาคลิปไม่ถูกต้อง"); Unit })
             } else if(total<minimumSeconds) add("EP ${i+1} ยาว $total วินาที ต้องอย่างน้อย $minimumSeconds")
         }
     }

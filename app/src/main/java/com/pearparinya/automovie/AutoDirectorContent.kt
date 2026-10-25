@@ -69,7 +69,8 @@ Images are generated externally in Gemini; video is generated externally in Flow
                 append("EP.${ep.getInt("ep")}: ${ep.optString("synopsis").ifBlank { ep.optString("tagline") }}\n")
             }
             append("6. จำนวนตอน: ${eps.length()}\n")
-            for(i in 0 until eps.length()) { val ep=eps.getJSONObject(i); append("ตอนที่ ${ep.getInt("ep")} ${ep.optString("title")} • ${ep.optJSONArray("scenes")?.length() ?: 24} ฉาก\n") }
+            if(story.optInt("clip_plan_version")==1) append("รูปแบบ: ${if(story.optString("clip_format")=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(story.getInt("target_seconds"))} ต่อ EP • ไม่รวมปกเปิด 3 วินาที\n")
+            for(i in 0 until eps.length()) { val ep=eps.getJSONObject(i); append("ตอนที่ ${ep.getInt("ep")} ${ep.optString("title")} • ${ep.optJSONArray("scenes")?.length() ?: ClipPlan.count(story)} ฉาก\n") }
             append("\n✅ โครงเรื่องพร้อม พิมพ์ 'สร้างภาพ EP.1'\nHARD STOP • จบ Phase 1 • ส่งออกข้อความเท่านั้น")
         }
     }
