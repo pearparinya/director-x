@@ -187,17 +187,17 @@ class AutoDirectorContentTest {
             assertTrue(String(entries.getValue("DIRECTOR_FLOW/START.txt"),Charsets.UTF_8).contains("AUTODIRECTOR"))
         } finally { folder.deleteRecursively() }
     }
-    @Test fun outlineGenerationPausesBeforeAnySceneRequestAndResumesFromCache() {
+    @Test fun outlineAutomaticallyContinuesAndResumesFromCache() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,UUID.randomUUID().toString()).apply { mkdirs() }
         try {
             val eps=JSONArray(); repeat(4) { i -> eps.put(JSONObject().put("ep",i+1).put("title","ชื่อตอน").put("tagline","คำโปรย").put("synopsis","เรื่องย่อ").put("cover_incident","ปมเปิด").put("ending","จุดส่งต่อ")) }
             val outline=JSONObject().put("title","ชื่อเรื่อง").put("tagline","คำโปรย").put("episodes",eps)
             val spec=JSONObject().put("content_profile",AutoDirectorContent.profile).put("category","Twisted Truth").put("channel","ช่อง").put("episodes",4)
             var calls=0
-            val first=runCatching { GeminiStoryEngine(folder,{ prompt,_ -> calls++; assertTrue(prompt.contains("four labeled parts")); outline }).run(spec) }
-            assertTrue(first.exceptionOrNull() is AutoDirectorContent.AwaitingOutline); assertEquals(1,calls)
+            val first=runCatching { GeminiStoryEngine(folder,{ prompt,_ -> calls++; assertTrue(prompt.contains("four labeled parts")); if(prompt.contains("Plan a complete story")) outline else error("reached scene generation") }).run(spec) }
+            assertEquals("reached scene generation",first.exceptionOrNull()?.message); assertEquals(2,calls)
             val next=runCatching { GeminiStoryEngine(folder,{ _,_ -> calls++; error("reached scene generation") }).run(spec.put("outline_approved",true)) }
-            assertEquals("reached scene generation",next.exceptionOrNull()?.message); assertEquals(2,calls)
+            assertEquals("reached scene generation",next.exceptionOrNull()?.message); assertEquals(3,calls)
         } finally { folder.deleteRecursively() }
     }
     @Test fun nextQueueContainsEachCoverAndSceneOnceAndCanSelectOneEpisode() {

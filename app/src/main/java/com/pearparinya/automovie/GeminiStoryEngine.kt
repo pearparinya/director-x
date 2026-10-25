@@ -67,7 +67,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         val outline=cached("outline.json",base+"\nPlan a complete story with ${if(count==0) "4 to 7" else count.toString()} episodes, a resolved ending, Thai title and taglines. Each episode needs its synopsis, opening incident and ending; later generation must follow this outline. Keep each synopsis under 250 characters, each other field under 120 characters.",outlineSchema()) {
             validateOutline(it,count)
         }
-        if((spec.optString("content_profile")==AutoDirectorContent.profile || spec.optBoolean("outline_review_required")) && !spec.optBoolean("outline_approved")) throw AutoDirectorContent.AwaitingOutline()
+        // Continue from the validated outline automatically, including legacy jobs awaiting approval.
         val eps=outline.getJSONArray("episodes"); val output=JSONArray(); var completed=0
         for(i in 0 until eps.length()) {
             val planned=eps.getJSONObject(i); val scenes=JSONArray()
