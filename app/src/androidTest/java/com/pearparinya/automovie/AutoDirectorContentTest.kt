@@ -79,6 +79,33 @@ class AutoDirectorContentTest {
         scenes.getJSONObject(0).getJSONObject("sound_design").remove("sfx")
         assertTrue(runCatching { SoundDesign.validate(scenes.getJSONObject(0)) }.isFailure)
     }
+    @Test fun simpleExportContainsExactlyTwoDocumentsWithEveryEpisodeAndNoDuplicateStoryCovers() {
+        for(auto in listOf(true,false)) {
+            val p=story()
+            if(!auto) p.remove("content_profile")
+            val eps=p.getJSONArray("episodes")
+            eps.put(JSONObject(eps.getJSONObject(0).toString()).put("ep",2))
+            val bytes=ByteArrayOutputStream(); SimpleProductionCommands.write(bytes,p)
+            val entries=linkedMapOf<String,String>()
+            ZipInputStream(ByteArrayInputStream(bytes.toByteArray())).use { zip ->
+                while(true) { val entry=zip.nextEntry ?: break; entries[entry.name]=String(zip.readBytes(),Charsets.UTF_8) }
+            }
+            assertEquals(setOf(SimpleProductionCommands.IMAGES,SimpleProductionCommands.FLOW),entries.keys)
+            val images=entries.getValue(SimpleProductionCommands.IMAGES)
+            val videos=entries.getValue(SimpleProductionCommands.FLOW)
+            assertEquals(2,images.lineSequence().count { it.startsWith("=== ปกรวม") })
+            assertEquals(54,images.lineSequence().count { it.startsWith("=== ") })
+            assertEquals(48,videos.lineSequence().count { it.startsWith("=== ") })
+            for(ep in 1..2) {
+                assertTrue(images.contains("=== EP.$ep • ซีน 24"))
+                assertTrue(videos.contains("=== EP.$ep • ซีน 24"))
+                assertTrue(images.contains("=== EP.$ep • ปก EP.$ep • แนวนอน 16:9"))
+            }
+            assertTrue(images.contains("แก้ภาพ / retry")); assertTrue(images.contains("PENDING"))
+            assertTrue(videos.contains("SOUND:")); assertTrue(videos.contains("กวิน บอกว่า A & B < C ใช่ไหม"))
+            assertFalse(videos.contains("STALE AUDIO"))
+        }
+    }
     @Test fun imageAndCoverCommandsBindAliasesAndKeepEveryScene() {
         val p=story(); val images=AutoDirectorContent.images(p,1); val covers=AutoDirectorContent.covers(p)
         assertEquals(24,Regex("\\[ฉากที่ [0-9]+]").findAll(images).count())

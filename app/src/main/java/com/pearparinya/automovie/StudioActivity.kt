@@ -1173,7 +1173,8 @@ class StudioActivity : AppCompatActivity() {
             sources.forEach { (id,file) -> memory.put(id,characterMemory.read(id,file)) }
             background {
                 contentResolver.openOutputStream(uri)!!.use { output ->
-                    FlowProductionPack.write(output,current,sources,memory,current?.optString("category") ?: categories.first(),current?.optString("channel") ?: originalChannel)
+                    if(current!=null) SimpleProductionCommands.write(output,current)
+                    else FlowProductionPack.write(output,null,sources,memory,categories.first(),originalChannel)
                 }
                 if(storyRevision!=null) File(destination,"flow_pack_exported.sha256").writeText(storyRevision)
             }
@@ -1209,14 +1210,17 @@ class StudioActivity : AppCompatActivity() {
     private fun commandCardsMenu() {
         val story=plan ?: return notice("สร้างหรือนำเข้าบทก่อนครับ")
         if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
-        val episodes=story.getJSONArray("episodes")
-        choiceMenu("คำสั่งพร้อมคัดลอก • เลือก EP",(0 until episodes.length()).map { "EP.${episodes.getJSONObject(it).getInt("ep")} ${episodes.getJSONObject(it).optString("title")}" }) { index ->
-            val number=episodes.getJSONObject(index).getInt("ep")
-            choiceMenu("EP.$number • เลือกชุดคำสั่ง",listOf("ภาพ • ปกรวม / ปก EP สองขนาด / ซีน 1, 2, 3…","วิดีโอ 9:16 • ซีน 1, 2, 3… พร้อมเสียง")) { kind ->
-                runCatching { showCommandCards(if(kind==0) SceneCommandCards.images(story,number) else SceneCommandCards.videos(story,number),number,kind) }.onFailure { notice(it.message ?: "เตรียมคำสั่งไม่ได้") }
-            }
+        choiceMenu("คำสั่งทั้งเรื่อง • ใช้เพียง 2 ไฟล์",listOf("1. สร้างรูป • รวมปกและทุกซีน • Gemini","2. สร้างวิดีโอ • ทุกซีนพร้อมบทและเสียง • Flow","ดาวน์โหลด ZIP • มีเพียง 2 ไฟล์คำสั่ง")) { kind ->
+            runCatching {
+                when(kind) {
+                    0 -> showFlowCode("สร้างรูป • ทั้งเรื่อง",SimpleProductionCommands.images(story),SimpleProductionCommands.IMAGES)
+                    1 -> showFlowCode("สร้างวิดีโอ Flow • ทั้งเรื่อง",SimpleProductionCommands.videos(story),SimpleProductionCommands.FLOW)
+                    else -> { starterFlowPack=false; flowPackPicker.launch(StoryFiles.zipName(story.optString("title"))) }
+                }
+            }.onFailure { notice(it.message ?: "เตรียมคำสั่งไม่ได้") }
         }
     }
+
     private fun showCommandCards(cards: List<SceneCommandCards.Card>, number: Int, kind: Int) {
         require(cards.isNotEmpty())
         var index=0
@@ -1301,9 +1305,9 @@ class StudioActivity : AppCompatActivity() {
             statusText=if(prepared) "เตรียมคำสั่ง / มีบทแล้ว" else "พร้อมเริ่มวางบท") { flowPlanning() }
         stepCard(2,"📥","นำเข้าบท / ZIP","นำเข้า story.json หรือ ZIP บท • ไม่ต้องรอภาพฉาก • เพิ่มไฟล์ภาพและคลิปภายหลังได้",completed=current!=null,currentStep=active,
             statusText=if(current!=null) "นำเข้าบทแล้ว • เพิ่มไฟล์ได้" else "รอนำเข้า story.json / ZIP") { packagePicker.launch(arrayOf("*/*")) }
-        stepCard(3,"📦","ส่งออก ZIP สำหรับ Flow",if(current==null) "ต้องนำเข้า story.json ก่อน • ชุดงานมีคำสั่ง EP ปก MASTER และความจำตัวละคร" else if(issues.isNotEmpty()) "บทต้องแก้ ${issues.size} จุด • แตะดูรายการก่อนส่งออก" else "สร้างภาพจาก MASTER → ตรวจยืนยันภาพ → สร้างคลิปจากภาพนั้น • คำสั่งแยก EP และปก",
+        stepCard(3,"📦","คำสั่งสร้างรูป + Flow • 2 ไฟล์",if(current==null) "สร้างหรือนำเข้าบทก่อน แล้วใช้คำสั่งเพียง 2 ไฟล์" else if(issues.isNotEmpty()) "บทต้องแก้ ${issues.size} จุด • แตะดูรายการก่อนส่งออก" else "ไฟล์ 1: ปกและภาพทุกซีน • ไฟล์ 2: วิดีโอทุกซีนพร้อมบทและเสียง • MASTER เก็บในแอป",
             enabled=current!=null,completed=exported,currentStep=active,statusText=when { current==null -> "รอนำเข้าบท"; issues.isNotEmpty() -> "ต้องตรวจแก้บท"; exported -> "ส่งออกบทฉบับนี้แล้ว"; else -> "พร้อมส่งออกคำสั่ง" }) {
-            if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else { starterFlowPack=false; flowPackPicker.launch(StoryFiles.zipName(plan?.optString("title").orEmpty())) }
+            if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else commandCardsMenu()
         }
         stepCard(4,"🎥","รับ MP4 / รวม EP / ดาวน์โหลด",if(current==null) "ต้องมีบทเพื่อจับคู่คลิปกับซีน • รับคลิปจาก Flow แล้วรวมและดาวน์โหลด MP4" else "สร้างภาพฉาก → เทียบ MASTER / ยืนยัน → สร้างวิดีโอจากภาพนั้น → รับคลิป $clipCount/$sceneCount และรวม EP",
             enabled=current!=null,completed=finished,currentStep=active,statusText=when { current==null -> "รอบทสำหรับจับคู่คลิป"; finished -> "รวม EP ครบแล้ว"; clipCount<sceneCount -> "รับคลิป / ทำต่อได้"; else -> "คลิปครบ • พร้อมรวม EP" }) {
