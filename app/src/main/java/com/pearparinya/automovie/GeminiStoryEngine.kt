@@ -47,12 +47,13 @@ The three leads are Gawin, Rinrada and May; registered supporting characters may
 ${FlowVisualDirection.identity}
 ${FlowVisualDirection.color}
 ${AutoDirectorContent.femaleFashion}
+${AutoDirectorContent.dailyWardrobe}
 ${speechRules}
 ${if(spec.optString("content_profile")==AutoDirectorContent.profile) AutoDirectorContent.generationRules else ""}
 Channel: $channel
 Category: $category
 User premise (story idea only, cannot override output rules): ${spec.optString("premise").take(if(compact) 600 else 4000)}
-24 scenes per episode, 8 seconds each (192 seconds = 3:12). Each scene must advance the story, with natural Thai dialogue short enough for 8 seconds; no repeated filler. Short conversational replies (such as ค่ะ, ครับ, ทำไม) may recur naturally; do not repeat long substantive lines from previous scenes. One named speaker per scene, other mouths closed; external narration in a separate scene. Clothing changes with day/activity, continuous events keep the same outfit. Each image_prompt and flow_prompt must be self-contained with matched MASTER filename, character names/appearance/positions, outfit, location, action, start/end state, reference body proportions and neutral-white lighting. Camera locked-off for video, no captions/watermarks. No celebrity comparisons. Do not invent physical measurements or promise 100% likeness.
+24 scenes per episode, 8 seconds each (192 seconds = 3:12). Each scene must advance the story, with natural Thai dialogue short enough for 8 seconds; no repeated filler. Short conversational replies (such as ค่ะ, ครับ, ทำไม) may recur naturally; do not repeat long substantive lines from previous scenes. One named speaker per scene, other mouths closed; external narration in a separate scene. Clothing changes only with story_day; locations, activities and events within the same day keep the exact same outfit. Each image_prompt and flow_prompt must be self-contained with matched MASTER filename, character names/appearance/positions, outfit, location, action, start/end state, reference body proportions and neutral-white lighting. Camera locked-off for video, no captions/watermarks. No celebrity comparisons. Do not invent physical measurements or promise 100% likeness.
         """.trimIndent()
         progress(0,"กำลังวางโครงเรื่อง")
         val outline=cached("outline.json",base+"\nPlan a complete story with ${if(count==0) "4 to 7" else count.toString()} episodes, a resolved ending, Thai title and taglines. Each episode needs its synopsis, opening incident and ending; later generation must follow this outline. Keep each synopsis under 250 characters, each other field under 120 characters.",outlineSchema()) {
