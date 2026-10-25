@@ -32,14 +32,29 @@ class AutoDirectorWardrobeTest {
             assertEquals(1,errors.size); assertTrue(errors.first().contains("EP1 SC1")); assertTrue(errors.first().contains("EP2 SC8"))
         }
     }
-    @Test fun eitherContinuousIdentifierLocksWardrobeAndSeparateEventsStayIndependent() {
+    @Test fun wholeDayLocksWardrobeEvenWhenBothEventIdentifiersAndLocationChange() {
         val red=clothes.replace("white opaque","red opaque")
         assertTrue(AutoDirectorWardrobe.issues(listOf(shot(1,scene(1)),shot(1,scene(2,red,event="NEW_EVENT")))).isNotEmpty())
         assertTrue(AutoDirectorWardrobe.issues(listOf(shot(1,scene(1)),shot(1,scene(2,red,group="NEW_GROUP")))).isNotEmpty())
-        assertTrue(AutoDirectorWardrobe.issues(listOf(shot(1,scene(1)),shot(1,scene(2,red,event="DINNER",group="DINNER01")))).isEmpty())
-        assertTrue(AutoDirectorWardrobe.issues(listOf(shot(1,scene(1)),shot(2,scene(1,red,day="DAY02")))).isEmpty())
+        assertTrue(AutoDirectorWardrobe.issues(listOf(shot(1,scene(1)),shot(1,scene(2,red,event="DINNER",group="DINNER01")))).isNotEmpty())
+        val later=scene(1,event="DINNER",group="DINNER01").put("location","restaurant").put("story_time","evening").put("activity","party")
+        assertTrue(AutoDirectorWardrobe.issues(listOf(shot(1,scene(1)),shot(2,later))).isEmpty())
+        later.getJSONArray("characters").getJSONObject(0).put("outfit",red)
+        assertTrue(AutoDirectorWardrobe.issues(listOf(shot(1,scene(1)),shot(2,later))).isNotEmpty())
         // A bridge must satisfy BOTH known identifiers, not merely whichever was looked up first.
         assertTrue(AutoDirectorWardrobe.issues(listOf(shot(1,scene(1)),shot(1,scene(2,red,event="B",group="B")),shot(1,scene(3,event="HOME01",group="B")))).isNotEmpty())
+    }
+    @Test fun newDayRequiresNewTopAndBottomAndReturningToAnOldDayRestoresItsOwnOutfit() {
+        val next=clothes.replace("white opaque","red opaque").replace("black straight","navy straight")
+        val first=shot(1,scene(1)); val second=shot(2,scene(1,next,day="DAY02"))
+        assertTrue(AutoDirectorWardrobe.issues(listOf(first,second,shot(3,scene(1)))).isEmpty())
+        assertTrue(AutoDirectorWardrobe.issues(listOf(first,shot(2,scene(1,day="DAY02")))).isNotEmpty())
+        for(partial in listOf(clothes.replace("white opaque","red opaque"),clothes.replace("black straight","navy straight"))) {
+            assertTrue(AutoDirectorWardrobe.issues(listOf(first,shot(2,scene(1,partial,day="DAY02")))).isNotEmpty())
+        }
+        val dress="Top: red opaque fitted deep-V dress; Bottom: none; Shoes: black heels; Accessories: none"
+        assertTrue(AutoDirectorWardrobe.issues(listOf(shot(1,scene(1,dress)),shot(2,scene(1,dress.replace("red opaque","blue opaque"),day="DAY02")))).isEmpty())
+        assertTrue(AutoDirectorWardrobe.issues(listOf(shot(1,scene(1,day="")))).any { it.contains("story_day") })
     }
     @Test fun completePartsAllowExplicitNoneButRejectPlaceholdersDuplicatesAndEmptyJewelry() {
         assertEquals(4,AutoDirectorWardrobe.parts(clothes).size)

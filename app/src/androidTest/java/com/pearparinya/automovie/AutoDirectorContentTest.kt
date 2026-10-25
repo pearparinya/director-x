@@ -25,7 +25,7 @@ class AutoDirectorContentTest {
                 .put("outfit","Top: white shirt; Bottom: black trousers; Shoes: black shoes; Accessories: none")
                 .put("screen_position",listOf("left","center","right")[n])) }
             scenes.put(JSONObject().put("scene",i+1).put("duration_seconds",8).put("characters",cast)
-                .put("location","ห้องสีขาว").put("action","กวินยื่นซองให้รินรดา").put("start_state","นั่ง").put("end_state","มองซอง")
+                .put("story_day","DAY01").put("location","ห้องสีขาว").put("action","กวินยื่นซองให้รินรดา").put("start_state","นั่ง").put("end_state","มองซอง")
                 .put("image_prompt","Kawin and Rinrada may look at May; MIND_MASTER.png, bright room")
                 .put("flow_prompt","STALE AUDIO THAT MUST NOT BE EXPORTED")
                 .put("speaker",if(i%3==0) "รินรดา" else "").put("dialogue",if(i%3==0) "กวิน บอกว่า A & B < C ใช่ไหม\"" else "")
