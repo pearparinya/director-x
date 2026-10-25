@@ -139,7 +139,7 @@ class FlowProductionPackTest {
                     .put("visual_description","short auburn bob").put("screen_position","frame-left")))) }
             eps.put(JSONObject().put("ep",e+1).put("title","ตอน ${e+1}").put("scenes",rows))
         }
-        return JSONObject().put("aspect_ratio","16:9").put("title","ซองบนโต๊ะ").put("episodes",eps)
+        return JSONObject().put("aspect_ratio","16:9").put("title","ซองบนโต๊ะ").put("tagline","ความลับในซอง").put("episodes",eps)
     }
     @Test fun minimumDurationAndSpeakerValidationUseActualScenes() {
         assertTrue(FlowProductionPack.issues(plan(4,22)).any { it.contains("176") })

@@ -33,7 +33,7 @@ VIDEO PROMPT ภาษาอังกฤษ บทพูดไทย: 8 seconds,
 คำสั่งปกต้องใช้มาตรฐานต่อไปนี้เต็มทุกใบ:
 ${FlowVisualDirection.poster}
 ${FlowVisualDirection.layout("16x9")}
-จัดชื่อช่อง ชื่อเรื่อง EP และคำโปรยเป็นกลุ่มเดียว ชื่อเรื่องใหญ่ที่สุด ชุดตรง EP ใช้เหตุการณ์เปิดปม ไม่เปิดเผยตอนจบ
+ปกรวมต้องวาดข้อความจริงครบ: ชื่อช่อง + ชื่อเรื่อง + คำโปรยเรื่อง ส่วนปก EP ต้องวาดครบ: ชื่อช่อง + ชื่อเรื่อง + เลข EP และชื่อตอน จัดเป็นกลุ่มเดียว ชื่อเรื่องใหญ่ที่สุด ชุดตรง EP ใช้เหตุการณ์เปิดปม ไม่เปิดเผยตอนจบ ห้ามเว้นข้อความหรือใช้กฎไม่มีข้อความของภาพฉากกับปก
 ปกแต่ละใบ: IMAGE PROMPT เต็ม ใช้ชุดประจำ EP ออกแบบแต่ละสัดส่วนใหม่ รายการข้อความไทยตรงชื่อช่อง ชื่อเรื่อง เลข EP และชื่อตอน จัดตัวอักษรไม่ทับหน้า เว้นขอบ ไม่มีโลโก้หรือข้อความอื่น
 story.json ต้องเป็น UTF-8 และมีรูปแบบนี้ (เพิ่ม EP และซีนให้ครบ ห้ามส่งตัวอย่างนี้แทนบทเต็ม):
 {"schema_version":3,"production_mode":"flow_commands","character_mode":"original","channel":"$channel","category":"$category","title":"ชื่อเรื่องไทย","tagline":"คำโปรย","duration_seconds":8,"aspect_ratio":"16:9","episode_count":4,"scene_count":96,"episodes":[{"ep":1,"title":"ชื่อตอน","tagline":"คำโปรยตอน","scene_count":24,"scenes":[{"scene":1,"duration_seconds":8,"story_day":"DAY01","story_time":"เช้า","activity":"home","wardrobe_event":"DAY01_HOME","continuity_group":"DAY01_HOME","location":"สถานที่","characters":[{"name":"เมย์","master":"MIND_MASTER.png","outfit":"ชุดเต็ม","visual_description":"ลักษณะจาก MASTER ภาษาอังกฤษ","screen_position":"frame-left"}],"start_state":"สถานะต้นคลิป","end_state":"สถานะจบคลิป","action":"เหตุการณ์ไทย","dialogue":"บทพูดไทยหรือว่าง","speaker":"ชื่อผู้พูดหรือว่าง","narration":"เสียงบรรยายหรือว่าง","image_prompt":"Full English IMAGE PROMPT","flow_prompt":"Full English VIDEO PROMPT with Thai speech"}]}]}
