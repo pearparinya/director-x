@@ -1043,7 +1043,7 @@ class StudioActivity : AppCompatActivity() {
             val master=masterFor(person)
             val exported=masterExportName(master,person.optString("master").startsWith("CHARACTER",true)) ?: person.optString("master")
             listOf("${person.optString("name")} → $exported",(if(detailedImageProfiles) memoryBrief(person) else ""),
-                "ชุด: ${sceneWardrobe(scene,person)}")
+                "ชุด: ${sceneWardrobe(scene,person)}",PerformanceDirection.text(person).takeIf { it.isNotBlank() }?.let { "การแสดง: $it" }.orEmpty())
                 .filter { it.isNotBlank() }.joinToString(" | ") }
     }
     private fun storySceneCommand(p: JSONObject, scene: JSONObject): String {
