@@ -44,6 +44,7 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
         if(plan.optString("character_mode","original")!="original") add("ชุดนี้ใช้ตัวละครหลัก 3 คนและตัวละครเสริมที่ลงทะเบียนในเรื่อง กรุณาใช้เครื่องมือเดิมสำหรับโหมดตัวละครใหม่ทั้งหมด")
         if(plan.optString("title").isBlank()) add("ขาดชื่อเรื่อง")
         if(plan.optString("aspect_ratio","9:16")!="9:16") add("ชุด Flow นี้กำหนดภาพฉาก 9:16")
+        if(plan.optString("content_profile")==AutoDirectorContent.profile && plan.optJSONArray("episodes")!=null) addAll(AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(plan)))
         val eps=plan.optJSONArray("episodes")
         if(eps==null || eps.length()==0) { add("ยังไม่มี EP"); return@buildList }
         for(i in 0 until eps.length()) {
@@ -104,6 +105,7 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
                 put("BACKUP/story.json",backup.toString(2))
                 if(plan.optString("content_profile")==AutoDirectorContent.profile) {
                     put("AUTODIRECTOR/01_OUTLINE.txt",AutoDirectorContent.outline(plan))
+                    put("AUTODIRECTOR/WARDROBE_LOCKS.txt",AutoDirectorWardrobe.catalog(AutoDirectorWardrobe.shots(plan)))
                     put("AUTODIRECTOR/02_COVER_STORY_GEMINI.txt",AutoDirectorContent.covers(plan))
                     put("AUTODIRECTOR/ALL_GEMINI_NEXT.txt",AutoDirectorContent.geminiNext(plan))
                     val episodes=plan.getJSONArray("episodes")
