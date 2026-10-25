@@ -46,6 +46,7 @@ ${FlowCast.definitions(spec).joinToString("\n") { p -> "${p.getString("name")} =
 The three leads are Gawin, Rinrada and May; registered supporting characters may appear when the story needs them. Never invent an unregistered character.
 ${FlowVisualDirection.identity}
 ${FlowVisualDirection.color}
+${AutoDirectorContent.femaleFashion}
 ${speechRules}
 ${if(spec.optString("content_profile")==AutoDirectorContent.profile) AutoDirectorContent.generationRules else ""}
 Channel: $channel
