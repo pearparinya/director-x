@@ -83,7 +83,7 @@ class AutoDirectorContentTest {
         assertTrue(code.contains("✅ โค้ดคำสั่งภาพเสร็จสิ้น! พิมพ์ 'สร้างบท EP.1'"))
         assertTrue(AutoDirectorContent.outline(p).contains("✅ โครงเรื่องพร้อม พิมพ์ 'สร้างภาพ EP.1'"))
         val speech=AutoDirectorContent.dialogue(p,1)
-        assertTrue(speech.contains("กวิน:")); assertFalse(speech.contains("The Man:"))
+        assertTrue("Thai speaker must follow the scene speaker",speech.contains("รินรดา:")); assertFalse(speech.contains("Woman 1:"))
         assertTrue(speech.contains("✅ บทเสร็จสิ้น! พิมพ์ 'สร้าง XML EP.1'"))
         val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(AutoDirectorContent.flowXml(p,1).toByteArray(Charsets.UTF_8)))
         val motion=doc.getElementsByTagName("motion_prompt")
