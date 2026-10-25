@@ -4,7 +4,7 @@ import java.io.IOException
 import java.util.concurrent.CancellationException
 
 /** Retry only transport failures, throttling and temporary HTTP failures; never invalid content. */
-internal class StoryHttpFailure(val status: Int, val retryAfter: String?, message: String): IllegalStateException(message)
+internal class StoryHttpFailure(val status: Int, val retryAfter: String?, message: String,val detail: String=""): IllegalStateException(message)
 
 internal class StoryRequestRetry(
     private val now: () -> Long = { android.os.SystemClock.elapsedRealtime() },
@@ -32,7 +32,11 @@ internal class StoryRequestRetry(
                     val remaining=deadline-now(); if(remaining<=0) break
                     val left=(remaining+999)/1000
                     if(left!=reported) {
-                        val reason=if(e is StoryHttpFailure && e.status==429) "รอโควตา" else "การเชื่อมต่อขัดข้องชั่วคราว"
+                        val reason=when {
+                            e is StoryHttpFailure && e.status==429 -> "รอโควตา"
+                            e is StoryHttpFailure && e.detail=="json_validate_failed" -> "คำตอบ JSON ไม่ผ่านรูปแบบ"
+                            else -> "บริการหรือการเชื่อมต่อขัดข้องชั่วคราว"
+                        }
                         onWait("$reason • ทำต่ออัตโนมัติใน $left วินาที • ครั้งที่ $retries/$MAX_RETRIES • กดหยุดได้")
                         reported=left
                     }
@@ -45,7 +49,9 @@ internal class StoryRequestRetry(
     }
     companion object {
         fun canRetry(e: Exception): Boolean = e is IOException && e !is javax.net.ssl.SSLException ||
-            e is StoryHttpFailure && (e.status==408 || e.status==429 || e.status in 500..599)
+            e is StoryHttpFailure && (e.status==408 || e.status==429 || e.status in 500..599 || e.detail=="json_validate_failed")
+        fun canFallback(e: Exception): Boolean = canRetry(e) || e is StoryHttpFailure &&
+            (e.status==413 || e.detail=="context_length_exceeded")
         const val MAX_RETRIES=4
         const val MAX_WAIT_SECONDS=900L
         fun retrySeconds(value: String,now: Long): Long? {

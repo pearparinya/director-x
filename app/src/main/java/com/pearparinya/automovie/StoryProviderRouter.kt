@@ -23,7 +23,7 @@ internal class StoryProviderRouter(
                 return result
             } catch(e: Exception) {
                 if(cancelled() || e is CancellationException) throw CancellationException()
-                if(!StoryRequestRetry.canRetry(e)) throw e
+                if(!StoryRequestRetry.canFallback(e)) throw e
                 val suggested=(e as? StoryHttpFailure)?.retryAfter?.let { StoryRequestRetry.retrySeconds(it,wallNow()) }
                 // Never retry sooner than the service asks, including a daily quota reset.
                 val sampled=now()

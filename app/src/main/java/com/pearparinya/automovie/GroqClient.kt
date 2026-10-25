@@ -26,7 +26,18 @@ internal class GroqClient(private val apiKey: String,private val model: String,p
             if(cancelled()) throw CancellationException()
             conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val status=conn.responseCode
-            if(status !in 200..299) throw StoryHttpFailure(status,conn.getHeaderField("Retry-After"),errorFor(status))
+            if(status !in 200..299) {
+                val payload=runCatching { conn.errorStream?.use { input ->
+                    val out=java.io.ByteArrayOutputStream(); val bytes=ByteArray(4096)
+                    while(out.size()<16384) {
+                        if(cancelled()) throw CancellationException()
+                        val n=input.read(bytes,0,minOf(bytes.size,16384-out.size())); if(n<0) break
+                        out.write(bytes,0,n)
+                    }
+                    out.toString("UTF-8")
+                } }.getOrNull().orEmpty()
+                throw failure(status,conn.getHeaderField("Retry-After"),payload)
+            }
             val output=java.io.ByteArrayOutputStream(); val buffer=ByteArray(8192)
             conn.inputStream.use { input -> while(true) {
                 if(cancelled()) throw CancellationException()
@@ -62,6 +73,17 @@ internal class GroqClient(private val apiKey: String,private val model: String,p
             require(message.optString("refusal").let { it.isBlank() || it=="null" }) { "Groq ปฏิเสธคำขอนี้ กรุณาตรวจแนวคิดเรื่อง" }
             require(choice.optString("finish_reason")=="stop") { "Groq ส่งคำตอบไม่ครบ ยังไม่บันทึกช่วงนี้ กดทำต่อได้" }
             return try { JSONObject(message.getString("content")) } catch(_: Exception) { error("Groq ไม่ส่ง JSON สมบูรณ์ ยังไม่บันทึกช่วงนี้") }
+        }
+        /** Classify only known codes; never persist/echo raw provider messages, prompts or failed generations. */
+        fun failure(status: Int,retryAfter: String?,payload: String): StoryHttpFailure {
+            val code=runCatching { JSONObject(payload).optJSONObject("error")?.optString("code") }.getOrNull()
+            val detail=if(status==400 && code in setOf("json_validate_failed","context_length_exceeded")) code.orEmpty() else ""
+            val message=when(detail) {
+                "json_validate_failed" -> "Groq สร้าง JSON ไม่ผ่านรูปแบบ (HTTP 400 • json_validate_failed) • ช่วงที่เสร็จบันทึกไว้"
+                "context_length_exceeded" -> "คำสั่งเกินขนาดที่โมเดล Groq รับได้ (HTTP 400 • context_length_exceeded) • ช่วงที่เสร็จบันทึกไว้"
+                else -> errorFor(status)
+            }
+            return StoryHttpFailure(status,retryAfter,message,detail)
         }
         fun errorFor(status: Int): String=when(status) {
             400,422 -> "Groq ไม่รับรูปแบบคำขอหรือขนาดคำสั่ง (HTTP $status) ตรวจโมเดล / อัปเดตแอป"

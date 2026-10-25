@@ -37,6 +37,16 @@ class StoryProviderRouterTest {
         time=30_000L; assertEquals("90",run().retryAfter); assertEquals(2,calls)
         time=120_000L; run(); assertEquals(3,calls)
     }
+    @Test fun knownOversizedRequestFallsBackButGenericBadRequestDoesNot() {
+        val calls=mutableListOf<StoryProvider>()
+        val result=StoryProviderRouter({false},{_,_->},{0L}).generate(StoryProvider.GROQ) { provider ->
+            calls.add(provider)
+            if(provider==StoryProvider.GROQ) throw StoryHttpFailure(400,null,"context limit","context_length_exceeded")
+            "same full pending request"
+        }
+        assertEquals("same full pending request",result)
+        assertEquals(listOf(StoryProvider.GROQ,StoryProvider.GEMINI),calls)
+    }
     @Test fun authenticationRefusalAndUserStopDoNotTriggerFallback() {
         listOf<Exception>(StoryHttpFailure(401,null,"key"),IllegalStateException("refusal"),CancellationException()).forEach { error ->
             var calls=0
