@@ -1809,8 +1809,8 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         return FlowScenePrompt.build(flowSpec(s))
     }
     private fun landscapeSceneImage(file: File): Boolean {
-        val bounds=BitmapFactory.Options().apply { inJustDecodeBounds=true }
-        BitmapFactory.decodeFile(file.path,bounds)
+        val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
+        android.graphics.BitmapFactory.decodeFile(file.path,bounds)
         return bounds.outHeight>0 && kotlin.math.abs(bounds.outWidth.toDouble()/bounds.outHeight-16.0/9)<0.04
     }
     private fun sceneFrameApproved(s: JSONObject): Boolean = landscapeSceneImage(image(s)) && SceneFrameReview.current(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) },flowSpec(s).toString())
