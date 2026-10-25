@@ -30,6 +30,30 @@ class GeminiStoryTest {
         } })
     }
     private fun spec()=JSONObject().put("category","แนว").put("channel","ช่อง").put("episodes",3).put("premise","ซองบนโต๊ะ")
+    @Test fun hybridSharesSamePromptAndCompletesWithFallbackWithoutRewritingCheckpoints() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val folder=File(context.cacheDir,"hybrid-story-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val providers=mutableListOf<StoryProvider>(); var pending: String?=null
+            val router=StoryProviderRouter({false},{_,_->},{0L})
+            val hybridSpec=spec().put("hybrid",true)
+            val story=GeminiStoryEngine(folder,{ prompt,schema ->
+                router.generate(StoryProviderRouter.preferred(schema.getJSONObject("properties").has("scenes"))) { provider ->
+                    providers.add(provider)
+                    if(provider==StoryProvider.GROQ) { pending=prompt; throw StoryHttpFailure(429,"90","quota") }
+                    if(prompt.contains("Plan a complete story")) outline() else {
+                        if(pending!=null) { assertEquals(pending,prompt); pending=null }
+                        val rows=batch(prompt); assertEquals(2,rows.getJSONArray("scenes").length()); rows
+                    }
+                }
+            }).run(hybridSpec)
+            assertEquals(StoryProvider.GEMINI,providers.first()); assertEquals(1,providers.count { it==StoryProvider.GROQ })
+            assertEquals(72,story.getInt("scene_count")); assertTrue(FlowProductionPack.issues(story).isEmpty())
+            assertTrue(File(folder,"EP01_03.json").isFile)
+            val cached=GeminiStoryEngine(folder,{_,_->error("must not regenerate accepted chunks")}).run(hybridSpec)
+            assertEquals(story.toString(),cached.toString())
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun quotaFailureKeepsValidatedChunksAndResumeBuildsCompleteStoryWithoutRepeatingCalls() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val folder=File(context.cacheDir,"gemini-test-${UUID.randomUUID()}").apply { mkdirs() }

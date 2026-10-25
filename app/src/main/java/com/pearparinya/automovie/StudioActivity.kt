@@ -1294,18 +1294,68 @@ class StudioActivity : AppCompatActivity() {
         return "${provider.label} • ${status.optInt("percent")}% • ${status.optString("message")}"
     }
     private fun geminiSettings(afterSave: (() -> Unit)?=null) {
-        choiceMenu("เลือก API เขียนบท",StoryProvider.entries.map { it.label+if(it==StoryProvider.selected(this)) " • เลือกอยู่" else "" }) { index ->
-            storyProviderSettings(StoryProvider.entries[index],afterSave)
+        val choices=StoryProvider.entries.map { it.label+if(!StoryProvider.hybrid(this) && it==StoryProvider.selected(this)) " • เลือกอยู่" else "" }+
+            listOf("Groq + Gemini อัตโนมัติ"+if(StoryProvider.hybrid(this)) " • เลือกอยู่" else "","ทดสอบการเชื่อมต่อ API ทั้งสองตัว")
+        choiceMenu("เลือก API เขียนบท",choices) { index ->
+            when(index) {
+                0,1 -> storyProviderSettings(StoryProvider.entries[index],afterSave)
+                2 -> {
+                    val missing=StoryProvider.entries.filterNot { GeminiSettings(this,it).hasKey() }
+                    if(missing.isNotEmpty()) notice("ยังขาดคีย์: "+missing.joinToString { it.label }+" • เลือกบริการในตั้งค่า API แล้วบันทึกคีย์ก่อน")
+                    else {
+                        StoryProvider.enableHybrid(this)
+                        afterSave?.invoke() ?: notice("เลือก Groq + Gemini แล้ว • Gemini วางโครง / Groq เขียนซีน • ใช้ข้อมูลเรื่องและบัญชีชุดร่วมกัน • สลับเมื่อโควตาเต็มหรือบริการขัดข้อง • โควตาและค่าบริการตามบัญชีแต่ละตัว")
+                    }
+                }
+                3 -> testStoryApis(StoryProvider.entries.toList())
+            }
         }
+    }
+    private fun testStoryApis(providers: List<StoryProvider>) {
+        if(GeminiStoryService.running) { notice("กรุณารอหรือหยุดงานเขียนบทก่อนทดสอบ API"); return }
+        val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
+        val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
+        val view=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text="กำลังตรวจคีย์และโมเดลที่บันทึกไว้…\nส่งคำขอทดสอบสั้นจริงไปแต่ละบริการ ใช้โควตาของบัญชีนั้น ไม่ส่งบทหรือรูป"; setTextIsSelectable(true) }
+        val dialog=AlertDialog.Builder(this).setTitle("ทดสอบ API • ไม่สลับบริการแทนผลทดสอบ")
+            .setView(view).setNegativeButton("ปิด / หยุด",null).showDirector()
+        dialog.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
+        Thread {
+            val results=mutableListOf<String>()
+            for(target in providers) {
+                if(stopped.get()) break
+                val result=try {
+                    val settings=GeminiSettings(this,target)
+                    if(!settings.hasKey()) "${target.label}: ยังไม่มีคีย์ / อ่านคีย์ไม่ได้"
+                    else {
+                        val client: StoryTextClient=if(target==StoryProvider.GROQ) GroqClient(settings.key(),settings.model(),{stopped.get()},automaticRetry=false)
+                            else GeminiClient(settings.key(),settings.model(),{stopped.get()},automaticRetry=false)
+                        active.set(client)
+                        if(stopped.get()) throw java.util.concurrent.CancellationException()
+                        StoryApiProbe.check(client)
+                        "${target.label}: ผ่าน • ${settings.model()} • รับคำตอบ JSON สำเร็จ"
+                    }
+                } catch(e: Exception) { "${target.label}: "+StoryApiProbe.error(e) }
+                finally { active.set(null) }
+                results.add(result)
+                val text=results.joinToString("\n\n")+"\n\nผลทดสอบ ณ เวลานี้ ไม่รับประกันโควตาระหว่างเขียนเรื่องยาว"+
+                    if(results.size<providers.size) "\nกำลังทดสอบบริการถัดไป…" else ""
+                runOnUiThread { if(!stopped.get() && !isFinishing && !isDestroyed) view.text=text }
+            }
+        }.apply { name="director-api-probe"; start() }
     }
     private fun storyProviderSettings(provider: StoryProvider,afterSave: (() -> Unit)?=null) {
         val settings=GeminiSettings(this,provider)
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-        panel.addView(TextView(this).apply { text="${provider.label} • ใส่คีย์บนเครื่องนี้ คีย์แต่ละบริการเก็บแยกและเข้ารหัส ไม่ส่งออกในสำรองข้อมูล • ส่งเฉพาะข้อความบท/ลักษณะตัวละคร ไม่ส่งรูป MASTER • แผนฟรีมีโควตา ค่าบริการและเงื่อนไขข้อมูลขึ้นกับบัญชีของคุณ ไม่มีการเปิดแผนเสียเงินหรือสลับบริการเอง" })
+        panel.addView(TextView(this).apply { text="${provider.label} • ใส่คีย์บนเครื่องนี้ คีย์แต่ละบริการเก็บแยกและเข้ารหัส ไม่ส่งออกในสำรองข้อมูล • ส่งเฉพาะข้อความบท/ลักษณะตัวละคร ไม่ส่งรูป MASTER • แผนฟรีมีโควตา ค่าบริการและเงื่อนไขข้อมูลขึ้นกับบัญชีของคุณ ไม่มีการเปิดแผนเสียเงินเอง • โหมด Groq + Gemini จะสลับระหว่างสองบริการตามคีย์และโมเดลที่คุณตั้งไว้" })
         val key=EditText(this).apply { hint=if(settings.hasKey()) "มีคีย์แล้ว • ว่างเพื่อใช้คีย์เดิม" else "${provider.label} API Key"; inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD; setSingleLine(true); panel.addView(this) }
         val model=EditText(this).apply { hint="ชื่อโมเดล"; setSingleLine(true); setText(settings.model()); panel.addView(this) }
         if(provider==StoryProvider.GROQ) panel.addView(TextView(this).apply { text="โมเดลที่รองรับ: "+GroqClient.MODELS.joinToString(" / ")+" • ครั้งละ 2 ซีน • เว้นคำขออย่างน้อย 65 วินาทีเพื่อลดการชนโควตาฟรี • หยุด / ทำต่อได้" })
         panel.addView(Button(this).apply { text="สร้างคีย์ ${provider.label}"; setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(provider.keyUrl))) } })
+        panel.addView(Button(this).apply { text="บันทึกคีย์และทดสอบ ${provider.label}"; setOnClickListener {
+            runCatching { settings.save(key.text.toString().trim().ifBlank { settings.key() },model.text.toString().trim()) }
+                .onSuccess { key.setText(""); key.hint="มีคีย์แล้ว • ว่างเพื่อใช้คีย์เดิม"; testStoryApis(listOf(provider)) }
+                .onFailure { notice("ตรวจคีย์และชื่อโมเดลก่อนทดสอบ") }
+        } })
         val dialog=AlertDialog.Builder(this).setTitle("${provider.label} • ตั้งค่า API")
             .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึกและเลือกใช้",null)
             .setNeutralButton("ลบคีย์") { _,_ -> settings.clear(); notice("ลบคีย์ ${provider.label} จากเครื่องแล้ว") }.setNegativeButton("ปิด",null).showDirector()
@@ -1334,7 +1384,8 @@ class StudioActivity : AppCompatActivity() {
                 val dialog=showFlowCode("Phase 1 • ตรวจโครงเรื่อง",AutoDirectorContent.outline(outline),"AD_01_OUTLINE.txt")
                 dialog.getButton(-1).text="ยืนยัน • เตรียมเนื้อหา"
                 dialog.getButton(-1).setOnClickListener {
-                    GeminiStoryFiles.write(specFile,pendingSpec.put("outline_approved",true)); dialog.dismiss(); startGeminiJob(project)
+                    if(!StoryProvider.ready(this)) { dialog.dismiss(); geminiSettings { geminiJobMenu() } }
+                    else { GeminiStoryFiles.write(specFile,StoryProvider.configure(this,pendingSpec.put("outline_approved",true))); dialog.dismiss(); startGeminiJob(project) }
                 }
             }.onFailure { notice(it.message ?: "อ่านโครงเรื่องไม่ได้") }
             return
@@ -1346,11 +1397,11 @@ class StudioActivity : AppCompatActivity() {
                 .setNegativeButton("ปิด",null).showDirector()
         } else {
             AlertDialog.Builder(this).setTitle("เขียนบทต่อจากที่บันทึก")
-                .setMessage(geminiStatusText(readGeminiStatus())+"\nจะใช้ ${StoryProvider.selected(this).label} และโมเดลที่ตั้งค่าปัจจุบัน เขียนเฉพาะช่วงที่ยังไม่สำเร็จ")
+                .setMessage(geminiStatusText(readGeminiStatus())+"\nจะใช้ ${StoryProvider.label(this)} และโมเดลที่ตั้งค่าปัจจุบัน เขียนเฉพาะช่วงที่ยังไม่สำเร็จ")
                 .setPositiveButton("ทำต่อ") { _,_ ->
-                    if(!GeminiSettings(this,StoryProvider.selected(this)).hasKey()) geminiSettings { geminiJobMenu() }
+                    if(!StoryProvider.ready(this)) geminiSettings { geminiJobMenu() }
                     else runCatching {
-                        val specFile=File(project,"gemini_job/spec.json"); val spec=GeminiStoryFiles.read(specFile).put("provider",StoryProvider.selected(this).id).put("model",GeminiSettings(this,StoryProvider.selected(this)).model())
+                        val specFile=File(project,"gemini_job/spec.json"); val spec=StoryProvider.configure(this,GeminiStoryFiles.read(specFile))
                         GeminiStoryFiles.write(specFile,spec); startGeminiJob(project)
                     }.onFailure { notice("อ่านงานเดิมไม่ได้ กรุณาเริ่มเรื่องใหม่") }
                 }.setNeutralButton("ตั้งค่า API") { _,_ -> geminiSettings() }.setNegativeButton("ปิด",null).showDirector()
@@ -1429,13 +1480,13 @@ class StudioActivity : AppCompatActivity() {
         if(GeminiStoryService.running) { geminiJobMenu(); return }
         val provider=StoryProvider.selected(this)
         val settings=GeminiSettings(this,provider)
-        if(!settings.hasKey()) { geminiSettings { flowPlanning(autoDirector) }; return }
+        if(!StoryProvider.ready(this)) { geminiSettings { flowPlanning(autoDirector) }; return }
         val configure: (Int) -> Unit = { index ->
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
             val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); panel.addView(this) }
-            panel.addView(TextView(this).apply { text="24 ซีน/EP • ซีนละ 8 วินาที = 3:12 • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้ • ใช้โมเดล ${settings.model()} • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ของคุณภายหลัง" })
-            AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v18 • ${categories[index]}" else "สร้างบทด้วย ${provider.label}")
+            panel.addView(TextView(this).apply { text="24 ซีน/EP • ซีนละ 8 วินาที = 3:12 • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้ • ${StoryProvider.label(this)} • ใช้โมเดลที่ตั้งไว้ • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ของคุณภายหลัง" })
+            AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v18 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this)}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
                     runCatching {
                         val folder=File(base,UUID.randomUUID().toString()).apply { mkdirs() }
@@ -1452,8 +1503,8 @@ class StudioActivity : AppCompatActivity() {
                             File(folder,"original_masters/$id.master").apply { parentFile!!.mkdirs(); source.copyTo(this) }
                         }
                         val count=if(episodes.selectedItemPosition==0) 0 else episodes.selectedItemPosition+2
-                        GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),JSONObject().put("category",categories[index]).put("channel",originalChannel)
-                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("supporting_characters",support).put("premise",premise.text.toString()).put("episodes",count).put("provider",provider.id).put("model",settings.model()))
+                        GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,JSONObject().put("category",categories[index]).put("channel",originalChannel)
+                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("supporting_characters",support).put("premise",premise.text.toString()).put("episodes",count)))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
                 }.setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
