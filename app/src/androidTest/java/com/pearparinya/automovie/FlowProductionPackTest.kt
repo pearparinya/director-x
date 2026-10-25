@@ -37,9 +37,9 @@ class FlowProductionPackTest {
                 assertTrue(home.contains("เลือกเวลาต่อ EP"))
                 assertTrue(home.contains("คำสั่งภาพ / วิดีโอ"))
                 assertFalse(home.contains("ตอนละอย่างน้อย 3 นาที"))
-                assertTrue(home.contains("คำสั่งสร้างรูป + Flow • 2 ไฟล์"))
+                assertTrue(home.contains("คำสั่งสร้างรูป + Flow • ตอนละ 2 ไฟล์"))
                 assertFalse(home.contains("ChatGPT"))
-                                val stages=listOf("วางบทและเขียนคำสั่ง","นำเข้าบท / ZIP","คำสั่งสร้างรูป + Flow • 2 ไฟล์","รับ MP4 / รวม EP / ดาวน์โหลด")
+                                val stages=listOf("วางบทและเขียนคำสั่ง","นำเข้าบท / ZIP","คำสั่งสร้างรูป + Flow • ตอนละ 2 ไฟล์","รับ MP4 / รวม EP / ดาวน์โหลด")
                 stages.forEach { assertTrue(home.contains(it)) }
                 assertTrue(home.contains("รอนำเข้าบท"))
                 assertTrue(home.contains("รอบทสำหรับจับคู่คลิป"))

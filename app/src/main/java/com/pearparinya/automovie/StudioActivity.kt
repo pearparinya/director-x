@@ -1210,17 +1210,91 @@ class StudioActivity : AppCompatActivity() {
     private fun commandCardsMenu() {
         val story=plan ?: return notice("สร้างหรือนำเข้าบทก่อนครับ")
         if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
-        choiceMenu("คำสั่งทั้งเรื่อง • ใช้เพียง 2 ไฟล์",listOf("1. สร้างรูป • รวมปกและทุกซีน • Gemini","2. สร้างวิดีโอ • ทุกซีนพร้อมบทและเสียง • Flow","ดาวน์โหลด ZIP • มีเพียง 2 ไฟล์คำสั่ง")) { kind ->
-            runCatching {
-                when(kind) {
-                    0 -> showFlowCode("สร้างรูป • ทั้งเรื่อง",SimpleProductionCommands.images(story),SimpleProductionCommands.IMAGES)
-                    1 -> showFlowCode("สร้างวิดีโอ Flow • ทั้งเรื่อง",SimpleProductionCommands.videos(story),SimpleProductionCommands.FLOW)
-                    else -> { starterFlowPack=false; flowPackPicker.launch(StoryFiles.zipName(story.optString("title"))) }
+        val eps=story.getJSONArray("episodes")
+        val options=(0 until eps.length()).map { "EP.${eps.getJSONObject(it).getInt("ep")} • ${eps.getJSONObject(it).optString("title")} • 2 ไฟล์" }+
+            listOf("ตรวจคำสั่ง / แก้เฉพาะจุด","ดาวน์โหลด ZIP • ตอนละ 2 ไฟล์")
+        choiceMenu("คำสั่งภาพ + Flow • แยกตาม EP",options) { index ->
+            when {
+                index==eps.length() -> productionCheckMenu(story)
+                index>eps.length() -> {
+                    val problems=ProductionCommandCheck.issues(story)
+                    if(problems.isNotEmpty()) productionCheckMenu(story)
+                    else { starterFlowPack=false; flowPackPicker.launch(StoryFiles.zipName(story.optString("title"))) }
                 }
-            }.onFailure { notice(it.message ?: "เตรียมคำสั่งไม่ได้") }
+                else -> {
+                    val number=eps.getJSONObject(index).getInt("ep")
+                    choiceMenu("EP.$number • คำสั่งพร้อมใช้",listOf("1. ไฟล์ภาพ • ปกและทุกซีน","2. ไฟล์ Flow • ทุกซีนพร้อมบทและเสียง","เปิดรายการ / แก้ภาพ / ทำต่อจากจุดเดิม")) { kind ->
+                        if(kind==2) productionTaskType(story,number)
+                        else {
+                            val problems=ProductionCommandCheck.issues(story)
+                            if(problems.isNotEmpty()) productionCheckMenu(story)
+                            else runCatching { showFlowCode("EP.$number • ${if(kind==0) "ภาพ Gemini" else "วิดีโอ Flow"}",SimpleProductionCommands.document(story,number,kind==0),if(kind==0) SimpleProductionCommands.imageName(number) else SimpleProductionCommands.flowName(number)) }.onFailure { notice(it.message ?: "เตรียมคำสั่งไม่ได้") }
+                        }
+                    }
+                }
+            }
         }
     }
-
+    private fun productionCheckMenu(story: JSONObject) {
+        val problems=ProductionCommandCheck.issues(story)
+        val text=if(problems.isEmpty()) "ผ่านการตรวจโครงสร้าง ตัวละคร ผู้พูด ตำแหน่ง ชุดรายวัน และข้อขัดแย้งเสียงที่ระบบตรวจได้ • ยังต้องตรวจภาพและวิดีโอจริง" else problems.joinToString("\n\n")
+        AlertDialog.Builder(this).setTitle("ตรวจคำสั่ง • ${problems.size} จุด").setMessage(text)
+            .setPositiveButton("แก้ซีนที่เลือก") { _,_ ->
+                val scenes=rows(story)
+                choiceMenu("แก้เฉพาะซีน • ไม่เขียนเรื่องใหม่",scenes.map { key(it)+" • "+it.optString("action").take(50) }) { editScene(scenes[it]) }
+            }.setNeutralButton("แก้ข้อความปก") { _,_ -> editProductionCover(story) }.setNegativeButton("ปิด",null).showDirector()
+    }
+    private fun editProductionCover(story: JSONObject) {
+        val eps=story.getJSONArray("episodes")
+        choiceMenu("แก้ข้อความปก",listOf("ปกรวม • ชื่อช่อง / ชื่อเรื่อง / คำโปรย")+(0 until eps.length()).map { "EP.${eps.getJSONObject(it).getInt("ep")} • ชื่อตอน" }) { index ->
+            val target=if(index==0) story else eps.getJSONObject(index-1)
+            val fields=if(index==0) listOf("channel" to "ชื่อช่อง","title" to "ชื่อเรื่อง","tagline" to "คำโปรย") else listOf("title" to "ชื่อตอน")
+            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+            val inputs=fields.map { (key,label) -> key to EditText(this).apply { hint=label; setText(target.optString(key)); panel.addView(this) } }
+            val dialog=AlertDialog.Builder(this).setTitle("แก้ข้อความปก • ไม่เปลี่ยนซีน").setView(panel).setPositiveButton("บันทึก",null).setNegativeButton("ปิด",null).showDirector()
+            dialog.getButton(-1).setOnClickListener {
+                if(inputs.any { it.second.text.isBlank() }) notice("กรอกข้อความปกให้ครบ")
+                else { inputs.forEach { (key,input) -> target.put(key,input.text.toString().trim()) }; saveStory(); dialog.dismiss(); render(); notice("บันทึกข้อความปกแล้ว • ส่งออกไฟล์ใหม่ได้ ไม่ต้องเขียนบทใหม่") }
+            }
+        }
+    }
+    private fun productionTaskType(story: JSONObject,number: Int) {
+        choiceMenu("EP.$number • เปิดหรือแก้เฉพาะรายการ",listOf("รูปและปก Gemini","วิดีโอ Flow")) { productionTaskDeck(story,number,it==0) }
+    }
+    private fun productionTaskDeck(story: JSONObject,number: Int,images: Boolean) {
+        val tasks=if(images) SimpleProductionCommands.imageTasks(story,number) else SimpleProductionCommands.videoTasks(story,number)
+        val preference="production_cursor_${project.name}_${number}_$images"
+        val previous=prefs.getString(preference,"")
+        val start=tasks.indexOfFirst { it.id==previous }.coerceAtLeast(0)
+        val options=listOf("ทำต่อจากล่าสุดที่เปิด • ${tasks[start].id}")+tasks.map { "${it.id} • ${it.title}" }
+        choiceMenu("EP.$number • เลือกรหัสรูป/ซีน",options) { selected ->
+            val index=if(selected==0) start else selected-1; val task=tasks[index]
+            prefs.edit().putString(preference,task.id).apply()
+            val next=tasks.getOrNull(index+1)?.id ?: "จบรายการของ EP นี้"
+            val code=SimpleProductionCommands.block(task,index,images)+"\n\nล่าสุดที่เปิด: ${task.id} | ถัดไป: $next\nสถานะนี้บันทึกการเปิดคำสั่ง ไม่ได้ยืนยันว่าภาพหรือคลิปสร้างสำเร็จแล้ว"
+            val problems=ProductionCommandCheck.issues(story)
+            val dialog=showFlowCode("${task.id} • ถัดไป $next",code,"${task.id}_${if(images) "IMAGE" else "FLOW"}.txt")
+            if(problems.isNotEmpty()) dialog.getButton(-1).setOnClickListener { notice("คำสั่งยังมีจุดต้องแก้ • เปิด ตรวจคำสั่ง / แก้เฉพาะจุด ก่อนคัดลอก") }
+            dialog.getButton(-3).text="แก้เฉพาะรายการนี้"
+            dialog.getButton(-3).setOnClickListener {
+                dialog.dismiss()
+                val scene=rows(story).firstOrNull { key(it)==task.id }
+                choiceMenu("แก้ ${task.id}",if(scene==null) listOf("แก้การจัดภาพปก","แก้ข้อความบนปก") else listOf("แก้ทิศทาง${if(images) "ภาพ" else "วิดีโอ"}เฉพาะจุด","แก้บท / การกระทำ / ชุด / ตำแหน่ง / เสียง")) { action ->
+                    if(action==1) { if(scene==null) editProductionCover(story) else editScene(scene) }
+                    else {
+                        val target=scene ?: if(task.id.startsWith("STORY_")) story else story.getJSONArray("episodes").let { eps -> (0 until eps.length()).map { eps.getJSONObject(it) }.first { it.getInt("ep")==number } }
+                        val field=if(scene==null) "production_note_${task.id}" else if(images) "production_image_note" else "production_video_note"
+                        val input=EditText(this).apply { hint="ระบุส่วนที่ต้องแก้ โดยคงตัวละคร ชุดและบทเดิม"; setText(target.optString(field)) }
+                        AlertDialog.Builder(this).setTitle("แก้เฉพาะ ${task.id}").setView(input).setPositiveButton("บันทึก") { _,_ ->
+                            target.put(field,input.text.toString().trim())
+                            if(scene!=null) { scene.put("user_review","needs_revision"); scene.remove("flow_image_revision") }
+                            saveStory(); render(); notice("บันทึกแล้ว • รายการอื่นและชุดประจำวันคงเดิม • เปิดรหัสเดิมหรือส่งออกใหม่ได้")
+                        }.setNegativeButton("ปิด",null).showDirector()
+                    }
+                }
+            }
+        }
+    }
     private fun showCommandCards(cards: List<SceneCommandCards.Card>, number: Int, kind: Int) {
         require(cards.isNotEmpty())
         var index=0
@@ -1254,7 +1328,7 @@ class StudioActivity : AppCompatActivity() {
             layoutParams=android.view.ViewGroup.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.48f).toInt())
         }
         val builder=AlertDialog.Builder(this).setTitle(title)
-            .setMessage(if(filename.contains("GEMINI_NEXT")) "คัดลอกทั้งหมดครั้งเดียวไป Gemini พร้อม MASTER ที่ระบุ • สร้างทีละภาพแล้วพิมพ์ next • ถ้าข้อความยาวเกินช่องแชต ให้บันทึกไฟล์แนบพร้อม MASTER แล้วสั่งให้อ่านไฟล์และเริ่มคิว • ต้องตรวจผลจริง ภาพไม่ได้สร้างในแอป" else if(filename.startsWith("AD_")) "ภาพและปก: คัดลอกไป Gemini พร้อมภาพอ้างอิง • XML: คัดลอกคำสั่งทีละฉากไป Flow หลังตรวจภาพ • แอปไม่ได้สร้างสื่อในขั้นตอนนี้" else if(filename=="FLOW_STORY_COMMAND.txt") "ส่งคำสั่ง + MASTER 3 ภาพให้ AI เขียนบท → รับ story.json → นำเข้าขั้นตอน 2 • แอปปลายทางอาจให้กดส่งอีกครั้ง" else "ไฟล์คำสั่งสำหรับใช้งานใน Flow • ยังไม่ได้สร้างภาพหรือวิดีโอ")
+            .setMessage(if(filename.matches(Regex("EP[0-9]+_IMAGES[.]txt"))) "แนบไฟล์นี้พร้อม MASTER ใน Gemini • มีสารบัญและรหัสภาพ • next = ถัดไป / แก้ภาพ <รหัส> = แก้เฉพาะจุด • ตรวจข้อความปกในภาพจริง" else if(filename.matches(Regex("EP[0-9]+_FLOW[.]txt"))) "รวมทุกซีนของ EP นี้ • คัดลอกทีละบล็อกไป Flow พร้อมภาพ PNG รหัสเดียวกัน • บทพูดและเสียงอยู่ในบล็อกเดียวแล้ว" else if(filename.contains("GEMINI_NEXT")) "คัดลอกทั้งหมดครั้งเดียวไป Gemini พร้อม MASTER ที่ระบุ • สร้างทีละภาพแล้วพิมพ์ next • ถ้าข้อความยาวเกินช่องแชต ให้บันทึกไฟล์แนบพร้อม MASTER แล้วสั่งให้อ่านไฟล์และเริ่มคิว • ต้องตรวจผลจริง ภาพไม่ได้สร้างในแอป" else if(filename.startsWith("AD_")) "ภาพและปก: คัดลอกไป Gemini พร้อมภาพอ้างอิง • XML: คัดลอกคำสั่งทีละฉากไป Flow หลังตรวจภาพ • แอปไม่ได้สร้างสื่อในขั้นตอนนี้" else if(filename=="FLOW_STORY_COMMAND.txt") "ส่งคำสั่ง + MASTER 3 ภาพให้ AI เขียนบท → รับ story.json → นำเข้าขั้นตอน 2 • แอปปลายทางอาจให้กดส่งอีกครั้ง" else "ไฟล์คำสั่งสำหรับใช้งานใน Flow • ยังไม่ได้สร้างภาพหรือวิดีโอ")
             .setView(frame)
             .setPositiveButton(if(filename=="FLOW_STORY_COMMAND.txt") "ส่งให้ AI" else if(filename.contains("GEMINI_NEXT")) "คัดลอกทั้งหมด" else "คัดลอก") { _,_ ->
                 if(filename=="FLOW_STORY_COMMAND.txt") sendStoryPackage(code) else copyCommand(code)
@@ -1305,7 +1379,7 @@ class StudioActivity : AppCompatActivity() {
             statusText=if(prepared) "เตรียมคำสั่ง / มีบทแล้ว" else "พร้อมเริ่มวางบท") { flowPlanning() }
         stepCard(2,"📥","นำเข้าบท / ZIP","นำเข้า story.json หรือ ZIP บท • ไม่ต้องรอภาพฉาก • เพิ่มไฟล์ภาพและคลิปภายหลังได้",completed=current!=null,currentStep=active,
             statusText=if(current!=null) "นำเข้าบทแล้ว • เพิ่มไฟล์ได้" else "รอนำเข้า story.json / ZIP") { packagePicker.launch(arrayOf("*/*")) }
-        stepCard(3,"📦","คำสั่งสร้างรูป + Flow • 2 ไฟล์",if(current==null) "สร้างหรือนำเข้าบทก่อน แล้วใช้คำสั่งเพียง 2 ไฟล์" else if(issues.isNotEmpty()) "บทต้องแก้ ${issues.size} จุด • แตะดูรายการก่อนส่งออก" else "ไฟล์ 1: ปกและภาพทุกซีน • ไฟล์ 2: วิดีโอทุกซีนพร้อมบทและเสียง • MASTER เก็บในแอป",
+        stepCard(3,"📦","คำสั่งสร้างรูป + Flow • ตอนละ 2 ไฟล์",if(current==null) "สร้างหรือนำเข้าบทก่อน แล้วใช้คำสั่งเพียง 2 ไฟล์" else if(issues.isNotEmpty()) "บทต้องแก้ ${issues.size} จุด • แตะดูรายการก่อนส่งออก" else "เลือก EP → ไฟล์ภาพ + ไฟล์ Flow • มีสารบัญ รหัสซีน และตรวจคำสั่งก่อนส่งออก • MASTER เก็บในแอป",
             enabled=current!=null,completed=exported,currentStep=active,statusText=when { current==null -> "รอนำเข้าบท"; issues.isNotEmpty() -> "ต้องตรวจแก้บท"; exported -> "ส่งออกบทฉบับนี้แล้ว"; else -> "พร้อมส่งออกคำสั่ง" }) {
             if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else commandCardsMenu()
         }
@@ -1460,7 +1534,7 @@ class StudioActivity : AppCompatActivity() {
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
     private fun autoDirectorMenu() {
-        choiceMenu("AutoDirector v45",listOf("สร้างเรื่องใหม่ • เลือกหมวดหลัก / AI คิดพล็อต","Phase 1 • ดูโครงเรื่องที่เปิด","Phase 2–4 • ทำงานทีละ EP","ส่งออก ZIP • Gemini + บทพูด + Flow XML","คัดลอกทั้งหมด • Gemini next")) { action ->
+        choiceMenu("AutoDirector v45",listOf("สร้างเรื่องใหม่ • เลือกหมวดหลัก / AI คิดพล็อต","Phase 1 • ดูโครงเรื่องที่เปิด","Phase 2–4 • ทำงานทีละ EP","ส่งออก ZIP • ตอนละ 2 ไฟล์","คำสั่งภาพ / Flow • เลือก EP")) { action ->
             if(action==0) { flowPlanning(true); return@choiceMenu }
             val story=plan
             if(story==null) { if(File(project,"gemini_job/spec.json").isFile) geminiJobMenu() else notice("ยังไม่มีบท กรุณาสร้างเรื่องใหม่หรือนำเข้าบทก่อน"); return@choiceMenu }
@@ -1478,13 +1552,11 @@ class StudioActivity : AppCompatActivity() {
                     prefs.edit().putBoolean(phaseKey+"_outline",true).apply()
                 }
                 2 -> {
-                    if(!prefs.getBoolean(phaseKey+"_outline",false)) { notice("เริ่มจาก Phase 1 เพื่อดูโครงเรื่องก่อน"); return@choiceMenu }
                     val eps=story.getJSONArray("episodes")
                     choiceMenu("เลือก EP",(0 until eps.length()).map { i -> "EP.${i+1} ${eps.getJSONObject(i).optString("title")}" }) { index ->
                         val number=eps.getJSONObject(index).getInt("ep"); val key=phaseKey+"_ep$number"
                         choiceMenu("EP.$number • เลือกทำทีละขั้น",listOf("ภาพ EP.$number • ปกและซีน","บทพูด EP.$number","วิดีโอ EP.$number • ทีละซีนพร้อมเสียง","XML EP.$number • ขั้นสูง")) { stage ->
                             val reached=prefs.getInt(key,0)
-                            if(stage>reached) { notice("กรุณาเปิดขั้นตอนก่อนหน้าให้ครบก่อน"); return@choiceMenu }
                             val code=when(stage) {
                                 0 -> AutoDirectorContent.images(story,number)
                                 1 -> AutoDirectorContent.dialogue(story,number)
@@ -1492,22 +1564,15 @@ class StudioActivity : AppCompatActivity() {
                             }
                             val file=when(stage) { 0 -> "AD_EP%02d_IMAGES_GEMINI.txt"; 1 -> "AD_EP%02d_DIALOGUE.txt"; else -> "AD_EP%02d_FLOW.xml" }.format(number)
                             when(stage) {
-                                0 -> showCommandCards(SceneCommandCards.images(story,number),number,0)
-                                2 -> showCommandCards(SceneCommandCards.videos(story,number),number,1)
+                                0 -> productionTaskDeck(story,number,true)
+                                2 -> productionTaskDeck(story,number,false)
                                 else -> showFlowCode("Phase ${if(stage==3) 4 else 3} • EP.$number",code,file)
                             }
                             prefs.edit().putInt(key,maxOf(reached,minOf(stage+1,3))).apply()
                         }
                     }
                 }
-                4 -> {
-                    val eps=story.getJSONArray("episodes")
-                    choiceMenu("Gemini • คัดลอกครั้งเดียวแล้วพิมพ์ next",listOf("ทั้งเรื่อง • ปกรวม + ทุก EP + ทุกซีน")+(0 until eps.length()).map { i -> "เฉพาะ EP.${eps.getJSONObject(i).getInt("ep")} • ปกรวม + ปก EP + ทุกซีน" }) { index ->
-                        val number=if(index==0) null else eps.getJSONObject(index-1).getInt("ep")
-                        val filename=if(number==null) "AD_ALL_GEMINI_NEXT.txt" else "AD_EP%02d_GEMINI_NEXT.txt".format(number)
-                        showFlowCode("Gemini NEXT • ${if(number==null) "ทั้งเรื่อง" else "EP.$number"}",AutoDirectorContent.geminiNext(story,number),filename)
-                    }
-                }
+                4 -> commandCardsMenu()
                 3 -> {
                     val issues=FlowProductionPack.issues(story)
                     if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else { starterFlowPack=false; flowPackPicker.launch(StoryFiles.zipName(story.optString("title"))) }
@@ -1554,7 +1619,7 @@ class StudioActivity : AppCompatActivity() {
                         }
                         val count=when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",originalChannel)
-                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("supporting_characters",support).put("premise",premise.text.toString()).put("episodes",count)))
+                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("supporting_characters",support).put("premise",premise.text.toString()).put("episodes",count)))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
                 }.setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
@@ -2069,11 +2134,20 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         val outfits = (0 until cast.length()).map { i -> i to EditText(this).apply {
             hint = "ชุด ${cast.getJSONObject(i).optString("name")}"; setText(draft.optJSONArray("characters")?.optJSONObject(i)?.optString("outfit") ?: cast.getJSONObject(i).optString("outfit")); panel.addView(this)
         } }
+        val positions=(0 until cast.length()).map { i -> i to EditText(this).apply {
+            hint="ตำแหน่ง ${cast.getJSONObject(i).optString("name")} เช่น left / center / right"
+            setText(draft.optJSONArray("characters")?.optJSONObject(i)?.optString("screen_position") ?: cast.getJSONObject(i).optString("screen_position")); panel.addView(this)
+        } }
+        val soundInputs=listOf("ambience","sfx","music").map { field -> field to EditText(this).apply {
+            hint="เสียง $field (ระบุ none เมื่อไม่มี)"; setText(draft.optJSONObject("sound_design")?.optString(field).orEmpty()); panel.addView(this)
+        } }
         fun persistDraft() {
             val copy=JSONObject(s.toString())
             inputs.forEach { (key,input) -> copy.put(key,input.text.toString()) }
             val people=copy.optJSONArray("characters")
             outfits.forEach { (i,input) -> people?.optJSONObject(i)?.put("outfit",input.text.toString()) }
+            positions.forEach { (i,input) -> people?.optJSONObject(i)?.put("screen_position",input.text.toString()) }
+            if(soundInputs.any { it.second.text.isNotBlank() }) copy.put("sound_design",JSONObject().apply { soundInputs.forEach { (field,input) -> put(field,input.text.toString().ifBlank { "none" }) } })
             draftFile.parentFile!!.mkdirs(); draftFile.writeText(copy.toString(2))
         }
         val watcher=object : android.text.TextWatcher {
@@ -2081,13 +2155,15 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             override fun onTextChanged(text: CharSequence?, start: Int, before: Int, count: Int) { persistDraft() }
             override fun afterTextChanged(text: android.text.Editable?) {}
         }
-        (inputs.map { it.second }+outfits.map { it.second }).forEach { it.addTextChangedListener(watcher) }
+        (inputs.map { it.second }+outfits.map { it.second }+positions.map { it.second }+soundInputs.map { it.second }).forEach { it.addTextChangedListener(watcher) }
         AlertDialog.Builder(this).setTitle("แก้บท ${key(s)} • เก็บร่างอัตโนมัติ")
             .setView(ScrollView(this).apply { addView(panel) })
             .setPositiveButton("บันทึก") { _,_ ->
                 if(inputs.any { it.first in listOf("action","image_prompt","flow_prompt") && it.second.text.isBlank() }) { notice("เหตุการณ์ คำสั่งภาพ และคำสั่ง Flow ต้องไม่ว่าง"); return@setPositiveButton }
                 inputs.forEach { (key,input) -> s.put(key,input.text.toString().trim()) }
                 outfits.forEach { (i,input) -> cast.getJSONObject(i).put("outfit",input.text.toString().trim()) }
+                positions.forEach { (i,input) -> cast.getJSONObject(i).put("screen_position",input.text.toString().trim()) }
+                if(soundInputs.any { it.second.text.isNotBlank() }) s.put("sound_design",JSONObject().apply { soundInputs.forEach { (field,input) -> put(field,input.text.toString().trim().ifBlank { "none" }) } })
                 val group = s.optString("continuity_group")
                 val affected = rows(plan!!).filter { key(it) == key(s) || (group.isNotBlank() && it.optString("continuity_group") == group || previousGroup.isNotBlank() && it.optString("continuity_group") == previousGroup) }
                 affected.forEach { it.put("user_review","needs_revision"); it.remove("flow_image_revision") }; saveStory(); draftFile.delete(); render()

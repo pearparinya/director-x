@@ -79,32 +79,68 @@ class AutoDirectorContentTest {
         scenes.getJSONObject(0).getJSONObject("sound_design").remove("sfx")
         assertTrue(runCatching { SoundDesign.validate(scenes.getJSONObject(0)) }.isFailure)
     }
-    @Test fun simpleExportContainsExactlyTwoDocumentsWithEveryEpisodeAndNoDuplicateStoryCovers() {
+    @Test fun compactExportHasTwoFilesPerEpisodeClearIdsAndSingleOverallCoverPair() {
         for(auto in listOf(true,false)) {
             val p=story()
             if(!auto) p.remove("content_profile")
             val eps=p.getJSONArray("episodes")
             eps.put(JSONObject(eps.getJSONObject(0).toString()).put("ep",2))
+            assertTrue(ProductionCommandCheck.issues(p).toString(),ProductionCommandCheck.issues(p).isEmpty())
+            val before=p.toString()
             val bytes=ByteArrayOutputStream(); SimpleProductionCommands.write(bytes,p)
             val entries=linkedMapOf<String,String>()
-            ZipInputStream(ByteArrayInputStream(bytes.toByteArray())).use { zip ->
-                while(true) { val entry=zip.nextEntry ?: break; entries[entry.name]=String(zip.readBytes(),Charsets.UTF_8) }
-            }
-            assertEquals(setOf(SimpleProductionCommands.IMAGES,SimpleProductionCommands.FLOW),entries.keys)
-            val images=entries.getValue(SimpleProductionCommands.IMAGES)
-            val videos=entries.getValue(SimpleProductionCommands.FLOW)
-            assertEquals(2,images.lineSequence().count { it.startsWith("=== ปกรวม") })
-            assertEquals(54,images.lineSequence().count { it.startsWith("=== EP.") || it.startsWith("=== ปกรวม") })
-            assertEquals(48,videos.lineSequence().count { it.startsWith("=== EP.") })
+            ZipInputStream(ByteArrayInputStream(bytes.toByteArray())).use { zip -> while(true) { val entry=zip.nextEntry ?: break; entries[entry.name]=String(zip.readBytes(),Charsets.UTF_8) } }
+            assertEquals(setOf("EP01_IMAGES.txt","EP01_FLOW.txt","EP02_IMAGES.txt","EP02_FLOW.txt"),entries.keys)
+            assertEquals(28,SimpleProductionCommands.imageTasks(p,1).size)
+            assertEquals(26,SimpleProductionCommands.imageTasks(p,2).size)
+            assertFalse(entries.getValue("EP02_IMAGES.txt").contains("STORY_COVER"))
             for(ep in 1..2) {
-                assertTrue(images.contains("=== EP.$ep • ซีน 24"))
-                assertTrue(videos.contains("=== EP.$ep • ซีน 24"))
-                assertTrue(images.contains("=== EP.$ep • ปก EP.$ep • แนวนอน 16:9"))
+                val images=entries.getValue(SimpleProductionCommands.imageName(ep))
+                val videos=entries.getValue(SimpleProductionCommands.flowName(ep))
+                assertEquals(24,SimpleProductionCommands.videoTasks(p,ep).size)
+                for(n in 1..24) {
+                    val id="EP%02d_SC%03d".format(ep,n)
+                    assertTrue(images.contains("ชื่อไฟล์ภาพ: $id.png"))
+                    assertTrue(videos.contains("ภาพเริ่มต้นที่ต้องแนบ: $id.png"))
+                }
+                assertFalse(images.contains("=== EP")); assertTrue(images.contains("สารบัญ"))
+                assertTrue(images.contains("แก้ภาพ <รหัส>")); assertTrue(images.contains("PENDING"))
+                assertTrue(videos.contains("SOUND:")); assertTrue(videos.contains("กวิน บอกว่า A & B < C ใช่ไหม"))
+                assertFalse(videos.contains("STALE AUDIO"))
+                assertTrue(images.length<110000)
             }
-            assertTrue(images.contains("แก้ภาพ / retry")); assertTrue(images.contains("PENDING"))
-            assertTrue(videos.contains("SOUND:")); assertTrue(videos.contains("กวิน บอกว่า A & B < C ใช่ไหม"))
-            assertFalse(videos.contains("STALE AUDIO"))
+            val cover=SimpleProductionCommands.imageTasks(p,1).first().command
+            assertTrue(cover.contains("x=15–85%, y=52–75%")); assertTrue(cover.contains("25% bottom"))
+            assertTrue(cover.contains("position: left")); assertTrue(cover.contains("position: center")); assertTrue(cover.contains("position: right"))
+            assertEquals(before,p.toString())
         }
+        val one=story(); val tasks=SimpleProductionCommands.imageTasks(one,1)
+        assertEquals(26,tasks.size); assertEquals(2,tasks.count { it.id.contains("COVER") })
+        val first=tasks.first(); one.put("production_note_${first.id}","Keep the envelope visible")
+        assertTrue(SimpleProductionCommands.imageTasks(one,1).first().command.contains("Keep the envelope visible"))
+        assertFalse(SimpleProductionCommands.imageTasks(one,1)[1].command.contains("Keep the envelope visible"))
+    }
+    @Test fun productionChecksReportSceneCastAudioPositionAndCrossEpisodeWardrobeConflicts() {
+        val p=story(); val ep=p.getJSONArray("episodes").getJSONObject(0); val scene=ep.getJSONArray("scenes").getJSONObject(0)
+        val people=scene.getJSONArray("characters")
+        people.getJSONObject(1).put("screen_position","left")
+        scene.put("flow_action","Kawin laughs heartily")
+        var problems=ProductionCommandCheck.issues(p)
+        assertTrue(problems.any { it.contains("EP01_SC001") && it.contains("ตำแหน่ง") })
+        assertTrue(problems.any { it.contains("EP01_SC001") && it.contains("หัวเราะ") })
+        scene.put("characters",JSONArray().put(people.getJSONObject(0))).put("flow_action","Kawin steps between them")
+        assertTrue(ProductionCommandCheck.issues(p).any { it.contains("ครบ 3 คน") })
+        scene.put("flow_action","Kawin hands the envelope to May")
+        assertTrue(ProductionCommandCheck.issues(p).any { it.contains("เมย์") && it.contains("ไม่มีในรายการ") })
+        scene.put("flow_action","Kawin may pause before speaking")
+        assertFalse(ProductionCommandCheck.namedIssues(scene,FlowCast.definitions(p)).any { it.contains("เมย์") })
+        val other=JSONObject(ep.toString()).put("ep",2)
+        other.getJSONArray("scenes").getJSONObject(0).getJSONArray("characters").getJSONObject(0).put("outfit","Top: blue shirt; Bottom: black trousers; Shoes: black shoes; Accessories: none")
+        p.getJSONArray("episodes").put(other)
+        assertTrue(ProductionCommandCheck.issues(p).any { it.contains("EP2 SC1") && it.contains("ไม่ต่อเนื่อง") })
+        val bytes=ByteArrayOutputStream()
+        assertTrue(runCatching { SimpleProductionCommands.write(bytes,p) }.isFailure)
+        assertEquals(0,bytes.size())
     }
     @Test fun imageAndCoverCommandsBindAliasesAndKeepEveryScene() {
         val p=story(); val images=AutoDirectorContent.images(p,1); val covers=AutoDirectorContent.covers(p)

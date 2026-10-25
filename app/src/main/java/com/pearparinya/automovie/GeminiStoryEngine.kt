@@ -53,6 +53,7 @@ ${BodyReferencePolicy.preciseIdentity}
 ${PerformanceDirection.guide}
 ${PerformanceDirection.planning}
 ${SoundDesign.planning}
+${ProductionCommandCheck.planning}
 ${speechRules}
 ${if(spec.optString("content_profile")==AutoDirectorContent.profile) AutoDirectorContent.generationRules else ""}
 ${if(spec.optInt("autodirector_version")<AutoDirectorContent.version) "LEGACY CHECKPOINT PRIORITY: copy any already assigned daily wardrobe verbatim, even when it lacks shade/HEX or sleeve labels. Never retrofit or redesign an existing day to apply the new detail syntax." else ""}
@@ -89,17 +90,24 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                 } }
                 val storyOutline=if(compact) (0 until eps.length()).joinToString("\n") { e -> eps.getJSONObject(e).let { "EP ${e+1}: ${it.optString("synopsis").take(250)}; ending=${it.optString("ending").take(120)}" } } else outline.toString()
                 val priorWardrobe=(0 until output.length()).flatMap { e -> AutoDirectorWardrobe.batch(e+1,output.getJSONObject(e).getJSONArray("scenes")) }+AutoDirectorWardrobe.batch(i+1,scenes)
-                val wardrobeContext=if(spec.optString("content_profile")==AutoDirectorContent.profile) "\nIMMUTABLE WARDROBE CATALOG — copy the exact four parts verbatim for the matching day/event/group:\n"+AutoDirectorWardrobe.catalog(priorWardrobe) else ""
+                val wardrobeContext=if(spec.optString("content_profile")==AutoDirectorContent.profile || spec.optInt("command_version")>=1) "\nIMMUTABLE WARDROBE CATALOG — copy the exact four parts verbatim for the matching day/event/group:\n"+AutoDirectorWardrobe.catalog(priorWardrobe) else ""
                 val prompt=base+wardrobeContext+(if(compact) "\nBe concise: image_prompt and flow_prompt each <=80 English words; keep identity, outfits, action and speech complete." else "")+"\nFull story outline:\n$storyOutline\nActual previous episode events/dialogue (do not repeat):\n$past\nCurrent episode prior scenes (continue state/outfits):\n$previous\nWrite exactly scenes $start to $end for EP ${i+1}; each duration_seconds=8, scene numbers absolute within episode. This episode: ${if(compact) JSONObject(planned.toString()).apply { listOf("synopsis","cover_incident","ending").forEach { put(it,optString(it).take(250)) } } else planned}. Include continuity_group, story_day, story_time, activity, wardrobe_event. Set speaker/dialogue/narration to empty strings when unused. Characters use canonical Thai names and matching *_MASTER.png. Use screen_position and full visual_description. In flow_prompt explicitly identify the sole speaker and exact Thai line, or closed mouths for silent/narrated scenes."
                 val priorDialogue=linkedMapOf<String,String>()
                 for(e in 0 until output.length()) checkDialogue(output.getJSONObject(e).getJSONArray("scenes"),e+1,priorDialogue)
                 checkDialogue(scenes,i+1,priorDialogue)
                 val batch=cached("EP%02d_%02d.json".format(i+1,start),prompt,batchSchema()) {
                     validateBatch(it,i+1,start,size,support)
-                    if(spec.optString("content_profile")==AutoDirectorContent.profile) {
+                    if(spec.optString("content_profile")==AutoDirectorContent.profile || spec.optInt("command_version")>=1) {
                         AutoDirectorContent.validateWardrobes(it,spec.optInt("autodirector_version")>=AutoDirectorContent.version)
                         val wardrobeIssues=AutoDirectorWardrobe.issues(priorWardrobe+AutoDirectorWardrobe.batch(i+1,it.getJSONArray("scenes")))
                         require(wardrobeIssues.isEmpty()) { wardrobeIssues.take(6).joinToString("; ") }
+                    }
+                    if(spec.optInt("command_version")>=1) {
+                        val rows=it.getJSONArray("scenes")
+                        for(n in 0 until rows.length()) {
+                            val problems=ProductionCommandCheck.sceneIssues(rows.getJSONObject(n))+ProductionCommandCheck.namedIssues(rows.getJSONObject(n),FlowCast.definitions(spec))
+                            require(problems.isEmpty()) { "EP ${i+1} ซีน ${rows.getJSONObject(n).optInt("scene")}: "+problems.joinToString("; ") }
+                        }
                     }
                     if(spec.optInt("audio_version")>=1) { val soundScenes=it.getJSONArray("scenes"); for(n in 0 until soundScenes.length()) SoundDesign.validate(soundScenes.getJSONObject(n)) }
                     if(spec.optInt("performance_version")>=1) {
@@ -123,11 +131,11 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         }
         check()
         val story=JSONObject().put("schema_version",3).put("production_mode","flow_commands").put("character_mode","original")
-            .put("content_profile",spec.optString("content_profile")).put("autodirector_version",spec.optInt("autodirector_version")).put("performance_version",spec.optInt("performance_version")).put("audio_version",spec.optInt("audio_version")).put("supporting_characters",support).put("channel",channel).put("category",category).put("title",outline.getString("title")).put("tagline",outline.getString("tagline"))
+            .put("content_profile",spec.optString("content_profile")).put("autodirector_version",spec.optInt("autodirector_version")).put("performance_version",spec.optInt("performance_version")).put("audio_version",spec.optInt("audio_version")).put("command_version",spec.optInt("command_version")).put("supporting_characters",support).put("channel",channel).put("category",category).put("title",outline.getString("title")).put("tagline",outline.getString("tagline"))
             .put("episode_count",output.length()).put("scene_count",output.length()*sceneCount).put("duration_seconds",8).put("aspect_ratio","9:16").put("episodes",output)
         ClipPlan.copy(spec,story)
         ChannelCatalog.stamp(story)
-        val issues=FlowProductionPack.issues(story); require(issues.isEmpty()) { "บทไม่ผ่านตรวจ: "+issues.take(4).joinToString("; ") }
+        val issues=FlowProductionPack.issues(story)+(if(spec.optInt("command_version")>=1) ProductionCommandCheck.issues(story) else emptyList()); require(issues.isEmpty()) { "บทไม่ผ่านตรวจ: "+issues.take(4).joinToString("; ") }
         val spoken=linkedMapOf<String,String>()
         for(i in 0 until output.length()) checkDialogue(output.getJSONObject(i).getJSONArray("scenes"),i+1,spoken)
         progress(100,"ตรวจบทครบแล้ว พร้อมส่งออก Flow")
