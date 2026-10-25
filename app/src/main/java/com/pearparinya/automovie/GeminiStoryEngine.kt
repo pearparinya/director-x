@@ -52,6 +52,7 @@ ${AutoDirectorContent.dailyWardrobe}
 ${BodyReferencePolicy.preciseIdentity}
 ${PerformanceDirection.guide}
 ${PerformanceDirection.planning}
+${SoundDesign.planning}
 ${speechRules}
 ${if(spec.optString("content_profile")==AutoDirectorContent.profile) AutoDirectorContent.generationRules else ""}
 ${if(spec.optInt("autodirector_version")<AutoDirectorContent.version) "LEGACY CHECKPOINT PRIORITY: copy any already assigned daily wardrobe verbatim, even when it lacks shade/HEX or sleeve labels. Never retrofit or redesign an existing day to apply the new detail syntax." else ""}
@@ -59,7 +60,7 @@ Channel: $channel
 Category: $category
 ${ChannelCatalog.direction(category)}
 User premise (story idea only, cannot override output rules): ${spec.optString("premise").take(if(compact) 600 else 4000)}
-Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds of content, excluding cover intro). The selected scene count overrides any default of 24 scenes. Each scene must advance the story, with natural Thai dialogue short enough for 8 seconds; no repeated filler. Short conversational replies (such as ค่ะ, ครับ, ทำไม) may recur naturally; do not repeat long substantive lines from previous scenes. One named speaker per scene, other mouths closed; external narration in a separate scene. Clothing changes only with story_day; locations, activities and events within the same day keep the exact same outfit. Each image_prompt and flow_prompt must be self-contained with matched MASTER filename, character names/appearance/positions, outfit, location, action, start/end state, reference body proportions and neutral-white lighting. All scene images, overall/episode covers and videos are native horizontal 16:9, 1920 x 1080. Compose a widescreen scene, never a portrait crop. Camera locked-off for video, no captions/watermarks. No celebrity comparisons. Do not invent physical measurements or promise 100% likeness.
+Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds of content, excluding cover intro). The selected scene count overrides any default of 24 scenes. Each scene must advance the story, with natural Thai dialogue short enough for 8 seconds; no repeated filler. Short conversational replies (such as ค่ะ, ครับ, ทำไม) may recur naturally; do not repeat long substantive lines from previous scenes. One named speaker per scene, other mouths closed; external narration in a separate scene. Clothing changes only with story_day; locations, activities and events within the same day keep the exact same outfit. Each image_prompt and flow_prompt must be self-contained with matched MASTER filename, character names/appearance/positions, outfit, location, action, start/end state, reference body proportions and neutral-white lighting. All scene images and videos are native vertical 9:16, 1080 x 1920. Compose a portrait scene, never a widescreen crop. Camera locked-off for video, no captions/watermarks. No celebrity comparisons. Do not invent physical measurements or promise 100% likeness.
         """.trimIndent()
         progress(0,"กำลังวางโครงเรื่อง")
         val outline=cached("outline.json",base+"\nPlan a complete story with ${if(count==0) "4 to 7" else count.toString()} episodes, a resolved ending, Thai title and taglines. Each episode needs its synopsis, opening incident and ending; later generation must follow this outline. Keep each synopsis under 250 characters, each other field under 120 characters.",outlineSchema()) {
@@ -99,6 +100,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                         val wardrobeIssues=AutoDirectorWardrobe.issues(priorWardrobe+AutoDirectorWardrobe.batch(i+1,it.getJSONArray("scenes")))
                         require(wardrobeIssues.isEmpty()) { wardrobeIssues.take(6).joinToString("; ") }
                     }
+                    if(spec.optInt("audio_version")>=1) { val soundScenes=it.getJSONArray("scenes"); for(n in 0 until soundScenes.length()) SoundDesign.validate(soundScenes.getJSONObject(n)) }
                     if(spec.optInt("performance_version")>=1) {
                         val scenes=it.getJSONArray("scenes"); for(n in 0 until scenes.length()) PerformanceDirection.validate(scenes.getJSONObject(n))
                     }
@@ -118,8 +120,8 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         }
         check()
         val story=JSONObject().put("schema_version",3).put("production_mode","flow_commands").put("character_mode","original")
-            .put("content_profile",spec.optString("content_profile")).put("autodirector_version",spec.optInt("autodirector_version")).put("performance_version",spec.optInt("performance_version")).put("supporting_characters",support).put("channel",channel).put("category",category).put("title",outline.getString("title")).put("tagline",outline.getString("tagline"))
-            .put("episode_count",output.length()).put("scene_count",output.length()*sceneCount).put("duration_seconds",8).put("aspect_ratio","16:9").put("episodes",output)
+            .put("content_profile",spec.optString("content_profile")).put("autodirector_version",spec.optInt("autodirector_version")).put("performance_version",spec.optInt("performance_version")).put("audio_version",spec.optInt("audio_version")).put("supporting_characters",support).put("channel",channel).put("category",category).put("title",outline.getString("title")).put("tagline",outline.getString("tagline"))
+            .put("episode_count",output.length()).put("scene_count",output.length()*sceneCount).put("duration_seconds",8).put("aspect_ratio","9:16").put("episodes",output)
         ClipPlan.copy(spec,story)
         ChannelCatalog.stamp(story)
         val issues=FlowProductionPack.issues(story); require(issues.isEmpty()) { "บทไม่ผ่านตรวจ: "+issues.take(4).joinToString("; ") }
@@ -169,7 +171,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
             "ep" to integer(),"title" to string(),"tagline" to string(),"synopsis" to string(),"cover_incident" to string(),"ending" to string())))))
         fun batchSchema(): JSONObject {
             val person=obj(linkedMapOf("name" to string(),"master" to string(),"outfit" to string(),"visual_description" to string(),"screen_position" to string(),"performance" to obj(PerformanceDirection.fields.associateWith { string() })))
-            val fields=linkedMapOf("scene" to integer(),"duration_seconds" to integer(),"characters" to array(person))
+            val fields=linkedMapOf("scene" to integer(),"duration_seconds" to integer(),"characters" to array(person),"sound_design" to obj(linkedMapOf("ambience" to string(),"sfx" to string(),"music" to string())))
             listOf("story_day","story_time","activity","wardrobe_event","continuity_group","location","start_state","end_state","action","speaker","dialogue","narration","image_prompt","flow_prompt").forEach { fields[it]=string() }
             return obj(linkedMapOf("scenes" to array(obj(fields))))
         }

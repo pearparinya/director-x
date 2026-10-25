@@ -19,14 +19,14 @@ internal object FlowTestPrompt {
         }
         return FlowReferencePrompt.header(people)+"""
 
-FLOW TEST • VIDEO ONLY • 8 seconds • 16:9
+FLOW TEST • VIDEO ONLY • 8 seconds • 9:16
 VIDEO PROMPT
-Create a photorealistic 8-second horizontal 16:9 video using the attached character reference images directly as identity references, not as the scene background or opening composition. Use the CHARACTER bindings and stated outfits above. Replace reference clothing from the start; no wardrobe transformation.
+Create a photorealistic 8-second vertical 9:16 video using the attached character reference images directly as identity references, not as the scene background or opening composition. Use the CHARACTER bindings and stated outfits above. Replace reference clothing from the start; no wardrobe transformation.
 ${FlowVisualDirection.identity}
 ${FlowVisualDirection.color}
 Location: $location
 Action: $action
-Start already in the described location and outfits. Eye-level head-to-upper-thigh framing, natural perspective in a widescreen composition without lens distortion, showing faces and hands. Locked-off static camera, one continuous subtle action, no camera movement or cuts. Preserve identities, body proportions, outfits and props throughout. No dialogue or narration in this visual test; all mouths stay closed. No captions, added text or watermark. Hold the ending briefly.
+Start already in the described location and outfits. Eye-level head-to-upper-thigh framing, natural perspective in a portrait composition without lens distortion, showing faces and hands. Locked-off static camera, one continuous subtle action, no camera movement or cuts. Preserve identities, body proportions, outfits and props throughout. No dialogue or narration in this visual test; all mouths stay closed. No captions, added text or watermark. Hold the ending briefly.
 
 ${FlowVisualDirection.referencePriority}
 ${FlowVisualDirection.referenceReview}

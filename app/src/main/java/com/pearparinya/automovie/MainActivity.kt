@@ -487,7 +487,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(
             TextView(this).apply {
 
-                text = "AUTO-CONTEXT • 8s • 16:9 • Flow/Veo 3.1 • พัฒนาโดย ปริญญา"
+                text = "AUTO-CONTEXT • 8s • 9:16 • Flow/Veo 3.1 • พัฒนาโดย ปริญญา"
 
                 textSize = 10f
                 maxLines = 1
@@ -1000,7 +1000,7 @@ AUTO-MOVIE • START
 ใช้รูปที่แนบเป็นต้นฉบับของตัวละครแต่ละคน คงใบหน้า ทรงผม สีผม ความยาวผม รูปร่างตามภาพอ้างอิง โดยจับคู่รูปกับชื่อตามลำดับเดิม
 เสื้อผ้าเปลี่ยนได้ตามเรื่อง โดยสิ่งที่ไม่ได้สั่งให้เปลี่ยนให้คงความต่อเนื่องจากตัวละครและเรื่องเดิม
 จัดฉากแบบละครไทยสมจริง ให้ตัวละครกำลังทำสิ่งที่ทำให้เรื่องเดินหน้า ไม่ใช่เพียงยืนโพส
-ภาพแนวนอน 16:9 กล้องนิ่ง
+ภาพแนวตั้ง 9:16 กล้องนิ่ง
 
 หลังภาพ ให้ระบุสั้น ๆ ว่า SCENE 01 จบด้วยเหตุการณ์อะไร เพื่อใช้ต่อ SCENE 02
         """.trimIndent()
@@ -1555,12 +1555,12 @@ CORE PRINCIPLE:
 - CONTINUITY: เวลา สถานที่ ชุด พร็อพ ข้อมูลที่ตัวละครรู้ และอารมณ์ ต้องต่อจากฉากก่อนอย่างสมเหตุผล
 - MODERN BLOCKING: ไม่บังคับตัวละครยืนเรียงหน้ากล้อง; จัดตำแหน่งจากเหตุการณ์และความสัมพันธ์
 - กล้อง Locked-off static camera; ห้าม zoom/pan/tilt/roll/dolly/tracking/cut/reframe
-- ทุกฉาก 8 วินาที • แนวนอน 16:9 • One Scene / One Image • Flow/Veo 3.1
+- ทุกฉาก 8 วินาที • แนวตั้ง 9:16 • One Scene / One Image • Flow/Veo 3.1
 - ใช้ภาษาภาพและเสื้อผ้าที่เป็นกลาง เหมาะกับเนื้อเรื่อง และเคารพข้อกำหนดความปลอดภัย
 - ถ้ารายละเอียดย่อยไม่ชัด ให้เลือกค่าที่สอดคล้องกับ canon ล่าสุดและเดินเรื่องต่อ ห้ามถามซ้ำเมื่อข้อมูลพอ
 - START สร้าง STORY BIBLE + EP PLAN + SCENE 01 ในคำสั่งเดียว
 - NEXT SCENE สร้างฉากปัจจุบันทันทีแบบ SELF-CONTAINED
-- OUTPUT MINIMAL: แสดงเฉพาะข้อมูลฉากที่จำเป็น + IMAGE 16:9 + Flow/Veo prompt + NEXT HOOK
+- OUTPUT MINIMAL: แสดงเฉพาะข้อมูลฉากที่จำเป็น + IMAGE 9:16 + Flow/Veo prompt + NEXT HOOK
 - INTERNAL QC: ตรวจ cast, identity continuity, wardrobe continuity, action, hands/anatomy และจำนวนคนก่อนส่ง โดยไม่พิมพ์รายงานยาว
 - หากระบบภาพรักษาความเหมือนจาก MASTER ไม่ได้อย่างน่าเชื่อถือ ห้ามประกาศว่าตรงต้นฉบับแบบสมบูรณ์
 
@@ -1578,7 +1578,7 @@ CHARACTER IDENTITY ANCHOR:
 
 REFERENCE RULE:
 คิดแบบคำสั่งสั้น:
-“ใช้คนเดิมจากไฟล์ที่แนบ + ทำ ACTION ของฉาก + ใส่ WARDROBE ของฉาก + อยู่ LOCATION ของฉาก + 16:9”
+“ใช้คนเดิมจากไฟล์ที่แนบ + ทำ ACTION ของฉาก + ใส่ WARDROBE ของฉาก + อยู่ LOCATION ของฉาก + 9:16”
 รายละเอียดที่ไม่ได้สั่งให้เปลี่ยน ให้คงจาก ORIGINAL MASTER/continuity โดยไม่บรรยายซ้ำเกินจำเป็น
         """.trimIndent()
     }
@@ -1702,7 +1702,7 @@ CATEGORY: ${selectedCategory ?: storyCategories[categoryIndex]}
 CURRENT EP: ${fmt(currentEp)} / 05
 CURRENT SCENE: ${fmt(currentScene)} / 20
 DURATION: 8 SEC
-FORMAT: 16:9
+FORMAT: 9:16
 
 APP ↔ CHATGPT SYNC RULE:
 - ค่าจาก ACTIVE WORK STATE คือค่าที่แอปกำลังใช้งานจริง
@@ -1870,7 +1870,7 @@ ${fmt(currentScene)}
 - Narration Rule
 - Camera Compatibility
 - Locked-off Compatibility
-- 16:9 Compatibility
+- 9:16 Compatibility
 - One Scene / One Image
 
 ผลการตรวจต้องเป็น:
@@ -2410,7 +2410,7 @@ CHARACTER MASTER
 สำคัญ:
 • ใช้ ORIGINAL MASTER เดิมเสมอ ห้ามใช้ภาพ AI ที่สร้างภายหลังเป็น Master ใหม่
 • ตัวละครรองให้ระบบสร้างและรักษาความต่อเนื่องอัตโนมัติ
-• ทุกฉาก 8 วินาที • 16:9 • Flow/Veo 3.1 • Locked-off
+• ทุกฉาก 8 วินาที • 9:16 • Flow/Veo 3.1 • Locked-off
                 """.trimIndent()
             )
             .setPositiveButton("เข้าใจแล้ว", null)

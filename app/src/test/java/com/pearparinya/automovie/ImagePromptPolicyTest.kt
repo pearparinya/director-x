@@ -9,7 +9,7 @@ class ImagePromptPolicyTest {
             ImagePromptPolicy.scene("เมย์ | ชุด: เสื้อคอสูงสีฟ้า","ห้องนั่งเล่น","ถือแก้วน้ำ"),
             ImagePromptPolicy.edit("ภาพ MASTER","ฉากหลังเป็นห้องครัว"),
             ImagePromptPolicy.coverReference("ภาพฉาก"),
-            BodyReferencePolicy.singleCheck("เมย์","MIND_MASTER.png","","เสื้อคอสูงสีฟ้า","16:9"))
+            BodyReferencePolicy.singleCheck("เมย์","MIND_MASTER.png","","เสื้อคอสูงสีฟ้า","9:16"))
         prompts.forEach {
             assertEquals(1,it.split(ImagePromptPolicy.referenceAppeal).size-1)
             assertFalse(it.contains("100%"))
@@ -48,10 +48,10 @@ class ImagePromptPolicyTest {
     }
     @Test fun actionFramingAndNightLightingOverrideGenericPortraitDefaults() {
         val prompt=ImagePromptPolicy.scene("รินรดา → RINLADA_MASTER.jpg | ชุด: เดรสกรมท่า", "ห้องนอนกลางคืน", "คุกเข่าหยิบซองจากใต้เตียง",
-            aspect="16:9",framing="เต็มตัว เห็นมือและกล่องใต้เตียง",lighting="แสงโคมไฟหัวเตียง",filename="EP01_SC001.png")
+            aspect="9:16",framing="เต็มตัว เห็นมือและกล่องใต้เตียง",lighting="แสงโคมไฟหัวเตียง",filename="EP01_SC001.png")
         assertTrue(prompt.contains("เต็มตัว เห็นมือและกล่องใต้เตียง"))
         assertTrue(prompt.contains("แสงโคมไฟหัวเตียง"))
-        assertTrue(prompt.contains("16:9"))
+        assertTrue(prompt.contains("9:16"))
         assertFalse(prompt.contains("waist-up"))
         assertFalse(prompt.contains("แสงธรรมชาติ"))
         assertTrue(prompt.indexOf("ตัวละครและชุด:") < prompt.indexOf("สถานที่:"))

@@ -11,7 +11,7 @@ internal object StoryFiles {
     data class UnpackResult(val files: List<File>, val failedEntries: List<String>)
     fun zipName(title: String): String = title.replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "_").trim().take(100).ifBlank { "เรื่องใหม่" } + ".zip"
     fun episodeFlow(ep: Int, title: String, scenes: List<Triple<String, String, String>>): String =
-        "EP %02d • %s\nFlow / Veo 3.1 Lite • 8 วินาทีต่อซีน • 16:9\n\n".format(ep, title) +
+        "EP %02d • %s\nFlow / Veo 3.1 Lite • 8 วินาทีต่อซีน • 9:16\n\n".format(ep, title) +
             scenes.joinToString("\n\n--------------------\n\n") { (name, script, prompt) ->
                 "$name\n$script\n\nคำสั่ง Flow (คัดลอกเฉพาะบล็อกนี้):\n$prompt"
             }
@@ -23,7 +23,7 @@ internal object StoryFiles {
     }
     fun coverName(name: String): String? = Regex("EP${separators}(\\d+)${separators}COVER${separators}(9[xX:_-]16|16[xX:_-]9)(?:[ _-]*\\(\\d+\\))?\\.(png|jpe?g|webp)$", RegexOption.IGNORE_CASE).find(name)?.let {
         val ep = it.groupValues[1].toIntOrNull()
-        val ratio = if (it.groupValues[2].startsWith("9")) "9x16" else "16x9"
+        val ratio = if (it.groupValues[2].startsWith("9")) "16x9" else "9x16"
         if (ep == null || ep < 1) null else "EP%02d_COVER_%s".format(ep, ratio)
     }
     fun isMaster(name: String): Boolean = Regex("^(?:CHARACTER[_ -]*\\d+|(?:GAWIN|RINLADA|MIND|SUPPORT_[A-Fa-f0-9]{8})[_ -]*MASTER|MASTER[_ -]*\\d+)(?:[_. (]|$)", RegexOption.IGNORE_CASE).containsMatchIn(name)
