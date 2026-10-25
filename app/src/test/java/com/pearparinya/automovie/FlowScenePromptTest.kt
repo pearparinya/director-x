@@ -7,7 +7,7 @@ class FlowScenePromptTest {
     private val may=FlowPerson("เมย์","short-haired woman","left","cream top")
     private val rin=FlowPerson("รินรดา","long-haired woman","right","pink top")
     private fun scene(speaker: String="เมย์", dialogue: String="พี่ริน หนูเป็นน้องสาวของพี่", narration: String="ไม่มี") =
-        FlowSceneSpec(listOf(may,rin),speaker,dialogue,narration,"May slides the envelope","living room","Envelope in the center","Envelope near Rinlada",8,"16:9")
+        FlowSceneSpec(listOf(may,rin),speaker,dialogue,narration,"May slides the envelope","living room","Envelope in the center","Envelope near Rinlada",8,"9:16")
     @Test fun speakerIsBoundToAppearanceAndListenersStaySilent() {
         val prompt=FlowScenePrompt.build(scene())
         assertTrue(prompt.contains("ONLY SPEAKER: เมย์ [short-haired woman; screen position: left"))

@@ -20,11 +20,11 @@ import java.util.concurrent.TimeUnit
 class EpisodeExportTest {
     @Test
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-    fun imageIntroAndTwoClipsProduceLandscapeMp4WithSilentIntroAndAudio() {
+    fun imageIntroAndTwoClipsProducePortraitMp4WithSilentIntroAndAudio() {
         val instrumentation=InstrumentationRegistry.getInstrumentation(); val context=instrumentation.targetContext
         val folder=File(context.filesDir,"test_episode").apply { deleteRecursively(); mkdirs() }
         fun image(name: String,color: Int): File {
-            val file=File(folder,name); val b=Bitmap.createBitmap(1920,1080,Bitmap.Config.ARGB_8888); b.eraseColor(color)
+            val file=File(folder,name); val b=Bitmap.createBitmap(1080,1920,Bitmap.Config.ARGB_8888); b.eraseColor(color)
             file.outputStream().use { b.compress(Bitmap.CompressFormat.PNG,100,it) }; b.recycle(); return file
         }
         val cover=image("cover.png",Color.YELLOW); val red=image("red.png",Color.RED); val blue=image("blue.png",Color.BLUE)
@@ -43,7 +43,7 @@ class EpisodeExportTest {
             if(!latch.await(180,TimeUnit.SECONDS)) { instrumentation.runOnMainSync { transformer?.cancel() }; fail("export timed out") }
             failure?.let { throw AssertionError("real encoder export failed",it) }
         }
-        fun still(file: File,ms: Long)=EditedMediaItem.Builder(MediaItem.Builder().setUri(Uri.fromFile(file)).setImageDurationMs(ms).build()).setFrameRate(30).setEffects(Effects(emptyList(),listOf(Presentation.createForWidthAndHeight(1920,1080,Presentation.LAYOUT_SCALE_TO_FIT)))).build()
+        fun still(file: File,ms: Long)=EditedMediaItem.Builder(MediaItem.Builder().setUri(Uri.fromFile(file)).setImageDurationMs(ms).build()).setFrameRate(30).setEffects(Effects(emptyList(),listOf(Presentation.createForWidthAndHeight(1080,1920,Presentation.LAYOUT_SCALE_TO_FIT)))).build()
         val first=File(folder,"clip1.mp4"); val second=File(folder,"clip2.mp4")
         fun tone(name: String,frequency: Double): File {
             val file=File(folder,name); val count=44100; val bytes=count*2
@@ -56,7 +56,7 @@ class EpisodeExportTest {
         export(listOf(still(red,1000)),first,tone("tone1.wav",440.0)); export(listOf(still(blue,1000)),second,tone("tone2.wav",660.0))
         val before=listOf(EpisodeMedia.digest(first),EpisodeMedia.digest(second))
         val job=File(folder,"job").apply { mkdirs() }
-        val spec=org.json.JSONObject().put("aspect_ratio","16:9").put("ep",1).put("filename","ทดสอบ_EP01_ปกและฉาก.mp4").put("cover",cover.path)
+        val spec=org.json.JSONObject().put("aspect_ratio","9:16").put("ep",1).put("filename","ทดสอบ_EP01_ปกและฉาก.mp4").put("cover",cover.path)
             .put("clips",org.json.JSONArray(listOf(first.path,second.path))).put("fps",30).put("bitrate",24000000)
             .put("duration_ms",3000+EpisodeMedia.inspect(first).durationMs+EpisodeMedia.inspect(second).durationMs).put("input_hashes",org.json.JSONArray(listOf(EpisodeMedia.digest(cover))+before)).put("fingerprint","test").put("lossless",false).put("crop",false).put("has_audio",true)
         File(job,"spec.json").writeText(spec.toString())
@@ -75,7 +75,7 @@ class EpisodeExportTest {
         assertTrue(File(job,"result.json").isFile)
         instrumentation.runOnMainSync { activity.finish() }
 
-        val info=EpisodeMedia.inspect(output); assertEquals(1920,info.width); assertEquals(1080,info.height); assertEquals(0,info.rotation)
+        val info=EpisodeMedia.inspect(output); assertEquals(1080,info.displayWidth); assertEquals(1920,info.displayHeight); assertTrue(info.rotation in listOf(0,90,180,270))
         assertTrue(kotlin.math.abs(info.durationMs-5000)<300); assertNotNull(info.audioMime)
         val reader=android.media.MediaMetadataRetriever(); reader.setDataSource(output.path)
         try {
@@ -119,7 +119,7 @@ class EpisodeExportTest {
         // Strict packet-copy either verifies compatibility or rejects it; it never encodes silently.
         val copy=File(folder,"copy.mp4")
         try { EpisodeMedia.remux(listOf(first,second),copy,{false},{})
-            assertEquals(1920,EpisodeMedia.inspect(copy).width); assertTrue(kotlin.math.abs(EpisodeMedia.inspect(copy).durationMs-2000)<300)
+            assertEquals(1080,EpisodeMedia.inspect(copy).displayWidth); assertTrue(kotlin.math.abs(EpisodeMedia.inspect(copy).durationMs-2000)<300)
         } catch(e: IllegalArgumentException) { assertTrue(e.message!!.contains("คุณภาพสูง")) }
         folder.deleteRecursively()
     }

@@ -26,7 +26,7 @@ class GeminiStoryTest {
                 .put("location","ห้องนั่งเล่น").put("start_state","ถือซอง").put("end_state","วางซอง").put("action","EP $ep ซีน ${start+n} วางซอง")
                 .put("speaker","").put("dialogue","").put("narration","")
                 .put("image_prompt","May with short auburn bob wears cream shirt, holds envelope in living room. MIND_MASTER.png. Neutral white light.")
-                .put("flow_prompt","8 seconds 16:9 locked camera. May puts envelope on table, no speech. MIND_MASTER.png."))
+                .put("flow_prompt","8 seconds 9:16 locked camera. May puts envelope on table, no speech. MIND_MASTER.png."))
         } })
     }
     private fun spec()=JSONObject().put("category","แนว").put("channel","ช่อง").put("episodes",3).put("premise","ซองบนโต๊ะ")
@@ -91,6 +91,25 @@ class GeminiStoryTest {
             assertTrue(FlowReferencePrompt.scene(scene,1,"video").contains(ChannelCatalog.comedy))
             assertTrue(FlowProductionPack.masterCommand(selected.getString("category"),ChannelCatalog.channel).contains(ChannelCatalog.comedy))
             assertTrue(ChannelCatalog.performance(JSONObject().put("category",ChannelCatalog.category(ChannelCatalog.topics.first()))).isBlank())
+        } finally { folder.deleteRecursively() }
+    }
+    @Test fun soundPlansAreRequestedValidatedAndPreservedAcrossResume() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val folder=File(context.cacheDir,"sound-story-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val selected=ClipPlan.apply(spec().put("episodes",1).put("audio_version",1),"short",30)
+            val story=GeminiStoryEngine(folder,{ prompt,schema ->
+                assertTrue(prompt.contains(SoundDesign.planning))
+                if(prompt.contains("Plan a complete story")) outline().apply { put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0))) }
+                else batch(prompt).apply { val rows=getJSONArray("scenes"); for(i in 0 until rows.length()) rows.getJSONObject(i).put("sound_design",JSONObject().put("ambience","soft room tone").put("sfx","paper rustle").put("music","none")) }
+            }).run(selected)
+            assertEquals(1,story.getInt("audio_version"))
+            assertEquals("9:16",story.getString("aspect_ratio"))
+            val scene=story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
+            assertEquals("paper rustle",scene.getJSONObject("sound_design").getString("sfx"))
+            assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_ -> error("must resume cached audio") }).run(selected).toString())
+            scene.remove("sound_design")
+            assertTrue(FlowProductionPack.issues(story).any { it.contains("แผนเสียง") })
         } finally { folder.deleteRecursively() }
     }
     @Test fun hybridSharesSamePromptAndCompletesWithFallbackWithoutRewritingCheckpoints() {

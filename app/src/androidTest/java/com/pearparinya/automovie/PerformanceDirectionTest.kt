@@ -39,7 +39,7 @@ class PerformanceDirectionTest {
             .getJSONObject("properties").getJSONObject("characters").getJSONObject("items").getJSONObject("properties").getJSONObject("performance")
         assertEquals(PerformanceDirection.fields.toSet(),schema.getJSONArray("required").let { a -> (0 until a.length()).map { a.getString(it) }.toSet() })
         val spec=FlowSceneSpec(listOf(FlowPerson("กวิน","short dark hair","left","shirt","fear beneath reassurance; voice: low measured Thai voice"),
-            FlowPerson("รินรดา","long black hair","right","blouse","hurt beneath dignity; voice: silent")),"กวิน","ฟังผมก่อน","","place the envelope","room","envelope in hand","envelope on table",8,"16:9")
+            FlowPerson("รินรดา","long black hair","right","blouse","hurt beneath dignity; voice: silent")),"กวิน","ฟังผมก่อน","","place the envelope","room","envelope in hand","envelope on table",8,"9:16")
         val prompt=FlowScenePrompt.build(spec)
         assertTrue(prompt.contains("INDIVIDUAL PERFORMANCE — กวิน: fear beneath reassurance"))
         assertTrue(prompt.contains("INDIVIDUAL PERFORMANCE — รินรดา: hurt beneath dignity"))

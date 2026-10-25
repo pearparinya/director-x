@@ -4,14 +4,14 @@ import org.json.JSONObject
 
 /** Production format only; original character reference photos are never resized or rewritten. */
 internal object LandscapeProduction {
-    const val ASPECT="16:9"
+    const val ASPECT="9:16"
     fun reframeText(raw: String): String = raw
-        .replace(Regex("(?i)9[:x]16\\s+(vertical|portrait)"),"16:9 horizontal")
-        .replace(Regex("(?i)(vertical|portrait)(?=\\s*(9[:x]16|image|video|frame|canvas|orientation|composition|shot))"),"horizontal")
-        .replace("9:16","16:9").replace("9x16","16x9")
-        .replace(Regex("1080\\s*[x×]\\s*1920"),"1920 x 1080")
-        .replace("ภาพแนวตั้ง","ภาพแนวนอน").replace("วิดีโอแนวตั้ง","วิดีโอแนวนอน").replace("แนวตั้ง 16:9","แนวนอน 16:9")
-    fun requirePlan(story: JSONObject) { require(story.optString("aspect_ratio",ASPECT)==ASPECT) { "เรื่องนี้ยังเป็นแนวตั้ง กรุณาสร้างสำเนาแนวนอน 16:9 ก่อน" } }
+        .replace(Regex("(?i)16[:x]9\\s+(horizontal|landscape|widescreen)"),"9:16 vertical")
+        .replace(Regex("(?i)(horizontal|landscape|widescreen)(?=\\s*(16[:x]9|image|video|frame|canvas|orientation|composition|shot))"),"vertical")
+        .replace("16:9","9:16").replace("16x9","9x16")
+        .replace(Regex("1920\\s*[x×]\\s*1080"),"1080 x 1920")
+        .replace("ภาพแนวนอน","ภาพแนวตั้ง").replace("วิดีโอแนวนอน","วิดีโอแนวตั้ง").replace("แนวนอน 9:16","แนวตั้ง 9:16")
+    fun requirePlan(story: JSONObject) { require(story.optString("aspect_ratio",ASPECT)==ASPECT) { "เรื่องนี้ยังเป็นแนวนอน กรุณาสร้างสำเนาแนวตั้ง 9:16 ก่อน" } }
     fun copyPlan(source: JSONObject): JSONObject {
         val copy=JSONObject(source.toString()).put("aspect_ratio",ASPECT)
         val eps=copy.getJSONArray("episodes")

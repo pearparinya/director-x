@@ -84,7 +84,7 @@ class EpisodeRenderService : Service() {
             val composition=Composition.Builder(EditedMediaItemSequence.Builder(items).build()).experimentalSetForceAudioTrack(true).build()
             val encoder=DefaultEncoderFactory.Builder(this).setRequestedVideoEncoderSettings(VideoEncoderSettings.Builder().setBitrate(bitrate).build()).setEnableFallback(false).build()
             val target=if(lossless) File(job,"intro.mp4") else output
-            writeStatus("rendering",0,if(lossless) "กำลังสร้างปกเปิด ก่อนตรวจรูปแบบต่อคลิป" else "กำลังเข้ารหัสคุณภาพสูง 1920 × 1080")
+            writeStatus("rendering",0,if(lossless) "กำลังสร้างปกเปิด ก่อนตรวจรูปแบบต่อคลิป" else "กำลังเข้ารหัสคุณภาพสูง 1080 × 1920")
             transformer=Transformer.Builder(this).setPortraitEncodingEnabled(false).setVideoMimeType(MimeTypes.VIDEO_H264).setAudioMimeType(MimeTypes.AUDIO_AAC).setEncoderFactory(encoder).addListener(object : Transformer.Listener {
                 override fun onCompleted(composition: Composition, result: ExportResult) {
                     transformer=null
@@ -94,7 +94,7 @@ class EpisodeRenderService : Service() {
                             if(lossless) EpisodeMedia.remux(listOf(target)+(0 until clips.length()).map { File(clips.getString(it)) },output,{cancelled}) { value -> handler.post { if(!cancelled) writeStatus("rendering",value,"ต่อคลิปโดยไม่เข้ารหัสใหม่") } }
                             check(!cancelled)
                             val info=EpisodeMedia.inspect(output)
-                            require(info.width==EpisodeRules.WIDTH && info.height==EpisodeRules.HEIGHT && info.rotation==0) { "ผลลัพธ์ไม่ใช่ 1920 × 1080" }
+                            require(info.displayWidth==EpisodeRules.WIDTH && info.displayHeight==EpisodeRules.HEIGHT && info.rotation in listOf(0,90,180,270)) { "ผลลัพธ์ไม่ใช่ 1080 × 1920" }
                             require(kotlin.math.abs(info.durationMs-spec.getLong("duration_ms"))<1500) { "ความยาวไฟล์ไม่ตรงกับ EP" }
                             if(spec.optBoolean("has_audio")) require(info.audioMime!=null) { "ไม่พบเสียงในผลลัพธ์" }
                             val fingerprint=spec.getString("fingerprint")

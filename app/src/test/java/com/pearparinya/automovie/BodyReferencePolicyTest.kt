@@ -5,7 +5,7 @@ import org.junit.Test
 
 class BodyReferencePolicyTest {
     @Test fun singleCheckUsesOnlyNamedIdentityAndActualSceneOutfit() {
-        val prompt=BodyReferencePolicy.singleCheck("เมย์","MIND_MASTER.png","ผมบ๊อบสีน้ำตาล","เสื้อเชิ้ตเขียวกับกางเกงน้ำตาล","16:9")
+        val prompt=BodyReferencePolicy.singleCheck("เมย์","MIND_MASTER.png","ผมบ๊อบสีน้ำตาล","เสื้อเชิ้ตเขียวกับกางเกงน้ำตาล","9:16")
         assertTrue(prompt.contains("MIND_MASTER.png"))
         assertTrue(prompt.contains("เสื้อเชิ้ตเขียวกับกางเกงน้ำตาล"))
         assertTrue(prompt.contains("ทรวงอก เอว สะโพก"))
