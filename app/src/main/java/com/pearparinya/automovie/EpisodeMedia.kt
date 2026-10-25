@@ -42,7 +42,7 @@ internal object EpisodeMedia {
     fun remux(files: List<File>, output: File, cancelled: () -> Boolean, progress: (Int) -> Unit) {
         require(files.isNotEmpty())
         val infos=files.map { inspect(it) }
-        require(infos.all { it.width==1080 && it.height==1920 && it.rotation==0 && kotlin.math.abs(it.fps-infos.first().fps)<0.1f }) { "ขนาด/เฟรมเรตไม่ตรงกัน เลือกโหมดปรับไฟล์คุณภาพสูง" }
+        require(infos.all { it.width==EpisodeRules.WIDTH && it.height==EpisodeRules.HEIGHT && it.rotation==0 && kotlin.math.abs(it.fps-infos.first().fps)<0.1f }) { "ขนาด/เฟรมเรตไม่ตรงกัน เลือกโหมดปรับไฟล์คุณภาพสูง" }
         val formats=files.map { file -> val e=MediaExtractor(); try { e.setDataSource(file.path); (0 until e.trackCount).map { e.getTrackFormat(it) }.filter { it.getString(MediaFormat.KEY_MIME)?.let { m -> m.startsWith("video/") || m.startsWith("audio/") }==true }.sortedBy { it.getString(MediaFormat.KEY_MIME) } } finally { e.release() } }
         val signatures=formats.map { tracks -> tracks.map { fingerprint(it) } }
         require(signatures.all { it==signatures.first() }) { "ปกเปิดหรือคลิปใช้ codec/config/เสียงต่างกัน ต่อแบบไม่เข้ารหัสใหม่ไม่ได้ กรุณาเลือกปรับไฟล์คุณภาพสูง" }

@@ -26,7 +26,7 @@ class GeminiStoryTest {
                 .put("location","ห้องนั่งเล่น").put("start_state","ถือซอง").put("end_state","วางซอง").put("action","EP $ep ซีน ${start+n} วางซอง")
                 .put("speaker","").put("dialogue","").put("narration","")
                 .put("image_prompt","May with short auburn bob wears cream shirt, holds envelope in living room. MIND_MASTER.png. Neutral white light.")
-                .put("flow_prompt","8 seconds 9:16 locked camera. May puts envelope on table, no speech. MIND_MASTER.png."))
+                .put("flow_prompt","8 seconds 16:9 locked camera. May puts envelope on table, no speech. MIND_MASTER.png."))
         } })
     }
     private fun spec()=JSONObject().put("category","แนว").put("channel","ช่อง").put("episodes",3).put("premise","ซองบนโต๊ะ")

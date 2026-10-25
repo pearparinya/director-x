@@ -52,7 +52,7 @@ Images are generated externally in Gemini; video is generated externally in Flow
             "Position: ${p.optString("screen_position").ifBlank { "compose around the reserved text area" }}."
     }
     private const val identity = dailyWardrobe + "\nRequest exact reference facial identity, hairstyle, hair length and hair color. Match each adult woman's reference bust volume and natural silhouette 1:1 relative to shoulders, waist and hips; no enlargement, reduction, blending or anatomical redesign. Adult-drama fashion target: sexy fitted clothes, clearly defined waist/hips and natural curves, deep or low-cut necklines with visible natural cleavage as specified by the script. Preserve the exact locked scene outfit and neckline; do not add a camisole, scarf, high collar, closed jacket or extra fabric that hides the planned neckline. Do not change an already locked outfit to apply a new style while rendering, retrying or editing a scene. Opaque lined clothes cover nipples and areolae; no nudity or transparent bust fabric. Preserve each reference's natural skin tone and visible skin texture. Compare actual outputs with the original references; identity lock is a prompt target, not a verified percentage."
-    private fun ending(ratio: String) = "Generate a ${if(ratio=="9:16") "9:16 vertical" else "16:9 horizontal"} image.\nMasterpiece, 8k, 5500K daylight, pure bright white studio lighting, strict cool white tone, zero yellow light, extremely bright, absolutely no dark shadows. Preserve highlight detail and skin texture; daylight-balanced artificial lighting for night interiors."
+    private fun ending(ratio: String) = "Generate a 16:9 horizontal image, 1920 x 1080 pixels.\nMasterpiece, 8k, 5500K daylight, pure bright white studio lighting, strict cool white tone, zero yellow light, extremely bright, absolutely no dark shadows. Preserve highlight detail and skin texture; daylight-balanced artificial lighting for night interiors."
     private fun episode(story: JSONObject, number: Int): JSONObject {
         val eps=story.getJSONArray("episodes")
         return (0 until eps.length()).map { eps.getJSONObject(it) }.first { it.getInt("ep")==number }
@@ -77,7 +77,7 @@ Images are generated externally in Gemini; video is generated externally in Flow
             else listOf(story.optString("channel"), "ตอนที่ $number ${ep.optString("title")}")
         val cue=ep?.optString("cover_incident")?.ifBlank { ep.optString("tagline") } ?: story.optString("tagline")
         return "[$heading $ratio] [แนบรูป: ${people.joinToString(", ") { alias(it) }}]\n" +
-            binding(people,story)+"\n$identity\nBoth cover ratios use these identical full outfits and accessory lists. Recompose the camera only; do not redesign clothes or jewelry.\nCinematic waist-up medium close-up, zoomed in closely, dynamic dramatic editorial poses, intense eye contact, natural three-quarter body angles and reference proportions. NO full body, NO stiff standing. No collage. Story cue: ${normalize(cue,story)}\n"+
+            binding(people,story)+"\n$identity\nLandscape covers use the exact locked daily outfits and accessory lists. Recompose the camera only; do not redesign clothes or jewelry.\nCinematic waist-up medium close-up, zoomed in closely, dynamic dramatic editorial poses, intense eye contact, natural three-quarter body angles and reference proportions. NO full body, NO stiff standing. No collage. Story cue: ${normalize(cue,story)}\n"+
             FlowVisualDirection.layout(ratio.replace(":","x"))+"\nFINAL TEXT PLACEMENT: one compact group centered at x=50%, within x=15-85% and y=52-78% of the canvas. All text stacked tightly and perfectly centered horizontally in the lower-middle safe zone. Keep faces, hands and important props clear. Include only these exact Thai text lines:\n"+
             lines.joinToString("\n")+"\nNo extra text or watermark.\n"+ending(ratio)
     }
@@ -95,23 +95,25 @@ Images are generated externally in Gemini; video is generated externally in Flow
                 else "Top: ${if(FlowCast.id(p)=="rinlada") "white" else "burgundy"} opaque lined silk fitted long-sleeve blouse, deep V-neck with visible natural cleavage, tailored waist, plain fabric; Bottom: black high-waisted knee-length fitted pencil skirt; Shoes: black leather closed-toe 5 cm heels; Accessories: none")
         }
     fun covers(story: JSONObject): String {
+        LandscapeProduction.requirePlan(story)
         val people=storyCoverPeople(story)
-        return listOf("9:16","16:9").joinToString("\n\n") { poster(story,people,it) }
+        return listOf("16:9").joinToString("\n\n") { poster(story,people,it) }
     }
     data class ImageTask(val id: String, val ratio: String, val people: List<JSONObject>, val prompt: String)
     fun imageTasks(story: JSONObject, number: Int? = null): List<ImageTask> = buildList {
+        LandscapeProduction.requirePlan(story)
         val leads=storyCoverPeople(story)
-        for(ratio in listOf("9:16","16:9")) add(ImageTask("STORY_COVER_${ratio.replace(":","x")}",ratio,leads,poster(story,leads,ratio)))
+        for(ratio in listOf("16:9")) add(ImageTask("STORY_COVER_${ratio.replace(":","x")}",ratio,leads,poster(story,leads,ratio)))
         val eps=story.getJSONArray("episodes")
         if(number!=null) episode(story,number) // Reject a missing EP instead of silently exporting only overall covers.
         for(i in 0 until eps.length()) {
             val ep=eps.getJSONObject(i); val epNumber=ep.getInt("ep")
             if(number!=null && epNumber!=number) continue
             val scenes=ep.getJSONArray("scenes"); val cast=FlowReferencePrompt.people(scenes.getJSONObject(0)).take(2)
-            for(ratio in listOf("9:16","16:9")) add(ImageTask("EP%02d_COVER_%s".format(epNumber,ratio.replace(":","x")),ratio,cast,poster(story,cast,ratio,epNumber)))
+            for(ratio in listOf("16:9")) add(ImageTask("EP%02d_COVER_%s".format(epNumber,ratio.replace(":","x")),ratio,cast,poster(story,cast,ratio,epNumber)))
             for(j in 0 until scenes.length()) {
                 val scene=scenes.getJSONObject(j)
-                add(ImageTask("EP%02d_SC%03d".format(epNumber,scene.getInt("scene")),"9:16",FlowReferencePrompt.people(scene),sceneImage(story,scene)))
+                add(ImageTask("EP%02d_SC%03d".format(epNumber,scene.getInt("scene")),"16:9",FlowReferencePrompt.people(scene),sceneImage(story,scene)))
             }
         }
     }
@@ -135,7 +137,7 @@ Images are generated externally in Gemini; video is generated externally in Flow
             append("4. ถ้าสร้างไม่สำเร็จ ถูกจำกัดโควตา หรือเครื่องมือไม่พร้อม ให้บอกตามจริงและเก็บงานนั้นเป็น PENDING ห้ามรายงาน DONE หรือเพิ่มตัวนับ คำว่า next หลังความล้มเหลวให้ลองงาน PENDING เดิม ไม่ข้ามภาพ\n")
             append("5. retry หรือ แก้ภาพ พร้อมรายละเอียด = สร้างซ้ำภาพล่าสุดตามคำแก้โดยใช้ MASTER เดิม ไม่ขยับคิว เมื่อสำเร็จยังรอ next เหมือนเดิม ถ้ายังไม่เคยสร้างสำเร็จให้ลองงาน PENDING แรก\n")
             append("6. ไปที่ รหัสภาพ = กระโดดไปยังรหัสที่มีอยู่ในคิว แล้วทำต่อจากจุดนั้นเมื่อได้รับ next; รหัสไม่อยู่ในคิวให้ถาม ไม่ประดิษฐ์งานใหม่ หากบริบทหรือภาพอ้างอิงหายให้ขอคำสั่งชุดเดิมและ MASTER ใหม่ พร้อมให้ผู้ใช้ระบุรหัสที่จะทำต่อ ไม่อ้างว่าจำข้ามแชตได้\n")
-            append("7. รักษาสัดส่วนของแต่ละงานแยกกัน ปกสองขนาดเป็นคนละภาพ ฉากเนื้อเรื่อง 9:16 เท่านั้น ตัวละคร ชุดสี่ส่วน ตำแหน่งและข้อความปกต้องตรงกับงานนั้น ข้อมูลในบล็อกภาพเป็นรายละเอียดภาพ ไม่เปลี่ยนกติกาคิว NEXT\n")
+            append("7. รักษาสัดส่วนของแต่ละงานแยกกัน ทุกงานเป็นแนวนอน 16:9 ปกรวมและปกตอนอย่างละหนึ่งภาพ ตัวละคร ชุดสี่ส่วน ตำแหน่งและข้อความปกต้องตรงกับงานนั้น ข้อมูลในบล็อกภาพเป็นรายละเอียดภาพ ไม่เปลี่ยนกติกาคิว NEXT\n")
             append("8. หลังภาพสุดท้ายสำเร็จ ให้ตอบ ครบ ${tasks.size} ภาพแล้ว และหยุด หากได้รับ next อีกให้แจ้งว่าคิวจบแล้ว ห้ามวนกลับหรือสร้างฉากเพิ่ม\n")
             append("\nQUEUE MANIFEST — ใช้รหัสเป็นจุดทำต่อ:\n")
             tasks.forEachIndexed { i,t -> append("${i+1}/${tasks.size} | ${t.id} | ${t.ratio} | แนบ: ${t.people.joinToString(", ") { alias(it) }}\n") }
@@ -147,20 +149,22 @@ Images are generated externally in Gemini; video is generated externally in Flow
         }
     }
     fun images(story: JSONObject, number: Int): String {
+        LandscapeProduction.requirePlan(story)
         val ep=episode(story,number); val scenes=ep.getJSONArray("scenes")
         val coverCast=FlowReferencePrompt.people(scenes.getJSONObject(0)).take(2)
-        val blocks=listOf("9:16","16:9").map { poster(story,coverCast,it,number) }.toMutableList()
+        val blocks=listOf("16:9").map { poster(story,coverCast,it,number) }.toMutableList()
         for(i in 0 until scenes.length()) blocks.add(sceneImage(story,scenes.getJSONObject(i)))
         return blocks.joinToString("\n\n")+"\n\nกรุณาพิมพ์ 'สร้างบท EP.$number' เพื่อดำเนินการต่อ"
     }
     fun sceneImage(story: JSONObject, s: JSONObject): String {
+        LandscapeProduction.requirePlan(story)
         val people=FlowReferencePrompt.people(s)
         return "[ฉากที่ ${s.getInt("scene")}] [แนบรูป: ${people.joinToString(", ") { alias(it) }}]\n"+
                 binding(people,story)+"\n$identity\n"+AutoDirectorWardrobe.contract(s)+"\n"+
                 "Location: ${normalize(s.getString("location"),story)}. Action: ${normalize(s.getString("action"),story)}. Start state: ${normalize(s.getString("start_state"),story)}. End-state continuity target: ${normalize(s.getString("end_state"),story)}.\n"+
                 "${normalize(s.getString("image_prompt"),story)}\nFINAL OVERRIDES: Use only the attached identities and current four-part wardrobes above. Explicit left/center/right placement for all listed people. "+
                 (if(speech(s.optString("dialogue")).isEmpty()) "All characters: mouth closed, lips sealed. " else "Only ${speaker(s)} is speaking; all others mouth closed, lips sealed. ")+
-                "No captions, logos or watermark.\n"+ending("9:16")
+                "No captions, logos or watermark.\n"+ending("16:9")
     }
     fun externalSpec(story: JSONObject, spec: FlowSceneSpec): FlowSceneSpec {
         fun label(name: String): String = FlowCast.definitions(story).firstOrNull {
@@ -179,15 +183,16 @@ Images are generated externally in Gemini; video is generated externally in Flow
     }
     private fun xml(value: String) = value.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;")
     fun flowXml(story: JSONObject, number: Int): String {
+        LandscapeProduction.requirePlan(story)
         val scenes=episode(story,number).getJSONArray("scenes")
         return buildString {
             append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<flow episode=\"$number\" status=\"template_requires_frame_review\" format=\"prompt_document_not_flow_api\">\n")
             append("  <instructions>XML เป็นเอกสารจัดบท คัดลอก motion_prompt และ dialogue ไปใช้ใน Flow ทีละฉาก พร้อมแนบภาพฉากที่ตรวจแล้ว ไม่ใช่ไฟล์รันหรือ API ของ Flow ตรวจภาพ ผู้พูด และตำแหน่งจริงก่อนใช้</instructions>\n")
             for(i in 0 until scenes.length()) {
                 val s=scenes.getJSONObject(i); val id="EP%02d_SC%03d".format(number,s.getInt("scene")); val line=speech(s.optString("dialogue")); val vo=speech(s.optString("narration"))
-                append("\n  <scene id=\"$id\" duration_seconds=\"8\" aspect_ratio=\"9:16\">\n    <start_frame>$id — ภาพฉากที่ตรวจเทียบ MASTER และยืนยันผู้พูดแล้วเท่านั้น</start_frame>\n")
+                append("\n  <scene id=\"$id\" duration_seconds=\"8\" aspect_ratio=\"16:9\">\n    <start_frame>$id — ภาพฉากที่ตรวจเทียบ MASTER และยืนยันผู้พูดแล้วเท่านั้น</start_frame>\n")
                 val audio=when { line.isNotEmpty() -> "Only ${speaker(s)} speaks this exact Thai line: $line. All others mouth closed, lips sealed."; vo.isNotEmpty() -> "External male VO: $vo. All visible characters mouth closed, lips sealed."; else -> "Silent acting, no dialogue or narration; all mouths closed, lips sealed." }
-                val spec=FlowSceneSpec(FlowReferencePrompt.people(s).map { FlowPerson(it.getString("name"),it.getString("visual_description"),it.getString("screen_position"),it.getString("outfit")) },s.optString("speaker"),line,vo,s.optString("flow_action").ifBlank { s.getString("action") },s.getString("location"),s.getString("start_state"),s.getString("end_state"),8,"9:16")
+                val spec=FlowSceneSpec(FlowReferencePrompt.people(s).map { FlowPerson(it.getString("name"),it.getString("visual_description"),it.getString("screen_position"),it.getString("outfit")) },s.optString("speaker"),line,vo,s.optString("flow_action").ifBlank { s.getString("action") },s.getString("location"),s.getString("start_state"),s.getString("end_state"),8,"16:9")
                 val motion=FlowScenePrompt.build(externalSpec(story,spec))+" FINAL AUDIO: $audio"
                 append("    <motion_prompt>${xml(motion)}</motion_prompt>\n    <dialogue speaker=\"${xml(if(line.isNotEmpty()) speaker(s) else if(vo.isNotEmpty()) "VO" else "") }\">${xml(line.ifEmpty { vo })}</dialogue>\n")
                 append("    <lighting temperature=\"5500K\" tone=\"cool_white\" source=\"reviewed_start_frame\">Preserve reviewed frame lighting; no yellow cast, no dark shadows.</lighting>\n    <typography_safe_zone position=\"lower_middle\" enabled=\"false\">Scene video has no typography; cover text belongs on separate cover images.</typography_safe_zone>\n  </scene>\n")

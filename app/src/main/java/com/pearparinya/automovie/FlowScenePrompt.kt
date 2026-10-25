@@ -12,6 +12,7 @@ internal object FlowScenePrompt {
     private fun identity(name: String) = StoryIdentity.keyFor(name.trim()) ?: name.trim()
     private fun speech(value: String) = value.trim().takeUnless { it in listOf("", "ไม่มี", "ไม่มีเสียงบรรยาย", "none", "None") }.orEmpty()
     fun issues(s: FlowSceneSpec): List<String> = buildList {
+        if(s.aspect!=LandscapeProduction.ASPECT) add("คำสั่งวิดีโอต้องเป็นแนวนอน 16:9")
         if (s.cast.isEmpty() && speech(s.dialogue).isNotEmpty()) add("ระบุตัวละครที่ปรากฏในภาพฉากนี้")
         if (s.cast.any { it.name.isBlank() }) add("ตัวละครต้องมีชื่อ")
         if (s.cast.map { identity(it.name) }.distinct().size != s.cast.size) add("ชื่อตัวละครซ้ำหรือเป็นชื่อเรียกคนเดียวกัน")
@@ -31,7 +32,7 @@ internal object FlowScenePrompt {
         val talking = s.cast.firstOrNull { identity(it.name) == identity(s.speaker) }
         fun label(p: FlowPerson) = "${p.name} [${p.appearance}; screen position: ${p.position}; wardrobe: ${p.outfit.ifBlank { "exactly as in the supplied image" }}]"
         return buildString {
-            append("Flow / Veo 3.1 Lite: ${s.duration} seconds, ${s.aspect}, locked-off static camera. Realistic Thai drama. One continuous shot.\n")
+            append("Flow / Veo 3.1 Lite: ${s.duration} seconds, ${s.aspect} horizontal widescreen, 1920 x 1080, locked-off static camera. Realistic Thai drama. One continuous shot.\n")
             append("Use the supplied scene image as the first frame. Match the following confirmed people to that image; preserve their faces, hair, outfits, screen positions, room and props.\nCHARACTER MAP:\n")
             s.cast.forEach { append("- ${label(it)}\n") }
             if (s.startState.isNotBlank()) append("START STATE: ${s.startState}\n")

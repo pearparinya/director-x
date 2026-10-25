@@ -509,7 +509,7 @@ class StudioActivity : AppCompatActivity() {
         val host = LinearLayout(this).apply { orientation = 1; setBackgroundColor(navy) }
         host.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         host.addView(TextView(this).apply {
-            text = "Veo 3.1 Lite • ${plan?.optInt("duration_seconds",8) ?: 8} วินาที • ${plan?.optString("aspect_ratio","9:16") ?: "9:16"}\nพัฒนาโดย : นายปริญญา จันทร์จักษุ"
+            text = "Veo 3.1 Lite • ${plan?.optInt("duration_seconds",8) ?: 8} วินาที • ${plan?.optString("aspect_ratio","16:9") ?: "16:9"}\nพัฒนาโดย : นายปริญญา จันทร์จักษุ"
             textSize = 11f; gravity = Gravity.CENTER; setTextColor(muted)
             setPadding(dp(10),dp(6),dp(10),dp(6))
             background = backdrop(navy,navy)
@@ -918,7 +918,7 @@ class StudioActivity : AppCompatActivity() {
         return "${name.uppercase()}.$extension"
     }
     private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList()) {
-        val text = if (lockCreation && !inputText.contains("ค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง)")) inputText + "\nค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง): EP=${prefs.getString("plan_episodes", "").orEmpty().ifBlank { "AI ประเมิน" }} ฉาก/EP=${prefs.getString("plan_scenes", "").orEmpty().ifBlank { "AI ประเมิน" }} เวลา=${prefs.getString("plan_duration", "8")} วินาที สัดส่วน=${prefs.getString("plan_ratio", "9:16")} กำหนด duration_seconds และ aspect_ratio ใน story.json และคำสั่งทุกฉากตามนี้" else inputText
+        val text = if (lockCreation && !inputText.contains("ค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง)")) inputText + "\nค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง): EP=${prefs.getString("plan_episodes", "").orEmpty().ifBlank { "AI ประเมิน" }} ฉาก/EP=${prefs.getString("plan_scenes", "").orEmpty().ifBlank { "AI ประเมิน" }} เวลา=${prefs.getString("plan_duration", "8")} วินาที สัดส่วน=${"16:9"} กำหนด duration_seconds และ aspect_ratio ใน story.json และคำสั่งทุกฉากตามนี้" else inputText
         val uris = arrayListOf<Uri>()
         val attachments = JSONArray()
         val transferId = UUID.randomUUID().toString()
@@ -1010,7 +1010,7 @@ class StudioActivity : AppCompatActivity() {
     }
 
     private fun storyVisualGuide(mode: String): String {
-        val aspect = plan?.optString("aspect_ratio","9:16") ?: "9:16"
+        val aspect = plan?.optString("aspect_ratio","16:9") ?: "16:9"
         return neutralIdentityGuide(if (mode == "new") "CHARACTER MASTER ของเรื่องนี้" else "ภาพ MASTER ที่แนบ",aspect)
     }
     private fun sceneWardrobe(scene: JSONObject, person: JSONObject): String {
@@ -1056,7 +1056,7 @@ class StudioActivity : AppCompatActivity() {
         val action=scene.optString("action").ifBlank { scene.optString("image_prompt") }
         val continuity=listOf(scene.optString("start_state"),
             "ภาพก่อนหน้าใช้ดูสถานที่และสิ่งของ ชุดยึดฉากปัจจุบัน ตัวบุคคลยึด MASTER รายคน",corrections).filter { it.isNotBlank() }.joinToString(" • ")
-        return ImagePromptPolicy.scene(details,setting,action,p.optString("aspect_ratio","9:16"),
+        return ImagePromptPolicy.scene(details,setting,action,p.optString("aspect_ratio","16:9"),
             if(p.optString("character_mode","original")=="new") "CHARACTER MASTER ที่แนบ" else "ภาพ MASTER ที่แนบ",
             scene.optString("framing"),scene.optString("lighting"),continuity,"${key(scene)}.png")
     }
@@ -1093,12 +1093,12 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun coverNames(p: JSONObject): List<String> {
         val eps = p.getJSONArray("episodes")
-        return (0 until eps.length()).flatMap { i -> listOf("9x16", "16x9").map { ratio -> "EP%02d_COVER_%s".format(eps.getJSONObject(i).getInt("ep"), ratio) } }
+        return (0 until eps.length()).flatMap { i -> listOf("16x9").map { ratio -> "EP%02d_COVER_%s".format(eps.getJSONObject(i).getInt("ep"), ratio) } }
     }
     private fun coverFile(name: String, folder: File = project) = File(folder, "covers/$name.img")
     private fun coverCommand(p: JSONObject, ep: JSONObject): String {
         val number = ep.getInt("ep")
-        val title = ep.optString("title").ifBlank { "ตั้งชื่อตอนภาษาไทยจากเหตุการณ์ของ EP นี้ ใช้ชื่อเดียวกันทั้งสองปก" }
+        val title = ep.optString("title").ifBlank { "ตั้งชื่อตอนภาษาไทยจากเหตุการณ์ของ EP นี้ ใช้ชื่อตอนเดียวกันกับบท" }
         val scenes=ep.getJSONArray("scenes")
         val people=linkedMapOf<String,JSONObject>()
         for(i in 0 until scenes.length()) {
@@ -1109,7 +1109,7 @@ class StudioActivity : AppCompatActivity() {
             val master=masterFor(person)
             "${person.getString("name")} → ${masterExportName(master,false) ?: person.optString("master")} • ${person.optString("visual_description")} • Outfit: ${person.optString("outfit")}"
         }
-        return listOf("9x16","16x9").joinToString("\n\n") { ratio ->
+        return listOf("16x9").joinToString("\n\n") { ratio ->
             FlowVisualDirection.cover(ratio,refs,p.optString("channel",originalChannel),p.getString("title"),number,title,
                 ep.optString("tagline").ifBlank { p.optString("tagline") },ep.optString("cover_incident").ifBlank { scenes.getJSONObject(0).optString("action") })
         }
@@ -1139,13 +1139,13 @@ class StudioActivity : AppCompatActivity() {
     private fun sendReferencedCovers(p: JSONObject, references: List<JSONObject>) {
         val edits = EditText(this).apply { hint = "สิ่งที่อยากปรับ เช่น สี ตัวอักษร ตำแหน่งข้อความ (เว้นว่างได้)" }
         AlertDialog.Builder(this).setTitle("ปกจากภาพฉากที่นำเข้า")
-            .setMessage("แนบภาพฉาก ${references.size} ภาพ ใช้ตัวละคร ชุด และสถานที่จากภาพเหล่านี้ สร้างปก 9:16 และ 16:9")
+            .setMessage("แนบภาพฉาก ${references.size} ภาพ ใช้ตัวละคร ชุด และสถานที่จากภาพเหล่านี้ สร้างปก 16:9")
             .setView(edits).setPositiveButton("ส่งไป ChatGPT") { _, _ ->
                 val eps = p.getJSONArray("episodes")
                 val commands = references.joinToString("\n\n") { scene ->
                     val ep = (0 until eps.length()).map { eps.getJSONObject(it) }.first { it.getInt("ep") == scene.getInt("ep") }
                     val number = ep.getInt("ep")
-                    "สร้างปก EP $number จากภาพ ${key(scene)} ที่แนบ เป็น 2 ไฟล์ EP%02d_COVER_9x16.png และ EP%02d_COVER_16x9.png จัดองค์ประกอบใหม่ให้เหมาะกับแต่ละสัดส่วน ${ImagePromptPolicy.coverReference("ภาพฉากที่แนบ")} รักษาเหตุการณ์: %s ข้อความไทย 3 บรรทัดในพื้นที่กลางภาพ เว้นขอบซ้ายขวา 10%% บนล่าง 20%% ไม่ทับใบหน้า: บรรทัด 1 ขนาดเล็ก %s | บรรทัด 2 ใหญ่ที่สุด %s | บรรทัด 3 EP %02d • %s ปรับขนาดให้ครบ อ่านชัดบนมือถือ".format(number,number,scene.optString("action"),p.optString("channel",originalChannel),p.getString("title"),number,ep.optString("title").ifBlank { "ตั้งชื่อตอนภาษาไทยตามเหตุการณ์" })
+                    "สร้างปก EP $number จากภาพ ${key(scene)} ที่แนบ เป็นหนึ่งไฟล์ EP%02d_COVER_16x9.png จัดองค์ประกอบใหม่ให้เหมาะกับแต่ละสัดส่วน ${ImagePromptPolicy.coverReference("ภาพฉากที่แนบ")} รักษาเหตุการณ์: %s ข้อความไทย 3 บรรทัดในพื้นที่กลางภาพ เว้นขอบซ้ายขวา 10%% บนล่าง 20%% ไม่ทับใบหน้า: บรรทัด 1 ขนาดเล็ก %s | บรรทัด 2 ใหญ่ที่สุด %s | บรรทัด 3 EP %02d • %s ปรับขนาดให้ครบ อ่านชัดบนมือถือ".format(number,scene.optString("action"),p.optString("channel",originalChannel),p.getString("title"),number,ep.optString("title").ifBlank { "ตั้งชื่อตอนภาษาไทยตามเหตุการณ์" })
                 }
                 shareText("ใช้ภาพฉากที่แนบจากชุดงานที่นำเข้าเป็นต้นแบบปก แก้จากภาพเดิม โดยคงชุดและสถานที่ของภาพนั้น\nสิ่งที่ผู้ใช้ขอปรับ: ${edits.text.toString().ifBlank { "ออกแบบปกให้สวยงาม อ่านชัด" }}\n$commands\nแสดงปกจริงแยกไฟล์ และรวมเฉพาะปกที่สร้างใน ZIP สำหรับนำเข้ากลับ DIRECTOR X หากสร้างไม่ได้ให้แจ้งตามจริง", includeMasters = false, referenceImages = references.map { key(it) to image(it) })
             }.setNegativeButton("ยกเลิก",null).showDirector()
@@ -1239,7 +1239,7 @@ class StudioActivity : AppCompatActivity() {
                 val specFile=File(job,"spec.json")
                 val spec=JSONObject(specFile.readText())
                 val scenes=orderedMovieScenes(episodes.getJSONObject(i))
-                val inputs=listOf(coverFile("EP%02d_COVER_9x16".format(ep)))+scenes.map { video(it) }
+                val inputs=listOf(coverFile("EP%02d_COVER_16x9".format(ep)))+scenes.map { video(it) }
                 val saved=spec.getJSONArray("clips")
                 saved.length()==scenes.size && (0 until saved.length()).all { saved.getString(it)==video(scenes[it]).path } &&
                     spec.optString("cover")==inputs.first().path && inputs.all { it.isFile && it.lastModified()<=specFile.lastModified() }
@@ -1264,6 +1264,7 @@ class StudioActivity : AppCompatActivity() {
             enabled=current!=null,completed=finished,currentStep=active,statusText=when { current==null -> "รอบทสำหรับจับคู่คลิป"; finished -> "รวม EP ครบแล้ว"; clipCount<sceneCount -> "รับคลิป / ทำต่อได้"; else -> "คลิปครบ • พร้อมรวม EP" }) {
             choiceMenu("งานวิดีโอและ EP",listOf("EP / ซีน • ตรวจภาพก่อนสร้างคลิป","รวม EP / ดาวน์โหลด MP4")) { if(it==0) episodesMenu() else moviesMenu() }
         }
+        if(current!=null && current.optString("aspect_ratio","9:16")!="16:9") button("↔ สร้างสำเนาเรื่องแนวนอน 16:9",false) { landscapeCopyMenu() }
         label("เครื่องมือเสริม",15,true)
         button("⚙️ AutoDirector v18 • ภาพ Gemini / วิดีโอ Flow",false) { autoDirectorMenu() }
         button("🧪 ทดสอบสร้างวิดีโอ • เลือกตัวละคร",false) { flowTestMenu() }
@@ -1355,6 +1356,23 @@ class StudioActivity : AppCompatActivity() {
                 }.setNeutralButton("ตั้งค่า API") { _,_ -> geminiSettings() }.setNegativeButton("ปิด",null).showDirector()
         }
     }
+    private fun landscapeCopyMenu() {
+        val source=plan ?: return notice("ยังไม่มีบทให้ทำสำเนา")
+        AlertDialog.Builder(this).setTitle("สร้างสำเนาแนวนอน 16:9")
+            .setMessage("เก็บเรื่องเดิมไว้ แล้วทำสำเนาบทกับ MASTER เพื่อสร้างปก ภาพ และวิดีโอใหม่เป็นแนวนอน 1920×1080 • ไม่ยืดหรือครอปภาพ/คลิปเก่าอัตโนมัติ ต้องตรวจภาพใหม่ก่อนใช้ Flow")
+            .setPositiveButton("สร้างสำเนา") { _,_ ->
+                val original=project
+                val folder=File(base,UUID.randomUUID().toString())
+                runCatching {
+                    folder.mkdirs()
+                    listOf("original_masters","masters").forEach { name -> val refs=File(original,name); if(refs.isDirectory) check(refs.copyRecursively(File(folder,name))) }
+                    val copy=LandscapeProduction.copyPlan(source).put("landscape_copy_of",original.name)
+                    GeminiStoryFiles.write(File(folder,"story.json"),copy)
+                    prefs.edit().putString("project",folder.name).apply(); render()
+                    notice("สร้างสำเนาแนวนอนแล้ว • สร้างปกและภาพใหม่ จากนั้นนำเข้ามาตรวจและสร้างวิดีโอ 16:9")
+                }.onFailure { folder.deleteRecursively(); notice(it.message ?: "สร้างสำเนาไม่ได้") }
+            }.setNegativeButton("ยกเลิก",null).showDirector()
+    }
     private fun autoDirectorMenu() {
         choiceMenu("AutoDirector v18",listOf("สร้างเรื่องใหม่ • สุ่มหมวด / พล็อต","Phase 1 • ดูโครงเรื่องที่เปิด","Phase 2–4 • ทำงานทีละ EP","ส่งออก ZIP • Gemini + บทพูด + Flow XML","คัดลอกทั้งหมด • Gemini next")) { action ->
             if(action==0) { flowPlanning(true); return@choiceMenu }
@@ -1363,6 +1381,7 @@ class StudioActivity : AppCompatActivity() {
             if(story.optString("content_profile")!=AutoDirectorContent.profile) {
                 notice("เรื่องนี้ใช้รูปแบบเดิม เลือกสร้างเรื่องใหม่ใน AutoDirector v18 เพื่อใช้บท 24 ฉาก เสื้อผ้า 4 ส่วน และไฟล์ Gemini / Flow XML"); return@choiceMenu
             }
+            if(story.optString("aspect_ratio","9:16")!="16:9") { landscapeCopyMenu(); return@choiceMenu }
             val wardrobeIssues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(story))
             if(action>=2 && wardrobeIssues.isNotEmpty()) { notice(wardrobeIssues.take(12).joinToString("\n")); return@choiceMenu }
             val revision=EpisodeMedia.digest(File(project,"story.json"))
@@ -1489,6 +1508,7 @@ class StudioActivity : AppCompatActivity() {
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
     private fun flowSceneMenu(s: JSONObject) {
+        if(plan?.optString("aspect_ratio","9:16")!="16:9") { landscapeCopyMenu(); return }
         choiceMenu("${key(s)} • ${if(sceneFrameApproved(s)) "ภาพผ่านแล้ว" else "รอตรวจภาพ"}",listOf("1. สร้างภาพฉากจาก MASTER","3. สร้างวิดีโอจากภาพที่ผ่าน","แก้บท / ชุด / สถานที่","นำเข้าภาพจาก Gemini / Flow","นำเข้าคลิป MP4","2. เทียบ MASTER / ยืนยันภาพ","ดูคลิป","เวอร์ชันไฟล์")) { i -> when(i) {
             0 -> if(plan?.optString("content_profile")==AutoDirectorContent.profile) {
                 val issues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(plan!!))
@@ -1591,18 +1611,18 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
 ตั้งชื่อเรื่องเป็นภาษาไทยเท่านั้น ใส่ชื่อภาษาไทยในค่า title ของ story.json และตั้งชื่อไฟล์ ZIP เป็นชื่อเรื่องภาษาไทย.zip ห้ามใช้ชื่อหมวดภาษาอังกฤษเป็นชื่อเรื่องหรือชื่อ ZIP
 สร้างชื่อเรื่องและพล็อตให้ตรงหมวดนี้ ใช้ค่า category ใน story.json เป็น "$category" ตรงทุกตัวอักษร
 เกณฑ์ Auto EP: ห้ามใช้ 3 EP เป็นค่าเริ่มต้นซ้ำโดยไม่มีเหตุผล เรื่องสั้นปมเดียวใช้ 1–2 EP เรื่องระดับกลางมีจุดพลิกใช้ 3–4 EP เรื่องซับซ้อนหลายความสัมพันธ์หรือหลายปมใช้ 5–6 EP เลือกเท่าที่จำเป็นเพื่อเล่าจบ ไม่ยืดเรื่อง และอธิบายเหตุผลหนึ่งประโยคก่อนตาราง หากค่าตั้งต้นผู้ใช้กำหนดตัวเลข EP ให้ใช้ตัวเลขนั้นแทนเกณฑ์ Auto บันทึกเหตุผลเดียวกันใน story.json ด้วยฟิลด์ episode_reason
-ประเมินจำนวน EP และฉากตามเนื้อหาเอง สำหรับ Flow / Veo 3.1 Lite ทุกฉาก 8 วินาที แนวตั้ง 9:16 Locked-off static camera ${if (mode == "original") "ตัวละครหลัก กวิน รินรดา เมย์ อ้างอิง MASTER ของแต่ละคนเพื่อรักษาเอกลักษณ์ ใบหน้า ทรงผม ช่วงวัย และบุคลิกตรงรายคน" else "สร้างชื่อ ใบหน้า และทรงผมใหม่สำหรับตัวละครของเรื่องนี้ ก่อนสร้างแต่ละ CHARACTER MASTER ให้เลือก GAWIN_MASTER, RINLADA_MASTER หรือ MIND_MASTER หนึ่งภาพเป็น design_reference ด้านสไตล์ภาพ ความสมจริง และการจัดเฟรม กระจายการเลือกให้เหมาะกับตัวละครใหม่ บันทึกชื่อ design_reference ไว้ใน bible แล้วสร้าง CHARACTER_01.png, CHARACTER_02.png ตามจำนวนที่ต้องใช้ ใช้ CHARACTER MASTER ใหม่เดิมอย่างต่อเนื่องทุกฉาก"}\n${storyVisualGuide(mode)}\nใช้วิธีเดียวกับการทดสอบสร้างภาพ: MASTER รายคนเป็นต้นฉบับของตัวละคร ชุด สถานที่และการกระทำเป็นข้อมูลใหม่ตามบท เขียน image_prompt พร้อมใช้ของแต่ละฉากอย่างกระชับ: ตัวละครและ MASTER รายคน → ชุดรายคน → สถานที่และสิ่งของ → การกระทำ → สีหน้าและสายตา ระบุชนิด สี และทรงชุดให้เหมาะกับบทบาท รวมทั้งสถานที่จริงในแต่ละฉากเพื่อสร้างซ้ำได้ ชุดเปลี่ยนตามวันหรือเหตุการณ์ และคงเดิมในเหตุการณ์ต่อเนื่อง ใช้คำสั่งสั้นแบบ ตัวละครอ้างอิง → ชุด → สถานที่ → การกระทำ → รูปแบบภาพ ระบุลักษณะใบหน้า ผมและเครื่องประดับเฉพาะที่เห็นจาก MASTER ไม่แต่งรายละเอียดที่ไม่ทราบ ไม่อ้างว่าล็อกความเหมือนเป็นเปอร์เซ็นต์ เลือกระยะภาพและแสงตามกิจกรรม ไม่กำหนดเอวขึ้นไปทุกฉาก ใช้คำอธิบายเชิงบวกสั้น ๆ เหตุการณ์ทุกฉากมาจากบทของเรื่องนี้ จบปมครบทุกเรื่อง ผู้พูดแต่ละฉากชัดเจน แยก speaker และ narration ผู้บรรยายชายเป็นเสียงนอกภาพ ตัวละครไม่ขยับปากตามเสียงบรรยาย
+ประเมินจำนวน EP และฉากตามเนื้อหาเอง สำหรับ Flow / Veo 3.1 Lite ทุกฉาก 8 วินาที แนวนอน 16:9 Locked-off static camera ${if (mode == "original") "ตัวละครหลัก กวิน รินรดา เมย์ อ้างอิง MASTER ของแต่ละคนเพื่อรักษาเอกลักษณ์ ใบหน้า ทรงผม ช่วงวัย และบุคลิกตรงรายคน" else "สร้างชื่อ ใบหน้า และทรงผมใหม่สำหรับตัวละครของเรื่องนี้ ก่อนสร้างแต่ละ CHARACTER MASTER ให้เลือก GAWIN_MASTER, RINLADA_MASTER หรือ MIND_MASTER หนึ่งภาพเป็น design_reference ด้านสไตล์ภาพ ความสมจริง และการจัดเฟรม กระจายการเลือกให้เหมาะกับตัวละครใหม่ บันทึกชื่อ design_reference ไว้ใน bible แล้วสร้าง CHARACTER_01.png, CHARACTER_02.png ตามจำนวนที่ต้องใช้ ใช้ CHARACTER MASTER ใหม่เดิมอย่างต่อเนื่องทุกฉาก"}\n${storyVisualGuide(mode)}\nใช้วิธีเดียวกับการทดสอบสร้างภาพ: MASTER รายคนเป็นต้นฉบับของตัวละคร ชุด สถานที่และการกระทำเป็นข้อมูลใหม่ตามบท เขียน image_prompt พร้อมใช้ของแต่ละฉากอย่างกระชับ: ตัวละครและ MASTER รายคน → ชุดรายคน → สถานที่และสิ่งของ → การกระทำ → สีหน้าและสายตา ระบุชนิด สี และทรงชุดให้เหมาะกับบทบาท รวมทั้งสถานที่จริงในแต่ละฉากเพื่อสร้างซ้ำได้ ชุดเปลี่ยนตามวันหรือเหตุการณ์ และคงเดิมในเหตุการณ์ต่อเนื่อง ใช้คำสั่งสั้นแบบ ตัวละครอ้างอิง → ชุด → สถานที่ → การกระทำ → รูปแบบภาพ ระบุลักษณะใบหน้า ผมและเครื่องประดับเฉพาะที่เห็นจาก MASTER ไม่แต่งรายละเอียดที่ไม่ทราบ ไม่อ้างว่าล็อกความเหมือนเป็นเปอร์เซ็นต์ เลือกระยะภาพและแสงตามกิจกรรม ไม่กำหนดเอวขึ้นไปทุกฉาก ใช้คำอธิบายเชิงบวกสั้น ๆ เหตุการณ์ทุกฉากมาจากบทของเรื่องนี้ จบปมครบทุกเรื่อง ผู้พูดแต่ละฉากชัดเจน แยก speaker และ narration ผู้บรรยายชายเป็นเสียงนอกภาพ ตัวละครไม่ขยับปากตามเสียงบรรยาย
 แผนความต่อเนื่องของตัวละคร: เก็บชื่อ → ไฟล์ MASTER ตายตัวใน bible: กวิน → GAWIN_MASTER, รินรดา → RINLADA_MASTER, เมย์ → MIND_MASTER ใช้นามสกุล .png/.jpg/.webp ตามไฟล์ภาพที่แนบ โดยชื่อฐานจับคู่ตรงคน สำหรับช่องตัวละครใหม่ใช้ชื่อใหม่ → CHARACTER_01.png ตามที่สร้าง แต่ละฉากมี characters เฉพาะคนที่ปรากฏ พร้อม name, master, outfit ระบุ location และ continuity_group เหตุการณ์เดียวกันใช้รหัสกลุ่มเดียวกัน ชุดและรายละเอียดสถานที่เหมือนเดิม เมื่อเปลี่ยนวันหรือเหตุการณ์จึงเปลี่ยนกลุ่ม
 ระบบตัวละครกับชุด: MASTER ใช้ใบหน้า ผม สีผิวและรูปร่างรายคน เสื้อผ้าใน MASTER เป็นเพียงชุดในภาพอ้างอิง ทุกฉากต้องมี story_day, story_time, activity และ wardrobe_event เมื่อประชุมให้ใช้ชุดประชุม กลับบ้านเปลี่ยนชุดอยู่บ้าน เข้านอนเปลี่ยนชุดนอน เปลี่ยนวันให้เลือกชุดใหม่ตามบท (ยกเว้นชุดทำงานที่ต้องเหมือนเดิม) เหตุการณ์ต่อเนื่องในวันเดียวกันและกิจกรรมเดียวกันให้คงชุดเดิม เปลี่ยนวันหรือเปลี่ยนกิจกรรมให้ขึ้น wardrobe_event ใหม่ กำหนด outfit รายคนและ wardrobe_change=true เมื่อเปลี่ยนชุดจริง ชุดที่ผู้ใช้ระบุมีลำดับสูงสุด แยกเสียงผู้พูดออกจากรูปร่างและเสื้อผ้า
 การต่อฉาก: ระบุ start_state และ end_state ทุกฉาก ให้สถานะต้นฉากต่อจากท้ายฉากก่อน รวมผู้ถือและตำแหน่งอุปกรณ์ การเข้าออกของตัวละคร วันเวลาและสถานที่ ห้ามย้ายซอง เอกสาร หรือคนโดยไม่มีจังหวะส่งต่อ ข้าม EP ต่อเหตุการณ์เดิมให้ใช้สถานะเดิม ปิดคำถามที่เปิดไว้ เช่น เหตุผลการโอนเงิน ก่อนจบเรื่อง
 การกำหนดคนพูด: characters ทุกคนต้องมี visual_description (ทรงผมและลักษณะเด่น) และ screen_position ตามองค์ประกอบภาพที่วางแผน ชื่ออย่างเดียวไม่พอ หลังเห็นภาพจริงต้องตรวจตำแหน่งอีกครั้ง ไม่เดาซ้ายขวา เขียน flow_prompt เป็น CHARACTER MAP ชื่อ + ลักษณะ + ชุด + ตำแหน่ง แล้วระบุผู้พูดเพียงหนึ่งคนกับบทพูดหนึ่งครั้ง ผู้ฟังทุกคนปิดปากและแสดงปฏิกิริยาเงียบ แยกฉากบทพูดจากเสียงบรรยาย ผู้บรรยายเป็นเสียงนอกภาพและไม่มีใครขยับปากตาม ระยะเวลาต้องพอกับบท หากยาวให้ย่อหรือแยกฉาก ไม่ให้แย่งกันพูด
-คำสั่งภาพแต่ละฉากใช้ต้นแบบสั้น: สร้างภาพฉากละครจากไฟล์อ้างอิงที่แนบ คงใบหน้า ทรงผม สีผิว และสัดส่วนรูปร่างโดยรวมตาม MASTER ไม่เพิ่มหรือลดเอง ${ImagePromptPolicy.referenceAppeal} ใช้ชุดที่ระบุในฉาก วันและเหตุการณ์ต่อเนื่องใช้ชุดเดิม เปลี่ยนเมื่อวันเวลา กิจกรรม หรือบทกำหนด แนวตั้งตาม aspect_ratio แล้วเติมชื่อและ MASTER ตรงรายคน ชุด สถานที่ การกระทำ และความต่อเนื่องของฉาก ไม่เพิ่มรายการกำกับสรีระยาวซ้ำทุกฉาก ไม่สร้างภาพทดสอบเพิ่มเป็นขั้นบังคับ ผู้ใช้เลือกทดสอบรายคนได้เมื่อจำเป็น\nก่อนใช้เครื่องมือสร้างภาพแต่ละฉาก อ้างอิง MASTER ต้นฉบับตรงรายคนอีกครั้ง ใช้ภาพฉากก่อนหน้าในกลุ่มเดียวกันเป็นตัวช่วยเรื่องสถานที่และสิ่งของ ชุดยึดข้อมูลฉากปัจจุบันเป็นหลักและใช้ภาพก่อนหน้ารักษารายละเอียดเมื่อเป็นชุดเดียวกัน โดยใบหน้าและรูปร่างยึด MASTER เป็นหลัก ตรวจชื่อและชุดของแต่ละคนก่อนส่งสร้าง ไม่ใช้ภาพที่คลาดเคลื่อนแทน MASTER หากขาดต้นฉบับให้แจ้งก่อนสร้าง
+คำสั่งภาพแต่ละฉากใช้ต้นแบบสั้น: สร้างภาพฉากละครจากไฟล์อ้างอิงที่แนบ คงใบหน้า ทรงผม สีผิว และสัดส่วนรูปร่างโดยรวมตาม MASTER ไม่เพิ่มหรือลดเอง ${ImagePromptPolicy.referenceAppeal} ใช้ชุดที่ระบุในฉาก วันและเหตุการณ์ต่อเนื่องใช้ชุดเดิม เปลี่ยนเมื่อวันเวลา กิจกรรม หรือบทกำหนด แนวนอนตาม aspect_ratio แล้วเติมชื่อและ MASTER ตรงรายคน ชุด สถานที่ การกระทำ และความต่อเนื่องของฉาก ไม่เพิ่มรายการกำกับสรีระยาวซ้ำทุกฉาก ไม่สร้างภาพทดสอบเพิ่มเป็นขั้นบังคับ ผู้ใช้เลือกทดสอบรายคนได้เมื่อจำเป็น\nก่อนใช้เครื่องมือสร้างภาพแต่ละฉาก อ้างอิง MASTER ต้นฉบับตรงรายคนอีกครั้ง ใช้ภาพฉากก่อนหน้าในกลุ่มเดียวกันเป็นตัวช่วยเรื่องสถานที่และสิ่งของ ชุดยึดข้อมูลฉากปัจจุบันเป็นหลักและใช้ภาพก่อนหน้ารักษารายละเอียดเมื่อเป็นชุดเดียวกัน โดยใบหน้าและรูปร่างยึด MASTER เป็นหลัก ตรวจชื่อและชุดของแต่ละคนก่อนส่งสร้าง ไม่ใช้ภาพที่คลาดเคลื่อนแทน MASTER หากขาดต้นฉบับให้แจ้งก่อนสร้าง
 ส่งไฟล์ story.json เป็น JSON ไม่มี markdown โครงสร้าง:
-{"schema_version":3,"channel":${JSONObject.quote(channel)},"character_mode":"$mode","title":"ชื่อเรื่อง","category":${JSONObject.quote(category)},"tagline":"คำโปรยเรื่อง","episode_count":1,"scene_count":1,"bible":"ความสัมพันธ์และพล็อต","episodes":[{"ep":1,"title":"ชื่อตอนภาษาไทย","tagline":"คำโปรยตอน","scene_count":1,"scenes":[{"scene":1,"characters":[{"name":"ชื่อตัวละครที่อยู่ในฉาก","master":"ชื่อไฟล์ MASTER ตรงรายคน","outfit":"ชุดตามวันเวลาและกิจกรรม ระบุชนิดและสี","wardrobe_change":false,"accessories":"เครื่องประดับตามบท หรือว่างเมื่อไม่ใส่","visual_description":"ทรงผมและลักษณะเด่นจาก MASTER รายคน","screen_position":"ตำแหน่งที่วางแผนในภาพ ต้องยืนยันกับภาพจริงก่อนใช้ Flow"}],"story_day":"DAY01","activity":"meeting / work / home / sleep / exercise / casual / formal","wardrobe_event":"DAY01_MEETING","story_time":"เวลาในเรื่อง","location":"สถานที่และสิ่งของหลัก","framing":"ระยะภาพที่เห็นกิจกรรมครบ เช่น ศีรษะถึงเข่าหรือเต็มตัวตามบท","lighting":"แสงตามเวลาและสถานที่","continuity_group":"DAY01_LOCATION01_EVENT01","start_state":"สถานะต่อจากท้ายฉากก่อน รวมตำแหน่งคนและสิ่งของ","end_state":"สถานะที่ส่งต่อฉากถัดไป","flow_action":"One visible action in English","action":"เหตุการณ์","dialogue":"บทพูดภาษาไทย","speaker":"ชื่อผู้พูดหรือว่างเมื่อไม่มีบทพูด","narration":"เสียงบรรยายชายหรือว่าง","image_prompt":"ตัวละครและ MASTER ตรงรายคน คงใบหน้า ผม สีผิวและรูปร่างตามภาพอ้างอิง; ชุดตามฉากปัจจุบันระบุชนิดและสี; สถานที่และสิ่งของ; การกระทำ สีหน้าและสายตาตามบท; ภาพละครไทยสมจริง 9:16 เห็นการกระทำครบ ไม่มีข้อความ","flow_prompt":"Flow / Veo 3.1 Lite: English prompt + Thai speech, 8 seconds, 9:16, locked-off static camera"}]}]}
+{"schema_version":3,"channel":${JSONObject.quote(channel)},"character_mode":"$mode","title":"ชื่อเรื่อง","category":${JSONObject.quote(category)},"tagline":"คำโปรยเรื่อง","episode_count":1,"scene_count":1,"bible":"ความสัมพันธ์และพล็อต","episodes":[{"ep":1,"title":"ชื่อตอนภาษาไทย","tagline":"คำโปรยตอน","scene_count":1,"scenes":[{"scene":1,"characters":[{"name":"ชื่อตัวละครที่อยู่ในฉาก","master":"ชื่อไฟล์ MASTER ตรงรายคน","outfit":"ชุดตามวันเวลาและกิจกรรม ระบุชนิดและสี","wardrobe_change":false,"accessories":"เครื่องประดับตามบท หรือว่างเมื่อไม่ใส่","visual_description":"ทรงผมและลักษณะเด่นจาก MASTER รายคน","screen_position":"ตำแหน่งที่วางแผนในภาพ ต้องยืนยันกับภาพจริงก่อนใช้ Flow"}],"story_day":"DAY01","activity":"meeting / work / home / sleep / exercise / casual / formal","wardrobe_event":"DAY01_MEETING","story_time":"เวลาในเรื่อง","location":"สถานที่และสิ่งของหลัก","framing":"ระยะภาพที่เห็นกิจกรรมครบ เช่น ศีรษะถึงเข่าหรือเต็มตัวตามบท","lighting":"แสงตามเวลาและสถานที่","continuity_group":"DAY01_LOCATION01_EVENT01","start_state":"สถานะต่อจากท้ายฉากก่อน รวมตำแหน่งคนและสิ่งของ","end_state":"สถานะที่ส่งต่อฉากถัดไป","flow_action":"One visible action in English","action":"เหตุการณ์","dialogue":"บทพูดภาษาไทย","speaker":"ชื่อผู้พูดหรือว่างเมื่อไม่มีบทพูด","narration":"เสียงบรรยายชายหรือว่าง","image_prompt":"ตัวละครและ MASTER ตรงรายคน คงใบหน้า ผม สีผิวและรูปร่างตามภาพอ้างอิง; ชุดตามฉากปัจจุบันระบุชนิดและสี; สถานที่และสิ่งของ; การกระทำ สีหน้าและสายตาตามบท; ภาพละครไทยสมจริง 16:9 เห็นการกระทำครบ ไม่มีข้อความ","flow_prompt":"Flow / Veo 3.1 Lite: English prompt + Thai speech, 8 seconds, 16:9, locked-off static camera"}]}]}
 การส่งชุดงานสุดท้าย: ส่ง story.json เป็นไฟล์แยก และส่งภาพฉากกับปกเป็น ZIP แยกราย EP ใช้ MASTER เป็นภาพอ้างอิงระหว่างสร้าง แต่ไม่ใส่ไฟล์ภาพ MASTER หรือโฟลเดอร์ MASTER/characters ลงใน ZIP คำสั่ง Flow รวมหนึ่งไฟล์ต่อ EP: EP01_FLOW.txt, EP02_FLOW.txt ตามจำนวนตอนจริง แต่ละไฟล์มีชื่อตอนและทุกซีนเรียงเลข แต่ละซีนแสดงเลขฉาก เหตุการณ์ บทพูด และคำสั่ง Flow แยกเป็นบล็อกสำหรับคัดลอกทีละซีน ไม่แยกเป็นไฟล์ Flow รายซีน คำสั่ง flow_prompt ใน story.json ยังต้องครบทุกซีนตามเดิม
 ตัวเลข 1 ในตัวอย่างเป็นเพียงรูปแบบ ต้องแทนด้วยจำนวนจริงของบทเต็ม เพิ่ม EP และฉากเท่าที่เรื่องต้องใช้ เรียงเลขจาก 1 ไม่กำหนดจำนวนตายตัว หลังวางบททั้งเรื่อง ต้องส่ง story.json เป็นไฟล์ดาวน์โหลดแยกทันที ก่อนเริ่มสร้างภาพ ห้ามรอใส่ story.json ไว้ท้าย ZIP เท่านั้น จากนั้นใช้เครื่องมือสร้างภาพและแสดงภาพจริงในแชตแยกหนึ่งฉากหนึ่งไฟล์ตามลำดับครบทุก EP จนจบ ตั้งชื่อ EP01_SC001.png ตามเลข EP และฉาก ไม่ทำภาพรวมหลายฉาก ${if (mode == "original") "ใช้ MASTER ที่แนบให้ตรงรายคน" else "ใช้ CHARACTER MASTER ใหม่ที่สร้างสำหรับเรื่องนี้ตรงรายคน"} พร้อมคำสั่งสำหรับ Flow / Veo 3.1 Lite ทุกฉาก ผู้ใช้ต้องการบทและภาพพร้อมนำไปทำวิดีโอ
 เพื่อป้องกันไฟล์ขนาดใหญ่ถูกตัด ให้ส่ง ZIP แยกหนึ่งไฟล์ต่อ EP ชื่อ EP01_IMAGES.zip, EP02_IMAGES.zip ตามจริง แต่ละ ZIP ใส่เฉพาะภาพฉากและปกของ EP นั้น หลังสร้าง ZIP แต่ละ EP ให้เปิดตรวจว่าอ่านได้ ตรวจจำนวนภาพฉากและปก แล้วรายงานจำนวนที่ตรวจจริง ห้ามแจ้งว่าครบจากแผนโดยไม่ตรวจไฟล์ ห้ามรวมภาพทุก EP เป็น ZIP ก้อนใหญ่ไฟล์เดียว
-หลังสร้างฉากสุดท้ายของแต่ละ EP ให้สร้างปกแยก 2 ไฟล์ทันที: EP01_COVER_9x16.png ขนาด 9:16 และ EP01_COVER_16x9.png ขนาด 16:9 เปลี่ยนเลขตาม EP จัดองค์ประกอบแต่ละสัดส่วนใหม่ ใช้ตัวละครจาก MASTER รายคน สื่อเหตุการณ์เด่นของตอนนั้น ข้อความภาษาไทย 3 บรรทัดจัดกึ่งกลางในพื้นที่กลางภาพ เว้นขอบซ้ายขวาอย่างน้อย 10% และขอบบนล่าง 20%: บรรทัด 1 ชื่อช่อง (เล็กกว่า), บรรทัด 2 ชื่อเรื่อง (ใหญ่ที่สุด), บรรทัด 3 EP 01 • ชื่อตอน (ขนาดรอง) ปรับขนาดอักษรให้ครบทั้งบรรทัด อ่านชัดบนมือถือ ไม่ทับใบหน้า ชื่อเรื่องและชื่อตอนต้องตรง story.json รวมปกไว้ใน ZIP ราย EP ที่ตรงกับเลขตอนด้วย""", lockCreation = true, includeMasters=false, referenceImages=listOf("gawin","rinlada","mind").map { id -> val file=File(filesDir,"character_masters/$id.master"); "${id.uppercase()}_MASTER" to file })
+หลังสร้างฉากสุดท้ายของแต่ละ EP ให้สร้างปกแนวนอนหนึ่งไฟล์ทันที: EP01_COVER_16x9.png ขนาด 16:9 เปลี่ยนเลขตาม EP จัดองค์ประกอบแต่ละสัดส่วนใหม่ ใช้ตัวละครจาก MASTER รายคน สื่อเหตุการณ์เด่นของตอนนั้น ข้อความภาษาไทย 3 บรรทัดจัดกึ่งกลางในพื้นที่กลางภาพ เว้นขอบซ้ายขวาอย่างน้อย 10% และขอบบนล่าง 20%: บรรทัด 1 ชื่อช่อง (เล็กกว่า), บรรทัด 2 ชื่อเรื่อง (ใหญ่ที่สุด), บรรทัด 3 EP 01 • ชื่อตอน (ขนาดรอง) ปรับขนาดอักษรให้ครบทั้งบรรทัด อ่านชัดบนมือถือ ไม่ทับใบหน้า ชื่อเรื่องและชื่อตอนต้องตรง story.json รวมปกไว้ใน ZIP ราย EP ที่ตรงกับเลขตอนด้วย""", lockCreation = true, includeMasters=false, referenceImages=listOf("gawin","rinlada","mind").map { id -> val file=File(filesDir,"character_masters/$id.master"); "${id.uppercase()}_MASTER" to file })
         }.setNegativeButton("ยกเลิก",null).showDirector()
     }
     private fun sceneCommands() {
@@ -1780,7 +1800,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         }, s.optString("speaker"), s.optString("dialogue"), s.optString("narration"),
             s.optString("flow_action").ifBlank { s.optString("action") }, s.optString("location"),
             s.optString("start_state"), s.optString("end_state"),
-            plan?.optInt("duration_seconds",8) ?: 8, plan?.optString("aspect_ratio","9:16") ?: "9:16")
+            plan?.optInt("duration_seconds",8) ?: 8, plan?.optString("aspect_ratio","16:9") ?: "16:9")
     }
     private fun flowMappingCurrent(s: JSONObject): Boolean = image(s).exists() &&
         s.optLong("flow_image_revision",-1L) == image(s).lastModified()
@@ -1788,8 +1808,14 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         if (!sceneFrameApproved(s) || FlowScenePrompt.issues(flowSpec(s)).isNotEmpty()) return "ยังไม่พร้อมส่ง Flow • เปิดภาพ ${key(s)} และยืนยันลักษณะ/ตำแหน่งผู้พูดในเมนูกำหนดตัวละครก่อน ไม่เดาตำแหน่งจากข้อความบท"
         return FlowScenePrompt.build(flowSpec(s))
     }
-    private fun sceneFrameApproved(s: JSONObject): Boolean = SceneFrameReview.current(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) },flowSpec(s).toString())
+    private fun landscapeSceneImage(file: File): Boolean {
+        val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
+        android.graphics.BitmapFactory.decodeFile(file.path,bounds)
+        return bounds.outHeight>0 && kotlin.math.abs(bounds.outWidth.toDouble()/bounds.outHeight-16.0/9)<0.04
+    }
+    private fun sceneFrameApproved(s: JSONObject): Boolean = landscapeSceneImage(image(s)) && SceneFrameReview.current(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) },flowSpec(s).toString())
     private fun reviewedVideoCommand(s: JSONObject, copy: Boolean=false) {
+        if(plan?.optString("aspect_ratio","9:16")!="16:9") { landscapeCopyMenu(); return }
         if(plan?.optString("content_profile")==AutoDirectorContent.profile) {
             val issues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(plan!!))
             if(issues.isNotEmpty()) { notice(issues.take(12).joinToString("\n")); return }
@@ -1803,6 +1829,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
     private fun copyFlowCommand(s: JSONObject) { reviewedVideoCommand(s,true) }
     private fun mapFlowCharacters(s: JSONObject) {
         if (!image(s).exists()) { notice("นำเข้าภาพฉากนี้ก่อนกำหนดตัวละคร"); return }
+        if(!landscapeSceneImage(image(s))) { notice("ภาพฉากต้องเป็นแนวนอน 16:9 ก่อนยืนยัน • สร้างภาพใหม่ใน Gemini แล้วนำเข้าอีกครั้ง"); return }
         val cast = s.optJSONArray("characters") ?: JSONArray()
         if (cast.length() == 0) { notice("บทฉากนี้ขาดรายการตัวละคร กรุณาแก้บทก่อนยืนยันภาพ"); return }
         val panel = LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
@@ -1876,7 +1903,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             if(!master.exists()) { notice("ขาด MASTER ของ $name"); return@choiceMenu }
             if(!review) {
                 val exported=masterExportName(master,person.optString("master").startsWith("CHARACTER",true)) ?: return@choiceMenu
-                val command=BodyReferencePolicy.singleCheck(name,exported,if(detailedImageProfiles) memoryBrief(person) else "",sceneWardrobe(s,person),plan?.optString("aspect_ratio","9:16") ?: "9:16")
+                val command=BodyReferencePolicy.singleCheck(name,exported,if(detailedImageProfiles) memoryBrief(person) else "",sceneWardrobe(s,person),plan?.optString("aspect_ratio","16:9") ?: "16:9")
                 shareText(command,includeMasters=false,referenceImages=listOf(exported.substringBeforeLast('.') to master))
             } else {
                 if(!image(s).exists()) { notice("นำเข้าภาพฉากก่อนตรวจ"); return@choiceMenu }
@@ -1978,7 +2005,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             if (change.isBlank()) { notice("ระบุส่วนที่ต้องแก้ก่อน"); return@setPositiveButton }
             val cast = s.optJSONArray("characters") ?: JSONArray()
             val refs = (0 until cast.length()).map { cast.getJSONObject(it) }.map { (masterExportName(masterFor(it),it.optString("master").startsWith("CHARACTER",true)) ?: it.optString("master")).substringBeforeLast('.') to masterFor(it) } + (key(s) to image(s))
-            shareText(ImagePromptPolicy.edit("ภาพฉาก ${key(s)}",change,plan?.optString("aspect_ratio","9:16") ?: "9:16",
+            shareText(ImagePromptPolicy.edit("ภาพฉาก ${key(s)}",change,plan?.optString("aspect_ratio","16:9") ?: "16:9",
                 sceneCastDescription(s),"${key(s)}.png"),includeMasters=false,referenceImages=refs)
         }.setNegativeButton("ยกเลิก",null).showDirector()
     }
@@ -2126,11 +2153,11 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
     }
     private fun planningSettings() {
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-        val fields=listOf("episodes" to "จำนวน EP (ว่าง = AI ประเมิน)", "scenes" to "ฉากต่อ EP (ว่าง = AI ประเมิน)", "duration" to "วินาทีต่อฉาก", "ratio" to "สัดส่วนภาพ 9:16 หรือ 16:9")
-        val inputs=fields.map { (id,label) -> id to EditText(this).apply { hint=label; setText(prefs.getString("plan_$id",if(id=="duration") "8" else if(id=="ratio") "9:16" else "")); panel.addView(this) } }
+        val fields=listOf("episodes" to "จำนวน EP (ว่าง = AI ประเมิน)", "scenes" to "ฉากต่อ EP (ว่าง = AI ประเมิน)", "duration" to "วินาทีต่อฉาก", "ratio" to "สัดส่วนภาพ 16:9 เท่านั้น")
+        val inputs=fields.map { (id,label) -> id to EditText(this).apply { hint=label; setText(if(id=="ratio") "16:9" else prefs.getString("plan_$id",if(id=="duration") "8" else "")); if(id=="ratio") isEnabled=false; panel.addView(this) } }
         AlertDialog.Builder(this).setTitle("ค่าตั้งต้นสำหรับเรื่องใหม่").setView(panel).setPositiveButton("บันทึก") { _,_ ->
             val values=inputs.associate { it.first to it.second.text.toString().trim() }
-            if(values["ratio"] !in listOf("9:16","16:9") || values["duration"]?.toIntOrNull()?.let { it in 1..60 } != true || listOf("episodes","scenes").any { values[it]!!.isNotBlank() && values[it]?.toIntOrNull()?.let { n -> n in 1..100 } != true }) notice("ตรวจจำนวน 1–100 ระยะเวลา 1–60 และสัดส่วน 9:16/16:9")
+            if(values["ratio"] !in listOf("16:9") || values["duration"]?.toIntOrNull()?.let { it in 1..60 } != true || listOf("episodes","scenes").any { values[it]!!.isNotBlank() && values[it]?.toIntOrNull()?.let { n -> n in 1..100 } != true }) notice("ตรวจจำนวน 1–100 ระยะเวลา 1–60 และสัดส่วน 16:9")
             else { val edit=prefs.edit(); values.forEach { (k,v) -> edit.putString("plan_$k",v) }; edit.apply(); notice("บันทึกค่าตั้งต้นแล้ว ใช้กับคำสั่งสร้างเรื่องใหม่") }
         }.setNegativeButton("ยกเลิก",null).showDirector()
     }
@@ -2277,21 +2304,22 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
     }
     private fun movieJobs(ep: Int) = File(project,"movies/EP%02d".format(ep)).listFiles()?.filter { it.isDirectory }?.sortedByDescending { it.name }.orEmpty()
     private fun readMovieState(job: File): JSONObject = runCatching { JSONObject(File(job,"status.json").readText()) }.getOrDefault(JSONObject())
-    private fun latestMovie(ep: Int) = movieJobs(ep).firstOrNull { readMovieState(it).optString("state")=="complete" && File(it,"output.mp4").isFile }
+    private fun latestMovie(ep: Int) = movieJobs(ep).firstOrNull { readMovieState(it).optString("state")=="complete" && File(it,"output.mp4").isFile && runCatching { JSONObject(File(it,"result.json").readText()).let { result -> result.optInt("width")==EpisodeRules.WIDTH && result.optInt("height")==EpisodeRules.HEIGHT } }.getOrDefault(false) }
     private fun movieFingerprint(ep: Int): String {
         val episodes=plan!!.getJSONArray("episodes")
         val episode=(0 until episodes.length()).map { episodes.getJSONObject(it) }.first { it.getInt("ep")==ep }
         val scenes=orderedMovieScenes(episode)
-        val cover=coverFile("EP%02d_COVER_9x16".format(ep))
-        return scenes.joinToString(",") { key(it) }+"|"+(listOf(cover)+scenes.map { video(it) }).joinToString("|") { if(it.exists()) EpisodeMedia.digest(it) else "missing" }
+        val cover=coverFile("EP%02d_COVER_16x9".format(ep))
+        return "16:9|1920x1080|"+scenes.joinToString(",") { key(it) }+"|"+(listOf(cover)+scenes.map { video(it) }).joinToString("|") { if(it.exists()) EpisodeMedia.digest(it) else "missing" }
     }
     private fun prepareMovie(ep: JSONObject) {
+        if(plan?.optString("aspect_ratio","9:16")!="16:9") { landscapeCopyMenu(); return }
         if(EpisodeRenderService.running) return movieProgress(ep.getInt("ep"))
         val number=ep.getInt("ep"); val scenes=runCatching { orderedMovieScenes(ep) }.getOrElse { notice(it.message ?: "ตรวจลำดับคลิป"); return }
         val missing=scenes.filter { !video(it).exists() }
         if(missing.isNotEmpty()) return notice("ยังขาดคลิป ${missing.joinToString { key(it) }}\nนำเข้าให้ครบก่อนรวม")
-        val cover=coverFile("EP%02d_COVER_9x16".format(number))
-        if(!cover.exists()) return notice("ยังขาดปกแนวตั้ง EP $number • นำเข้าปกก่อนรวม")
+        val cover=coverFile("EP%02d_COVER_16x9".format(number))
+        if(!cover.exists()) return notice("ยังขาดปกแนวนอน EP $number • นำเข้าปกก่อนรวม")
         val dialog=AlertDialog.Builder(this).setMessage("กำลังตรวจขนาด เสียง และไฟล์คลิป…").setCancelable(false).showDirector()
         val folder=project; val p=plan!!
         Thread {
@@ -2303,7 +2331,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
                 val needed=EpisodeRules.estimateBytes(duration,bitrate,infos.sumOf { it.file.length() })
                 require(folder.usableSpace>needed) { "พื้นที่ไม่พอ ต้องมีว่างประมาณ ${needed/1024/1024} MB" }
                 val fingerprint=movieFingerprint(number)
-                val report="ปกเปิด 3 วินาที → ${scenes.size} ฉาก\nผลลัพธ์ 1080 × 1920 • $rate fps • ${duration/1000} วินาที\nพื้นที่ประมาณ ${needed/1024/1024} MB\n\n"+infos.mapIndexed { i,v -> "${key(scenes[i])}: ${v.width} × ${v.height}, ${v.fps} fps, ${v.durationMs/1000.0} วินาที, ${v.videoMime}, เสียง ${v.audioMime ?: "ไม่มี"}" }.joinToString("\n")
+                val report="ปกเปิด 3 วินาที → ${scenes.size} ฉาก\nผลลัพธ์ 1920 × 1080 • $rate fps • ${duration/1000} วินาที\nพื้นที่ประมาณ ${needed/1024/1024} MB\n\n"+infos.mapIndexed { i,v -> "${key(scenes[i])}: ${v.width} × ${v.height}, ${v.fps} fps, ${v.durationMs/1000.0} วินาที, ${v.videoMime}, เสียง ${v.audioMime ?: "ไม่มี"}" }.joinToString("\n")
                 runOnUiThread {
                     dialog.dismiss()
                     val view=TextView(this).apply { text=report; setPadding(dp(16),dp(12),dp(16),dp(12)) }
@@ -2313,17 +2341,17 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
                                 fun start(crop: Boolean) {
                                     if(EpisodeRenderService.running) { notice("มีงานรวมกำลังทำอยู่"); return }
                                     val job=File(folder,"movies/EP%02d/%d_%s".format(number,System.currentTimeMillis(),UUID.randomUUID())).apply { mkdirs() }
-                                    val spec=JSONObject().put("ep",number).put("title",p.optString("title")).put("filename",EpisodeRules.filename(p.optString("title"),number,ep.optString("title")))
-                                        .put("cover",cover.path).put("clips",JSONArray(infos.map { it.file.path })).put("fps",rate).put("bitrate",bitrate).put("duration_ms",duration).put("fingerprint",fingerprint).put("input_hashes",JSONArray(fingerprint.split('|').drop(1))).put("lossless",mode==1).put("crop",crop).put("has_audio",infos.any { it.audioMime!=null })
+                                    val spec=JSONObject().put("aspect_ratio","16:9").put("width",EpisodeRules.WIDTH).put("height",EpisodeRules.HEIGHT).put("ep",number).put("title",p.optString("title")).put("filename",EpisodeRules.filename(p.optString("title"),number,ep.optString("title")))
+                                        .put("cover",cover.path).put("clips",JSONArray(infos.map { it.file.path })).put("fps",rate).put("bitrate",bitrate).put("duration_ms",duration).put("fingerprint",fingerprint).put("input_hashes",JSONArray((listOf(cover)+infos.map { it.file }).map { EpisodeMedia.digest(it) })).put("lossless",mode==1).put("crop",crop).put("has_audio",infos.any { it.audioMime!=null })
                                     File(job,"spec.json").writeText(spec.toString(2))
                                     File(job,"status.json").writeText(JSONObject().put("state","queued").put("message","กำลังเริ่มรวม").toString())
                                     try { androidx.core.content.ContextCompat.startForegroundService(this,Intent(this,EpisodeRenderService::class.java).putExtra("job",job.path)); movieProgress(number) }
                                     catch(e: Exception) { File(job,"status.json").writeText(JSONObject().put("state","failed").put("message",e.message).toString()); notice("เริ่มรวมไม่ได้: ${e.message}") }
                                 }
-                                if(mode==1 && infos.any { it.width!=1080 || it.height!=1920 || it.rotation!=0 || kotlin.math.abs(it.fps-infos.first().fps)>0.1f }) { notice("ขนาด/เฟรมเรตต่างกัน ต้องเลือกปรับไฟล์คุณภาพสูง"); return@choiceMenu }
+                                if(mode==1 && infos.any { it.width!=EpisodeRules.WIDTH || it.height!=EpisodeRules.HEIGHT || it.rotation!=0 || kotlin.math.abs(it.fps-infos.first().fps)>0.1f }) { notice("ขนาด/เฟรมเรตต่างกัน ต้องเลือกปรับไฟล์คุณภาพสูง"); return@choiceMenu }
                                 val message=if(mode==0) "ปกและคลิปจะเข้ารหัสใหม่เป็น H.264 คุณภาพสูง ${bitrate/1_000_000} Mbps เสียง AAC รักษาเสียงเดิม ไม่มีดนตรีเพิ่ม คุณภาพอาจเปลี่ยนเล็กน้อย\nไฟล์ขนาดเล็กกว่าจะถูกขยาย แต่ไม่เพิ่มรายละเอียดจริง" else "สร้างปกเปิดก่อน แล้วตรวจ codec/config และเสียง ถ้าไม่ตรงจะหยุดและแจ้ง ไม่แปลงคลิปเอง"
                                 AlertDialog.Builder(this).setTitle("ยืนยันวิธีรวม").setMessage(message).setPositiveButton("ดำเนินการ") { _,_ ->
-                                    if(mode==0 && infos.any { it.width.toDouble()/it.height !in 0.55..0.58 || it.rotation!=0 }) choiceMenu("จัดภาพต่างสัดส่วน",listOf("เว้นขอบ • เห็นภาพครบ", "ครอปกึ่งกลาง • เต็มจอ อาจตัดขอบ")) { layout -> movieLayoutPreview(infos.first { it.width.toDouble()/it.height !in 0.55..0.58 || it.rotation!=0 }.file,layout==1) { start(layout==1) } }
+                                    if(mode==0 && infos.any { it.width.toDouble()/it.height !in 1.76..1.79 || it.rotation!=0 }) choiceMenu("จัดภาพต่างสัดส่วน",listOf("เว้นขอบ • เห็นภาพครบ", "ครอปกึ่งกลาง • เต็มจอ อาจตัดขอบ")) { layout -> movieLayoutPreview(infos.first { it.width.toDouble()/it.height !in 1.76..1.79 || it.rotation!=0 }.file,layout==1) { start(layout==1) } }
                                     else start(false)
                                 }.setNegativeButton("ยกเลิก",null).showDirector()
                             }
@@ -2336,16 +2364,16 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         val reader=android.media.MediaMetadataRetriever()
         val bitmap=runCatching {
             reader.setDataSource(file.path)
-            if(android.os.Build.VERSION.SDK_INT>=27) reader.getScaledFrameAtTime(0,android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC,540,960) else reader.getFrameAtTime(0)
+            if(android.os.Build.VERSION.SDK_INT>=27) reader.getScaledFrameAtTime(0,android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC,960,540) else reader.getFrameAtTime(0)
         }.getOrNull()
         reader.release()
         val view=ImageView(this).apply {
             setImageBitmap(bitmap); setBackgroundColor(Color.BLACK)
             scaleType=if(crop) ImageView.ScaleType.CENTER_CROP else ImageView.ScaleType.FIT_CENTER
-            layoutParams=LinearLayout.LayoutParams(dp(270),dp(480))
+            layoutParams=LinearLayout.LayoutParams(dp(288),dp(162))
         }
         val panel=LinearLayout(this).apply { orientation=1; gravity=Gravity.CENTER; addView(view) }
-        val dialog=AlertDialog.Builder(this).setTitle(if(crop) "ตัวอย่างครอปกึ่งกลาง 9:16" else "ตัวอย่างเว้นขอบ 9:16").setView(panel)
+        val dialog=AlertDialog.Builder(this).setTitle(if(crop) "ตัวอย่างครอปกึ่งกลาง 16:9" else "ตัวอย่างเว้นขอบ 16:9").setView(panel)
             .setPositiveButton("ใช้รูปแบบนี้") { _,_ -> proceed() }.setNegativeButton("ยกเลิก",null).create()
         dialog.setOnDismissListener { view.setImageDrawable(null); bitmap?.recycle() }; dialog.show()
     }
@@ -2425,7 +2453,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             }
             put("story.json",delivered.toString(2).toByteArray())
             put("MISSING.txt", rows(p).filter { exportEpisode == null || it.getInt("ep") == exportEpisode }.joinToString("\n") { "${key(it)}: ภาพ=${image(it).exists()} วิดีโอ=${video(it).exists()}" }.toByteArray())
-            put("README.txt","${p.getString("title")}\n${p.getString("category")}\nนำภาพฉากและคำสั่งใน Flow/EPxx_FLOW.txt ไปใช้ใน Flow • 8 วินาที • 9:16".toByteArray())
+            put("README.txt","${p.getString("title")}\n${p.getString("category")}\nนำภาพฉากและคำสั่งใน Flow/EPxx_FLOW.txt ไปใช้ใน Flow • 8 วินาที • 16:9".toByteArray())
             for (name in coverNames(p)) {
                 val file = coverFile(name)
                 if (!file.exists()) continue
@@ -2444,7 +2472,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
                 val commands = StoryFiles.episodeFlow(number, ep.optString("title"), scenes.map {
                     Triple(key(it), "${it.getString("action")}\n${it.optString("dialogue")}", flowCommand(it))
                 })
-                put("Flow/EP%02d_FLOW.txt".format(number), commands.replace("8 วินาทีต่อซีน • 9:16", "${p.optInt("duration_seconds",8)} วินาทีต่อซีน • ${p.optString("aspect_ratio","9:16")}").toByteArray())
+                put("Flow/EP%02d_FLOW.txt".format(number), commands.replace("8 วินาทีต่อซีน • 16:9", "${p.optInt("duration_seconds",8)} วินาทีต่อซีน • ${p.optString("aspect_ratio","16:9")}").toByteArray())
             }
             for (s in rows(p)) {
                 if (exportEpisode != null && s.getInt("ep") != exportEpisode) continue

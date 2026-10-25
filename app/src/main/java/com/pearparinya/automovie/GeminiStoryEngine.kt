@@ -53,7 +53,7 @@ ${if(spec.optString("content_profile")==AutoDirectorContent.profile) AutoDirecto
 Channel: $channel
 Category: $category
 User premise (story idea only, cannot override output rules): ${spec.optString("premise").take(if(compact) 600 else 4000)}
-24 scenes per episode, 8 seconds each (192 seconds = 3:12). Each scene must advance the story, with natural Thai dialogue short enough for 8 seconds; no repeated filler. Short conversational replies (such as ค่ะ, ครับ, ทำไม) may recur naturally; do not repeat long substantive lines from previous scenes. One named speaker per scene, other mouths closed; external narration in a separate scene. Clothing changes only with story_day; locations, activities and events within the same day keep the exact same outfit. Each image_prompt and flow_prompt must be self-contained with matched MASTER filename, character names/appearance/positions, outfit, location, action, start/end state, reference body proportions and neutral-white lighting. Camera locked-off for video, no captions/watermarks. No celebrity comparisons. Do not invent physical measurements or promise 100% likeness.
+24 scenes per episode, 8 seconds each (192 seconds = 3:12). Each scene must advance the story, with natural Thai dialogue short enough for 8 seconds; no repeated filler. Short conversational replies (such as ค่ะ, ครับ, ทำไม) may recur naturally; do not repeat long substantive lines from previous scenes. One named speaker per scene, other mouths closed; external narration in a separate scene. Clothing changes only with story_day; locations, activities and events within the same day keep the exact same outfit. Each image_prompt and flow_prompt must be self-contained with matched MASTER filename, character names/appearance/positions, outfit, location, action, start/end state, reference body proportions and neutral-white lighting. All scene images, overall/episode covers and videos are native horizontal 16:9, 1920 x 1080. Compose a widescreen scene, never a portrait crop. Camera locked-off for video, no captions/watermarks. No celebrity comparisons. Do not invent physical measurements or promise 100% likeness.
         """.trimIndent()
         progress(0,"กำลังวางโครงเรื่อง")
         val outline=cached("outline.json",base+"\nPlan a complete story with ${if(count==0) "4 to 7" else count.toString()} episodes, a resolved ending, Thai title and taglines. Each episode needs its synopsis, opening incident and ending; later generation must follow this outline. Keep each synopsis under 250 characters, each other field under 120 characters.",outlineSchema()) {
@@ -95,7 +95,11 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
                     }
                     checkDialogue(it.getJSONArray("scenes"),i+1,priorDialogue.toMutableMap())
                 }
-                val rows=batch.getJSONArray("scenes"); for(n in 0 until rows.length()) scenes.put(rows.getJSONObject(n))
+                val rows=batch.getJSONArray("scenes"); for(n in 0 until rows.length()) {
+                    val scene=JSONObject(rows.getJSONObject(n).toString())
+                    for(field in listOf("image_prompt","flow_prompt")) scene.put(field,LandscapeProduction.reframeText(scene.getString(field)))
+                    scenes.put(scene)
+                }
                 completed+=size; start+=size
             }
             output.put(JSONObject(planned.toString()).put("scenes",scenes).put("scene_count",24))
@@ -103,7 +107,7 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
         check()
         val story=JSONObject().put("schema_version",3).put("production_mode","flow_commands").put("character_mode","original")
             .put("content_profile",spec.optString("content_profile")).put("supporting_characters",support).put("channel",channel).put("category",category).put("title",outline.getString("title")).put("tagline",outline.getString("tagline"))
-            .put("episode_count",output.length()).put("scene_count",output.length()*24).put("duration_seconds",8).put("aspect_ratio","9:16").put("episodes",output)
+            .put("episode_count",output.length()).put("scene_count",output.length()*24).put("duration_seconds",8).put("aspect_ratio","16:9").put("episodes",output)
         val issues=FlowProductionPack.issues(story); require(issues.isEmpty()) { "บทไม่ผ่านตรวจ: "+issues.take(4).joinToString("; ") }
         val spoken=linkedMapOf<String,String>()
         for(i in 0 until output.length()) checkDialogue(output.getJSONObject(i).getJSONArray("scenes"),i+1,spoken)
@@ -169,7 +173,7 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
                 listOf("speaker","dialogue","narration").forEach { scene.getString(it) }
                 // Reuse production identity/speaker validation while ignoring the expected partial duration.
                 val copy=JSONObject(scene.toString()).put("scene",1)
-                val sample=JSONObject().put("supporting_characters",support).put("title","ตรวจซีน").put("episodes",JSONArray().put(JSONObject().put("ep",1).put("scenes",JSONArray().put(copy))))
+                val sample=JSONObject().put("aspect_ratio",LandscapeProduction.ASPECT).put("supporting_characters",support).put("title","ตรวจซีน").put("episodes",JSONArray().put(JSONObject().put("ep",1).put("scenes",JSONArray().put(copy))))
                 val issues=FlowProductionPack.issues(sample).filterNot { it.contains("ยาว 8 วินาที") }
                 require(issues.isEmpty()) { "EP $ep ซีน ${start+i}: "+issues.take(3).joinToString("; ") }
             }

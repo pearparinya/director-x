@@ -9,7 +9,7 @@ class ImagePromptPolicyTest {
             ImagePromptPolicy.scene("เมย์ | ชุด: เสื้อคอสูงสีฟ้า","ห้องนั่งเล่น","ถือแก้วน้ำ"),
             ImagePromptPolicy.edit("ภาพ MASTER","ฉากหลังเป็นห้องครัว"),
             ImagePromptPolicy.coverReference("ภาพฉาก"),
-            BodyReferencePolicy.singleCheck("เมย์","MIND_MASTER.png","","เสื้อคอสูงสีฟ้า","9:16"))
+            BodyReferencePolicy.singleCheck("เมย์","MIND_MASTER.png","","เสื้อคอสูงสีฟ้า","16:9"))
         prompts.forEach {
             assertEquals(1,it.split(ImagePromptPolicy.referenceAppeal).size-1)
             assertFalse(it.contains("100%"))

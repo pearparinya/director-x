@@ -132,14 +132,14 @@ class FlowProductionPackTest {
         repeat(count) { e ->
             val rows=JSONArray()
             repeat(scenes) { n -> rows.put(JSONObject().put("scene",n+1).put("duration_seconds",8).put("action","เมย์ยืนถือซอง")
-                .put("image_prompt","May holds a sealed envelope, medium shot, photorealistic 9:16.")
+                .put("image_prompt","May holds a sealed envelope, medium shot, photorealistic 16:9.")
                 .put("flow_prompt","8 seconds. May looks down at the envelope. No speech.")
                 .put("location","ห้องนั่งเล่น").put("start_state","ซองปิด").put("end_state","มองซอง")
                 .put("characters",JSONArray().put(JSONObject().put("name","เมย์").put("master","MIND_MASTER.png").put("outfit","เสื้อสีครีม กางเกงขายาว")
                     .put("visual_description","short auburn bob").put("screen_position","frame-left")))) }
             eps.put(JSONObject().put("ep",e+1).put("title","ตอน ${e+1}").put("scenes",rows))
         }
-        return JSONObject().put("title","ซองบนโต๊ะ").put("episodes",eps)
+        return JSONObject().put("aspect_ratio","16:9").put("title","ซองบนโต๊ะ").put("episodes",eps)
     }
     @Test fun minimumDurationAndSpeakerValidationUseActualScenes() {
         assertTrue(FlowProductionPack.issues(plan(4,22)).any { it.contains("176") })
@@ -150,13 +150,11 @@ class FlowProductionPackTest {
     }
     @Test fun posterDirectionKeepsExactTextAndUsesAspectSpecificSafeZones() {
         val title="หลักฐาน 100% บนโต๊ะ"
-        val vertical=FlowVisualDirection.cover("9x16","เมย์ → MIND_MASTER.jpg","ช่อง",title,2,"ชื่อ EP","คำโปรย","ซองบนโต๊ะ")
-        assertTrue(vertical.contains(title)); assertTrue(vertical.contains("EP.02 : ชื่อ EP"))
-        assertTrue(vertical.contains("1080 x 1920")); assertTrue(vertical.contains("x=12-78% and y=52-78%"))
-        assertTrue(vertical.contains("one compact group")); assertTrue(vertical.contains("No yellow/orange cast"))
-        assertTrue(vertical.contains("chest-to-waist")); assertTrue(vertical.contains("without revealing the ending"))
+        assertTrue(runCatching { FlowVisualDirection.cover("9x16","ref","ช่อง",title,2,"ชื่อ EP","คำโปรย","ซองบนโต๊ะ") }.isFailure)
         val horizontal=FlowVisualDirection.cover("16x9","เมย์ → MIND_MASTER.jpg","ช่อง",title,2,"ชื่อ EP","คำโปรย","ซองบนโต๊ะ")
-        assertTrue(horizontal.contains("1920 x 1080")); assertTrue(horizontal.contains("do not crop the vertical poster"))
+        assertTrue(horizontal.contains(title)); assertTrue(horizontal.contains("EP.02 : ชื่อ EP"))
+        assertTrue(horizontal.contains("one compact group")); assertTrue(horizontal.contains("chest-to-waist")); assertTrue(horizontal.contains("without revealing the ending"))
+        assertTrue(horizontal.contains("1920 x 1080")); assertTrue(horizontal.contains("native widescreen key art"))
         assertFalse(horizontal.contains("1080 x 1920"))
         assertTrue(runCatching { FlowVisualDirection.layout("1x1") }.isFailure)
     }
@@ -180,7 +178,7 @@ class FlowProductionPackTest {
             masters.forEach { (id,file) -> assertArrayEquals(file.readBytes(),files.getValue("DIRECTOR_FLOW/"+memory.getJSONObject(id).getString("file"))) }
             assertEquals("custom face",memory.getJSONObject("mind").getJSONObject("profile").getString("face"))
             val ep=String(files.getValue("DIRECTOR_FLOW/EP07_IMAGES.txt"),Charsets.UTF_8)
-            assertTrue(ep.contains("184 seconds")); assertTrue(ep.contains("EP07_SC023")); assertTrue(ep.contains("COVER 9x16")); assertTrue(ep.contains("COVER 16x9"))
+            assertTrue(ep.contains("184 seconds")); assertTrue(ep.contains("EP07_SC023")); assertFalse(ep.contains("COVER 9x16")); assertTrue(ep.contains("COVER 16x9"))
             assertTrue(ep.contains("Rinrada:")); assertTrue(ep.contains("ชุดทำงานสีขาว"))
             assertTrue(ep.startsWith("แนบภาพตัวละคร")); assertTrue(ep.contains("one compact group"))
             assertTrue(ep.contains("No yellow/orange cast")); assertTrue(ep.contains("FINAL COLOR DIRECTION"))
@@ -190,7 +188,7 @@ class FlowProductionPackTest {
             assertTrue(video.contains("EP07_SC023")); assertTrue(video.contains("VIDEO PROMPT")); assertFalse(video.contains("IMAGE PROMPT"))
             val cover=String(files.getValue("DIRECTOR_FLOW/COVER_STORY.txt"),Charsets.UTF_8)
             assertTrue(cover.startsWith("แนบภาพตัวละคร: กวิน + รินรดา + เมย์"))
-            assertTrue(cover.contains("1080 x 1920")); assertTrue(cover.contains("1920 x 1080"))
+            assertFalse(cover.contains("1080 x 1920")); assertTrue(cover.contains("1920 x 1080"))
             assertFalse(cover.contains("EP.00")); assertTrue(cover.contains(story.getString("title")))
             val scene=FlowReferencePrompt.scene(story.getJSONArray("episodes").getJSONObject(6).getJSONArray("scenes").getJSONObject(1),7,"video")
             assertTrue(scene.indexOf(FlowVisualDirection.referencePriority)>scene.indexOf("VIDEO PROMPT"))
