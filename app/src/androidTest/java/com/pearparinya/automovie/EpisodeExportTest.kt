@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
 class EpisodeExportTest {
     @Test
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-    fun imageIntroAndTwoClipsProduceLandscapeMp4WithSilentIntroAndAudio() {
+    fun imageIntroAndTwoClipsProducePortraitMp4WithSilentIntroAndAudio() {
         val instrumentation=InstrumentationRegistry.getInstrumentation(); val context=instrumentation.targetContext
         val folder=File(context.filesDir,"test_episode").apply { deleteRecursively(); mkdirs() }
         fun image(name: String,color: Int): File {
@@ -75,7 +75,7 @@ class EpisodeExportTest {
         assertTrue(File(job,"result.json").isFile)
         instrumentation.runOnMainSync { activity.finish() }
 
-        val info=EpisodeMedia.inspect(output); assertEquals(1080,info.width); assertEquals(1920,info.height); assertEquals(0,info.rotation)
+        val info=EpisodeMedia.inspect(output); assertEquals(1080,info.displayWidth); assertEquals(1920,info.displayHeight); assertTrue(info.rotation in listOf(0,90,180,270))
         assertTrue(kotlin.math.abs(info.durationMs-5000)<300); assertNotNull(info.audioMime)
         val reader=android.media.MediaMetadataRetriever(); reader.setDataSource(output.path)
         try {
@@ -119,7 +119,7 @@ class EpisodeExportTest {
         // Strict packet-copy either verifies compatibility or rejects it; it never encodes silently.
         val copy=File(folder,"copy.mp4")
         try { EpisodeMedia.remux(listOf(first,second),copy,{false},{})
-            assertEquals(1080,EpisodeMedia.inspect(copy).width); assertTrue(kotlin.math.abs(EpisodeMedia.inspect(copy).durationMs-2000)<300)
+            assertEquals(1080,EpisodeMedia.inspect(copy).displayWidth); assertTrue(kotlin.math.abs(EpisodeMedia.inspect(copy).durationMs-2000)<300)
         } catch(e: IllegalArgumentException) { assertTrue(e.message!!.contains("คุณภาพสูง")) }
         folder.deleteRecursively()
     }

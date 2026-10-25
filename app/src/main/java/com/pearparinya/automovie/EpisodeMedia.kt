@@ -10,7 +10,10 @@ import java.nio.ByteBuffer
 import java.security.MessageDigest
 
 internal object EpisodeMedia {
-    data class Info(val file: File, val width: Int, val height: Int, val durationMs: Long, val fps: Float, val videoMime: String, val audioMime: String?, val rotation: Int, val bitrate: Int)
+    data class Info(val file: File, val width: Int, val height: Int, val durationMs: Long, val fps: Float, val videoMime: String, val audioMime: String?, val rotation: Int, val bitrate: Int) {
+        val displayWidth: Int get() = if(rotation % 180 != 0) height else width
+        val displayHeight: Int get() = if(rotation % 180 != 0) width else height
+    }
     fun inspect(file: File): Info {
         require(file.isFile && file.length()>0) { "ไม่พบคลิป ${file.name}" }
         val extractor=MediaExtractor(); val metadata=MediaMetadataRetriever()
@@ -42,13 +45,14 @@ internal object EpisodeMedia {
     fun remux(files: List<File>, output: File, cancelled: () -> Boolean, progress: (Int) -> Unit) {
         require(files.isNotEmpty())
         val infos=files.map { inspect(it) }
-        require(infos.all { it.width==EpisodeRules.WIDTH && it.height==EpisodeRules.HEIGHT && it.rotation==0 && kotlin.math.abs(it.fps-infos.first().fps)<0.1f }) { "ขนาด/เฟรมเรตไม่ตรงกัน เลือกโหมดปรับไฟล์คุณภาพสูง" }
+        require(infos.all { it.displayWidth==EpisodeRules.WIDTH && it.displayHeight==EpisodeRules.HEIGHT && it.rotation in listOf(0,90,180,270) && it.rotation==infos.first().rotation && kotlin.math.abs(it.fps-infos.first().fps)<0.1f }) { "ขนาด/เฟรมเรตไม่ตรงกัน เลือกโหมดปรับไฟล์คุณภาพสูง" }
         val formats=files.map { file -> val e=MediaExtractor(); try { e.setDataSource(file.path); (0 until e.trackCount).map { e.getTrackFormat(it) }.filter { it.getString(MediaFormat.KEY_MIME)?.let { m -> m.startsWith("video/") || m.startsWith("audio/") }==true }.sortedBy { it.getString(MediaFormat.KEY_MIME) } } finally { e.release() } }
         val signatures=formats.map { tracks -> tracks.map { fingerprint(it) } }
         require(signatures.all { it==signatures.first() }) { "ปกเปิดหรือคลิปใช้ codec/config/เสียงต่างกัน ต่อแบบไม่เข้ารหัสใหม่ไม่ได้ กรุณาเลือกปรับไฟล์คุณภาพสูง" }
         val muxer=MediaMuxer(output.path,MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
         var started=false
         try {
+            muxer.setOrientationHint(infos.first().rotation)
             val target=formats.first().map { muxer.addTrack(it) }; muxer.start(); started=true
             var offsetUs=0L; val totalMs=infos.sumOf { it.durationMs }
             val buffer=ByteBuffer.allocateDirect(32*1024*1024)

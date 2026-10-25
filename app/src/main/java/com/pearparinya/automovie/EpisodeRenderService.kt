@@ -94,7 +94,7 @@ class EpisodeRenderService : Service() {
                             if(lossless) EpisodeMedia.remux(listOf(target)+(0 until clips.length()).map { File(clips.getString(it)) },output,{cancelled}) { value -> handler.post { if(!cancelled) writeStatus("rendering",value,"ต่อคลิปโดยไม่เข้ารหัสใหม่") } }
                             check(!cancelled)
                             val info=EpisodeMedia.inspect(output)
-                            require(info.width==EpisodeRules.WIDTH && info.height==EpisodeRules.HEIGHT && info.rotation==0) { "ผลลัพธ์ไม่ใช่ 1080 × 1920" }
+                            require(info.displayWidth==EpisodeRules.WIDTH && info.displayHeight==EpisodeRules.HEIGHT && info.rotation in listOf(0,90,180,270)) { "ผลลัพธ์ไม่ใช่ 1080 × 1920" }
                             require(kotlin.math.abs(info.durationMs-spec.getLong("duration_ms"))<1500) { "ความยาวไฟล์ไม่ตรงกับ EP" }
                             if(spec.optBoolean("has_audio")) require(info.audioMime!=null) { "ไม่พบเสียงในผลลัพธ์" }
                             val fingerprint=spec.getString("fingerprint")
