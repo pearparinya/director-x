@@ -6,10 +6,11 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.CancellationException
 
-internal class GeminiClient(private val apiKey: String, private val model: String, private val cancelled: () -> Boolean): StoryTextClient {
+internal class GeminiClient(private val apiKey: String, private val model: String, private val cancelled: () -> Boolean,private val onRetry: (String)->Unit={}): StoryTextClient {
     @Volatile private var connection: HttpURLConnection?=null
     override fun cancel() { connection?.disconnect() }
-    override fun generate(prompt: String,schema: JSONObject): JSONObject {
+    override fun generate(prompt: String,schema: JSONObject): JSONObject = StoryRequestRetry().execute(cancelled,onRetry) { generateOnce(prompt,schema) }
+    private fun generateOnce(prompt: String,schema: JSONObject): JSONObject {
         if(cancelled()) throw CancellationException()
         require(Regex("gemini-[a-zA-Z0-9.-]+").matches(model))
         val body=JSONObject().put("contents",JSONArray().put(JSONObject().put("role","user")
@@ -24,7 +25,7 @@ internal class GeminiClient(private val apiKey: String, private val model: Strin
             conn.doOutput=true
             conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val status=conn.responseCode
-            if(status !in 200..299) throw IllegalStateException(errorFor(status))
+            if(status !in 200..299) throw StoryHttpFailure(status,conn.getHeaderField("Retry-After"),errorFor(status))
             val bytes=conn.inputStream.use { it.readBytesBounded(2_000_000) }
             if(cancelled()) throw CancellationException()
             return parseResponse(JSONObject(String(bytes,Charsets.UTF_8)))
