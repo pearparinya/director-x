@@ -7,11 +7,12 @@ import java.net.URL
 import java.util.concurrent.CancellationException
 
 /** Fixed Groq endpoint; credentials never enter prompts, files, URLs or error messages. */
-internal class GroqClient(private val apiKey: String,private val model: String,private val cancelled: () -> Boolean,private val onWait: (Int)->Unit={}): StoryTextClient {
+internal class GroqClient(private val apiKey: String,private val model: String,private val cancelled: () -> Boolean,private val onWait: (Int)->Unit={},private val onRetry: (String)->Unit={}): StoryTextClient {
     private val pacer=GroqRequestPacer()
     @Volatile private var connection: HttpURLConnection?=null
     override fun cancel() { connection?.disconnect() }
-    override fun generate(prompt: String,schema: JSONObject): JSONObject {
+    override fun generate(prompt: String,schema: JSONObject): JSONObject = StoryRequestRetry().execute(cancelled,onRetry) { generateOnce(prompt,schema) }
+    private fun generateOnce(prompt: String,schema: JSONObject): JSONObject {
         if(cancelled()) throw CancellationException()
         pacer.await(cancelled,onWait)
         onWait(0)
@@ -25,7 +26,7 @@ internal class GroqClient(private val apiKey: String,private val model: String,p
             if(cancelled()) throw CancellationException()
             conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val status=conn.responseCode
-            if(status !in 200..299) throw IllegalStateException(errorFor(status))
+            if(status !in 200..299) throw StoryHttpFailure(status,conn.getHeaderField("Retry-After"),errorFor(status))
             val output=java.io.ByteArrayOutputStream(); val buffer=ByteArray(8192)
             conn.inputStream.use { input -> while(true) {
                 if(cancelled()) throw CancellationException()
@@ -74,7 +75,7 @@ internal class GroqClient(private val apiKey: String,private val model: String,p
     }
 }
 
-/** Conservative pacing for the free plan, not a quota guarantee or automatic retry. */
+/** Conservative pacing for the free plan; retries are handled separately. */
 internal class GroqRequestPacer(private val now: () -> Long={ android.os.SystemClock.elapsedRealtime() },
     private val pause: (Long) -> Unit={ Thread.sleep(it) }) {
     private var next=0L
@@ -84,7 +85,7 @@ internal class GroqRequestPacer(private val now: () -> Long={ android.os.SystemC
             if(cancelled()) throw CancellationException()
             val remaining=next-now(); if(remaining<=0) break
             val seconds=((remaining+999)/1000).toInt()
-            if(reported<0 || (seconds%10==0 && seconds!=reported)) { onWait(seconds); reported=seconds }
+            if(seconds!=reported) { onWait(seconds); reported=seconds }
             pause(minOf(250L,remaining))
         }
         next=now()+65_000L
