@@ -1494,7 +1494,7 @@ class StudioActivity : AppCompatActivity() {
                     val eps=story.getJSONArray("episodes")
                     choiceMenu("เลือก EP",(0 until eps.length()).map { i -> "EP.${i+1} ${eps.getJSONObject(i).optString("title")}" }) { index ->
                         val number=eps.getJSONObject(index).getInt("ep"); val key=phaseKey+"_ep$number"
-                        choiceMenu("EP.$number • เลือกทำทีละขั้น",listOf("สร้างภาพ EP.$number • Gemini + ปก","สร้างบท EP.$number","สร้าง XML EP.$number • Flow")) { stage ->
+                        choiceMenu("EP.$number • เลือกทำทีละขั้น",listOf("ภาพ EP.$number • ปกและซีน","บทพูด EP.$number","วิดีโอ EP.$number • ทีละซีนพร้อมเสียง","XML EP.$number • ขั้นสูง")) { stage ->
                             val reached=prefs.getInt(key,0)
                             if(stage>reached) { notice("กรุณาเปิดขั้นตอนก่อนหน้าให้ครบก่อน"); return@choiceMenu }
                             val code=when(stage) {
@@ -1503,8 +1503,12 @@ class StudioActivity : AppCompatActivity() {
                                 else -> AutoDirectorContent.flowXml(story,number)
                             }
                             val file=when(stage) { 0 -> "AD_EP%02d_IMAGES_GEMINI.txt"; 1 -> "AD_EP%02d_DIALOGUE.txt"; else -> "AD_EP%02d_FLOW.xml" }.format(number)
-                            showFlowCode("Phase ${stage+2} • EP.$number",code,file)
-                            prefs.edit().putInt(key,maxOf(reached,stage+1)).apply()
+                            when(stage) {
+                                0 -> showCommandCards(SceneCommandCards.images(story,number),number,0)
+                                2 -> showCommandCards(SceneCommandCards.videos(story,number),number,1)
+                                else -> showFlowCode("Phase ${if(stage==3) 4 else 3} • EP.$number",code,file)
+                            }
+                            prefs.edit().putInt(key,maxOf(reached,minOf(stage+1,3))).apply()
                         }
                     }
                 }
