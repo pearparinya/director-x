@@ -173,7 +173,7 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
                 listOf("speaker","dialogue","narration").forEach { scene.getString(it) }
                 // Reuse production identity/speaker validation while ignoring the expected partial duration.
                 val copy=JSONObject(scene.toString()).put("scene",1)
-                val sample=JSONObject().put("supporting_characters",support).put("title","ตรวจซีน").put("episodes",JSONArray().put(JSONObject().put("ep",1).put("scenes",JSONArray().put(copy))))
+                val sample=JSONObject().put("aspect_ratio",LandscapeProduction.ASPECT).put("supporting_characters",support).put("title","ตรวจซีน").put("episodes",JSONArray().put(JSONObject().put("ep",1).put("scenes",JSONArray().put(copy))))
                 val issues=FlowProductionPack.issues(sample).filterNot { it.contains("ยาว 8 วินาที") }
                 require(issues.isEmpty()) { "EP $ep ซีน ${start+i}: "+issues.take(3).joinToString("; ") }
             }
