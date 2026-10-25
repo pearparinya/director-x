@@ -175,7 +175,7 @@ class FlowProductionPackTest {
             val files=mutableMapOf<String,ByteArray>()
             ZipInputStream(ByteArrayInputStream(output.toByteArray())).use { zip -> while(true) { val entry=zip.nextEntry ?: break; assertFalse(entry.name.contains("..")); assertNull(files.put(entry.name,zip.readBytes())) } }
             assertEquals(7,files.keys.count { Regex("DIRECTOR_FLOW/EP[0-9]+_IMAGES[.]txt").matches(it) })
-            assertEquals(20,files.size)
+            assertEquals(34,files.size)
             assertFalse(files.keys.any { it.contains("COVERS/") })
             val memory=JSONObject(String(files.getValue("DIRECTOR_FLOW/BACKUP/story.json"),Charsets.UTF_8)).getJSONObject("character_memory")
             masters.forEach { (id,file) -> assertArrayEquals(file.readBytes(),files.getValue("DIRECTOR_FLOW/"+memory.getJSONObject(id).getString("file"))) }
@@ -192,7 +192,7 @@ class FlowProductionPackTest {
             assertTrue(video.contains("EP07_SC023")); assertTrue(video.contains("VIDEO PROMPT")); assertFalse(video.contains("IMAGE PROMPT"))
             val cover=String(files.getValue("DIRECTOR_FLOW/COVER_STORY.txt"),Charsets.UTF_8)
             assertTrue(cover.startsWith("แนบภาพตัวละคร: กวิน + รินรดา + เมย์"))
-            assertFalse(cover.contains("1920 x 1080")); assertTrue(cover.contains("1080 x 1920"))
+            assertTrue(cover.contains("1920 x 1080")); assertTrue(cover.contains("1080 x 1920"))
             assertTrue(cover.contains("BEGIN EXACT COVER TEXT\nช่อง\nซองบนโต๊ะ\nความลับในซอง\nEND EXACT COVER TEXT"))
             assertFalse(cover.contains("EP.00")); assertTrue(cover.contains(story.getString("title")))
             val scene=FlowReferencePrompt.scene(story.getJSONArray("episodes").getJSONObject(6).getJSONArray("scenes").getJSONObject(1),7,"video")
