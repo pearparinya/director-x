@@ -16,7 +16,7 @@ class CharacterMasterUpgradeTest {
         try {
             val globals=File(root,"character_masters").apply { mkdirs() }
             val project=File(root,"studio/original").apply { mkdirs() }
-            listOf(CharacterMasterUpgrade.REVISION,CharacterMasterUpgrade.FEMALE_REVISION,CharacterMasterUpgrade.LATEST_FEMALE_REVISION,CharacterMasterUpgrade.FEMALE_2159_REVISION).forEach {
+            listOf(CharacterMasterUpgrade.REVISION,CharacterMasterUpgrade.FEMALE_REVISION,CharacterMasterUpgrade.LATEST_FEMALE_REVISION,CharacterMasterUpgrade.FEMALE_2159_REVISION,CharacterMasterUpgrade.CURRENT_REVISION).forEach {
                 File(globals,"$it.installed").writeText("installed"); File(project,"$it.installed").writeText("installed")
             }
             CharacterMasterUpgrade.ids.forEach { id ->
@@ -45,12 +45,14 @@ class CharacterMasterUpgradeTest {
         try {
             val globals=File(root,"character_masters").apply { mkdirs() }
             File(globals,"${CharacterMasterUpgrade.REVISION}.installed").writeText("installed")
+            File(globals,"${CharacterMasterUpgrade.CURRENT_REVISION}.installed").writeText("installed")
             File(globals,"${CharacterMasterUpgrade.FEMALE_REVISION}.installed").writeText("installed")
             File(globals,"${CharacterMasterUpgrade.LATEST_FEMALE_REVISION}.installed").writeText("installed")
             File(globals,"${CharacterMasterUpgrade.MAY_REVISION}.installed").writeText("installed")
             CharacterMasterUpgrade.ids.forEach { File(globals,"$it.master").writeText("previous $it") }
             val project=File(root,"studio/original").apply { mkdirs() }
             File(project,"${CharacterMasterUpgrade.REVISION}.installed").writeText("installed")
+            File(project,"${CharacterMasterUpgrade.CURRENT_REVISION}.installed").writeText("installed")
             File(project,"${CharacterMasterUpgrade.FEMALE_REVISION}.installed").writeText("installed")
             File(project,"${CharacterMasterUpgrade.LATEST_FEMALE_REVISION}.installed").writeText("installed")
             File(project,"${CharacterMasterUpgrade.MAY_REVISION}.installed").writeText("installed")
@@ -68,6 +70,38 @@ class CharacterMasterUpgradeTest {
             assertTrue(scenes.getJSONObject(0).has("flow_image_revision"))
             assertEquals("needs_revision",scenes.getJSONObject(1).getString("user_review"))
             assertFalse(scenes.getJSONObject(1).has("flow_image_revision"))
+        } finally { root.deleteRecursively() }
+    }
+    @Test fun currentThreeMastersUpdateExistingAndPendingStoriesOnceWithOriginalsBackedUp() {
+        val root=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,UUID.randomUUID().toString()).apply { mkdirs() }
+        try {
+            val globals=File(root,"character_masters").apply { mkdirs() }
+            listOf(CharacterMasterUpgrade.REVISION,CharacterMasterUpgrade.FEMALE_REVISION,CharacterMasterUpgrade.LATEST_FEMALE_REVISION,
+                CharacterMasterUpgrade.MAY_REVISION,CharacterMasterUpgrade.FEMALE_2159_REVISION).forEach { File(globals,"$it.installed").writeText("installed") }
+            val project=File(root,"studio/active").apply { mkdirs() }
+            val pending=File(root,"studio/pending").apply { mkdirs() }
+            File(pending,"gemini_job/spec.json").apply { parentFile!!.mkdirs(); writeText("{}") }
+            val story=File(project,"story.json").apply { writeText("""{"character_mode":"original","episodes":[{"scenes":[{"characters":[{"name":"กวิน"},{"name":"รินรดา"},{"name":"เมย์"}],"flow_image_revision":5,"user_review":"approved"}]}]}""") }
+            CharacterMasterUpgrade.ids.forEach { id ->
+                File(globals,"$id.master").writeText("global old $id")
+                listOf(project,pending).forEach { folder -> File(folder,"original_masters/$id.master").apply { parentFile!!.mkdirs(); writeText("old $id") } }
+            }
+            val media=File(project,"images/scene.jpg").apply { parentFile!!.mkdirs(); writeText("existing media") }
+            CharacterMasterUpgrade.install(root) { it.toByteArray() }
+            CharacterMasterUpgrade.ids.forEach { id ->
+                val expected="character_masters/${id.uppercase()}_MASTER.png"
+                assertEquals(expected,File(globals,"$id.master").readText())
+                listOf(project,pending).forEach { folder ->
+                    assertEquals(expected,File(folder,"original_masters/$id.master").readText())
+                    assertTrue(File(folder,"versions/${CharacterMasterUpgrade.CURRENT_REVISION}").listFiles()!!.any { it.readText()=="old $id" })
+                }
+            }
+            val scene=JSONObject(story.readText()).getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
+            assertEquals("needs_revision",scene.getString("user_review")); assertFalse(scene.has("flow_image_revision"))
+            assertEquals("existing media",media.readText())
+            File(pending,"original_masters/mind.master").writeText("later user replacement")
+            CharacterMasterUpgrade.install(root) { it.toByteArray() }
+            assertEquals("later user replacement",File(pending,"original_masters/mind.master").readText())
         } finally { root.deleteRecursively() }
     }
     @Test fun selectedCastMigratesOnceWithBackupsAndLeavesMediaAndNewCharactersIntact() {
