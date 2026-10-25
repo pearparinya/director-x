@@ -94,8 +94,8 @@ class AutoDirectorContentTest {
             val images=entries.getValue(SimpleProductionCommands.IMAGES)
             val videos=entries.getValue(SimpleProductionCommands.FLOW)
             assertEquals(2,images.lineSequence().count { it.startsWith("=== ปกรวม") })
-            assertEquals(54,images.lineSequence().count { it.startsWith("=== ") })
-            assertEquals(48,videos.lineSequence().count { it.startsWith("=== ") })
+            assertEquals(54,images.lineSequence().count { it.startsWith("=== EP.") || it.startsWith("=== ปกรวม") })
+            assertEquals(48,videos.lineSequence().count { it.startsWith("=== EP.") })
             for(ep in 1..2) {
                 assertTrue(images.contains("=== EP.$ep • ซีน 24"))
                 assertTrue(videos.contains("=== EP.$ep • ซีน 24"))
