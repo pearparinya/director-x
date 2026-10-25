@@ -11,7 +11,7 @@ internal object StoryFiles {
     data class UnpackResult(val files: List<File>, val failedEntries: List<String>)
     fun zipName(title: String): String = title.replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "_").trim().take(100).ifBlank { "เรื่องใหม่" } + ".zip"
     fun episodeFlow(ep: Int, title: String, scenes: List<Triple<String, String, String>>): String =
-        "EP %02d • %s\nFlow / Veo 3.1 Lite • 8 วินาทีต่อซีน • 9:16\n\n".format(ep, title) +
+        "EP %02d • %s\nFlow / Veo 3.1 Lite • 8 วินาทีต่อซีน • 16:9\n\n".format(ep, title) +
             scenes.joinToString("\n\n--------------------\n\n") { (name, script, prompt) ->
                 "$name\n$script\n\nคำสั่ง Flow (คัดลอกเฉพาะบล็อกนี้):\n$prompt"
             }

@@ -12,7 +12,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ChatSharePayloadTest {
     @Test fun identityGuideKeepsUserStyleAndSceneWardrobeInAConciseBrief() {
-        val guide = neutralIdentityGuide("ภาพ MASTER ที่แนบ","9:16")
+        val guide = neutralIdentityGuide("ภาพ MASTER ที่แนบ","16:9")
         assertTrue(guide.contains("ใบหน้า") && guide.contains("ทรงผม"))
         assertTrue(guide.contains(ImagePromptPolicy.referenceAppeal))
         assertTrue(guide.contains("สัดส่วนรูปร่างโดยรวม"))

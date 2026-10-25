@@ -77,15 +77,15 @@ class EpisodeRenderService : Service() {
     private fun runExport(cover: File, clips: JSONArray) {
         try {
             val fps=spec.getInt("fps"); val bitrate=spec.getInt("bitrate")
-            val effect=Presentation.createForWidthAndHeight(1080,1920,if(spec.optBoolean("crop")) Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP else Presentation.LAYOUT_SCALE_TO_FIT)
+            val effect=Presentation.createForWidthAndHeight(EpisodeRules.WIDTH,EpisodeRules.HEIGHT,if(spec.optBoolean("crop")) Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP else Presentation.LAYOUT_SCALE_TO_FIT)
             val intro=EditedMediaItem.Builder(MediaItem.Builder().setUri(Uri.fromFile(cover)).setImageDurationMs(3000).build()).setFrameRate(fps).setEffects(Effects(emptyList(),listOf(effect))).build()
             val lossless=spec.optBoolean("lossless")
             val items=if(lossless) listOf(intro) else listOf(intro)+(0 until clips.length()).map { i -> EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(File(clips.getString(i))))).setEffects(Effects(emptyList(),listOf(effect))).build() }
             val composition=Composition.Builder(EditedMediaItemSequence.Builder(items).build()).experimentalSetForceAudioTrack(true).build()
             val encoder=DefaultEncoderFactory.Builder(this).setRequestedVideoEncoderSettings(VideoEncoderSettings.Builder().setBitrate(bitrate).build()).setEnableFallback(false).build()
             val target=if(lossless) File(job,"intro.mp4") else output
-            writeStatus("rendering",0,if(lossless) "กำลังสร้างปกเปิด ก่อนตรวจรูปแบบต่อคลิป" else "กำลังเข้ารหัสคุณภาพสูง 1080 × 1920")
-            transformer=Transformer.Builder(this).setPortraitEncodingEnabled(true).setVideoMimeType(MimeTypes.VIDEO_H264).setAudioMimeType(MimeTypes.AUDIO_AAC).setEncoderFactory(encoder).addListener(object : Transformer.Listener {
+            writeStatus("rendering",0,if(lossless) "กำลังสร้างปกเปิด ก่อนตรวจรูปแบบต่อคลิป" else "กำลังเข้ารหัสคุณภาพสูง 1920 × 1080")
+            transformer=Transformer.Builder(this).setPortraitEncodingEnabled(false).setVideoMimeType(MimeTypes.VIDEO_H264).setAudioMimeType(MimeTypes.AUDIO_AAC).setEncoderFactory(encoder).addListener(object : Transformer.Listener {
                 override fun onCompleted(composition: Composition, result: ExportResult) {
                     transformer=null
                     if(cancelled) return
@@ -94,11 +94,11 @@ class EpisodeRenderService : Service() {
                             if(lossless) EpisodeMedia.remux(listOf(target)+(0 until clips.length()).map { File(clips.getString(it)) },output,{cancelled}) { value -> handler.post { if(!cancelled) writeStatus("rendering",value,"ต่อคลิปโดยไม่เข้ารหัสใหม่") } }
                             check(!cancelled)
                             val info=EpisodeMedia.inspect(output)
-                            require(info.width==1080 && info.height==1920 && info.rotation==0) { "ผลลัพธ์ไม่ใช่ 1080 × 1920" }
+                            require(info.width==EpisodeRules.WIDTH && info.height==EpisodeRules.HEIGHT && info.rotation==0) { "ผลลัพธ์ไม่ใช่ 1920 × 1080" }
                             require(kotlin.math.abs(info.durationMs-spec.getLong("duration_ms"))<1500) { "ความยาวไฟล์ไม่ตรงกับ EP" }
                             if(spec.optBoolean("has_audio")) require(info.audioMime!=null) { "ไม่พบเสียงในผลลัพธ์" }
                             val fingerprint=spec.getString("fingerprint")
-                            File(job,"result.json").writeText(JSONObject().put("filename",spec.getString("filename")).put("fingerprint",fingerprint).put("duration_ms",info.durationMs).put("width",1080).put("height",1920).put("created",System.currentTimeMillis()).toString())
+                            File(job,"result.json").writeText(JSONObject().put("filename",spec.getString("filename")).put("fingerprint",fingerprint).put("duration_ms",info.durationMs).put("width",EpisodeRules.WIDTH).put("height",EpisodeRules.HEIGHT).put("created",System.currentTimeMillis()).toString())
                             handler.post { if(!cancelled) { writeStatus("complete",100,"รวมสำเร็จ • ยังไม่ได้ดาวน์โหลดลงตำแหน่งที่เลือก"); finish() } }
                         } catch(e: Exception) { handler.post { fail(e) } }
                     }.start()

@@ -1,8 +1,8 @@
 package com.pearparinya.automovie
 
 internal object EpisodeRules {
-    const val WIDTH = 1080
-    const val HEIGHT = 1920
+    const val WIDTH = 1920
+    const val HEIGHT = 1080
     const val INTRO_MS = 3000L
     fun filename(title: String, ep: Int, episodeTitle: String): String {
         require(ep > 0)
