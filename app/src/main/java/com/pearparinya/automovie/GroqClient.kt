@@ -7,11 +7,11 @@ import java.net.URL
 import java.util.concurrent.CancellationException
 
 /** Fixed Groq endpoint; credentials never enter prompts, files, URLs or error messages. */
-internal class GroqClient(private val apiKey: String,private val model: String,private val cancelled: () -> Boolean,private val onWait: (Int)->Unit={},private val onRetry: (String)->Unit={}): StoryTextClient {
+internal class GroqClient(private val apiKey: String,private val model: String,private val cancelled: () -> Boolean,private val onWait: (Int)->Unit={},private val onRetry: (String)->Unit={},private val automaticRetry: Boolean=true): StoryTextClient {
     private val pacer=GroqRequestPacer()
     @Volatile private var connection: HttpURLConnection?=null
     override fun cancel() { connection?.disconnect() }
-    override fun generate(prompt: String,schema: JSONObject): JSONObject = StoryRequestRetry().execute(cancelled,onRetry) { generateOnce(prompt,schema) }
+    override fun generate(prompt: String,schema: JSONObject): JSONObject = if(automaticRetry) StoryRequestRetry().execute(cancelled,onRetry) { generateOnce(prompt,schema) } else generateOnce(prompt,schema)
     private fun generateOnce(prompt: String,schema: JSONObject): JSONObject {
         if(cancelled()) throw CancellationException()
         pacer.await(cancelled,onWait)

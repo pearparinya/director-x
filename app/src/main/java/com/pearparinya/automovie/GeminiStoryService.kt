@@ -19,14 +19,14 @@ class GeminiStoryService : Service() {
         private const val ID=160
     }
     @Volatile private var cancelled=false
-    private var client: StoryTextClient?=null
+    @Volatile private var clients: List<StoryTextClient> = emptyList()
     private var worker: Thread?=null
     private lateinit var folder: File
     private var lastPercent=0
     private var provider=StoryProvider.GEMINI
     override fun onBind(intent: Intent?): IBinder?=null
     override fun onStartCommand(intent: Intent?,flags: Int,startId: Int): Int {
-        if(intent?.action==CANCEL) { cancelled=true; client?.cancel(); return START_NOT_STICKY }
+        if(intent?.action==CANCEL) { cancelled=true; clients.forEach { it.cancel() }; return START_NOT_STICKY }
         if(running || worker?.isAlive==true) return START_NOT_STICKY
         val id=intent?.getStringExtra("project") ?: run { stopSelf(); return START_NOT_STICKY }
         if(!Regex("[a-zA-Z0-9-]+").matches(id)) { stopSelf(); return START_NOT_STICKY }
@@ -44,12 +44,27 @@ class GeminiStoryService : Service() {
                     try {
                         val spec=GeminiStoryFiles.read(File(folder,"spec.json"))
                         provider=StoryProvider.from(spec.optString("provider","gemini"))
-                        val settings=GeminiSettings(this,provider)
-                        val key=settings.key(); require(key.isNotBlank()) { "ตั้งค่า ${provider.label} API Key ก่อนเริ่ม" }
-                        val retryStatus: (String)->Unit={ message -> status("running",lastPercent,"${provider.label} • $message") }
-                        client=if(provider==StoryProvider.GROQ) GroqClient(key,spec.getString("model"),{ cancelled },{ seconds -> status("running",lastPercent,if(seconds>0) "Groq • พัก $seconds วินาที • ครบเวลาแล้วทำต่ออัตโนมัติ • กดหยุดได้" else "Groq • กำลังส่งคำขอ / รอคำตอบบท") },retryStatus) else GeminiClient(key,spec.getString("model"),{ cancelled },retryStatus)
-                        status("running",0,"กำลังเขียนบท • ไม่ได้สร้างวิดีโอ")
-                        val story=GeminiStoryEngine(folder,{ prompt,schema -> client!!.generate(prompt,schema) },{cancelled}) { percent,message -> status("running",percent,message) }.run(spec)
+                        val hybrid=spec.optBoolean("hybrid")
+                        val retryStatus: (String)->Unit={ message -> status("running",lastPercent,"${if(hybrid) "Groq + Gemini" else provider.label} • $message") }
+                        val active=if(hybrid) StoryProvider.entries.toList() else listOf(provider)
+                        val connections=active.associateWith { target ->
+                            val settings=GeminiSettings(this,target)
+                            val key=settings.key(); require(key.isNotBlank()) { "ตั้งค่า ${target.label} API Key ก่อนเริ่ม" }
+                            val model=if(hybrid) spec.getString("${target.id}_model") else spec.getString("model")
+                            if(target==StoryProvider.GROQ) GroqClient(key,model,{ cancelled },{ seconds -> status("running",lastPercent,if(seconds>0) "Groq • พัก $seconds วินาที • ครบเวลาแล้วทำต่ออัตโนมัติ • กดหยุดได้" else "Groq • กำลังส่งคำขอ / รอคำตอบบท") },retryStatus,!hybrid)
+                            else GeminiClient(key,model,{ cancelled },retryStatus,!hybrid)
+                        }
+                        clients=connections.values.toList()
+                        val router=StoryProviderRouter({cancelled},{ target,fallback ->
+                            provider=target
+                            status("running",lastPercent,"${target.label} • "+if(fallback) "รับช่วงแทนบริการที่พักอยู่ • ใช้ข้อมูลเรื่องเดิม" else "กำลังเขียนตามหน้าที่")
+                        })
+                        status("running",0,if(hybrid) "Groq + Gemini • Gemini วางเรื่อง / Groq เขียนซีน • สลับเมื่อโควตาเต็ม" else "กำลังเขียนบท • ไม่ได้สร้างวิดีโอ")
+                        val story=GeminiStoryEngine(folder,{ prompt,schema ->
+                            if(hybrid) StoryRequestRetry().execute({cancelled},retryStatus) {
+                                router.generate(StoryProviderRouter.preferred(schema.getJSONObject("properties").has("scenes"))) { target -> connections.getValue(target).generate(prompt,schema) }
+                            } else connections.getValue(provider).generate(prompt,schema)
+                        },{cancelled}) { percent,message -> status("running",percent,message) }.run(spec)
                         if(cancelled) throw CancellationException()
                         val target=File(folder.parentFile,"story.json")
                         if(target.exists()) require(GeminiStoryFiles.read(target).toString()==story.toString()) { "พบ story.json ที่แก้ไขแล้ว ไม่เขียนทับ" }
@@ -61,7 +76,7 @@ class GeminiStoryService : Service() {
                 if(::folder.isInitialized) status(if(e is AutoDirectorContent.AwaitingOutline) "awaiting_outline" else if(cancelled || e is CancellationException) "paused" else "failed",lastPercent,
                     if(e is AutoDirectorContent.AwaitingOutline) e.message.orEmpty() else if(cancelled || e is CancellationException) "หยุดแล้ว • บันทึกช่วงที่เสร็จไว้ กดทำต่อได้" else safeError(e))
             } finally {
-                client=null; running=false; projectId=null
+                clients=emptyList(); running=false; projectId=null
                 stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()
             }
         }.apply { name="director-gemini-writer"; start() }
@@ -83,6 +98,6 @@ class GeminiStoryService : Service() {
         return Notification.Builder(this,CHANNEL).setSmallIcon(R.drawable.studio_movie).setContentTitle("DIRECTOR X • เขียนบท")
             .setContentText(message).setContentIntent(open).setOngoing(true).addAction(Notification.Action.Builder(null,"หยุด",stop).build()).build()
     }
-    override fun onTimeout(startId: Int,fgsType: Int) { cancelled=true; client?.cancel(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
-    override fun onDestroy() { cancelled=true; client?.cancel(); super.onDestroy() }
+    override fun onTimeout(startId: Int,fgsType: Int) { cancelled=true; clients.forEach { it.cancel() }; stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
+    override fun onDestroy() { cancelled=true; clients.forEach { it.cancel() }; super.onDestroy() }
 }

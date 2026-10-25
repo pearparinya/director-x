@@ -17,8 +17,7 @@ internal class StoryRequestRetry(
             if(cancelled()) throw CancellationException()
             try { return request() } catch(e: Exception) {
                 if(cancelled() || e is CancellationException) throw CancellationException()
-                val temporary=e is IOException && e !is javax.net.ssl.SSLException ||
-                    e is StoryHttpFailure && (e.status==408 || e.status==429 || e.status in 500..599)
+                val temporary=canRetry(e)
                 if(!temporary) throw e
                 if(retries>=MAX_RETRIES) throw IllegalStateException("ลองทำต่ออัตโนมัติครบ $MAX_RETRIES ครั้งแล้ว • บันทึกช่วงที่เสร็จไว้ ตรวจอินเทอร์เน็ต / โควตาแล้วกดทำต่อ")
                 val fallback=65L shl retries
@@ -45,6 +44,8 @@ internal class StoryRequestRetry(
         }
     }
     companion object {
+        fun canRetry(e: Exception): Boolean = e is IOException && e !is javax.net.ssl.SSLException ||
+            e is StoryHttpFailure && (e.status==408 || e.status==429 || e.status in 500..599)
         const val MAX_RETRIES=4
         const val MAX_WAIT_SECONDS=900L
         fun retrySeconds(value: String,now: Long): Long? {
