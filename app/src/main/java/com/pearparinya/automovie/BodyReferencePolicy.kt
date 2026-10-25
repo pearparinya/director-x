@@ -9,6 +9,7 @@ internal object BodyReferencePolicy {
     fun singleCheck(name: String, reference: String, profile: String, outfit: String, aspect: String): String = """
 สร้างภาพทดสอบหนึ่งภาพของตัวละครผู้ใหญ่ $name เพียงคนเดียว ใช้ $reference ที่แนบเป็นต้นฉบับ
 ${ImagePromptPolicy.referenceAppeal}
+${EditorialImagePolicy.referenceRendering}
 ข้อมูลรายคน: $profile
 $guide
 ชุดของฉากที่จะใช้จริง: $outfit
