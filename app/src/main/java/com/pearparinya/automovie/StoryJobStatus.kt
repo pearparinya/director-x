@@ -45,7 +45,7 @@ internal object StoryStatusText {
                 else -> "กำลังเตรียม / ตรวจบท"
             }
             state=="complete" -> "เสร็จสมบูรณ์"
-            state=="awaiting_outline" -> "รอยืนยันโครงเรื่อง"
+            state=="awaiting_outline" -> "โครงเรื่องบันทึกแล้ว • กดทำต่อเพื่อเขียนบทอัตโนมัติ"
             state=="paused" -> "หยุดแล้ว • กดทำต่อได้"
             else -> "หยุดเพราะข้อผิดพลาด • ตรวจรายละเอียด"
         }
@@ -53,6 +53,6 @@ internal object StoryStatusText {
         val time=duration(status.optLong("elapsed_ms"))
         val phase=if(running && !stale) " • ช่วงนี้ ${duration(status.optLong("phase_elapsed_ms"))}" else ""
         val update=if(heartbeat>0) java.text.SimpleDateFormat("HH:mm:ss",java.util.Locale.ROOT).format(java.util.Date(heartbeat)) else "—"
-        return "$provider • บันทึกแล้ว ${status.optInt("percent").coerceIn(0,100)}%\n$label\nใช้เวลา $time$phase\n${status.optString("message")}\nแอปอัปเดตสถานะล่าสุด $update"
+        return "$provider • บันทึกแล้ว ${status.optInt("percent").coerceIn(0,100)}%\n$label\nใช้เวลา $time$phase\n${if(state=="awaiting_outline") "เปิดงานเขียนบท แล้วกดทำต่อ • ใช้โครงเรื่องเดิม ไม่ต้องยืนยันอีก" else status.optString("message")}\nแอปอัปเดตสถานะล่าสุด $update"
     }
 }

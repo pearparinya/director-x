@@ -136,7 +136,7 @@ class GeminiStoryTest {
         assertEquals(35,ChannelCatalog.topics.size)
         ChannelCatalog.topics.forEach { assertTrue(ChannelCatalog.acceptedCategories.contains(ChannelCatalog.category(it))) }
     }
-    @Test fun mainCategoryOutlineWaitsForApprovalThenKeepsGenreAcrossScenesAndCommands() {
+    @Test fun mainCategoryAutomaticallyContinuesPastLegacyApprovalFlagAndKeepsGenre() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         for(category in listOf(ChannelCatalog.mainCategories[3],ChannelCatalog.mainCategories[6],ChannelCatalog.mainCategories[8],ChannelCatalog.mainCategories[9])) {
             val folder=File(context.cacheDir,"main-genre-${UUID.randomUUID()}").apply { mkdirs() }
@@ -148,11 +148,7 @@ class GeminiStoryTest {
                     if(prompt.contains("Plan a complete story")) { outlines++; outline().apply { put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0))) } }
                     else { sceneCalls++; batch(prompt) }
                 }
-                val paused=runCatching { GeminiStoryEngine(folder,generate).run(selected) }.exceptionOrNull()
-                assertTrue(paused is AutoDirectorContent.AwaitingOutline)
-                assertEquals(1,outlines); assertEquals(0,sceneCalls)
-                assertFalse(File(folder,"EP01_01.json").exists())
-                val story=GeminiStoryEngine(folder,generate).run(selected.put("outline_approved",true))
+                val story=GeminiStoryEngine(folder,generate).run(selected)
                 assertEquals(1,outlines); assertEquals(1,sceneCalls)
                 assertEquals(category.id,story.getString("category_id"))
                 assertEquals(category.style,story.getString("category_style"))
