@@ -36,6 +36,21 @@ class AutoDirectorContentTest {
             .put("title","ความจริงหลังซอง").put("tagline","ใครกันที่ปิดบัง").put("aspect_ratio","16:9").put("duration_seconds",8)
             .put("episodes",JSONArray().put(JSONObject().put("ep",1).put("title","ซองลับ").put("tagline","ใครส่งมา").put("synopsis","ทั้งสามต้องเผชิญความจริง").put("scenes",scenes)))
     }
+    @Test fun selectedShortClipHasMatchingPosterSceneDialogueAndXmlCounts() {
+        val p=ClipPlan.apply(story().put("channel",ChannelCatalog.channel),"short",30)
+        val ep=p.getJSONArray("episodes").getJSONObject(0)
+        val original=ep.getJSONArray("scenes")
+        ep.put("scenes",JSONArray().apply { repeat(4) { put(original.getJSONObject(it)) } })
+        val images=AutoDirectorContent.images(p,1)
+        assertTrue(images.contains("6 คำสั่ง"))
+        assertEquals(6,AutoDirectorContent.imageTasks(p,1).size)
+        assertEquals(4,Regex("\\[ฉากที่ [0-9]+]").findAll(images).count())
+        assertTrue(images.contains(ChannelCatalog.channel))
+        assertEquals(4,Regex("\\[ฉากที่ [0-9]+]").findAll(AutoDirectorContent.dialogue(p,1)).count())
+        val xml=AutoDirectorContent.flowXml(p,1)
+        val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(xml.toByteArray()))
+        assertEquals(4,doc.getElementsByTagName("scene").length)
+    }
     @Test fun imageAndCoverCommandsBindAliasesAndKeepEveryScene() {
         val p=story(); val images=AutoDirectorContent.images(p,1); val covers=AutoDirectorContent.covers(p)
         assertEquals(24,Regex("\\[ฉากที่ [0-9]+]").findAll(images).count())

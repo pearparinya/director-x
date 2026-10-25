@@ -58,7 +58,8 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
             if(ep.optInt("ep")!=i+1) add("เลข EP ต้องเรียงจาก 1")
             if(scenes==null || scenes.length()==0) { add("EP ${i+1} ไม่มีซีน"); continue }
             if(plan.optString("content_profile")==AutoDirectorContent.profile) {
-                if(scenes.length()!=24) add("AutoDirector EP ${i+1} ต้องมี 24 ฉาก")
+                val expected=runCatching { ClipPlan.count(plan) }.getOrDefault(24)
+                if(scenes.length()!=expected) add("AutoDirector EP ${i+1} ต้องมี $expected ฉาก")
                 runCatching { AutoDirectorContent.validateWardrobes(ep,plan.optInt("autodirector_version")>=AutoDirectorContent.version) }.exceptionOrNull()?.let { add(it.message ?: "ชุดต้องครบ 4 ส่วน") }
             }
             var total=0
@@ -83,7 +84,11 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
                 if(dialogue.isNotBlank() && people.none { it.optString("name")==s.optString("speaker") || StoryIdentity.keyFor(s.optString("speaker"))?.let { key -> key==FlowCast.id(it) }==true }) add("$id ผู้พูดไม่อยู่ในฉาก")
                 if(dialogue.isNotBlank() && s.optString("narration").trim() !in listOf("","ไม่มี","none")) add("$id บทพูดกับบรรยายต้องแยกซีน")
             }
-            if(total<minimumSeconds) add("EP ${i+1} ยาว $total วินาที ต้องอย่างน้อย $minimumSeconds")
+            if(plan.optInt("clip_plan_version")==1) {
+                runCatching { ClipPlan.count(plan) }.fold(onSuccess={ expected ->
+                    if(scenes.length()!=expected || total!=expected*8) add("EP ${i+1} จำนวนซีนหรือเวลาไม่ตรงที่เลือก: ต้อง $expected ซีน ${expected*8} วินาที")
+                },onFailure={ add("รูปแบบหรือระยะเวลาคลิปไม่ถูกต้อง") })
+            } else if(total<minimumSeconds) add("EP ${i+1} ยาว $total วินาที ต้องอย่างน้อย $minimumSeconds")
         }
     }
     fun write(output: OutputStream, plan: JSONObject?, masters: Map<String,File>, memory: JSONObject, category: String, channel: String) {
@@ -165,7 +170,7 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
                     put("EP%02d_IMAGES.txt".format(number),text.toString())
                     put("EP%02d_VIDEOS_FLOW.txt".format(number),videos.toString())
                 }
-                start.append("\nบทพร้อม ").append(eps.length()).append(" EP • ตรวจเวลาทุก EP อย่างน้อย 180 วินาทีแล้ว\n")
+                start.append("\nบทพร้อม ").append(eps.length()).append(" EP • ตรวจเวลาทุก EP ตามรูปแบบที่เลือกแล้ว\n")
             }
             put("START.txt",start.toString())
         }
