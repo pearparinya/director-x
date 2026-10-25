@@ -1397,7 +1397,7 @@ class StudioActivity : AppCompatActivity() {
                 .setNegativeButton("ปิด",null).showDirector()
         } else {
             AlertDialog.Builder(this).setTitle("เขียนบทต่อจากที่บันทึก")
-                .setMessage(geminiStatusText(readGeminiStatus())+"\nจะใช้ ${StoryProvider.label(this)} และโมเดลที่ตั้งค่าปัจจุบัน เขียนเฉพาะช่วงที่ยังไม่สำเร็จ")
+                .setMessage(geminiStatusText(readGeminiStatus())+"\nจะใช้ ${StoryProvider.label(this@StudioActivity)} และโมเดลที่ตั้งค่าปัจจุบัน เขียนเฉพาะช่วงที่ยังไม่สำเร็จ")
                 .setPositiveButton("ทำต่อ") { _,_ ->
                     if(!StoryProvider.ready(this)) geminiSettings { geminiJobMenu() }
                     else runCatching {
@@ -1485,8 +1485,8 @@ class StudioActivity : AppCompatActivity() {
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
             val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); panel.addView(this) }
-            panel.addView(TextView(this).apply { text="24 ซีน/EP • ซีนละ 8 วินาที = 3:12 • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้ • ${StoryProvider.label(this)} • ใช้โมเดลที่ตั้งไว้ • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ของคุณภายหลัง" })
-            AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v18 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this)}")
+            panel.addView(TextView(this).apply { text="24 ซีน/EP • ซีนละ 8 วินาที = 3:12 • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้ • ${StoryProvider.label(this@StudioActivity)} • ใช้โมเดลที่ตั้งไว้ • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ของคุณภายหลัง" })
+            AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v18 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
                     runCatching {
                         val folder=File(base,UUID.randomUUID().toString()).apply { mkdirs() }
