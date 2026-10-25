@@ -5,8 +5,9 @@ import org.json.JSONObject
 /** Deterministic checks only: never invent missing actors, wardrobe or plot repairs. */
 internal object ProductionCommandCheck {
     const val planning="COMMAND CONSISTENCY: Every person physically participating in action/start_state/end_state must be listed in characters with a distinct screen_position. A solo shot cannot step between two people or touch an unlisted person. Use a smile or silent amused expression instead of audible laughter; sound fields never add human voices. Keep action, start/end state, cast and exact speech mutually consistent."
+    private fun people(scene: JSONObject)=scene.optJSONArray("characters")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty()
     private fun speech(value: String)=value.trim().takeUnless { it.lowercase() in setOf("", "none", "n/a", "ไม่มี", "ไม่มีเสียงบรรยาย") }.orEmpty()
-    fun spec(scene: JSONObject) = FlowSceneSpec(FlowReferencePrompt.people(scene).map {
+    fun spec(scene: JSONObject) = FlowSceneSpec(people(scene).map {
         FlowPerson(it.optString("name"),it.optString("visual_description"),it.optString("screen_position"),it.optString("outfit"),PerformanceDirection.text(it))
     },speech(scene.optString("speaker")),speech(scene.optString("dialogue")),speech(scene.optString("narration")),scene.optString("flow_action").ifBlank { scene.optString("action") },scene.optString("location"),scene.optString("start_state"),scene.optString("end_state"),8,"9:16",SoundDesign.notes(scene))
     private fun position(text: String): String? {
@@ -15,7 +16,7 @@ internal object ProductionCommandCheck {
     }
     fun sceneIssues(scene: JSONObject): List<String> = buildList {
         addAll(FlowScenePrompt.issues(spec(scene)))
-        val people=FlowReferencePrompt.people(scene)
+        val people=people(scene)
         if(people.isEmpty()) add("ขาดตัวละครในซีน")
         if(scene.optInt("duration_seconds",8)!=8) add("ซีนต้องใช้ 8 วินาที")
         val positions=people.mapNotNull { position(it.optString("screen_position")) }
@@ -32,7 +33,7 @@ internal object ProductionCommandCheck {
         val aliases=mapOf("gawin" to listOf("กวิน","Kawin","Gawin","The Man"),"rinlada" to listOf("รินรดา","Rinrada","Rinlada","Woman 1"),"mind" to listOf("เมย์","May","Mind","Woman 2"))
         val action=scene.optString("flow_action").ifBlank { scene.optString("action") }
         if(!Regex("(?i)(talks? about|speaks? about|photo|picture|portrait|พูดถึง|เล่าถึง|รูปถ่าย|ภาพของ)").containsMatchIn(action)) {
-            val present=FlowReferencePrompt.people(scene).map { FlowCast.id(it) }.toSet()
+            val present=people(scene).map { FlowCast.id(it) }.toSet()
             definitions.forEach { person ->
                 val id=FlowCast.id(person)
                 val names=aliases[id] ?: listOf(person.optString("name"))
@@ -60,7 +61,9 @@ internal object ProductionCommandCheck {
                 val key="EP%02d_SC%03d".format(number,n)
                 if(n!=j+1 || !scenes.add(n)) add("$key เลขซีนไม่ถูกต้องหรือซ้ำ")
                 addAll(sceneIssues(s).map { "$key: $it" })
-                FlowReferencePrompt.people(s).forEach { person -> if(!FlowCast.matches(story,person)) add("$key: MASTER ไม่ตรงตัวละคร ${person.optString("name")}") }
+                if(story.optInt("audio_version")>=1) runCatching { SoundDesign.validate(s) }.exceptionOrNull()?.let { add("$key: ${it.message}") }
+                if(story.optInt("performance_version")>=1) runCatching { PerformanceDirection.validate(s) }.exceptionOrNull()?.let { add("$key: ${it.message}") }
+                people(s).forEach { person -> if(!FlowCast.matches(story,person)) add("$key: MASTER ไม่ตรงตัวละคร ${person.optString("name")}") }
             }
         }
         AutoDirectorWardrobe.shots(story).forEach { shot -> addAll(namedIssues(shot.scene,FlowCast.definitions(story)).map { "EP%02d_SC%03d: %s".format(shot.ep,shot.scene.optInt("scene"),it) }) }

@@ -1262,7 +1262,9 @@ class StudioActivity : AppCompatActivity() {
         choiceMenu("EP.$number • เปิดหรือแก้เฉพาะรายการ",listOf("รูปและปก Gemini","วิดีโอ Flow")) { productionTaskDeck(story,number,it==0) }
     }
     private fun productionTaskDeck(story: JSONObject,number: Int,images: Boolean) {
-        val tasks=if(images) SimpleProductionCommands.imageTasks(story,number) else SimpleProductionCommands.videoTasks(story,number)
+        val tasks=runCatching { if(images) SimpleProductionCommands.imageTasks(story,number) else SimpleProductionCommands.videoTasks(story,number) }.getOrElse {
+            notice(it.message ?: "ข้อมูลคำสั่งไม่ครบ"); productionCheckMenu(story); return
+        }
         val preference="production_cursor_${project.name}_${number}_$images"
         val previous=prefs.getString(preference,"")
         val start=tasks.indexOfFirst { it.id==previous }.coerceAtLeast(0)
@@ -1558,7 +1560,7 @@ class StudioActivity : AppCompatActivity() {
                         choiceMenu("EP.$number • เลือกทำทีละขั้น",listOf("ภาพ EP.$number • ปกและซีน","บทพูด EP.$number","วิดีโอ EP.$number • ทีละซีนพร้อมเสียง","XML EP.$number • ขั้นสูง")) { stage ->
                             val reached=prefs.getInt(key,0)
                             val code=when(stage) {
-                                0 -> AutoDirectorContent.images(story,number)
+                                0,2 -> ""
                                 1 -> AutoDirectorContent.dialogue(story,number)
                                 else -> AutoDirectorContent.flowXml(story,number)
                             }
