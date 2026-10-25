@@ -62,6 +62,31 @@ class GeminiStoryTest {
         assertTrue(runCatching { ClipPlan.count(ClipPlan.apply(JSONObject(),"short",600)) }.isFailure)
         assertEquals(24,ClipPlan.count(JSONObject()))
     }
+    @Test fun modernCommandChecksRepairAudibleLaughBeforeCheckpointAndKeepAutomaticWriting() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"command-check-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val selected=ClipPlan.apply(spec().put("episodes",1).put("command_version",1),"short",30)
+            var attempts=0
+            val story=GeminiStoryEngine(folder,{ prompt,_ ->
+                if(prompt.contains("Plan a complete story") && !prompt.contains("Write exactly scenes")) outline().apply { put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0))) }
+                else {
+                    attempts++
+                    batch(prompt).apply {
+                        val rows=getJSONArray("scenes")
+                        for(i in 0 until rows.length()) {
+                            rows.getJSONObject(i).getJSONArray("characters").getJSONObject(0).put("outfit","Top: cream shirt; Bottom: beige trousers; Shoes: brown shoes; Accessories: none")
+                            rows.getJSONObject(i).put("flow_action",if(attempts==1 && i==0) "May laughs heartily" else "May places the envelope on the table")
+                        }
+                    }
+                }
+            }).run(selected)
+            assertEquals(2,attempts)
+            assertEquals(1,story.getInt("command_version"))
+            assertTrue(ProductionCommandCheck.issues(story).toString(),ProductionCommandCheck.issues(story).isEmpty())
+            assertTrue(File(folder,"EP01_01.json").readText().contains("places the envelope"))
+            assertFalse(File(folder,"EP01_01.json").readText().contains("laughs heartily"))
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun comedyCatalogGuidesNewStoriesWithoutChangingExistingCategoryIds() {
         val expected=listOf("Clumsy Secretary","The Scaredy Boss","Pantry Rivalry","The Oblivious Neighbor","Delivery Disaster","Pet Lover's Panic","Gym Fail","Camping Chaos","Drunk Confession","The Clueless Tutor","Cooking Disaster")
         assertEquals(24,ChannelCatalog.topics.count { it.tone=="drama" })
