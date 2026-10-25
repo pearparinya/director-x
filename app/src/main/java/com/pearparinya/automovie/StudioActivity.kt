@@ -180,7 +180,7 @@ class StudioActivity : AppCompatActivity() {
         "Family Secrets | ความลับใต้ชายคา...ที่ไม่มีใครกล้าพูด",
         "Twisted Truth | พล็อตหักมุม...ความจริงใต้เตียง",
         "Healing Hearts | ซ่อมรักหลังบ้าน ซีรีส์ฮีลใจ")
-    private val categories = ChannelCatalog.topics.map { ChannelCatalog.category(it) }
+    private val categories = ChannelCatalog.mainCategories.map { it.label }
     private var masterSlot: String?
         get() = prefs.getString("master_slot", null)
         set(value) { prefs.edit().putString("master_slot", value).apply() }
@@ -454,7 +454,7 @@ class StudioActivity : AppCompatActivity() {
         val mode = p.optString("character_mode", "original")
         if(mode=="original") require(FlowCast.issues(p).isEmpty()) { FlowCast.issues(p).joinToString("\n") }
         require(mode in listOf("original", "new")) { "รูปแบบตัวละครไม่ถูกต้อง" }
-        require(p.getString("category") in (if (mode == "new") otherGenres else categories + legacyCategories)) { "หมวดหมู่ไม่ตรงกับรูปแบบช่อง" }
+        require(p.getString("category") in (if (mode == "new") otherGenres else ChannelCatalog.acceptedCategories + legacyCategories)) { "หมวดหมู่ไม่ตรงกับรูปแบบช่อง" }
         if (mode == "new") require(p.optString("channel").isNotBlank()) { "กรุณาระบุชื่อช่องในบท" }
         val eps = p.getJSONArray("episodes")
         require(eps.length() > 0) { "ไม่มี EP" }
@@ -1421,12 +1421,23 @@ class StudioActivity : AppCompatActivity() {
         val specFile=File(project,"gemini_job/spec.json")
         val outlineFile=File(project,"gemini_job/outline.json")
         val pendingSpec=runCatching { GeminiStoryFiles.read(specFile) }.getOrNull()
-        if(!GeminiStoryService.running && pendingSpec?.optString("content_profile")==AutoDirectorContent.profile && !pendingSpec.optBoolean("outline_approved") && outlineFile.isFile) {
+        if(!GeminiStoryService.running && pendingSpec!=null && (pendingSpec.optBoolean("outline_review_required") || pendingSpec.optString("content_profile")==AutoDirectorContent.profile) && !pendingSpec.optBoolean("outline_approved") && outlineFile.isFile) {
             runCatching {
                 val outline=GeminiStoryFiles.read(outlineFile).put("channel",pendingSpec.optString("channel")).put("category",pendingSpec.optString("category"))
                 ClipPlan.copy(pendingSpec,outline)
+                ChannelCatalog.stamp(outline)
                 val dialog=showFlowCode("Phase 1 • ตรวจโครงเรื่อง",AutoDirectorContent.outline(outline),"AD_01_OUTLINE.txt")
-                dialog.getButton(-1).text="ยืนยัน • เตรียมเนื้อหา"
+                dialog.getButton(-1).text="ยืนยัน • เขียนบทเต็ม"
+                dialog.getButton(-3).text="คิดโครงใหม่"
+                dialog.getButton(-3).setOnClickListener {
+                    runCatching {
+                        check(!GeminiStoryService.running)
+                        outlineFile.copyTo(File(outlineFile.parentFile,"outline_previous.json"),overwrite=true)
+                        check(outlineFile.delete())
+                        GeminiStoryFiles.write(specFile,pendingSpec.put("creative_seed",UUID.randomUUID().toString()))
+                        dialog.dismiss(); startGeminiJob(project)
+                    }.onFailure { notice(it.message ?: "คิดโครงใหม่ไม่ได้") }
+                }
                 dialog.getButton(-1).setOnClickListener {
                     if(!StoryProvider.ready(this)) { dialog.dismiss(); geminiSettings { geminiJobMenu() } }
                     else { GeminiStoryFiles.write(specFile,StoryProvider.configure(this,pendingSpec.put("outline_approved",true))); dialog.dismiss(); startGeminiJob(project) }
@@ -1528,11 +1539,7 @@ class StudioActivity : AppCompatActivity() {
         }
     }
     private fun chooseChannelTopic(done: (Int) -> Unit) {
-        choiceMenu("เลือกหมวดหลัก • สตอรี่ทรงโต",ChannelCatalog.groups.map { it.title }) { group ->
-            choiceMenu("เลือกหมวดย่อย",ChannelCatalog.groups[group].topics.map { "[${it.id}] ${it.title}\n${it.premise}" }) { topic ->
-                done(ChannelCatalog.topics.indexOf(ChannelCatalog.groups[group].topics[topic]))
-            }
-        }
+        choiceMenu("เลือกหมวดหลัก • ให้ AI คิดเรื่องใหม่",ChannelCatalog.mainCategories.map { it.menuLabel },action=done)
     }
     private fun chooseClip(done: (String,Int) -> Unit) {
         choiceMenu("เลือกรูปแบบ • ทุกแบบแนวตั้ง 9:16",listOf("คลิปสั้น","คลิปยาว")) { format ->
@@ -1569,7 +1576,7 @@ class StudioActivity : AppCompatActivity() {
                         }
                         val count=when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",originalChannel)
-                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("supporting_characters",support).put("premise",premise.text.toString()).put("episodes",count)))
+                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("outline_review_required",true).put("creative_seed",UUID.randomUUID().toString()).put("supporting_characters",support).put("premise",premise.text.toString()).put("episodes",count)))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
                 }.setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()

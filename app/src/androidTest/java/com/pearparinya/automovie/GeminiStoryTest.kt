@@ -112,6 +112,60 @@ class GeminiStoryTest {
             assertTrue(FlowProductionPack.issues(story).any { it.contains("แผนเสียง") })
         } finally { folder.deleteRecursively() }
     }
+    @Test fun mainCategoryContractsUseTenReadableStylesWithoutSelectingPresetSubplots() {
+        val categories=ChannelCatalog.mainCategories
+        assertEquals(10,categories.size)
+        assertEquals(10,categories.map { it.id }.distinct().size)
+        assertEquals("รักวุ่นชวนเข้าใจผิด",categories[8].name)
+        assertEquals("คู่ป่วนต่างอาชีพ",categories[9].name)
+        for(c in categories) {
+            assertTrue(c.label.contains("(${c.style})"))
+            assertTrue(c.menuLabel.contains("\n("))
+            assertTrue(ChannelCatalog.acceptedCategories.contains(c.label))
+            val data=ChannelCatalog.stamp(JSONObject().put("category",c.label).put("subcategory_id",25).put("subcategory","old"))
+            assertEquals(c.id,data.getString("category_id"))
+            assertEquals(c.name,data.getString("main_category"))
+            assertEquals(c.style,data.getString("category_style"))
+            assertEquals(c.tone,data.getString("story_tone"))
+            assertFalse(data.has("subcategory")); assertFalse(data.has("subcategory_id"))
+            assertTrue(ChannelCatalog.direction(c.label).contains("MAIN CATEGORY ONLY"))
+            assertFalse(ChannelCatalog.direction(c.label).contains("Selected premise:"))
+            assertEquals(c.tone=="comedy",ChannelCatalog.performance(data).isNotBlank())
+            assertTrue(ChannelCatalog.genre(data).contains(c.id))
+        }
+        assertEquals(35,ChannelCatalog.topics.size)
+        ChannelCatalog.topics.forEach { assertTrue(ChannelCatalog.acceptedCategories.contains(ChannelCatalog.category(it))) }
+    }
+    @Test fun mainCategoryOutlineWaitsForApprovalThenKeepsGenreAcrossScenesAndCommands() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        for(category in listOf(ChannelCatalog.mainCategories[3],ChannelCatalog.mainCategories[6],ChannelCatalog.mainCategories[8],ChannelCatalog.mainCategories[9])) {
+            val folder=File(context.cacheDir,"main-genre-${UUID.randomUUID()}").apply { mkdirs() }
+            try {
+                val selected=ClipPlan.apply(spec().put("channel",ChannelCatalog.channel).put("category",category.label).put("episodes",1).put("outline_review_required",true).put("creative_seed","test-variation"),"short",30)
+                var outlines=0; var sceneCalls=0
+                val generate: (String,JSONObject)->JSONObject = { prompt,_ ->
+                    assertTrue(prompt.contains("MAIN CATEGORY ONLY")); assertTrue(prompt.contains(category.direction))
+                    if(prompt.contains("Plan a complete story")) { outlines++; outline().apply { put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0))) } }
+                    else { sceneCalls++; batch(prompt) }
+                }
+                val paused=runCatching { GeminiStoryEngine(folder,generate).run(selected) }.exceptionOrNull()
+                assertTrue(paused is AutoDirectorContent.AwaitingOutline)
+                assertEquals(1,outlines); assertEquals(0,sceneCalls)
+                assertFalse(File(folder,"EP01_01.json").exists())
+                val story=GeminiStoryEngine(folder,generate).run(selected.put("outline_approved",true))
+                assertEquals(1,outlines); assertEquals(1,sceneCalls)
+                assertEquals(category.id,story.getString("category_id"))
+                assertEquals(category.style,story.getString("category_style"))
+                assertFalse(story.has("subcategory_id"))
+                val scene=story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
+                assertEquals(category.id,scene.getString("category_id"))
+                assertTrue(FlowReferencePrompt.scene(scene,1,"video").contains(category.direction))
+                assertTrue(SceneCommandCards.videos(story,1).first().command.contains(category.direction))
+                assertTrue(SceneCommandCards.images(story,1).first().command.contains(category.direction))
+                assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_-> error("must use approved checkpoints") }).run(selected).toString())
+            } finally { folder.deleteRecursively() }
+        }
+    }
     @Test fun hybridSharesSamePromptAndCompletesWithFallbackWithoutRewritingCheckpoints() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val folder=File(context.cacheDir,"hybrid-story-${UUID.randomUUID()}").apply { mkdirs() }
