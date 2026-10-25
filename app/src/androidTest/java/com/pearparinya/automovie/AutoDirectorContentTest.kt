@@ -120,7 +120,7 @@ class AutoDirectorContentTest {
             for(j in 0 until people.length()) people.getJSONObject(j).put("outfit",outfit)
         }
         val code=AutoDirectorContent.images(p,1)
-        assertEquals(28,Regex(Regex.escape(AutoDirectorContent.imageStart)).findAll(code).count())
+        assertEquals(28,Regex("Generate a (?:9:16|16:9) image exactly as described, RAW photo:").findAll(code).count())
         assertTrue(code.contains("TEXT COMMANDS ONLY")); assertTrue(code.contains("HARD STOP"))
         assertTrue(code.contains(BodyReferencePolicy.preciseIdentity)); assertTrue(code.contains("glowing 3D")); assertTrue(code.contains("dark localized gradient"))
         assertTrue(code.contains("✅ โค้ดคำสั่งภาพเสร็จสิ้น! พิมพ์ 'สร้างบท EP.1'"))
