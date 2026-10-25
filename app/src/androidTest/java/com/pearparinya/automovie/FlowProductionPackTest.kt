@@ -176,6 +176,9 @@ class FlowProductionPackTest {
             ZipInputStream(ByteArrayInputStream(output.toByteArray())).use { zip -> while(true) { val entry=zip.nextEntry ?: break; assertFalse(entry.name.contains("..")); assertNull(files.put(entry.name,zip.readBytes())) } }
             assertEquals(7,files.keys.count { Regex("DIRECTOR_FLOW/EP[0-9]+_IMAGES[.]txt").matches(it) })
             assertEquals(34,files.size)
+            val groupedImages=String(files.getValue("DIRECTOR_FLOW/COMMANDS/EP07_IMAGES.txt"),Charsets.UTF_8)
+            assertTrue(groupedImages.contains("BEGIN EXACT COVER TEXT\nช่อง\nซองบนโต๊ะ")); assertFalse(groupedImages.contains("STOP —"))
+            assertTrue(String(files.getValue("DIRECTOR_FLOW/COMMANDS/EP07_VIDEOS.txt"),Charsets.UTF_8).contains("SOUND:"))
             assertFalse(files.keys.any { it.contains("COVERS/") })
             val memory=JSONObject(String(files.getValue("DIRECTOR_FLOW/BACKUP/story.json"),Charsets.UTF_8)).getJSONObject("character_memory")
             masters.forEach { (id,file) -> assertArrayEquals(file.readBytes(),files.getValue("DIRECTOR_FLOW/"+memory.getJSONObject(id).getString("file"))) }

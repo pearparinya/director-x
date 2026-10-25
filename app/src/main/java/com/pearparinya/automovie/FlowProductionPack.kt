@@ -115,7 +115,7 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
             start.append("\nDIRECTOR X • เริ่มใช้งาน\nเริ่มจาก COVER_STORY.txt เพื่อสร้างปกรวมของเรื่องใน Flow หรือ ChatGPT จากนั้นเปิด EPxx_IMAGES.txt เพื่อสร้างภาพฉากและปกตอน ส่วน EPxx_VIDEOS_FLOW.txt เป็นแม่แบบวิดีโอสำหรับ Flow เท่านั้น เลือกคัดลอกหนึ่งบล็อกตั้งแต่บรรทัดแนบภาพจนจบบล็อก แนบเฉพาะภาพคนที่ระบุในบล็อกนั้น สร้างทีละปกหรือทีละซีน ไม่ส่งทั้งตอนไปให้ Flow สร้างครั้งเดียว\nรูปจริงอยู่ใน MASTERS ส่วนชื่ออ้างอิงในคำสั่งเป็นรหัส CHARACTER ไม่ขึ้นกับชื่อไฟล์หรือชื่ออัปโหลด\nสร้างภาพฉากจาก MASTER → นำเข้าภาพในเมนู EP / ซีน → เทียบ MASTER และยืนยันภาพพร้อมตำแหน่งผู้พูด → เปิดคำสั่งวิดีโอและแนบภาพที่ยืนยันเป็นเฟรมเริ่มต้น → ตรวจคลิปต้น กลาง ท้าย หากภาพ ชุด บท หรือ MASTER เปลี่ยนต้องตรวจใหม่ แม่แบบวิดีโอใน ZIP ยังไม่ใช่ภาพที่ผ่านการยืนยัน ตรวจภาพ ผู้พูด ชุดและตำแหน่งก่อนสร้างคลิป นำ MP4 กลับเข้าแอปเพื่อรวมตอน BACKUP/story.json ใช้นำกลับเข้าแอปและเก็บข้อมูลความจำ/ความต่อเนื่อง ไม่ต้องแนบไฟล์นี้ใน Flow\nยังไม่ได้สร้างหรือทดสอบภาพและวิดีโอจริง\n")
             if(plan==null) start.append("\nชุดแม่บทเริ่มงาน ยังไม่มีบท EP\n").append(masterCommand(category,channel))
             else {
-                val commandPlan=JSONObject(plan.toString()).apply { if(optString("channel").isBlank()) put("channel",channel) }
+                val commandPlan=JSONObject(plan.toString()).apply { if(optString("channel").isBlank()) this.put("channel",channel) }
                 val allEpisodes=plan.getJSONArray("episodes")
                 for(e in 0 until allEpisodes.length()) {
                     val number=allEpisodes.getJSONObject(e).getInt("ep")
