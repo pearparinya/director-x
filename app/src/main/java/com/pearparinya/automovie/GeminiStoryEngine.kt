@@ -101,6 +101,8 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
                     scenes.put(scene)
                 }
                 completed+=size; start+=size
+                lastPercent=(completed*100/(eps.length()*24)).coerceAtMost(99)
+                progress(lastPercent,"บันทึกแล้ว $completed/${eps.length()*24} ซีน • ทำต่อช่วงถัดไป")
             }
             output.put(JSONObject(planned.toString()).put("scenes",scenes).put("scene_count",24))
         }

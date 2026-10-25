@@ -32,6 +32,19 @@ class GroqClientTest {
         assertTrue(GroqClient.errorFor(429).contains("โควตา"))
         assertTrue(GroqClient.errorFor(401).contains("Groq API Key"))
     }
+    @Test fun knownRequestErrorsCanRecoverWithoutLeakingProviderPayloads() {
+        fun failure(code: String,status: Int=400)=GroqClient.failure(status,null,JSONObject().put("error",JSONObject().put("code",code)
+            .put("message","private-key-and-story").put("failed_generation","private draft")).toString())
+        val json=failure("json_validate_failed")
+        assertTrue(StoryRequestRetry.canRetry(json)); assertTrue(StoryRequestRetry.canFallback(json))
+        val context=failure("context_length_exceeded")
+        assertFalse(StoryRequestRetry.canRetry(context)); assertTrue(StoryRequestRetry.canFallback(context))
+        listOf(failure("invalid_request_error"),failure("content_policy_violation"),failure("json_validate_failed",401),GroqClient.failure(400,null,"not-json")).forEach { error ->
+            assertFalse(StoryRequestRetry.canRetry(error)); assertFalse(StoryRequestRetry.canFallback(error))
+            assertFalse(error.message!!.contains("private"))
+        }
+        assertTrue(StoryRequestRetry.canFallback(failure("request_too_large",413)))
+    }
     @Test fun pacingWaitsBetweenCallsAndCanBeCancelledWithoutSleepingInTests() {
         var time=100L; var waits=0; var stop=false
         val pacer=GroqRequestPacer({ time },{ time+=it; waits++ })

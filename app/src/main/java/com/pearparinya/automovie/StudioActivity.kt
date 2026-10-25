@@ -68,12 +68,16 @@ internal fun neutralIdentityGuide(source: String, aspect: String): String =
 class StudioActivity : AppCompatActivity() {
     private val storyUiHandler=android.os.Handler(android.os.Looper.getMainLooper())
     private var geminiStatusView: TextView?=null
+    private var geminiProgressView: ProgressBar?=null
+    private var geminiLiveDialog: TextView?=null
     private val storyPoll=object: Runnable { override fun run() {
         if(!isFinishing) {
             val status=readGeminiStatus()
             geminiStatusView?.text=geminiStatusText(status)
+            geminiProgressView?.progress=status?.optInt("percent")?.coerceIn(0,100) ?: 0
+            geminiLiveDialog?.text=geminiStatusText(status)+if(status?.optString("state")=="running" && GeminiStoryService.running) "\n\nระบบจะทำต่อเองระหว่างรอ • กดหยุดเมื่อต้องการพักงาน" else ""
             if(plan==null && File(project,"story.json").isFile && !importing) render()
-            storyUiHandler.postDelayed(this,1500)
+            storyUiHandler.postDelayed(this,1000)
         }
     } }
     private val characterMemory by lazy {
@@ -1250,8 +1254,14 @@ class StudioActivity : AppCompatActivity() {
         if(File(project,"gemini_job/spec.json").isFile) {
             geminiStatusView=TextView(this).apply { text=geminiStatusText(readGeminiStatus()); setTextColor(ice); textSize=14f; setPadding(dp(8),dp(8),dp(8),dp(8)) }
             root.addView(geminiStatusView)
+            geminiProgressView=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply {
+                max=100; progress=readGeminiStatus()?.optInt("percent")?.coerceIn(0,100) ?: 0
+                progressTintList=ColorStateList.valueOf(Color.rgb(0,210,240))
+                contentDescription="ความคืบหน้าบทที่บันทึกแล้ว"
+            }
+            root.addView(geminiProgressView,LinearLayout.LayoutParams(-1,dp(10)).apply { setMargins(dp(8),0,dp(8),dp(8)) })
             button("🤖 งานเขียนบท • ดูสถานะ / ทำต่อ",false) { geminiJobMenu() }
-        } else geminiStatusView=null
+        } else { geminiStatusView=null; geminiProgressView=null }
         stepCard(1,"📝","วางบทและเขียนคำสั่ง","เลือกแนวเรื่อง → AI เขียนบทและรับกลับในแอป → ส่งออก Flow • ตั้งค่า API Key ครั้งแรก",completed=prepared,currentStep=active,
             statusText=if(prepared) "เตรียมคำสั่ง / มีบทแล้ว" else "พร้อมเริ่มวางบท") { flowPlanning() }
         stepCard(2,"📥","นำเข้าบท / ZIP","นำเข้า story.json หรือ ZIP บท • ไม่ต้องรอภาพฉาก • เพิ่มไฟล์ภาพและคลิปภายหลังได้",completed=current!=null,currentStep=active,
@@ -1287,11 +1297,8 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun readGeminiStatus(): JSONObject? = runCatching { GeminiStoryFiles.read(File(project,"gemini_job/status.json")) }.getOrNull()
     private fun geminiStatusText(status: JSONObject?): String {
-        val provider=runCatching { StoryProvider.from(status?.optString("provider","gemini") ?: StoryProvider.selected(this).id) }.getOrDefault(StoryProvider.GEMINI)
-        if(status==null) return "${provider.label} • ยังไม่เริ่มงาน"
-        val state=status.optString("state")
-        if(state=="running" && (!GeminiStoryService.running || GeminiStoryService.projectId!=project.name)) return "${provider.label} • งานหยุดกลางทาง กดทำต่อจากช่วงที่บันทึกไว้"
-        return "${provider.label} • ${status.optInt("percent")}% • ${status.optString("message")}"
+        if(status==null) return "${StoryProvider.label(this)} • ยังไม่เริ่มงาน"
+        return StoryStatusText.format(status,GeminiStoryService.running && GeminiStoryService.projectId==project.name)
     }
     private fun geminiSettings(afterSave: (() -> Unit)?=null) {
         val choices=StoryProvider.entries.map { it.label+if(!StoryProvider.hybrid(this) && it==StoryProvider.selected(this)) " • เลือกอยู่" else "" }+
@@ -1391,10 +1398,13 @@ class StudioActivity : AppCompatActivity() {
             return
         }
         if(GeminiStoryService.running) {
-            AlertDialog.Builder(this).setTitle("กำลังเขียนบท")
-                .setMessage(geminiStatusText(readGeminiStatus())+"\nออกจากหน้านี้ได้ แอปบันทึกทุกช่วงที่ผ่านตรวจไว้")
+            val live=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text=geminiStatusText(readGeminiStatus()); setTextIsSelectable(true) }
+            geminiLiveDialog=live
+            val dialog=AlertDialog.Builder(this).setTitle("สถานะงาน • อัปเดตทุกวินาที")
+                .setView(live)
                 .setPositiveButton("ดูต่อ",null).setNeutralButton("หยุดงาน") { _,_ -> startService(Intent(this,GeminiStoryService::class.java).setAction(GeminiStoryService.CANCEL)) }
                 .setNegativeButton("ปิด",null).showDirector()
+            dialog.setOnDismissListener { if(geminiLiveDialog===live) geminiLiveDialog=null }
         } else {
             AlertDialog.Builder(this).setTitle("เขียนบทต่อจากที่บันทึก")
                 .setMessage(geminiStatusText(readGeminiStatus())+"\nจะใช้ ${StoryProvider.label(this@StudioActivity)} และโมเดลที่ตั้งค่าปัจจุบัน เขียนเฉพาะช่วงที่ยังไม่สำเร็จ")
