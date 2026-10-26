@@ -30,6 +30,15 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
     fun run(spec: JSONObject): JSONObject {
         val category=spec.getString("category"); val channel=spec.getString("channel"); val count=spec.optInt("episodes")
         val sceneCount=ClipPlan.count(spec)
+        if(spec.optBoolean("auto_cast") && spec.has("master_catalog")) {
+            progress(0,"กำลังวางบทบาท เลือก MASTER และตั้งชื่อนักแสดง")
+            val catalog=spec.getJSONArray("master_catalog")
+            val casting=cached("casting.json", "Plan the concept and cast for a Thai film/drama. Category: "+spec.optString("category")+"; premise: "+spec.optString("premise")+
+                ". Choose 1–8 adult fictional roles as needed, matching reference styling to the production. Invent distinct Thai character names and describe each role and relationships. Choose only library IDs below. Do not infer personality from looks, invent measurements or assume exact age. Hair/appearance come from each reference; costume changes by story. Return story_concept and cast. Catalog: "+catalog.toString(), AutoCast.schema()) { AutoCast.validate(it,catalog) }
+            spec.put("supporting_characters",AutoCast.apply(casting,catalog,folder.parentFile!!))
+            spec.put("cast_concept",casting.getString("story_concept"))
+            GeminiStoryFiles.write(File(folder,"spec.json"),spec)
+        }
         val support=spec.optJSONArray("supporting_characters") ?: JSONArray()
         require(FlowCast.issues(JSONObject().put("supporting_characters",support)).isEmpty()) { "ข้อมูลตัวละครเสริมไม่ถูกต้อง" }
         val compact=spec.optString("provider")=="groq" || spec.optBoolean("hybrid")
@@ -44,7 +53,7 @@ Never fill unused fields with descriptions, "none", "ไม่มี", "N/A", or
         val base="""
 You write complete Thai drama scripts and English Flow prompts. Return only the requested JSON, not markdown or downloadable file claims. Do not generate images/video or call other services. Only adult fictional characters from this map are allowed:
 ${FlowCast.definitions(spec).joinToString("\n") { p -> "${p.getString("name")} = ${p.getString("master")}; ${p.getString("visual_description")}" }}
-The three leads are Gawin, Rinrada and May; registered supporting characters may appear when the story needs them. Never invent an unregistered character.
+${if(spec.optBoolean("auto_cast")) "Use only the automatically selected cast above; their assigned names, roles and MASTER bindings are immutable across all episodes. Story concept: "+spec.optString("cast_concept")+"; roles: "+support.toString() else "The three leads are Gawin, Rinrada and May; registered supporting characters may appear when the story needs them."} Never invent an unregistered character.
 ${FlowVisualDirection.identity}
 ${FlowVisualDirection.color}
 ${AutoDirectorContent.femaleFashion}
@@ -130,7 +139,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
             output.put(JSONObject(planned.toString()).put("scenes",scenes).put("scene_count",sceneCount))
         }
         check()
-        val story=JSONObject().put("schema_version",3).put("production_mode","flow_commands").put("character_mode","original")
+        val story=JSONObject().put("auto_cast",spec.optBoolean("auto_cast")).put("cast_concept",spec.optString("cast_concept")).put("schema_version",3).put("production_mode","flow_commands").put("character_mode","original")
             .put("content_profile",spec.optString("content_profile")).put("autodirector_version",spec.optInt("autodirector_version")).put("performance_version",spec.optInt("performance_version")).put("audio_version",spec.optInt("audio_version")).put("command_version",spec.optInt("command_version")).put("supporting_characters",support).put("lead_references",spec.optJSONObject("lead_references") ?: JSONObject()).put("channel",channel).put("category",category).put("title",outline.getString("title")).put("tagline",outline.getString("tagline"))
             .put("episode_count",output.length()).put("scene_count",output.length()*sceneCount).put("duration_seconds",8).put("aspect_ratio","9:16").put("episodes",output)
         ClipPlan.copy(spec,story)

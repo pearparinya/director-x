@@ -110,7 +110,7 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
                 zip.putNextEntry(ZipEntry("DIRECTOR_FLOW/$path")); file.inputStream().use { it.copyTo(zip) }; zip.closeEntry()
                 refs.put(id,JSONObject().put("name",name).put("reference_label",FlowReferencePrompt.alias(id)).put("file",path).put("dna",plan?.optJSONObject("lead_references")?.optJSONObject(id)?.optString("visual_description")?.takeIf { it.isNotBlank() } ?: dna[id] ?: person.optString("visual_description")).put("sha256",EpisodeMedia.digest(file)).put("profile",memory.optJSONObject(id) ?: JSONObject()))
             }
-            val allPeople=names.map { (id,name) -> JSONObject().put("name",name).put("outfit","เลือกชุดใหม่ตามบท").put("screen_position","ตามบท") }
+            val allPeople=definitions.map { JSONObject(it.toString()).put("outfit","เลือกชุดใหม่ตามบท").put("screen_position","ตามบท") }
             val start=StringBuilder(FlowReferencePrompt.header(allPeople))
             start.append("\nDIRECTOR X • เริ่มใช้งาน\nเริ่มจาก COVER_STORY.txt เพื่อสร้างปกรวมของเรื่องใน Flow หรือ ChatGPT จากนั้นเปิด EPxx_IMAGES.txt เพื่อสร้างภาพฉากและปกตอน ส่วน EPxx_VIDEOS_FLOW.txt เป็นแม่แบบวิดีโอสำหรับ Flow เท่านั้น เลือกคัดลอกหนึ่งบล็อกตั้งแต่บรรทัดแนบภาพจนจบบล็อก แนบเฉพาะภาพคนที่ระบุในบล็อกนั้น สร้างทีละปกหรือทีละซีน ไม่ส่งทั้งตอนไปให้ Flow สร้างครั้งเดียว\nรูปจริงอยู่ใน MASTERS ส่วนชื่ออ้างอิงในคำสั่งเป็นรหัส CHARACTER ไม่ขึ้นกับชื่อไฟล์หรือชื่ออัปโหลด\nสร้างภาพฉากจาก MASTER → นำเข้าภาพในเมนู EP / ซีน → เทียบ MASTER และยืนยันภาพพร้อมตำแหน่งผู้พูด → เปิดคำสั่งวิดีโอและแนบภาพที่ยืนยันเป็นเฟรมเริ่มต้น → ตรวจคลิปต้น กลาง ท้าย หากภาพ ชุด บท หรือ MASTER เปลี่ยนต้องตรวจใหม่ แม่แบบวิดีโอใน ZIP ยังไม่ใช่ภาพที่ผ่านการยืนยัน ตรวจภาพ ผู้พูด ชุดและตำแหน่งก่อนสร้างคลิป นำ MP4 กลับเข้าแอปเพื่อรวมตอน BACKUP/story.json ใช้นำกลับเข้าแอปและเก็บข้อมูลความจำ/ความต่อเนื่อง ไม่ต้องแนบไฟล์นี้ใน Flow\nยังไม่ได้สร้างหรือทดสอบภาพและวิดีโอจริง\n")
             if(plan==null) start.append("\nชุดแม่บทเริ่มงาน ยังไม่มีบท EP\n").append(masterCommand(category,channel))
@@ -140,14 +140,15 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
                     start.append("\nGemini NEXT: เปิด AUTODIRECTOR/ALL_GEMINI_NEXT.txt เพื่อคัดลอกทั้งเรื่อง หรือ EPxx_GEMINI_NEXT.txt เฉพาะตอน แนบ MASTER ตามรายการ วางคำสั่งครั้งเดียว สร้างทีละภาพแล้วพิมพ์ next; ไม่สร้างวิดีโอใน Gemini ถ้าข้อความยาวเกินช่องแชตให้แนบไฟล์ TXT พร้อม MASTER แล้วสั่งอ่านไฟล์และเริ่มคิว\n")
                     start.append("\nAutoDirector v45: ใช้ไฟล์ใน AUTODIRECTOR ตามลำดับ โครงเรื่อง → ปกรวม Gemini → ภาพ Gemini ราย EP → บทพูด → XML สำหรับคัดลอกไป Flow ภาพอ้างอิงอยู่ใน MASTERS โดย The Man=GAWIN, Woman 1=RINLADA, Woman 2=MIND; ตัวเสริม Supporting ตามรหัสไฟล์ XML เป็นเอกสารจัดบท ไม่ใช่ไฟล์รัน Flow และยังต้องตรวจภาพจริงก่อนใช้\n")
                 }
-                val leads=names.map { (id,name) ->
+                val leads=definitions.map { definition ->
+                    val id=FlowCast.id(definition)!!; val name=definition.getString("name")
                     val epRows=plan.getJSONArray("episodes")
                     var found: JSONObject?=null
                     for(e in 0 until epRows.length()) {
                         val scenes=epRows.getJSONObject(e).getJSONArray("scenes")
                         for(j in 0 until scenes.length()) if(found==null) found=FlowReferencePrompt.people(scenes.getJSONObject(j)).firstOrNull { FlowCast.id(it)==id }
                     }
-                    found ?: JSONObject().put("name",name).put("master","${id.uppercase()}_MASTER.png").put("outfit","ชุดใหม่สำหรับปกรวมตามบท ไม่คัดลอกชุดต้นฉบับ").put("screen_position","จัดตามองค์ประกอบปก")
+                    found ?: JSONObject(definition.toString()).put("name",name).put("master","${id.uppercase()}_MASTER.png").put("outfit","ชุดใหม่สำหรับปกรวมตามบท ไม่คัดลอกชุดต้นฉบับ").put("screen_position","จัดตามองค์ประกอบปก")
                 }
                 val premise=plan.optString("cover_incident").ifBlank { plan.getJSONArray("episodes").getJSONObject(0).optString("cover_incident").ifBlank { plan.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0).getString("action") } }
                 val mainCover=StringBuilder()

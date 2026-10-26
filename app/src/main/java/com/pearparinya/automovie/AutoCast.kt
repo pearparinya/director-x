@@ -1,0 +1,41 @@
+package com.pearparinya.automovie
+
+import java.io.File
+import org.json.JSONArray
+import org.json.JSONObject
+
+/** Freeze AI casting before scene generation; retries reuse the same names and original bytes. */
+internal object AutoCast {
+    fun schema() = JSONObject("""{"type":"object","properties":{"story_concept":{"type":"string"},"cast":{"type":"array","items":{"type":"object","properties":{"library_id":{"type":"string"},"name":{"type":"string"},"role":{"type":"string"}},"required":["library_id","name","role"]}}},"required":["story_concept","cast"]}""")
+    fun validate(value: JSONObject, catalog: JSONArray) {
+        require(value.optString("story_concept").isNotBlank()) { "ขาดแนวคิดเรื่อง" }
+        val cast=value.getJSONArray("cast"); require(cast.length() in 1..8) { "เลือกนักแสดง 1–8 คนตามบท" }
+        val ids=(0 until catalog.length()).map { catalog.getJSONObject(it).getString("id") }.toSet()
+        val names=mutableSetOf<String>(); val used=mutableSetOf<String>()
+        for(i in 0 until cast.length()) {
+            val p=cast.getJSONObject(i)
+            require(p.getString("library_id") in ids && used.add(p.getString("library_id"))) { "MASTER ไม่อยู่ในคลังหรือเลือกซ้ำ" }
+            val name=p.getString("name").trim()
+            require(name.isNotBlank() && names.add(name) && StoryIdentity.keyFor(name)==null && p.getString("role").isNotBlank()) { "ตั้งชื่อใหม่ไม่ซ้ำ พร้อมระบุบทบาท" }
+        }
+    }
+    fun apply(value: JSONObject, catalog: JSONArray, project: File): JSONArray {
+        validate(value,catalog)
+        val result=JSONArray(); val cast=value.getJSONArray("cast")
+        for(i in 0 until cast.length()) {
+            val p=cast.getJSONObject(i); val id=p.getString("library_id")
+            val row=(0 until catalog.length()).map { catalog.getJSONObject(it) }.first { it.getString("id")==id }
+            val source=File(project,"master_candidates/"+row.getString("file"))
+            require(source.isFile && MasterLibrary.digest(source.readBytes())==row.getString("sha256")) { "ขาด MASTER ต้นฉบับของ $id" }
+            val key="support_%08x".format(id.substringAfter('_').toInt())
+            val target=File(project,"original_masters/$key.master"); target.parentFile!!.mkdirs()
+            if(!target.isFile || MasterLibrary.digest(target.readBytes())!=row.getString("sha256")) {
+                val pending=File(target.parentFile,target.name+".pending"); source.copyTo(pending,overwrite=true); check(pending.renameTo(target))
+            }
+            result.put(JSONObject().put("name",p.getString("name").trim()).put("master","${key.uppercase()}_MASTER.png")
+                .put("auto_cast",true).put("library_id",id).put("role",p.getString("role"))
+                .put("visual_description",MasterLibrary.description(id)+" Reference appearance: "+row.optString("casting_description")))
+        }
+        return result
+    }
+}
