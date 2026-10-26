@@ -201,10 +201,91 @@ class StudioActivity : AppCompatActivity() {
         }
         masterSlot = null
     }
+    private val masterLibrary by lazy { MasterLibrary(File(filesDir,"master_library")) { assets.open(it).use { stream -> stream.readBytes() } } }
+    private fun libraryMenu() {
+        runCatching {
+            val entries=masterLibrary.entries()
+            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+            panel.addView(TextView(this).apply { text="35 แผ่น • หนึ่งแผ่นต่อหนึ่งตัวละคร\nเลือกภาพเพื่อดูและกำหนดบทบาทสำหรับเรื่องใหม่" })
+            val search=EditText(this).apply { hint="ค้นหา CHAR_001 หรือชื่อไฟล์"; isSingleLine=true; panel.addView(this) }
+            val list=LinearLayout(this).apply { orientation=1 }
+            panel.addView(ScrollView(this).apply { addView(list) },LinearLayout.LayoutParams(-1,dp(420)))
+            fun show(query: String) {
+                list.removeAllViews()
+                entries.filter { (it.id+" "+it.original).contains(query,ignoreCase=true) }.forEach { entry ->
+                    list.addView(android.widget.Button(this).apply {
+                        text="${entry.id} • ${entry.original}"
+                        setOnClickListener { libraryEntry(entry) }
+                    })
+                }
+            }
+            search.addTextChangedListener(object: android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { show(s?.toString().orEmpty()) }
+                override fun afterTextChanged(s: android.text.Editable?) {}
+            })
+            show("")
+            AlertDialog.Builder(this).setTitle("🎭 คลัง MASTER 35").setView(panel).setNegativeButton("ปิด",null).showDirector()
+        }.onFailure { notice("เปิดคลังไม่ได้: ${it.message}") }
+    }
+    private fun libraryEntry(entry: MasterLibrary.Entry) {
+        runCatching {
+            val file=masterLibrary.source(entry)
+            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
+            panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(400)); setOnClickListener { fullImage(file,entry.id) } })
+            panel.addView(TextView(this).apply { text="${entry.id} • ${entry.original}\nภาพต้นฉบับ 3 มุมมอง แตะภาพเพื่อขยาย" })
+            AlertDialog.Builder(this).setTitle(entry.id).setView(ScrollView(this).apply { addView(panel) })
+                .setPositiveButton("ใช้กับเรื่องใหม่") { _,_ ->
+                    choiceMenu("กำหนดภาพ ${entry.id}",listOf("ตัวละครหลัก: กวิน","ตัวละครหลัก: รินรดา","ตัวละครหลัก: เมย์","เพิ่มตัวละครเสริมพร้อมตั้งชื่อ")) { slot ->
+                        if(slot==3) addLibrarySupport(entry) else runCatching {
+                            val id=listOf("gawin","rinlada","mind")[slot]
+                            masterLibrary.assign(entry,File(filesDir,"character_masters/$id.master"))
+                            notice("เลือก ${entry.id} สำหรับเรื่องใหม่แล้ว • เรื่องเดิมใช้ภาพเดิม")
+                        }.onFailure { notice(it.message ?: "บันทึกไม่ได้") }
+                    }
+                }.setNegativeButton("ปิด",null).showDirector()
+        }.onFailure { notice(it.message ?: "เปิดภาพไม่ได้") }
+    }
+    private fun addLibrarySupport(entry: MasterLibrary.Entry) {
+        if(readSupportingCast().length()>=8) { notice("เลือกตัวละครเสริมได้ไม่เกิน 8 คนต่อเรื่อง • นำคนเดิมออกก่อน"); return }
+        val input=EditText(this).apply { hint="ชื่อตัวละครในเรื่อง" }
+        AlertDialog.Builder(this).setTitle("เพิ่ม ${entry.id} สำหรับเรื่องใหม่").setView(input).setPositiveButton("เพิ่ม") { _,_ ->
+            runCatching {
+                val name=input.text.toString().trim()
+                val roster=readSupportingCast()
+                require(name.isNotBlank() && StoryIdentity.keyFor(name)==null && (0 until roster.length()).none { roster.getJSONObject(it).getString("name")==name }) { "ระบุชื่อไม่ซ้ำกับตัวละครที่มีอยู่" }
+                require((0 until roster.length()).none { roster.getJSONObject(it).optString("library_id")==entry.id }) { "เลือก MASTER นี้ไว้แล้ว" }
+                val id="support_"+UUID.randomUUID().toString().take(8)
+                val person=JSONObject().put("name",name).put("master","${id.uppercase()}_MASTER.png")
+                    .put("library_id",entry.id).put("visual_description",MasterLibrary.description(entry.id))
+                roster.put(person)
+                require(FlowCast.issues(JSONObject().put("supporting_characters",roster)).isEmpty()) { "ข้อมูลตัวละครไม่ถูกต้อง" }
+                masterLibrary.assign(entry,File(filesDir,"supporting_masters/$id.master"))
+                // Keep the existing array format consumed by legacy projects and UI.
+                val target=File(filesDir,"supporting_cast.json")
+                val pending=File(filesDir,"supporting_cast.json.pending")
+                pending.writeText(roster.toString(2)); check(pending.renameTo(target))
+                notice("เพิ่ม $name จาก ${entry.id} แล้ว • ใช้เมื่อสร้างเรื่องใหม่")
+            }.onFailure { notice(it.message ?: "เพิ่มไม่ได้") }
+        }.setNegativeButton("ยกเลิก",null).showDirector()
+    }
+    private fun selectedLeadReferences(): JSONObject {
+        val entries=masterLibrary.entries()
+        val selected=JSONObject()
+        FlowProductionPack.names.keys.forEach { id ->
+            val file=File(filesDir,"character_masters/$id.master")
+            if(file.isFile) {
+                val hash=MasterLibrary.digest(file.readBytes())
+                entries.firstOrNull { it.sha256==hash }?.let { selected.put(id,JSONObject().put("library_id",it.id).put("visual_description",MasterLibrary.description(it.id))) }
+            }
+        }
+        return selected
+    }
+
     private fun characterMasters() {
         val names=listOf("gawin" to "กวิน", "rinlada" to "รินรดา", "mind" to "เมย์")
-        choiceMenu("🎭 MASTER และความจำตัวละคร",names.map { (id,name) -> val file=File(filesDir,"character_masters/$id.master"); "$name • ${if(characterMemory.read(id,file).optLong("reference_reviewed_at")>0) "ตรวจภาพแล้ว" else "ยังไม่ได้ตรวจภาพ"}" } + "📦 ใช้ MASTER ชุดล่าสุดสำหรับเรื่องใหม่") { i ->
-            if (i == names.size) {
+        choiceMenu("🎭 MASTER และความจำตัวละคร",names.map { (id,name) -> val file=File(filesDir,"character_masters/$id.master"); "$name • ${if(characterMemory.read(id,file).optLong("reference_reviewed_at")>0) "ตรวจภาพแล้ว" else "ยังไม่ได้ตรวจภาพ"}" } + listOf("📦 ใช้ MASTER ชุดล่าสุดสำหรับเรื่องใหม่","🎭 คลัง MASTER 35")) { i ->
+            if (i == names.size+1) { libraryMenu() } else if (i == names.size) {
                 names.forEach { (id,_) ->
                     val target=File(filesDir,"character_masters/$id.master"); target.parentFile!!.mkdirs()
                     if(target.exists()) target.copyTo(File(target.parentFile,"$id.previous"),overwrite=true)
@@ -1394,7 +1475,7 @@ class StudioActivity : AppCompatActivity() {
         label("เครื่องมือเสริม",15,true)
         button("⚙️ AutoDirector v45 • ภาพ Gemini / วิดีโอ Flow",false) { autoDirectorMenu() }
         button("🧪 ทดสอบสร้างวิดีโอ • เลือกตัวละคร",false) { flowTestMenu() }
-        button("🎭 MASTER และข้อมูลตัวละคร",false) { choiceMenu("ตัวละคร",listOf("ตัวละครหลัก 3 คน","ตัวละครเสริมสำหรับเรื่องใหม่","ตัวละครของเรื่องที่เปิด")) { when(it) { 0 -> characterMasters(); 1 -> supportingCastMenu(); else -> castMenu() } } }
+        button("🎭 MASTER และข้อมูลตัวละคร",false) { choiceMenu("ตัวละคร",listOf("ตัวละครหลัก 3 คน","ตัวละครเสริมสำหรับเรื่องใหม่","ตัวละครของเรื่องที่เปิด","คลัง MASTER 35")) { when(it) { 0 -> characterMasters(); 1 -> supportingCastMenu(); 2 -> castMenu(); else -> libraryMenu() } } }
         button("⬇ ดาวน์โหลดแม่บทเริ่มงาน + MASTER",false) { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
         splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
     }
@@ -1621,7 +1702,7 @@ class StudioActivity : AppCompatActivity() {
                         }
                         val count=when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",originalChannel)
-                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("supporting_characters",support).put("premise",premise.text.toString()).put("episodes",count)))
+                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("supporting_characters",support).put("lead_references",selectedLeadReferences()).put("premise",premise.text.toString()).put("episodes",count)))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
                 }.setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()

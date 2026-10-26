@@ -8,7 +8,7 @@ internal object FlowCast {
     private val supportingMaster=Regex("^SUPPORT_[A-Fa-f0-9]{8}_MASTER[.](png|jpg|jpeg|webp)$",RegexOption.IGNORE_CASE)
     fun id(person: JSONObject): String? = StoryIdentity.keyFor(person.optString("name")) ?: person.optString("master").takeIf { supportingMaster.matches(it) }?.substringBeforeLast('.')?.replace(Regex("_MASTER$",RegexOption.IGNORE_CASE),"")?.lowercase()
     fun supporting(plan: JSONObject?): List<JSONObject> = plan?.optJSONArray("supporting_characters")?.let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.orEmpty()
-    fun definitions(plan: JSONObject?): List<JSONObject> = FlowProductionPack.names.map { (id,name) -> JSONObject().put("name",name).put("master","${id.uppercase()}_MASTER.png").put("visual_description",FlowProductionPack.dna.getValue(id)) }+supporting(plan)
+    fun definitions(plan: JSONObject?): List<JSONObject> = FlowProductionPack.names.map { (id,name) -> JSONObject().put("name",name).put("master","${id.uppercase()}_MASTER.png").put("visual_description",plan?.optJSONObject("lead_references")?.optJSONObject(id)?.optString("visual_description")?.takeIf { it.isNotBlank() } ?: FlowProductionPack.dna.getValue(id)) }+supporting(plan)
     fun issues(plan: JSONObject): List<String> = buildList {
         val rows=supporting(plan)
         if(rows.size>8) add("รองรับตัวละครเสริมไม่เกิน 8 คนต่อเรื่อง")

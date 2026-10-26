@@ -108,7 +108,7 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
                 val ext=when { signature[0]==0xff.toByte() && signature[1]==0xd8.toByte() -> "jpg"; String(signature.copyOfRange(0,4))=="RIFF" -> "webp"; else -> "png" }
                 val path="MASTERS/${id.uppercase()}_MASTER.$ext"
                 zip.putNextEntry(ZipEntry("DIRECTOR_FLOW/$path")); file.inputStream().use { it.copyTo(zip) }; zip.closeEntry()
-                refs.put(id,JSONObject().put("name",name).put("reference_label",FlowReferencePrompt.alias(id)).put("file",path).put("dna",dna[id] ?: person.optString("visual_description")).put("sha256",EpisodeMedia.digest(file)).put("profile",memory.optJSONObject(id) ?: JSONObject()))
+                refs.put(id,JSONObject().put("name",name).put("reference_label",FlowReferencePrompt.alias(id)).put("file",path).put("dna",plan?.optJSONObject("lead_references")?.optJSONObject(id)?.optString("visual_description")?.takeIf { it.isNotBlank() } ?: dna[id] ?: person.optString("visual_description")).put("sha256",EpisodeMedia.digest(file)).put("profile",memory.optJSONObject(id) ?: JSONObject()))
             }
             val allPeople=names.map { (id,name) -> JSONObject().put("name",name).put("outfit","เลือกชุดใหม่ตามบท").put("screen_position","ตามบท") }
             val start=StringBuilder(FlowReferencePrompt.header(allPeople))
