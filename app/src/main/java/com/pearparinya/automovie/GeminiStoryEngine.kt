@@ -131,7 +131,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         }
         check()
         val story=JSONObject().put("schema_version",3).put("production_mode","flow_commands").put("character_mode","original")
-            .put("content_profile",spec.optString("content_profile")).put("autodirector_version",spec.optInt("autodirector_version")).put("performance_version",spec.optInt("performance_version")).put("audio_version",spec.optInt("audio_version")).put("command_version",spec.optInt("command_version")).put("supporting_characters",support).put("channel",channel).put("category",category).put("title",outline.getString("title")).put("tagline",outline.getString("tagline"))
+            .put("content_profile",spec.optString("content_profile")).put("autodirector_version",spec.optInt("autodirector_version")).put("performance_version",spec.optInt("performance_version")).put("audio_version",spec.optInt("audio_version")).put("command_version",spec.optInt("command_version")).put("supporting_characters",support).put("lead_references",spec.optJSONObject("lead_references") ?: JSONObject()).put("channel",channel).put("category",category).put("title",outline.getString("title")).put("tagline",outline.getString("tagline"))
             .put("episode_count",output.length()).put("scene_count",output.length()*sceneCount).put("duration_seconds",8).put("aspect_ratio","9:16").put("episodes",output)
         ClipPlan.copy(spec,story)
         ChannelCatalog.stamp(story)
