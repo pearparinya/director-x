@@ -1003,7 +1003,7 @@ class StudioActivity : AppCompatActivity() {
         val name = if (useNewMasters) source.nameWithoutExtension else source.nameWithoutExtension + "_MASTER"
         return "${name.uppercase()}.$extension"
     }
-    private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList()) {
+    private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT") {
         val text = if (lockCreation && !inputText.contains("ค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง)")) inputText + "\nค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง): EP=${prefs.getString("plan_episodes", "").orEmpty().ifBlank { "AI ประเมิน" }} ฉาก/EP=${prefs.getString("plan_scenes", "").orEmpty().ifBlank { "AI ประเมิน" }} เวลา=${prefs.getString("plan_duration", "8")} วินาที สัดส่วน=${"9:16"} กำหนด duration_seconds และ aspect_ratio ใน story.json และคำสั่งทุกฉากตามนี้" else inputText
         val uris = arrayListOf<Uri>()
         val attachments = JSONArray()
@@ -1059,7 +1059,7 @@ class StudioActivity : AppCompatActivity() {
                     .writeText("$sceneId\n${System.currentTimeMillis()}\n$text")
             }
             var opened = false
-            for (target in listOf("com.openai.chatgpt", "com.openai.chatgpt.beta")) {
+            for (target in if(destinationLabel=="Gemini") listOf("com.google.android.apps.bard") else if(destinationLabel=="ChatGPT") listOf("com.openai.chatgpt", "com.openai.chatgpt.beta") else emptyList()) {
                 try {
                     uris.forEach { grantUriPermission(target,it,Intent.FLAG_GRANT_READ_URI_PERMISSION) }
                     startActivity(Intent(intent).setPackage(target))
@@ -1069,7 +1069,7 @@ class StudioActivity : AppCompatActivity() {
             }
             if (!opened) {
                 try {
-                    startActivity(Intent.createChooser(intent,"เลือก ChatGPT • ตรวจรูปและวางคำสั่งก่อนส่ง").apply {
+                    startActivity(Intent.createChooser(intent,"เลือก $destinationLabel • ตรวจรูปและวางคำสั่งก่อนส่ง").apply {
                         clipData = intent.clipData; addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     })
                     opened = true
@@ -1079,7 +1079,7 @@ class StudioActivity : AppCompatActivity() {
         }
         val preview = LinearLayout(this).apply { orientation = 1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
         preview.addView(TextView(this).apply {
-            this.text = "$pendingStorySummary\n$imageList\nระบบส่งคำสั่งซ้ำทั้งข้อความแชร์และคลิปบอร์ด ตรวจภาพและข้อความใน ChatGPT ก่อนกดส่ง หากช่องว่างให้แตะค้างแล้วเลือก วาง"
+            this.text = "$pendingStorySummary\n$imageList\nระบบส่งคำสั่งซ้ำทั้งข้อความแชร์และคลิปบอร์ด ตรวจภาพและข้อความใน $destinationLabel ก่อนกดส่ง หากช่องว่างให้แตะค้างแล้วเลือก วาง"
             textSize = 13f
         })
         uris.forEach { uri -> preview.addView(ImageView(this).apply {
@@ -1090,7 +1090,7 @@ class StudioActivity : AppCompatActivity() {
         preview.addView(TextView(this).apply { this.text = text; textSize = 14f; setTextIsSelectable(true) })
         AlertDialog.Builder(this).setTitle("ตรวจคำสั่งและภาพก่อนส่ง")
             .setView(ScrollView(this).apply { addView(preview) })
-            .setPositiveButton("ส่งและเปิด ChatGPT") { _,_ -> launchShare() }
+            .setPositiveButton("ส่งและเปิด $destinationLabel") { _,_ -> launchShare() }
             .setNeutralButton("คัดลอก") { _,_ -> copyCommand(text) }
             .setNegativeButton("ยกเลิก",null).showDirector()
     }
@@ -1149,7 +1149,7 @@ class StudioActivity : AppCompatActivity() {
 
     private fun sendSceneImage(p: JSONObject, scene: JSONObject) {
         val cast = scene.optJSONArray("characters")
-        val keys = if (cast != null) (0 until cast.length()).mapNotNull { StoryIdentity.keyFor(cast.getJSONObject(it).optString("name")) }
+        val keys = if (cast != null) (0 until cast.length()).mapNotNull { FlowCast.id(cast.getJSONObject(it)) }
             else StoryIdentity.keysFromPrompt(scene.optString("image_prompt"))
         val original = p.optString("character_mode", "original") == "original"
         if (original && keys.isEmpty()) { notice("ฉากนี้ยังจับคู่ MASTER ไม่ได้ กรุณาอัปเดตบทให้มีชื่อตัวละครใน image_prompt หรือ characters"); return }
@@ -1166,7 +1166,7 @@ class StudioActivity : AppCompatActivity() {
             exported.substringBeforeLast('.') to source
         } else keys.map { id -> val source=File(project,"original_masters/$id.master").takeIf { it.exists() } ?: File(filesDir,"character_masters/$id.master"); "${id.uppercase()}_MASTER" to source }
         rememberScene(scene)
-        shareText(storySceneCommand(p,scene),includeMasters=false,referenceImages=masterRefs+references)
+        shareText(storySceneCommand(p,scene),includeMasters=false,referenceImages=masterRefs+references,destinationLabel="Gemini")
     }
     private fun wholeStoryCommands() {
         val p = plan ?: return notice("นำเข้าแผนเรื่องก่อนครับ")
@@ -1304,13 +1304,10 @@ class StudioActivity : AppCompatActivity() {
                 }
                 else -> {
                     val number=eps.getJSONObject(index).getInt("ep")
-                    choiceMenu("EP.$number • คำสั่งพร้อมใช้",listOf("1. ไฟล์ภาพ • ปกและทุกซีน","2. ไฟล์ Flow • ทุกซีนพร้อมบทและเสียง","เปิดรายการ / แก้ภาพ / ทำต่อจากจุดเดิม")) { kind ->
-                        if(kind==2) productionTaskType(story,number)
-                        else {
-                            val problems=ProductionCommandCheck.issues(story)
-                            if(problems.isNotEmpty()) productionCheckMenu(story)
-                            else runCatching { showFlowCode("EP.$number • ${if(kind==0) "ภาพ Gemini" else "วิดีโอ Flow"}",SimpleProductionCommands.document(story,number,kind==0),if(kind==0) SimpleProductionCommands.imageName(number) else SimpleProductionCommands.flowName(number)) }.onFailure { notice(it.message ?: "เตรียมคำสั่งไม่ได้") }
-                        }
+                    choiceMenu("EP.$number • คำสั่งพร้อมใช้",listOf("1. สร้างภาพใน Gemini • แนบ MASTER ให้","2. สร้างวิดีโอใน Flow • ใช้ภาพฉาก","ไฟล์คำสั่ง / แก้ไข / ทำต่อ")) { kind ->
+                        if(kind<2) productionTaskDeck(story,number,kind==0)
+                        else productionTaskType(story,number)
+
                     }
                 }
             }
@@ -1358,6 +1355,20 @@ class StudioActivity : AppCompatActivity() {
             val problems=ProductionCommandCheck.issues(story)
             val dialog=showFlowCode("${task.id} • ถัดไป $next",code,"${task.id}_${if(images) "IMAGE" else "FLOW"}.txt")
             if(problems.isNotEmpty()) dialog.getButton(-1).setOnClickListener { notice("คำสั่งยังมีจุดต้องแก้ • เปิด ตรวจคำสั่ง / แก้เฉพาะจุด ก่อนคัดลอก") }
+            dialog.getButton(-1).text=if(images) "ส่ง Gemini + MASTER" else "ส่ง Flow + ภาพฉาก"
+            dialog.getButton(-1).setOnClickListener {
+                if(problems.isNotEmpty()) { productionCheckMenu(story); return@setOnClickListener }
+                if(images) {
+                    val refs=task.references.map { person -> person.getString("master").substringBeforeLast('.') to masterFor(person) }
+                    if(refs.isEmpty() || refs.any { !it.second.isFile }) { notice("ขาด MASTER ของตัวละครในรายการนี้"); return@setOnClickListener }
+                    shareText(task.command,includeMasters=false,referenceImages=refs,destinationLabel="Gemini")
+                } else {
+                    val scene=rows(story).first { key(it)==task.id }
+                    if(!image(scene).isFile) { notice("สร้างภาพซีนนี้ใน Gemini แล้วนำเข้าภาพผ่านขั้นตอน 4 ก่อนส่ง Flow"); return@setOnClickListener }
+                    if(!sceneFrameApproved(scene) || FlowScenePrompt.issues(flowSpec(scene)).isNotEmpty()) { compareScene(scene); return@setOnClickListener }
+                    shareText(flowCommand(scene),includeMasters=false,referenceImages=listOf(task.id to image(scene)),destinationLabel="Flow")
+                }
+            }
             dialog.getButton(-3).text="แก้เฉพาะรายการนี้"
             dialog.getButton(-3).setOnClickListener {
                 dialog.dismiss()
