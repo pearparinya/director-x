@@ -10,6 +10,15 @@ import java.io.File
 import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class AutoCastTest {
+    @Test fun oldPairsAreRejectedButFreshCastingIsAllowed() {
+        val catalog=JSONArray((1..35).map { JSONObject().put("id","CHAR_%03d".format(it)) })
+        fun selection(vararg ids: Int)=JSONObject().put("story_concept","เรื่องใหม่").put("cast",JSONArray(ids.map { id -> JSONObject().put("library_id","CHAR_%03d".format(id)).put("name","บทที่$id").put("role","บทบาท$id") }))
+        val recent=JSONArray().put(JSONArray(listOf("CHAR_005","CHAR_006","CHAR_023")))
+        assertTrue(runCatching { AutoCast.validateVariety(selection(1,2,22),catalog,recent) }.isFailure)
+        assertTrue(runCatching { AutoCast.validateVariety(selection(5,6,30),catalog,recent) }.isFailure)
+        AutoCast.validateVariety(selection(7,12,30),catalog,recent)
+        AutoCast.validateVariety(selection(1,7,30),catalog,recent)
+    }
     @Test fun castingFreezesNamesAndReferencesWithoutLegacyLeads() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val root=File(context.cacheDir,UUID.randomUUID().toString()).apply { mkdirs() }
