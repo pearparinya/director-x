@@ -33,6 +33,8 @@ class AutoCastTest {
                 .put(JSONObject().put("library_id","CHAR_002").put("name","นลิน").put("role","ผู้ตรวจสอบ")))
             val cast=AutoCast.apply(value,catalog,root)
             val plan=JSONObject().put("supporting_characters",cast)
+            assertEquals(28,cast.getJSONObject(0).getInt("character_age"))
+            assertTrue(cast.getJSONObject(0).getString("visual_description").contains("28 years"))
             assertEquals(2,FlowCast.definitions(plan).size)
             assertEquals("ภาคิน",FlowCast.definitions(plan).first().getString("name"))
             assertTrue(FlowCast.issues(plan).isEmpty())

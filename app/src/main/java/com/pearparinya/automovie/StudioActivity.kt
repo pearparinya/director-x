@@ -228,7 +228,7 @@ class StudioActivity : AppCompatActivity() {
                 list.removeAllViews()
                 entries.filter { (it.id+" "+it.original).contains(query,ignoreCase=true) }.forEach { entry ->
                     list.addView(android.widget.Button(this).apply {
-                        text="${entry.id} • ${entry.original}"
+                        text="${entry.id} • อายุสมมติ ${entry.characterAge} ปี • ${entry.original}"
                         setOnClickListener { libraryEntry(entry) }
                     })
                 }
@@ -247,7 +247,7 @@ class StudioActivity : AppCompatActivity() {
             val file=masterLibrary.source(entry)
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(400)); setOnClickListener { fullImage(file,entry.id) } })
-            panel.addView(TextView(this).apply { text="${entry.id} • ${entry.original}\nภาพต้นฉบับ 3 มุมมอง แตะภาพเพื่อขยาย" })
+            panel.addView(TextView(this).apply { text="${entry.id} • อายุสมมติ ${entry.characterAge} ปี • ${entry.original}\nภาพต้นฉบับ 3 มุมมอง แตะภาพเพื่อขยาย" })
             AlertDialog.Builder(this).setTitle(entry.id).setView(ScrollView(this).apply { addView(panel) })
                 .setPositiveButton("ใช้กับเรื่องใหม่") { _,_ ->
                     choiceMenu("กำหนดภาพ ${entry.id}",listOf("ตัวละครหลัก: กวิน","ตัวละครหลัก: รินรดา","ตัวละครหลัก: เมย์","เพิ่มตัวละครเสริมพร้อมตั้งชื่อ")) { slot ->
