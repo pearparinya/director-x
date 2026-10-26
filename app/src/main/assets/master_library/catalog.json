@@ -8,7 +8,9 @@
       "width": 864,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "90f89b7c11b0abcc7d54d994ebbbd2e13b55078d4b78cc19bfc3fdcc6d29378a"
+      "sha256": "90f89b7c11b0abcc7d54d994ebbbd2e13b55078d4b78cc19bfc3fdcc6d29378a",
+      "casting_description": "brown bob, pink top",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_002",
@@ -17,7 +19,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "5c042b1b2ef8393dff824edcf1cf36ef3107a9e904e89cff5d880b057750cd7e"
+      "sha256": "5c042b1b2ef8393dff824edcf1cf36ef3107a9e904e89cff5d880b057750cd7e",
+      "casting_description": "long dark wavy hair, cream top",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_003",
@@ -26,7 +30,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "4801d5d69eca946300417f1402fce154763725bf944058f4adaafae2c3fe368e"
+      "sha256": "4801d5d69eca946300417f1402fce154763725bf944058f4adaafae2c3fe368e",
+      "casting_description": "shoulder length brown hair with bangs, blue top",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_004",
@@ -35,7 +41,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "51ddf12cec7e97bcf51fb7481fd49b9934b22047a51597d7bc588bc6acc5f65b"
+      "sha256": "51ddf12cec7e97bcf51fb7481fd49b9934b22047a51597d7bc588bc6acc5f65b",
+      "casting_description": "brown bob, red dress",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_005",
@@ -44,7 +52,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "2942b48b2a2b66cba27a2da4909b6fac4b24d74560cbefd43e65ea24be094b29"
+      "sha256": "2942b48b2a2b66cba27a2da4909b6fac4b24d74560cbefd43e65ea24be094b29",
+      "casting_description": "short pink hair, leather jacket",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_006",
@@ -53,7 +63,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "a1059cca117923ba3111641378cb2c87f255896fd185d241e264831c853cd4c1"
+      "sha256": "a1059cca117923ba3111641378cb2c87f255896fd185d241e264831c853cd4c1",
+      "casting_description": "black bob, green blouse",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_007",
@@ -62,7 +74,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "595a7f20f61e5ed64d77171257ab2b847e78714d6b27f082a375b17024dac0ab"
+      "sha256": "595a7f20f61e5ed64d77171257ab2b847e78714d6b27f082a375b17024dac0ab",
+      "casting_description": "blonde ponytail, sportswear",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_008",
@@ -71,7 +85,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "194f2515179a906a1d5a871f44f9b61c4667a1b8aa49f8c3ff362444b2271327"
+      "sha256": "194f2515179a906a1d5a871f44f9b61c4667a1b8aa49f8c3ff362444b2271327",
+      "casting_description": "brown curls, floral dress",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_009",
@@ -80,7 +96,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "06973448f394f477353c137e99df6224d390d00c700e43a63916fbfc890b9424"
+      "sha256": "06973448f394f477353c137e99df6224d390d00c700e43a63916fbfc890b9424",
+      "casting_description": "silver bun, velvet gown",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_010",
@@ -89,7 +107,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "e9be59f7ad6a302520bd2f46081d7d67701f009ac868b7419324e447a1dc90ae"
+      "sha256": "e9be59f7ad6a302520bd2f46081d7d67701f009ac868b7419324e447a1dc90ae",
+      "casting_description": "dark twin buns, sportswear",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_011",
@@ -98,7 +118,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "75958be7b2056c92c4b50a87987e72dbc2dd07d4d651abed73d6aba3fc5c791e"
+      "sha256": "75958be7b2056c92c4b50a87987e72dbc2dd07d4d651abed73d6aba3fc5c791e",
+      "casting_description": "long brown hair, glasses, white shirt",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_012",
@@ -107,7 +129,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "3f90e0358d918634c099cb8997a069a8ff0a41b2d42eb2b81da35de94e9fbea2"
+      "sha256": "3f90e0358d918634c099cb8997a069a8ff0a41b2d42eb2b81da35de94e9fbea2",
+      "casting_description": "short black and blue hair, black outfit",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_013",
@@ -116,7 +140,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "a1f59025c8f37493bc9885bdc9fc78d8eaceb25c8809453596a34475b80b3997"
+      "sha256": "a1f59025c8f37493bc9885bdc9fc78d8eaceb25c8809453596a34475b80b3997",
+      "casting_description": "dark braids, glasses, white shirt",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_014",
@@ -125,7 +151,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "cb64685231a343abccf42d8e2985f7948515146680c7749a47edddde7b91f621"
+      "sha256": "cb64685231a343abccf42d8e2985f7948515146680c7749a47edddde7b91f621",
+      "casting_description": "black and purple hair, tattooed arms",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_015",
@@ -134,7 +162,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "8a5f46e143d4bb46265ae1f7a30762d4a75ab374301c20d0d8058904e4107105"
+      "sha256": "8a5f46e143d4bb46265ae1f7a30762d4a75ab374301c20d0d8058904e4107105",
+      "casting_description": "long wavy brown hair, flower crown",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_016",
@@ -143,7 +173,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "c43e1ed55c9e2c3a0373e4c312a89c27c701cd840097fb14714fe65ff78b68eb"
+      "sha256": "c43e1ed55c9e2c3a0373e4c312a89c27c701cd840097fb14714fe65ff78b68eb",
+      "casting_description": "pink twin ponytails, fantasy costume",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_017",
@@ -152,7 +184,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "9cb1288d202dd6ed6647d09d55165024af5b1391535c81ea084267f4324f75b4"
+      "sha256": "9cb1288d202dd6ed6647d09d55165024af5b1391535c81ea084267f4324f75b4",
+      "casting_description": "brown curls, sequined gown",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_018",
@@ -161,7 +195,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "91d47e10a8325eed93470f465000486dfbf261c391b18ccbc2eafff991732a65"
+      "sha256": "91d47e10a8325eed93470f465000486dfbf261c391b18ccbc2eafff991732a65",
+      "casting_description": "short dark and silver hair, white shirt",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_019",
@@ -170,7 +206,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "8e344f352cc86af95b04eec70bf45a8fb055d6eb7b841aa5347a1de88083acb3"
+      "sha256": "8e344f352cc86af95b04eec70bf45a8fb055d6eb7b841aa5347a1de88083acb3",
+      "casting_description": "short silver hair, black suit",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_020",
@@ -179,7 +217,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "a12a2eb66a4bfdbee9912cd4f25d33a713158f58b19246c055cbd7d86d70b282"
+      "sha256": "a12a2eb66a4bfdbee9912cd4f25d33a713158f58b19246c055cbd7d86d70b282",
+      "casting_description": "long silver hair, cream outfit",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_021",
@@ -188,7 +228,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "695c629de295453bf3490fb98a3abfebffe4b52f24d8e95be963f533cca7423f"
+      "sha256": "695c629de295453bf3490fb98a3abfebffe4b52f24d8e95be963f533cca7423f",
+      "casting_description": "long silver hair, green blouse",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_022",
@@ -197,7 +239,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "53f5f3b82577fa16ac6420bbf6e9c71264d1a4c7ef4518d9cd6d4e78f3f7f8d8"
+      "sha256": "53f5f3b82577fa16ac6420bbf6e9c71264d1a4c7ef4518d9cd6d4e78f3f7f8d8",
+      "casting_description": "short dark hair, light facial hair, white shirt",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_023",
@@ -206,7 +250,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "40d57e1826f40b7b2b7ccd71842fb28565c53d923f9c0f5be3d20dcf17606cab"
+      "sha256": "40d57e1826f40b7b2b7ccd71842fb28565c53d923f9c0f5be3d20dcf17606cab",
+      "casting_description": "side parted dark hair, blue suit",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_024",
@@ -215,7 +261,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "e03826814e4c5d1b552b105b9ad79e0c946b46e3e1630220dd3e014d0c3f80db"
+      "sha256": "e03826814e4c5d1b552b105b9ad79e0c946b46e3e1630220dd3e014d0c3f80db",
+      "casting_description": "long tied dark hair, beard, linen outfit",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_025",
@@ -224,7 +272,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "7207170149040901e1a271cd4791f9953dbea94f71f3022792ba0e0abc294a78"
+      "sha256": "7207170149040901e1a271cd4791f9953dbea94f71f3022792ba0e0abc294a78",
+      "casting_description": "dark hair, full beard, plaid shirt",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_026",
@@ -233,7 +283,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "db97f3dc9a4b5c3089ba840d2a4f70831df8000810315781cf3a72f4d122d939"
+      "sha256": "db97f3dc9a4b5c3089ba840d2a4f70831df8000810315781cf3a72f4d122d939",
+      "casting_description": "swept dark and silver hair, blue suit",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_027",
@@ -242,7 +294,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "cc1bdb53dee15ecaa34b7e9e0e10c2ec30df5c9659a412ee90833794e86f2ff5"
+      "sha256": "cc1bdb53dee15ecaa34b7e9e0e10c2ec30df5c9659a412ee90833794e86f2ff5",
+      "casting_description": "silver ponytail, glasses, cream linen outfit",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_028",
@@ -251,7 +305,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "8f8e176cfc3bdb008a0700a859055f135f504b083c15e25c795f58b6556fe6be"
+      "sha256": "8f8e176cfc3bdb008a0700a859055f135f504b083c15e25c795f58b6556fe6be",
+      "casting_description": "short spiked dark hair, leather jacket",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_029",
@@ -260,7 +316,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "e23867d5e9d63eb7d6bf6d84c594d26d7ae0992bdd6ab06e7cae281e2fb1a08c"
+      "sha256": "e23867d5e9d63eb7d6bf6d84c594d26d7ae0992bdd6ab06e7cae281e2fb1a08c",
+      "casting_description": "short cropped dark hair, olive shirt",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_030",
@@ -269,7 +327,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "bef5612fc1b5c230ef39cd6556c6f99fe09678630940683bb9c92ac2106d2fb9"
+      "sha256": "bef5612fc1b5c230ef39cd6556c6f99fe09678630940683bb9c92ac2106d2fb9",
+      "casting_description": "side parted dark hair, grey suit",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_031",
@@ -278,7 +338,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "d07142c52f202d91b71790253acdb975501358c1c4da2201e7154908b4234e60"
+      "sha256": "d07142c52f202d91b71790253acdb975501358c1c4da2201e7154908b4234e60",
+      "casting_description": "curly dark hair, hoodie",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_032",
@@ -287,7 +349,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "f1b996f75a5208b23d5dd2420a33349681a12e9ba9b876229d5363bab101d603"
+      "sha256": "f1b996f75a5208b23d5dd2420a33349681a12e9ba9b876229d5363bab101d603",
+      "casting_description": "medium dark wavy hair, cream turtleneck",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_033",
@@ -296,7 +360,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "a95666bc1c62e2d902f8062617c7029a88977008e424659933a310a6124d89b1"
+      "sha256": "a95666bc1c62e2d902f8062617c7029a88977008e424659933a310a6124d89b1",
+      "casting_description": "long tied dark hair, leather vest",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_034",
@@ -305,7 +371,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "e2bd1b1e8f52eabb66229d5417ee98d704c5dfe144d0fa64154c61e5b277b2f2"
+      "sha256": "e2bd1b1e8f52eabb66229d5417ee98d704c5dfe144d0fa64154c61e5b277b2f2",
+      "casting_description": "bucket hat, colorful jacket",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     },
     {
       "id": "CHAR_035",
@@ -314,7 +382,9 @@
       "width": 857,
       "height": 1536,
       "format": "JPEG",
-      "sha256": "9b767d6fea31e66cffacc7449579e0ab35a78bd4897256766265c812f3b09afa"
+      "sha256": "9b767d6fea31e66cffacc7449579e0ab35a78bd4897256766265c812f3b09afa",
+      "casting_description": "light wavy hair, white shirt",
+      "casting_note": "Wardrobe is reference styling only. Personality is assigned by the script; exact age is unspecified."
     }
   ]
 }

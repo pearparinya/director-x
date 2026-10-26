@@ -1680,7 +1680,7 @@ class StudioActivity : AppCompatActivity() {
         val configure: (Int) -> Unit = { index ->
             chooseClip { format, seconds ->
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-            panel.addView(TextView(this).apply { text="หมวด: ${categories[index]}\nAI วางโครงเรื่องและเขียนบทเต็มต่ออัตโนมัติ ไม่ต้องยืนยันโครงเรื่อง"; textSize=14f })
+            panel.addView(TextView(this).apply { text="หมวด: ${categories[index]}\nAI เลือกนักแสดงจาก MASTER 35 และตั้งชื่ออัตโนมัติตามบท แล้วเขียนเรื่องต่อครบทุก EP"; textSize=14f })
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
             val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("1 EP • จบในตอน","ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); panel.addView(this) }
             panel.addView(TextView(this).apply { text="${if(format=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(seconds)} ต่อ EP • ไม่รวมปกเปิด 3 วินาที • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้ • ${StoryProvider.label(this@StudioActivity)} • ใช้โมเดลที่ตั้งไว้ • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ของคุณภายหลัง" })
@@ -1700,9 +1700,14 @@ class StudioActivity : AppCompatActivity() {
                             require(source.isFile) { "ขาดภาพของ ${person.getString("name")}" }
                             File(folder,"original_masters/$id.master").apply { parentFile!!.mkdirs(); source.copyTo(this) }
                         }
+                        val catalog=JSONObject(assets.open("master_library/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records")
+                        for(n in 0 until catalog.length()) {
+                            val row=catalog.getJSONObject(n); val target=File(folder,"master_candidates/"+row.getString("file")); target.parentFile!!.mkdirs()
+                            assets.open("master_library/"+row.getString("file")).use { input -> target.outputStream().use { input.copyTo(it) } }
+                        }
                         val count=when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",originalChannel)
-                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("supporting_characters",support).put("lead_references",selectedLeadReferences()).put("premise",premise.text.toString()).put("episodes",count)))
+                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("premise",premise.text.toString()).put("episodes",count)))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
                 }.setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
@@ -2491,7 +2496,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
     private fun castMenu() {
         val p=plan ?: return characterMasters()
         val people=rows(p).flatMap { scene -> scene.optJSONArray("characters")?.let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.orEmpty() }.distinctBy { it.optString("name") }
-        choiceMenu("🎭 ตัวละครเรื่องนี้",people.map { "${it.optString("name")} • ${if(masterFor(it).exists()) "มี MASTER" else "ขาด MASTER"}" }) { i ->
+        choiceMenu("🎭 ตัวละครเรื่องนี้",people.map { "${it.optString("name")} • ${FlowCast.supporting(p).firstOrNull { c -> c.optString("name")==it.optString("name") }?.optString("library_id").orEmpty()} • ${if(masterFor(it).exists()) "มี MASTER" else "ขาด MASTER"}" }) { i ->
             val person=people[i]; val name=person.optString("name")
             choiceMenu(name,listOf("🖼️ ดู MASTER", "📷 เปลี่ยน MASTER รายเรื่อง", "✏️ บทบาทตัวละคร", "🧠 ข้อมูลใบหน้า ผม และรูปร่าง", "📦 ใช้ MASTER ล่าสุดเฉพาะเรื่องนี้", "เตรียม MASTER มาตรฐาน", "ตรวจภาพ MASTER")) { action -> when(action) {
                 0 -> { val file=masterFor(person); if(file.exists()) fullImage(file,name) else notice("ยังไม่มี MASTER") }
