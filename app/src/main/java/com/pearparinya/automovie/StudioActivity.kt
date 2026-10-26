@@ -61,6 +61,20 @@ internal fun buildStoryPackageIntent(text: String, uris: ArrayList<Uri>): Intent
     }
 }
 
+/** Carry the instruction as an actual attachment when Gemini ignores EXTRA_TEXT. */
+internal fun buildGeminiPackageIntent(text: String, command: Uri, images: ArrayList<Uri>): Intent {
+    require(images.isNotEmpty() && images.size<=9) { "ต้องมี MASTER 1–9 ภาพพร้อมไฟล์คำสั่ง" }
+    val files=arrayListOf(command).apply { addAll(images) }
+    return Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+        type="*/*"
+        putExtra(Intent.EXTRA_TEXT,text)
+        putExtra(Intent.EXTRA_SUBJECT,"สร้างภาพตามไฟล์ READ_FIRST_IMAGE_COMMAND.txt พร้อม MASTER ที่แนบ")
+        putParcelableArrayListExtra(Intent.EXTRA_STREAM,files)
+        clipData=ClipData.newPlainText("คำสั่งและ MASTER",text).apply { files.forEach { addItem(ClipData.Item(it)) } }
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+}
+
 internal fun neutralIdentityGuide(source: String, aspect: String): String =
     ImagePromptPolicy.identity(source) + "\n" + ImagePromptPolicy.style(aspect) + " ไม่มีข้อความหรือลายน้ำ หากสร้างไม่ได้ให้แจ้งตามจริง"
 
@@ -1038,8 +1052,17 @@ class StudioActivity : AppCompatActivity() {
         // ChatGPT Android builds do not all read the same share field. Keep
         // the command in both EXTRA_TEXT and the first ClipData item, then
         // append every granted image URI to that same ClipData payload.
-        val intent = buildChatShareIntent(text,uris)
-        (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+        val intent = if(destinationLabel=="Gemini" && uris.isNotEmpty()) {
+            val command=File(cacheDir,"scene_reference_exports/$transferId/READ_FIRST_IMAGE_COMMAND.txt")
+            command.parentFile!!.mkdirs()
+            command.writeText("สร้างภาพหนึ่งภาพตามคำสั่งด้านล่าง ใช้ภาพ MASTER ที่แนบจับคู่ตามชื่อไฟล์ ไม่สรุปคำสั่ง ไม่สร้างวิดีโอ\n\n"+text,Charsets.UTF_8)
+            val commandUri=FileProvider.getUriForFile(this,"$packageName.fileprovider",command)
+            val result=buildGeminiPackageIntent(text,commandUri,ArrayList(uris))
+            uris.add(0,commandUri)
+            attachments.put(JSONObject().put("name",command.name).put("bytes",command.length()).put("sha256",MasterLibrary.digest(command.readBytes())))
+            result
+        } else buildChatShareIntent(text,uris)
+        if(destinationLabel!="Gemini") (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
             .setPrimaryClip(ClipData.newPlainText("คำสั่ง DIRECTOR X", text))
         val destination = project
         val sceneId = prefs.getString("last_scene_${destination.name}", "")!!
@@ -1079,10 +1102,10 @@ class StudioActivity : AppCompatActivity() {
         }
         val preview = LinearLayout(this).apply { orientation = 1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
         preview.addView(TextView(this).apply {
-            this.text = "$pendingStorySummary\n$imageList\nระบบส่งคำสั่งซ้ำทั้งข้อความแชร์และคลิปบอร์ด ตรวจภาพและข้อความใน $destinationLabel ก่อนกดส่ง หากช่องว่างให้แตะค้างแล้วเลือก วาง"
+            this.text = if(destinationLabel=="Gemini") "$pendingStorySummary\n$imageList\nแนบไฟล์ READ_FIRST_IMAGE_COMMAND.txt พร้อม MASTER ไปในชุดเดียวกัน ตรวจว่า Gemini แสดงไฟล์คำสั่งและรูปครบก่อนกดส่ง แม้ช่องข้อความว่างก็มีคำสั่งในไฟล์แนบ หากไฟล์หายอย่ากดส่ง" else "$pendingStorySummary\n$imageList\nตรวจภาพและข้อความใน $destinationLabel ก่อนกดส่ง คำสั่งคัดลอกไว้ในคลิปบอร์ดแล้ว"
             textSize = 13f
         })
-        uris.forEach { uri -> preview.addView(ImageView(this).apply {
+        uris.filter { contentResolver.getType(it)?.startsWith("image/")==true }.forEach { uri -> preview.addView(ImageView(this).apply {
             setImageBitmap(previewBitmap(uri)); adjustViewBounds = true
             layoutParams = LinearLayout.LayoutParams(-1,dp(120)).apply { bottomMargin = dp(8) }
             contentDescription = uri.lastPathSegment

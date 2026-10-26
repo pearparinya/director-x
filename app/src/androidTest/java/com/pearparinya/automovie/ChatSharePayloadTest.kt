@@ -11,6 +11,21 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class ChatSharePayloadTest {
+    @Test fun geminiCarriesFullInstructionFileAlongsideVariableMasterCount() {
+        val command=Uri.parse("content://director-x/READ_FIRST_IMAGE_COMMAND.txt")
+        for(count in listOf(1,3,8)) {
+            val images=(1..count).mapTo(arrayListOf()) { Uri.parse("content://director-x/MASTER_$it.jpg") }
+            val intent=buildGeminiPackageIntent("คำสั่งเต็ม",command,images)
+            val files=intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)!!
+            assertEquals(count+1,files.size)
+            assertEquals(command,files.first())
+            assertEquals(images,files.drop(1))
+            assertEquals("คำสั่งเต็ม",intent.getStringExtra(Intent.EXTRA_TEXT))
+            assertEquals(count+2,intent.clipData!!.itemCount)
+            assertEquals("*/*",intent.type)
+            assertTrue(intent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0)
+        }
+    }
     @Test fun identityGuideKeepsUserStyleAndSceneWardrobeInAConciseBrief() {
         val guide = neutralIdentityGuide("ภาพ MASTER ที่แนบ","9:16")
         assertTrue(guide.contains("ใบหน้า") && guide.contains("ทรงผม"))
