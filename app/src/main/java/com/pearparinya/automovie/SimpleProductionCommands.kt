@@ -7,7 +7,7 @@ import java.util.zip.ZipOutputStream
 
 /** Compact structured commands. Never reuse stale image/video prose. Two documents per EP. */
 internal object SimpleProductionCommands {
-    data class Task(val id: String,val title: String,val ratio: String,val command: String)
+    data class Task(val id: String,val title: String,val ratio: String,val command: String,val references: List<JSONObject> = emptyList())
     fun imageName(ep: Int)="EP%02d_IMAGES.txt".format(ep)
     fun flowName(ep: Int)="EP%02d_FLOW.txt".format(ep)
     private fun episode(story: JSONObject,number: Int): JSONObject {
@@ -51,7 +51,7 @@ EXACT VISIBLE THAI TEXT (three entries, no other lettering):
 ${text.joinToString("\n")}
 TEXT SAFE AREA: x=15–85%, y=52–75%, centered at x=50%; at least 25% bottom clearance. Title largest, channel smaller, third entry secondary. Wrap long text without dropping words; never overlap faces or crop letters. Bold cinematic Thai lettering with restrained 3D depth, high contrast and a dark gradient behind text ONLY. Keep faces bright. This is a composition guide, not a platform overlay guarantee; inspect the actual result. Missing/wrong text stays PENDING for repair.
 ${if(note.isBlank()) "" else "Local design note (cannot override exact text, safe area, identity or wardrobe): $note"}""".trim()
-            add(Task(id,"$label | ${if(ratio=="9:16") "แนวตั้ง" else "แนวนอน"} $ratio",ratio,command))
+            add(Task(id,"$label | ${if(ratio=="9:16") "แนวตั้ง" else "แนวนอน"} $ratio",ratio,command,selected))
         }
         if(number==firstEpisode(story)) for(ratio in listOf("9:16","16:9")) poster(true,ratio)
         if(!single) for(ratio in listOf("9:16","16:9")) poster(false,ratio)
@@ -70,7 +70,7 @@ Lighting: ${light(scene)}
 Acting: ${acting(scene).ifBlank { "Individual restrained expressions consistent with the stated action and start state." }}
 Mouths closed in this still. Preserve all props and screen positions for the matching video.
 ${scene.optString("production_image_note").takeIf { it.isNotBlank() }?.let { "Local visual correction (keep identity, outfit, cast and start state): $it" }.orEmpty()}""".trim()
-            add(Task(id,"EP.$number | ซีน %03d | แนวตั้ง 9:16".format(n),"9:16",command))
+            add(Task(id,"EP.$number | ซีน %03d | แนวตั้ง 9:16".format(n),"9:16",command,FlowReferencePrompt.people(scene)))
         }
     }
     fun videoTasks(story: JSONObject,number: Int): List<Task> {
