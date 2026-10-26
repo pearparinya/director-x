@@ -32,9 +32,12 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
         val sceneCount=ClipPlan.count(spec)
         if(spec.optBoolean("auto_cast") && spec.has("master_catalog")) {
             progress(0,"กำลังวางบทบาท เลือก MASTER และตั้งชื่อนักแสดง")
-            val catalog=spec.getJSONArray("master_catalog")
+            val sourceCatalog=spec.getJSONArray("master_catalog")
+            val catalog=if(spec.optInt("casting_version")>=2) JSONArray((0 until sourceCatalog.length()).map { sourceCatalog.getJSONObject(it) }.shuffled(kotlin.random.Random(spec.optString("creative_seed").hashCode()))) else sourceCatalog
+            val recent=spec.optJSONArray("recent_casts") ?: JSONArray()
+            val variety=if(spec.optInt("casting_version")>=2) " Casting variation seed: "+spec.optString("creative_seed")+". Never reuse any pair from these recent casts: "+recent.toString()+". Also never pair two or more of CHAR_001, CHAR_002, CHAR_022. Select actor count from actual story needs, never default to three. Do not favor early catalog entries. Give roles appropriate to the requested genre; choose different actors when an old pair would recur." else ""
             val casting=cached("casting.json", "Plan the concept and cast for a Thai film/drama. Category: "+spec.optString("category")+"; premise: "+spec.optString("premise")+
-                ". Choose 1–8 adult fictional roles as needed, matching reference styling to the production. Invent distinct Thai character names and describe each role and relationships. Choose only library IDs below. Do not infer personality from looks, invent measurements or assume exact age. Hair/appearance come from each reference; costume changes by story. Return story_concept and cast. Catalog: "+catalog.toString(), AutoCast.schema()) { AutoCast.validate(it,catalog) }
+                variety+". Choose 1–8 adult fictional roles as needed, matching reference styling to the production. Invent distinct Thai character names and describe each role and relationships. Choose only library IDs below. Do not infer personality from looks, invent measurements or assume exact age. Hair/appearance come from each reference; costume changes by story. Return story_concept and cast. Catalog: "+catalog.toString(), AutoCast.schema()) { if(spec.optInt("casting_version")>=2) AutoCast.validateVariety(it,catalog,recent) else AutoCast.validate(it,catalog) }
             spec.put("supporting_characters",AutoCast.apply(casting,catalog,folder.parentFile!!))
             spec.put("cast_concept",casting.getString("story_concept"))
             GeminiStoryFiles.write(File(folder,"spec.json"),spec)

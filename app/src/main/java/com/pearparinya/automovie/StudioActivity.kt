@@ -1699,18 +1699,6 @@ class StudioActivity : AppCompatActivity() {
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
                     runCatching {
                         val folder=File(base,UUID.randomUUID().toString()).apply { mkdirs() }
-                        FlowProductionPack.names.keys.forEach { id ->
-                            val source=File(filesDir,"character_masters/$id.master")
-                            require(masterExportName(source,false)!=null) { "ขาด MASTER ของ ${FlowProductionPack.names[id]}" }
-                            File(folder,"original_masters/$id.master").apply { parentFile!!.mkdirs(); source.copyTo(this) }
-                        }
-                        val support=readSupportingCast()
-                        for(i in 0 until support.length()) {
-                            val person=support.getJSONObject(i); val id=FlowCast.id(person)!!
-                            val source=File(filesDir,"supporting_masters/$id.master")
-                            require(source.isFile) { "ขาดภาพของ ${person.getString("name")}" }
-                            File(folder,"original_masters/$id.master").apply { parentFile!!.mkdirs(); source.copyTo(this) }
-                        }
                         val catalog=JSONObject(assets.open("master_library/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records")
                         for(n in 0 until catalog.length()) {
                             val row=catalog.getJSONObject(n); val target=File(folder,"master_candidates/"+row.getString("file")); target.parentFile!!.mkdirs()
@@ -1718,7 +1706,7 @@ class StudioActivity : AppCompatActivity() {
                         }
                         val count=when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",originalChannel)
-                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("premise",premise.text.toString()).put("episodes",count)))
+                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",2).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("premise",premise.text.toString()).put("episodes",count)))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
                 }.setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
