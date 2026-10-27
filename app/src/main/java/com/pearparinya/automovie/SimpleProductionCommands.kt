@@ -78,7 +78,8 @@ ${scene.optString("production_image_note").takeIf { it.isNotBlank() }?.let { "Lo
         return (0 until rows.length()).map { i ->
             val scene=rows.getJSONObject(i); val n=scene.getInt("scene"); val id="EP%02d_SC%03d".format(number,n)
             val spec=ProductionCommandCheck.spec(scene)
-            val line=when { spec.dialogue.isNotBlank() -> "ONLY SPEAKER: ${spec.speaker}. Exact Thai dialogue once: “${spec.dialogue}”. Only this person's lips move; everyone else is silent. No narrator."
+            val line=when { spec.dialogue.isNotBlank() && spec.speaker in spec.offscreen -> "OFF-SCREEN CHARACTER SPEAKER ONLY: ${spec.speaker}. Exact Thai dialogue once: “${spec.dialogue}”. Keep speaker outside frame. All visible mouths closed; no lip-sync, narrator or other voices."
+                spec.dialogue.isNotBlank() -> "ONLY SPEAKER: ${spec.speaker}. Exact Thai dialogue once: “${spec.dialogue}”. Only this person's lips move; everyone else is silent. No narrator."
                 spec.narration.isNotBlank() -> "OFF-SCREEN MALE NARRATOR ONLY: “${spec.narration}”. All on-screen mouths closed; nobody lip-syncs the narration."
                 else -> "No dialogue or narration; all on-screen mouths closed." }
             val command="""ภาพเริ่มต้นที่ต้องแนบ: $id.png — ใช้ภาพซีนที่ตรวจ MASTER ชุดและตำแหน่งแล้ว ไม่ใช้ MASTER แทนเฟรมฉาก

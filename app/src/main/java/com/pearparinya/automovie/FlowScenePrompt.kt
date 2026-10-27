@@ -4,7 +4,7 @@ internal data class FlowPerson(val name: String, val appearance: String, val pos
 internal data class FlowSceneSpec(
     val cast: List<FlowPerson>, val speaker: String, val dialogue: String, val narration: String,
     val action: String, val location: String, val startState: String, val endState: String,
-    val duration: Int, val aspect: String, val sound: String = ""
+    val duration: Int, val aspect: String, val sound: String = "", val offscreen: List<String> = emptyList()
 )
 
 /** Build from current structured facts, never append stale dialogue from an imported prompt. */
@@ -20,7 +20,7 @@ internal object FlowScenePrompt {
             if (it.appearance.isBlank() || it.position.isBlank()) add("ตรวจลักษณะและตำแหน่งในภาพของ ${it.name}")
         }
         if (s.cast.map { it.appearance.trim() to it.position.trim() }.distinct().size != s.cast.size) add("ลักษณะและตำแหน่งต้องแยกตัวละครออกจากกันได้")
-        if (speech(s.dialogue).isNotEmpty() && s.cast.count { identity(it.name) == identity(s.speaker) } != 1) add("เลือกผู้พูดหนึ่งคนจากตัวละครที่อยู่ในภาพ")
+        if (speech(s.dialogue).isNotEmpty() && (s.cast.count { identity(it.name) == identity(s.speaker) } + s.offscreen.count { identity(it)==identity(s.speaker) }) != 1) add("เลือกผู้พูดหนึ่งคนจากตัวละครในภาพหรือรายชื่อคนนอกภาพ")
         if (speech(s.dialogue).isEmpty() && speech(s.speaker).isNotEmpty()) add("ระบุบทพูดของผู้พูด หรือเว้นผู้พูดว่างสำหรับฉากเงียบ")
         if (speech(s.dialogue).isNotEmpty() && speech(s.narration).isNotEmpty()) add("แยกบทพูดและเสียงบรรยายเป็นคนละฉาก เพื่อไม่ให้เสียงทับกัน")
     }
@@ -44,6 +44,8 @@ internal object FlowScenePrompt {
                 val listeners = s.cast.filter { identity(it.name) != identity(talking.name) }
                 listeners.forEach { append("SILENT LISTENER: ${label(it)}. Mouth stays closed; react only through eyes, expression and small gestures. No speech or lip-sync.\n") }
                 append("One voice only, no shared or overlapping delivery. Finish naturally within ${s.duration} seconds. No narrator.\n")
+            } else if(dialogue.isNotEmpty() && s.speaker in s.offscreen) {
+                append("OFF-SCREEN CHARACTER SPEAKER ONLY: ${s.speaker}. Exact Thai dialogue once: “$dialogue”. Keep this character outside the frame. All visible mouths stay closed; no lip-sync. No narrator or additional voices.\n")
             } else if (narrator.isNotEmpty()) {
                 append("OFF-SCREEN MALE NARRATOR ONLY, in Thai: “$narrator”. All on-screen mouths stay closed; no character lip-syncs the narration.\n")
             } else append("Silent scene: no dialogue or narration. All on-screen mouths stay closed.\n")
