@@ -104,7 +104,10 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
             while(start<=sceneCount) {
                 check()
                 val cachedFile=File(folder,"EP%02d_%02d.json".format(i+1,start))
-                val size=if(cachedFile.isFile) GeminiStoryFiles.read(cachedFile).getJSONArray("scenes").length() else minOf(batchSize,sceneCount+1-start)
+                // Pending responses retain their original range even after a provider switch.
+                val savedBatch=cachedFile.takeIf { it.isFile }
+                    ?: File(folder,cachedFile.name+".pending.json").takeIf { it.isFile }
+                val size=if(savedBatch!=null) GeminiStoryFiles.read(savedBatch).getJSONArray("scenes").length() else minOf(batchSize,sceneCount+1-start)
                 require(size in 1..6 && start+size-1<=sceneCount) { "ขนาดช่วงบทที่บันทึกไม่ถูกต้อง" }
                 val end=start+size-1
                 lastPercent=completed*100/(eps.length()*sceneCount)
@@ -224,7 +227,10 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         fun validateBatch(value: JSONObject,ep: Int,start: Int,size: Int=6,support: JSONArray=JSONArray()) {
             val scenes=value.getJSONArray("scenes"); require(scenes.length()==size) { "EP $ep ซีน $start ส่งกลับไม่ครบ $size ซีน" }
             for(i in 0 until scenes.length()) {
-                val scene=scenes.getJSONObject(i); require(scene.getInt("scene")==start+i && scene.getInt("duration_seconds")==8) { "เลขซีนหรือเวลาไม่ถูกต้อง" }
+                val scene=scenes.getJSONObject(i)
+                // Wrong numbering is a batch error; wrong duration belongs to one known scene.
+                require(scene.getInt("scene")==start+i) { "เลขซีนไม่ถูกต้องใน EP $ep" }
+                require(scene.getInt("duration_seconds")==8) { "EP $ep ซีน ${start+i}: เวลาต้องเป็น 8 วินาที" }
                 for(field in listOf("story_day","story_time","activity","wardrobe_event","continuity_group","location","start_state","end_state","action","image_prompt","flow_prompt")) require(scene.getString(field).isNotBlank()) { "EP $ep ซีน ${start+i} ขาด $field" }
                 listOf("speaker","dialogue","narration").forEach { scene.getString(it) }
                 // Reuse production identity/speaker validation while ignoring the expected partial duration.

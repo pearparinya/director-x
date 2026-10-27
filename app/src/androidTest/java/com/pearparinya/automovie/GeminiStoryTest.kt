@@ -255,6 +255,35 @@ class GeminiStoryTest {
             assertTrue(progress.any { it.contains("กำลังแก้ซีน 3") })
         } finally { folder.deleteRecursively() }
     }
+    @Test fun pendingBatchRetainsItsRangeAfterProviderSwitchAndRepairsOnlyWrongDuration() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val folder=File(context.cacheDir,"pending-provider-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val selected=ClipPlan.apply(spec().put("episodes",1).put("provider","groq"),"short",30)
+            GeminiStoryFiles.write(File(folder,"outline.json"),outline().apply {
+                put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0)))
+            })
+            // Gemini returned four scenes before the user resumed through Groq (two per new request).
+            val original=batch("Write exactly scenes 1 to 4 for EP 1")
+            original.getJSONArray("scenes").getJSONObject(2).put("duration_seconds",10)
+            val pending=File(folder,"EP01_01.json.pending.json")
+            GeminiStoryFiles.write(pending,original)
+            var calls=0
+            val story=GeminiStoryEngine(folder,{ prompt,_ ->
+                calls++
+                assertTrue(prompt.contains("Repair ONLY scene 3"))
+                assertTrue(prompt.contains("Write exactly scenes 3 to 3 for EP 1"))
+                batch(prompt)
+            }).run(selected)
+            assertEquals(1,calls)
+            val saved=JSONObject(File(folder,"EP01_01.json").readText()).getJSONArray("scenes")
+            for(i in listOf(0,1,3)) assertEquals(original.getJSONArray("scenes").getJSONObject(i).toString(),saved.getJSONObject(i).toString())
+            assertEquals(8,saved.getJSONObject(2).getInt("duration_seconds"))
+            assertEquals(4,story.getInt("scene_count"))
+            assertFalse(pending.exists())
+            assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_ -> error("must reuse repaired checkpoint") }).run(selected).toString())
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun truncatedBlockedAndInvalidJsonResponsesAreNeverAcceptedAsStory() {
         fun response(text: String,reason: String="STOP")=JSONObject().put("candidates",JSONArray().put(JSONObject().put("finishReason",reason)
             .put("content",JSONObject().put("parts",JSONArray().put(JSONObject().put("text",text))))))
