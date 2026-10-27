@@ -84,7 +84,7 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
                     for(field in listOf("outfit","visual_description","screen_position")) if(p.optString(field).isBlank()) add("$id ขาด $field ของ ${p.optString("name")}")
                 }
                 val dialogue=s.optString("dialogue").trim().takeUnless { it in listOf("ไม่มี","none") }.orEmpty()
-                if(dialogue.isNotBlank() && people.none { it.optString("name")==s.optString("speaker") || StoryIdentity.keyFor(s.optString("speaker"))?.let { key -> key==FlowCast.id(it) }==true }) add("$id ผู้พูดไม่อยู่ในฉาก")
+                if(dialogue.isNotBlank() && !(s.optString("speaker") in ProductionCommandCheck.offscreen(s) && FlowCast.definitions(plan).any { it.optString("name")==s.optString("speaker") }) && people.none { it.optString("name")==s.optString("speaker") || StoryIdentity.keyFor(s.optString("speaker"))?.let { key -> key==FlowCast.id(it) }==true }) add("$id ผู้พูดไม่อยู่ในฉาก")
                 if(dialogue.isNotBlank() && s.optString("narration").trim() !in listOf("","ไม่มี","none")) add("$id บทพูดกับบรรยายต้องแยกซีน")
             }
             if(plan.optInt("clip_plan_version")==1) {

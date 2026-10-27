@@ -1,5 +1,6 @@
 package com.pearparinya.automovie
 
+import org.json.JSONObject
 import android.content.Intent
 import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -11,6 +12,23 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class ChatSharePayloadTest {
+    @Test fun actualSharedFilesRemainReadableThroughFileProvider() {
+        val context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val folder=java.io.File(context.cacheDir,"scene_reference_exports/test-${java.util.UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val command=java.io.File(folder,"READ_FIRST_IMAGE_COMMAND.txt").apply { writeText("สร้างภาพตาม MASTER ภาษาไทย") }
+            val record=JSONObject(context.assets.open("master_library/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records").getJSONObject(0)
+            val bytes=context.assets.open("master_library/"+record.getString("file")).use { it.readBytes() }
+            val master=java.io.File(folder,"MASTER.jpg").apply { writeBytes(bytes) }
+            fun uri(file: java.io.File)=androidx.core.content.FileProvider.getUriForFile(context,context.packageName+".fileprovider",file)
+            val intent=buildGeminiPackageIntent("สร้างภาพ",uri(command),arrayListOf(uri(master)))
+            val files=intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)!!
+            assertEquals(command.readText(),context.contentResolver.openInputStream(files[0])!!.bufferedReader().use { it.readText() })
+            org.junit.Assert.assertArrayEquals(bytes,context.contentResolver.openInputStream(files[1])!!.use { it.readBytes() })
+            assertEquals("text/plain",context.contentResolver.getType(files[0]))
+            assertEquals("image/jpeg",context.contentResolver.getType(files[1]))
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun geminiCarriesFullInstructionFileAlongsideVariableMasterCount() {
         val command=Uri.parse("content://director-x/READ_FIRST_IMAGE_COMMAND.txt")
         for(count in listOf(1,3,8)) {

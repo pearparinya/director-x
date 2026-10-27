@@ -13,19 +13,35 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
     private fun cached(name: String,prompt: String,schema: JSONObject,validate: (JSONObject) -> Unit): JSONObject {
         check(); val file=File(folder,name)
         if(file.exists()) return GeminiStoryFiles.read(file).also(validate)
-        var value=generate(prompt,schema); check()
+        val pending=File(folder,name+".pending.json")
+        var value=if(pending.isFile) GeminiStoryFiles.read(pending) else generate(prompt,schema)
+        GeminiStoryFiles.write(pending,value); check()
+        progress(lastPercent,"ได้รับคำตอบแล้ว • กำลังตรวจ $name")
         try { validate(value) } catch(first: IllegalArgumentException) {
             // One bounded semantic repair; transport, quota and safety errors are never retried.
             progress(lastPercent,"AI ตอบกลับแล้ว • กำลังแก้รูปแบบบท 1 ครั้ง")
             check()
-            value=generate(prompt+"\nYour previous JSON failed validation: "+first.message.orEmpty().take(600)+
-                "\nReturn a complete corrected replacement for this same requested batch only. Do not skip or add scenes. Preserve the story events. Previous JSON:\n"+value.toString(),schema)
+            val sceneNumber=Regex("ซีน ([0-9]+)").find(first.message.orEmpty())?.groupValues?.get(1)?.toIntOrNull()
+            val rows=value.optJSONArray("scenes")
+            val target=if(rows!=null && sceneNumber!=null) (0 until rows.length()).firstOrNull { rows.getJSONObject(it).optInt("scene")==sceneNumber } else null
+            if(target!=null && rows!=null) {
+                progress(lastPercent,"ได้รับบทแล้ว • กำลังแก้ซีน $sceneNumber • เก็บซีนอื่นไว้แล้ว")
+                val focused=prompt.replace(Regex("Write exactly scenes [0-9]+ to [0-9]+"),"Write exactly scenes $sceneNumber to $sceneNumber")
+                val replacement=generate(focused+"\nYour previous JSON failed validation: "+first.message.orEmpty().take(600)+
+                    "\nRepair ONLY scene $sceneNumber. Return scenes array with exactly this one scene. Keep its events and registered identities. Other scenes are frozen. Previous scene:\n"+rows.getJSONObject(target),schema).getJSONArray("scenes")
+                require(replacement.length()==1 && replacement.getJSONObject(0).optInt("scene")==sceneNumber) { "ซ่อมบทต้องส่งกลับเฉพาะซีน $sceneNumber" }
+                rows.put(target,replacement.getJSONObject(0))
+            } else {
+                value=generate(prompt+"\nYour previous JSON failed validation: "+first.message.orEmpty().take(600)+
+                    "\nReturn a corrected replacement with the same events and scene numbers. Previous JSON:\n"+value.toString(),schema)
+            }
+            GeminiStoryFiles.write(pending,value)
             check()
             try { validate(value) } catch(second: IllegalArgumentException) {
                 throw IllegalArgumentException("AI ตอบกลับแล้ว แต่รูปแบบบทยังไม่ผ่านหลังแก้ 1 ครั้ง: "+second.message.orEmpty().take(300))
             }
         }
-        GeminiStoryFiles.write(file,value); return value
+        GeminiStoryFiles.write(file,value); pending.delete(); return value
     }
     fun run(spec: JSONObject): JSONObject {
         val category=spec.getString("category"); val channel=spec.getString("channel"); val count=spec.optInt("episodes")
@@ -37,7 +53,7 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
             val recent=spec.optJSONArray("recent_casts") ?: JSONArray()
             val variety=if(spec.optInt("casting_version")>=2) " Casting variation seed: "+spec.optString("creative_seed")+". Never reuse any pair from these recent casts: "+recent.toString()+". Also never pair two or more of CHAR_001, CHAR_002, CHAR_022. Select actor count from actual story needs, never default to three. Do not favor early catalog entries. Give roles appropriate to the requested genre; choose different actors when an old pair would recur." else ""
             val casting=cached("casting.json", "Plan the concept and cast for a Thai film/drama. Category: "+spec.optString("category")+"; premise: "+spec.optString("premise")+
-                variety+". Choose 1–8 adult fictional roles as needed, matching reference styling to the production. Invent distinct Thai character names and describe each role and relationships. Choose only library IDs below. Use character_age from the catalog as the assigned fictional age, never as a verified real age. Match age requirements and age gaps in the requested story using these numeric ages; do not invent or change ages. Do not infer personality from looks or invent measurements. Hair/appearance come from each reference; costume changes by story. Return story_concept and cast. Catalog: "+catalog.toString(), AutoCast.schema()) { if(spec.optInt("casting_version")>=2) AutoCast.validateVariety(it,catalog,recent) else AutoCast.validate(it,catalog) }
+                ChannelCatalog.direction(spec.optString("category"))+" For the younger-man/older-woman category set romance_role=younger_man and older_woman on the two romantic leads, supporting on others. "+variety+". Choose 1–8 adult fictional roles as needed, matching reference styling to the production. Invent distinct Thai character names and describe each role and relationships. Choose only library IDs below. Use character_age from the catalog as the assigned fictional age, never as a verified real age. Match age requirements and age gaps in the requested story using these numeric ages; do not invent or change ages. Do not infer personality from looks or invent measurements. Hair/appearance come from each reference; costume changes by story. Return story_concept and cast. Catalog: "+catalog.toString(), AutoCast.schema()) { if(spec.optInt("casting_version")>=2) AutoCast.validateVariety(it,catalog,recent) else AutoCast.validate(it,catalog); AutoCast.validateGenre(it,catalog,spec.optString("category")) }
             spec.put("supporting_characters",AutoCast.apply(casting,catalog,folder.parentFile!!))
             spec.put("cast_concept",casting.getString("story_concept"))
             GeminiStoryFiles.write(File(folder,"spec.json"),spec)
@@ -48,7 +64,7 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
         val batchSize=if(compact) 2 else 6
         val speechRules="""
 AUDIO FIELDS: choose exactly ONE mode per scene.
-DIALOGUE: speaker=one canonical on-screen Thai name; dialogue=spoken Thai words only; narration="".
+DIALOGUE: speaker=one canonical Thai name, either on-screen or explicitly listed in offscreen_characters. For an off-screen speaker all visible mouths remain closed; dialogue=spoken Thai words only; narration="".
 NARRATION: speaker=""; dialogue=""; narration=external male voice-over words only; all on-screen mouths closed.
 SILENT: speaker=""; dialogue=""; narration=""; all mouths closed.
 Never fill unused fields with descriptions, "none", "ไม่มี", "N/A", or stage directions. Put acting in action, never narration. Do not combine dialogue and narration in one scene. flow_prompt must match this mode exactly, without extra spoken lines. Example dialogue fields: {"speaker":"เมย์","dialogue":"ซองนี้ของใครคะ","narration":""}. Example narration fields: {"speaker":"","dialogue":"","narration":"คืนนั้น ความจริงเริ่มปรากฏ"}.
@@ -88,7 +104,10 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
             while(start<=sceneCount) {
                 check()
                 val cachedFile=File(folder,"EP%02d_%02d.json".format(i+1,start))
-                val size=if(cachedFile.isFile) GeminiStoryFiles.read(cachedFile).getJSONArray("scenes").length() else minOf(batchSize,sceneCount+1-start)
+                // Pending responses retain their original range even after a provider switch.
+                val savedBatch=cachedFile.takeIf { it.isFile }
+                    ?: File(folder,cachedFile.name+".pending.json").takeIf { it.isFile }
+                val size=if(savedBatch!=null) GeminiStoryFiles.read(savedBatch).getJSONArray("scenes").length() else minOf(batchSize,sceneCount+1-start)
                 require(size in 1..6 && start+size-1<=sceneCount) { "ขนาดช่วงบทที่บันทึกไม่ถูกต้อง" }
                 val end=start+size-1
                 lastPercent=completed*100/(eps.length()*sceneCount)
@@ -103,7 +122,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                 val storyOutline=if(compact) (0 until eps.length()).joinToString("\n") { e -> eps.getJSONObject(e).let { "EP ${e+1}: ${it.optString("synopsis").take(250)}; ending=${it.optString("ending").take(120)}" } } else outline.toString()
                 val priorWardrobe=(0 until output.length()).flatMap { e -> AutoDirectorWardrobe.batch(e+1,output.getJSONObject(e).getJSONArray("scenes")) }+AutoDirectorWardrobe.batch(i+1,scenes)
                 val wardrobeContext=if(spec.optString("content_profile")==AutoDirectorContent.profile || spec.optInt("command_version")>=1) "\nIMMUTABLE WARDROBE CATALOG — copy the exact four parts verbatim for the matching day/event/group:\n"+AutoDirectorWardrobe.catalog(priorWardrobe) else ""
-                val prompt=base+wardrobeContext+(if(compact) "\nBe concise: image_prompt and flow_prompt each <=80 English words; keep identity, outfits, action and speech complete." else "")+"\nFull story outline:\n$storyOutline\nActual previous episode events/dialogue (do not repeat):\n$past\nCurrent episode prior scenes (continue state/outfits):\n$previous\nWrite exactly scenes $start to $end for EP ${i+1}; each duration_seconds=8, scene numbers absolute within episode. This episode: ${if(compact) JSONObject(planned.toString()).apply { listOf("synopsis","cover_incident","ending").forEach { put(it,optString(it).take(250)) } } else planned}. Include continuity_group, story_day, story_time, activity, wardrobe_event. Set speaker/dialogue/narration to empty strings when unused. Characters use canonical Thai names and matching *_MASTER.png. Use screen_position and full visual_description. In flow_prompt explicitly identify the sole speaker and exact Thai line, or closed mouths for silent/narrated scenes."
+                val prompt=base+wardrobeContext+(if(compact) "\nBe concise: image_prompt and flow_prompt each <=80 English words; keep identity, outfits, action and speech complete." else "")+"\nFull story outline:\n$storyOutline\nActual previous episode events/dialogue (do not repeat):\n$past\nCurrent episode prior scenes (continue state/outfits):\n$previous\nWrite exactly scenes $start to $end for EP ${i+1}; each duration_seconds=8, scene numbers absolute within episode. This episode: ${if(compact) JSONObject(planned.toString()).apply { listOf("synopsis","cover_incident","ending").forEach { put(it,optString(it).take(250)) } } else planned}. Include continuity_group, story_day, story_time, activity, wardrobe_event. Set speaker/dialogue/narration to empty strings when unused. Characters use canonical Thai names and matching *_MASTER.png. Use screen_position and full visual_description. Copy character_age exactly from the registered cast (0 only when legacy cast has no assigned age). characters contains only visible people. mentioned_characters lists canonical names discussed but absent; offscreen_characters lists canonical names outside the frame. Only the exact assigned speaker can speak; off-screen speech keeps all visible mouths closed. Never place physical on-screen actions on absent people. In flow_prompt explicitly identify the sole speaker and exact Thai line, or closed mouths for silent/narrated scenes."
                 val priorDialogue=linkedMapOf<String,String>()
                 for(e in 0 until output.length()) checkDialogue(output.getJSONObject(e).getJSONArray("scenes"),e+1,priorDialogue)
                 checkDialogue(scenes,i+1,priorDialogue)
@@ -193,8 +212,8 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         fun outlineSchema(): JSONObject = obj(linkedMapOf("title" to string(),"tagline" to string(),"episodes" to array(obj(linkedMapOf(
             "ep" to integer(),"title" to string(),"tagline" to string(),"synopsis" to string(),"cover_incident" to string(),"ending" to string())))))
         fun batchSchema(): JSONObject {
-            val person=obj(linkedMapOf("name" to string(),"master" to string(),"outfit" to string(),"visual_description" to string(),"screen_position" to string(),"performance" to obj(PerformanceDirection.fields.associateWith { string() })))
-            val fields=linkedMapOf("scene" to integer(),"duration_seconds" to integer(),"characters" to array(person),"sound_design" to obj(linkedMapOf("ambience" to string(),"sfx" to string(),"music" to string())))
+            val person=obj(linkedMapOf("name" to string(),"master" to string(),"outfit" to string(),"visual_description" to string(),"screen_position" to string(),"character_age" to integer(),"performance" to obj(PerformanceDirection.fields.associateWith { string() })))
+            val fields=linkedMapOf("mentioned_characters" to array(string()),"offscreen_characters" to array(string()),"scene" to integer(),"duration_seconds" to integer(),"characters" to array(person),"sound_design" to obj(linkedMapOf("ambience" to string(),"sfx" to string(),"music" to string())))
             listOf("story_day","story_time","activity","wardrobe_event","continuity_group","location","start_state","end_state","action","speaker","dialogue","narration","image_prompt","flow_prompt").forEach { fields[it]=string() }
             return obj(linkedMapOf("scenes" to array(obj(fields))))
         }
@@ -208,12 +227,17 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         fun validateBatch(value: JSONObject,ep: Int,start: Int,size: Int=6,support: JSONArray=JSONArray()) {
             val scenes=value.getJSONArray("scenes"); require(scenes.length()==size) { "EP $ep ซีน $start ส่งกลับไม่ครบ $size ซีน" }
             for(i in 0 until scenes.length()) {
-                val scene=scenes.getJSONObject(i); require(scene.getInt("scene")==start+i && scene.getInt("duration_seconds")==8) { "เลขซีนหรือเวลาไม่ถูกต้อง" }
+                val scene=scenes.getJSONObject(i)
+                // Wrong numbering is a batch error; wrong duration belongs to one known scene.
+                require(scene.getInt("scene")==start+i) { "เลขซีนไม่ถูกต้องใน EP $ep" }
+                require(scene.getInt("duration_seconds")==8) { "EP $ep ซีน ${start+i}: เวลาต้องเป็น 8 วินาที" }
                 for(field in listOf("story_day","story_time","activity","wardrobe_event","continuity_group","location","start_state","end_state","action","image_prompt","flow_prompt")) require(scene.getString(field).isNotBlank()) { "EP $ep ซีน ${start+i} ขาด $field" }
                 listOf("speaker","dialogue","narration").forEach { scene.getString(it) }
                 // Reuse production identity/speaker validation while ignoring the expected partial duration.
                 val copy=JSONObject(scene.toString()).put("scene",1)
                 val sample=JSONObject().put("aspect_ratio",LandscapeProduction.ASPECT).put("supporting_characters",support).put("title","ตรวจซีน").put("episodes",JSONArray().put(JSONObject().put("ep",1).put("scenes",JSONArray().put(copy))))
+                val ageIssues=CharacterAgeCheck.issues(scene,FlowCast.definitions(sample))
+                require(ageIssues.isEmpty()) { "EP $ep ซีน ${start+i}: "+ageIssues.joinToString("; ") }
                 val issues=FlowProductionPack.issues(sample).filterNot { it.contains("ยาว 8 วินาที") }
                 require(issues.isEmpty()) { "EP $ep ซีน ${start+i}: "+issues.take(3).joinToString("; ") }
             }

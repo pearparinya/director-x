@@ -139,8 +139,8 @@ class GeminiStoryTest {
     }
     @Test fun mainCategoryContractsUseTenReadableStylesWithoutSelectingPresetSubplots() {
         val categories=ChannelCatalog.mainCategories
-        assertEquals(10,categories.size)
-        assertEquals(10,categories.map { it.id }.distinct().size)
+        assertEquals(11,categories.size)
+        assertEquals(11,categories.map { it.id }.distinct().size)
         assertEquals("รักวุ่นชวนเข้าใจผิด",categories[8].name)
         assertEquals("คู่ป่วนต่างอาชีพ",categories[9].name)
         for(c in categories) {
@@ -232,6 +232,56 @@ class GeminiStoryTest {
             assertEquals(192,story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").let { rows -> (0 until rows.length()).sumOf { rows.getJSONObject(it).getInt("duration_seconds") } })
             val cached=GeminiStoryEngine(folder,{ _,_ -> error("must not call API for completed chunks") }).run(spec())
             assertEquals(story.toString(),cached.toString())
+        } finally { folder.deleteRecursively() }
+    }
+    @Test fun failedSceneRepairKeepsOtherScenesAndResumesPendingResponse() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"target-repair-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val selected=ClipPlan.apply(spec().put("episodes",1),"short",30)
+            val progress=mutableListOf<String>(); var repairs=0
+            assertTrue(runCatching { GeminiStoryEngine(folder,{ prompt,_ ->
+                if(prompt.contains("Plan a complete story")) outline().apply { put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0))) }
+                else if(prompt.contains("Repair ONLY")) { repairs++; error("offline during repair") }
+                else batch(prompt).apply { getJSONArray("scenes").getJSONObject(2).put("speaker","เมย์").put("dialogue","ใครส่งมา").put("narration","เธอถาม") }
+            },progress={ _,m -> progress.add(m) }).run(selected) }.isFailure)
+            val pending=File(folder,"EP01_01.json.pending.json")
+            assertTrue(pending.isFile); assertEquals(1,repairs)
+            val before=JSONObject(pending.readText()).getJSONArray("scenes").getJSONObject(0).toString()
+            var calls=0
+            val story=GeminiStoryEngine(folder,{ prompt,_ -> calls++; assertTrue(prompt.contains("Repair ONLY scene 3")); batch(prompt) }).run(selected)
+            assertEquals(1,calls)
+            assertEquals(before,JSONObject(File(folder,"EP01_01.json").readText()).getJSONArray("scenes").getJSONObject(0).toString())
+            assertFalse(pending.exists()); assertEquals(4,story.getInt("scene_count"))
+            assertTrue(progress.any { it.contains("กำลังแก้ซีน 3") })
+        } finally { folder.deleteRecursively() }
+    }
+    @Test fun pendingBatchRetainsItsRangeAfterProviderSwitchAndRepairsOnlyWrongDuration() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val folder=File(context.cacheDir,"pending-provider-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val selected=ClipPlan.apply(spec().put("episodes",1).put("provider","groq"),"short",30)
+            GeminiStoryFiles.write(File(folder,"outline.json"),outline().apply {
+                put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0)))
+            })
+            // Gemini returned four scenes before the user resumed through Groq (two per new request).
+            val original=batch("Write exactly scenes 1 to 4 for EP 1")
+            original.getJSONArray("scenes").getJSONObject(2).put("duration_seconds",10)
+            val pending=File(folder,"EP01_01.json.pending.json")
+            GeminiStoryFiles.write(pending,original)
+            var calls=0
+            val story=GeminiStoryEngine(folder,{ prompt,_ ->
+                calls++
+                assertTrue(prompt.contains("Repair ONLY scene 3"))
+                assertTrue(prompt.contains("Write exactly scenes 3 to 3 for EP 1"))
+                batch(prompt)
+            }).run(selected)
+            assertEquals(1,calls)
+            val saved=JSONObject(File(folder,"EP01_01.json").readText()).getJSONArray("scenes")
+            for(i in listOf(0,1,3)) assertEquals(original.getJSONArray("scenes").getJSONObject(i).toString(),saved.getJSONObject(i).toString())
+            assertEquals(8,saved.getJSONObject(2).getInt("duration_seconds"))
+            assertEquals(4,story.getInt("scene_count"))
+            assertFalse(pending.exists())
+            assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_ -> error("must reuse repaired checkpoint") }).run(selected).toString())
         } finally { folder.deleteRecursively() }
     }
     @Test fun truncatedBlockedAndInvalidJsonResponsesAreNeverAcceptedAsStory() {

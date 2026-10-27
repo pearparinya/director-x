@@ -524,9 +524,24 @@ class StudioActivity : AppCompatActivity() {
         super.onResume()
         pendingStoryShare=null
         pendingReceipt=null
+        val receiptPath=prefs.getString("gemini_receipt_pending",null)
+        if(receiptPath!=null) {
+            prefs.edit().remove("gemini_receipt_pending").apply()
+            val receiver=prefs.getString("image_receipt_app","Gemini") ?: "Gemini"
+            AlertDialog.Builder(this).setTitle("ผลการรับไฟล์ใน $receiver")
+                .setMessage("$receiver รับไฟล์คำสั่ง TXT และรูป MASTER ครบหรือไม่? การเปิดแอปสำเร็จยังไม่ยืนยันว่ารับไฟล์ครบ")
+                .setPositiveButton("รับครบแล้ว") { _,_ -> recordGeminiReceipt(receiptPath,"user_confirmed_received") }
+                .setNegativeButton("ไฟล์ไม่ครบ") { _,_ -> recordGeminiReceipt(receiptPath,"user_reported_missing"); notice("บันทึกปัญหาไว้แล้ว • ยังไม่ถือว่าส่งสำเร็จ กรุณาส่งชุดเดิมอีกครั้งจากรหัสปกหรือซีน") }
+                .setNeutralButton("ยังไม่ตรวจ") { _,_ -> recordGeminiReceipt(receiptPath,"unverified") }.showDirector()
+        }
         storyUiHandler.removeCallbacks(storyPoll)
         storyUiHandler.post(storyPoll)
         if(!importing && !GeminiStoryService.running) updater.checkAutomatically()
+    }
+    private fun recordGeminiReceipt(path: String, status: String) {
+        val file=File(path)
+        if(!file.canonicalPath.startsWith(base.canonicalPath+"/")) return
+        runCatching { val value=JSONObject(file.readText()); value.put("receipt_status",status).put("receipt_at",System.currentTimeMillis()); file.writeText(value.toString(2)) }
     }
     override fun onPause() {
         storyUiHandler.removeCallbacks(storyPoll)
@@ -1017,7 +1032,16 @@ class StudioActivity : AppCompatActivity() {
         val name = if (useNewMasters) source.nameWithoutExtension else source.nameWithoutExtension + "_MASTER"
         return "${name.uppercase()}.$extension"
     }
-    private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT") {
+    private fun shareImageCommand(command: String, references: List<Pair<String,File>>) {
+        val preferred=prefs.getString("image_provider","ChatGPT") ?: "ChatGPT"
+        val providers=if(preferred=="Gemini") listOf("Gemini","ChatGPT") else listOf("ChatGPT","Gemini")
+        choiceMenu("สร้างภาพด้วยแอปไหน",providers.mapIndexed { i,name -> name+if(i==0) " • ตัวเลือกที่จำไว้" else "" }) { selected ->
+            val provider=providers[selected]
+            prefs.edit().putString("image_provider",provider).apply()
+            shareText(command,includeMasters=false,referenceImages=references,destinationLabel=provider,imagePackage=true)
+        }
+    }
+    private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT", imagePackage: Boolean = false) {
         val text = if (lockCreation && !inputText.contains("ค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง)")) inputText + "\nค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง): EP=${prefs.getString("plan_episodes", "").orEmpty().ifBlank { "AI ประเมิน" }} ฉาก/EP=${prefs.getString("plan_scenes", "").orEmpty().ifBlank { "AI ประเมิน" }} เวลา=${prefs.getString("plan_duration", "8")} วินาที สัดส่วน=${"9:16"} กำหนด duration_seconds และ aspect_ratio ใน story.json และคำสั่งทุกฉากตามนี้" else inputText
         val uris = arrayListOf<Uri>()
         val attachments = JSONArray()
@@ -1052,7 +1076,8 @@ class StudioActivity : AppCompatActivity() {
         // ChatGPT Android builds do not all read the same share field. Keep
         // the command in both EXTRA_TEXT and the first ClipData item, then
         // append every granted image URI to that same ClipData payload.
-        val intent = if(destinationLabel=="Gemini" && uris.isNotEmpty()) {
+        val filePackage=(destinationLabel=="Gemini" || imagePackage) && uris.isNotEmpty()
+        val intent = if(filePackage) {
             val command=File(cacheDir,"scene_reference_exports/$transferId/READ_FIRST_IMAGE_COMMAND.txt")
             command.parentFile!!.mkdirs()
             command.writeText("สร้างภาพหนึ่งภาพตามคำสั่งด้านล่าง ใช้ภาพ MASTER ที่แนบจับคู่ตามชื่อไฟล์ ไม่สรุปคำสั่ง ไม่สร้างวิดีโอ\n\n"+text,Charsets.UTF_8)
@@ -1062,7 +1087,7 @@ class StudioActivity : AppCompatActivity() {
             attachments.put(JSONObject().put("name",command.name).put("bytes",command.length()).put("sha256",MasterLibrary.digest(command.readBytes())))
             result
         } else buildChatShareIntent(text,uris)
-        if(destinationLabel!="Gemini") (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+        if(!filePackage) (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
             .setPrimaryClip(ClipData.newPlainText("คำสั่ง DIRECTOR X", text))
         val destination = project
         val sceneId = prefs.getString("last_scene_${destination.name}", "")!!
@@ -1071,7 +1096,7 @@ class StudioActivity : AppCompatActivity() {
         File(destination,"last_payload.json").writeText(JSONObject().put("text",text).put("creation",lockCreation)
             .put("images",JSONArray(uris.map { it.toString() })).put("attachments",attachments).toString())
         val imageList = (0 until attachments.length()).joinToString("\n") { i -> attachments.getJSONObject(i).let { "${it.optString("name")} • ${it.optLong("bytes")} bytes • SHA ${it.optString("sha256").take(12)}" } }
-        pendingStorySummary = "คำสั่ง ${text.length} ตัวอักษร • ภาพ ${uris.size} ภาพ"
+        pendingStorySummary = "คำสั่ง ${text.length} ตัวอักษร • ภาพ ${uris.count { contentResolver.getType(it)?.startsWith("image/")==true }} ภาพ" + if(filePackage) " • ไฟล์คำสั่ง 1 ไฟล์" else ""
         fun launchShare() {
             val request = JSONObject().put("id",transferId).put("scene",sceneId).put("created_at",System.currentTimeMillis())
                 .put("text",text).put("attachments",attachments).put("status","opened_external_app")
@@ -1092,17 +1117,20 @@ class StudioActivity : AppCompatActivity() {
             }
             if (!opened) {
                 try {
-                    startActivity(Intent.createChooser(intent,"เลือก $destinationLabel • ตรวจรูปและวางคำสั่งก่อนส่ง").apply {
+                    startActivity(Intent.createChooser(intent,if(filePackage) "เลือก $destinationLabel • แนบไฟล์คำสั่งพร้อมรูป" else "เลือก $destinationLabel • ตรวจรูปและวางคำสั่งก่อนส่ง").apply {
                         clipData = intent.clipData; addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     })
                     opened = true
-                } catch (e: Exception) { pendingReceipt = null; notice("เปิดหน้ารับแชร์ไม่ได้: ${e.message}\nคำสั่งคัดลอกไว้แล้ว") }
+                } catch (e: Exception) { pendingReceipt = null; notice("เปิดหน้ารับแชร์ไม่ได้: ${e.message}\n"+if(filePackage) "กลับมาส่งชุดคำสั่งและรูปใหม่ได้" else "คำสั่งคัดลอกไว้แล้ว") }
             }
-            if (opened) pendingStoryShare = { launchShare() }
+            if (opened) {
+                pendingStoryShare = { launchShare() }
+                if(filePackage) prefs.edit().putString("image_receipt_app",destinationLabel).putString("gemini_receipt_pending",File(destination,"image_requests/$transferId.json").absolutePath).apply()
+            }
         }
         val preview = LinearLayout(this).apply { orientation = 1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
         preview.addView(TextView(this).apply {
-            this.text = if(destinationLabel=="Gemini") "$pendingStorySummary\n$imageList\nแนบไฟล์ READ_FIRST_IMAGE_COMMAND.txt พร้อม MASTER ไปในชุดเดียวกัน ตรวจว่า Gemini แสดงไฟล์คำสั่งและรูปครบก่อนกดส่ง แม้ช่องข้อความว่างก็มีคำสั่งในไฟล์แนบ หากไฟล์หายอย่ากดส่ง" else "$pendingStorySummary\n$imageList\nตรวจภาพและข้อความใน $destinationLabel ก่อนกดส่ง คำสั่งคัดลอกไว้ในคลิปบอร์ดแล้ว"
+            this.text = if(filePackage) "$pendingStorySummary\n$imageList\nแนบไฟล์ READ_FIRST_IMAGE_COMMAND.txt พร้อม MASTER ไปในชุดเดียวกัน ตรวจว่า $destinationLabel แสดงไฟล์คำสั่งและรูปครบก่อนกดส่ง แม้ช่องข้อความว่างก็มีคำสั่งในไฟล์แนบ หากไฟล์หายอย่ากดส่ง" else "$pendingStorySummary\n$imageList\nตรวจภาพและข้อความใน $destinationLabel ก่อนกดส่ง คำสั่งคัดลอกไว้ในคลิปบอร์ดแล้ว"
             textSize = 13f
         })
         uris.filter { contentResolver.getType(it)?.startsWith("image/")==true }.forEach { uri -> preview.addView(ImageView(this).apply {
@@ -1189,7 +1217,7 @@ class StudioActivity : AppCompatActivity() {
             exported.substringBeforeLast('.') to source
         } else keys.map { id -> val source=File(project,"original_masters/$id.master").takeIf { it.exists() } ?: File(filesDir,"character_masters/$id.master"); "${id.uppercase()}_MASTER" to source }
         rememberScene(scene)
-        shareText(storySceneCommand(p,scene),includeMasters=false,referenceImages=masterRefs+references,destinationLabel="Gemini")
+        shareImageCommand(storySceneCommand(p,scene),masterRefs+references)
     }
     private fun wholeStoryCommands() {
         val p = plan ?: return notice("นำเข้าแผนเรื่องก่อนครับ")
@@ -1327,7 +1355,7 @@ class StudioActivity : AppCompatActivity() {
                 }
                 else -> {
                     val number=eps.getJSONObject(index).getInt("ep")
-                    choiceMenu("EP.$number • คำสั่งพร้อมใช้",listOf("1. สร้างภาพใน Gemini • แนบ MASTER ให้","2. สร้างวิดีโอใน Flow • ใช้ภาพฉาก","ไฟล์คำสั่ง / แก้ไข / ทำต่อ")) { kind ->
+                    choiceMenu("EP.$number • คำสั่งพร้อมใช้",listOf("1. สร้างภาพ ChatGPT / Gemini • แนบ MASTER ให้","2. สร้างวิดีโอใน Flow • ใช้ภาพฉาก","ไฟล์คำสั่ง / แก้ไข / ทำต่อ")) { kind ->
                         if(kind<2) productionTaskDeck(story,number,kind==0)
                         else productionTaskType(story,number)
 
@@ -1360,7 +1388,7 @@ class StudioActivity : AppCompatActivity() {
         }
     }
     private fun productionTaskType(story: JSONObject,number: Int) {
-        choiceMenu("EP.$number • เปิดหรือแก้เฉพาะรายการ",listOf("รูปและปก Gemini","วิดีโอ Flow")) { productionTaskDeck(story,number,it==0) }
+        choiceMenu("EP.$number • เปิดหรือแก้เฉพาะรายการ",listOf("รูปและปก ChatGPT / Gemini","วิดีโอ Flow")) { productionTaskDeck(story,number,it==0) }
     }
     private fun productionTaskDeck(story: JSONObject,number: Int,images: Boolean) {
         val tasks=runCatching { if(images) SimpleProductionCommands.imageTasks(story,number) else SimpleProductionCommands.videoTasks(story,number) }.getOrElse {
@@ -1378,16 +1406,16 @@ class StudioActivity : AppCompatActivity() {
             val problems=ProductionCommandCheck.issues(story)
             val dialog=showFlowCode("${task.id} • ถัดไป $next",code,"${task.id}_${if(images) "IMAGE" else "FLOW"}.txt")
             if(problems.isNotEmpty()) dialog.getButton(-1).setOnClickListener { notice("คำสั่งยังมีจุดต้องแก้ • เปิด ตรวจคำสั่ง / แก้เฉพาะจุด ก่อนคัดลอก") }
-            dialog.getButton(-1).text=if(images) "ส่ง Gemini + MASTER" else "ส่ง Flow + ภาพฉาก"
+            dialog.getButton(-1).text=if(images) "เลือกแอปสร้างภาพ + MASTER" else "ส่ง Flow + ภาพฉาก"
             dialog.getButton(-1).setOnClickListener {
                 if(problems.isNotEmpty()) { productionCheckMenu(story); return@setOnClickListener }
                 if(images) {
                     val refs=task.references.map { person -> person.getString("master").substringBeforeLast('.') to masterFor(person) }
                     if(refs.isEmpty() || refs.any { !it.second.isFile }) { notice("ขาด MASTER ของตัวละครในรายการนี้"); return@setOnClickListener }
-                    shareText(task.command,includeMasters=false,referenceImages=refs,destinationLabel="Gemini")
+                    shareImageCommand(task.command,refs)
                 } else {
                     val scene=rows(story).first { key(it)==task.id }
-                    if(!image(scene).isFile) { notice("สร้างภาพซีนนี้ใน Gemini แล้วนำเข้าภาพผ่านขั้นตอน 4 ก่อนส่ง Flow"); return@setOnClickListener }
+                    if(!image(scene).isFile) { notice("สร้างภาพซีนนี้ใน ChatGPT หรือ Gemini แล้วนำเข้าภาพผ่านขั้นตอน 4 ก่อนส่ง Flow"); return@setOnClickListener }
                     if(!sceneFrameApproved(scene) || FlowScenePrompt.issues(flowSpec(scene)).isNotEmpty()) { compareScene(scene); return@setOnClickListener }
                     shareText(flowCommand(scene),includeMasters=false,referenceImages=listOf(task.id to image(scene)),destinationLabel="Flow")
                 }
@@ -2080,7 +2108,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         }, s.optString("speaker"), s.optString("dialogue"), s.optString("narration"),
             s.optString("flow_action").ifBlank { s.optString("action") }, s.optString("location"),
             s.optString("start_state"), s.optString("end_state"),
-            plan?.optInt("duration_seconds",8) ?: 8, plan?.optString("aspect_ratio","9:16") ?: "9:16",SoundDesign.notes(s))
+            plan?.optInt("duration_seconds",8) ?: 8, plan?.optString("aspect_ratio","9:16") ?: "9:16",SoundDesign.notes(s),ProductionCommandCheck.offscreen(s))
     }
     private fun flowMappingCurrent(s: JSONObject): Boolean = image(s).exists() &&
         s.optLong("flow_image_revision",-1L) == image(s).lastModified()

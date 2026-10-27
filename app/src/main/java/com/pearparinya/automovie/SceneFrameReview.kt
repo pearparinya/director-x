@@ -7,7 +7,7 @@ import java.security.MessageDigest
 
 /** Human approval bound to exact scene/reference bytes, never an automated likeness score. */
 internal object SceneFrameReview {
-    private val fields=listOf("scene","ep","characters","action","flow_action","location","start_state","end_state","speaker","dialogue","narration","image_prompt","flow_prompt","framing","lighting","story_time","story_day","activity","wardrobe_event","props","continuity_group")
+    private val fields=listOf("scene","ep","characters","offscreen_characters","mentioned_characters","action","flow_action","location","start_state","end_state","speaker","dialogue","narration","image_prompt","flow_prompt","framing","lighting","story_time","story_day","activity","wardrobe_event","props","continuity_group")
     private fun canonical(value: Any?): String = when(value) {
         is JSONObject -> value.keys().asSequence().toList().sorted().joinToString(prefix="{",postfix="}") { JSONObject.quote(it)+":"+canonical(value.opt(it)) }
         is JSONArray -> (0 until value.length()).joinToString(prefix="[",postfix="]") { canonical(value.opt(it)) }
