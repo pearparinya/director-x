@@ -226,9 +226,9 @@ class StudioActivity : AppCompatActivity() {
             panel.addView(ScrollView(this).apply { addView(list) },LinearLayout.LayoutParams(-1,dp(420)))
             fun show(query: String) {
                 list.removeAllViews()
-                entries.filter { (it.id+" "+it.original).contains(query,ignoreCase=true) }.forEach { entry ->
+                entries.filter { (it.id+" "+it.displayName+" "+it.original).contains(query,ignoreCase=true) }.forEach { entry ->
                     list.addView(android.widget.Button(this).apply {
-                        text="${entry.id} • อายุสมมติ ${entry.characterAge} ปี • ${entry.original}"
+                        text="${entry.id} • ${entry.displayName} • อายุสมมติ ${entry.characterAge} ปี • ${entry.original}"
                         setOnClickListener { libraryEntry(entry) }
                     })
                 }
@@ -247,8 +247,8 @@ class StudioActivity : AppCompatActivity() {
             val file=masterLibrary.source(entry)
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(400)); setOnClickListener { fullImage(file,entry.id) } })
-            panel.addView(TextView(this).apply { text="${entry.id} • อายุสมมติ ${entry.characterAge} ปี • ${entry.original}\nภาพต้นฉบับ 3 มุมมอง แตะภาพเพื่อขยาย" })
-            AlertDialog.Builder(this).setTitle(entry.id).setView(ScrollView(this).apply { addView(panel) })
+            panel.addView(TextView(this).apply { text="${entry.id} • ${entry.displayName} • อายุสมมติ ${entry.characterAge} ปี • ${entry.original}\nภาพต้นฉบับ 3 มุมมอง แตะภาพเพื่อขยาย" })
+            AlertDialog.Builder(this).setTitle("${entry.id} • ${entry.displayName}").setView(ScrollView(this).apply { addView(panel) })
                 .setPositiveButton("ใช้กับเรื่องใหม่") { _,_ ->
                     choiceMenu("กำหนดภาพ ${entry.id}",listOf("ตัวละครหลัก: กวิน","ตัวละครหลัก: รินรดา","ตัวละครหลัก: เมย์","เพิ่มตัวละครเสริมพร้อมตั้งชื่อ")) { slot ->
                         if(slot==3) addLibrarySupport(entry) else runCatching {
@@ -262,7 +262,7 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun addLibrarySupport(entry: MasterLibrary.Entry) {
         if(readSupportingCast().length()>=8) { notice("เลือกตัวละครเสริมได้ไม่เกิน 8 คนต่อเรื่อง • นำคนเดิมออกก่อน"); return }
-        val input=EditText(this).apply { hint="ชื่อตัวละครในเรื่อง" }
+        val input=EditText(this).apply { hint="ชื่อตัวละครในเรื่อง"; setText(entry.displayName) }
         AlertDialog.Builder(this).setTitle("เพิ่ม ${entry.id} สำหรับเรื่องใหม่").setView(input).setPositiveButton("เพิ่ม") { _,_ ->
             runCatching {
                 val name=input.text.toString().trim()

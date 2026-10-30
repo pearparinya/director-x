@@ -16,7 +16,7 @@ internal object AutoCast {
             val p=cast.getJSONObject(i)
             require(p.getString("library_id") in ids && used.add(p.getString("library_id"))) { "MASTER ไม่อยู่ในคลังหรือเลือกซ้ำ" }
             val name=p.getString("name").trim()
-            require(name.isNotBlank() && names.add(name) && StoryIdentity.keyFor(name)==null && p.getString("role").isNotBlank()) { "ตั้งชื่อใหม่ไม่ซ้ำ พร้อมระบุบทบาท" }
+            require(name.isNotBlank() && names.add(name) && p.getString("role").isNotBlank()) { "ตั้งชื่อใหม่ไม่ซ้ำ พร้อมระบุบทบาท" }
         }
     }
     fun validateGenre(value: JSONObject, catalog: JSONArray, category: String) {

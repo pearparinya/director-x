@@ -23,11 +23,24 @@ class CharacterLibraryResetTest {
             assertTrue(fresh.isFile)
         } finally { root.deleteRecursively() }
     }
-    @Test fun shippedLibraryIsEmpty() {
+    @Test fun replacementLibraryContainsFortyFiveOriginalSheetsAndNames() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
-        val library=MasterLibrary(context.cacheDir) { context.assets.open(it).use { input -> input.readBytes() } }
-        assertTrue(library.entries().isEmpty())
-        assertTrue(context.assets.list("character_masters").orEmpty().isEmpty())
-        assertEquals(listOf("catalog.json"),context.assets.list("master_library")!!.toList())
+        val root=File(context.cacheDir,"new-library-${UUID.randomUUID()}")
+        try {
+            val library=MasterLibrary(root) { context.assets.open(it).use { input -> input.readBytes() } }
+            val entries=library.entries()
+            assertEquals((101..145).map { "CHAR_%03d".format(it) },entries.map { it.id })
+            assertEquals(listOf("รินรดา","เมย์","กวิน","ณิชา","อรพรรณ","มินตรา","ศศิ","แพรวา","วราภรณ์","กาญจนา","ขวัญข้าว","อิงฟ้า","ชญาดา","น้ำฝน","วริศรา","พัชรินทร์","สุภาวดี","นลินี","ดารารัตน์","ปาริฉัตร","ศิรินทร์","วาสนา","บุษบา","จิราภา","ชลธิชา","มาลินี","สายสมร","ฟ้าลดา","ปิยวรรณ","คมสัน","ภูวดล","ธำรง","ปกรณ์","วายุ","ภาคิน","ลุงสมบัติ","นที","ธีรภัทร","อัคนี","บุญมี","กฤต","ชาญ","ภาณุ","ศุภชัย","พิทักษ์"),entries.map { it.displayName })
+            assertEquals(45,entries.map { it.sha256 }.distinct().size)
+            entries.forEach { entry ->
+                val source=library.source(entry)
+                assertEquals(entry.sha256,MasterLibrary.digest(source.readBytes()))
+                val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
+                android.graphics.BitmapFactory.decodeFile(source.path,bounds)
+                assertTrue(bounds.outWidth>0 && bounds.outHeight>0)
+            }
+            assertTrue(context.assets.list("character_masters").orEmpty().isEmpty())
+            assertEquals(46,context.assets.list("master_library")!!.size)
+        } finally { root.deleteRecursively() }
     }
 }

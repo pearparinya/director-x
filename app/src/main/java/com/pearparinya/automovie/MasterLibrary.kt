@@ -6,12 +6,12 @@ import org.json.JSONObject
 
 /** Immutable source references. Assignments copy bytes; no project or legacy master is migrated. */
 internal class MasterLibrary(private val root: File, private val load: (String) -> ByteArray) {
-    data class Entry(val id: String, val filename: String, val original: String, val sha256: String, val characterAge: Int)
+    data class Entry(val id: String, val filename: String, val original: String, val sha256: String, val characterAge: Int, val displayName: String = "")
     fun entries(): List<Entry> {
         val rows = JSONObject(String(load("master_library/catalog.json"), Charsets.UTF_8)).getJSONArray("records")
         return (0 until rows.length()).map { i ->
             val row = rows.getJSONObject(i)
-            Entry(row.getString("id"), row.getString("file"), row.getString("original_filename"), row.getString("sha256"), row.getInt("character_age"))
+            Entry(row.getString("id"), row.getString("file"), row.getString("original_filename"), row.getString("sha256"), row.getInt("character_age"), row.optString("display_name"))
         }.also { entries ->
             require(entries.map { it.id }.distinct().size == entries.size)
             require(entries.all { it.id.matches(Regex("CHAR_[0-9]{3}")) && File(it.filename).name == it.filename && it.characterAge in 25..90 })
