@@ -10,6 +10,22 @@ import java.io.File
 import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class AutoCastTest {
+    @Test fun autoCastCanUseLegacyNamesWithTheirOwnCatalogMasters() {
+        val catalog=JSONArray().put(JSONObject().put("id","CHAR_101")).put(JSONObject().put("id","CHAR_102"))
+        val cast=JSONArray().put(JSONObject().put("library_id","CHAR_101").put("name","รินรดา").put("role","ผู้จัดการ"))
+            .put(JSONObject().put("library_id","CHAR_102").put("name","เมย์").put("role","เพื่อน"))
+        AutoCast.validate(JSONObject().put("story_concept","เรื่องใหม่").put("cast",cast),catalog)
+        fun person(name: String, master: String)=JSONObject().put("name",name).put("master",master).put("auto_cast",true).put("visual_description","independent reference")
+        val rin=person("รินรดา","SUPPORT_00000065_MASTER.png")
+        val may=person("เมย์","SUPPORT_00000066_MASTER.png")
+        val plan=JSONObject().put("supporting_characters",JSONArray().put(rin).put(may))
+        assertTrue(FlowCast.issues(plan).toString(),FlowCast.issues(plan).isEmpty())
+        assertTrue(FlowCast.matches(plan,JSONObject(rin.toString()).removeAutoCast()))
+        assertTrue(FlowCast.matches(plan,JSONObject(may.toString()).removeAutoCast()))
+        assertFalse(FlowCast.matches(plan,JSONObject(rin.toString()).put("master",may.getString("master"))))
+        assertFalse(FlowCast.matches(plan,JSONObject(rin.toString()).put("master","RINLADA_MASTER.png")))
+    }
+    private fun JSONObject.removeAutoCast(): JSONObject { remove("auto_cast"); return this }
     @Test fun oldPairsAreRejectedButFreshCastingIsAllowed() {
         val catalog=JSONArray((1..35).map { JSONObject().put("id","CHAR_%03d".format(it)) })
         fun selection(vararg ids: Int)=JSONObject().put("story_concept","เรื่องใหม่").put("cast",JSONArray(ids.map { id -> JSONObject().put("library_id","CHAR_%03d".format(id)).put("name","บทที่$id").put("role","บทบาท$id") }))

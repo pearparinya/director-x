@@ -4,8 +4,8 @@ One uploaded sheet = one character. Ages below are fictional assignments for scr
 
 | ID | Name | Fictional age | Original file |
 | --- | --- | --- | --- |
-| CHAR_101 | ลลิน | 28 | 1000030761.jpg |
-| CHAR_102 | พิมพ์ดาว | 25 | 1000030762.jpg |
+| CHAR_101 | รินรดา | 28 | 1000030761.jpg |
+| CHAR_102 | เมย์ | 25 | 1000030762.jpg |
 | CHAR_103 | ธาวิน | 28 | 1000030764.jpg |
 | CHAR_104 | ณิชา | 27 | 1000030765.jpg |
 | CHAR_105 | อรพรรณ | 46 | 1000030766.jpg |
