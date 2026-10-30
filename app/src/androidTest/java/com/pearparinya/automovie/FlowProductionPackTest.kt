@@ -165,7 +165,7 @@ class FlowProductionPackTest {
         val root=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,UUID.randomUUID().toString()).apply { mkdirs() }
         try {
             val context=InstrumentationRegistry.getInstrumentation().targetContext
-            val masters=FlowProductionPack.names.keys.associateWith { id -> File(root,"$id.png").apply { context.assets.open("character_masters/${id.uppercase()}_MASTER.png").use { writeBytes(it.readBytes()) } } }
+            val masters=FlowProductionPack.names.keys.associateWith { id -> File(root,"$id.png").apply { TestMasterAssets.open("character_masters/${id.uppercase()}_MASTER.png").use { writeBytes(it.readBytes()) } } }
             val output=ByteArrayOutputStream()
             val story=plan(7,23)
             story.getJSONArray("episodes").getJSONObject(6).getJSONArray("scenes").getJSONObject(1).getJSONArray("characters").put(

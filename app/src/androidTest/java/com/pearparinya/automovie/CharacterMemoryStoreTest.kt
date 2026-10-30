@@ -39,15 +39,10 @@ class CharacterMemoryStoreTest {
             assertEquals("",reopened.read("rinlada",master).optString("face"))
         } finally { root.deleteRecursively() }
     }
-    @Test fun bundledMasterFilesMatchTheirProfiles() {
+    @Test fun emptyLibraryHasNoStaleBundledProfiles() {
         val assets=InstrumentationRegistry.getInstrumentation().targetContext.assets
         val bundle=JSONObject(assets.open("character_profiles.json").bufferedReader().use { it.readText() }).getJSONArray("profiles")
-        assertEquals(3,bundle.length())
-        for(i in 0 until bundle.length()) {
-            val profile=bundle.getJSONObject(i); val id=profile.getString("character_id")
-            val bytes=assets.open("character_masters/${id.uppercase()}_MASTER.png").use { it.readBytes() }
-            val hash=java.security.MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
-            assertEquals(profile.getString("sha256"),hash)
-        }
+        assertEquals(0,bundle.length())
+        assertTrue(assets.list("character_masters").orEmpty().isEmpty())
     }
 }
