@@ -23,10 +23,10 @@ class AutoCastTest {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val root=File(context.cacheDir,UUID.randomUUID().toString()).apply { mkdirs() }
         try {
-            val catalog=JSONObject(context.assets.open("master_library/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records")
+            val catalog=JSONObject(TestMasterAssets.open("master_library/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records")
             for(i in listOf(1,21)) {
                 val row=catalog.getJSONObject(i); val dest=File(root,"master_candidates/"+row.getString("file"));dest.parentFile!!.mkdirs()
-                context.assets.open("master_library/"+row.getString("file")).use { input -> dest.outputStream().use { input.copyTo(it) } }
+                TestMasterAssets.open("master_library/"+row.getString("file")).use { input -> dest.outputStream().use { input.copyTo(it) } }
             }
             val value=JSONObject().put("story_concept","ความลับในบริษัท").put("cast",JSONArray()
                 .put(JSONObject().put("library_id","CHAR_022").put("name","ภาคิน").put("role","เจ้าของบริษัท"))

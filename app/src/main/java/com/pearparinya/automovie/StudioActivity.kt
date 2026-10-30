@@ -220,7 +220,7 @@ class StudioActivity : AppCompatActivity() {
         runCatching {
             val entries=masterLibrary.entries()
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-            panel.addView(TextView(this).apply { text="35 แผ่น • หนึ่งแผ่นต่อหนึ่งตัวละคร\nเลือกภาพเพื่อดูและกำหนดบทบาทสำหรับเรื่องใหม่" })
+            panel.addView(TextView(this).apply { text=if(entries.isEmpty()) "คลังว่าง • เพิ่มภาพใหม่ผ่านเมนูตัวละคร" else "${entries.size} แผ่น • หนึ่งแผ่นต่อหนึ่งตัวละคร" })
             val search=EditText(this).apply { hint="ค้นหา CHAR_001 หรือชื่อไฟล์"; isSingleLine=true; panel.addView(this) }
             val list=LinearLayout(this).apply { orientation=1 }
             panel.addView(ScrollView(this).apply { addView(list) },LinearLayout.LayoutParams(-1,dp(420)))
@@ -239,7 +239,7 @@ class StudioActivity : AppCompatActivity() {
                 override fun afterTextChanged(s: android.text.Editable?) {}
             })
             show("")
-            AlertDialog.Builder(this).setTitle("🎭 คลัง MASTER 35").setView(panel).setNegativeButton("ปิด",null).showDirector()
+            AlertDialog.Builder(this).setTitle("🎭 คลัง MASTER").setView(panel).setNegativeButton("ปิด",null).showDirector()
         }.onFailure { notice("เปิดคลังไม่ได้: ${it.message}") }
     }
     private fun libraryEntry(entry: MasterLibrary.Entry) {
@@ -298,15 +298,8 @@ class StudioActivity : AppCompatActivity() {
 
     private fun characterMasters() {
         val names=listOf("gawin" to "กวิน", "rinlada" to "รินรดา", "mind" to "เมย์")
-        choiceMenu("🎭 MASTER และความจำตัวละคร",names.map { (id,name) -> val file=File(filesDir,"character_masters/$id.master"); "$name • ${if(characterMemory.read(id,file).optLong("reference_reviewed_at")>0) "ตรวจภาพแล้ว" else "ยังไม่ได้ตรวจภาพ"}" } + listOf("📦 ใช้ MASTER ชุดล่าสุดสำหรับเรื่องใหม่","🎭 คลัง MASTER 35")) { i ->
-            if (i == names.size+1) { libraryMenu() } else if (i == names.size) {
-                names.forEach { (id,_) ->
-                    val target=File(filesDir,"character_masters/$id.master"); target.parentFile!!.mkdirs()
-                    if(target.exists()) target.copyTo(File(target.parentFile,"$id.previous"),overwrite=true)
-                    assets.open("character_masters/${id.uppercase()}_MASTER.png").use { input -> target.outputStream().use { input.copyTo(it) } }
-                }
-                notice("ใช้ MASTER ล่าสุดสำหรับเรื่องใหม่แล้ว • เรื่องที่นำเข้าไว้ยังใช้ MASTER ของเรื่องนั้น")
-            } else {
+        choiceMenu("🎭 MASTER และความจำตัวละคร",names.map { (id,name) -> val file=File(filesDir,"character_masters/$id.master"); "$name • ${if(characterMemory.read(id,file).optLong("reference_reviewed_at")>0) "ตรวจภาพแล้ว" else "ยังไม่ได้ตรวจภาพ"}" } + listOf("🎭 คลัง MASTER")) { i ->
+            if (i == names.size) { libraryMenu() } else {
                 val (id,name)=names[i]; val file=File(filesDir,"character_masters/$id.master")
                 choiceMenu(name,listOf("ดู MASTER","เปลี่ยนภาพ MASTER","ข้อมูลใบหน้า ผม และรูปร่าง","เตรียม MASTER มาตรฐาน","ตรวจภาพ MASTER")) { action -> when(action) {
                     0 -> if(file.exists()) fullImage(file,name) else notice("ยังไม่มี MASTER")
@@ -518,7 +511,7 @@ class StudioActivity : AppCompatActivity() {
         super.onNewIntent(incoming); setIntent(incoming); adoptGeminiProject(incoming); render()
     }
     private fun installCharacterMasters() {
-        CharacterMasterUpgrade.install(filesDir) { path -> assets.open(path).use { it.readBytes() } }
+        CharacterLibraryReset.install(filesDir)
     }
     override fun onResume() {
         super.onResume()
@@ -1742,15 +1735,16 @@ class StudioActivity : AppCompatActivity() {
         val configure: (Int) -> Unit = { index ->
             chooseClip { format, seconds ->
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-            panel.addView(TextView(this).apply { text="หมวด: ${categories[index]}\nAI เลือกนักแสดงจาก MASTER 35 และตั้งชื่ออัตโนมัติตามบท แล้วเขียนเรื่องต่อครบทุก EP"; textSize=14f })
+            panel.addView(TextView(this).apply { text="หมวด: ${categories[index]}\nAI เลือกนักแสดงจากคลัง MASTER และตั้งชื่ออัตโนมัติตามบท แล้วเขียนเรื่องต่อครบทุก EP"; textSize=14f })
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
             val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("1 EP • จบในตอน","ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); panel.addView(this) }
             panel.addView(TextView(this).apply { text="${if(format=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(seconds)} ต่อ EP • ไม่รวมปกเปิด 3 วินาที • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้ • ${StoryProvider.label(this@StudioActivity)} • ใช้โมเดลที่ตั้งไว้ • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ของคุณภายหลัง" })
             AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
                     runCatching {
-                        val folder=File(base,UUID.randomUUID().toString()).apply { mkdirs() }
                         val catalog=JSONObject(assets.open("master_library/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records")
+                        require(catalog.length()>0) { "คลังตัวละครว่าง กรุณาเพิ่มตัวละครชุดใหม่ก่อนใช้คัดนักแสดงอัตโนมัติ" }
+                        val folder=File(base,UUID.randomUUID().toString()).apply { mkdirs() }
                         for(n in 0 until catalog.length()) {
                             val row=catalog.getJSONObject(n); val target=File(folder,"master_candidates/"+row.getString("file")); target.parentFile!!.mkdirs()
                             assets.open("master_library/"+row.getString("file")).use { input -> target.outputStream().use { input.copyTo(it) } }
@@ -1855,12 +1849,11 @@ class StudioActivity : AppCompatActivity() {
                 setOnClickListener { dialog.dismiss(); action() }
             }
             card.addView(ImageView(this).apply {
-                setImageResource(if (mainChannel) R.drawable.channel_cast_banner_v2 else R.drawable.channel_genres_banner)
+                setImageResource(R.drawable.studio_movie)
                 adjustViewBounds = true
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 layoutParams = LinearLayout.LayoutParams(-1, -2)
-                contentDescription = if (mainChannel) "กวิน รินรดา และเมย์ ภาพครึ่งตัวในฉากเดียวกัน"
-                    else "ภาพแนวสยองขวัญ ตลก และโรแมนติก"
+                contentDescription = "สตูดิโอ • เพิ่มตัวละครใหม่ของคุณ"
             })
             card.addView(TextView(this).apply {
                 text = title; textSize = 18f; setTextColor(navy)
@@ -2548,7 +2541,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         val people=rows(p).flatMap { scene -> scene.optJSONArray("characters")?.let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.orEmpty() }.distinctBy { it.optString("name") }
         choiceMenu("🎭 ตัวละครเรื่องนี้",people.map { "${it.optString("name")} • ${FlowCast.supporting(p).firstOrNull { c -> c.optString("name")==it.optString("name") }?.optString("library_id").orEmpty()} • ${if(masterFor(it).exists()) "มี MASTER" else "ขาด MASTER"}" }) { i ->
             val person=people[i]; val name=person.optString("name")
-            choiceMenu(name,listOf("🖼️ ดู MASTER", "📷 เปลี่ยน MASTER รายเรื่อง", "✏️ บทบาทตัวละคร", "🧠 ข้อมูลใบหน้า ผม และรูปร่าง", "📦 ใช้ MASTER ล่าสุดเฉพาะเรื่องนี้", "เตรียม MASTER มาตรฐาน", "ตรวจภาพ MASTER")) { action -> when(action) {
+            choiceMenu(name,listOf("🖼️ ดู MASTER", "📷 เปลี่ยน MASTER รายเรื่อง", "✏️ บทบาทตัวละคร", "🧠 ข้อมูลใบหน้า ผม และรูปร่าง", "เตรียม MASTER มาตรฐาน", "ตรวจภาพ MASTER")) { action -> when(action) {
                 0 -> { val file=masterFor(person); if(file.exists()) fullImage(file,name) else notice("ยังไม่มี MASTER") }
                 1 -> { val id=FlowCast.id(person)
                     val file=if(p.optString("character_mode","original")=="new") masterFor(person) else if(id!=null) File(project,"original_masters/$id.master") else return@choiceMenu
@@ -2557,19 +2550,8 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
                 2 -> { val input=EditText(this).apply { hint="บทบาทและลักษณะตัวละคร"; setText(p.optJSONObject("cast_roles")?.optString(name)) }
                     AlertDialog.Builder(this).setTitle(name).setView(input).setPositiveButton("บันทึก") { _,_ -> val roles=p.optJSONObject("cast_roles") ?: JSONObject(); roles.put(name,input.text.toString()); p.put("cast_roles",roles); saveStory() }.setNegativeButton("ยกเลิก",null).showDirector() }
                 3 -> editCharacterMemory(memoryId(person),name,masterFor(person))
-                5 -> sendProductionMaster(memoryId(person),name,masterFor(person))
-                6 -> reviewMaster(memoryId(person),name,masterFor(person))
-                4 -> {
-                    val id=StoryIdentity.keyFor(name)
-                    if(id==null) notice("ตัวละครใหม่นี้ยังไม่มี MASTER ในชุดมาตรฐาน") else {
-                        val file=File(project,"original_masters/$id.master"); file.parentFile!!.mkdirs()
-                        if(file.exists()) archiveVersion(file,project,name,"master")
-                        assets.open("character_masters/${id.uppercase()}_MASTER.png").use { input -> file.outputStream().use { input.copyTo(it) } }
-                        rows(p).filter { scene -> scene.optJSONArray("characters")?.let { a -> (0 until a.length()).any { memoryId(a.getJSONObject(it))==id } } == true }
-                            .forEach { it.put("user_review","needs_revision"); it.remove("flow_image_revision") }
-                        saveStory(); render(); notice("ใช้ MASTER ล่าสุดของ $name ในเรื่องนี้แล้ว • ภาพและคลิปเดิมยังเก็บไว้ ให้ตรวจหรือสร้างใหม่ตามต้องการ")
-                    }
-                }
+                4 -> sendProductionMaster(memoryId(person),name,masterFor(person))
+                5 -> reviewMaster(memoryId(person),name,masterFor(person))
             } }
         }
     }
