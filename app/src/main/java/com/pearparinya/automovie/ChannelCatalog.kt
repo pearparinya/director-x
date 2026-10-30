@@ -3,7 +3,7 @@ package com.pearparinya.automovie
 import org.json.JSONObject
 
 internal object ChannelCatalog {
-    const val channel = "สตอรี่ทรงโต - ซีรีส์ลับฉบับผู้ใหญ่"
+    const val channel = "ร้อยฉาก - ซีรีส์สั้นหลากชีวิต"
     data class MainCategory(val id: String,val name: String,val style: String,val tone: String,val icon: String,val direction: String) {
         val label get() = "$name ($style)"
         val menuLabel get() = "$icon $name\n($style)"
