@@ -19,8 +19,12 @@ internal object FlowCast {
     }
     fun matches(plan: JSONObject, person: JSONObject): Boolean {
         val key=id(person) ?: return false
-        if(supporting(plan).any { it.optBoolean("auto_cast") && it.optString("name")==person.optString("name") && id(it)==key }) return true
+        val cast=supporting(plan)
+        // An automatic cast has its own frozen name-to-MASTER registry. Never
+        // fall back to an older lead with the same name and a different image.
+        if(cast.isNotEmpty() && cast.all { it.optBoolean("auto_cast") })
+            return cast.any { it.optString("name")==person.optString("name") && id(it)==key }
         if(StoryIdentity.keyFor(person.optString("name"))!=null) return StoryIdentity.matchesMaster(person.optString("name"),person.optString("master"))
-        return supporting(plan).any { it.optString("name")==person.optString("name") && id(it)==key }
+        return cast.any { it.optString("name")==person.optString("name") && id(it)==key }
     }
 }
