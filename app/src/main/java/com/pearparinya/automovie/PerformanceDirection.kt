@@ -20,6 +20,14 @@ Write drama for psychologically mature adults: relationship history, trust, sham
     fun script(scene: JSONObject): String = FlowReferencePrompt.people(scene).mapNotNull { p ->
         p.optJSONObject("performance")?.optString("thai_direction")?.takeIf { it.isNotBlank() }?.let { "กำกับ ${p.getString("name")}: $it" }
     }.joinToString("\n")
+    /** Derive silence only for visible non-speakers; never invent a speaker's voice. */
+    fun normalizeSilentVoices(scene: JSONObject) {
+        val spoken=scene.optString("dialogue").trim().lowercase() !in setOf("","none","n/a","ไม่มี")
+        FlowReferencePrompt.people(scene).forEach { person ->
+            val speaker=person.optString("name")==scene.optString("speaker") || StoryIdentity.keyFor(scene.optString("speaker"))?.let { FlowCast.id(person)==it }==true
+            if(!spoken || !speaker) person.optJSONObject("performance")?.put("voice","silent")
+        }
+    }
     fun validate(scene: JSONObject) {
         val spoken=scene.optString("dialogue").trim().lowercase() !in setOf("","none","n/a","ไม่มี")
         FlowReferencePrompt.people(scene).forEach { person ->

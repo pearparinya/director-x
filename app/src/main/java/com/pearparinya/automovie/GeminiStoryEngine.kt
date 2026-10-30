@@ -127,6 +127,10 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                 for(e in 0 until output.length()) checkDialogue(output.getJSONObject(e).getJSONArray("scenes"),e+1,priorDialogue)
                 checkDialogue(scenes,i+1,priorDialogue)
                 val batch=cached("EP%02d_%02d.json".format(i+1,start),prompt,batchSchema()) {
+                    if(spec.optInt("performance_version")>=1) {
+                        val sceneRows=it.getJSONArray("scenes")
+                        for(n in 0 until sceneRows.length()) PerformanceDirection.normalizeSilentVoices(sceneRows.getJSONObject(n))
+                    }
                     validateBatch(it,i+1,start,size,support)
                     if(spec.optString("content_profile")==AutoDirectorContent.profile || spec.optInt("command_version")>=1) {
                         AutoDirectorContent.validateWardrobes(it,spec.optInt("autodirector_version")>=AutoDirectorContent.version)
@@ -142,7 +146,12 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                     }
                     if(spec.optInt("audio_version")>=1) { val soundScenes=it.getJSONArray("scenes"); for(n in 0 until soundScenes.length()) SoundDesign.validate(soundScenes.getJSONObject(n)) }
                     if(spec.optInt("performance_version")>=1) {
-                        val scenes=it.getJSONArray("scenes"); for(n in 0 until scenes.length()) PerformanceDirection.validate(scenes.getJSONObject(n))
+                        val sceneRows=it.getJSONArray("scenes"); for(n in 0 until sceneRows.length()) {
+                            val scene=sceneRows.getJSONObject(n)
+                            try { PerformanceDirection.validate(scene) } catch(e: IllegalArgumentException) {
+                                throw IllegalArgumentException("EP ${i+1} ซีน ${scene.optInt("scene")}: ${e.message}",e)
+                            }
+                        }
                     }
                     checkDialogue(it.getJSONArray("scenes"),i+1,priorDialogue.toMutableMap())
                 }
