@@ -14,6 +14,25 @@ class PerformanceDirectionTest {
         put("emotion",emotion); put("voice",voice); put("thai_direction","กลั้นความเจ็บไว้ สบตาอีกฝ่าย มือเกร็งแล้วค่อยคลาย")
         put("emotional_arc","composure -> hurt -> reclaimed dignity")
     }
+    @Test fun silentVoiceNormalizationPreservesDialogueSpeakerAndMakesOffscreenAndNarratedScenesSilent() {
+        val speaker=JSONObject().put("name","กวิน").put("master","GAWIN_MASTER.png").put("performance",performance("fear","low measured voice"))
+        val listener=JSONObject().put("name","อัคนี").put("master","SUPPORT_0000008B_MASTER.png").put("performance",performance("worry","whispers softly"))
+        val scene=JSONObject().put("characters",JSONArray().put(speaker).put(listener)).put("speaker","กวิน").put("dialogue","ฟังผมก่อน")
+        PerformanceDirection.normalizeSilentVoices(scene)
+        assertEquals("low measured voice",speaker.getJSONObject("performance").getString("voice"))
+        assertEquals("silent",listener.getJSONObject("performance").getString("voice"))
+        PerformanceDirection.validate(scene)
+        scene.put("speaker","นอกฉาก").put("dialogue","รอผมก่อน")
+        PerformanceDirection.normalizeSilentVoices(scene)
+        assertEquals("silent",speaker.getJSONObject("performance").getString("voice"))
+        PerformanceDirection.validate(scene)
+        scene.put("speaker","").put("dialogue","").put("narration","เรื่องราวเริ่มต้น")
+        listener.getJSONObject("performance").put("voice","quiet breath")
+        PerformanceDirection.normalizeSilentVoices(scene)
+        PerformanceDirection.validate(scene)
+        scene.put("speaker","กวิน").put("dialogue","ฟังผมก่อน").put("narration","")
+        assertTrue(runCatching { PerformanceDirection.validate(scene) }.isFailure)
+    }
     @Test fun everyCharacterHasDistinctPerformanceAndOnlyTheSpeakerGetsAVoice() {
         val man=JSONObject().put("name","กวิน").put("master","GAWIN_MASTER.png").put("performance",performance("fear beneath reassurance","low measured Thai voice"))
         val wife=JSONObject().put("name","รินรดา").put("master","RINLADA_MASTER.png").put("performance",performance("hurt beneath dignity","silent"))

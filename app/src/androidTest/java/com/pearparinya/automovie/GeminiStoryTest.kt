@@ -284,6 +284,29 @@ class GeminiStoryTest {
             assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_ -> error("must reuse repaired checkpoint") }).run(selected).toString())
         } finally { folder.deleteRecursively() }
     }
+    @Test fun pendingStoryResumesWhenListenerVoiceWasNotSilentWithoutRegenerating() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"pending-listener-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val selected=ClipPlan.apply(spec().put("episodes",1).put("performance_version",1),"short",30)
+            GeminiStoryFiles.write(File(folder,"outline.json"),outline().apply { put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0))) })
+            val saved=batch("Write exactly scenes 1 to 4 for EP 1")
+            val rows=saved.getJSONArray("scenes")
+            for(i in 0 until rows.length()) {
+                val acting=JSONObject().apply { PerformanceDirection.fields.forEach { put(it,"controlled choice") }; put("thai_direction","นิ่งฟังและมองอีกฝ่าย"); put("voice","soft whisper") }
+                rows.getJSONObject(i).getJSONArray("characters").getJSONObject(0).put("performance",acting)
+            }
+            val originalAction=rows.getJSONObject(0).getString("action")
+            val pending=File(folder,"EP01_01.json.pending.json")
+            GeminiStoryFiles.write(pending,saved)
+            val story=GeminiStoryEngine(folder,{ _,_ -> error("must resume the pending batch without another AI call") }).run(selected)
+            val scenes=story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes")
+            assertEquals(4,scenes.length())
+            assertEquals(originalAction,scenes.getJSONObject(0).getString("action"))
+            assertEquals("silent",scenes.getJSONObject(0).getJSONArray("characters").getJSONObject(0).getJSONObject("performance").getString("voice"))
+            assertFalse(pending.exists())
+            assertTrue(File(folder,"EP01_01.json").isFile)
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun truncatedBlockedAndInvalidJsonResponsesAreNeverAcceptedAsStory() {
         fun response(text: String,reason: String="STOP")=JSONObject().put("candidates",JSONArray().put(JSONObject().put("finishReason",reason)
             .put("content",JSONObject().put("parts",JSONArray().put(JSONObject().put("text",text))))))
