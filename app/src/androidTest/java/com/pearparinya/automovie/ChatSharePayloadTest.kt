@@ -17,8 +17,8 @@ class ChatSharePayloadTest {
         val folder=java.io.File(context.cacheDir,"scene_reference_exports/test-${java.util.UUID.randomUUID()}").apply { mkdirs() }
         try {
             val command=java.io.File(folder,"READ_FIRST_IMAGE_COMMAND.txt").apply { writeText("สร้างภาพตาม MASTER ภาษาไทย") }
-            val record=JSONObject(context.assets.open("master_library/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records").getJSONObject(0)
-            val bytes=context.assets.open("master_library/"+record.getString("file")).use { it.readBytes() }
+            val record=JSONObject(TestMasterAssets.open("master_library/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records").getJSONObject(0)
+            val bytes=TestMasterAssets.open("master_library/"+record.getString("file")).use { it.readBytes() }
             val master=java.io.File(folder,"MASTER.jpg").apply { writeBytes(bytes) }
             fun uri(file: java.io.File)=androidx.core.content.FileProvider.getUriForFile(context,context.packageName+".fileprovider",file)
             val intent=buildGeminiPackageIntent("สร้างภาพ",uri(command),arrayListOf(uri(master)))

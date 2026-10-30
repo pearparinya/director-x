@@ -15,7 +15,7 @@ class MasterLibraryTest {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val root=File(context.cacheDir,UUID.randomUUID().toString())
         try {
-            val library=MasterLibrary(root) { context.assets.open(it).use { stream -> stream.readBytes() } }
+            val library=MasterLibrary(root) { TestMasterAssets.open(it).use { stream -> stream.readBytes() } }
             val entries=library.entries()
             assertEquals((1..35).map { "CHAR_%03d".format(it) },entries.map { it.id })
             entries.forEach { entry ->
@@ -31,7 +31,7 @@ class MasterLibraryTest {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val root=File(context.cacheDir,UUID.randomUUID().toString()).apply { mkdirs() }
         try {
-            val library=MasterLibrary(File(root,"library")) { context.assets.open(it).use { stream -> stream.readBytes() } }
+            val library=MasterLibrary(File(root,"library")) { TestMasterAssets.open(it).use { stream -> stream.readBytes() } }
             val entry=library.entries().first()
             val target=File(root,"character_masters/gawin.master").apply { parentFile!!.mkdirs(); writeText("old") }
             val story=File(root,"story/original_masters/gawin.master").apply { parentFile!!.mkdirs(); writeText("story snapshot") }
