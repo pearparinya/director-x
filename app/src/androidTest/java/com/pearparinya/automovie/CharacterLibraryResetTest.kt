@@ -23,15 +23,15 @@ class CharacterLibraryResetTest {
             assertTrue(fresh.isFile)
         } finally { root.deleteRecursively() }
     }
-    @Test fun replacementLibraryContainsTwentyOriginalSheetsAndNames() {
+    @Test fun replacementLibraryContainsTwentyNineOriginalSheetsAndNames() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val root=File(context.cacheDir,"new-library-${UUID.randomUUID()}")
         try {
             val library=MasterLibrary(root) { context.assets.open(it).use { input -> input.readBytes() } }
             val entries=library.entries()
-            assertEquals((101..120).map { "CHAR_%03d".format(it) },entries.map { it.id })
-            assertEquals(listOf("ลลิน","พิมพ์ดาว","ธาวิน","ณิชา","อรพรรณ","มินตรา","ศศิ","แพรวา","วราภรณ์","กาญจนา","ขวัญข้าว","อิงฟ้า","ชญาดา","น้ำฝน","วริศรา","พัชรินทร์","สุภาวดี","นลินี","ดารารัตน์","ปาริฉัตร"),entries.map { it.displayName })
-            assertEquals(20,entries.map { it.sha256 }.distinct().size)
+            assertEquals((101..129).map { "CHAR_%03d".format(it) },entries.map { it.id })
+            assertEquals(listOf("ลลิน","พิมพ์ดาว","ธาวิน","ณิชา","อรพรรณ","มินตรา","ศศิ","แพรวา","วราภรณ์","กาญจนา","ขวัญข้าว","อิงฟ้า","ชญาดา","น้ำฝน","วริศรา","พัชรินทร์","สุภาวดี","นลินี","ดารารัตน์","ปาริฉัตร","ศิรินทร์","วาสนา","บุษบา","จิราภา","ชลธิชา","มาลินี","สายสมร","ฟ้าลดา","ปิยวรรณ"),entries.map { it.displayName })
+            assertEquals(29,entries.map { it.sha256 }.distinct().size)
             entries.forEach { entry ->
                 val source=library.source(entry)
                 assertEquals(entry.sha256,MasterLibrary.digest(source.readBytes()))
@@ -40,7 +40,7 @@ class CharacterLibraryResetTest {
                 assertTrue(bounds.outWidth>0 && bounds.outHeight>0)
             }
             assertTrue(context.assets.list("character_masters").orEmpty().isEmpty())
-            assertEquals(21,context.assets.list("master_library")!!.size)
+            assertEquals(30,context.assets.list("master_library")!!.size)
         } finally { root.deleteRecursively() }
     }
 }
