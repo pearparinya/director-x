@@ -108,7 +108,7 @@ Action: ${spec.action}
 End: ${spec.endState}
 ${if(direction.isBlank()) "" else "Performance: $direction"}
 $line
-Speak the assigned line once naturally within 8 seconds. Any other person mentioned in the action remains silent unless assigned dialogue above.
+${if(spec.dialogue.isNotBlank() || spec.narration.isNotBlank()) "Deliver the assigned line naturally within 8 seconds." else ""} Any other person mentioned in the action remains silent unless assigned dialogue above.
 $sound
 ${scene.optString("production_video_note").takeIf { it.isNotBlank() }?.let { "Direction: $it" }.orEmpty()}""".trim()
             Task(id,"EP.$number | ซีน %03d | วิดีโอ 9:16 | 8 วินาที".format(n),"9:16",command)
