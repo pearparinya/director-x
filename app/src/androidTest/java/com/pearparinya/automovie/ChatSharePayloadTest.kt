@@ -18,13 +18,23 @@ class ChatSharePayloadTest {
         val intent=buildGeminiPackageIntent(GEMINI_IMAGE_REQUEST,command,arrayListOf(image))
         val request=intent.getStringExtra(Intent.EXTRA_TEXT)!!
         assertTrue(request.contains("สร้างและแสดงภาพจริง 1 ภาพ"))
-        assertTrue(request.contains("READ_FIRST_IMAGE_COMMAND.txt"))
+        assertFalse(request.contains("READ_FIRST_IMAGE_COMMAND.txt"))
         assertTrue(request.contains("MASTER"))
         assertEquals(request,intent.clipData!!.getItemAt(0).text.toString())
         assertTrue(geminiImageMessage("รายละเอียดภาพทดสอบ").contains("รายละเอียดภาพทดสอบ"))
         assertEquals("SUPPORT_0000006E_MASTER",referenceId("SUPPORT_0000006E_MASTER.JPG"))
         assertEquals("SUPPORT_0000006E_MASTER",referenceId("SUPPORT_0000006E_MASTER.png"))
         assertEquals("SUPPORT_0000006E_MASTER",referenceId("SUPPORT_0000006E_MASTER.webp"))
+    }
+    @Test fun geminiImageShareUsesOnlyImageAttachmentsAndCarriesFullPrompt() {
+        val images=arrayListOf(Uri.parse("content://director-x/A.jpg"),Uri.parse("content://director-x/B.png"))
+        val prompt=geminiImageMessage("รายละเอียดฉาก")
+        val intent=buildGeminiImageShareIntent(prompt,images)
+        assertEquals("image/*",intent.type)
+        assertEquals(images,intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM))
+        assertEquals(prompt,intent.getStringExtra(Intent.EXTRA_TEXT))
+        assertEquals(2,intent.clipData!!.itemCount)
+        assertEquals(images[0],intent.clipData!!.getItemAt(0).uri)
     }
     @Test fun actualSharedFilesRemainReadableThroughFileProvider() {
         val context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
