@@ -12,6 +12,11 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class ChatSharePayloadTest {
+    @Test fun imageProviderMenuRemembersIdeogramAndKeepsOtherChoices() {
+        assertEquals(listOf("ChatGPT","Gemini","Ideogram"),imageProviderOptions("unknown"))
+        assertEquals(listOf("Ideogram","ChatGPT","Gemini"),imageProviderOptions("Ideogram"))
+        assertEquals(listOf("Gemini","ChatGPT","Ideogram"),imageProviderOptions("Gemini"))
+    }
     @Test fun imageRequestExplicitlyAsksGeminiToCreateAndUsesAttachedInstructions() {
         val command=Uri.parse("content://director-x/READ_FIRST_IMAGE_COMMAND.txt")
         val image=Uri.parse("content://director-x/MASTER.jpg")
