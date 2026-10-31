@@ -135,7 +135,7 @@ class AutoDirectorContentTest {
         }
         val one=story(); val tasks=SimpleProductionCommands.imageTasks(one,1)
         assertEquals(26,tasks.size); assertEquals(2,tasks.count { it.id.contains("COVER") })
-        tasks.forEach { assertTrue(it.command.contains(ImagePromptPolicy.skinTone)) }
+        tasks.forEach { assertTrue(it.command.contains(ImagePromptPolicy.skinTone)); assertTrue(it.command.contains(BodyReferencePolicy.imageIdentityLock)) }
         val first=tasks.first(); one.put("production_note_${first.id}","Keep the envelope visible")
         assertTrue(SimpleProductionCommands.imageTasks(one,1).first().command.contains("Keep the envelope visible"))
         assertFalse(SimpleProductionCommands.imageTasks(one,1)[1].command.contains("Keep the envelope visible"))
