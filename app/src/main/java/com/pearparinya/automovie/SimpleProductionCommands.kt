@@ -5,6 +5,8 @@ import java.io.OutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
+internal fun referenceId(name: String): String = name.replace(Regex("[.](png|jpe?g|webp)$", RegexOption.IGNORE_CASE), "")
+
 /** Compact structured commands. Never reuse stale image/video prose. Two documents per EP. */
 internal object SimpleProductionCommands {
     data class Task(val id: String,val title: String,val ratio: String,val command: String,val references: List<JSONObject> = emptyList())
@@ -20,11 +22,11 @@ internal object SimpleProductionCommands {
         for(i in 0 until rows.length()) FlowReferencePrompt.people(rows.getJSONObject(i)).forEach { all.putIfAbsent(it.getString("name"),it) }
         return all.values.toList()
     }
-    private const val identity="Fictional adults 25+. Match each person's own attached MASTER: face, hairstyle, skin and natural body proportions. No mixing, enlarging or slimming. MASTER supplies identity only; use the exact planned outfit and accessories below, never reference clothing. Opaque lined editorial fashion; natural anatomy and fabric."
+    private const val identity="Fictional adults 25+. Match each person to the attached MASTER by its complete reference ID, ignoring file extensions and upload order. Match face, hairstyle, skin and natural body proportions. No mixing, enlarging or slimming. MASTER supplies identity only; use the exact planned outfit and accessories below, never reference clothing. Opaque lined editorial fashion; natural anatomy and fabric."
     private fun cast(people: List<JSONObject>,poster: Boolean=false)=people.mapIndexed { i,p ->
         val position=if(!poster) p.optString("screen_position") else when(people.size) { 1 -> "center"; 2 -> if(i==0) "left" else "right"; else -> listOf("left","center","right")[i] }
         val alias=when(FlowCast.id(p)) { "gawin" -> "Kawin / Gawin"; "rinlada" -> "Rinrada / Rinlada"; "mind" -> "May / Mind"; else -> p.getString("name") }
-        "${p.getString("name")} ($alias) | MASTER: ${p.getString("master")} | position: $position\nOutfit: ${p.getString("outfit")}"
+        "${p.getString("name")} ($alias) | MASTER ID: ${referenceId(p.getString("master"))} | position: $position\nOutfit: ${p.getString("outfit")}"
     }.joinToString("\n")
     private fun acting(scene: JSONObject)=FlowReferencePrompt.people(scene).mapNotNull { person ->
         person.optJSONObject("performance")?.let { p ->
@@ -82,7 +84,7 @@ ${scene.optString("production_image_note").takeIf { it.isNotBlank() }?.let { "Lo
                 spec.dialogue.isNotBlank() -> "ONLY SPEAKER: ${spec.speaker}. Exact Thai dialogue once: “${spec.dialogue}”. Only this person's lips move; everyone else is silent. No narrator."
                 spec.narration.isNotBlank() -> "OFF-SCREEN MALE NARRATOR ONLY: “${spec.narration}”. All on-screen mouths closed; nobody lip-syncs the narration."
                 else -> "No dialogue or narration; all on-screen mouths closed." }
-            val command="""ภาพเริ่มต้นที่ต้องแนบ: $id.png — ใช้ภาพซีนที่ตรวจ MASTER ชุดและตำแหน่งแล้ว ไม่ใช้ MASTER แทนเฟรมฉาก
+            val command="""ภาพเริ่มต้นที่ต้องแนบ: รหัส $id — ใช้ภาพซีนที่ตรวจ MASTER ชุดและตำแหน่งแล้ว ไม่ขึ้นกับนามสกุลไฟล์ ไม่ใช้ MASTER แทนเฟรมฉาก
 Flow: ONE continuous 8-second 9:16 vertical video, 1080 x 1920, locked-off camera. Preserve the supplied frame's identities, body proportions, exact outfits, positions, room and props. No cuts, captions or extra characters.
 ${cast(FlowReferencePrompt.people(scene))}
 STYLE: ${story.optString("category")} — follow the written action, no new plot.
@@ -108,7 +110,7 @@ ${scene.optString("production_video_note").takeIf { it.isNotBlank() }?.let { "Lo
             append("สารบัญ — หัวข้อและรหัสเป็นป้ายกำกับ ห้ามวาดลงซีน:\n")
             tasks.forEachIndexed { i,t -> append("${i+1}. ${t.id} | ${t.title}\n") }
             if(images) append("\nแนบ MASTER ตามชื่อตัวละคร ไม่อิงลำดับอัปโหลด ไม่ต้องเปลี่ยนชื่อรูปจริง เริ่มภาพแรกเท่านั้น; next = ภาพถัดไปหลังภาพปัจจุบันสำเร็จและตรวจแล้ว\nแก้ภาพ <รหัส> / retry = แก้งานนั้น ไม่เลื่อนคิว ไม่เปลี่ยนอัตลักษณ์หรือชุดประจำวัน; ไปที่ <รหัส> = ทำต่อจากรายการที่มีในสารบัญ\nทุกครั้งแจ้ง ล่าสุด: <รหัส> | สถานะ DONE/PENDING | ถัดไป: <รหัส>; หากไม่สำเร็จ ข้อความปกผิด หรือขาดอ้างอิงให้คง PENDING ห้ามข้าม\nDONE หมายถึงผู้ใช้ตรวจผลจริงแล้ว ไม่ใช่คะแนนรับรองอัตลักษณ์จากคำสั่ง หากบริบทหายให้ขอไฟล์และ MASTER พร้อมระบุรหัสทำต่อใหม่\nปกมีข้อความตามรายการเท่านั้น ซีนไม่มีข้อความ ทุกคำสั่งใช้ขนาดของตนเอง; ครบรายการแล้วหยุด\n")
-            else append("\nคัดลอกทีละบล็อกพร้อมภาพ PNG รหัสเดียวกันเป็นเฟรมเริ่มต้น ไฟล์นี้ไม่ใช่การรัน Flow ทั้ง EP อัตโนมัติ; แต่ละบล็อกรวมภาพ การแสดง บทพูดและเสียงแล้ว\n")
+            else append("\nคัดลอกทีละบล็อกพร้อมภาพซีนรหัสเดียวกันเป็นเฟรมเริ่มต้น โดยไม่ขึ้นกับนามสกุลไฟล์ ไฟล์นี้ไม่ใช่การรัน Flow ทั้ง EP อัตโนมัติ; แต่ละบล็อกรวมภาพ การแสดง บทพูดและเสียงแล้ว\n")
             tasks.forEachIndexed { i,t -> append("\n\n${block(t,i,images)}") }
         }
     }
