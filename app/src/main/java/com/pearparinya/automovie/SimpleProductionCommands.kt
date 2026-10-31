@@ -112,6 +112,21 @@ ${scene.optString("production_image_note").takeIf { it.isNotBlank() }?.let { "Lo
             } }.joinToString("; ")
             val sound=SoundDesign.prompt(spec.sound).replace(Regex("\\b(?:indoor )?murmurs\\b", RegexOption.IGNORE_CASE),"quiet room tone")
             val motion=listOf("Starting situation: ${spec.startState}","Action: ${spec.action}","End: ${spec.endState}",performance.takeIf { it.isNotBlank() }?.let { "Performance: $it" },scene.optString("production_video_note").takeIf { it.isNotBlank() }?.let { "Direction: $it" }).filterNotNull().joinToString(". ")
+            val moveOptions=listOf("push_in","pan","track","locked")
+            val cameraMode=scene.optString("camera_movement").takeIf { it in moveOptions } ?: when {
+                Regex("(?i)\\b(walks?|walking|runs?|running|moves?|moving|เดิน|วิ่ง)\\b").containsMatchIn(spec.action) -> "track"
+                visible.size>1 && spec.dialogue.isNotBlank() -> "push_in"
+                visible.size>1 -> "pan"
+                else -> "push_in"
+            }
+            val keepCast="Keep all ${visible.size} listed visible characters in frame, with their established screen positions. No new people."
+            val cameraAction=when(cameraMode) {
+                "pan" -> "Slow, gentle pan across the scene to follow the action and reactions."
+                "track" -> "Gently track the existing action while keeping the scene composition clear."
+                "locked" -> "Keep the camera locked."
+                else -> "Slow, subtle push-in towards the emotional focus; keep the established composition."
+            }
+            val timing=if(spec.dialogue.isNotBlank() || spec.narration.isNotBlank()) "Begin with a brief natural silent beat and subtle camera movement. Deliver the complete assigned line naturally without rushing, then hold a brief reaction if time allows." else "Begin with a brief natural beat, follow the scene action with the camera, then hold a short reaction if time allows."
             val command="""<flow_project>
   <project_metadata>
     <channel_name>${xml(ChannelCatalog.currentChannel(story.optString("channel")))}</channel_name>
@@ -121,7 +136,7 @@ ${scene.optString("production_image_note").takeIf { it.isNotBlank() }?.let { "Lo
     <scene id="$id">
       <aspect_ratio>9:16</aspect_ratio>
       <duration_seconds>8</duration_seconds>
-      <camera>Locked-off camera. One continuous shot with no cuts.</camera>
+      <camera>One continuous shot with no cuts. ${xml(cameraAction)} ${xml(keepCast)}</camera>\n      <timing>${xml(timing)}</timing>
       <starting_frame>Use the attached scene image as the first frame. Preserve the characters' faces, hair, natural body proportions, clothing, positions, lighting, location and visible props.</starting_frame>
       <characters>
 $chars
