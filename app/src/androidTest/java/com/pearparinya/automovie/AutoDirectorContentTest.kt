@@ -34,9 +34,11 @@ class AutoDirectorContentTest {
         val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
         scene.put("sound_design",JSONObject().put("ambience","subtle indoor murmurs").put("sfx","none").put("music","low strings"))
         val prompt=SimpleProductionCommands.videoTasks(project,1).first().command
-        assertTrue(prompt.contains("รหัส EP01_SC001"))
-        assertTrue(prompt.contains(scene.getString("dialogue")))
-        assertTrue(prompt.contains("ONLY SPEAKER: รินรดา"))
+        assertTrue(prompt.startsWith("<flow_project>"))
+        val parsed=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(prompt.toByteArray(Charsets.UTF_8)))
+        assertEquals(scene.getString("dialogue"),parsed.getElementsByTagName("dialogue").item(0).textContent)
+        assertEquals("รินรดา",parsed.getElementsByTagName("dialogue").item(0).attributes.getNamedItem("speaker").nodeValue)
+        assertTrue(prompt.contains("Only รินรดา speaks"))
         assertTrue(prompt.contains("quiet room tone"))
         assertFalse(prompt.contains("indoor murmurs"))
         assertFalse(prompt.contains("MASTER ID:"))
@@ -51,7 +53,7 @@ class AutoDirectorContentTest {
         assertTrue(poster.contains("MASTER ID: GAWIN_MASTER"))
         assertFalse(poster.contains("GAWIN_MASTER.png"))
         val video=SimpleProductionCommands.videoTasks(project,1).first().command
-        assertTrue(video.contains("รหัส EP01_SC001"))
+        assertTrue(video.contains("scene id=\"EP01_SC001\""))
         assertFalse(video.contains("EP01_SC001.png"))
     }
     @Test fun legacyChannelIsUpdatedForOldProjectCoversAndCustomNamesRemain() {
@@ -149,11 +151,11 @@ class AutoDirectorContentTest {
                 for(n in 1..24) {
                     val id="EP%02d_SC%03d".format(ep,n)
                     assertTrue(images.contains("ชื่อไฟล์ภาพ: $id.png"))
-                    assertTrue(videos.contains("ภาพเริ่มต้นที่ต้องแนบ: รหัส $id"))
+                    assertTrue(videos.contains("scene id=\"$id\""))
                 }
                 assertFalse(images.contains("=== EP")); assertTrue(images.contains("สารบัญ"))
                 assertTrue(images.contains("แก้ภาพ <รหัส>")); assertTrue(images.contains("PENDING"))
-                assertTrue(videos.contains("SOUND:")); assertTrue(videos.contains("กวิน บอกว่า A & B < C ใช่ไหม"))
+                assertTrue(videos.contains("SOUND:")); assertTrue(videos.contains("กวิน บอกว่า A &amp; B &lt; C ใช่ไหม"))
                 assertFalse(videos.contains("STALE AUDIO"))
                 assertTrue(images.length<110000)
             }
