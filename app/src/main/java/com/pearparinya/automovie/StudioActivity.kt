@@ -75,6 +75,8 @@ internal fun buildGeminiPackageIntent(text: String, command: Uri, images: ArrayL
     }
 }
 
+internal const val GEMINI_IMAGE_REQUEST = "สร้างและแสดงภาพจริง 1 ภาพตามคำสั่งในไฟล์ READ_FIRST_IMAGE_COMMAND.txt ที่แนบ ใช้ภาพ MASTER ที่แนบจับคู่กับตัวละครตามชื่อไฟล์ รักษาข้อความบนปกตามไฟล์คำสั่ง หากเป็นภาพฉากให้ทำตามข้อกำหนดในไฟล์ ไม่ต้องสรุปคำสั่งหรืออธิบายตัวละคร หากสร้างภาพไม่ได้ให้แจ้งสาเหตุ"
+
 internal fun neutralIdentityGuide(source: String, aspect: String): String =
     ImagePromptPolicy.identity(source) + "\n" + ImagePromptPolicy.style(aspect) + " ไม่มีข้อความหรือลายน้ำ หากสร้างไม่ได้ให้แจ้งตามจริง"
 
@@ -1076,7 +1078,8 @@ class StudioActivity : AppCompatActivity() {
             command.parentFile!!.mkdirs()
             command.writeText("สร้างภาพหนึ่งภาพตามคำสั่งด้านล่าง ใช้ภาพ MASTER ที่แนบจับคู่ตามชื่อไฟล์ ไม่สรุปคำสั่ง ไม่สร้างวิดีโอ\n\n"+text,Charsets.UTF_8)
             val commandUri=FileProvider.getUriForFile(this,"$packageName.fileprovider",command)
-            val result=buildGeminiPackageIntent(text,commandUri,ArrayList(uris))
+            val shareText=if(destinationLabel=="Gemini" && imagePackage) GEMINI_IMAGE_REQUEST else text
+            val result=buildGeminiPackageIntent(shareText,commandUri,ArrayList(uris))
             uris.add(0,commandUri)
             attachments.put(JSONObject().put("name",command.name).put("bytes",command.length()).put("sha256",MasterLibrary.digest(command.readBytes())))
             result
@@ -1092,6 +1095,10 @@ class StudioActivity : AppCompatActivity() {
         val imageList = (0 until attachments.length()).joinToString("\n") { i -> attachments.getJSONObject(i).let { "${it.optString("name")} • ${it.optLong("bytes")} bytes • SHA ${it.optString("sha256").take(12)}" } }
         pendingStorySummary = "คำสั่ง ${text.length} ตัวอักษร • ภาพ ${uris.count { contentResolver.getType(it)?.startsWith("image/")==true }} ภาพ" + if(filePackage) " • ไฟล์คำสั่ง 1 ไฟล์" else ""
         fun launchShare() {
+            if(filePackage && destinationLabel=="Gemini" && imagePackage) {
+                (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                    .setPrimaryClip(ClipData.newPlainText("คำสั่งสร้างภาพ Gemini",GEMINI_IMAGE_REQUEST))
+            }
             val request = JSONObject().put("id",transferId).put("scene",sceneId).put("created_at",System.currentTimeMillis())
                 .put("text",text).put("attachments",attachments).put("status","opened_external_app")
             File(destination,"image_requests/$transferId.json").apply { parentFile!!.mkdirs(); writeText(request.toString(2)) }
@@ -1124,7 +1131,7 @@ class StudioActivity : AppCompatActivity() {
         }
         val preview = LinearLayout(this).apply { orientation = 1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
         preview.addView(TextView(this).apply {
-            this.text = if(filePackage) "$pendingStorySummary\n$imageList\nแนบไฟล์ READ_FIRST_IMAGE_COMMAND.txt พร้อม MASTER ไปในชุดเดียวกัน ตรวจว่า $destinationLabel แสดงไฟล์คำสั่งและรูปครบก่อนกดส่ง แม้ช่องข้อความว่างก็มีคำสั่งในไฟล์แนบ หากไฟล์หายอย่ากดส่ง" else "$pendingStorySummary\n$imageList\nตรวจภาพและข้อความใน $destinationLabel ก่อนกดส่ง คำสั่งคัดลอกไว้ในคลิปบอร์ดแล้ว"
+            this.text = if(filePackage && destinationLabel=="Gemini" && imagePackage) "$pendingStorySummary\n$imageList\nเมื่อเปิด Gemini ตรวจไฟล์คำสั่งและภาพ MASTER ให้ครบ หากช่องข้อความว่าง ให้แตะค้างแล้วเลือก วาง เพื่อใส่คำสั่งสร้างภาพที่แอปคัดลอกให้ จากนั้นกดส่ง\n\n$GEMINI_IMAGE_REQUEST" else if(filePackage) "$pendingStorySummary\n$imageList\nแนบไฟล์ READ_FIRST_IMAGE_COMMAND.txt พร้อม MASTER ไปในชุดเดียวกัน ตรวจว่า $destinationLabel แสดงไฟล์คำสั่งและรูปครบก่อนกดส่ง หากช่องข้อความว่างให้ระบุคำสั่งก่อนส่ง" else "$pendingStorySummary\n$imageList\nตรวจภาพและข้อความใน $destinationLabel ก่อนกดส่ง คำสั่งคัดลอกไว้ในคลิปบอร์ดแล้ว"
             textSize = 13f
         })
         uris.filter { contentResolver.getType(it)?.startsWith("image/")==true }.forEach { uri -> preview.addView(ImageView(this).apply {
