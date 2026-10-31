@@ -89,7 +89,7 @@ internal fun buildGeminiImageShareIntent(text: String, images: ArrayList<Uri>): 
         type="image/*"
         putExtra(Intent.EXTRA_TEXT,text)
         if(images.size==1) putExtra(Intent.EXTRA_STREAM,images[0]) else putParcelableArrayListExtra(Intent.EXTRA_STREAM,images)
-        clipData=ClipData.newRawUri("ภาพอ้างอิง",images[0]).apply { images.drop(1).forEach { addItem(ClipData.Item(it)) } }
+        clipData=ClipData("คำสั่งและภาพอ้างอิง", arrayOf("image/*", "text/plain"), ClipData.Item(text, null, null, images[0])).apply { images.drop(1).forEach { addItem(ClipData.Item(it)) } }
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 }
@@ -1157,7 +1157,7 @@ class StudioActivity : AppCompatActivity() {
         }
         val preview = LinearLayout(this).apply { orientation = 1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
         preview.addView(TextView(this).apply {
-            this.text = if(geminiImages) "$pendingStorySummary\n$imageList\nส่งเฉพาะภาพอ้างอิง คำสั่งสร้างภาพฉบับเต็มจะคัดลอกให้อัตโนมัติเมื่อกดเปิด Gemini\n\n1. ตรวจว่าภาพแนบครบ\n2. แตะช่องข้อความค้าง แล้วเลือก วาง (ถ้ายังไม่มีคำสั่ง)\n3. ตรวจข้อความและกดส่ง หาก Gemini ตอบเป็นข้อความ ให้เปิดโหมดสร้างภาพใน Gemini แล้วลองใหม่" else if(filePackage) "$pendingStorySummary\n$imageList\nแนบไฟล์ READ_FIRST_IMAGE_COMMAND.txt พร้อม MASTER ไปในชุดเดียวกัน ตรวจว่า $destinationLabel แสดงไฟล์คำสั่งและรูปครบก่อนกดส่ง หากช่องข้อความว่างให้ระบุคำสั่งก่อนส่ง" else "$pendingStorySummary\n$imageList\nตรวจภาพและข้อความใน $destinationLabel ก่อนกดส่ง คำสั่งคัดลอกไว้ในคลิปบอร์ดแล้ว"
+            this.text = if(geminiImages) "$pendingStorySummary\n$imageList\nส่งคำสั่งสร้างภาพพร้อมภาพอ้างอิงไป Gemini และคัดลอกคำสั่งไว้ให้ด้วย\n\n1. ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง\n2. หาก Gemini ไม่แสดงคำสั่ง ให้แตะช่องข้อความค้างแล้วเลือก วาง\n3. หาก Gemini ตอบเป็นข้อความ ให้เปิดโหมดสร้างภาพแล้วลองใหม่" else if(filePackage) "$pendingStorySummary\n$imageList\nแนบไฟล์ READ_FIRST_IMAGE_COMMAND.txt พร้อม MASTER ไปในชุดเดียวกัน ตรวจว่า $destinationLabel แสดงไฟล์คำสั่งและรูปครบก่อนกดส่ง หากช่องข้อความว่างให้ระบุคำสั่งก่อนส่ง" else "$pendingStorySummary\n$imageList\nตรวจภาพและข้อความใน $destinationLabel ก่อนกดส่ง คำสั่งคัดลอกไว้ในคลิปบอร์ดแล้ว"
             textSize = 13f
         })
         uris.filter { contentResolver.getType(it)?.startsWith("image/")==true }.forEach { uri -> preview.addView(ImageView(this).apply {

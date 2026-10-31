@@ -40,6 +40,7 @@ class ChatSharePayloadTest {
         assertEquals(prompt,intent.getStringExtra(Intent.EXTRA_TEXT))
         assertEquals(2,intent.clipData!!.itemCount)
         assertEquals(images[0],intent.clipData!!.getItemAt(0).uri)
+        assertEquals(prompt,intent.clipData!!.getItemAt(0).text.toString())
     }
     @Test fun actualSharedFilesRemainReadableThroughFileProvider() {
         val context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
