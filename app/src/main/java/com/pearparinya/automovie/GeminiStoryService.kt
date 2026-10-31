@@ -83,7 +83,7 @@ class GeminiStoryService : Service() {
                         },{cancelled}) { percent,message -> status("running",percent,message,if(message.startsWith("บันทึกแล้ว")) "saved" else "preparing") }.run(spec)
                         if(cancelled) throw CancellationException()
                         val target=File(folder.parentFile,"story.json")
-                        if(target.exists()) require(GeminiStoryFiles.read(target).toString()==story.toString()) { "พบ story.json ที่แก้ไขแล้ว ไม่เขียนทับ" }
+                        if(target.exists()) require(ChannelCatalog.updateLegacyChannel(GeminiStoryFiles.read(target)).toString()==story.toString()) { "พบ story.json ที่แก้ไขแล้ว ไม่เขียนทับ" }
                         else GeminiStoryFiles.write(target,story)
                         status("complete",100,"บทพร้อมแล้ว ${story.getInt("episode_count")} EP • ${story.getInt("scene_count")} ซีน • ส่งออก Flow ได้ทันที")
                     } finally { lock.release() }

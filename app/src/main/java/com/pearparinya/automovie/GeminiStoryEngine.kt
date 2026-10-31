@@ -44,6 +44,7 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
         GeminiStoryFiles.write(file,value); pending.delete(); return value
     }
     fun run(spec: JSONObject): JSONObject {
+        ChannelCatalog.updateLegacyChannel(spec)
         val category=spec.getString("category"); val channel=spec.getString("channel"); val count=spec.optInt("episodes")
         val sceneCount=ClipPlan.count(spec)
         if(spec.optBoolean("auto_cast") && spec.has("master_catalog")) {

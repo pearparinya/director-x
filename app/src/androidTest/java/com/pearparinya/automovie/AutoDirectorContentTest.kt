@@ -16,6 +16,16 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 @RunWith(AndroidJUnit4::class)
 class AutoDirectorContentTest {
+    @Test fun legacyChannelIsUpdatedForOldProjectCoversAndCustomNamesRemain() {
+        val old="สตอรี่ทรงโต - ซีรีส์ลับฉบับผู้ใหญ่"
+        val project=story().put("channel",old)
+        val cover=SimpleProductionCommands.imageTasks(project,1).first().command
+        assertTrue(cover.contains(ChannelCatalog.channel))
+        assertFalse(cover.contains(old))
+        assertTrue(CoverTypography.prompt(old,"ชื่อเรื่อง",tagline="คำโปรย").contains(ChannelCatalog.channel))
+        assertEquals(ChannelCatalog.channel,ChannelCatalog.updateLegacyChannel(project).getString("channel"))
+        assertEquals("ช่องของฉัน",ChannelCatalog.currentChannel("ช่องของฉัน"))
+    }
     private fun story(): JSONObject {
         val scenes=JSONArray()
         repeat(24) { i ->
