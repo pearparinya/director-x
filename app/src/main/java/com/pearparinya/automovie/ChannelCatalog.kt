@@ -4,6 +4,12 @@ import org.json.JSONObject
 
 internal object ChannelCatalog {
     const val channel = "ร้อยฉาก - ซีรีส์สั้นหลากชีวิต"
+    private val legacyChannels = setOf("สตอรี่ทรงโต - ซีรีส์ลับฉบับผู้ใหญ่", "สตอรี่หลังบ้าน - ซีรีส์สั้นดราม่าผัวเมีย")
+    fun currentChannel(value: String): String = if (value.trim() in legacyChannels) channel else value
+    fun updateLegacyChannel(value: JSONObject): JSONObject {
+        if (value.has("channel")) value.put("channel", currentChannel(value.optString("channel")))
+        return value
+    }
     data class MainCategory(val id: String,val name: String,val style: String,val tone: String,val icon: String,val direction: String) {
         val label get() = "$name ($style)"
         val menuLabel get() = "$icon $name\n($style)"

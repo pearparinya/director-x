@@ -16,6 +16,16 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 @RunWith(AndroidJUnit4::class)
 class AutoDirectorContentTest {
+    @Test fun legacyChannelIsUpdatedForOldProjectCoversAndCustomNamesRemain() {
+        val old="สตอรี่ทรงโต - ซีรีส์ลับฉบับผู้ใหญ่"
+        val project=story().put("channel",old)
+        val cover=SimpleProductionCommands.imageTasks(project,1).first().command
+        assertTrue(cover.contains(ChannelCatalog.channel))
+        assertFalse(cover.contains(old))
+        assertTrue(CoverTypography.prompt(old,"ชื่อเรื่อง",tagline="คำโปรย").contains(ChannelCatalog.channel))
+        assertEquals(ChannelCatalog.channel,ChannelCatalog.updateLegacyChannel(project).getString("channel"))
+        assertEquals("ช่องของฉัน",ChannelCatalog.currentChannel("ช่องของฉัน"))
+    }
     private fun story(): JSONObject {
         val scenes=JSONArray()
         repeat(24) { i ->
@@ -32,7 +42,7 @@ class AutoDirectorContentTest {
                 .put("narration",if(i%3==1) "คืนนั้น & ความจริง" else ""))
         }
         return JSONObject().put("content_profile",AutoDirectorContent.profile).put("character_mode","original")
-            .put("channel","สตอรี่หลังบ้าน - ซีรีส์สั้นดราม่าผัวเมีย").put("category","Twisted Truth")
+            .put("channel","ช่องทดสอบ").put("category","Twisted Truth")
             .put("title","ความจริงหลังซอง").put("tagline","ใครกันที่ปิดบัง").put("aspect_ratio","9:16").put("duration_seconds",8)
             .put("episodes",JSONArray().put(JSONObject().put("ep",1).put("title","ซองลับ").put("tagline","ใครส่งมา").put("synopsis","ทั้งสามต้องเผชิญความจริง").put("scenes",scenes)))
     }

@@ -3,7 +3,7 @@ package com.pearparinya.automovie
 /** One text contract for all covers; scene-image text restrictions do not apply to posters. */
 internal object CoverTypography {
     fun lines(channel: String,story: String,ep: Int?=null,episode: String="",tagline: String=""): List<String> =
-        listOf(channel,story,if(ep==null) tagline else "ตอนที่ $ep $episode")
+        listOf(ChannelCatalog.currentChannel(channel),story,if(ep==null) tagline else "ตอนที่ $ep $episode")
 
     fun prompt(channel: String,story: String,ep: Int?=null,episode: String="",tagline: String=""): String {
         val missing=buildList {

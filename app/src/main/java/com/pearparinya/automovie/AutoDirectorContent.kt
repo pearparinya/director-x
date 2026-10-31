@@ -63,7 +63,7 @@ Images are generated externally in Gemini; video is generated externally in Flow
     fun outline(story: JSONObject): String {
         val eps=story.getJSONArray("episodes")
         return buildString {
-            append("1. ชื่อช่อง: ${story.optString("channel")}\n2. หมวดหมู่: ${story.optString("category")}\n3. ชื่อเรื่อง: ${story.getString("title")}\n4. คำโปรย: ${story.optString("tagline")}\n5. เรื่องย่อ:\n")
+            append("1. ชื่อช่อง: ${ChannelCatalog.currentChannel(story.optString("channel"))}\n2. หมวดหมู่: ${story.optString("category")}\n3. ชื่อเรื่อง: ${story.getString("title")}\n4. คำโปรย: ${story.optString("tagline")}\n5. เรื่องย่อ:\n")
             for(i in 0 until eps.length()) {
                 val ep=eps.getJSONObject(i)
                 append("EP.${ep.getInt("ep")}: ${ep.optString("synopsis").ifBlank { ep.optString("tagline") }}\n")

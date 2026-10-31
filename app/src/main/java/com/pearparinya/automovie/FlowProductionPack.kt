@@ -95,6 +95,7 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
         }
     }
     fun write(output: OutputStream, plan: JSONObject?, masters: Map<String,File>, memory: JSONObject, category: String, channel: String) {
+        val plan = plan?.let { ChannelCatalog.updateLegacyChannel(JSONObject(it.toString())) }
         val definitions=FlowCast.definitions(plan)
         require(definitions.all { masters[FlowCast.id(it)]?.isFile==true }) { "ภาพ MASTER ต้องครบตัวละครหลัก 3 คนและตัวละครเสริมที่ลงทะเบียน" }
         if(plan!=null) require(issues(plan).isEmpty()) { issues(plan).joinToString("\n") }

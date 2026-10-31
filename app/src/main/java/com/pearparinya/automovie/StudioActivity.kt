@@ -553,6 +553,7 @@ class StudioActivity : AppCompatActivity() {
     private fun key(s: JSONObject) = "EP%02d_SC%03d".format(s.getInt("ep"), s.getInt("scene"))
     private fun image(s: JSONObject) = File(project, "images/${key(s)}.img")
     private fun validate(p: JSONObject) {
+        ChannelCatalog.updateLegacyChannel(p)
         require(p.getString("title").isNotBlank()) { "ไม่มีชื่อเรื่อง" }
         val mode = p.optString("character_mode", "original")
         if(mode=="original") require(FlowCast.issues(p).isEmpty()) { FlowCast.issues(p).joinToString("\n") }
@@ -598,7 +599,7 @@ class StudioActivity : AppCompatActivity() {
         }
     }
     private fun render() {
-        plan = File(project, "story.json").takeIf { it.exists() }?.let { JSONObject(it.readText()) }
+        plan = File(project, "story.json").takeIf { it.exists() }?.let { ChannelCatalog.updateLegacyChannel(JSONObject(it.readText())) }
         if (plan?.optString("character_mode","original") == "original") {
             listOf("gawin","rinlada","mind").forEach { id ->
                 val target=File(project,"original_masters/$id.master"); val source=File(filesDir,"character_masters/$id.master")
