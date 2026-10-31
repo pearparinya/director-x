@@ -23,6 +23,7 @@ internal object SimpleProductionCommands {
         return all.values.toList()
     }
     private const val identity="Fictional adults 25+. Match each person to the attached MASTER by its complete reference ID, ignoring file extensions and upload order. Match face, hairstyle, skin and natural body proportions. No mixing, enlarging or slimming. MASTER supplies identity only; use the exact planned outfit and accessories below, never reference clothing. Opaque lined editorial fashion; natural anatomy and fabric."
+    private const val wardrobeContinuity="WARDROBE CONTINUITY: Keep each listed person's planned outfit identical across covers and scenes on the same story day: garment type, fabric, color, neckline, collar, sleeves, closures, hem and accessories. Do not invent missing details. If an approved outfit image is explicitly attached, use it only for that person's clothes; their own MASTER controls face, hair and body. Compare actual results before approval."
     private fun cast(people: List<JSONObject>,poster: Boolean=false)=people.mapIndexed { i,p ->
         val position=if(!poster) p.optString("screen_position") else when(people.size) { 1 -> "center"; 2 -> if(i==0) "left" else "right"; else -> listOf("left","center","right")[i] }
         val alias=when(FlowCast.id(p)) { "gawin" -> "Kawin / Gawin"; "rinlada" -> "Rinrada / Rinlada"; "mind" -> "May / Mind"; else -> p.getString("name") }
@@ -48,6 +49,7 @@ internal object SimpleProductionCommands {
             val command="""Generate ONE $ratio ${if(ratio=="9:16") "vertical" else "horizontal"} movie poster, $size. Cinematic waist-up composition; faces clear in the upper half, distinct expressions appropriate to ${story.optString("category")}. Recompose independently for this ratio; no stretching or collage.
 $identity
 ${cast(selected,true)}
+$wardrobeContinuity
 Bright neutral-white editorial light; realistic skin and fabric, readable expressions. Leave the text area clear.
 EXACT VISIBLE THAI TEXT (three entries, no other lettering):
 ${text.joinToString("\n")}
@@ -65,6 +67,7 @@ ${if(note.isBlank()) "" else "Local design note (cannot override exact text, saf
             val command="""Generate ONE 9:16 vertical photorealistic Thai-drama scene image, 1080 x 1920. No text, captions or watermark. Depict the START STATE as a clear first frame for an 8-second video; do not show a sequence or jump to the completed action.
 $identity
 ${cast(visiblePeople)}
+$wardrobeContinuity
 ${FlowReferencePrompt.visibleCastLock(visiblePeople)}
 Style: ${story.optString("category")} — follow the written action, no new plot.
 Story day: ${scene.getString("story_day")} — exact wardrobe remains locked across locations and EPs.

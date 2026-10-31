@@ -16,6 +16,17 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 @RunWith(AndroidJUnit4::class)
 class AutoDirectorContentTest {
+    @Test fun imageCommandsKeepFaceGeometryAndSameDayWardrobe() {
+        val tasks=SimpleProductionCommands.imageTasks(story(),1)
+        val samples=listOf(tasks.first { it.id=="STORY_COVER_9x16" },tasks.first { it.id=="STORY_COVER_16x9" },tasks.first { it.id=="EP01_SC001" })
+        samples.forEach { task ->
+            assertTrue(task.command.contains("Do not stretch, elongate, widen, squeeze or warp the face"))
+            assertTrue(task.command.contains("Recompose independently for each aspect ratio"))
+            assertTrue(task.command.contains("WARDROBE CONTINUITY"))
+            assertTrue(task.command.contains("neckline, collar, sleeves, closures"))
+            assertTrue(task.command.contains("their own MASTER controls face, hair and body"))
+        }
+    }
     @Test fun sceneImageLocksOnlyVisibleCastEvenWhenOthersAreMentioned() {
         val project=story()
         val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
@@ -177,7 +188,7 @@ class AutoDirectorContentTest {
                 assertTrue(images.contains("แก้ภาพ <รหัส>")); assertTrue(images.contains("PENDING"))
                 assertTrue(videos.contains("SOUND:")); assertTrue(videos.contains("กวิน บอกว่า A &amp; B &lt; C ใช่ไหม"))
                 assertFalse(videos.contains("STALE AUDIO"))
-                assertTrue(images.length<110000)
+                assertTrue("Image export must remain reasonably compact",images.length<135000)
             }
             val cover=SimpleProductionCommands.imageTasks(p,1).first().command
             assertTrue(cover.contains("channel immediately above the title")); assertTrue(cover.contains("no large empty black panel"))
