@@ -81,36 +81,59 @@ ${scene.optString("production_image_note").takeIf { it.isNotBlank() }?.let { "Lo
             add(Task(id,"EP.$number | ซีน %03d | แนวตั้ง 9:16".format(n),"9:16",command,FlowReferencePrompt.people(scene)))
         }
     }
+    private fun xml(value: String): String = value.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;")
     fun videoTasks(story: JSONObject,number: Int): List<Task> {
         val rows=episode(story,number).getJSONArray("scenes")
         return (0 until rows.length()).map { i ->
             val scene=rows.getJSONObject(i); val n=scene.getInt("scene"); val id="EP%02d_SC%03d".format(number,n)
             val spec=ProductionCommandCheck.spec(scene)
-            val line=when { spec.dialogue.isNotBlank() && spec.speaker in spec.offscreen -> "OFF-SCREEN CHARACTER SPEAKER ONLY: ${spec.speaker}. Exact Thai dialogue once: “${spec.dialogue}”. Keep speaker outside frame. All visible mouths closed; no lip-sync, narrator or other voices."
-                spec.dialogue.isNotBlank() -> "ONLY SPEAKER: ${spec.speaker}. Exact Thai dialogue once: “${spec.dialogue}”. Only this person's lips move; everyone else is silent. No narrator."
-                spec.narration.isNotBlank() -> "OFF-SCREEN MALE NARRATOR ONLY: “${spec.narration}”. All on-screen mouths closed; nobody lip-syncs the narration."
-                else -> "No dialogue or narration; all on-screen mouths closed." }
-            val castLabels=FlowReferencePrompt.people(scene).joinToString("; ") { p ->
-                "${p.getString("name")} (${p.optString("screen_position").ifBlank { "as in image" }})"
+            val visible=FlowReferencePrompt.people(scene)
+            val chars=visible.mapIndexed { index,p ->
+                """        <character id="character_${index+1}">
+          <name>${xml(p.optString("name"))}</name>
+          <position>${xml(p.optString("screen_position").ifBlank { "as in starting frame" })}</position>
+          <appearance>${xml(p.optString("outfit"))}</appearance>
+        </character>"""
+            }.joinToString("\n")
+            val dialogue=when {
+                spec.dialogue.isNotBlank() -> """      <dialogue speaker="${xml(spec.speaker)}" language="th">${xml(spec.dialogue)}</dialogue>"""
+                spec.narration.isNotBlank() -> """      <dialogue speaker="narrator" language="th">${xml(spec.narration)}</dialogue>"""
+                else -> "      <dialogue>None</dialogue>"
             }
-            val direction=FlowReferencePrompt.people(scene).mapNotNull { person ->
-                person.optJSONObject("performance")?.let { p ->
-                    val cues=listOf("emotion","gaze","body_language").mapNotNull { k -> p.optString(k).takeIf { it.isNotBlank() } }
-                    if(cues.isEmpty()) null else person.getString("name")+": "+cues.joinToString(", ")
-                }
-            }.joinToString("; ")
-            val sound=SoundDesign.prompt(spec.sound).replace(Regex("\\b(?:indoor )?murmurs\\b", RegexOption.IGNORE_CASE), "quiet room tone")
-            val command="""ภาพเริ่มต้นที่ต้องแนบ: รหัส $id — ใช้ภาพซีนที่ตรวจแล้ว
-Create one continuous 8-second vertical 9:16 video from the attached starting frame, with a locked camera. Preserve the people, faces, hair, body proportions, clothing, positions, lighting, location and props in the image. No cuts, captions or additional people.
-Visible cast: $castLabels.
-Starting situation: ${spec.startState}
-Action: ${spec.action}
-End: ${spec.endState}
-${if(direction.isBlank()) "" else "Performance: $direction"}
-$line
-${if(spec.dialogue.isNotBlank() || spec.narration.isNotBlank()) "Deliver the assigned line naturally within 8 seconds." else ""} Any other person mentioned in the action remains silent unless assigned dialogue above.
-$sound
-${scene.optString("production_video_note").takeIf { it.isNotBlank() }?.let { "Direction: $it" }.orEmpty()}""".trim()
+            val speechDirection=when {
+                spec.dialogue.isNotBlank() && spec.speaker in spec.offscreen -> "Only ${spec.speaker} speaks the assigned Thai dialogue once from off-screen. Keep all visible mouths closed. No other voices or narration."
+                spec.dialogue.isNotBlank() -> "Only ${spec.speaker} speaks the assigned Thai dialogue once in a natural voice, with synchronized lip movement. All other characters listen silently. No other voices or narration."
+                spec.narration.isNotBlank() -> "An off-screen male narrator speaks the assigned Thai narration once. All visible mouths remain closed. No other voices."
+                else -> "No dialogue or narration. All visible mouths remain closed."
+            }
+            val performance=visible.mapNotNull { p -> p.optJSONObject("performance")?.let { perf ->
+                val cues=listOf("emotion","gaze","body_language","voice").mapNotNull { k -> perf.optString(k).takeIf { it.isNotBlank() }?.let { "$k: $it" } }
+                if(cues.isEmpty()) null else p.optString("name")+": "+cues.joinToString(", ")
+            } }.joinToString("; ")
+            val sound=SoundDesign.prompt(spec.sound).replace(Regex("\\b(?:indoor )?murmurs\\b", RegexOption.IGNORE_CASE),"quiet room tone")
+            val motion=listOf("Starting situation: ${spec.startState}","Action: ${spec.action}","End: ${spec.endState}",performance.takeIf { it.isNotBlank() }?.let { "Performance: $it" },scene.optString("production_video_note").takeIf { it.isNotBlank() }?.let { "Direction: $it" }).filterNotNull().joinToString(". ")
+            val command="""<flow_project>
+  <project_metadata>
+    <channel_name>${xml(ChannelCatalog.currentChannel(story.optString("channel")))}</channel_name>
+    <series_title>${xml(story.optString("title"))}</series_title>
+  </project_metadata>
+  <scenes>
+    <scene id="$id">
+      <aspect_ratio>9:16</aspect_ratio>
+      <duration_seconds>8</duration_seconds>
+      <camera>Locked-off camera. One continuous shot with no cuts.</camera>
+      <starting_frame>Use the attached scene image as the first frame. Preserve the characters' faces, hair, natural body proportions, clothing, positions, lighting, location and visible props.</starting_frame>
+      <characters>
+$chars
+      </characters>
+      <motion_prompt>${xml(motion)}. Natural subtle movement. No additional characters.</motion_prompt>
+$dialogue
+      <audio>${xml(speechDirection)} ${xml(sound)}</audio>
+      <lighting>Preserve the lighting from the starting image.</lighting>
+      <negative_prompt>No cuts, subtitles, captions, extra people, or changes to faces, hairstyles, clothing, body proportions, or positions.</negative_prompt>
+    </scene>
+  </scenes>
+</flow_project>""".trim()
             Task(id,"EP.$number | ซีน %03d | วิดีโอ 9:16 | 8 วินาที".format(n),"9:16",command)
         }
     }
