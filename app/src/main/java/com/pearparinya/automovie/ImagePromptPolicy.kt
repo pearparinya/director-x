@@ -2,6 +2,7 @@ package com.pearparinya.automovie
 
 /** A shared brief for image requests. References identify people; scene facts define clothes and action. */
 internal object ImagePromptPolicy {
+    const val skinTone = "FINAL SKIN AND LIGHTING PRIORITY FOR EVERY CHARACTER: Render every person with fair, light skin and a neutral-to-cool undertone, with natural skin texture and facial features. No yellow, orange, amber, sepia or golden cast on any person's skin. Neutral-white 5500K balanced light on faces and exposed skin, including night scenes; retain the story's setting and time. Preserve each person's identity and body proportions. This fair-skin direction overrides conflicting reference skin-color or scene-lighting instructions; do not change clothing colors or bleach highlights."
     const val referenceAppeal = "คงเสน่ห์และความเซ็กซี่ตามภาพอ้างอิงของตัวละครผู้ใหญ่"
     fun productionMaster(name: String, source: String, profile: String): String = """
 สร้างภาพอ้างอิงตัวละครผู้ใหญ่ $name จาก $source ที่แนบ หนึ่งคนต่อหนึ่งภาพ

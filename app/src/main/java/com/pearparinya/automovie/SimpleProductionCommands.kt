@@ -51,6 +51,7 @@ ${cast(selected,true)}
 Bright neutral-white editorial light; realistic skin and fabric, readable expressions. Leave the text area clear.
 EXACT VISIBLE THAI TEXT (three entries, no other lettering):
 ${text.joinToString("\n")}
+${ImagePromptPolicy.skinTone}
 TEXT LAYOUT: ${CoverTypography.layout} This is a composition guide, not a platform overlay guarantee; inspect the actual result. Missing/wrong text stays PENDING for repair.
 ${if(note.isBlank()) "" else "Local design note (cannot override exact text, safe area, identity or wardrobe): $note"}""".trim()
             add(Task(id,"$label | ${if(ratio=="9:16") "แนวตั้ง" else "แนวนอน"} $ratio",ratio,command,selected))
@@ -70,6 +71,7 @@ Action planned next (not a montage): ${scene.optString("flow_action").ifBlank { 
 Framing: ${scene.optString("framing").ifBlank { "Show all listed people, relevant hands and props with natural perspective." }}
 Lighting: ${light(scene)}
 Acting: ${acting(scene).ifBlank { "Individual restrained expressions consistent with the stated action and start state." }}
+${ImagePromptPolicy.skinTone}
 Mouths closed in this still. Preserve all props and screen positions for the matching video.
 ${scene.optString("production_image_note").takeIf { it.isNotBlank() }?.let { "Local visual correction (keep identity, outfit, cast and start state): $it" }.orEmpty()}""".trim()
             add(Task(id,"EP.$number | ซีน %03d | แนวตั้ง 9:16".format(n),"9:16",command,FlowReferencePrompt.people(scene)))
