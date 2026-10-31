@@ -61,9 +61,11 @@ ${if(note.isBlank()) "" else "Local design note (cannot override exact text, saf
         if(!single) for(ratio in listOf("9:16","16:9")) poster(false,ratio)
         for(i in 0 until rows.length()) {
             val scene=rows.getJSONObject(i); val n=scene.getInt("scene"); val id="EP%02d_SC%03d".format(number,n)
+            val visiblePeople=FlowReferencePrompt.people(scene)
             val command="""Generate ONE 9:16 vertical photorealistic Thai-drama scene image, 1080 x 1920. No text, captions or watermark. Depict the START STATE as a clear first frame for an 8-second video; do not show a sequence or jump to the completed action.
 $identity
-${cast(FlowReferencePrompt.people(scene))}
+${cast(visiblePeople)}
+${FlowReferencePrompt.visibleCastLock(visiblePeople)}
 Style: ${story.optString("category")} — follow the written action, no new plot.
 Story day: ${scene.getString("story_day")} — exact wardrobe remains locked across locations and EPs.
 Location: ${scene.getString("location")}
@@ -74,6 +76,7 @@ Lighting: ${light(scene)}
 Acting: ${acting(scene).ifBlank { "Individual restrained expressions consistent with the stated action and start state." }}
 ${BodyReferencePolicy.imageIdentityLock}
 ${ImagePromptPolicy.skinTone}
+${FlowReferencePrompt.visibleCastLock(visiblePeople)}
 Mouths closed in this still. Preserve all props and screen positions for the matching video.
 ${scene.optString("production_image_note").takeIf { it.isNotBlank() }?.let { "Local visual correction (keep identity, outfit, cast and start state): $it" }.orEmpty()}""".trim()
             add(Task(id,"EP.$number | ซีน %03d | แนวตั้ง 9:16".format(n),"9:16",command,FlowReferencePrompt.people(scene)))

@@ -18,7 +18,11 @@ internal object FlowReferencePrompt {
         return "แนบภาพตัวละคร: "+people.joinToString(" + ") { it.getString("name") }+"\nREFERENCE BINDING — จับคู่ภาพที่แนบกับตัวละคร:\n"+
             people.mapIndexed { index,p -> val id=ids[index]
                 "${alias(id)} = ภาพอ้างอิงของ ${p.getString("name")}\n${FlowProductionPack.dna[id] ?: p.getString("visual_description")}\nชุดในฉาก: ${p.optString("outfit")} | ตำแหน่ง: ${p.optString("screen_position", "ตามองค์ประกอบภาพ")}"
-            }.joinToString("\n")+"\nใช้ภาพแนบเป็นต้นฉบับใบหน้าและรูปร่าง เปลี่ยนเสื้อผ้าตามฉาก เหตุการณ์ต่อเนื่องใช้ชุดเดิม\nรหัส CHARACTER เป็นชื่ออ้างอิงในคำสั่ง ไม่ใช่ชื่อไฟล์ ไม่ต้องเปลี่ยนชื่อรูปจริง และไม่อิงลำดับอัปโหลด ตรวจว่าจับคู่ถูกคนก่อนสร้าง\nOnly these listed adult characters appear. Bind each attached reference exclusively to its named character label; no identity mixing.\n"
+            }.joinToString("\n")+"\nใช้ภาพแนบเป็นต้นฉบับใบหน้าและรูปร่าง เปลี่ยนเสื้อผ้าตามฉาก เหตุการณ์ต่อเนื่องใช้ชุดเดิม\nรหัส CHARACTER เป็นชื่ออ้างอิงในคำสั่ง ไม่ใช่ชื่อไฟล์ ไม่ต้องเปลี่ยนชื่อรูปจริง และไม่อิงลำดับอัปโหลด ตรวจว่าจับคู่ถูกคนก่อนสร้าง\nOnly these listed adult characters appear. Bind each attached reference exclusively to its named character label; no identity mixing.\n" + visibleCastLock(people) + "\n"
+    }
+    fun visibleCastLock(people: List<JSONObject>): String {
+        val names=people.joinToString(", ") { it.getString("name") }
+        return "VISIBLE CAST LOCK: Show exactly ${people.size} ${if(people.size==1) "person" else "people"} in this image: $names. Only these listed characters are visible, including at frame edges, foreground, background, shadows or reflections. Anyone else mentioned, addressed, looked at or heard is outside the frame. Conversation, gaze and action do not add visible people. The visible cast list takes priority over conflicting prose; if the planned action cannot be depicted with this cast, flag the conflict for review instead of adding people."
     }
     fun people(scene: JSONObject): List<JSONObject> = scene.getJSONArray("characters").let { a -> (0 until a.length()).map { a.getJSONObject(it) } }
     fun scene(scene: JSONObject,ep: Int,kind: String?=null): String {
