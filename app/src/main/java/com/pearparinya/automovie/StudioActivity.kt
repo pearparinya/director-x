@@ -1467,8 +1467,15 @@ class StudioActivity : AppCompatActivity() {
             dialog.getButton(-3).setOnClickListener {
                 dialog.dismiss()
                 val scene=rows(story).firstOrNull { key(it)==task.id }
-                choiceMenu("แก้ ${task.id}",if(scene==null) listOf("แก้การจัดภาพปก","แก้ข้อความบนปก") else listOf("แก้ทิศทาง${if(images) "ภาพ" else "วิดีโอ"}เฉพาะจุด","แก้บท / การกระทำ / ชุด / ตำแหน่ง / เสียง")) { action ->
-                    if(action==1) { if(scene==null) editProductionCover(story) else editScene(scene) }
+                choiceMenu("แก้ ${task.id}",if(scene==null) listOf("แก้การจัดภาพปก","แก้ข้อความบนปก") else if(images) listOf("แก้ทิศทางภาพเฉพาะจุด","แก้บท / การกระทำ / ชุด / ตำแหน่ง / เสียง") else listOf("แก้ทิศทางวิดีโอเฉพาะจุด","แก้บท / การกระทำ / ชุด / ตำแหน่ง / เสียง","เลือกการเคลื่อนกล้อง")) { action ->
+                    if(action==2 && scene!=null && !images) {
+                        val modes=listOf("อัตโนมัติตามซีน","ซูมเข้าอย่างช้า ๆ","แพนกล้อง","เคลื่อนตามการกระทำ","กล้องนิ่ง")
+                        val keys=listOf("","push_in","pan","track","locked")
+                        choiceMenu("เลือกกล้อง • ${task.id}",modes) { selected ->
+                            scene.put("camera_movement",keys[selected]); saveStory(); render()
+                            notice("บันทึกการเคลื่อนกล้องแล้ว • เปิดซีนเดิมเพื่อคัดลอกคำสั่งใหม่")
+                        }
+                    } else if(action==1) { if(scene==null) editProductionCover(story) else editScene(scene) }
                     else {
                         val target=scene ?: if(task.id.startsWith("STORY_")) story else story.getJSONArray("episodes").let { eps -> (0 until eps.length()).map { eps.getJSONObject(it) }.first { it.getInt("ep")==number } }
                         val field=if(scene==null) "production_note_${task.id}" else if(images) "production_image_note" else "production_video_note"

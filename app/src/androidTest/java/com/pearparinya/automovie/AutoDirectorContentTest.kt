@@ -29,6 +29,26 @@ class AutoDirectorContentTest {
         val multi=FlowReferencePrompt.visibleCastLock(listOf(solo,JSONObject().put("name","อีกคน")))
         assertTrue(multi.contains("Show exactly 2 people"))
     }
+    @Test fun sceneCameraKeepsCastAndSupportsExplicitModes() {
+        val project=story()
+        val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
+        fun command()=SimpleProductionCommands.videoTasks(project,1).first().command
+        fun camera(): String {
+            val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(command().toByteArray(Charsets.UTF_8)))
+            return doc.getElementsByTagName("camera").item(0).textContent
+        }
+        assertTrue(camera().contains("push-in"))
+        assertTrue(camera().contains("all 3 listed visible characters"))
+        assertTrue(command().contains("complete assigned line naturally without rushing"))
+        scene.put("camera_movement","pan")
+        assertTrue(camera().contains("gentle pan"))
+        scene.put("camera_movement","track")
+        assertTrue(camera().contains("track the existing action"))
+        scene.put("camera_movement","locked")
+        assertTrue(camera().contains("camera locked"))
+        scene.put("characters",JSONArray().put(scene.getJSONArray("characters").getJSONObject(0))).put("camera_movement","")
+        assertTrue(camera().contains("all 1 listed visible characters"))
+    }
     @Test fun flowCommandKeepsAssignedSpeechAndFrameWithoutConflictingMurmurs() {
         val project=story()
         val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
