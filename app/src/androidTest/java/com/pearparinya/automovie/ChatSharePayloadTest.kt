@@ -21,6 +21,10 @@ class ChatSharePayloadTest {
         assertTrue(request.contains("READ_FIRST_IMAGE_COMMAND.txt"))
         assertTrue(request.contains("MASTER"))
         assertEquals(request,intent.clipData!!.getItemAt(0).text.toString())
+        assertTrue(geminiImageMessage("รายละเอียดภาพทดสอบ").contains("รายละเอียดภาพทดสอบ"))
+        assertEquals("SUPPORT_0000006E_MASTER",referenceId("SUPPORT_0000006E_MASTER.JPG"))
+        assertEquals("SUPPORT_0000006E_MASTER",referenceId("SUPPORT_0000006E_MASTER.png"))
+        assertEquals("SUPPORT_0000006E_MASTER",referenceId("SUPPORT_0000006E_MASTER.webp"))
     }
     @Test fun actualSharedFilesRemainReadableThroughFileProvider() {
         val context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext

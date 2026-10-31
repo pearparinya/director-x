@@ -16,6 +16,15 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 @RunWith(AndroidJUnit4::class)
 class AutoDirectorContentTest {
+    @Test fun imageAndVideoCommandsUseReferenceIdsWithoutAssumingFileType() {
+        val project=story()
+        val poster=SimpleProductionCommands.imageTasks(project,1).first().command
+        assertTrue(poster.contains("MASTER ID: GAWIN_MASTER"))
+        assertFalse(poster.contains("GAWIN_MASTER.png"))
+        val video=SimpleProductionCommands.videoTasks(project,1).first().command
+        assertTrue(video.contains("รหัส EP01_SC001"))
+        assertFalse(video.contains("EP01_SC001.png"))
+    }
     @Test fun legacyChannelIsUpdatedForOldProjectCoversAndCustomNamesRemain() {
         val old="สตอรี่ทรงโต - ซีรีส์ลับฉบับผู้ใหญ่"
         val project=story().put("channel",old)

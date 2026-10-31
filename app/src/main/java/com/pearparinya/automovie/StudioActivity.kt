@@ -75,7 +75,9 @@ internal fun buildGeminiPackageIntent(text: String, command: Uri, images: ArrayL
     }
 }
 
-internal const val GEMINI_IMAGE_REQUEST = "สร้างและแสดงภาพจริง 1 ภาพตามคำสั่งในไฟล์ READ_FIRST_IMAGE_COMMAND.txt ที่แนบ ใช้ภาพ MASTER ที่แนบจับคู่กับตัวละครตามชื่อไฟล์ รักษาข้อความบนปกตามไฟล์คำสั่ง หากเป็นภาพฉากให้ทำตามข้อกำหนดในไฟล์ ไม่ต้องสรุปคำสั่งหรืออธิบายตัวละคร หากสร้างภาพไม่ได้ให้แจ้งสาเหตุ"
+internal const val GEMINI_IMAGE_REQUEST = "สร้างและแสดงภาพจริง 1 ภาพตามรายละเอียดต่อไปนี้ หรือไฟล์ READ_FIRST_IMAGE_COMMAND.txt ที่แนบ ใช้ภาพ MASTER ที่แนบจับคู่ตัวละครตามรหัสเต็มโดยไม่สนใจนามสกุลหรือลำดับไฟล์ รักษาข้อความบนปกตามคำสั่ง หากเป็นภาพฉากให้ทำตามข้อกำหนดของฉาก ไม่ต้องสรุปคำสั่ง ไม่ต้องเขียนโค้ด XML หากสร้างภาพไม่ได้ให้แจ้งสาเหตุ"
+
+internal fun geminiImageMessage(command: String): String = GEMINI_IMAGE_REQUEST+"\n\n"+command
 
 internal fun neutralIdentityGuide(source: String, aspect: String): String =
     ImagePromptPolicy.identity(source) + "\n" + ImagePromptPolicy.style(aspect) + " ไม่มีข้อความหรือลายน้ำ หากสร้างไม่ได้ให้แจ้งตามจริง"
@@ -1038,7 +1040,11 @@ class StudioActivity : AppCompatActivity() {
         }
     }
     private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT", imagePackage: Boolean = false) {
-        val text = if (lockCreation && !inputText.contains("ค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง)")) inputText + "\nค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง): EP=${prefs.getString("plan_episodes", "").orEmpty().ifBlank { "AI ประเมิน" }} ฉาก/EP=${prefs.getString("plan_scenes", "").orEmpty().ifBlank { "AI ประเมิน" }} เวลา=${prefs.getString("plan_duration", "8")} วินาที สัดส่วน=${"9:16"} กำหนด duration_seconds และ aspect_ratio ใน story.json และคำสั่งทุกฉากตามนี้" else inputText
+        var text = if (lockCreation && !inputText.contains("ค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง)")) inputText + "\nค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง): EP=${prefs.getString("plan_episodes", "").orEmpty().ifBlank { "AI ประเมิน" }} ฉาก/EP=${prefs.getString("plan_scenes", "").orEmpty().ifBlank { "AI ประเมิน" }} เวลา=${prefs.getString("plan_duration", "8")} วินาที สัดส่วน=${"9:16"} กำหนด duration_seconds และ aspect_ratio ใน story.json และคำสั่งทุกฉากตามนี้" else inputText
+        if (imagePackage) for ((name,_) in referenceImages) {
+            val id=referenceId(name)
+            text=text.replace(Regex("(?i)"+Regex.escape(id)+"[.](png|jpe?g|webp)\\b"),id)
+        }
         val uris = arrayListOf<Uri>()
         val attachments = JSONArray()
         val transferId = UUID.randomUUID().toString()
@@ -1078,7 +1084,7 @@ class StudioActivity : AppCompatActivity() {
             command.parentFile!!.mkdirs()
             command.writeText("สร้างภาพหนึ่งภาพตามคำสั่งด้านล่าง ใช้ภาพ MASTER ที่แนบจับคู่ตามชื่อไฟล์ ไม่สรุปคำสั่ง ไม่สร้างวิดีโอ\n\n"+text,Charsets.UTF_8)
             val commandUri=FileProvider.getUriForFile(this,"$packageName.fileprovider",command)
-            val shareText=if(destinationLabel=="Gemini" && imagePackage) GEMINI_IMAGE_REQUEST else text
+            val shareText=if(destinationLabel=="Gemini" && imagePackage) geminiImageMessage(text) else text
             val result=buildGeminiPackageIntent(shareText,commandUri,ArrayList(uris))
             uris.add(0,commandUri)
             attachments.put(JSONObject().put("name",command.name).put("bytes",command.length()).put("sha256",MasterLibrary.digest(command.readBytes())))
@@ -1097,7 +1103,7 @@ class StudioActivity : AppCompatActivity() {
         fun launchShare() {
             if(filePackage && destinationLabel=="Gemini" && imagePackage) {
                 (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
-                    .setPrimaryClip(ClipData.newPlainText("คำสั่งสร้างภาพ Gemini",GEMINI_IMAGE_REQUEST))
+                    .setPrimaryClip(ClipData.newPlainText("คำสั่งสร้างภาพ Gemini",geminiImageMessage(text)))
             }
             val request = JSONObject().put("id",transferId).put("scene",sceneId).put("created_at",System.currentTimeMillis())
                 .put("text",text).put("attachments",attachments).put("status","opened_external_app")
@@ -1176,7 +1182,7 @@ class StudioActivity : AppCompatActivity() {
             val person = cast.getJSONObject(i)
             val master=masterFor(person)
             val exported=masterExportName(master,person.optString("master").startsWith("CHARACTER",true)) ?: person.optString("master")
-            listOf("${person.optString("name")} → $exported",(if(detailedImageProfiles) memoryBrief(person) else ""),
+            listOf("${person.optString("name")} → ${referenceId(exported)}",(if(detailedImageProfiles) memoryBrief(person) else ""),
                 "ชุด: ${sceneWardrobe(scene,person)}",PerformanceDirection.text(person).takeIf { it.isNotBlank() }?.let { "การแสดง: $it" }.orEmpty())
                 .filter { it.isNotBlank() }.joinToString(" | ") }
     }
