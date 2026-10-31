@@ -16,6 +16,28 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 @RunWith(AndroidJUnit4::class)
 class AutoDirectorContentTest {
+    @Test fun imagePromptsUseProjectDataAndReferenceRolesForBothApps() {
+        val project=story().put("title","เรื่องทดสอบ & ความลับ").put("channel","ช่องของฉัน").put("tagline","ข้อความทดสอบ")
+        val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
+        val only=scene.getJSONArray("characters").getJSONObject(0)
+        scene.put("characters",JSONArray().put(only))
+        val tasks=SimpleProductionCommands.imageTasks(project,1)
+        for(ratio in listOf("9x16","16x9")) {
+            val task=tasks.first { it.id=="STORY_COVER_$ratio" }
+            assertTrue(task.command.contains("ช่องของฉัน"))
+            assertTrue(task.command.contains("เรื่องทดสอบ & ความลับ"))
+            assertTrue(task.command.contains("ข้อความทดสอบ"))
+            assertTrue(task.command.contains("REFERENCE ROLE MAPPING"))
+            assertTrue(task.command.contains("filenames or upload order alone may not reliably identify"))
+            assertTrue(task.command.contains("WARDROBE CONTINUITY"))
+            assertTrue(task.command.contains("Show exactly"))
+        }
+        val solo=tasks.first { it.id=="EP01_SC001" }
+        assertEquals(1,solo.references.size)
+        assertTrue(solo.command.contains("Show exactly 1 person"))
+        assertTrue(solo.command.contains("MASTER ID: "+referenceId(only.getString("master"))))
+        assertTrue(SimpleProductionCommands.images(project,1).contains("ChatGPT / Gemini"))
+    }
     @Test fun imageCommandsKeepFaceGeometryAndSameDayWardrobe() {
         val tasks=SimpleProductionCommands.imageTasks(story(),1)
         val samples=listOf(tasks.first { it.id=="STORY_COVER_9x16" },tasks.first { it.id=="STORY_COVER_16x9" },tasks.first { it.id=="EP01_SC001" })
