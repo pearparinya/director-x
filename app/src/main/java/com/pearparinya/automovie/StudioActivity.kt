@@ -75,9 +75,20 @@ internal fun buildGeminiPackageIntent(text: String, command: Uri, images: ArrayL
     }
 }
 
-internal const val GEMINI_IMAGE_REQUEST = "สร้างและแสดงภาพจริง 1 ภาพตามรายละเอียดต่อไปนี้ หรือไฟล์ READ_FIRST_IMAGE_COMMAND.txt ที่แนบ ใช้ภาพ MASTER ที่แนบจับคู่ตัวละครตามรหัสเต็มโดยไม่สนใจนามสกุลหรือลำดับไฟล์ รักษาข้อความบนปกตามคำสั่ง หากเป็นภาพฉากให้ทำตามข้อกำหนดของฉาก ไม่ต้องสรุปคำสั่ง ไม่ต้องเขียนโค้ด XML หากสร้างภาพไม่ได้ให้แจ้งสาเหตุ"
+internal const val GEMINI_IMAGE_REQUEST = "สร้างและแสดงภาพจริง 1 ภาพตามรายละเอียดต่อไปนี้ ใช้ภาพ MASTER ที่แนบจับคู่ตัวละครตามรหัสเต็มโดยไม่สนใจนามสกุล รักษาข้อความบนปกตามคำสั่ง หากเป็นภาพฉากให้ทำตามข้อกำหนดของฉาก ไม่ต้องสรุปคำสั่ง ไม่ต้องเขียนโค้ด XML หากสร้างภาพไม่ได้ให้แจ้งสาเหตุ"
 
 internal fun geminiImageMessage(command: String): String = GEMINI_IMAGE_REQUEST+"\n\n"+command
+
+internal fun buildGeminiImageShareIntent(text: String, images: ArrayList<Uri>): Intent {
+    require(images.isNotEmpty() && images.size<=9) { "ต้องมีภาพอ้างอิง 1–9 ภาพ" }
+    return Intent(if(images.size==1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE).apply {
+        type="image/*"
+        putExtra(Intent.EXTRA_TEXT,text)
+        if(images.size==1) putExtra(Intent.EXTRA_STREAM,images[0]) else putParcelableArrayListExtra(Intent.EXTRA_STREAM,images)
+        clipData=ClipData.newRawUri("ภาพอ้างอิง",images[0]).apply { images.drop(1).forEach { addItem(ClipData.Item(it)) } }
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+}
 
 internal fun neutralIdentityGuide(source: String, aspect: String): String =
     ImagePromptPolicy.identity(source) + "\n" + ImagePromptPolicy.style(aspect) + " ไม่มีข้อความหรือลายน้ำ หากสร้างไม่ได้ให้แจ้งตามจริง"
@@ -1078,8 +1089,9 @@ class StudioActivity : AppCompatActivity() {
         // ChatGPT Android builds do not all read the same share field. Keep
         // the command in both EXTRA_TEXT and the first ClipData item, then
         // append every granted image URI to that same ClipData payload.
-        val filePackage=(destinationLabel=="Gemini" || imagePackage) && uris.isNotEmpty()
-        val intent = if(filePackage) {
+        val geminiImages=destinationLabel=="Gemini" && imagePackage && uris.isNotEmpty()
+        val filePackage=!geminiImages && (destinationLabel=="Gemini" || imagePackage) && uris.isNotEmpty()
+        val intent = if(geminiImages) buildGeminiImageShareIntent(geminiImageMessage(text),ArrayList(uris)) else if(filePackage) {
             val command=File(cacheDir,"scene_reference_exports/$transferId/READ_FIRST_IMAGE_COMMAND.txt")
             command.parentFile!!.mkdirs()
             command.writeText("สร้างภาพหนึ่งภาพตามคำสั่งด้านล่าง ใช้ภาพ MASTER ที่แนบจับคู่ตามชื่อไฟล์ ไม่สรุปคำสั่ง ไม่สร้างวิดีโอ\n\n"+text,Charsets.UTF_8)
@@ -1101,7 +1113,7 @@ class StudioActivity : AppCompatActivity() {
         val imageList = (0 until attachments.length()).joinToString("\n") { i -> attachments.getJSONObject(i).let { "${it.optString("name")} • ${it.optLong("bytes")} bytes • SHA ${it.optString("sha256").take(12)}" } }
         pendingStorySummary = "คำสั่ง ${text.length} ตัวอักษร • ภาพ ${uris.count { contentResolver.getType(it)?.startsWith("image/")==true }} ภาพ" + if(filePackage) " • ไฟล์คำสั่ง 1 ไฟล์" else ""
         fun launchShare() {
-            if(filePackage && destinationLabel=="Gemini" && imagePackage) {
+            if(geminiImages) {
                 (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
                     .setPrimaryClip(ClipData.newPlainText("คำสั่งสร้างภาพ Gemini",geminiImageMessage(text)))
             }
@@ -1132,12 +1144,12 @@ class StudioActivity : AppCompatActivity() {
             }
             if (opened) {
                 pendingStoryShare = { launchShare() }
-                if(filePackage) prefs.edit().putString("image_receipt_app",destinationLabel).putString("gemini_receipt_pending",File(destination,"image_requests/$transferId.json").absolutePath).apply()
+                if(filePackage || geminiImages) prefs.edit().putString("image_receipt_app",destinationLabel).putString("gemini_receipt_pending",File(destination,"image_requests/$transferId.json").absolutePath).apply()
             }
         }
         val preview = LinearLayout(this).apply { orientation = 1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
         preview.addView(TextView(this).apply {
-            this.text = if(filePackage && destinationLabel=="Gemini" && imagePackage) "$pendingStorySummary\n$imageList\nเมื่อเปิด Gemini ตรวจไฟล์คำสั่งและภาพ MASTER ให้ครบ หากช่องข้อความว่าง ให้แตะค้างแล้วเลือก วาง เพื่อใส่คำสั่งสร้างภาพที่แอปคัดลอกให้ จากนั้นกดส่ง\n\n$GEMINI_IMAGE_REQUEST" else if(filePackage) "$pendingStorySummary\n$imageList\nแนบไฟล์ READ_FIRST_IMAGE_COMMAND.txt พร้อม MASTER ไปในชุดเดียวกัน ตรวจว่า $destinationLabel แสดงไฟล์คำสั่งและรูปครบก่อนกดส่ง หากช่องข้อความว่างให้ระบุคำสั่งก่อนส่ง" else "$pendingStorySummary\n$imageList\nตรวจภาพและข้อความใน $destinationLabel ก่อนกดส่ง คำสั่งคัดลอกไว้ในคลิปบอร์ดแล้ว"
+            this.text = if(geminiImages) "$pendingStorySummary\n$imageList\nส่งเฉพาะภาพอ้างอิง คำสั่งสร้างภาพฉบับเต็มจะคัดลอกให้อัตโนมัติเมื่อกดเปิด Gemini\n\n1. ตรวจว่าภาพแนบครบ\n2. แตะช่องข้อความค้าง แล้วเลือก วาง (ถ้ายังไม่มีคำสั่ง)\n3. ตรวจข้อความและกดส่ง หาก Gemini ตอบเป็นข้อความ ให้เปิดโหมดสร้างภาพใน Gemini แล้วลองใหม่" else if(filePackage) "$pendingStorySummary\n$imageList\nแนบไฟล์ READ_FIRST_IMAGE_COMMAND.txt พร้อม MASTER ไปในชุดเดียวกัน ตรวจว่า $destinationLabel แสดงไฟล์คำสั่งและรูปครบก่อนกดส่ง หากช่องข้อความว่างให้ระบุคำสั่งก่อนส่ง" else "$pendingStorySummary\n$imageList\nตรวจภาพและข้อความใน $destinationLabel ก่อนกดส่ง คำสั่งคัดลอกไว้ในคลิปบอร์ดแล้ว"
             textSize = 13f
         })
         uris.filter { contentResolver.getType(it)?.startsWith("image/")==true }.forEach { uri -> preview.addView(ImageView(this).apply {
