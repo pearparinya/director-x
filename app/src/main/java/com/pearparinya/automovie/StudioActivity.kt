@@ -9,7 +9,6 @@ import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
-import android.provider.DocumentsContract
 import android.widget.*
 import android.view.Gravity
 import android.content.res.ColorStateList
@@ -80,7 +79,7 @@ internal const val GEMINI_IMAGE_REQUEST = "สร้างและแสดง�
 
 internal fun geminiImageMessage(command: String): String = GEMINI_IMAGE_REQUEST+"\n\n"+command
 
-internal fun imageProviderOptions(preferred: String): List<String> = listOf("ChatGPT", "Gemini", "Ideogram").let { options ->
+internal fun imageProviderOptions(preferred: String): List<String> = listOf("ChatGPT", "Gemini").let { options ->
     if (preferred in options) listOf(preferred) + options.filter { it != preferred } else options
 }
 
@@ -1046,53 +1045,13 @@ class StudioActivity : AppCompatActivity() {
         val name = if (useNewMasters) source.nameWithoutExtension else source.nameWithoutExtension + "_MASTER"
         return "${name.uppercase()}.$extension"
     }
-    private var pendingIdeogram: Pair<String,List<Pair<String,File>>>? = null
-    private val ideogramFolderPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
-        val pending=pendingIdeogram
-        pendingIdeogram=null
-        if(tree!=null && pending!=null) {
-            try {
-                val (original,refs)=pending
-                require(refs.isNotEmpty() && refs.all { it.second.isFile }) { "ไม่พบภาพอ้างอิง กรุณาเปิดรายการแล้วส่งใหม่" }
-                var prompt=original
-                for((name,_) in refs) {
-                    val id=referenceId(name)
-                    prompt=prompt.replace(Regex("(?i)"+Regex.escape(id)+"[.](png|jpe?g|webp)\\b"),id)
-                }
-                val root=DocumentsContract.buildDocumentUriUsingTree(tree,DocumentsContract.getTreeDocumentId(tree))
-                val folderName="DIRECTOR_X_"+System.currentTimeMillis()
-                val folder=DocumentsContract.createDocument(contentResolver,root,DocumentsContract.Document.MIME_TYPE_DIR,folderName) ?: error("สร้างโฟลเดอร์ไม่ได้")
-                val saved=mutableListOf<String>()
-                for((name,source) in refs) {
-                    val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
-                    android.graphics.BitmapFactory.decodeFile(source.path,bounds)
-                    require(bounds.outWidth>0 && bounds.outHeight>0) { "อ่านภาพ $name ไม่ได้" }
-                    val mime=bounds.outMimeType
-                    val ext=when(mime) { "image/jpeg" -> "jpg"; "image/png" -> "png"; "image/webp" -> "webp"; else -> error("ไม่รองรับชนิดภาพ $name") }
-                    val filename=referenceId(name)+"."+ext
-                    val uri=DocumentsContract.createDocument(contentResolver,folder,mime,filename) ?: error("สร้างไฟล์ $filename ไม่ได้")
-                    contentResolver.openOutputStream(uri)?.use { out -> source.inputStream().use { it.copyTo(out) } } ?: error("เขียนไฟล์ $filename ไม่ได้")
-                    saved.add(filename)
-                }
-                (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(ClipData.newPlainText("คำสั่งสร้างภาพ",prompt))
-                AlertDialog.Builder(this).setTitle("พร้อมใช้ Ideogram").setMessage("บันทึกภาพ ${saved.size} ไฟล์ในโฟลเดอร์ $folderName แล้ว:\n${saved.joinToString("\n")}\n\nคำสั่งคัดลอกแล้ว เมื่อเปิดเว็บ ให้เข้าสู่ระบบ แนบภาพอ้างอิงจากโฟลเดอร์นี้ วางคำสั่ง และเลือกสร้างภาพ ฟีเจอร์อ้างอิงและเครดิตขึ้นกับบัญชี Ideogram")
-                    .setPositiveButton("เปิด Ideogram") { _,_ ->
-                        runCatching { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://ideogram.ai/"))) }.onFailure { notice("เปิดเบราว์เซอร์ไม่ได้ กรุณาเปิด ideogram.ai ด้วยตนเอง") }
-                    }.setNegativeButton("ปิด",null).showDirector()
-            } catch(e: Exception) { notice("เตรียมไฟล์ Ideogram ไม่สำเร็จ: ${e.message}\nตรวจโฟลเดอร์ที่เลือกก่อนลองใหม่") }
-        } else if(tree!=null) notice("กรุณาเปิดรายการภาพแล้วเลือก Ideogram อีกครั้ง")
-    }
     private fun shareImageCommand(command: String, references: List<Pair<String,File>>) {
         val preferred=prefs.getString("image_provider","ChatGPT") ?: "ChatGPT"
         val providers=imageProviderOptions(preferred)
         choiceMenu("สร้างภาพด้วยแอปไหน",providers.mapIndexed { i,name -> name+if(i==0) " • ตัวเลือกที่จำไว้" else "" }) { selected ->
             val provider=providers[selected]
             prefs.edit().putString("image_provider",provider).apply()
-            if(provider=="Ideogram") {
-                AlertDialog.Builder(this).setTitle("สร้างภาพด้วย Ideogram").setMessage("แอปจะให้เลือกโฟลเดอร์สำหรับบันทึกภาพอ้างอิงและคัดลอกคำสั่ง จากนั้นเปิดเว็บไซต์ให้คุณแนบภาพและวางคำสั่งเอง เครดิตฟรีและการใช้ภาพอ้างอิงขึ้นกับบัญชี Ideogram")
-                    .setPositiveButton("เลือกโฟลเดอร์") { _,_ -> pendingIdeogram=command to references; ideogramFolderPicker.launch(null) }
-                    .setNegativeButton("ยกเลิก",null).showDirector()
-            } else shareText(command,includeMasters=false,referenceImages=references,destinationLabel=provider,imagePackage=true)
+            shareText(command,includeMasters=false,referenceImages=references,destinationLabel=provider,imagePackage=true)
         }
     }
     private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT", imagePackage: Boolean = false) {
