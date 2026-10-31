@@ -132,6 +132,7 @@ class StudioActivity : AppCompatActivity() {
     private val pendingRecovery get() = File(filesDir, "pending_story_import")
     private var plan: JSONObject? = null
     private var importing = false
+    private var activeProductionDialog: AlertDialog? = null
     private var pendingStoryShare: (() -> Unit)? = null
     private var pendingStorySummary = ""
     private var pendingReceipt: (() -> Unit)? = null
@@ -544,7 +545,10 @@ class StudioActivity : AppCompatActivity() {
                 .setMessage("ตรวจว่ารูปและคำสั่งใน $receiver ครบหรือไม่ การเปิดแอปสำเร็จยังไม่ยืนยันว่ารับครบหรือสร้างภาพแล้ว")
                 .setPositiveButton("รับครบแล้ว") { _,_ -> recordGeminiReceipt(receiptPath,"user_confirmed_received") }
                 .setNegativeButton("ส่งรูปอีกครั้ง") { _,_ -> recordGeminiReceipt(receiptPath,"user_reported_missing"); retryLastImage() }
-                .setNeutralButton("ยังไม่ตรวจ") { _,_ -> recordGeminiReceipt(receiptPath,"unverified") }.showDirector()
+                .setNeutralButton("กลับรายการรูป/ซีน") { _,_ ->
+                    recordGeminiReceipt(receiptPath,"unverified")
+                    if(!returnToImageList()) notice("ยังไม่มีรายการรูป/ซีนที่เปิดไว้ในเรื่องนี้")
+                }.showDirector()
         }
         storyUiHandler.removeCallbacks(storyPoll)
         storyUiHandler.post(storyPoll)
@@ -1419,10 +1423,21 @@ class StudioActivity : AppCompatActivity() {
     private fun productionTaskType(story: JSONObject,number: Int) {
         choiceMenu("EP.$number • เปิดหรือแก้เฉพาะรายการ",listOf("รูปและปก ChatGPT / Gemini","วิดีโอ Flow")) { productionTaskDeck(story,number,it==0) }
     }
+    private fun returnToImageList(): Boolean {
+        val story=plan ?: return false
+        val number=prefs.getInt("last_image_deck_${project.name}",0)
+        val eps=story.optJSONArray("episodes") ?: return false
+        if(number<=0 || (0 until eps.length()).none { eps.optJSONObject(it)?.optInt("ep")==number }) return false
+        activeProductionDialog?.dismiss()
+        activeProductionDialog=null
+        productionTaskDeck(story,number,true)
+        return true
+    }
     private fun productionTaskDeck(story: JSONObject,number: Int,images: Boolean) {
         val tasks=runCatching { if(images) SimpleProductionCommands.imageTasks(story,number) else SimpleProductionCommands.videoTasks(story,number) }.getOrElse {
             notice(it.message ?: "ข้อมูลคำสั่งไม่ครบ"); productionCheckMenu(story); return
         }
+        if(images) prefs.edit().putInt("last_image_deck_${project.name}",number).apply()
         val preference="production_cursor_${project.name}_${number}_$images"
         val previous=prefs.getString(preference,"")
         val start=tasks.indexOfFirst { it.id==previous }.coerceAtLeast(0)
@@ -1434,6 +1449,11 @@ class StudioActivity : AppCompatActivity() {
             val code=SimpleProductionCommands.block(task,index,images)+"\n\nล่าสุดที่เปิด: ${task.id} | ถัดไป: $next\nสถานะนี้บันทึกการเปิดคำสั่ง ไม่ได้ยืนยันว่าภาพหรือคลิปสร้างสำเร็จแล้ว"
             val problems=ProductionCommandCheck.issues(story)
             val dialog=showFlowCode("${task.id} • ถัดไป $next",code,"${task.id}_${if(images) "IMAGE" else "FLOW"}.txt")
+            if(images) {
+                activeProductionDialog=dialog
+                dialog.getButton(-2).text="กลับรายการรูป/ซีน"
+                dialog.getButton(-2).setOnClickListener { dialog.dismiss(); activeProductionDialog=null; productionTaskDeck(story,number,true) }
+            }
             if(problems.isNotEmpty()) dialog.getButton(-1).setOnClickListener { notice("คำสั่งยังมีจุดต้องแก้ • เปิด ตรวจคำสั่ง / แก้เฉพาะจุด ก่อนคัดลอก") }
             dialog.getButton(-1).text=if(images) "เลือกแอปสร้างภาพ + MASTER" else "ส่ง Flow + ภาพฉาก"
             dialog.getButton(-1).setOnClickListener {
@@ -1549,6 +1569,7 @@ class StudioActivity : AppCompatActivity() {
             root.addView(geminiProgressView,LinearLayout.LayoutParams(-1,dp(10)).apply { setMargins(dp(8),0,dp(8),dp(8)) })
             button("🤖 งานเขียนบท • ดูสถานะ / ทำต่อ",false) { geminiJobMenu() }
         } else { geminiStatusView=null; geminiProgressView=null }
+        if(current!=null && prefs.getInt("last_image_deck_${project.name}",0)>0) button("📋 กลับรายการรูป/ซีนล่าสุด",false) { if(!returnToImageList()) notice("ไม่พบ EP ที่เคยเปิดในเรื่องนี้") }
         if(File(project,"last_image_payload.json").isFile) button("🔁 ส่งคำสั่งและรูปอีกครั้ง",false) { retryLastImage() }
         stepCard(1,"📝","วางบทและเขียนคำสั่ง","เลือกแนวเรื่อง → AI เขียนบทและรับกลับในแอป → ส่งออก Flow • ตั้งค่า API Key ครั้งแรก",completed=prepared,currentStep=active,
             statusText=if(prepared) "เตรียมคำสั่ง / มีบทแล้ว" else "พร้อมเริ่มวางบท") { flowPlanning() }
