@@ -129,7 +129,7 @@ class AutoDirectorContentTest {
                 assertTrue(images.length<110000)
             }
             val cover=SimpleProductionCommands.imageTasks(p,1).first().command
-            assertTrue(cover.contains("x=15–85%, y=52–75%")); assertTrue(cover.contains("25% bottom"))
+            assertTrue(cover.contains("channel immediately above the title")); assertTrue(cover.contains("no large empty black panel"))
             assertTrue(cover.contains("position: left")); assertTrue(cover.contains("position: center")); assertTrue(cover.contains("position: right"))
             assertEquals(before,p.toString())
         }

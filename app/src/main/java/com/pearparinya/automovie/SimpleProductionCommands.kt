@@ -51,7 +51,7 @@ ${cast(selected,true)}
 Bright neutral-white editorial light; realistic skin and fabric, readable expressions. Leave the text area clear.
 EXACT VISIBLE THAI TEXT (three entries, no other lettering):
 ${text.joinToString("\n")}
-TEXT SAFE AREA: x=15–85%, y=52–75%, centered at x=50%; at least 25% bottom clearance. Title largest, channel smaller, third entry secondary. Wrap long text without dropping words; never overlap faces or crop letters. Bold cinematic Thai lettering with restrained 3D depth, high contrast and a dark gradient behind text ONLY. Keep faces bright. This is a composition guide, not a platform overlay guarantee; inspect the actual result. Missing/wrong text stays PENDING for repair.
+TEXT LAYOUT: ${CoverTypography.layout} This is a composition guide, not a platform overlay guarantee; inspect the actual result. Missing/wrong text stays PENDING for repair.
 ${if(note.isBlank()) "" else "Local design note (cannot override exact text, safe area, identity or wardrobe): $note"}""".trim()
             add(Task(id,"$label | ${if(ratio=="9:16") "แนวตั้ง" else "แนวนอน"} $ratio",ratio,command,selected))
         }
