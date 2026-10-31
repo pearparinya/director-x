@@ -542,9 +542,9 @@ class StudioActivity : AppCompatActivity() {
             prefs.edit().remove("gemini_receipt_pending").apply()
             val receiver=prefs.getString("image_receipt_app","Gemini") ?: "Gemini"
             AlertDialog.Builder(this).setTitle("ผลการรับไฟล์ใน $receiver")
-                .setMessage("$receiver รับไฟล์คำสั่ง TXT และรูป MASTER ครบหรือไม่? การเปิดแอปสำเร็จยังไม่ยืนยันว่ารับไฟล์ครบ")
+                .setMessage("ตรวจว่ารูปและคำสั่งใน $receiver ครบหรือไม่ การเปิดแอปสำเร็จยังไม่ยืนยันว่ารับครบหรือสร้างภาพแล้ว")
                 .setPositiveButton("รับครบแล้ว") { _,_ -> recordGeminiReceipt(receiptPath,"user_confirmed_received") }
-                .setNegativeButton("ไฟล์ไม่ครบ") { _,_ -> recordGeminiReceipt(receiptPath,"user_reported_missing"); notice("บันทึกปัญหาไว้แล้ว • ยังไม่ถือว่าส่งสำเร็จ กรุณาส่งชุดเดิมอีกครั้งจากรหัสปกหรือซีน") }
+                .setNegativeButton("ส่งรูปอีกครั้ง") { _,_ -> recordGeminiReceipt(receiptPath,"user_reported_missing"); retryLastImage() }
                 .setNeutralButton("ยังไม่ตรวจ") { _,_ -> recordGeminiReceipt(receiptPath,"unverified") }.showDirector()
         }
         storyUiHandler.removeCallbacks(storyPoll)
@@ -1155,6 +1155,10 @@ class StudioActivity : AppCompatActivity() {
         commandFile.writeText(text)
         File(destination,"last_payload.json").writeText(JSONObject().put("text",text).put("creation",lockCreation)
             .put("images",JSONArray(uris.map { it.toString() })).put("attachments",attachments).toString())
+        if(imagePackage) {
+            val images=uris.filter { contentResolver.getType(it)?.startsWith("image/")==true }
+            File(destination,"last_image_payload.json").writeText(JSONObject().put("text",text).put("images",JSONArray(images.map { it.toString() })).toString())
+        }
         val imageList = (0 until attachments.length()).joinToString("\n") { i -> attachments.getJSONObject(i).let { "${it.optString("name")} • ${it.optLong("bytes")} bytes • SHA ${it.optString("sha256").take(12)}" } }
         pendingStorySummary = "คำสั่ง ${text.length} ตัวอักษร • ภาพ ${uris.count { contentResolver.getType(it)?.startsWith("image/")==true }} ภาพ" + if(filePackage) " • ไฟล์คำสั่ง 1 ไฟล์" else ""
         fun launchShare() {
@@ -1584,6 +1588,7 @@ class StudioActivity : AppCompatActivity() {
             root.addView(geminiProgressView,LinearLayout.LayoutParams(-1,dp(10)).apply { setMargins(dp(8),0,dp(8),dp(8)) })
             button("🤖 งานเขียนบท • ดูสถานะ / ทำต่อ",false) { geminiJobMenu() }
         } else { geminiStatusView=null; geminiProgressView=null }
+        if(File(project,"last_image_payload.json").isFile) button("🔁 ส่งคำสั่งและรูปอีกครั้ง",false) { retryLastImage() }
         stepCard(1,"📝","วางบทและเขียนคำสั่ง","เลือกแนวเรื่อง → AI เขียนบทและรับกลับในแอป → ส่งออก Flow • ตั้งค่า API Key ครั้งแรก",completed=prepared,currentStep=active,
             statusText=if(prepared) "เตรียมคำสั่ง / มีบทแล้ว" else "พร้อมเริ่มวางบท") { flowPlanning() }
         stepCard(2,"📥","นำเข้าบท / ZIP","นำเข้า story.json หรือ ZIP บท • ไม่ต้องรอภาพฉาก • เพิ่มไฟล์ภาพและคลิปภายหลังได้",completed=current!=null,currentStep=active,
@@ -2515,6 +2520,24 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
                     prefs.edit().putString("project",folder.name).commit()
                 } finally { staging.deleteRecursively() }
             } }.setNegativeButton("ยกเลิก",null).showDirector()
+    }
+    private fun retryLastImage() {
+        val file=File(project,"last_image_payload.json")
+        if(!file.isFile) return notice("ยังไม่มีชุดสร้างภาพล่าสุด กรุณาเลือกรูปปกหรือซีนเพื่อส่งก่อน")
+        runCatching {
+            val payload=JSONObject(file.readText()); val images=payload.getJSONArray("images")
+            require(images.length()>0) { "ไม่พบภาพอ้างอิงในชุดล่าสุด กรุณาเลือกปกหรือซีนอีกครั้ง" }
+            val references=(0 until images.length()).map { i ->
+                val uri=Uri.parse(images.getString(i))
+                require(uri.authority=="$packageName.fileprovider") { "แหล่งภาพส่งซ้ำไม่ถูกต้อง" }
+                val relative=uri.path?.trimStart('/') ?: error("ไม่มีเส้นทางภาพ")
+                require(relative.startsWith("character_master_exports/") || relative.startsWith("scene_reference_exports/")) { "ภาพไม่ได้อยู่ในพื้นที่ส่งออก" }
+                val source=File(cacheDir,relative)
+                require(source.canonicalPath.startsWith(cacheDir.canonicalPath+File.separator) && source.isFile) { "ไฟล์ชั่วคราวหมดอายุ กรุณาเลือกปกหรือซีนเดิมเพื่อส่งใหม่" }
+                source.nameWithoutExtension to source
+            }
+            shareImageCommand(payload.getString("text"),references)
+        }.onFailure { notice(it.message ?: "ส่งรูปซ้ำไม่ได้") }
     }
     private fun retryLastCommand() {
         val file=File(project,"last_payload.json")
