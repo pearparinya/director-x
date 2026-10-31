@@ -1052,10 +1052,16 @@ class StudioActivity : AppCompatActivity() {
     private fun shareImageCommand(command: String, references: List<Pair<String,File>>) {
         val preferred=prefs.getString("image_provider","ChatGPT") ?: "ChatGPT"
         val providers=imageProviderOptions(preferred)
-        choiceMenu("สร้างภาพด้วยแอปไหน",providers.mapIndexed { i,name -> name+if(i==0) " • ตัวเลือกที่จำไว้" else "" }) { selected ->
-            val provider=providers[selected]
-            prefs.edit().putString("image_provider",provider).apply()
-            shareText(command,includeMasters=false,referenceImages=references,destinationLabel=provider,imagePackage=true)
+        val choices=providers.mapIndexed { i,name -> name+if(i==0) " • ตัวเลือกที่จำไว้" else "" } + "คัดลอกคำสั่ง • แนบ MASTER เอง"
+        choiceMenu("สร้างภาพด้วยแอปไหน",choices) { selected ->
+            if(selected==providers.size) {
+                copyCommand(command)
+                notice("คัดลอกแล้ว • แนบภาพ MASTER ของตัวละครแต่ละคนด้วยตนเองก่อนสร้าง")
+            } else {
+                val provider=providers[selected]
+                prefs.edit().putString("image_provider",provider).apply()
+                shareText(command,includeMasters=false,referenceImages=references,destinationLabel=provider,imagePackage=true)
+            }
         }
     }
     private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT", imagePackage: Boolean = false) {
