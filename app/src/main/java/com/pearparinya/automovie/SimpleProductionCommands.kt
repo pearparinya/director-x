@@ -22,7 +22,7 @@ internal object SimpleProductionCommands {
         for(i in 0 until rows.length()) FlowReferencePrompt.people(rows.getJSONObject(i)).forEach { all.putIfAbsent(it.getString("name"),it) }
         return all.values.toList()
     }
-    private const val identity="Fictional adults 25+. Match each person to the attached MASTER by its complete reference ID, ignoring file extensions and upload order. Match face, hairstyle, skin and natural body proportions. No mixing, enlarging or slimming. MASTER supplies identity only; use the exact planned outfit and accessories below, never reference clothing. Opaque lined editorial fashion; natural anatomy and fabric."
+    private const val identity="REFERENCE ROLE MAPPING: Attach each listed character's own MASTER. Match the name to the complete MASTER ID in the list; filenames or upload order alone may not reliably identify an image. If a reference cannot be identified, ask before generating. Use each MASTER for face, hair and natural body proportions only. Never mix characters. Use the planned outfits listed below, not the MASTER clothing. Fictional adults 25+; natural anatomy and opaque lined editorial clothing."
     private const val wardrobeContinuity="WARDROBE CONTINUITY: Keep each listed person's planned outfit identical across covers and scenes on the same story day: garment type, fabric, color, neckline, collar, sleeves, closures, hem and accessories. Do not invent missing details. If an approved outfit image is explicitly attached, use it only for that person's clothes; their own MASTER controls face, hair and body. Compare actual results before approval."
     private fun cast(people: List<JSONObject>,poster: Boolean=false)=people.mapIndexed { i,p ->
         val position=if(!poster) p.optString("screen_position") else when(people.size) { 1 -> "center"; 2 -> if(i==0) "left" else "right"; else -> listOf("left","center","right")[i] }
@@ -47,15 +47,13 @@ internal object SimpleProductionCommands {
             val size=if(ratio=="9:16") "1080 x 1920" else "1920 x 1080"
             val note=(if(overall) story else ep).optString("production_note_$id")
             val command="""Generate ONE $ratio ${if(ratio=="9:16") "vertical" else "horizontal"} movie poster, $size. Cinematic waist-up composition; faces clear in the upper half, distinct expressions appropriate to ${story.optString("category")}. Recompose independently for this ratio; no stretching or collage.
-$identity
-${cast(selected,true)}
-$wardrobeContinuity
+$identity\nCHARACTERS AND OUTFITS:\n${cast(selected,true)}\n$wardrobeContinuity\n${FlowReferencePrompt.visibleCastLock(selected)}
 Bright neutral-white editorial light; realistic skin and fabric, readable expressions. Leave the text area clear.
 EXACT VISIBLE THAI TEXT (three entries, no other lettering):
 ${text.joinToString("\n")}
 ${BodyReferencePolicy.imageIdentityLock}
 ${ImagePromptPolicy.skinTone}
-TEXT LAYOUT: ${CoverTypography.layout} This is a composition guide, not a platform overlay guarantee; inspect the actual result. Missing/wrong text stays PENDING for repair.
+TEXT LAYOUT: ${CoverTypography.layout} Treat requested pixel dimensions as a target; check downloaded pixel size. Inspect each face, garment and all Thai text; missing or incorrect elements remain pending for correction.
 ${if(note.isBlank()) "" else "Local design note (cannot override exact text, safe area, identity or wardrobe): $note"}""".trim()
             add(Task(id,"$label | ${if(ratio=="9:16") "แนวตั้ง" else "แนวนอน"} $ratio",ratio,command,selected))
         }
@@ -65,9 +63,7 @@ ${if(note.isBlank()) "" else "Local design note (cannot override exact text, saf
             val scene=rows.getJSONObject(i); val n=scene.getInt("scene"); val id="EP%02d_SC%03d".format(number,n)
             val visiblePeople=FlowReferencePrompt.people(scene)
             val command="""Generate ONE 9:16 vertical photorealistic Thai-drama scene image, 1080 x 1920. No text, captions or watermark. Depict the START STATE as a clear first frame for an 8-second video; do not show a sequence or jump to the completed action.
-$identity
-${cast(visiblePeople)}
-$wardrobeContinuity
+$identity\nCHARACTERS AND OUTFITS:\n${cast(visiblePeople)}\n$wardrobeContinuity
 ${FlowReferencePrompt.visibleCastLock(visiblePeople)}
 Style: ${story.optString("category")} — follow the written action, no new plot.
 Story day: ${scene.getString("story_day")} — exact wardrobe remains locked across locations and EPs.
@@ -160,7 +156,7 @@ $dialogue
         val tasks=if(images) imageTasks(story,number) else videoTasks(story,number)
         val coverCount=tasks.count { it.id.contains("_COVER_") }
         return buildString {
-            append("${if(images) "คำสั่งสร้างรูป Gemini" else "คำสั่งวิดีโอ Flow"} | EP.$number | ${story.getString("title")}\n")
+            append("${if(images) "คำสั่งสร้างรูป ChatGPT / Gemini" else "คำสั่งวิดีโอ Flow"} | EP.$number | ${story.getString("title")}\n")
             append("${if(images) "${tasks.size} ภาพ: ปก $coverCount + ซีน ${tasks.size-coverCount}" else "${tasks.size} ซีน × 8 วินาที = ${tasks.size*8} วินาที (ไม่รวมปกเปิด)"}\n")
             append("สารบัญ — หัวข้อและรหัสเป็นป้ายกำกับ ห้ามวาดลงซีน:\n")
             tasks.forEachIndexed { i,t -> append("${i+1}. ${t.id} | ${t.title}\n") }
