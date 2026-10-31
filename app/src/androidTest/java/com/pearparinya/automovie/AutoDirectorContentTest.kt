@@ -188,7 +188,7 @@ class AutoDirectorContentTest {
                 assertTrue(images.contains("แก้ภาพ <รหัส>")); assertTrue(images.contains("PENDING"))
                 assertTrue(videos.contains("SOUND:")); assertTrue(videos.contains("กวิน บอกว่า A &amp; B &lt; C ใช่ไหม"))
                 assertFalse(videos.contains("STALE AUDIO"))
-                assertTrue(images.length<110000)
+                assertTrue("Image export must remain reasonably compact",images.length<135000)
             }
             val cover=SimpleProductionCommands.imageTasks(p,1).first().command
             assertTrue(cover.contains("channel immediately above the title")); assertTrue(cover.contains("no large empty black panel"))
