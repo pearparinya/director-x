@@ -1455,19 +1455,13 @@ class StudioActivity : AppCompatActivity() {
                 dialog.getButton(-2).setOnClickListener { dialog.dismiss(); activeProductionDialog=null; productionTaskDeck(story,number,true) }
             }
             if(problems.isNotEmpty()) dialog.getButton(-1).setOnClickListener { notice("คำสั่งยังมีจุดต้องแก้ • เปิด ตรวจคำสั่ง / แก้เฉพาะจุด ก่อนคัดลอก") }
-            dialog.getButton(-1).text=if(images) "เลือกแอปสร้างภาพ + MASTER" else "ส่ง Flow + ภาพฉาก"
+            dialog.getButton(-1).text=if(images) "เลือกแอปสร้างภาพ + MASTER" else "คัดลอกคำสั่ง Flow"
             dialog.getButton(-1).setOnClickListener {
+                if(!images) { copyCommand(task.command); return@setOnClickListener }
                 if(problems.isNotEmpty()) { productionCheckMenu(story); return@setOnClickListener }
-                if(images) {
-                    val refs=task.references.map { person -> person.getString("master").substringBeforeLast('.') to masterFor(person) }
-                    if(refs.isEmpty() || refs.any { !it.second.isFile }) { notice("ขาด MASTER ของตัวละครในรายการนี้"); return@setOnClickListener }
-                    shareImageCommand(task.command,refs)
-                } else {
-                    val scene=rows(story).first { key(it)==task.id }
-                    if(!image(scene).isFile) { notice("สร้างภาพซีนนี้ใน ChatGPT หรือ Gemini แล้วนำเข้าภาพผ่านขั้นตอน 4 ก่อนส่ง Flow"); return@setOnClickListener }
-                    if(!sceneFrameApproved(scene) || FlowScenePrompt.issues(flowSpec(scene)).isNotEmpty()) { compareScene(scene); return@setOnClickListener }
-                    shareText(flowCommand(scene),includeMasters=false,referenceImages=listOf(task.id to image(scene)),destinationLabel="Flow")
-                }
+                val refs=task.references.map { person -> person.getString("master").substringBeforeLast('.') to masterFor(person) }
+                if(refs.isEmpty() || refs.any { !it.second.isFile }) { notice("ขาด MASTER ของตัวละครในรายการนี้"); return@setOnClickListener }
+                shareImageCommand(task.command,refs)
             }
             dialog.getButton(-3).text="แก้เฉพาะรายการนี้"
             dialog.getButton(-3).setOnClickListener {
