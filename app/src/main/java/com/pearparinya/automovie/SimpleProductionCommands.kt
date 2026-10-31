@@ -90,19 +90,27 @@ ${scene.optString("production_image_note").takeIf { it.isNotBlank() }?.let { "Lo
                 spec.dialogue.isNotBlank() -> "ONLY SPEAKER: ${spec.speaker}. Exact Thai dialogue once: “${spec.dialogue}”. Only this person's lips move; everyone else is silent. No narrator."
                 spec.narration.isNotBlank() -> "OFF-SCREEN MALE NARRATOR ONLY: “${spec.narration}”. All on-screen mouths closed; nobody lip-syncs the narration."
                 else -> "No dialogue or narration; all on-screen mouths closed." }
-            val command="""ภาพเริ่มต้นที่ต้องแนบ: รหัส $id — ใช้ภาพซีนที่ตรวจ MASTER ชุดและตำแหน่งแล้ว ไม่ขึ้นกับนามสกุลไฟล์ ไม่ใช้ MASTER แทนเฟรมฉาก
-Flow: ONE continuous 8-second 9:16 vertical video, 1080 x 1920, locked-off camera. Preserve the supplied frame's identities, body proportions, exact outfits, positions, room and props. No cuts, captions or extra characters.
-${cast(FlowReferencePrompt.people(scene))}
-STYLE: ${story.optString("category")} — follow the written action, no new plot.
-LOCATION: ${spec.location}
-START: ${spec.startState}
-ONE ACTION: ${spec.action}
-END: ${spec.endState}. Hold briefly for continuity.
-ACTING: ${acting(scene).ifBlank { "Natural distinct reactions, receive the cue then perform the single action and settle; no extra event." }}
-$line Finish the assigned line naturally within 8 seconds; no extra voices, ad-libs or audible laughs.
-${SoundDesign.prompt(spec.sound)}
-LIGHTING: ${light(scene)}
-${scene.optString("production_video_note").takeIf { it.isNotBlank() }?.let { "Local direction correction (keep cast, wardrobe, exact speech, action and audio rules): $it" }.orEmpty()}""".trim()
+            val castLabels=FlowReferencePrompt.people(scene).joinToString("; ") { p ->
+                "${p.getString("name")} (${p.optString("screen_position").ifBlank { "as in image" }})"
+            }
+            val direction=FlowReferencePrompt.people(scene).mapNotNull { person ->
+                person.optJSONObject("performance")?.let { p ->
+                    val cues=listOf("emotion","gaze","body_language").mapNotNull { k -> p.optString(k).takeIf { it.isNotBlank() } }
+                    if(cues.isEmpty()) null else person.getString("name")+": "+cues.joinToString(", ")
+                }
+            }.joinToString("; ")
+            val sound=SoundDesign.prompt(spec.sound).replace(Regex("\\b(?:indoor )?murmurs\\b", RegexOption.IGNORE_CASE), "quiet room tone")
+            val command="""ภาพเริ่มต้นที่ต้องแนบ: รหัส $id — ใช้ภาพซีนที่ตรวจแล้ว
+Create one continuous 8-second vertical 9:16 video from the attached starting frame, with a locked camera. Preserve the people, faces, hair, body proportions, clothing, positions, lighting, location and props in the image. No cuts, captions or additional people.
+Visible cast: $castLabels.
+Starting situation: ${spec.startState}
+Action: ${spec.action}
+End: ${spec.endState}
+${if(direction.isBlank()) "" else "Performance: $direction"}
+$line
+${if(spec.dialogue.isNotBlank() || spec.narration.isNotBlank()) "Deliver the assigned line naturally within 8 seconds." else ""} Any other person mentioned in the action remains silent unless assigned dialogue above.
+$sound
+${scene.optString("production_video_note").takeIf { it.isNotBlank() }?.let { "Direction: $it" }.orEmpty()}""".trim()
             Task(id,"EP.$number | ซีน %03d | วิดีโอ 9:16 | 8 วินาที".format(n),"9:16",command)
         }
     }

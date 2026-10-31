@@ -29,6 +29,22 @@ class AutoDirectorContentTest {
         val multi=FlowReferencePrompt.visibleCastLock(listOf(solo,JSONObject().put("name","อีกคน")))
         assertTrue(multi.contains("Show exactly 2 people"))
     }
+    @Test fun flowCommandKeepsAssignedSpeechAndFrameWithoutConflictingMurmurs() {
+        val project=story()
+        val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
+        scene.put("sound_design",JSONObject().put("ambience","subtle indoor murmurs").put("sfx","none").put("music","low strings"))
+        val prompt=SimpleProductionCommands.videoTasks(project,1).first().command
+        assertTrue(prompt.contains("รหัส EP01_SC001"))
+        assertTrue(prompt.contains(scene.getString("dialogue")))
+        assertTrue(prompt.contains("ONLY SPEAKER: รินรดา"))
+        assertTrue(prompt.contains("quiet room tone"))
+        assertFalse(prompt.contains("indoor murmurs"))
+        assertFalse(prompt.contains("MASTER ID:"))
+        scene.put("dialogue","").put("speaker","").put("narration","")
+        val silent=SimpleProductionCommands.videoTasks(project,1).first().command
+        assertTrue(silent.contains("No dialogue or narration"))
+        assertFalse(silent.contains("Deliver the assigned line"))
+    }
     @Test fun imageAndVideoCommandsUseReferenceIdsWithoutAssumingFileType() {
         val project=story()
         val poster=SimpleProductionCommands.imageTasks(project,1).first().command
