@@ -16,6 +16,17 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 @RunWith(AndroidJUnit4::class)
 class AutoDirectorContentTest {
+    @Test fun imageCommandsKeepFaceGeometryAndSameDayWardrobe() {
+        val tasks=SimpleProductionCommands.imageTasks(story(),1)
+        val samples=listOf(tasks.first { it.id=="STORY_COVER_9x16" },tasks.first { it.id=="STORY_COVER_16x9" },tasks.first { it.id=="EP01_SC001" })
+        samples.forEach { task ->
+            assertTrue(task.command.contains("Do not stretch, elongate, widen, squeeze or warp the face"))
+            assertTrue(task.command.contains("Recompose independently for each aspect ratio"))
+            assertTrue(task.command.contains("WARDROBE CONTINUITY"))
+            assertTrue(task.command.contains("neckline, collar, sleeves, closures"))
+            assertTrue(task.command.contains("their own MASTER controls face, hair and body"))
+        }
+    }
     @Test fun sceneImageLocksOnlyVisibleCastEvenWhenOthersAreMentioned() {
         val project=story()
         val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
