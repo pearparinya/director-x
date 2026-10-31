@@ -225,29 +225,6 @@ jobs:
       # UPLOAD
       # ============================================================
 
-      - name: Delete old APK artifacts
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "Deleting old DIRECTOR X APK artifacts..."
-          gh api --paginate \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${{ github.repository }}/actions/artifacts?per_page=100" \
-            --jq '.artifacts[] | select(.name | startswith("DIRECTOR-X-") or startswith("AUTO-MOVIE-R")) | .id' \
-          | while read -r ARTIFACT_ID; do
-              [ -z "$ARTIFACT_ID" ] && continue
-              # Another workflow run can delete the same artifact between
-              # listing and deletion. A 404 therefore means "already deleted"
-              # and must not abort an otherwise valid signed release.
-              if ! gh api --method DELETE \
-                -H "Accept: application/vnd.github+json" \
-                "/repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID"; then
-                echo "Artifact $ARTIFACT_ID was already removed or unavailable; continuing."
-              fi
-            done
-          echo "Old DIRECTOR X APK artifacts deleted."
-
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
@@ -277,24 +254,11 @@ jobs:
 
           cp "$APK" "$PUBLISH_APK"
 
-          # Clean up every prior release record for this exact build tag,
-          # including orphaned DRAFT releases left by a failed asset upload.
-          # "gh release view" can miss drafts, which caused BUILD 683 to fail
-          # with ReleaseAsset.name already exists.
-          RELEASE_IDS="$(gh api --paginate \
-            "/repos/${{ github.repository }}/releases?per_page=100" \
-            --jq '.[] | select(.tag_name == "'"$TAG"'") | .id')"
-          for RELEASE_ID in $RELEASE_IDS; do
-            echo "Deleting stale release record $RELEASE_ID for $TAG."
-            gh api --method DELETE "/repos/${{ github.repository }}/releases/$RELEASE_ID" || true
-          done
-
-          # Remove a stale tag independently from the release record.
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
-            gh api --method DELETE "/repos/${{ github.repository }}/git/refs/tags/$TAG" || true
+          # Refuse to overwrite an existing release or tag. Each build is immutable.
+          if gh release view "$TAG" >/dev/null 2>&1 || git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Release or tag $TAG already exists; increase the app version."
+            exit 1
           fi
-
-          gh release delete R1.49-B770 --yes 2>/dev/null || true
 
           gh release create "$TAG" "$PUBLISH_APK" \
             --target "${{ github.sha }}" \
