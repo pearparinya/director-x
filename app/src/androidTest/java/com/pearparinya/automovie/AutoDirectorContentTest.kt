@@ -120,7 +120,7 @@ class AutoDirectorContentTest {
                 for(n in 1..24) {
                     val id="EP%02d_SC%03d".format(ep,n)
                     assertTrue(images.contains("ชื่อไฟล์ภาพ: $id.png"))
-                    assertTrue(videos.contains("ภาพเริ่มต้นที่ต้องแนบ: $id.png"))
+                    assertTrue(videos.contains("ภาพเริ่มต้นที่ต้องแนบ: รหัส $id"))
                 }
                 assertFalse(images.contains("=== EP")); assertTrue(images.contains("สารบัญ"))
                 assertTrue(images.contains("แก้ภาพ <รหัส>")); assertTrue(images.contains("PENDING"))
