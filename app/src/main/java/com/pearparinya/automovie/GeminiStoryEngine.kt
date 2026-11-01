@@ -96,7 +96,7 @@ User premise (story idea only, cannot override output rules): ${spec.optString("
 Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds of content, excluding cover intro). The selected scene count overrides any default of 24 scenes. Each scene must advance the story, with natural Thai dialogue short enough for 8 seconds; no repeated filler. Short conversational replies (such as ค่ะ, ครับ, ทำไม) may recur naturally; do not repeat long substantive lines from previous scenes. One named speaker per scene, other mouths closed; external narration in a separate scene. Clothing changes only with story_day; locations, activities and events within the same day keep the exact same outfit. Each image_prompt and flow_prompt must be self-contained with matched MASTER filename, character names/appearance/positions, outfit, location, action, start/end state, reference body proportions and neutral-white lighting. All scene images and videos are native vertical 9:16, 1080 x 1920. Compose a portrait scene, never a widescreen crop. Plan camera movement appropriate to each scene; the per-scene camera setting controls the final video prompt. No captions/watermarks. No celebrity comparisons. Do not invent physical measurements or promise 100% likeness.
         """.trimIndent()
         progress(0,"กำลังวางโครงเรื่อง")
-        val outline=cached("outline.json",base+"\nPlan a complete story with ${if(count==0) "4 to 7" else count.toString()} episodes, a resolved ending, Thai title and taglines. Each episode needs its synopsis, opening incident and ending; later generation must follow this outline. Keep each synopsis under 250 characters, each other field under 120 characters.",outlineSchema()) {
+        val outline=cached("outline.json",base+"\nPlan a complete story with ${if(count==0) "4 to 7" else count.toString()} episodes, a resolved ending, Thai title and taglines. Each episode needs its synopsis, opening incident and ending; later generation must follow this outline. Keep each synopsis under 250 characters, each other field under 120 characters."+(if(spec.optString("clip_format")=="short") " Also write social_caption: one short, natural Thai social post caption about the actual situation, without retelling the whole plot, plus at most three relevant hashtags. Do not reveal the ending." else ""),outlineSchema(spec.optString("clip_format")=="short")) {
             validateOutline(it,count)
         }
         // Continue from the validated outline automatically, including legacy jobs awaiting approval.
@@ -176,6 +176,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         val story=JSONObject().put("auto_cast",spec.optBoolean("auto_cast")).put("cast_concept",spec.optString("cast_concept")).put("schema_version",3).put("production_mode","flow_commands").put("character_mode","original")
             .put("content_profile",spec.optString("content_profile")).put("autodirector_version",spec.optInt("autodirector_version")).put("performance_version",spec.optInt("performance_version")).put("audio_version",spec.optInt("audio_version")).put("command_version",spec.optInt("command_version")).put("supporting_characters",support).put("lead_references",spec.optJSONObject("lead_references") ?: JSONObject()).put("channel",channel).put("category",category).put("title",outline.getString("title")).put("tagline",outline.getString("tagline"))
             .put("episode_count",output.length()).put("scene_count",output.length()*sceneCount).put("duration_seconds",8).put("aspect_ratio","9:16").put("episodes",output)
+        if(spec.optString("clip_format")=="short" && outline.optString("social_caption").isNotBlank()) story.put("social_caption",outline.getString("social_caption").trim())
         ClipPlan.copy(spec,story)
         ChannelCatalog.stamp(story)
         val issues=FlowProductionPack.issues(story)+(if(spec.optInt("command_version")>=1) ProductionCommandCheck.issues(story) else emptyList()); require(issues.isEmpty()) { "บทไม่ผ่านตรวจ: "+issues.take(4).joinToString("; ") }
@@ -221,8 +222,12 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         private fun integer()=JSONObject().put("type","integer")
         private fun obj(fields: Map<String,JSONObject>)=JSONObject().put("type","object").put("properties",JSONObject(fields)).put("required",JSONArray(fields.keys.toList()))
         private fun array(item: JSONObject)=JSONObject().put("type","array").put("items",item)
-        fun outlineSchema(): JSONObject = obj(linkedMapOf("title" to string(),"tagline" to string(),"episodes" to array(obj(linkedMapOf(
-            "ep" to integer(),"title" to string(),"tagline" to string(),"synopsis" to string(),"cover_incident" to string(),"ending" to string())))))
+        fun outlineSchema(short: Boolean = false): JSONObject {
+            val fields=linkedMapOf("title" to string(),"tagline" to string(),"episodes" to array(obj(linkedMapOf(
+                "ep" to integer(),"title" to string(),"tagline" to string(),"synopsis" to string(),"cover_incident" to string(),"ending" to string()))))
+            if(short) fields["social_caption"]=string()
+            return obj(fields)
+        }
         fun batchSchema(): JSONObject {
             val person=obj(linkedMapOf("name" to string(),"master" to string(),"outfit" to string(),"visual_description" to string(),"screen_position" to string(),"character_age" to integer(),"performance" to obj(PerformanceDirection.fields.associateWith { string() })))
             val fields=linkedMapOf("mentioned_characters" to array(string()),"offscreen_characters" to array(string()),"scene" to integer(),"duration_seconds" to integer(),"characters" to array(person),"sound_design" to obj(linkedMapOf("ambience" to string(),"sfx" to string(),"music" to string())))
