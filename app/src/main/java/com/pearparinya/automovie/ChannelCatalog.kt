@@ -133,7 +133,7 @@ internal object ClipPlan {
         expected
     } else 24
     fun time(seconds: Int) = "%d:%02d".format(seconds/60,seconds%60)
-    fun label(seconds: Int) = "ประมาณ ${if(seconds<60) "$seconds วินาที" else "${seconds/60} นาที"} • ${scenes(seconds)} ซีน = ${time(scenes(seconds)*8)}"
+    fun label(seconds: Int) = "${scenes(seconds)} ซีน × 8 วินาที = ${time(scenes(seconds)*8)} เนื้อหา • ไม่รวมปกเปิด"
     fun apply(value: JSONObject, format: String, seconds: Int): JSONObject = value
         .put("clip_plan_version",1).put("clip_format",format).put("target_seconds",seconds).put("scenes_per_episode",scenes(seconds))
     fun copy(from: JSONObject, to: JSONObject) {
