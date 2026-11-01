@@ -1784,7 +1784,15 @@ class StudioActivity : AppCompatActivity() {
         }
     }
     private fun chooseChannelTopic(done: (Int) -> Unit) {
-        choiceMenu("เลือกหมวดหลัก • ให้ AI คิดเรื่องใหม่",ChannelCatalog.mainCategories.map { it.menuLabel },action=done)
+        val labels=listOf("🏡 ดราม่าครอบครัวและความลับ","💔 ความรักและการทรยศ","❤️ รักต่างวัยและต่างฐานะ","🏢 ที่ทำงานและอาชีพ","🔎 สืบสวน ความลับ และหักมุม","🔥 ล้างแค้นและปลอมตัว","💞 โรแมนติกคอมเมดี้","🏘️ คอมเมดี้ชีวิตประจำวัน","🎭 คู่หูและภารกิจ","💎 สังคมหรูและระทึกขวัญ")
+        fun index(id: String)=ChannelCatalog.mainCategories.indexOfFirst { it.id==id }.also { require(it>=0) }
+        choiceMenu("เลือกหมวดหลัก • เลือกแนวเพิ่มเติมได้",labels) { selected ->
+            when(selected) {
+                2 -> choiceMenu("รักต่างวัย • เลือกแนว",listOf("รักต่างวัยหรือต่างฐานะทั่วไป","หนุ่มรุ่นน้อง 25–30 • สาวรุ่นพี่ 45–55 (ห่างอย่างน้อย 15 ปี)")) { pick -> done(index(if(pick==0) "age_status_romance" else "younger_man_older_woman")) }
+                3 -> choiceMenu("ที่ทำงาน • เลือกโทน",listOf("ดราม่าและอาชีพ","ซิตคอมในที่ทำงาน")) { pick -> done(index(if(pick==0) "office_career" else "office_sitcom")) }
+                else -> done(index(listOf("domestic_secrets","betrayal_rivalry","","","mystery_twist","revenge_disguise","romantic_misunderstanding","neighborhood_comedy","career_buddy_comedy","high_society_underworld")[selected]))
+            }
+        }
     }
     private fun chooseClip(done: (String,Int) -> Unit) {
         choiceMenu("เลือกรูปแบบ • ทุกแบบแนวตั้ง 9:16",listOf("คลิปสั้น","คลิปยาว")) { format ->
@@ -1809,6 +1817,14 @@ class StudioActivity : AppCompatActivity() {
                     runCatching {
                         val catalog=JSONObject(assets.open("master_library/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records")
                         require(catalog.length()>0) { "คลังตัวละครว่าง กรุณาเพิ่มตัวละครชุดใหม่ก่อนใช้คัดนักแสดงอัตโนมัติ" }
+                        if(ChannelCatalog.mainCategories[index].id=="younger_man_older_woman") {
+                            val candidates=(0 until catalog.length()).map { catalog.getJSONObject(it) }
+                            val men=candidates.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 25..30 }
+                            val women=candidates.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 45..55 }
+                            require(men.any { man -> women.any { woman -> woman.optInt("character_age")-man.optInt("character_age")>=15 } }) {
+                                "หมวดนี้ต้องมีผู้ชายอายุ 25–30 และผู้หญิงอายุ 45–55 ห่างกันอย่างน้อย 15 ปี ในคลัง MASTER • พบชาย ${men.size} คน หญิง ${women.size} คน กรุณาตรวจข้อมูลในคลังหรือเลือกแนวทั่วไป"
+                            }
+                        }
                         val folder=File(base,UUID.randomUUID().toString()).apply { mkdirs() }
                         for(n in 0 until catalog.length()) {
                             val row=catalog.getJSONObject(n); val target=File(folder,"master_candidates/"+row.getString("file")); target.parentFile!!.mkdirs()
