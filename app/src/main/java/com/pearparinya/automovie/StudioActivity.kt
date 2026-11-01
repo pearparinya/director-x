@@ -1924,9 +1924,10 @@ class StudioActivity : AppCompatActivity() {
         val configure: (Int) -> Unit = { index ->
             chooseClip { format, seconds ->
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-            panel.addView(TextView(this).apply { text="หมวด: ${categories[index]}\nAI เลือกนักแสดงจากคลัง MASTER และตั้งชื่ออัตโนมัติตามบท แล้วเขียนเรื่องต่อครบทุก EP"; textSize=14f })
+            panel.addView(TextView(this).apply { text="หมวด: ${categories[index]}\nAI เลือกนักแสดงจากคลัง MASTER และตั้งชื่ออัตโนมัติตามบท ${if(format=="short") "สร้างเรื่องจบในคลิปเดียว" else "แล้วเขียนเรื่องต่อครบทุก EP"}"; textSize=14f })
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
-            val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("1 EP • จบในตอน","ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); panel.addView(this) }
+            val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("1 EP • จบในตอน","ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); if(format!="short") panel.addView(this) }
+            if(format=="short") panel.addView(TextView(this).apply { text="คลิปสั้น • จบในคลิปเดียว" })
             panel.addView(TextView(this).apply { text="${if(format=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(seconds)} ต่อ EP • ไม่รวมปกเปิด 3 วินาที • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้ • ${StoryProvider.label(this@StudioActivity)} • ใช้โมเดลที่ตั้งไว้ • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ของคุณภายหลัง" })
             AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
@@ -1946,7 +1947,7 @@ class StudioActivity : AppCompatActivity() {
                             val row=catalog.getJSONObject(n); val target=File(folder,"master_candidates/"+row.getString("file")); target.parentFile!!.mkdirs()
                             val source=castingSource(row); require(source.isFile && MasterLibrary.digest(source.readBytes())==row.getString("sha256")) { "ภาพ MASTER ของ ${row.optString("display_name")} สูญหายหรือเปลี่ยนไป" }; source.copyTo(target,overwrite=true)
                         }
-                        val count=when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
+                        val count=if(format=="short") 1 else when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",originalChannel)
                             .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",2).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("premise",premise.text.toString()).put("episodes",count)))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
@@ -1961,7 +1962,7 @@ class StudioActivity : AppCompatActivity() {
             chooseClip { format, seconds ->
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (เว้นว่างให้คิดใหม่)" }
             fun prepare(): String {
-                val code=FlowProductionPack.masterCommand(categories[index],originalChannel)+"\n"+ChannelCatalog.direction(categories[index])+"\nUSER DURATION OVERRIDE: ${ClipPlan.scenes(seconds)} scenes per EP, 8 seconds each, ${ClipPlan.time(ClipPlan.scenes(seconds)*8)} content per EP. Supersedes default 24 scenes and 180-second minimum above. Set clip_plan_version=1, clip_format=$format, target_seconds=$seconds, scenes_per_episode=${ClipPlan.scenes(seconds)} in story.json.\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" }
+                val code=FlowProductionPack.masterCommand(categories[index],originalChannel)+"\n"+ChannelCatalog.direction(categories[index])+"\nUSER DURATION OVERRIDE: ${if(format=="short") "One standalone episode only; beginning, middle and ending within this one clip. " else ""}${ClipPlan.scenes(seconds)} scenes per EP, 8 seconds each, ${ClipPlan.time(ClipPlan.scenes(seconds)*8)} content per EP. Supersedes default 24 scenes and 180-second minimum above. Set clip_plan_version=1, clip_format=$format, target_seconds=$seconds, scenes_per_episode=${ClipPlan.scenes(seconds)} in story.json.\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" }
                 File(project,"flow_story_command.txt").writeText(code)
                 render()
                 return code
