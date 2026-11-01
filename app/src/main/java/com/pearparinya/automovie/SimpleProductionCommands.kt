@@ -123,7 +123,7 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
                 val cues=listOf("emotion","gaze","body_language").mapNotNull { k -> perf.optString(k).takeIf { it.isNotBlank() }?.let { "$k: $it" } }
                 if(cues.isEmpty()) null else p.optString("name")+": "+cues.joinToString(", ")
             } }.joinToString("; ")
-            val sound=SoundDesign.prompt(spec.sound).replace(Regex("\\b(?:indoor )?murmurs\\b", RegexOption.IGNORE_CASE),"quiet room tone")
+            val sound=spec.sound.ifBlank { "Quiet natural ambience." }.replace(Regex("\\b(?:indoor )?murmurs\\b", RegexOption.IGNORE_CASE),"quiet room tone")
             val moveOptions=listOf("push_in","pan","track","locked")
             val cameraMode=scene.optString("camera_movement").takeIf { it in moveOptions } ?: when {
                 Regex("(?i)\\b(walks?|walking|runs?|running|moves?|moving|เดิน|วิ่ง)\\b").containsMatchIn(spec.action) -> "track"
