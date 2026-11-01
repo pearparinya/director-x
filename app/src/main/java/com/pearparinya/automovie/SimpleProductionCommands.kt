@@ -87,6 +87,22 @@ ${scene.optString("production_image_note").takeIf { it.isNotBlank() }?.let { "Lo
             add(Task(id,"EP.$number | ซีน %03d | แนวตั้ง 9:16".format(n),"9:16",command,FlowReferencePrompt.people(scene)))
         }
     }
+    fun coverPair(vertical: Task, horizontal: Task): String {
+        require(vertical.id.endsWith("_COVER_9x16") && horizontal.id.endsWith("_COVER_16x9"))
+        require(vertical.id.substringBeforeLast("_")==horizontal.id.substringBeforeLast("_"))
+        require(vertical.references.map { referenceId(it.getString("master")).lowercase() } == horizontal.references.map { referenceId(it.getString("master")).lowercase() })
+        return """
+Create TWO separate cover images in sequence, not a collage. First create and show the portrait cover below. Then use that portrait as the composition and wardrobe reference for a NEW landscape 16:9 image: expand the setting on both sides, preserve the same faces, hair, apparent age and outfits, and re-layout the text. Do not stretch the portrait or faces. The attached MASTER for each character remains the identity authority. If you can create only one image, report which is missing; do not claim both are complete. Review both actual results.
+
+IMAGE 1 — PORTRAIT:
+${vertical.command}
+
+IMAGE 2 — LANDSCAPE:
+${horizontal.command}
+
+Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Requested dimensions are targets; verify downloaded files.
+        """.trimIndent()
+    }
     private fun xml(value: String): String = value.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;")
     fun videoTasks(story: JSONObject,number: Int): List<Task> {
         val rows=episode(story,number).getJSONArray("scenes")
