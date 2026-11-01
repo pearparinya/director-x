@@ -137,7 +137,7 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
                 "locked" -> "Locked camera."
                 else -> "Slow subtle push-in toward the emotional focus."
             }
-            val motion=listOf(spec.action,performance.takeIf { it.isNotBlank() }?.let { "Performance: $it" },scene.optString("production_video_note").takeIf { it.isNotBlank() }?.let { "Direction: $it" }).filterNotNull().joinToString(". ")
+            val motion=listOf("Start: ${spec.startState}",spec.action,"End: ${spec.endState}",performance.takeIf { it.isNotBlank() }?.let { "Performance: $it" },scene.optString("production_video_note").takeIf { it.isNotBlank() }?.let { "Direction: $it" }).filterNotNull().joinToString(". ")
             val command="""Use the attached image as the first frame. One continuous 8-second vertical shot.
 Characters: $cast. Keep all ${visible.size} visible characters and their positions, faces, hair, bodies, clothes and setting consistent.
 Action: $motion
