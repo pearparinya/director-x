@@ -87,39 +87,39 @@ class AutoDirectorContentTest {
         val project=story()
         val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
         fun command()=SimpleProductionCommands.videoTasks(project,1).first().command
-        fun camera(): String {
-            val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(command().toByteArray(Charsets.UTF_8)))
-            return doc.getElementsByTagName("camera").item(0).textContent
-        }
-        assertTrue(camera().contains("push-in"))
-        assertTrue(camera().contains("all 3 listed visible characters"))
-        assertTrue(command().contains("complete assigned line naturally without rushing"))
+        assertTrue(command().contains("push-in"))
+        assertTrue(command().contains("all 3 visible characters"))
+        assertTrue(command().contains("รินรดา speaks once in Thai"))
         scene.put("camera_movement","pan")
-        assertTrue(camera().contains("gentle pan"))
+        assertTrue(command().contains("Slow pan"))
         scene.put("camera_movement","track")
-        assertTrue(camera().contains("track the existing action"))
+        assertTrue(command().contains("tracking movement"))
         scene.put("camera_movement","locked")
-        assertTrue(camera().contains("camera locked"))
+        assertTrue(command().contains("Locked camera"))
         scene.put("characters",JSONArray().put(scene.getJSONArray("characters").getJSONObject(0))).put("camera_movement","")
-        assertTrue(camera().contains("all 1 listed visible characters"))
+        assertTrue(command().contains("all 1 visible characters"))
     }
     @Test fun flowCommandKeepsAssignedSpeechAndFrameWithoutConflictingMurmurs() {
         val project=story()
         val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
         scene.put("sound_design",JSONObject().put("ambience","subtle indoor murmurs").put("sfx","none").put("music","low strings"))
         val prompt=SimpleProductionCommands.videoTasks(project,1).first().command
-        assertTrue(prompt.startsWith("<flow_project>"))
-        val parsed=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(prompt.toByteArray(Charsets.UTF_8)))
-        assertEquals(scene.getString("dialogue"),parsed.getElementsByTagName("dialogue").item(0).textContent)
-        assertEquals("รินรดา",parsed.getElementsByTagName("dialogue").item(0).attributes.getNamedItem("speaker").nodeValue)
-        assertTrue(prompt.contains("Only รินรดา speaks"))
+        assertTrue(prompt.contains(scene.getString("dialogue")))
+        assertTrue(prompt.contains("รินรดา speaks once in Thai"))
         assertTrue(prompt.contains("quiet room tone"))
         assertFalse(prompt.contains("indoor murmurs"))
         assertFalse(prompt.contains("MASTER ID:"))
+        assertFalse(prompt.contains(project.getString("channel")))
+        assertFalse(prompt.contains(project.getString("title")))
+        assertFalse(prompt.contains("\\n"))
         scene.put("dialogue","").put("speaker","").put("narration","")
         val silent=SimpleProductionCommands.videoTasks(project,1).first().command
-        assertTrue(silent.contains("No dialogue or narration"))
-        assertFalse(silent.contains("Deliver the assigned line"))
+        assertTrue(silent.contains("No speech or narration"))
+        scene.put("narration","คืนนั้นความจริงปรากฏ")
+        val narration=SimpleProductionCommands.videoTasks(project,1).first().command
+        assertTrue(narration.contains("Off-screen male narrator"))
+        assertTrue(narration.contains("คืนนั้นความจริงปรากฏ"))
+        assertTrue(narration.contains("Visible mouths stay closed"))
     }
     @Test fun imageAndVideoCommandsUseReferenceIdsWithoutAssumingFileType() {
         val project=story()
@@ -127,7 +127,7 @@ class AutoDirectorContentTest {
         assertTrue(poster.contains("MASTER ID: GAWIN_MASTER"))
         assertFalse(poster.contains("GAWIN_MASTER.png"))
         val video=SimpleProductionCommands.videoTasks(project,1).first().command
-        assertTrue(video.contains("scene id=\"EP01_SC001\""))
+        assertTrue(video.contains("8-second vertical shot"))
         assertFalse(video.contains("EP01_SC001.png"))
     }
     @Test fun legacyChannelIsUpdatedForOldProjectCoversAndCustomNamesRemain() {
@@ -225,11 +225,11 @@ class AutoDirectorContentTest {
                 for(n in 1..24) {
                     val id="EP%02d_SC%03d".format(ep,n)
                     assertTrue(images.contains("ชื่อไฟล์ภาพ: $id.png"))
-                    assertTrue(videos.contains("scene id=\"$id\""))
+                    assertTrue(videos.contains("รหัส: $id"))
                 }
                 assertFalse(images.contains("=== EP")); assertTrue(images.contains("สารบัญ"))
                 assertTrue(images.contains("แก้ภาพ <รหัส>")); assertTrue(images.contains("PENDING"))
-                assertTrue(videos.contains("SOUND:")); assertTrue(videos.contains("กวิน บอกว่า A &amp; B &lt; C ใช่ไหม"))
+                assertTrue(videos.contains("Sound:")); assertTrue(videos.contains("กวิน บอกว่า A & B < C ใช่ไหม"))
                 assertFalse(videos.contains("STALE AUDIO"))
                 assertTrue("Image export must remain reasonably compact",images.length<135000)
             }
