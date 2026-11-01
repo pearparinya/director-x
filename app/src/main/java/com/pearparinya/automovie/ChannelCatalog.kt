@@ -27,6 +27,22 @@ internal object ChannelCatalog {
         MainCategory("career_buddy_comedy","คู่ป่วนต่างอาชีพ","คอมเมดี้คู่หู • ภารกิจวุ่น • คนต่างขั้ว","comedy","🎭","Buddy comedy pairing adults from different professions or approaches on one concrete shared task. Their contrasting skills create a safe comic escalation and cooperative payoff. Romance is optional. Vary the professions and task; do not lock the pair to tutor-student or cook-partner roles."),
         MainCategory("younger_man_older_woman","รักต่างวัย | หนุ่มรุ่นน้องกับสาวรุ่นพี่","โรแมนติกดราม่า • เปิดใจใหม่ • ความต่างวัย","drama","💗","Consensual adult romance between a male lead aged 25–30 and a female lead aged 45–55, using assigned catalog ages. The woman is older by at least 15 years. Explore mutual respect, life-stage differences and earned trust. Vary occupations, conflict and ending; no fixed patron or financial-dependence plot."),
         MainCategory("mystery_twist","สืบสวน ความลับ และหักมุม","สืบความจริง • ความลับ • เฉลย","drama","🔎","Mystery drama with clues, investigation and a coherent reveal. Keep all cast identities and roles consistent. Avoid graphic violence and criminal instructions."))
+    // These are story seeds, not fixed scripts; users can also choose automatic selection.
+    fun shortTopics(id: String): List<String> = when(id) {
+        "domestic_secrets" -> listOf("ของหายในบ้าน","ความลับที่เข้าใจผิด","มื้ออาหารชวนสงสัย")
+        "betrayal_rivalry" -> listOf("ข้อความส่งผิดคน","เจอแฟนเก่าโดยบังเอิญ","คำโกหกที่จับได้")
+        "office_career" -> listOf("ประชุมผิดห้อง","ความดีที่ไม่มีใครเห็น","ลูกค้าคนสำคัญ")
+        "high_society_underworld" -> listOf("แขกปริศนาในงานเลี้ยง","ของหรูที่มีเรื่องซ่อน","คนธรรมดาในงานไฮโซ")
+        "revenge_disguise" -> listOf("กลับมาพิสูจน์ตัวเอง","คนแปลกหน้าที่เคยรู้จัก","แผนเอาคืนที่พลิกล็อก")
+        "age_status_romance" -> listOf("เดตแรกต่างวัย","เข้าใจผิดเรื่องฐานะ","ดูแลกันในวันธรรมดา")
+        "office_sitcom" -> listOf("ส่งข้อความผิดกลุ่ม","ประชุมเปิดไมค์ค้าง","ของกินในตู้เย็นหาย")
+        "neighborhood_comedy" -> listOf("รับพัสดุผิดบ้าน","เสียงปริศนาข้างบ้าน","ยืมของแล้วเรื่องบาน")
+        "romantic_misunderstanding" -> listOf("เข้าใจผิดว่าเป็นแฟน","นัดเจอผิดคน","ของขวัญผิดเจ้าของ")
+        "career_buddy_comedy" -> listOf("ลูกค้ากับช่างคู่กัด","ภารกิจส่งของ","สองอาชีพช่วยกันแก้ปัญหา")
+        "younger_man_older_woman" -> listOf("คำชวนที่คิดไม่ถึง","รุ่นน้องช่วยงาน","ความห่วงใยที่ตีความผิด")
+        "mystery_twist" -> listOf("เบาะแสชิ้นเดียว","คนที่หายไปไหน","ความจริงที่ไม่เหมือนที่คิด")
+        else -> emptyList()
+    }
     private fun main(category: String) = mainCategories.firstOrNull { category==it.label || category==it.name }
     private fun main(value: JSONObject) = main(value.optString("category")) ?: mainCategories.firstOrNull { it.id==value.optString("category_id") }
     val acceptedCategories get() = mainCategories.flatMap { listOf(it.label,it.name) } + topics.map { category(it) } + groups.map { it.title }
@@ -117,7 +133,7 @@ internal object ClipPlan {
         expected
     } else 24
     fun time(seconds: Int) = "%d:%02d".format(seconds/60,seconds%60)
-    fun label(seconds: Int) = "ประมาณ ${if(seconds<60) "$seconds วินาที" else "${seconds/60} นาที"} • ${scenes(seconds)} ซีน = ${time(scenes(seconds)*8)}"
+    fun label(seconds: Int) = "${scenes(seconds)} ซีน × 8 วินาที = ${time(scenes(seconds)*8)} เนื้อหา • ไม่รวมปกเปิด"
     fun apply(value: JSONObject, format: String, seconds: Int): JSONObject = value
         .put("clip_plan_version",1).put("clip_format",format).put("target_seconds",seconds).put("scenes_per_episode",scenes(seconds))
     fun copy(from: JSONObject, to: JSONObject) {
