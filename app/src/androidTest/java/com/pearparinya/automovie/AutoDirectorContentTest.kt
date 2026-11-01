@@ -16,6 +16,14 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 @RunWith(AndroidJUnit4::class)
 class AutoDirectorContentTest {
+    @Test fun imageCommandsHaveRealLineBreaksAndOldCategoriesRemainUsable() {
+        val project=story()
+        val task=SimpleProductionCommands.imageTasks(project,1).first()
+        assertTrue(task.command.contains("\nCHARACTERS AND OUTFITS:\n"))
+        assertFalse(task.command.contains("\\nCHARACTERS AND OUTFITS:"))
+        assertTrue(ChannelCatalog.acceptedCategories.contains("ความลับในรั้วบ้าน"))
+        assertTrue(ChannelCatalog.mainCategories.any { it.id=="mystery_twist" })
+    }
     @Test fun imagePromptsUseProjectDataAndReferenceRolesForBothApps() {
         val project=story().put("title","เรื่องทดสอบ & ความลับ").put("channel","ช่องของฉัน").put("tagline","ข้อความทดสอบ")
         val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
