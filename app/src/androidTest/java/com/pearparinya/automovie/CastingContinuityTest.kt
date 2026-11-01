@@ -43,7 +43,7 @@ class CastingContinuityTest {
     @Test fun ageGapGenreRequiresCorrectLeadsRatherThanAnyOlderExtra() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val catalog=JSONObject(TestMasterAssets.open("master_library/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records")
-        val cat=ChannelCatalog.mainCategories.last().label
+        val cat=ChannelCatalog.mainCategories.first { it.id=="younger_man_older_woman" }.label
         fun actor(id: String,role: String)=JSONObject().put("library_id",id).put("romance_role",role)
         val cast=JSONArray().put(actor("CHAR_022","younger_man")).put(actor("CHAR_017","older_woman"))
         val value=JSONObject().put("cast",cast)

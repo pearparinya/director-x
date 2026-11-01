@@ -47,7 +47,11 @@ internal object SimpleProductionCommands {
             val size=if(ratio=="9:16") "1080 x 1920" else "1920 x 1080"
             val note=(if(overall) story else ep).optString("production_note_$id")
             val command="""Generate ONE $ratio ${if(ratio=="9:16") "vertical" else "horizontal"} movie poster, $size. Cinematic waist-up composition; faces clear in the upper half, distinct expressions appropriate to ${story.optString("category")}. Recompose independently for this ratio; no stretching or collage.
-$identity\nCHARACTERS AND OUTFITS:\n${cast(selected,true)}\n$wardrobeContinuity\n${FlowReferencePrompt.visibleCastLock(selected)}
+$identity
+CHARACTERS AND OUTFITS:
+${cast(selected,true)}
+$wardrobeContinuity
+${FlowReferencePrompt.visibleCastLock(selected)}
 Bright neutral-white editorial light; realistic skin and fabric, readable expressions. Leave the text area clear.
 EXACT VISIBLE THAI TEXT (three entries, no other lettering):
 ${text.joinToString("\n")}
@@ -63,7 +67,10 @@ ${if(note.isBlank()) "" else "Local design note (cannot override exact text, saf
             val scene=rows.getJSONObject(i); val n=scene.getInt("scene"); val id="EP%02d_SC%03d".format(number,n)
             val visiblePeople=FlowReferencePrompt.people(scene)
             val command="""Generate ONE 9:16 vertical photorealistic Thai-drama scene image, 1080 x 1920. No text, captions or watermark. Depict the START STATE as a clear first frame for an 8-second video; do not show a sequence or jump to the completed action.
-$identity\nCHARACTERS AND OUTFITS:\n${cast(visiblePeople)}\n$wardrobeContinuity
+$identity
+CHARACTERS AND OUTFITS:
+${cast(visiblePeople)}
+$wardrobeContinuity
 ${FlowReferencePrompt.visibleCastLock(visiblePeople)}
 Style: ${story.optString("category")} — follow the written action, no new plot.
 Story day: ${scene.getString("story_day")} — exact wardrobe remains locked across locations and EPs.

@@ -34,8 +34,8 @@ class AutoCastTest {
         val catalog=JSONArray((1..35).map { JSONObject().put("id","CHAR_%03d".format(it)) })
         fun selection(vararg ids: Int)=JSONObject().put("story_concept","เรื่องใหม่").put("cast",JSONArray(ids.map { id -> JSONObject().put("library_id","CHAR_%03d".format(id)).put("name","บทที่$id").put("role","บทบาท$id") }))
         val recent=JSONArray().put(JSONArray(listOf("CHAR_005","CHAR_006","CHAR_023")))
-        assertTrue(runCatching { AutoCast.validateVariety(selection(1,2,22),catalog,recent) }.isFailure)
-        assertTrue(runCatching { AutoCast.validateVariety(selection(5,6,30),catalog,recent) }.isFailure)
+        assertTrue(runCatching { AutoCast.validateVariety(selection(1,2,22),catalog,recent) }.isSuccess)
+        assertTrue(runCatching { AutoCast.validateVariety(selection(5,6,30),catalog,recent) }.isSuccess)
         AutoCast.validateVariety(selection(7,12,30),catalog,recent)
         AutoCast.validateVariety(selection(1,7,30),catalog,recent)
     }

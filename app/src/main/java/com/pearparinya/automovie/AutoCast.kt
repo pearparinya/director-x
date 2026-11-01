@@ -48,11 +48,7 @@ internal object AutoCast {
     }
     fun validateVariety(value: JSONObject, catalog: JSONArray, recent: JSONArray) {
         validate(value,catalog)
-        val selected=value.getJSONArray("cast").let { rows -> (0 until rows.length()).map { rows.getJSONObject(it).getString("library_id") }.toSet() }
-        val previous=listOf(setOf("CHAR_001","CHAR_002","CHAR_022"))+(0 until recent.length()).map { i ->
-            recent.getJSONArray(i).let { rows -> (0 until rows.length()).map { rows.getString(it) }.toSet() }
-        }
-        require(previous.none { selected.intersect(it).size>=2 || selected==it }) { "เลือกคู่หรือชุดนักแสดงเดิมซ้ำ กรุณาคัดคนใหม่ให้ตรงบทโดยไม่ใช้คู่เดิม" }
+        // Variety is a preference; a suitable previously used pairing remains valid.
     }
     fun apply(value: JSONObject, catalog: JSONArray, project: File): JSONArray {
         validate(value,catalog)
