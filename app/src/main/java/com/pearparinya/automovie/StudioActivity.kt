@@ -239,6 +239,23 @@ class StudioActivity : AppCompatActivity() {
     private val bodyTemplateFiles=listOf("body_01.png","body_02.png","body_03.png")
     private val actorCatalogFile get() = File(filesDir,"actor_catalog_v2.json")
     private fun actorCatalog(): JSONArray = if(!actorCatalogFile.exists()) JSONArray() else JSONObject(actorCatalogFile.readText()).getJSONArray("records")
+    // Include the bundled legacy references and user-created actors without changing either catalog.
+    private fun castingCatalog(): JSONArray {
+        val legacy=JSONObject(assets.open("master_library/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records")
+        val custom=actorCatalog()
+        val result=JSONArray()
+        val ids=mutableSetOf<String>()
+        for (rows in listOf(legacy,custom)) for (i in 0 until rows.length()) {
+            val row=JSONObject(rows.getJSONObject(i).toString())
+            require(ids.add(row.getString("id"))) { "รหัส MASTER ซ้ำในคลัง: ${row.getString("id")}" }
+            result.put(row)
+        }
+        return result
+    }
+    private fun castingSource(row: JSONObject): File {
+        val entry=masterLibrary.entries().firstOrNull { it.id==row.getString("id") }
+        return if(entry!=null) masterLibrary.source(entry) else File(filesDir,"actor_master_v2/"+row.getString("file"))
+    }
     private fun bodyTemplateFile(index: Int): File {
         val target=File(cacheDir,"body_template_sources/${bodyTemplateFiles[index]}")
         target.parentFile!!.mkdirs()
@@ -309,14 +326,14 @@ class StudioActivity : AppCompatActivity() {
     private fun actorCatalogMenu() {
         runCatching {
             val records=actorCatalog()
-            choiceMenu("คลังตัวละครใหม่", listOf("➕ สร้างตัวละครจากแม่แบบ")+(0 until records.length()).map { i -> records.getJSONObject(i).let { "${it.getString("display_name")} • อายุ ${it.getInt("character_age")} ปี" } }) { index ->
-                if(index==0) bodyTemplateMenu() else {
-                    val row=records.getJSONObject(index-1)
+            choiceMenu("คลังตัวละครใหม่", listOf("➕ สร้างตัวละครจากแม่แบบ","📚 ดู MASTER คลังเดิม")+(0 until records.length()).map { i -> records.getJSONObject(i).let { "${it.getString("display_name")} • อายุ ${it.getInt("character_age")} ปี" } }) { index ->
+                if(index==0) bodyTemplateMenu() else if(index==1) libraryMenu() else {
+                    val row=records.getJSONObject(index-2)
                     val file=File(filesDir,"actor_master_v2/"+row.getString("file"))
                     choiceMenu(row.getString("display_name"),listOf("ดู MASTER","นำออกจากคลังเรื่องใหม่")) { action ->
                         if(action==0) { if(file.isFile) fullImage(file,row.getString("display_name")) else notice("ไม่พบภาพ MASTER") }
                         else {
-                            val rest=JSONArray(); for(i in 0 until records.length()) if(i!=index-1) rest.put(records.getJSONObject(i))
+                            val rest=JSONArray(); for(i in 0 until records.length()) if(i!=index-2) rest.put(records.getJSONObject(i))
                             val temp=File(filesDir,"actor_catalog_v2.pending")
                             temp.writeText(JSONObject().put("records",rest).toString(2))
                             if(temp.renameTo(actorCatalogFile)) notice("นำออกจากคลังแล้ว • เรื่องที่สร้างไว้ยังใช้ภาพเดิม") else notice("บันทึกคลังไม่ได้")
@@ -1914,8 +1931,8 @@ class StudioActivity : AppCompatActivity() {
             AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
                     runCatching {
-                        val catalog=actorCatalog()
-                        require(catalog.length()>0) { "คลังตัวละครใหม่ว่าง กรุณาสร้างและนำเข้า MASTER ตัวละครจากแม่แบบก่อน" }
+                        val catalog=castingCatalog()
+                        require(catalog.length()>0) { "คลัง MASTER ว่าง กรุณาเพิ่มตัวละครก่อน" }
                         if(ChannelCatalog.mainCategories[index].id=="younger_man_older_woman") {
                             val candidates=(0 until catalog.length()).map { catalog.getJSONObject(it) }
                             val men=candidates.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 25..30 }
@@ -1927,7 +1944,7 @@ class StudioActivity : AppCompatActivity() {
                         val folder=File(base,UUID.randomUUID().toString()).apply { mkdirs() }
                         for(n in 0 until catalog.length()) {
                             val row=catalog.getJSONObject(n); val target=File(folder,"master_candidates/"+row.getString("file")); target.parentFile!!.mkdirs()
-                            val source=File(filesDir,"actor_master_v2/"+row.getString("file")); require(source.isFile && MasterLibrary.digest(source.readBytes())==row.getString("sha256")) { "ภาพ MASTER ของ ${row.optString("display_name")} สูญหายหรือเปลี่ยนไป" }; source.copyTo(target,overwrite=true)
+                            val source=castingSource(row); require(source.isFile && MasterLibrary.digest(source.readBytes())==row.getString("sha256")) { "ภาพ MASTER ของ ${row.optString("display_name")} สูญหายหรือเปลี่ยนไป" }; source.copyTo(target,overwrite=true)
                         }
                         val count=when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",originalChannel)
