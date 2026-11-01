@@ -46,6 +46,22 @@ internal object AutoCast {
         }
         return result
     }
+    /** Prefer a fresh pool, but preserve the complete catalog if there are too few choices. */
+    fun candidatePool(catalog: JSONArray, recent: JSONArray, category: String): JSONArray {
+        val rows=(0 until catalog.length()).map { catalog.getJSONObject(it) }
+        val last=recent.optJSONArray(0) ?: return catalog
+        val used=(0 until last.length()).map { last.optString(it) }.toSet()
+        val fresh=rows.filter { it.optString("id") !in used }
+        if(fresh.size<8) return catalog
+        if(category.startsWith("รักต่างวัย | หนุ่มรุ่นน้องกับสาวรุ่นพี่")) {
+            val men=fresh.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 25..30 }
+            val women=fresh.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 45..55 }
+            if(men.none { man -> women.any { woman -> woman.optInt("character_age")-man.optInt("character_age")>=15 } }) return catalog
+        }
+        // Preserve gender coverage when a fresh pool would eliminate an existing group.
+        for(gender in listOf("man","woman")) if(rows.any { it.optString("character_gender")==gender } && fresh.none { it.optString("character_gender")==gender }) return catalog
+        return JSONArray(fresh)
+    }
     fun validateVariety(value: JSONObject, catalog: JSONArray, recent: JSONArray) {
         validate(value,catalog)
         // Variety is a preference; a suitable previously used pairing remains valid.
