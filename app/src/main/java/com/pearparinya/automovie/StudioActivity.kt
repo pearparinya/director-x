@@ -235,6 +235,97 @@ class StudioActivity : AppCompatActivity() {
         }
         masterSlot = null
     }
+    // Body references are not actor identities. New actors are registered only after image review.
+    private val bodyTemplateFiles=listOf("body_01.png","body_02.png","body_03.png")
+    private val actorCatalogFile get() = File(filesDir,"actor_catalog_v2.json")
+    private fun actorCatalog(): JSONArray = if(!actorCatalogFile.exists()) JSONArray() else JSONObject(actorCatalogFile.readText()).getJSONArray("records")
+    private fun bodyTemplateFile(index: Int): File {
+        val target=File(cacheDir,"body_template_sources/${bodyTemplateFiles[index]}")
+        target.parentFile!!.mkdirs()
+        assets.open("body_templates/"+bodyTemplateFiles[index]).use { input -> target.outputStream().use { input.copyTo(it) } }
+        return target
+    }
+    private val actorImagePicker=registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val pending=prefs.getString("new_actor_pending",null)
+        if(uri!=null && pending!=null) runCatching {
+            val person=JSONObject(pending)
+            val input=contentResolver.openInputStream(uri) ?: error("เปิดภาพไม่ได้")
+            val bytes=input.use { it.readBytes() }
+            val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
+            android.graphics.BitmapFactory.decodeByteArray(bytes,0,bytes.size,bounds)
+            require(bounds.outWidth>0 && bounds.outHeight>0) { "ไฟล์ไม่ใช่ภาพ" }
+            val extension=when(bounds.outMimeType) { "image/jpeg" -> "jpg"; "image/webp" -> "webp"; "image/png" -> "png"; else -> error("รองรับภาพ PNG, JPG หรือ WebP") }
+            val records=actorCatalog()
+            require((0 until records.length()).none { records.getJSONObject(it).getString("display_name")==person.getString("display_name") }) { "ชื่อนี้มีในคลังแล้ว" }
+            val fileName=person.getString("id") + "." + extension
+            val dir=File(filesDir,"actor_master_v2").apply { mkdirs() }
+            val target=File(dir,fileName)
+            require(!target.exists()) { "รหัสตัวละครซ้ำ กรุณาเริ่มใหม่" }
+            val temp=File(dir,fileName+".pending")
+            try {
+                temp.writeBytes(bytes)
+                person.put("file",fileName).put("original_filename",fileName).put("sha256",MasterLibrary.digest(bytes)).put("age_basis","user_assigned")
+                records.put(person)
+                check(temp.renameTo(target)) { "บันทึกภาพไม่ได้" }
+                try {
+                    val catalogTemp=File(filesDir,"actor_catalog_v2.pending")
+                    catalogTemp.writeText(JSONObject().put("records",records).toString(2))
+                    check(catalogTemp.renameTo(actorCatalogFile)) { "บันทึกทะเบียนไม่ได้" }
+                } catch(e: Exception) { target.delete(); throw e }
+            } finally { temp.delete() }
+            prefs.edit().remove("new_actor_pending").apply()
+        }.onSuccess { notice("บันทึก MASTER ตัวละครใหม่แล้ว • ตรวจภาพและข้อมูลในคลังได้") }.onFailure { notice(it.message ?: "บันทึกตัวละครไม่ได้") }
+    }
+    private fun bodyTemplateMenu() {
+        choiceMenu("แม่แบบรูปร่าง • เลือก 1 จาก 3",listOf("แม่แบบ 1 • ผู้ชาย","แม่แบบ 2 • ผู้หญิงผมยาว","แม่แบบ 3 • ผู้หญิงผมสั้น")) { index ->
+            val file=runCatching { bodyTemplateFile(index) }.getOrElse { notice("เปิดแม่แบบไม่ได้"); return@choiceMenu }
+            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+            panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(240)) })
+            val name=EditText(this).apply { hint="ชื่อนักแสดงใหม่ (ชื่อถาวร)"; panel.addView(this) }
+            val age=EditText(this).apply { hint="อายุสมมติ 25–90 ปี"; inputType=android.text.InputType.TYPE_CLASS_NUMBER; panel.addView(this) }
+            val face=EditText(this).apply { hint="ลักษณะใบหน้าและทรงผมใหม่"; panel.addView(this) }
+            panel.addView(TextView(this).apply { text="1. ส่งคำสั่งพร้อมแม่แบบไปสร้างใน ChatGPT หรือ Gemini\n2. ตรวจภาพจริง แล้วกลับมาเลือก นำเข้าภาพเพื่อบันทึก" })
+            val dialog=AlertDialog.Builder(this).setTitle("สร้างตัวละครจากแม่แบบ ${index+1}").setView(ScrollView(this).apply { addView(panel) })
+                .setPositiveButton("ส่งคำสั่งสร้างภาพ",null).setNeutralButton("นำเข้าภาพที่ตรวจแล้ว",null).setNegativeButton("ปิด",null).showDirector()
+            fun profile(): JSONObject? {
+                val n=name.text.toString().trim(); val years=age.text.toString().toIntOrNull(); val appearance=face.text.toString().trim()
+                if(n.isEmpty() || years==null || years !in 25..90 || appearance.isEmpty()) { notice("กรอกชื่อ อายุ 25–90 ปี และลักษณะใบหน้า/ทรงผม"); return null }
+                if((0 until actorCatalog().length()).any { actorCatalog().getJSONObject(it).optString("display_name")==n }) { notice("ชื่อนี้มีในคลังแล้ว"); return null }
+                val id="CHAR_"+(System.currentTimeMillis()%2000000000L).toString()
+                return JSONObject().put("id",id).put("display_name",n).put("character_age",years).put("character_gender",if(index==0) "man" else "woman").put("casting_description",appearance).put("body_template",index+1)
+            }
+            dialog.getButton(-1).setOnClickListener {
+                val p=profile() ?: return@setOnClickListener
+                val command="Create a fictional adult character portrait. Name: ${p.getString("display_name")}; assigned age: ${p.getInt("character_age")} years. New distinctive face and hairstyle: ${p.getString("casting_description")}. Use the attached reference ONLY for visible body silhouette and proportions. Create a different face and hair from the reference. Preserve apparent body proportions; do not infer hidden anatomy or measurements. Neutral clothes fitted naturally to the body. One person, three consistent views (front, three-quarter, side) in one image, no labels. This is a new character; review the image before saving."
+                shareImageCommand(command,listOf("BODY_TEMPLATE_${index+1}" to file),bodyOnly=true)
+            }
+            dialog.getButton(-3).setOnClickListener {
+                val p=profile() ?: return@setOnClickListener
+                prefs.edit().putString("new_actor_pending",p.toString()).apply()
+                actorImagePicker.launch(arrayOf("image/*"))
+            }
+        }
+    }
+    private fun actorCatalogMenu() {
+        runCatching {
+            val records=actorCatalog()
+            choiceMenu("คลังตัวละครใหม่", listOf("➕ สร้างตัวละครจากแม่แบบ")+(0 until records.length()).map { i -> records.getJSONObject(i).let { "${it.getString("display_name")} • อายุ ${it.getInt("character_age")} ปี" } }) { index ->
+                if(index==0) bodyTemplateMenu() else {
+                    val row=records.getJSONObject(index-1)
+                    val file=File(filesDir,"actor_master_v2/"+row.getString("file"))
+                    choiceMenu(row.getString("display_name"),listOf("ดู MASTER","นำออกจากคลังเรื่องใหม่")) { action ->
+                        if(action==0) { if(file.isFile) fullImage(file,row.getString("display_name")) else notice("ไม่พบภาพ MASTER") }
+                        else {
+                            val rest=JSONArray(); for(i in 0 until records.length()) if(i!=index-1) rest.put(records.getJSONObject(i))
+                            val temp=File(filesDir,"actor_catalog_v2.pending")
+                            temp.writeText(JSONObject().put("records",rest).toString(2))
+                            if(temp.renameTo(actorCatalogFile)) notice("นำออกจากคลังแล้ว • เรื่องที่สร้างไว้ยังใช้ภาพเดิม") else notice("บันทึกคลังไม่ได้")
+                        }
+                    }
+                }
+            }
+        }.onFailure { notice("อ่านคลังไม่ได้: ${it.message}") }
+    }
     private val masterLibrary by lazy { MasterLibrary(File(filesDir,"master_library")) { assets.open(it).use { stream -> stream.readBytes() } } }
     private fun libraryMenu() {
         runCatching {
@@ -1049,7 +1140,7 @@ class StudioActivity : AppCompatActivity() {
         val name = if (useNewMasters) source.nameWithoutExtension else source.nameWithoutExtension + "_MASTER"
         return "${name.uppercase()}.$extension"
     }
-    private fun shareImageCommand(command: String, references: List<Pair<String,File>>, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false) {
+    private fun shareImageCommand(command: String, references: List<Pair<String,File>>, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false) {
         val preferred=prefs.getString("image_provider","ChatGPT") ?: "ChatGPT"
         val providers=imageProviderOptions(preferred)
         val choices=providers.mapIndexed { i,name -> name+if(i==0) " • ตัวเลือกที่จำไว้" else "" } + "คัดลอกคำสั่ง • แนบ MASTER เอง"
@@ -1060,13 +1151,13 @@ class StudioActivity : AppCompatActivity() {
             } else {
                 val provider=providers[selected]
                 prefs.edit().putString("image_provider",provider).apply()
-                shareText(command,includeMasters=false,referenceImages=references,destinationLabel=provider,imagePackage=true,referenceLabels=referenceLabels,twoCovers=twoCovers)
+                shareText(command,includeMasters=false,referenceImages=references,destinationLabel=provider,imagePackage=true,referenceLabels=referenceLabels,twoCovers=twoCovers,bodyOnly=bodyOnly)
             }
         }
     }
-    private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT", imagePackage: Boolean = false, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false) {
+    private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT", imagePackage: Boolean = false, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false) {
         var text = if (lockCreation && !inputText.contains("ค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง)")) inputText + "\nค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง): EP=${prefs.getString("plan_episodes", "").orEmpty().ifBlank { "AI ประเมิน" }} ฉาก/EP=${prefs.getString("plan_scenes", "").orEmpty().ifBlank { "AI ประเมิน" }} เวลา=${prefs.getString("plan_duration", "8")} วินาที สัดส่วน=${"9:16"} กำหนด duration_seconds และ aspect_ratio ใน story.json และคำสั่งทุกฉากตามนี้" else inputText
-        if (imagePackage && !text.contains(BodyReferencePolicy.imageIdentityLock)) text += "\n\n" + BodyReferencePolicy.imageIdentityLock
+        if (imagePackage && !bodyOnly && !text.contains(BodyReferencePolicy.imageIdentityLock)) text += "\n\n" + BodyReferencePolicy.imageIdentityLock
         if (imagePackage && !text.contains(ImagePromptPolicy.skinTone)) text += "\n\n" + ImagePromptPolicy.skinTone
         if (imagePackage) for ((name,_) in referenceImages) {
             val id=referenceId(name)
@@ -1107,10 +1198,10 @@ class StudioActivity : AppCompatActivity() {
         // append every granted image URI to that same ClipData payload.
         val geminiImages=destinationLabel=="Gemini" && imagePackage && uris.isNotEmpty()
         val filePackage=!geminiImages && (destinationLabel=="Gemini" || imagePackage) && uris.isNotEmpty()
-        val intent = if(geminiImages) buildGeminiImageShareIntent(geminiImageMessage(text,twoCovers),ArrayList(uris)) else if(filePackage) {
+        val intent = if(geminiImages) buildGeminiImageShareIntent((if(bodyOnly) "สร้างภาพตัวละครใหม่ตามคำสั่ง ใช้ภาพแนบสำหรับรูปร่างเท่านั้น\n\n"+text else geminiImageMessage(text,twoCovers)),ArrayList(uris)) else if(filePackage) {
             val command=File(cacheDir,"scene_reference_exports/$transferId/READ_FIRST_IMAGE_COMMAND.txt")
             command.parentFile!!.mkdirs()
-            command.writeText((if(twoCovers) "สร้างปก 2 ภาพแยกไฟล์ตามคำสั่งด้านล่าง" else "สร้างภาพหนึ่งภาพตามคำสั่งด้านล่าง")+" ใช้ภาพ MASTER ที่แนบให้ตรงตัวละคร ไม่สรุปคำสั่ง ไม่สร้างวิดีโอ\n\n"+text,Charsets.UTF_8)
+            command.writeText((if(bodyOnly) "สร้างตัวละครใหม่ตามคำสั่ง ภาพแนบใช้อ้างอิงรูปร่างเท่านั้น" else if(twoCovers) "สร้างปก 2 ภาพแยกไฟล์ตามคำสั่งด้านล่าง ใช้ MASTER ที่แนบให้ตรงตัวละคร" else "สร้างภาพหนึ่งภาพตามคำสั่งด้านล่าง ใช้ MASTER ที่แนบให้ตรงตัวละคร")+" ไม่สรุปคำสั่ง ไม่สร้างวิดีโอ\n\n"+text,Charsets.UTF_8)
             val commandUri=FileProvider.getUriForFile(this,"$packageName.fileprovider",command)
             val shareText=if(destinationLabel=="Gemini" && imagePackage) geminiImageMessage(text,twoCovers) else text
             val result=buildGeminiPackageIntent(shareText,commandUri,ArrayList(uris))
@@ -1612,7 +1703,7 @@ class StudioActivity : AppCompatActivity() {
         label("เครื่องมือเสริม",15,true)
         button("⚙️ AutoDirector v45 • ภาพ Gemini / วิดีโอ Flow",false) { autoDirectorMenu() }
         button("🧪 ทดสอบสร้างวิดีโอ • เลือกตัวละคร",false) { flowTestMenu() }
-        button("🎭 MASTER และข้อมูลตัวละคร",false) { choiceMenu("ตัวละคร",listOf("ตัวละครหลัก 3 คน","ตัวละครเสริมสำหรับเรื่องใหม่","ตัวละครของเรื่องที่เปิด","คลัง MASTER 35")) { when(it) { 0 -> characterMasters(); 1 -> supportingCastMenu(); 2 -> castMenu(); else -> libraryMenu() } } }
+        button("🎭 แม่แบบรูปร่างและคลังตัวละคร",false) { choiceMenu("ตัวละคร",listOf("สร้างตัวละครจากแม่แบบ","คลังตัวละครใหม่","ตัวละครของเรื่องที่เปิด")) { when(it) { 0 -> bodyTemplateMenu(); 1 -> actorCatalogMenu(); else -> castMenu() } } }
         button("⬇ ดาวน์โหลดแม่บทเริ่มงาน + MASTER",false) { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
         splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
     }
@@ -1832,8 +1923,8 @@ class StudioActivity : AppCompatActivity() {
             AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
                     runCatching {
-                        val catalog=JSONObject(assets.open("master_library/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records")
-                        require(catalog.length()>0) { "คลังตัวละครว่าง กรุณาเพิ่มตัวละครชุดใหม่ก่อนใช้คัดนักแสดงอัตโนมัติ" }
+                        val catalog=actorCatalog()
+                        require(catalog.length()>0) { "คลังตัวละครใหม่ว่าง กรุณาสร้างและนำเข้า MASTER ตัวละครจากแม่แบบก่อน" }
                         if(ChannelCatalog.mainCategories[index].id=="younger_man_older_woman") {
                             val candidates=(0 until catalog.length()).map { catalog.getJSONObject(it) }
                             val men=candidates.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 25..30 }
@@ -1845,7 +1936,7 @@ class StudioActivity : AppCompatActivity() {
                         val folder=File(base,UUID.randomUUID().toString()).apply { mkdirs() }
                         for(n in 0 until catalog.length()) {
                             val row=catalog.getJSONObject(n); val target=File(folder,"master_candidates/"+row.getString("file")); target.parentFile!!.mkdirs()
-                            assets.open("master_library/"+row.getString("file")).use { input -> target.outputStream().use { input.copyTo(it) } }
+                            val source=File(filesDir,"actor_master_v2/"+row.getString("file")); require(source.isFile && MasterLibrary.digest(source.readBytes())==row.getString("sha256")) { "ภาพ MASTER ของ ${row.optString("display_name")} สูญหายหรือเปลี่ยนไป" }; source.copyTo(target,overwrite=true)
                         }
                         val count=when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",originalChannel)
