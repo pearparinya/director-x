@@ -77,7 +77,7 @@ internal fun buildGeminiPackageIntent(text: String, command: Uri, images: ArrayL
 
 internal const val GEMINI_IMAGE_REQUEST = "สร้างและแสดงภาพจริง 1 ภาพตามรายละเอียดต่อไปนี้ ใช้ภาพ MASTER ที่แนบจับคู่ตัวละครตามรหัสเต็มโดยไม่สนใจนามสกุล รักษาข้อความบนปกตามคำสั่ง หากเป็นภาพฉากให้ทำตามข้อกำหนดของฉาก ไม่ต้องสรุปคำสั่ง ไม่ต้องเขียนโค้ด XML หากสร้างภาพไม่ได้ให้แจ้งสาเหตุ"
 
-internal fun geminiImageMessage(command: String): String = GEMINI_IMAGE_REQUEST+"\n\n"+command
+internal fun geminiImageMessage(command: String, twoCovers: Boolean = false): String = (if(twoCovers) GEMINI_IMAGE_REQUEST.replace("1 ภาพ","2 ภาพแยกไฟล์") else GEMINI_IMAGE_REQUEST)+"\n\n"+command
 
 internal fun imageProviderOptions(preferred: String): List<String> = listOf("ChatGPT", "Gemini").let { options ->
     if (preferred in options) listOf(preferred) + options.filter { it != preferred } else options
@@ -1049,7 +1049,7 @@ class StudioActivity : AppCompatActivity() {
         val name = if (useNewMasters) source.nameWithoutExtension else source.nameWithoutExtension + "_MASTER"
         return "${name.uppercase()}.$extension"
     }
-    private fun shareImageCommand(command: String, references: List<Pair<String,File>>, referenceLabels: Map<String,String> = emptyMap()) {
+    private fun shareImageCommand(command: String, references: List<Pair<String,File>>, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false) {
         val preferred=prefs.getString("image_provider","ChatGPT") ?: "ChatGPT"
         val providers=imageProviderOptions(preferred)
         val choices=providers.mapIndexed { i,name -> name+if(i==0) " • ตัวเลือกที่จำไว้" else "" } + "คัดลอกคำสั่ง • แนบ MASTER เอง"
@@ -1060,11 +1060,11 @@ class StudioActivity : AppCompatActivity() {
             } else {
                 val provider=providers[selected]
                 prefs.edit().putString("image_provider",provider).apply()
-                shareText(command,includeMasters=false,referenceImages=references,destinationLabel=provider,imagePackage=true,referenceLabels=referenceLabels)
+                shareText(command,includeMasters=false,referenceImages=references,destinationLabel=provider,imagePackage=true,referenceLabels=referenceLabels,twoCovers=twoCovers)
             }
         }
     }
-    private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT", imagePackage: Boolean = false, referenceLabels: Map<String,String> = emptyMap()) {
+    private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT", imagePackage: Boolean = false, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false) {
         var text = if (lockCreation && !inputText.contains("ค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง)")) inputText + "\nค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง): EP=${prefs.getString("plan_episodes", "").orEmpty().ifBlank { "AI ประเมิน" }} ฉาก/EP=${prefs.getString("plan_scenes", "").orEmpty().ifBlank { "AI ประเมิน" }} เวลา=${prefs.getString("plan_duration", "8")} วินาที สัดส่วน=${"9:16"} กำหนด duration_seconds และ aspect_ratio ใน story.json และคำสั่งทุกฉากตามนี้" else inputText
         if (imagePackage && !text.contains(BodyReferencePolicy.imageIdentityLock)) text += "\n\n" + BodyReferencePolicy.imageIdentityLock
         if (imagePackage && !text.contains(ImagePromptPolicy.skinTone)) text += "\n\n" + ImagePromptPolicy.skinTone
@@ -1107,12 +1107,12 @@ class StudioActivity : AppCompatActivity() {
         // append every granted image URI to that same ClipData payload.
         val geminiImages=destinationLabel=="Gemini" && imagePackage && uris.isNotEmpty()
         val filePackage=!geminiImages && (destinationLabel=="Gemini" || imagePackage) && uris.isNotEmpty()
-        val intent = if(geminiImages) buildGeminiImageShareIntent(geminiImageMessage(text),ArrayList(uris)) else if(filePackage) {
+        val intent = if(geminiImages) buildGeminiImageShareIntent(geminiImageMessage(text,twoCovers),ArrayList(uris)) else if(filePackage) {
             val command=File(cacheDir,"scene_reference_exports/$transferId/READ_FIRST_IMAGE_COMMAND.txt")
             command.parentFile!!.mkdirs()
-            command.writeText("สร้างภาพหนึ่งภาพตามคำสั่งด้านล่าง ใช้ภาพ MASTER ที่แนบจับคู่ตามชื่อไฟล์ ไม่สรุปคำสั่ง ไม่สร้างวิดีโอ\n\n"+text,Charsets.UTF_8)
+            command.writeText((if(twoCovers) "สร้างปก 2 ภาพแยกไฟล์ตามคำสั่งด้านล่าง" else "สร้างภาพหนึ่งภาพตามคำสั่งด้านล่าง")+" ใช้ภาพ MASTER ที่แนบให้ตรงตัวละคร ไม่สรุปคำสั่ง ไม่สร้างวิดีโอ\n\n"+text,Charsets.UTF_8)
             val commandUri=FileProvider.getUriForFile(this,"$packageName.fileprovider",command)
-            val shareText=if(destinationLabel=="Gemini" && imagePackage) geminiImageMessage(text) else text
+            val shareText=if(destinationLabel=="Gemini" && imagePackage) geminiImageMessage(text,twoCovers) else text
             val result=buildGeminiPackageIntent(shareText,commandUri,ArrayList(uris))
             uris.add(0,commandUri)
             attachments.put(JSONObject().put("name",command.name).put("bytes",command.length()).put("sha256",MasterLibrary.digest(command.readBytes())))
@@ -1135,7 +1135,7 @@ class StudioActivity : AppCompatActivity() {
         fun launchShare() {
             if(geminiImages) {
                 (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
-                    .setPrimaryClip(ClipData.newPlainText("คำสั่งสร้างภาพ Gemini",geminiImageMessage(text)))
+                    .setPrimaryClip(ClipData.newPlainText("คำสั่งสร้างภาพ Gemini",geminiImageMessage(text,twoCovers)))
             }
             val request = JSONObject().put("id",transferId).put("scene",sceneId).put("created_at",System.currentTimeMillis())
                 .put("text",text).put("attachments",attachments).put("status","opened_external_app")
@@ -1475,7 +1475,16 @@ class StudioActivity : AppCompatActivity() {
                 val hashes=runCatching { refs.map { MasterLibrary.digest(it.second.readBytes()) } }.getOrElse { notice("อ่าน MASTER ไม่ได้ กรุณาตรวจไฟล์ภาพ"); return@setOnClickListener }
                 if(hashes.distinct().size != hashes.size) { notice("MASTER ของตัวละครต่างคนเป็นไฟล์ภาพเดียวกัน กรุณาตรวจและเปลี่ยนภาพก่อนสร้าง"); return@setOnClickListener }
                 val labels=task.references.associate { referenceId(it.getString("master")) to it.getString("name") }
-                shareImageCommand(task.command,refs,labels)
+                if(task.id.contains("_COVER_")) {
+                    val prefix=task.id.substringBeforeLast("_")
+                    val vertical=tasks.firstOrNull { it.id=="${prefix}_9x16" }
+                    val horizontal=tasks.firstOrNull { it.id=="${prefix}_16x9" }
+                    if(vertical==null || horizontal==null) { notice("ไม่พบคำสั่งปกทั้งสองขนาด"); return@setOnClickListener }
+                    choiceMenu("สร้างปก",listOf("ส่งครั้งเดียว • แนวตั้งและแนวนอน", "สร้างเฉพาะขนาดนี้")) { choice ->
+                        if(choice==0) shareImageCommand(SimpleProductionCommands.coverPair(vertical,horizontal),refs,labels,twoCovers=true)
+                        else shareImageCommand(task.command,refs,labels)
+                    }
+                } else shareImageCommand(task.command,refs,labels)
             }
             dialog.getButton(-3).text="แก้เฉพาะรายการนี้"
             dialog.getButton(-3).setOnClickListener {
