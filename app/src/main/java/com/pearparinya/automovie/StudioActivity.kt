@@ -1899,14 +1899,23 @@ class StudioActivity : AppCompatActivity() {
             }
         }
     }
+    private var selectedStoryTopic: String = ""
+    private fun chooseStoryTopic(index: Int, done: (Int) -> Unit) {
+        val topics=ChannelCatalog.shortTopics(ChannelCatalog.mainCategories[index].id)
+        if(topics.isEmpty()) { selectedStoryTopic=""; done(index); return }
+        choiceMenu("เลือกหมวดหมู่ย่อย",listOf("🎲 สุ่มแนวจากหมวดนี้")+topics) { choice ->
+            selectedStoryTopic=if(choice==0) topics.random() else topics[choice-1]
+            done(index)
+        }
+    }
     private fun chooseChannelTopic(done: (Int) -> Unit) {
         val labels=listOf("🏡 ดราม่าครอบครัวและความลับ","💔 ความรักและการทรยศ","❤️ รักต่างวัยและต่างฐานะ","🏢 ที่ทำงานและอาชีพ","🔎 สืบสวน ความลับ และหักมุม","🔥 ล้างแค้นและปลอมตัว","💞 โรแมนติกคอมเมดี้","🏘️ คอมเมดี้ชีวิตประจำวัน","🎭 คู่หูและภารกิจ","💎 สังคมหรูและระทึกขวัญ")
         fun index(id: String)=ChannelCatalog.mainCategories.indexOfFirst { it.id==id }.also { require(it>=0) }
         choiceMenu("เลือกหมวดหลัก • เลือกแนวเพิ่มเติมได้",labels) { selected ->
             when(selected) {
-                2 -> choiceMenu("รักต่างวัย • เลือกแนว",listOf("รักต่างวัยหรือต่างฐานะทั่วไป","หนุ่มรุ่นน้อง 25–30 • สาวรุ่นพี่ 45–55 (ห่างอย่างน้อย 15 ปี)")) { pick -> done(index(if(pick==0) "age_status_romance" else "younger_man_older_woman")) }
-                3 -> choiceMenu("ที่ทำงาน • เลือกโทน",listOf("ดราม่าและอาชีพ","ซิตคอมในที่ทำงาน")) { pick -> done(index(if(pick==0) "office_career" else "office_sitcom")) }
-                else -> done(index(listOf("domestic_secrets","betrayal_rivalry","","","mystery_twist","revenge_disguise","romantic_misunderstanding","neighborhood_comedy","career_buddy_comedy","high_society_underworld")[selected]))
+                2 -> choiceMenu("รักต่างวัย • เลือกแนว",listOf("รักต่างวัยหรือต่างฐานะทั่วไป","หนุ่มรุ่นน้อง 25–30 • สาวรุ่นพี่ 45–55 (ห่างอย่างน้อย 15 ปี)")) { pick -> chooseStoryTopic(index(if(pick==0) "age_status_romance" else "younger_man_older_woman"),done) }
+                3 -> choiceMenu("ที่ทำงาน • เลือกโทน",listOf("ดราม่าและอาชีพ","ซิตคอมในที่ทำงาน")) { pick -> chooseStoryTopic(index(if(pick==0) "office_career" else "office_sitcom"),done) }
+                else -> chooseStoryTopic(index(listOf("domestic_secrets","betrayal_rivalry","","","mystery_twist","revenge_disguise","romantic_misunderstanding","neighborhood_comedy","career_buddy_comedy","high_society_underworld")[selected]),done)
             }
         }
     }
@@ -1924,7 +1933,7 @@ class StudioActivity : AppCompatActivity() {
         val configure: (Int) -> Unit = { index ->
             chooseClip { format, seconds ->
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-            panel.addView(TextView(this).apply { text="หมวด: ${categories[index]}\nAI เลือกนักแสดงจากคลัง MASTER และตั้งชื่ออัตโนมัติตามบท ${if(format=="short") "สร้างเรื่องจบในคลิปเดียว" else "แล้วเขียนเรื่องต่อครบทุก EP"}"; textSize=14f })
+            panel.addView(TextView(this).apply { text="หมวด: ${categories[index]}\nแนวย่อย: $selectedStoryTopic\nAI เลือกนักแสดงจากคลัง MASTER และตั้งชื่ออัตโนมัติตามบท ${if(format=="short") "สร้างเรื่องจบในคลิปเดียว" else "แล้วเขียนเรื่องต่อครบทุก EP"}"; textSize=14f })
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
             val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("1 EP • จบในตอน","ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); if(format!="short") panel.addView(this) }
             if(format=="short") panel.addView(TextView(this).apply { text="คลิปสั้น • จบในคลิปเดียว" })
@@ -1949,7 +1958,7 @@ class StudioActivity : AppCompatActivity() {
                         }
                         val count=if(format=="short") 1 else when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",originalChannel)
-                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",2).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("premise",premise.text.toString()).put("episodes",count)))
+                            .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",2).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("premise",listOf("แนวย่อย: "+selectedStoryTopic,premise.text.toString()).filter { it.isNotBlank() }.joinToString("\n")).put("episodes",count)))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
                 }.setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
@@ -1962,7 +1971,7 @@ class StudioActivity : AppCompatActivity() {
             chooseClip { format, seconds ->
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (เว้นว่างให้คิดใหม่)" }
             fun prepare(): String {
-                val code=FlowProductionPack.masterCommand(categories[index],originalChannel)+"\n"+ChannelCatalog.direction(categories[index])+"\nUSER DURATION OVERRIDE: ${if(format=="short") "One standalone episode only; beginning, middle and ending within this one clip. " else ""}${ClipPlan.scenes(seconds)} scenes per EP, 8 seconds each, ${ClipPlan.time(ClipPlan.scenes(seconds)*8)} content per EP. Supersedes default 24 scenes and 180-second minimum above. Set clip_plan_version=1, clip_format=$format, target_seconds=$seconds, scenes_per_episode=${ClipPlan.scenes(seconds)} in story.json.\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" }
+                val code=FlowProductionPack.masterCommand(categories[index],originalChannel)+"\n"+ChannelCatalog.direction(categories[index])+"\nUSER DURATION OVERRIDE: ${if(format=="short") "One standalone episode only; beginning, middle and ending within this one clip. " else ""}${ClipPlan.scenes(seconds)} scenes per EP, 8 seconds each, ${ClipPlan.time(ClipPlan.scenes(seconds)*8)} content per EP. Supersedes default 24 scenes and 180-second minimum above. Set clip_plan_version=1, clip_format=$format, target_seconds=$seconds, scenes_per_episode=${ClipPlan.scenes(seconds)} in story.json.\nแนวย่อย: "+selectedStoryTopic+"\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" }
                 File(project,"flow_story_command.txt").writeText(code)
                 render()
                 return code
