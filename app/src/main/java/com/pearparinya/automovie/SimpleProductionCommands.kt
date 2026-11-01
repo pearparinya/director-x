@@ -148,6 +148,7 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
                 "locked" -> "Keep the camera locked."
                 else -> "Slow, subtle push-in towards the emotional focus; keep the established composition."
             }
+            val shortCamera=if(story.optString("clip_format")=="short") " Pace movement to the action and reaction; avoid obscuring faces or interrupting the spoken line or comic payoff." else ""
             val timing=if(spec.dialogue.isNotBlank() || spec.narration.isNotBlank()) "Begin with a brief natural silent beat and subtle camera movement. Deliver the complete assigned line naturally without rushing, then hold a brief reaction if time allows." else "Begin with a brief natural beat, follow the scene action with the camera, then hold a short reaction if time allows."
             val command="""<flow_project>
   <project_metadata>
@@ -158,7 +159,7 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
     <scene id="$id">
       <aspect_ratio>9:16</aspect_ratio>
       <duration_seconds>8</duration_seconds>
-      <camera>One continuous shot with no cuts. ${xml(cameraAction)} ${xml(keepCast)}</camera>\n      <timing>${xml(timing)}</timing>
+      <camera>One continuous shot with no cuts. ${xml(cameraAction+shortCamera)} ${xml(keepCast)}</camera>\n      <timing>${xml(timing)}</timing>
       <starting_frame>Use the attached scene image as the first frame. Preserve the characters' faces, hair, natural body proportions, clothing, positions, lighting, location and visible props.</starting_frame>
       <characters>
 $chars

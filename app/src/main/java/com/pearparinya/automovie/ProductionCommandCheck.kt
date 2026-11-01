@@ -20,6 +20,8 @@ internal object ProductionCommandCheck {
         val people=people(scene)
         if(people.isEmpty()) add("ขาดตัวละครในซีน")
         if(scene.optInt("duration_seconds",8)!=8) add("ซีนต้องใช้ 8 วินาที")
+        val camera=scene.optString("camera_movement").trim()
+        if(camera.isNotEmpty() && camera !in setOf("push_in","pan","track","locked")) add("การเคลื่อนกล้องไม่รองรับ: เลือกซูม แพน ติดตาม หรือกล้องนิ่ง")
         val positions=people.mapNotNull { position(it.optString("screen_position")) }
         if(positions.distinct().size!=positions.size) add("ตำแหน่งตัวละครซ้ำ ต้องระบุซ้าย/กลาง/ขวาหรือระยะหน้า-หลังแยกกัน")
         val action=scene.optString("flow_action").ifBlank { scene.optString("action") }
