@@ -24,6 +24,19 @@ class AutoDirectorContentTest {
         assertTrue(ChannelCatalog.acceptedCategories.contains("ความลับในรั้วบ้าน"))
         assertTrue(ChannelCatalog.mainCategories.any { it.id=="mystery_twist" })
     }
+    @Test fun pairedCoversKeepBothSizesAndReferenceIdentity() {
+        val tasks=SimpleProductionCommands.imageTasks(story(),1)
+        val portrait=tasks.first { it.id=="STORY_COVER_9x16" }
+        val landscape=tasks.first { it.id=="STORY_COVER_16x9" }
+        val command=SimpleProductionCommands.coverPair(portrait,landscape)
+        assertTrue(command.contains("TWO separate cover images"))
+        assertTrue(command.indexOf("IMAGE 1 — PORTRAIT") < command.indexOf("IMAGE 2 — LANDSCAPE"))
+        assertTrue(command.contains("STORY_COVER_9x16.png"))
+        assertTrue(command.contains("STORY_COVER_16x9.png"))
+        assertTrue(command.contains("attached MASTER"))
+        assertTrue(geminiImageMessage(command,true).contains("2 ภาพแยกไฟล์"))
+        assertTrue(geminiImageMessage(command).contains("1 ภาพ"))
+    }
     @Test fun imagePromptsUseProjectDataAndReferenceRolesForBothApps() {
         val project=story().put("title","เรื่องทดสอบ & ความลับ").put("channel","ช่องของฉัน").put("tagline","ข้อความทดสอบ")
         val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
