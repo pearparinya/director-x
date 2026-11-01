@@ -1566,16 +1566,7 @@ class StudioActivity : AppCompatActivity() {
                 val hashes=runCatching { refs.map { MasterLibrary.digest(it.second.readBytes()) } }.getOrElse { notice("อ่าน MASTER ไม่ได้ กรุณาตรวจไฟล์ภาพ"); return@setOnClickListener }
                 if(hashes.distinct().size != hashes.size) { notice("MASTER ของตัวละครต่างคนเป็นไฟล์ภาพเดียวกัน กรุณาตรวจและเปลี่ยนภาพก่อนสร้าง"); return@setOnClickListener }
                 val labels=task.references.associate { referenceId(it.getString("master")) to it.getString("name") }
-                if(task.id.contains("_COVER_")) {
-                    val prefix=task.id.substringBeforeLast("_")
-                    val vertical=tasks.firstOrNull { it.id=="${prefix}_9x16" }
-                    val horizontal=tasks.firstOrNull { it.id=="${prefix}_16x9" }
-                    if(vertical==null || horizontal==null) { notice("ไม่พบคำสั่งปกทั้งสองขนาด"); return@setOnClickListener }
-                    choiceMenu("สร้างปก",listOf("ส่งครั้งเดียว • แนวตั้งและแนวนอน", "สร้างเฉพาะขนาดนี้")) { choice ->
-                        if(choice==0) shareImageCommand(SimpleProductionCommands.coverPair(vertical,horizontal),refs,labels,twoCovers=true)
-                        else shareImageCommand(task.command,refs,labels)
-                    }
-                } else shareImageCommand(task.command,refs,labels)
+                shareImageCommand(task.command,refs,labels)
             }
             dialog.getButton(-3).text="แก้เฉพาะรายการนี้"
             dialog.getButton(-3).setOnClickListener {
