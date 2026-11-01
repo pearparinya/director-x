@@ -111,7 +111,7 @@ class AutoDirectorContentTest {
         assertFalse(prompt.contains("MASTER ID:"))
         assertFalse(prompt.contains(project.getString("channel")))
         assertFalse(prompt.contains(project.getString("title")))
-        assertFalse(prompt.contains("\\\\n"))
+        assertFalse(prompt.contains("\\n"))
         scene.put("dialogue","").put("speaker","").put("narration","")
         val silent=SimpleProductionCommands.videoTasks(project,1).first().command
         assertTrue(silent.contains("No speech or narration"))
