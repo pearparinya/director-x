@@ -1049,7 +1049,7 @@ class StudioActivity : AppCompatActivity() {
         val name = if (useNewMasters) source.nameWithoutExtension else source.nameWithoutExtension + "_MASTER"
         return "${name.uppercase()}.$extension"
     }
-    private fun shareImageCommand(command: String, references: List<Pair<String,File>>) {
+    private fun shareImageCommand(command: String, references: List<Pair<String,File>>, referenceLabels: Map<String,String> = emptyMap()) {
         val preferred=prefs.getString("image_provider","ChatGPT") ?: "ChatGPT"
         val providers=imageProviderOptions(preferred)
         val choices=providers.mapIndexed { i,name -> name+if(i==0) " • ตัวเลือกที่จำไว้" else "" } + "คัดลอกคำสั่ง • แนบ MASTER เอง"
@@ -1060,11 +1060,11 @@ class StudioActivity : AppCompatActivity() {
             } else {
                 val provider=providers[selected]
                 prefs.edit().putString("image_provider",provider).apply()
-                shareText(command,includeMasters=false,referenceImages=references,destinationLabel=provider,imagePackage=true)
+                shareText(command,includeMasters=false,referenceImages=references,destinationLabel=provider,imagePackage=true,referenceLabels=referenceLabels)
             }
         }
     }
-    private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT", imagePackage: Boolean = false) {
+    private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT", imagePackage: Boolean = false, referenceLabels: Map<String,String> = emptyMap()) {
         var text = if (lockCreation && !inputText.contains("ค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง)")) inputText + "\nค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง): EP=${prefs.getString("plan_episodes", "").orEmpty().ifBlank { "AI ประเมิน" }} ฉาก/EP=${prefs.getString("plan_scenes", "").orEmpty().ifBlank { "AI ประเมิน" }} เวลา=${prefs.getString("plan_duration", "8")} วินาที สัดส่วน=${"9:16"} กำหนด duration_seconds และ aspect_ratio ใน story.json และคำสั่งทุกฉากตามนี้" else inputText
         if (imagePackage && !text.contains(BodyReferencePolicy.imageIdentityLock)) text += "\n\n" + BodyReferencePolicy.imageIdentityLock
         if (imagePackage && !text.contains(ImagePromptPolicy.skinTone)) text += "\n\n" + ImagePromptPolicy.skinTone
@@ -1172,10 +1172,14 @@ class StudioActivity : AppCompatActivity() {
             this.text = if(geminiImages) "$pendingStorySummary\n$imageList\nส่งคำสั่งสร้างภาพพร้อมภาพอ้างอิงไป Gemini และคัดลอกคำสั่งไว้ให้ด้วย\n\n1. ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง\n2. หาก Gemini ไม่แสดงคำสั่ง ให้แตะช่องข้อความค้างแล้วเลือก วาง\n3. หาก Gemini ตอบเป็นข้อความ ให้เปิดโหมดสร้างภาพแล้วลองใหม่" else if(filePackage) "$pendingStorySummary\n$imageList\nแนบไฟล์ READ_FIRST_IMAGE_COMMAND.txt พร้อม MASTER ไปในชุดเดียวกัน ตรวจว่า $destinationLabel แสดงไฟล์คำสั่งและรูปครบก่อนกดส่ง หากช่องข้อความว่างให้ระบุคำสั่งก่อนส่ง" else "$pendingStorySummary\n$imageList\nตรวจภาพและข้อความใน $destinationLabel ก่อนกดส่ง คำสั่งคัดลอกไว้ในคลิปบอร์ดแล้ว"
             textSize = 13f
         })
-        uris.filter { contentResolver.getType(it)?.startsWith("image/")==true }.forEach { uri -> preview.addView(ImageView(this).apply {
+        uris.filter { contentResolver.getType(it)?.startsWith("image/")==true }.forEach { uri ->
+            val filename=uri.lastPathSegment?.substringAfterLast('/').orEmpty()
+            val label=referenceLabels[referenceId(filename)]
+            preview.addView(TextView(this).apply { this.text = if(label.isNullOrBlank()) filename else "$label • $filename"; textSize=14f })
+            preview.addView(ImageView(this).apply {
             setImageBitmap(previewBitmap(uri)); adjustViewBounds = true
             layoutParams = LinearLayout.LayoutParams(-1,dp(120)).apply { bottomMargin = dp(8) }
-            contentDescription = uri.lastPathSegment
+            contentDescription = label ?: uri.lastPathSegment
         }) }
         preview.addView(TextView(this).apply { this.text = text; textSize = 14f; setTextIsSelectable(true) })
         AlertDialog.Builder(this).setTitle("ตรวจคำสั่งและภาพก่อนส่ง")
@@ -1465,9 +1469,13 @@ class StudioActivity : AppCompatActivity() {
             dialog.getButton(-1).setOnClickListener {
                 if(!images) { copyCommand(task.command); return@setOnClickListener }
                 if(problems.isNotEmpty()) { productionCheckMenu(story); return@setOnClickListener }
-                val refs=task.references.map { person -> person.getString("master").substringBeforeLast('.') to masterFor(person) }
+                val refs=task.references.map { person -> referenceId(person.getString("master")) to masterFor(person) }
                 if(refs.isEmpty() || refs.any { !it.second.isFile }) { notice("ขาด MASTER ของตัวละครในรายการนี้"); return@setOnClickListener }
-                shareImageCommand(task.command,refs)
+                if(refs.map { it.first.lowercase() }.distinct().size != refs.size) { notice("รหัส MASTER ซ้ำกัน กรุณาตรวจตัวละครก่อนสร้างภาพ"); return@setOnClickListener }
+                val hashes=runCatching { refs.map { MasterLibrary.digest(it.second.readBytes()) } }.getOrElse { notice("อ่าน MASTER ไม่ได้ กรุณาตรวจไฟล์ภาพ"); return@setOnClickListener }
+                if(hashes.distinct().size != hashes.size) { notice("MASTER ของตัวละครต่างคนเป็นไฟล์ภาพเดียวกัน กรุณาตรวจและเปลี่ยนภาพก่อนสร้าง"); return@setOnClickListener }
+                val labels=task.references.associate { referenceId(it.getString("master")) to it.getString("name") }
+                shareImageCommand(task.command,refs,labels)
             }
             dialog.getButton(-3).text="แก้เฉพาะรายการนี้"
             dialog.getButton(-3).setOnClickListener {
