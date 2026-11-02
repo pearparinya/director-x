@@ -28,6 +28,15 @@ class FlowScenePromptTest {
         assertTrue(prompt.contains("<language>th-TH</language>"))
         assertTrue(prompt.contains("<subtitles>false</subtitles>"))
     }
+    @Test fun thaiSpeechPreservesPhraseSpacesPunctuationAndXmlCharacters() {
+        val dialogue="พี่ริน ครับ... ฟังก่อนนะ & เข้าใจไหม"
+        val narration="การตรวจสอบพื้นที่เริ่มต้นขึ้น ท่ามกลางความระแวง"
+        fun readText(prompt: String): String = javax.xml.parsers.DocumentBuilderFactory.newInstance().newDocumentBuilder()
+            .parse(java.io.ByteArrayInputStream(prompt.toByteArray(Charsets.UTF_8)))
+            .getElementsByTagName("text").item(0).textContent
+        assertEquals(dialogue,readText(FlowScenePrompt.build(scene(dialogue=dialogue))))
+        assertEquals(narration,readText(FlowScenePrompt.build(scene(speaker="",dialogue="",narration=narration))))
+    }
     @Test fun characterReferencesMatchActionsAndSpeakerWithoutChangingDialogue() {
         val prompt=FlowScenePrompt.build(scene())
         assertTrue(prompt.contains("<character>[May]</character>"))
