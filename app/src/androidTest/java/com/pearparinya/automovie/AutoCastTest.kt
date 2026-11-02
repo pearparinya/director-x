@@ -49,6 +49,32 @@ class AutoCastTest {
         val noOlder=JSONArray((1..10).map { i -> JSONObject().put("id","CHAR_%03d".format(i)).put("character_gender",if(i%2==0) "man" else "woman").put("character_age",if(i==1) 48 else 28) })
         assertEquals(noOlder.length(),AutoCast.candidatePool(noOlder,JSONArray().put(JSONArray(listOf("CHAR_001"))),"รักต่างวัย | หนุ่มรุ่นน้องกับสาวรุ่นพี่").length())
     }
+    @Test fun rotationWorksWithFewerThanEightFreshActorsAndProtectsAgeRules() {
+        val catalog=JSONArray((1..6).map { i -> JSONObject().put("id","CHAR_%03d".format(i)).put("character_gender",if(i%2==0) "man" else "woman").put("character_age",if(i%2==0) 28 else 48) })
+        val recent=JSONArray().put(JSONArray(listOf("CHAR_001","CHAR_002"))).put(JSONArray(listOf("CHAR_003")))
+        val fresh=AutoCast.rotationPool(catalog,recent,"ทั่วไป","seed")
+        assertEquals(4,fresh.length())
+        assertFalse((0 until fresh.length()).any { fresh.getJSONObject(it).getString("id") in listOf("CHAR_001","CHAR_002") })
+        assertEquals("CHAR_003",fresh.getJSONObject(fresh.length()-1).getString("id"))
+        val small=JSONArray((1..3).map { catalog.getJSONObject(it-1) })
+        val fallback=AutoCast.rotationPool(small,recent,"ทั่วไป","seed")
+        assertEquals(3,fallback.length())
+        val ageCatalog=JSONArray().put(JSONObject().put("id","CHAR_001").put("character_gender","woman").put("character_age",48)).put(JSONObject().put("id","CHAR_002").put("character_gender","man").put("character_age",28)).put(JSONObject().put("id","CHAR_003").put("character_gender","woman").put("character_age",30)).put(JSONObject().put("id","CHAR_004").put("character_gender","man").put("character_age",28))
+        assertEquals(4,AutoCast.rotationPool(ageCatalog,recent,"รักต่างวัย | หนุ่มรุ่นน้องกับสาวรุ่นพี่","seed").length())
+    }
+    @Test fun recentCastsUseFileTimesAndFallbackWhenCachedCastIsBroken() {
+        val root=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,UUID.randomUUID().toString()).apply { mkdirs() }
+        try {
+            val a=File(root,"a").apply { mkdirs() }; val b=File(root,"b").apply { mkdirs() }; val current=File(root,"current").apply { mkdirs() }
+            File(a,"gemini_job").mkdirs(); File(a,"gemini_job/casting.json").writeText("broken")
+            val first=File(a,"story.json").apply { writeText(JSONObject().put("supporting_characters",JSONArray().put(JSONObject().put("library_id","CHAR_001"))).toString()); setLastModified(10000) }
+            File(b,"gemini_job").mkdirs(); File(b,"gemini_job/casting.json").apply { writeText(JSONObject().put("cast",JSONArray().put(JSONObject().put("library_id","CHAR_002"))).toString()); setLastModified(20000) }
+            a.setLastModified(30000); b.setLastModified(1000)
+            val history=AutoCast.recentCasts(root,current)
+            assertEquals("CHAR_002",history.getJSONArray(0).getString(0)); assertEquals("CHAR_001",history.getJSONArray(1).getString(0))
+            assertTrue(first.isFile)
+        } finally { root.deleteRecursively() }
+    }
     @Test fun castingFreezesNamesAndReferencesWithoutLegacyLeads() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val root=File(context.cacheDir,UUID.randomUUID().toString()).apply { mkdirs() }

@@ -34,17 +34,49 @@ internal object AutoCast {
         require(woman.getInt("character_age")-man.getInt("character_age")>=15) { "คู่หลักต้องอายุห่างอย่างน้อย 15 ปี" }
     }
     fun recentCasts(base: File, current: File): JSONArray {
-        val result=JSONArray()
-        base.listFiles()?.filter { it.isDirectory && it!=current }?.sortedByDescending { it.lastModified() }?.forEach { project ->
-            if(result.length()<5) {
-                val file=listOf(File(project,"gemini_job/casting.json"),File(project,"story.json")).firstOrNull { it.isFile }
-                val value=file?.let { runCatching { JSONObject(it.readText()) }.getOrNull() }
-                val cast=value?.optJSONArray("cast") ?: value?.optJSONArray("supporting_characters")
-                val ids=cast?.let { rows -> (0 until rows.length()).map { rows.getJSONObject(it).optString("library_id") }.filter { it.isNotBlank() }.distinct() }.orEmpty()
-                if(ids.isNotEmpty()) result.put(JSONArray(ids))
-            }
+        val casts=base.listFiles().orEmpty().filter { it.isDirectory && it.canonicalFile!=current.canonicalFile }.mapNotNull { project ->
+            // The project directory timestamp may not change when an existing casting file is written.
+            val files=listOf(File(project,"gemini_job/casting.json"),File(project,"story.json"))
+            files.mapNotNull fileLoop@ { file ->
+                if(!file.isFile) return@fileLoop null
+                val value=runCatching { JSONObject(file.readText()) }.getOrNull() ?: return@fileLoop null
+                val cast=value.optJSONArray("cast") ?: value.optJSONArray("supporting_characters") ?: return@fileLoop null
+                val ids=(0 until cast.length()).mapNotNull { cast.optJSONObject(it)?.optString("library_id")?.takeIf(String::isNotBlank) }.distinct()
+                if(ids.isEmpty()) null else file.lastModified() to ids
+            }.maxByOrNull { it.first }
+        }.sortedByDescending { it.first }.take(5)
+        return JSONArray(casts.map { JSONArray(it.second) })
+    }
+
+    /** New jobs prefer a usable pool excluding the last cast. Old jobs keep their saved pool. */
+    fun rotationPool(catalog: JSONArray, recent: JSONArray, category: String, seed: String): JSONArray {
+        val rows=(0 until catalog.length()).map { catalog.getJSONObject(it) }
+        val history=(0 until recent.length()).mapNotNull { recent.optJSONArray(it) }.map { a ->
+            (0 until a.length()).map { a.optString(it) }.toSet()
         }
-        return result
+        if(history.isEmpty()) return JSONArray(rows.shuffled(kotlin.random.Random(seed.hashCode())))
+        val last=history.first()
+        val fresh=rows.filter { it.optString("id") !in last }
+        fun preservesEligibility(candidates: List<JSONObject>): Boolean {
+            if(candidates.size<2) return false
+            for(gender in listOf("man","woman"))
+                if(rows.any { it.optString("character_gender")==gender } && candidates.none { it.optString("character_gender")==gender }) return false
+            if(category.startsWith("รักต่างวัย | หนุ่มรุ่นน้องกับสาวรุ่นพี่")) {
+                val men=candidates.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 25..30 }
+                val women=candidates.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 45..55 }
+                if(men.none { man -> women.any { woman -> woman.optInt("character_age")-man.optInt("character_age")>=15 } }) return false
+            }
+            return true
+        }
+        val candidates=if(preservesEligibility(fresh)) fresh else rows
+        // Prefer lower frequency and older use across all five known casts; vary ties per story.
+        val random=kotlin.random.Random(seed.hashCode())
+        val ordered=candidates.shuffled(random).sortedWith(compareBy<JSONObject> { row ->
+            val id=row.optString("id"); history.count { id in it }
+        }.thenByDescending { row ->
+            val id=row.optString("id"); val lastUse=history.indexOfFirst { id in it }; if(lastUse<0) Int.MAX_VALUE else lastUse
+        })
+        return JSONArray(ordered)
     }
     /** Prefer a fresh pool, but preserve the complete catalog if there are too few choices. */
     fun candidatePool(catalog: JSONArray, recent: JSONArray, category: String): JSONArray {
