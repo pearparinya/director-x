@@ -11,15 +11,15 @@ class FlowScenePromptTest {
     @Test fun speakerIsBoundToAppearanceAndListenersStaySilent() {
         val prompt=FlowScenePrompt.build(scene())
         assertTrue(prompt.contains("<dialogue>"))
-        assertTrue(prompt.contains("<speaker>เมย์</speaker>"))
-        assertTrue(prompt.contains("เมย์ speaks naturally"))
+        assertTrue(prompt.contains("<speaker>[เมย์]</speaker>"))
+        assertTrue(prompt.contains("[เมย์] speaks naturally"))
         assertTrue(prompt.contains("พี่ริน หนูเป็นน้องสาวของพี่"))
         assertFalse(prompt.contains("<voiceover>"))
     }
     @Test fun narratorMatchesReferenceLayoutAndKeepsOriginalSpeech() {
         val line="การตรวจสอบพื้นที่เริ่มต้นขึ้น ท่ามกลางความระแวง"
         val prompt=FlowScenePrompt.build(scene(speaker="",dialogue="",narration=line),"scene_investigation_01")
-        val tags=listOf("<aspect_ratio>","<duration>","<reference_image>","<prompt>","<lighting>","<typography_safe_zone>","<voiceover>","<sound_effects>")
+        val tags=listOf("<aspect_ratio>","<duration>","<reference_image>","<characters>","<prompt>","<lighting>","<typography_safe_zone>","<voiceover>","<sound_effects>")
         assertEquals(tags.map { prompt.indexOf(it) }.sorted(),tags.map { prompt.indexOf(it) })
         assertTrue(tags.all { prompt.contains(it) })
         assertTrue(prompt.contains("Masterpiece, 8k resolution, cinematic shot. One continuous 8-second vertical shot."))
@@ -27,6 +27,16 @@ class FlowScenePromptTest {
         assertEquals(1,Regex(Regex.escape(line)).findAll(prompt).count())
         assertTrue(prompt.contains("<language>th-TH</language>"))
         assertTrue(prompt.contains("<subtitles>false</subtitles>"))
+    }
+    @Test fun characterReferencesMatchActionsAndSpeakerWithoutChangingDialogue() {
+        val prompt=FlowScenePrompt.build(scene())
+        assertTrue(prompt.contains("<character>[เมย์]</character>"))
+        assertTrue(prompt.contains("<character>[รินรดา]</character>"))
+        assertTrue(prompt.contains("[เมย์] slides the envelope"))
+        assertTrue(prompt.contains("[เมย์]: short-haired woman, left in the first frame"))
+        assertTrue(prompt.contains("<speaker>[เมย์]</speaker>"))
+        assertTrue(prompt.contains("พี่ริน หนูเป็นน้องสาวของพี่"))
+        assertFalse(prompt.contains("<character>Off-screen"))
     }
     @Test fun aliasesResolveButAbsentOrMultipleSpeakersAreRejected() {
         assertTrue(FlowScenePrompt.issues(scene(speaker="มายด์")).isEmpty())
