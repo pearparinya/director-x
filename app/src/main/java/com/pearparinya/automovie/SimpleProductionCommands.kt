@@ -138,12 +138,30 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
                 else -> "Slow subtle push-in toward the emotional focus."
             }
             val motion=listOf("Start: ${spec.startState}",spec.action,"End: ${spec.endState}",performance.takeIf { it.isNotBlank() }?.let { "Performance: $it" },scene.optString("production_video_note").takeIf { it.isNotBlank() }?.let { "Direction: $it" }).filterNotNull().joinToString(". ")
-            val command="""Use the attached image as the first frame. One continuous 8-second vertical shot.
-Characters: $cast. Keep all ${visible.size} visible characters and their positions, faces, hair, bodies, clothes and setting consistent.
-Action: $motion
-Camera: $cameraAction Keep faces visible and pace movement to dialogue and reactions.
-Voice: $speech
-Sound: $sound Keep effects and music below speech. No additional voices or subtitles.""".trim()
+            val line=when {
+                spec.dialogue.isNotBlank() -> spec.dialogue
+                spec.narration.isNotBlank() -> spec.narration
+                else -> ""
+            }
+            val speaker=when {
+                spec.dialogue.isNotBlank() -> spec.speaker
+                spec.narration.isNotBlank() -> "off-screen narrator"
+                else -> ""
+            }
+            val dialogueBlock=if(line.isNotBlank()) """
+  <dialogue>
+    <speaker>${xml(speaker)}</speaker>
+    <text>${xml(line)}</text>
+    <language>th-TH</language>
+  </dialogue>""" else "\n  <dialogue>None</dialogue>"
+            val command="""<scene id="${xml(id)}">
+  <aspect_ratio>9:16</aspect_ratio>
+  <duration_seconds>8</duration_seconds>
+  <characters>${xml(cast)}</characters>
+  <prompt>Use the attached image as the first frame. One continuous shot. Keep all ${visible.size} visible characters, their positions, faces, hair, bodies, clothes and setting consistent. ${xml(motion)} Keep held objects intact and in contact with the hand while held; no splitting or duplication.</prompt>
+  <camera>${xml(cameraAction)} Keep faces visible; pace movement to the action and reactions.</camera>
+  <audio>${xml(speech)} ${xml(sound)} Keep effects and music below speech. No additional voices or subtitles.</audio>$dialogueBlock
+</scene>""".trim()
             Task(id,"EP.$number | ซีน %03d | วิดีโอ 9:16 | 8 วินาที".format(n),"9:16",command)
         }
     }
