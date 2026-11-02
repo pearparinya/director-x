@@ -1157,6 +1157,19 @@ class StudioActivity : AppCompatActivity() {
         val name = if (useNewMasters) source.nameWithoutExtension else source.nameWithoutExtension + "_MASTER"
         return "${name.uppercase()}.$extension"
     }
+    private fun previewImageReferences(task: SimpleProductionCommands.Task, references: List<Pair<String,File>>, labels: Map<String,String>) {
+        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
+        panel.addView(TextView(this).apply { text="ตรวจภาพ MASTER ชื่อและตำแหน่งก่อนส่ง • แตะภาพเพื่อขยาย\nหลังเปิดแอปปลายทาง ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง" })
+        task.references.forEachIndexed { index, person ->
+            val (id,file)=references[index]
+            val position=if(task.id.contains("_COVER_")) when(task.references.size) { 1 -> "center"; 2 -> if(index==0) "left" else "right"; else -> listOf("left","center","right")[index] } else person.optString("screen_position")
+            panel.addView(TextView(this).apply { text="${person.optString("name")} • $position\n$id"; setTypeface(null,Typeface.BOLD) })
+            panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(220)); setOnClickListener { fullImage(file,person.optString("name")) } })
+        }
+        AlertDialog.Builder(this).setTitle("ตรวจ MASTER • ${task.id}").setView(ScrollView(this).apply { addView(panel) })
+            .setPositiveButton("เลือกแอปและส่ง") { _,_ -> shareImageCommand(task.command,references,labels) }
+            .setNegativeButton("กลับไปตรวจ",null).showDirector()
+    }
     private fun shareImageCommand(command: String, references: List<Pair<String,File>>, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false) {
         val preferred=prefs.getString("image_provider","ChatGPT") ?: "ChatGPT"
         val providers=imageProviderOptions(preferred)
@@ -1585,7 +1598,7 @@ class StudioActivity : AppCompatActivity() {
                 val hashes=runCatching { refs.map { MasterLibrary.digest(it.second.readBytes()) } }.getOrElse { notice("อ่าน MASTER ไม่ได้ กรุณาตรวจไฟล์ภาพ"); return@setOnClickListener }
                 if(hashes.distinct().size != hashes.size) { notice("MASTER ของตัวละครต่างคนเป็นไฟล์ภาพเดียวกัน กรุณาตรวจและเปลี่ยนภาพก่อนสร้าง"); return@setOnClickListener }
                 val labels=task.references.associate { referenceId(it.getString("master")) to it.getString("name") }
-                shareImageCommand(task.command,refs,labels)
+                previewImageReferences(task,refs,labels)
             }
             dialog.getButton(-3).text="แก้เฉพาะรายการนี้"
             dialog.getButton(-3).setOnClickListener {
@@ -2448,7 +2461,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         }
         picture("ผลลัพธ์ • ${key(s)} • ${s.optString("user_review","รอตรวจ")}",image(s))
         panel.addView(TextView(this).apply { text = "ตรวจใบหน้า ผม รูปร่าง ชุด และมือเทียบ MASTER • ให้ผู้ใช้ประเมินจากภาพจริง\n${sceneCastDescription(s)}\n${s.optString("action")}\n${s.optString("dialogue")}" })
-        AlertDialog.Builder(this).setTitle("เปรียบเทียบต้นฉบับ").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ตรวจแล้ว / ยืนยันภาพ") { _,_ -> mapFlowCharacters(s) }.setNegativeButton("ปิด",null).showDirector()
+        AlertDialog.Builder(this).setTitle("เปรียบเทียบต้นฉบับ").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ตรวจแล้ว / ยืนยันภาพ") { _,_ -> mapFlowCharacters(s) }.setNeutralButton("แก้ตัวละครรายคน") { _,_ -> repairSceneCharacter(s) }.setNegativeButton("ปิด",null).showDirector()
     }
     private fun fullImage(file: File, title: String) {
         val imageView = ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds = true; scaleType = ImageView.ScaleType.FIT_CENTER }
@@ -2509,6 +2522,26 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         }
         val id = FlowCast.id(person) ?: return File(project,"missing.master")
         return File(project,"original_masters/$id.master").takeIf { it.exists() } ?: File(filesDir,"character_masters/$id.master")
+    }
+    private fun repairSceneCharacter(s: JSONObject) {
+        if (!image(s).isFile) return notice("นำเข้าภาพฉากก่อนแก้ตัวละคร")
+        val people=FlowReferencePrompt.people(s)
+        if(people.isEmpty()) return notice("ฉากนี้ไม่มีตัวละคร")
+        choiceMenu("เลือกตัวละครที่ต้องการแก้",people.map { it.optString("name") }) { index ->
+            val person=people[index]; val master=masterFor(person); val name=person.optString("name")
+            if(!master.isFile) { notice("ขาด MASTER ของ $name"); return@choiceMenu }
+            val input=EditText(this).apply { hint="เช่น ปรับทรงผมให้ตรง MASTER" }
+            AlertDialog.Builder(this).setTitle("แก้เฉพาะ $name • ${key(s)}").setView(input)
+                .setPositiveButton("เลือกแอปและส่ง") { _,_ ->
+                    val change=input.text.toString().trim()
+                    if(change.isBlank()) { notice("ระบุสิ่งที่ต้องการแก้ก่อน"); return@setPositiveButton }
+                    val id=referenceId(person.getString("master"))
+                    val sceneId=key(s)
+                    val command="""Edit the attached scene image $sceneId. The attached reference $id is the MASTER of $name, positioned ${person.optString("screen_position")}.
+Change only $name: $change. Match that person's face, hairstyle, skin tone and body proportions to their MASTER. Preserve all other people, their appearance and positions, clothing, background, lighting, text and composition. Keep the existing scene and props. Return one edited image. Review the actual result; identity matching is not guaranteed.""".trimIndent()
+                    shareImageCommand(command,listOf(id to master, sceneId to image(s)),mapOf(id to name,sceneId to "ภาพฉากเดิม"))
+                }.setNegativeButton("ยกเลิก",null).showDirector()
+        }
     }
     private fun repairScene(s: JSONObject) {
         if (!image(s).exists()) return notice("ต้องนำเข้าภาพฉากก่อนแก้ภาพ")
