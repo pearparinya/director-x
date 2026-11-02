@@ -121,6 +121,11 @@ class AutoDirectorContentTest {
         assertTrue(narration.contains("off-screen male narrator"))
         assertTrue(narration.contains("คืนนั้นความจริงปรากฏ"))
         assertTrue(narration.contains("Visible characters keep their mouths closed"))
+        scene.put("narration","").put("speaker","รินรดา").put("dialogue","สวัสดี").put("offscreen_characters",JSONArray().put("รินรดา"))
+        val offscreen=SimpleProductionCommands.videoTasks(project,1).first().command
+        assertTrue(offscreen.contains("Off-screen รินรดา speaks Thai once"))
+        assertTrue(offscreen.contains("Visible characters keep their mouths closed"))
+        assertEquals(1,offscreen.split("สวัสดี").size-1)
     }
     @Test fun imageAndVideoCommandsUseReferenceIdsWithoutAssumingFileType() {
         val project=story()
