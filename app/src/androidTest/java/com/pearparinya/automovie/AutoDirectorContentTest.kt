@@ -89,7 +89,7 @@ class AutoDirectorContentTest {
         fun command()=SimpleProductionCommands.videoTasks(project,1).first().command
         assertTrue(command().contains("Slow, gentle pan"))
         assertTrue(command().contains("Preserve the characters, their positions"))
-        assertTrue(command().contains("<speaker>[รินรดา]</speaker>"))
+        assertTrue(command().contains("<speaker>[Rinrada]</speaker>"))
         scene.put("camera_movement","pan")
         assertTrue(command().contains("Slow, gentle pan"))
         scene.put("camera_movement","track")
@@ -106,7 +106,7 @@ class AutoDirectorContentTest {
         val prompt=SimpleProductionCommands.videoTasks(project,1).first().command
         val parsed=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(prompt.toByteArray(Charsets.UTF_8)))
         assertEquals(scene.getString("dialogue"),parsed.getElementsByTagName("text").item(0).textContent)
-        assertTrue(prompt.contains("<speaker>[รินรดา]</speaker>"))
+        assertTrue(prompt.contains("<speaker>[Rinrada]</speaker>"))
         assertTrue(prompt.contains("quiet room tone"))
         assertFalse(prompt.contains("indoor murmurs"))
         assertFalse(prompt.contains("MASTER ID:"))
@@ -124,7 +124,7 @@ class AutoDirectorContentTest {
         scene.put("narration","").put("speaker","รินรดา").put("dialogue","สวัสดี").put("offscreen_characters",JSONArray().put("รินรดา"))
         scene.put("characters",JSONArray().put(scene.getJSONArray("characters").getJSONObject(0)))
         val offscreen=SimpleProductionCommands.videoTasks(project,1).first().command
-        assertTrue(offscreen.contains("Off-screen รินรดา"))
+        assertTrue(offscreen.contains("Off-screen [Rinrada]"))
         assertTrue(offscreen.contains("Visible characters remain silent with mouths closed"))
         assertEquals(1,offscreen.split("สวัสดี").size-1)
     }
