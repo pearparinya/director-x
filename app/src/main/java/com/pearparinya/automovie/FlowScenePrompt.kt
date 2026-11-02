@@ -40,11 +40,12 @@ internal object FlowScenePrompt {
         }
         val speaker = if (narration.isNotEmpty()) "Off-screen Male Narrator" else if (offscreen) "Off-screen ${s.speaker}" else s.speaker
         val tag = if (narration.isNotEmpty() || offscreen) "voiceover" else "dialogue"
+        val action = s.action.trim().trimEnd('.', '!', '?').ifBlank { "The scene remains still" }
         val sound = s.sound.trim().ifEmpty { "Quiet natural ambience." }.replace(Regex("\\b(?:indoor )?murmurs\\b", RegexOption.IGNORE_CASE), "quiet room tone")
         return buildString {
             append("<scene id=\"${xml(id)}\">\n  <aspect_ratio>9:16</aspect_ratio>\n  <duration>8</duration>\n  <reference_image>attached_image</reference_image>\n")
-            append("  <prompt>Use the attached image as the first frame. One continuous 8-second vertical shot. ${xml(s.action.trim())} Preserve the characters, their positions, clothing and props from the first frame. ${xml(voice)} Camera: ${xml(camera)}</prompt>\n")
-            append("  <lighting>Preserve the lighting of the attached image.</lighting>\n")
+            append("  <prompt>Masterpiece, 8k resolution, cinematic shot. One continuous 8-second vertical shot. ${xml(action)}. Preserve the characters, their positions, clothing and props from the first frame. Keep held objects together and in contact with the hands. ${xml(voice)} Camera: ${xml(camera)}</prompt>\n")
+            append("  <lighting>5500K daylight white balance, pure bright studio lighting, no yellow light</lighting>\n")
             append("  <typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone>\n")
             if (line.isNotEmpty()) {
                 append("  <$tag>\n    <speaker>${xml(speaker)}</speaker>\n    <text>${xml(line)}</text>\n    <language>th-TH</language>\n    <subtitles>false</subtitles>\n  </$tag>\n")

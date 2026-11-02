@@ -16,6 +16,18 @@ class FlowScenePromptTest {
         assertTrue(prompt.contains("พี่ริน หนูเป็นน้องสาวของพี่"))
         assertFalse(prompt.contains("<voiceover>"))
     }
+    @Test fun narratorMatchesReferenceLayoutAndKeepsOriginalSpeech() {
+        val line="การตรวจสอบพื้นที่เริ่มต้นขึ้น ท่ามกลางความระแวง"
+        val prompt=FlowScenePrompt.build(scene(speaker="",dialogue="",narration=line),"scene_investigation_01")
+        val tags=listOf("<aspect_ratio>","<duration>","<reference_image>","<prompt>","<lighting>","<typography_safe_zone>","<voiceover>","<sound_effects>")
+        assertEquals(tags.map { prompt.indexOf(it) }.sorted(),tags.map { prompt.indexOf(it) })
+        assertTrue(tags.all { prompt.contains(it) })
+        assertTrue(prompt.contains("Masterpiece, 8k resolution, cinematic shot. One continuous 8-second vertical shot."))
+        assertTrue(prompt.contains("5500K daylight white balance, pure bright studio lighting, no yellow light"))
+        assertEquals(1,Regex(Regex.escape(line)).findAll(prompt).count())
+        assertTrue(prompt.contains("<language>th-TH</language>"))
+        assertTrue(prompt.contains("<subtitles>false</subtitles>"))
+    }
     @Test fun aliasesResolveButAbsentOrMultipleSpeakersAreRejected() {
         assertTrue(FlowScenePrompt.issues(scene(speaker="มายด์")).isEmpty())
         assertTrue(FlowScenePrompt.issues(scene(speaker="กวิน")).isNotEmpty())
