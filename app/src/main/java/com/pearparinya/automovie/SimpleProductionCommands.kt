@@ -138,30 +138,22 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
                 else -> "Slow subtle push-in toward the emotional focus."
             }
             val motion=listOf("Start: ${spec.startState}",spec.action,"End: ${spec.endState}",performance.takeIf { it.isNotBlank() }?.let { "Performance: $it" },scene.optString("production_video_note").takeIf { it.isNotBlank() }?.let { "Direction: $it" }).filterNotNull().joinToString(". ")
-            val line=when {
-                spec.dialogue.isNotBlank() -> spec.dialogue
-                spec.narration.isNotBlank() -> spec.narration
-                else -> ""
+            val voice=when {
+                spec.dialogue.isNotBlank() && spec.speaker in spec.offscreen -> "Off-screen ${spec.speaker} speaks Thai once:\n“${spec.dialogue}”\nVisible characters keep their mouths closed."
+                spec.dialogue.isNotBlank() -> "${spec.speaker} speaks Thai once:\n“${spec.dialogue}”\nOnly ${spec.speaker} moves their lips; others listen silently."
+                spec.narration.isNotBlank() -> "An off-screen male narrator speaks Thai once:\n“${spec.narration}”\nVisible characters keep their mouths closed."
+                else -> "No speech or narration; visible characters keep their mouths closed."
             }
-            val speaker=when {
-                spec.dialogue.isNotBlank() -> spec.speaker
-                spec.narration.isNotBlank() -> "off-screen narrator"
-                else -> ""
-            }
-            val dialogueBlock=if(line.isNotBlank()) """
-  <dialogue>
-    <speaker>${xml(speaker)}</speaker>
-    <text>${xml(line)}</text>
-    <language>th-TH</language>
-  </dialogue>""" else "\n  <dialogue>None</dialogue>"
-            val command="""<scene id="${xml(id)}">
-  <aspect_ratio>9:16</aspect_ratio>
-  <duration_seconds>8</duration_seconds>
-  <characters>${xml(cast)}</characters>
-  <prompt>Use the attached image as the first frame. One continuous shot. Keep all ${visible.size} visible characters, their positions, faces, hair, bodies, clothes and setting consistent. ${xml(motion)} Keep held objects intact and in contact with the hand while held; no splitting or duplication.</prompt>
-  <camera>${xml(cameraAction)} Keep faces visible; pace movement to the action and reactions.</camera>
-  <audio>${xml(speech)} ${xml(sound)} Keep effects and music below speech. No additional voices or subtitles.</audio>$dialogueBlock
-</scene>""".trim()
+            val command="""Use the attached image as the first frame.
+Create one continuous 8-second vertical shot.
+
+Characters: $cast. Keep all ${visible.size} visible characters and their established appearance and positions.
+Action: $motion
+Keep held objects intact and in contact with the hand while held; do not split or duplicate them.
+Camera: $cameraAction
+
+$voice
+Sound: $sound Keep sound quieter than speech. No other voices or subtitles.""".trim()
             Task(id,"EP.$number | ซีน %03d | วิดีโอ 9:16 | 8 วินาที".format(n),"9:16",command)
         }
     }
