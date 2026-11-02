@@ -66,6 +66,7 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
         val batchSize=if(compact) 2 else 6
         val speechRules="""
 AUDIO FIELDS: choose exactly ONE mode per scene.
+THAI SPEECH SPACING: Write Thai dialogue and narration with natural phrase-level spacing and appropriate punctuation for a comfortable spoken cadence. Example: "การตรวจสอบพื้นที่เริ่มต้นขึ้น ท่ามกลางความระแวง". Do not join distinct phrases together, insert spaces between every Thai word, add pronunciation marks arbitrarily, change the meaning, or include stage directions in the spoken text. Keep each line short enough to finish naturally within eight seconds.
 DIALOGUE: speaker=one canonical Thai name, either on-screen or explicitly listed in offscreen_characters. For an off-screen speaker all visible mouths remain closed; dialogue=spoken Thai words only; narration="".
 NARRATION: speaker=""; dialogue=""; narration=external male voice-over words only; all on-screen mouths closed.
 SILENT: speaker=""; dialogue=""; narration=""; all mouths closed.
