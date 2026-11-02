@@ -34,17 +34,39 @@ internal object FlowScenePrompt {
         val narration = speech(s.narration)
         val offscreen = dialogue.isNotEmpty() && s.offscreen.any { identity(it) == identity(s.speaker) }
         val line = dialogue.ifEmpty { narration }
+        fun label(name: String): String = "[$name]"
+        val visibleSpeaker = s.cast.firstOrNull { identity(it.name) == identity(s.speaker) }?.name ?: s.speaker
         val voice = when {
-            dialogue.isNotEmpty() && !offscreen -> "${s.speaker} speaks naturally; the other visible characters remain silent."
+            dialogue.isNotEmpty() && !offscreen -> "${label(visibleSpeaker)} speaks naturally; the other visible characters remain silent."
             else -> "Visible characters remain silent with mouths closed."
         }
-        val speaker = if (narration.isNotEmpty()) "Off-screen Male Narrator" else if (offscreen) "Off-screen ${s.speaker}" else s.speaker
+        val speaker = if (narration.isNotEmpty()) "Off-screen Male Narrator" else if (offscreen) "Off-screen ${s.speaker}" else label(visibleSpeaker)
         val tag = if (narration.isNotEmpty() || offscreen) "voiceover" else "dialogue"
-        val action = s.action.trim().trimEnd('.', '!', '?').ifBlank { "The scene remains still" }
+        var action = s.action.trim().trimEnd('.', '!', '?').ifBlank { "The scene remains still" }
+        // Only replace aliases with an established identity; never infer a new person's name from position or gender.
+        val aliases = s.cast.flatMap { person ->
+            val known = when (identity(person.name)) {
+                "gawin" -> listOf("กวิน", "Gawin", "Kawin", "The Man")
+                "rinlada" -> listOf("รินรดา", "รินลดา", "Rinlada", "Rinrada", "Woman 1")
+                "mind" -> listOf("เมย์", "มายด์", "May", "Mind", "Woman 2")
+                else -> emptyList()
+            }
+            (known + person.name).distinct().map { it to label(person.name) }
+        }.sortedByDescending { it.first.length }
+        aliases.forEach { (alias, replacement) ->
+            val boundary = if (alias.any { it in 'ก'..'๙' }) "(?<![ก-๙])${Regex.escape(alias)}(?![ก-๙])" else "(?<![A-Za-z0-9])${Regex.escape(alias)}(?![A-Za-z0-9])"
+            action = Regex(boundary, RegexOption.IGNORE_CASE).replace(action) { replacement }
+        }
         val sound = s.sound.trim().ifEmpty { "Quiet natural ambience." }.replace(Regex("\\b(?:indoor )?murmurs\\b", RegexOption.IGNORE_CASE), "quiet room tone")
         return buildString {
             append("<scene id=\"${xml(id)}\">\n  <aspect_ratio>9:16</aspect_ratio>\n  <duration>8</duration>\n  <reference_image>attached_image</reference_image>\n")
-            append("  <prompt>Masterpiece, 8k resolution, cinematic shot. One continuous 8-second vertical shot. ${xml(action)}. Preserve the characters, their positions, clothing and props from the first frame. Keep held objects together and in contact with the hands. ${xml(voice)} Camera: ${xml(camera)}</prompt>\n")
+            if (s.cast.isNotEmpty()) {
+                append("  <characters>\n")
+                s.cast.forEach { append("    <character>${xml(label(it.name))}</character>\n") }
+                append("  </characters>\n")
+            }
+            val mapping = s.cast.joinToString(" ") { "${label(it.name)}: ${it.appearance}, ${it.position} in the first frame." }
+            append("  <prompt>Masterpiece, 8k resolution, cinematic shot. One continuous 8-second vertical shot. ${xml(mapping)} ${xml(action)}. Preserve the characters, their positions, clothing and props from the first frame. Keep held objects together and in contact with the hands. ${xml(voice)} Camera: ${xml(camera)}</prompt>\n")
             append("  <lighting>5500K daylight white balance, pure bright studio lighting, no yellow light</lighting>\n")
             append("  <typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone>\n")
             if (line.isNotEmpty()) {

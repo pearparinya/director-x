@@ -40,7 +40,7 @@ internal object SceneCommandCards {
         return (0 until rows.length()).map { i ->
             val s=rows.getJSONObject(i)
             val spec=FlowSceneSpec(FlowReferencePrompt.people(s).map { FlowPerson(it.getString("name"),it.getString("visual_description"),it.getString("screen_position"),it.getString("outfit"),PerformanceDirection.text(it)) },s.optString("speaker"),s.optString("dialogue"),s.optString("narration"),s.optString("flow_action").ifBlank { s.getString("action") },s.getString("location"),s.getString("start_state"),s.getString("end_state"),8,"9:16",SoundDesign.notes(s),ProductionCommandCheck.offscreen(s))
-            val mapped=if(story.optString("content_profile")==AutoDirectorContent.profile) AutoDirectorContent.externalSpec(story,spec) else spec
+            val mapped=spec
             Card("ซีน ${s.getInt("scene")} • วิดีโอแนวตั้ง 9:16 • 8 วินาที",FlowScenePrompt.build(mapped,"EP%02d_SC%03d".format(number,s.getInt("scene"))))
         }
     }
