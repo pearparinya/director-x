@@ -166,7 +166,7 @@ class GeminiStoryTest {
         val warm=ChannelCatalog.mainCategories.first { it.id=="heartwarming" }
         val mystery=ChannelCatalog.mainCategories.first { it.id=="mystery_twist" }
         val short=ChannelCatalog.shortDirection(comedy.label,4)
-        assertTrue(short.contains("Scene 4 resolve"))
+        assertTrue(short.contains("scene 4 resolve"))
         assertTrue(short.contains("COMEDY:")); assertTrue(short.contains("payoff"))
         assertTrue(short.contains("exactly eight seconds")); assertTrue(short.contains("without cuts, trimming"))
         assertTrue(short.contains("title and cover")); assertTrue(short.contains("not a serial"))
