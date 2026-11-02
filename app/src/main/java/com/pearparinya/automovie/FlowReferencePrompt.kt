@@ -27,6 +27,8 @@ internal object FlowReferencePrompt {
     fun people(scene: JSONObject): List<JSONObject> = scene.getJSONArray("characters").let { a -> (0 until a.length()).map { a.getJSONObject(it) } }
     fun scene(scene: JSONObject,ep: Int,kind: String?=null): String {
         val key="EP%02d_SC%03d".format(ep,scene.getInt("scene"))
+        if (kind == "video") return FlowScenePrompt.build(ProductionCommandCheck.spec(scene),key)
+
         val binding=if(kind=="video") "แนบภาพฉาก: $key เป็นเฟรมเริ่มต้น • ตัวละคร: "+people(scene).joinToString(" + ") { it.getString("name") }+"\n"+header(people(scene)).replace("แนบภาพตัวละคร:","ตัวละครที่ต้องอยู่ในภาพฉาก:") else header(people(scene))
         val intro=binding+"\n=== $key | 8 seconds | 9:16 ===\nเหตุการณ์: ${scene.getString("action")}\nสถานที่: ${scene.getString("location")}\nสถานะต้น: ${scene.getString("start_state")}\nสถานะจบ: ${scene.getString("end_state")}\nผู้พูด: ${scene.optString("speaker")}\nบทพูด: ${scene.optString("dialogue")}\nเสียงบรรยาย: ${scene.optString("narration")}\n${FlowVisualDirection.identity}\n${FlowVisualDirection.color}\n${PerformanceDirection.guide}\n${ChannelCatalog.performance(scene)}\n${ChannelCatalog.genre(scene)}\n${PerformanceDirection.scene(scene)}\n"
         val image=if(kind==null || kind=="image") "\nIMAGE PROMPT (Flow / ChatGPT):\n"+normalize(scene.getString("image_prompt"))+"\nFINAL SCENE WARDROBE: Replace the reference clothing with these current scene outfits, overriding stale wardrobe descriptions above. Fit clothes to the original body, never reshape the body: "+people(scene).joinToString("; ") { it.getString("name")+" = "+it.getString("outfit") }+"\n" else ""

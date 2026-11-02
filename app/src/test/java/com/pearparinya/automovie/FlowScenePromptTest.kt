@@ -10,11 +10,11 @@ class FlowScenePromptTest {
         FlowSceneSpec(listOf(may,rin),speaker,dialogue,narration,"May slides the envelope","living room","Envelope in the center","Envelope near Rinlada",8,"9:16")
     @Test fun speakerIsBoundToAppearanceAndListenersStaySilent() {
         val prompt=FlowScenePrompt.build(scene())
-        assertTrue(prompt.contains("ONLY SPEAKER: เมย์ [short-haired woman; screen position: left"))
-        assertTrue(prompt.contains("SILENT LISTENER: รินรดา [long-haired woman; screen position: right"))
-        assertTrue(prompt.contains("No narrator."))
-        assertFalse(prompt.contains("NARRATOR ONLY"))
-        assertTrue(prompt.contains("END STATE: Envelope near Rinlada"))
+        assertTrue(prompt.contains("<dialogue>"))
+        assertTrue(prompt.contains("<speaker>เมย์</speaker>"))
+        assertTrue(prompt.contains("เมย์ speaks naturally"))
+        assertTrue(prompt.contains("พี่ริน หนูเป็นน้องสาวของพี่"))
+        assertFalse(prompt.contains("<voiceover>"))
     }
     @Test fun aliasesResolveButAbsentOrMultipleSpeakersAreRejected() {
         assertTrue(FlowScenePrompt.issues(scene(speaker="มายด์")).isEmpty())
@@ -28,16 +28,16 @@ class FlowScenePromptTest {
     }
     @Test fun narratorAndSilentScenesNeverAnimateTalkingMouths() {
         val narrator=FlowScenePrompt.build(scene(speaker="",dialogue="",narration="ความจริงเริ่มเปิดเผย"))
-        assertTrue(narrator.contains("OFF-SCREEN MALE NARRATOR ONLY"))
-        assertTrue(narrator.contains("All on-screen mouths stay closed"))
+        assertTrue(narrator.contains("<speaker>Off-screen Male Narrator</speaker>"))
+        assertTrue(narrator.contains("Visible characters remain silent with mouths closed"))
         val silent=FlowScenePrompt.build(scene(speaker="",dialogue="",narration="ไม่มี"))
-        assertTrue(silent.contains("Silent scene"))
+        assertFalse(silent.contains("<voiceover>"))
         assertTrue(FlowScenePrompt.issues(scene(narration="เสียงบรรยายซ้อน")).isNotEmpty())
     }
     @Test fun emptyEstablishingShotIsAllowedWithoutInventingPeople() {
         val establishing=scene(speaker="",dialogue="").copy(cast=emptyList())
         assertTrue(FlowScenePrompt.issues(establishing).isEmpty())
-        assertTrue(FlowScenePrompt.build(establishing).contains("Silent scene"))
+        assertFalse(FlowScenePrompt.build(establishing).contains("<dialogue>"))
     }
     @Test fun duplicateAliasesAndIndistinguishableMappingsAreRejected() {
         assertTrue(FlowScenePrompt.issues(scene().copy(cast=listOf(may,may.copy(name="มายด์")))).isNotEmpty())

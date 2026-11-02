@@ -27,8 +27,8 @@ class CastingContinuityTest {
         val spec=FlowSceneSpec(listOf(FlowPerson("นลิน","black hair","center","white shirt")),"ดิน","รอผมก่อนครับ","","she listens","office","waiting","nods",8,"9:16",offscreen=listOf("ดิน"))
         assertTrue(FlowScenePrompt.issues(spec).isEmpty())
         val prompt=FlowScenePrompt.build(spec)
-        assertTrue(prompt.contains("OFF-SCREEN CHARACTER SPEAKER ONLY: ดิน"))
-        assertTrue(prompt.contains("All visible mouths stay closed"))
+        assertTrue(prompt.contains("<speaker>Off-screen ดิน</speaker>"))
+        assertTrue(prompt.contains("Visible characters remain silent with mouths closed"))
         assertTrue(FlowScenePrompt.issues(spec.copy(offscreen=emptyList())).isNotEmpty())
     }
     @Test fun frozenAgeRejectsNumericAndDescriptionDrift() {

@@ -2337,8 +2337,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         }
         if(!image(s).isFile) { notice("สร้างภาพฉากใน Gemini / Flow แล้วนำเข้าภาพก่อน จากนั้นเทียบ MASTER และยืนยันภาพ"); return }
         if(!sceneFrameApproved(s) || FlowScenePrompt.issues(flowSpec(s)).isNotEmpty()) { compareScene(s); return }
-        val code="แนบภาพฉากที่ยืนยันแล้วของ ${key(s)} เป็น START FRAME\nไม่ใช้ภาพ MASTER แทนเฟรมเริ่มต้น และไม่สร้างหน้าตา/ชุดใหม่\n"+
-            FlowScenePrompt.build(if(plan?.optString("content_profile")==AutoDirectorContent.profile) AutoDirectorContent.externalSpec(plan!!,flowSpec(s)) else flowSpec(s))+"\n"+FlowVisualDirection.color+"\nPreserve the approved first-frame faces and body proportions throughout all frames. No body or face morphing.\n"+FlowVisualDirection.referenceReview
+        val code=FlowScenePrompt.build(flowSpec(s),key(s))
         if(copy) copyCommand(code) else showFlowCode("วิดีโอจากภาพที่ยืนยันแล้ว",code,"${key(s)}_VIDEO.txt")
     }
     private fun copyFlowCommand(s: JSONObject) { reviewedVideoCommand(s,true) }

@@ -60,10 +60,9 @@ class PerformanceDirectionTest {
         val spec=FlowSceneSpec(listOf(FlowPerson("กวิน","short dark hair","left","shirt","fear beneath reassurance; voice: low measured Thai voice"),
             FlowPerson("รินรดา","long black hair","right","blouse","hurt beneath dignity; voice: silent")),"กวิน","ฟังผมก่อน","","place the envelope","room","envelope in hand","envelope on table",8,"9:16")
         val prompt=FlowScenePrompt.build(spec)
-        assertTrue(prompt.contains("INDIVIDUAL PERFORMANCE — กวิน: fear beneath reassurance"))
-        assertTrue(prompt.contains("INDIVIDUAL PERFORMANCE — รินรดา: hurt beneath dignity"))
-        assertTrue(prompt.contains("0-2s receive the cue")); assertTrue(prompt.contains("6-8s small silent response"))
-        assertTrue(prompt.contains("SILENT LISTENER")); assertTrue(prompt.contains("no shared or overlapping delivery"))
+        assertTrue(prompt.contains("<dialogue>"))
+        assertTrue(prompt.contains("<speaker>กวิน</speaker>"))
+        assertTrue(prompt.contains("One continuous 8-second vertical shot"))
         assertEquals(1,Regex("ฟังผมก่อน").findAll(prompt).count())
         assertFalse(prompt.contains("angry whisper"))
     }

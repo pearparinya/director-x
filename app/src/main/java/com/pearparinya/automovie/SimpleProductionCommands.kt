@@ -109,55 +109,13 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
         return (0 until rows.length()).map { i ->
             val scene=rows.getJSONObject(i); val n=scene.getInt("scene"); val id="EP%02d_SC%03d".format(number,n)
             val spec=ProductionCommandCheck.spec(scene)
-            val visible=FlowReferencePrompt.people(scene)
-            val cast=visible.joinToString("; ") { p ->
-                p.optString("name")+" ("+p.optString("screen_position").ifBlank { "as in starting frame" }+")"
-            }
-            val performance=visible.mapNotNull { p -> p.optJSONObject("performance")?.let { perf ->
-                val cues=listOf("emotion","gaze","body_language").mapNotNull { k -> perf.optString(k).takeIf { it.isNotBlank() }?.let { "$k: $it" } }
-                if(cues.isEmpty()) null else p.optString("name")+": "+cues.joinToString(", ")
-            } }.joinToString("; ")
-            val sound=spec.sound.ifBlank { "Quiet natural ambience." }.replace(Regex("\\b(?:indoor )?murmurs\\b", RegexOption.IGNORE_CASE),"quiet room tone")
-            val moveOptions=listOf("push_in","pan","track","locked")
-            val cameraMode=scene.optString("camera_movement").takeIf { it in moveOptions } ?: when {
-                Regex("(?i)\\b(walks?|walking|runs?|running|moves?|moving|เดิน|วิ่ง)\\b").containsMatchIn(spec.action) -> "track"
-                visible.size>1 && spec.dialogue.isNotBlank() -> "push_in"
-                visible.size>1 -> "pan"
-                else -> "push_in"
-            }
-            val cameraAction=when(cameraMode) {
-                "pan" -> "Slow pan following action and reactions."
+            val camera=when (scene.optString("camera_movement")) {
                 "track" -> "Gentle tracking movement following the action."
                 "locked" -> "Locked camera."
-                else -> "Slow subtle push-in toward the emotional focus."
+                "push_in" -> "Slow, gentle push-in."
+                else -> "Slow, gentle pan."
             }
-            val motion=listOf("Start: ${spec.startState}",spec.action,"End: ${spec.endState}",performance.takeIf { it.isNotBlank() }?.let { "Performance: $it" },scene.optString("production_video_note").takeIf { it.isNotBlank() }?.let { "Direction: $it" }).filterNotNull().joinToString(". ")
-            val line=if(spec.dialogue.isNotBlank()) spec.dialogue else spec.narration
-            val offscreen=spec.dialogue.isNotBlank() && spec.speaker in spec.offscreen
-            val voice=when {
-                spec.dialogue.isNotBlank() && offscreen -> "Off-screen ${spec.speaker}; visible characters keep their mouths closed."
-                spec.dialogue.isNotBlank() -> "${spec.speaker} speaks with synchronized lips; other characters remain silent."
-                spec.narration.isNotBlank() -> "Off-screen Male Narrator; visible characters keep their mouths closed."
-                else -> "No speech or narration; visible characters keep their mouths closed."
-            }
-            val voiceBlock=if(line.isBlank()) "" else {
-                val tag=if(spec.narration.isNotBlank() || offscreen) "voiceover" else "dialogue"
-                val speaker=if(spec.narration.isNotBlank()) "Off-screen Male Narrator" else spec.speaker
-                """
-  <$tag>
-    <speaker>${xml(speaker)}</speaker>
-    <text>${xml(line)}</text>
-    <language>th-TH</language>
-    <subtitles>false</subtitles>
-  </$tag>"""
-            }
-            val command="""<scene id="${xml(id)}">
-  <aspect_ratio>9:16</aspect_ratio>
-  <duration>8</duration>
-  <reference_image>attached_image</reference_image>
-  <prompt>Use the attached image as the first frame. One continuous 8-second vertical shot. Characters: ${xml(cast)}. Keep all ${visible.size} visible characters and their established appearance and positions. ${xml(motion)} Keep held objects intact and in contact with the hand while held; do not split or duplicate them. Camera: ${xml(cameraAction)} ${xml(voice)}</prompt>$voiceBlock
-  <sound_effects><ambient>${xml(sound)} Keep sound quieter than speech. No other voices or subtitles.</ambient></sound_effects>
-</scene>""".trim()
+            val command=FlowScenePrompt.build(spec,id,camera)
             Task(id,"EP.$number | ซีน %03d | วิดีโอ 9:16 | 8 วินาที".format(n),"9:16",command)
         }
     }
