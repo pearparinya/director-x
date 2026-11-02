@@ -10,12 +10,20 @@ internal data class FlowSceneSpec(
 /** Build from current structured facts, never append stale dialogue from an imported prompt. */
 internal object FlowScenePrompt {
     private fun identity(name: String) = StoryIdentity.keyFor(name.trim()) ?: name.trim()
+    private fun refName(name: String): String = when (identity(name)) {
+        "gawin" -> "Gawin"
+        "rinlada" -> "Rinrada"
+        "mind" -> "May"
+        "พัชรินทร์" -> "Patcharin"
+        "นที" -> "Natee"
+        else -> "Character_" + java.lang.Integer.toUnsignedString(name.trim().hashCode(), 16).uppercase()
+    }
     private fun speech(value: String) = value.trim().takeUnless { it in listOf("", "ไม่มี", "ไม่มีเสียงบรรยาย", "none", "None") }.orEmpty()
     fun issues(s: FlowSceneSpec): List<String> = buildList {
         if(s.aspect!=LandscapeProduction.ASPECT) add("คำสั่งวิดีโอต้องเป็นแนวตั้ง 9:16")
         if (s.cast.isEmpty() && speech(s.dialogue).isNotEmpty()) add("ระบุตัวละครที่ปรากฏในภาพฉากนี้")
         if (s.cast.any { it.name.isBlank() }) add("ตัวละครต้องมีชื่อ")
-        if (s.cast.map { identity(it.name) }.distinct().size != s.cast.size) add("ชื่อตัวละครซ้ำหรือเป็นชื่อเรียกคนเดียวกัน")
+        if (s.cast.map { identity(it.name) }.distinct().size != s.cast.size || s.cast.map { refName(it.name) }.distinct().size != s.cast.size) add("ชื่อตัวละครซ้ำหรือรหัสอ้างอิงชนกัน")
         s.cast.forEach {
             if (it.appearance.isBlank() || it.position.isBlank()) add("ตรวจลักษณะและตำแหน่งในภาพของ ${it.name}")
         }
@@ -34,13 +42,13 @@ internal object FlowScenePrompt {
         val narration = speech(s.narration)
         val offscreen = dialogue.isNotEmpty() && s.offscreen.any { identity(it) == identity(s.speaker) }
         val line = dialogue.ifEmpty { narration }
-        fun label(name: String): String = "[$name]"
+        fun label(name: String): String = "[${refName(name)}]"
         val visibleSpeaker = s.cast.firstOrNull { identity(it.name) == identity(s.speaker) }?.name ?: s.speaker
         val voice = when {
             dialogue.isNotEmpty() && !offscreen -> "${label(visibleSpeaker)} speaks naturally; the other visible characters remain silent."
             else -> "Visible characters remain silent with mouths closed."
         }
-        val speaker = if (narration.isNotEmpty()) "Off-screen Male Narrator" else if (offscreen) "Off-screen ${s.speaker}" else label(visibleSpeaker)
+        val speaker = if (narration.isNotEmpty()) "Off-screen Male Narrator" else if (offscreen) "Off-screen ${label(s.speaker)}" else label(visibleSpeaker)
         val tag = if (narration.isNotEmpty() || offscreen) "voiceover" else "dialogue"
         var action = s.action.trim().trimEnd('.', '!', '?').ifBlank { "The scene remains still" }
         // Only replace aliases with an established identity; never infer a new person's name from position or gender.
@@ -49,13 +57,16 @@ internal object FlowScenePrompt {
                 "gawin" -> listOf("กวิน", "Gawin", "Kawin", "The Man")
                 "rinlada" -> listOf("รินรดา", "รินลดา", "Rinlada", "Rinrada", "Woman 1")
                 "mind" -> listOf("เมย์", "มายด์", "May", "Mind", "Woman 2")
+                "พัชรินทร์" -> listOf("พัชรินทร์", "Patcharin")
+                "นที" -> listOf("นที", "Natee")
                 else -> emptyList()
             }
             (known + person.name).distinct().map { it to label(person.name) }
         }.sortedByDescending { it.first.length }
         aliases.forEach { (alias, replacement) ->
             val boundary = if (alias.any { it in 'ก'..'๙' }) "(?<![ก-๙])${Regex.escape(alias)}(?![ก-๙])" else "(?<![A-Za-z0-9])${Regex.escape(alias)}(?![A-Za-z0-9])"
-            action = Regex(boundary, RegexOption.IGNORE_CASE).replace(action) { replacement }
+            val options = if (alias == "May") emptySet() else setOf(RegexOption.IGNORE_CASE)
+            action = Regex("(?<!\\[)$boundary(?!\\])", options).replace(action) { replacement }
         }
         val sound = s.sound.trim().ifEmpty { "Quiet natural ambience." }.replace(Regex("\\b(?:indoor )?murmurs\\b", RegexOption.IGNORE_CASE), "quiet room tone")
         return buildString {

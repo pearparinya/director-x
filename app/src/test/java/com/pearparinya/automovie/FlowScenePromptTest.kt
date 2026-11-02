@@ -11,8 +11,8 @@ class FlowScenePromptTest {
     @Test fun speakerIsBoundToAppearanceAndListenersStaySilent() {
         val prompt=FlowScenePrompt.build(scene())
         assertTrue(prompt.contains("<dialogue>"))
-        assertTrue(prompt.contains("<speaker>[เมย์]</speaker>"))
-        assertTrue(prompt.contains("[เมย์] speaks naturally"))
+        assertTrue(prompt.contains("<speaker>[May]</speaker>"))
+        assertTrue(prompt.contains("[May] speaks naturally"))
         assertTrue(prompt.contains("พี่ริน หนูเป็นน้องสาวของพี่"))
         assertFalse(prompt.contains("<voiceover>"))
     }
@@ -30,13 +30,36 @@ class FlowScenePromptTest {
     }
     @Test fun characterReferencesMatchActionsAndSpeakerWithoutChangingDialogue() {
         val prompt=FlowScenePrompt.build(scene())
-        assertTrue(prompt.contains("<character>[เมย์]</character>"))
-        assertTrue(prompt.contains("<character>[รินรดา]</character>"))
-        assertTrue(prompt.contains("[เมย์] slides the envelope"))
-        assertTrue(prompt.contains("[เมย์]: short-haired woman, left in the first frame"))
-        assertTrue(prompt.contains("<speaker>[เมย์]</speaker>"))
+        assertTrue(prompt.contains("<character>[May]</character>"))
+        assertTrue(prompt.contains("<character>[Rinrada]</character>"))
+        assertTrue(prompt.contains("[May] slides the envelope"))
+        assertTrue(prompt.contains("[May]: short-haired woman, left in the first frame"))
+        assertTrue(prompt.contains("<speaker>[May]</speaker>"))
         assertTrue(prompt.contains("พี่ริน หนูเป็นน้องสาวของพี่"))
         assertFalse(prompt.contains("<character>Off-screen"))
+    }
+    @Test fun exampleNamesAreStableAndMappedOnlyInAction() {
+        val woman=FlowPerson("พัชรินทร์","long brown hair","center","black dress")
+        val man=FlowPerson("นที","short dark hair","right background","dark trousers")
+        val spec=scene(speaker="",dialogue="",narration="พัชรินทร์มองนที").copy(cast=listOf(woman,man),action="patcharin inspects the blueprints while natee observes")
+        val result=FlowScenePrompt.build(spec)
+        assertTrue(result.contains("<character>[Patcharin]</character>"))
+        assertTrue(result.contains("<character>[Natee]</character>"))
+        assertTrue(result.contains("[Patcharin] inspects the blueprints while [Natee] observes"))
+        assertTrue(result.contains("<text>พัชรินทร์มองนที</text>"))
+        assertEquals(FlowScenePrompt.build(spec).substringAfter("<character>" ).substringBefore("</character>"),FlowScenePrompt.build(spec.copy(cast=listOf(man,woman))).substringAfterLast("<character>").substringBefore("</character>"))
+    }
+    @Test fun customNamesUseStableDistinctEnglishIdentifiers() {
+        val a=FlowPerson("อรุณี","dark hair","left","coat")
+        val b=FlowPerson("มานี","fair hair","right","shirt")
+        val spec=scene(speaker="อรุณี",dialogue="สวัสดี").copy(cast=listOf(a,b),action="อรุณี waves at มานี")
+        val prompt=FlowScenePrompt.build(spec)
+        val first=prompt.substringAfter("<character>").substringBefore("</character>")
+        val second=prompt.substringAfterLast("<character>").substringBefore("</character>")
+        assertTrue(first.startsWith("[Character_")); assertNotEquals(first,second)
+        assertTrue(prompt.contains("$first waves at $second"))
+        assertTrue(prompt.contains("<speaker>$first</speaker>"))
+        assertTrue(prompt.contains("<text>สวัสดี</text>"))
     }
     @Test fun aliasesResolveButAbsentOrMultipleSpeakersAreRejected() {
         assertTrue(FlowScenePrompt.issues(scene(speaker="มายด์")).isEmpty())
