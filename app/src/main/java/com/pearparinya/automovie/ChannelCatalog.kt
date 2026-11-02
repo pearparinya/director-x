@@ -29,22 +29,32 @@ internal object ChannelCatalog {
         MainCategory("mystery_twist","สืบสวน ความลับ และหักมุม","สืบความจริง • ความลับ • เฉลย","drama","🔎","Mystery drama with clues, investigation and a coherent reveal. Keep all cast identities and roles consistent. Avoid graphic violence and criminal instructions."),
         MainCategory("heartwarming","อบอุ่นหัวใจ","น้ำใจ • ครอบครัว • มิตรภาพ","drama","🌤️","Heartwarming everyday story with a specific small need, a meaningful caring action, and a satisfying emotional resolution. Keep family relationships non-sexual; show warmth through behavior, not speeches."),
         MainCategory("everyday_lesson","ข้อคิดใกล้ตัว","ชีวิตประจำวัน • ทางเลือก • ข้อคิด","drama","💡","A relatable everyday choice and its visible consequence, ending with a clear takeaway through action. Avoid lectures, forced morals and added subplots."))
+    data class StoryShelf(val title: String, val categoryIds: List<String>)
+    // Menu grouping is independent of saved category IDs, so old stories remain readable.
+    val storyShelves = listOf(
+        StoryShelf("😂 ยิ้มได้ทุกวัน", listOf("office_sitcom", "neighborhood_comedy", "career_buddy_comedy")),
+        StoryShelf("❤️ ร้อยเรื่องรัก", listOf("romantic_misunderstanding", "age_status_romance", "younger_man_older_woman")),
+        StoryShelf("💔 รอยร้าวในใจ", listOf("domestic_secrets", "betrayal_rivalry", "office_career")),
+        StoryShelf("🔎 ปมลับชวนติดตาม", listOf("mystery_twist", "revenge_disguise", "high_society_underworld")),
+        StoryShelf("🌤️ เรื่องเล่าอบอุ่นใจ", listOf("heartwarming")),
+        StoryShelf("💡 ชีวิตสอนใจ", listOf("everyday_lesson"))
+    )
     // These are story seeds, not fixed scripts; users can also choose automatic selection.
     fun shortTopics(id: String): List<String> = when(id) {
-        "domestic_secrets" -> listOf("ของหายในบ้าน","ความลับที่เข้าใจผิด","มื้ออาหารชวนสงสัย")
-        "betrayal_rivalry" -> listOf("ข้อความส่งผิดคน","เจอแฟนเก่าโดยบังเอิญ","คำโกหกที่จับได้")
-        "office_career" -> listOf("ประชุมผิดห้อง","ความดีที่ไม่มีใครเห็น","ลูกค้าคนสำคัญ")
-        "high_society_underworld" -> listOf("แขกปริศนาในงานเลี้ยง","ของหรูที่มีเรื่องซ่อน","คนธรรมดาในงานไฮโซ")
-        "revenge_disguise" -> listOf("กลับมาพิสูจน์ตัวเอง","คนแปลกหน้าที่เคยรู้จัก","แผนเอาคืนที่พลิกล็อก")
-        "age_status_romance" -> listOf("เดตแรกต่างวัย","เข้าใจผิดเรื่องฐานะ","ดูแลกันในวันธรรมดา")
-        "office_sitcom" -> listOf("ส่งข้อความผิดกลุ่ม","ประชุมเปิดไมค์ค้าง","ของกินในตู้เย็นหาย")
-        "neighborhood_comedy" -> listOf("รับพัสดุผิดบ้าน","เสียงปริศนาข้างบ้าน","ยืมของแล้วเรื่องบาน")
-        "romantic_misunderstanding" -> listOf("เข้าใจผิดว่าเป็นแฟน","นัดเจอผิดคน","ของขวัญผิดเจ้าของ")
-        "career_buddy_comedy" -> listOf("ลูกค้ากับช่างคู่กัด","ภารกิจส่งของ","สองอาชีพช่วยกันแก้ปัญหา")
-        "younger_man_older_woman" -> listOf("คำชวนที่คิดไม่ถึง","รุ่นน้องช่วยงาน","ความห่วงใยที่ตีความผิด")
-        "mystery_twist" -> listOf("เบาะแสชิ้นเดียว","คนที่หายไปไหน","ความจริงที่ไม่เหมือนที่คิด")
-        "heartwarming" -> listOf("น้ำใจเล็ก ๆ ในวันยาก","คนแปลกหน้าช่วยกัน","ของขวัญที่มีความหมาย")
-        "everyday_lesson" -> listOf("ฟังให้จบก่อนตัดสิน","ความซื่อสัตย์เรื่องเล็ก","โอกาสที่สอง")
+        "domestic_secrets" -> listOf("ของหายในบ้าน","ความลับที่เข้าใจผิด","มื้ออาหารชวนสงสัย","จดหมายในลิ้นชัก","มรดกที่ไม่คาดคิด")
+        "betrayal_rivalry" -> listOf("ข้อความส่งผิดคน","เจอแฟนเก่าโดยบังเอิญ","คำโกหกที่จับได้","ความจริงจากเพื่อนสนิท","คำสัญญาที่ผิดนัด")
+        "office_career" -> listOf("ประชุมผิดห้อง","ความดีที่ไม่มีใครเห็น","ลูกค้าคนสำคัญ","เพื่อนร่วมงานเข้าใจผิด","งานชิ้นสุดท้ายก่อนเลิกงาน")
+        "high_society_underworld" -> listOf("แขกปริศนาในงานเลี้ยง","ของหรูที่มีเรื่องซ่อน","คนธรรมดาในงานไฮโซ","คำเชิญลึกลับ","ความลับในกระเป๋าหรู")
+        "revenge_disguise" -> listOf("กลับมาพิสูจน์ตัวเอง","คนแปลกหน้าที่เคยรู้จัก","แผนเอาคืนที่พลิกล็อก","จดหมายจากอดีต","เปิดโปงความเข้าใจผิด")
+        "age_status_romance" -> listOf("เดตแรกต่างวัย","เข้าใจผิดเรื่องฐานะ","ดูแลกันในวันธรรมดา","ของขวัญแทนคำขอบคุณ","คนต่างวัยช่วยกันแก้ปัญหา")
+        "office_sitcom" -> listOf("ส่งข้อความผิดกลุ่ม","ประชุมเปิดไมค์ค้าง","ของกินในตู้เย็นหาย","เตรียมเอกสารผิดชุด","เจ้านายได้ยินผิด")
+        "neighborhood_comedy" -> listOf("รับพัสดุผิดบ้าน","เสียงปริศนาข้างบ้าน","ยืมของแล้วเรื่องบาน","ตะกร้าหน้าบ้านสลับกัน","ทักคนผิดหน้าร้าน")
+        "romantic_misunderstanding" -> listOf("เข้าใจผิดว่าเป็นแฟน","นัดเจอผิดคน","ของขวัญผิดเจ้าของ","แชตผิดห้อง","คำสารภาพที่เข้าใจผิด")
+        "career_buddy_comedy" -> listOf("ลูกค้ากับช่างคู่กัด","ภารกิจส่งของ","สองอาชีพช่วยกันแก้ปัญหา","ช่างกับลูกค้าต่างความคิด","แผนงานสลับบทบาท")
+        "younger_man_older_woman" -> listOf("คำชวนที่คิดไม่ถึง","รุ่นน้องช่วยงาน","ความห่วงใยที่ตีความผิด","อาหารมื้อแรกที่ทำด้วยกัน","คำขอบคุณที่ไม่ทันพูด")
+        "mystery_twist" -> listOf("เบาะแสชิ้นเดียว","คนที่หายไปไหน","ความจริงที่ไม่เหมือนที่คิด","กุญแจที่ไม่มีเจ้าของ","เสียงจากห้องข้าง ๆ")
+        "heartwarming" -> listOf("น้ำใจเล็ก ๆ ในวันยาก","คนแปลกหน้าช่วยกัน","ของขวัญที่มีความหมาย","มื้ออาหารแบ่งปัน","ความช่วยเหลือระหว่างทาง")
+        "everyday_lesson" -> listOf("ฟังให้จบก่อนตัดสิน","ความซื่อสัตย์เรื่องเล็ก","โอกาสที่สอง","คำขอโทษที่ไม่สาย","สิ่งเล็ก ๆ ที่มองข้าม")
         else -> emptyList()
     }
     private fun main(category: String) = mainCategories.firstOrNull { category==it.label || category==it.name }

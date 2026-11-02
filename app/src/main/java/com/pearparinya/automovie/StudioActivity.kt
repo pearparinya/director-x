@@ -1898,19 +1898,19 @@ class StudioActivity : AppCompatActivity() {
     private fun chooseStoryTopic(index: Int, done: (Int) -> Unit) {
         val topics=ChannelCatalog.shortTopics(ChannelCatalog.mainCategories[index].id)
         if(topics.isEmpty()) { selectedStoryTopic=""; done(index); return }
-        choiceMenu("เลือกหมวดหมู่ย่อย",listOf("🎲 สุ่มแนวจากหมวดนี้")+topics) { choice ->
+        choiceMenu("เลือกสถานการณ์ • ${ChannelCatalog.mainCategories[index].name}",listOf("🎲 สุ่มสถานการณ์")+topics) { choice ->
             selectedStoryTopic=if(choice==0) topics.random() else topics[choice-1]
             done(index)
         }
     }
     private fun chooseChannelTopic(done: (Int) -> Unit) {
-        val labels=listOf("🏡 ดราม่าครอบครัวและความลับ","💔 ความรักและการทรยศ","❤️ รักต่างวัยและต่างฐานะ","🏢 ที่ทำงานและอาชีพ","🔎 สืบสวน ความลับ และหักมุม","🔥 ล้างแค้นและปลอมตัว","💞 โรแมนติกคอมเมดี้","🏘️ คอมเมดี้ชีวิตประจำวัน","🎭 คู่หูและภารกิจ","💎 สังคมหรูและระทึกขวัญ","🌤️ อบอุ่นหัวใจ","💡 ข้อคิดใกล้ตัว")
-        fun index(id: String)=ChannelCatalog.mainCategories.indexOfFirst { it.id==id }.also { require(it>=0) }
-        choiceMenu("เลือกหมวดหลัก • เลือกแนวเพิ่มเติมได้",labels) { selected ->
-            when(selected) {
-                2 -> choiceMenu("รักต่างวัย • เลือกแนว",listOf("รักต่างวัยหรือต่างฐานะทั่วไป","หนุ่มรุ่นน้อง 25–30 • สาวรุ่นพี่ 45–55 (ห่างอย่างน้อย 15 ปี)")) { pick -> chooseStoryTopic(index(if(pick==0) "age_status_romance" else "younger_man_older_woman"),done) }
-                3 -> choiceMenu("ที่ทำงาน • เลือกโทน",listOf("ดราม่าและอาชีพ","ซิตคอมในที่ทำงาน")) { pick -> chooseStoryTopic(index(if(pick==0) "office_career" else "office_sitcom"),done) }
-                else -> chooseStoryTopic(index(listOf("domestic_secrets","betrayal_rivalry","","","mystery_twist","revenge_disguise","romantic_misunderstanding","neighborhood_comedy","career_buddy_comedy","high_society_underworld","heartwarming","everyday_lesson")[selected]),done)
+        val shelves=ChannelCatalog.storyShelves
+        choiceMenu("เลือกหมวดหลัก",shelves.map { it.title }) { selected ->
+            val shelf=shelves[selected]
+            val choices=shelf.categoryIds.map { id -> ChannelCatalog.mainCategories.indexOfFirst { it.id==id }.also { require(it>=0) } }
+            if(choices.size==1) chooseStoryTopic(choices.single(),done)
+            else choiceMenu("${shelf.title} • เลือกแนวย่อย",choices.map { ChannelCatalog.mainCategories[it].menuLabel }) { picked ->
+                chooseStoryTopic(choices[picked],done)
             }
         }
     }

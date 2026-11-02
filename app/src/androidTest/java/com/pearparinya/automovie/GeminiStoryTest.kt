@@ -161,6 +161,18 @@ class GeminiStoryTest {
         assertEquals(35,ChannelCatalog.topics.size)
         ChannelCatalog.topics.forEach { assertTrue(ChannelCatalog.acceptedCategories.contains(ChannelCatalog.category(it))) }
     }
+    @Test fun storyShelvesCoverEveryExistingCategoryWithUsableSituations() {
+        val shelves=ChannelCatalog.storyShelves
+        assertEquals(6,shelves.size)
+        assertEquals(listOf("😂 ยิ้มได้ทุกวัน","❤️ ร้อยเรื่องรัก","💔 รอยร้าวในใจ","🔎 ปมลับชวนติดตาม","🌤️ เรื่องเล่าอบอุ่นใจ","💡 ชีวิตสอนใจ"),shelves.map { it.title })
+        val ids=shelves.flatMap { it.categoryIds }
+        assertEquals(ChannelCatalog.mainCategories.map { it.id }.toSet(),ids.toSet())
+        assertEquals(ids.size,ids.toSet().size)
+        ids.forEach { id ->
+            assertTrue(ChannelCatalog.shortTopics(id).size>=5)
+            assertEquals(ChannelCatalog.shortTopics(id).size,ChannelCatalog.shortTopics(id).distinct().size)
+        }
+    }
     @Test fun shortStoryGuideFitsSelectedGenreAndNeverTrimsScenes() {
         val comedy=ChannelCatalog.mainCategories.first { it.id=="office_sitcom" }
         val warm=ChannelCatalog.mainCategories.first { it.id=="heartwarming" }
