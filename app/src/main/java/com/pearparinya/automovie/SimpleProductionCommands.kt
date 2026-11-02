@@ -114,9 +114,9 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
                 p.optString("name")+" ("+p.optString("screen_position").ifBlank { "as in starting frame" }+")"
             }
             val speech=when {
-                spec.dialogue.isNotBlank() && spec.speaker in spec.offscreen -> "Off-screen ${spec.speaker} speaks once in Thai: ${spec.dialogue}. Visible mouths stay closed."
-                spec.dialogue.isNotBlank() -> "${spec.speaker} speaks once in Thai: ${spec.dialogue}. Only the speaker moves their lips."
-                spec.narration.isNotBlank() -> "Off-screen male narrator speaks once in Thai: ${spec.narration}. Visible mouths stay closed."
+                spec.dialogue.isNotBlank() && spec.speaker in spec.offscreen -> "Only the assigned off-screen speaker speaks once in Thai. Visible mouths stay closed."
+                spec.dialogue.isNotBlank() -> "Only the assigned speaker speaks once in Thai with synchronized lips; others listen silently."
+                spec.narration.isNotBlank() -> "The off-screen male narrator speaks once in Thai. Visible mouths stay closed."
                 else -> "No speech or narration; visible mouths stay closed."
             }
             val performance=visible.mapNotNull { p -> p.optJSONObject("performance")?.let { perf ->
