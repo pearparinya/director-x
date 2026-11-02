@@ -39,11 +39,11 @@ class FlowProductionPackTest {
                 assertFalse(home.contains("ตอนละอย่างน้อย 3 นาที"))
                 assertTrue(home.contains("คำสั่งสร้างรูป + Flow • ตอนละ 2 ไฟล์"))
                 assertFalse(home.contains("ChatGPT"))
-                                val stages=listOf("วางบทและเขียนคำสั่ง","นำเข้าบท / ZIP","คำสั่งสร้างรูป + Flow • ตอนละ 2 ไฟล์","รับ MP4 / รวม EP / ดาวน์โหลด")
+                                val stages=listOf("วางบทและเขียนคำสั่ง","นำเข้าบท / ZIP","คำสั่งสร้างรูป + Flow • ตอนละ 2 ไฟล์")
                 stages.forEach { assertTrue(home.contains(it)) }
                 assertTrue(home.contains("รอนำเข้าบท"))
-                assertTrue(home.contains("รอบทสำหรับจับคู่คลิป"))
-                assertTrue(home.indexOf("รับ MP4 / รวม EP / ดาวน์โหลด") < home.indexOf("ทดสอบสร้างวิดีโอ"))
+                assertFalse(home.contains("รับ MP4 / รวม EP / ดาวน์โหลด"))
+                assertTrue(home.contains("นำคลิปที่สร้างใน Flow ไปตัดต่อด้วยโปรแกรมภายนอก"))
                 assertFalse(home.contains("เครื่องมือภาพเดิม"))
                 assertTrue(home.contains("ทดสอบสร้างวิดีโอ"))
             } }
@@ -69,7 +69,8 @@ class FlowProductionPackTest {
                 scenario.onActivity { a ->
                     assertTrue(home(a).contains("นำเข้าบทแล้ว"))
                     assertTrue(home(a).contains("พร้อมส่งออกคำสั่ง"))
-                    assertTrue(home(a).contains("รับคลิป / ทำต่อได้"))
+                    assertFalse(home(a).contains("รับ MP4 / รวม EP / ดาวน์โหลด"))
+                    assertTrue(home(a).contains("นำคลิปที่สร้างใน Flow ไปตัดต่อด้วยโปรแกรมภายนอก"))
                     assertFalse(home(a).contains("รอนำเข้าบท"))
                 }
                 File(folder,"flow_pack_exported.sha256").writeText(EpisodeMedia.digest(story))
