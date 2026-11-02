@@ -1048,7 +1048,7 @@ class StudioActivity : AppCompatActivity() {
                 }
                 5 -> { prefs.edit().putBoolean("detailed_image_profiles",!detailedImageProfiles).apply(); notice(if(detailedImageProfiles) "เพิ่มข้อมูลโปรไฟล์ในคำสั่งภาพแล้ว" else "ใช้คำสั่งภาพกระชับตามต้นแบบแล้ว") }
                 3 -> wholeStoryCommands()
-                4 -> notice("1. สร้างเรื่อง: ตรวจ MASTER เลือกช่องและแนว ส่งคำสั่งไป ChatGPT แล้วส่งข้อความใน ChatGPT เพื่อเริ่มสร้างบทและภาพ\n\n2. รับบทและภาพ: ดาวน์โหลดและนำเข้า story.json ก่อน จากนั้นนำเข้า ZIP ภาพและปกของแต่ละ EP ผ่านเมนู 2 เพิ่มต่อทีละ EP ได้ ไม่ต้องเลือกบทซ้ำ ตรวจงานที่ขาดก่อนทำวิดีโอ\n\n3. ทำวิดีโอ: ใช้ภาพฉากและคำสั่งใน Flow / Veo สร้างคลิปเอง ดาวน์โหลด MP4 แล้วนำกลับเข้าฉากที่ตรงกันในแอป จัดลำดับและรวม EP พร้อมปกเปิด 3 วินาที\n\n4. ดาวน์โหลดหนัง: เมื่อรวม EP สำเร็จ บันทึกหรือแชร์ MP4 ชื่อเรื่อง + เลข EP + ชื่อตอน ส่วน ZIP ใช้สำรองงาน\n\nแอปเปิดบริการภายนอกและจัดไฟล์ ผู้ใช้ต้องส่งข้อความใน ChatGPT และอัปโหลดภาพใน Flow เอง")
+                4 -> notice("1. สร้างเรื่อง: ตรวจ MASTER เลือกช่องและแนว ส่งคำสั่งไป ChatGPT แล้วส่งข้อความใน ChatGPT เพื่อเริ่มสร้างบทและภาพ\n\n2. รับบทและภาพ: ดาวน์โหลดและนำเข้า story.json ก่อน จากนั้นนำเข้า ZIP ภาพและปกของแต่ละ EP ผ่านเมนู 2 เพิ่มต่อทีละ EP ได้ ไม่ต้องเลือกบทซ้ำ ตรวจงานที่ขาดก่อนทำวิดีโอ\n\n3. ทำวิดีโอ: ใช้ภาพฉากและคำสั่งใน Flow / Veo สร้างคลิปเอง ดาวน์โหลด MP4 แล้วนำไปตัดต่อในโปรแกรมภายนอก\n\nแอปเปิดบริการภายนอกและจัดไฟล์ ผู้ใช้ต้องส่งข้อความใน ChatGPT และอัปโหลดภาพใน Flow เอง")
             }
         }
     }
@@ -1667,22 +1667,11 @@ class StudioActivity : AppCompatActivity() {
         val prepared=current!=null || File(project,"flow_story_command.txt").isFile
         val exported=current!=null && storyFile.isFile && File(project,"flow_pack_exported.sha256").takeIf { it.isFile }?.readText()==EpisodeMedia.digest(storyFile)
         val episodes=current?.getJSONArray("episodes")
-        val sceneCount=current?.let { rows(it).size } ?: 0
-        val clipCount=current?.let { rows(it).count { scene -> video(scene).isFile && video(scene).length()>0 } } ?: 0
-        val finished=episodes!=null && episodes.length()>0 && (0 until episodes.length()).all { i ->
-            val ep=episodes.getJSONObject(i).getInt("ep")
-            latestMovie(ep)?.let { job -> runCatching {
-                val specFile=File(job,"spec.json")
-                val spec=JSONObject(specFile.readText())
-                val scenes=orderedMovieScenes(episodes.getJSONObject(i))
-                val inputs=listOf(coverFile("EP%02d_COVER_9x16".format(ep)))+scenes.map { video(it) }
-                val saved=spec.getJSONArray("clips")
-                saved.length()==scenes.size && (0 until saved.length()).all { saved.getString(it)==video(scenes[it]).path } &&
-                    spec.optString("cover")==inputs.first().path && inputs.all { it.isFile && it.lastModified()<=specFile.lastModified() }
-            }.getOrDefault(false) } ?: false
-        }
-        val active=when { current==null -> if(prepared) 2 else 1; !exported -> 3; else -> 4 }
-        label(if(current==null) "ยังไม่มีบท • เริ่มขั้นตอน 1 หรือนำเข้าบทที่มีแล้ว" else "${current.optString("title")} • ${episodes!!.length()} EP • คลิป $clipCount/$sceneCount",14,true)
+        val active=when { current==null -> if(prepared) 2 else 1; else -> 3 }
+        val labelText = if (current==null) "ยังไม่มีบท • เริ่มขั้นตอน 1 หรือนำเข้าบทที่มีแล้ว"
+            else if (current.optString("clip_format")=="short") "${current.optString("title")} • คลิปสั้น"
+            else "${current.optString("title")} • ${episodes!!.length()} EP"
+        label(labelText,14,true)
         if(File(project,"gemini_job/spec.json").isFile) {
             geminiStatusView=TextView(this).apply { text=geminiStatusText(readGeminiStatus()); setTextColor(ice); textSize=14f; setPadding(dp(8),dp(8),dp(8),dp(8)) }
             root.addView(geminiStatusView)
@@ -1705,16 +1694,13 @@ class StudioActivity : AppCompatActivity() {
         if(File(project,"last_image_payload.json").isFile) button("🔁 ส่งคำสั่งและรูปอีกครั้ง",false) { retryLastImage() }
         stepCard(1,"📝","วางบทและเขียนคำสั่ง","เลือกแนวเรื่อง → AI เขียนบทและรับกลับในแอป → ส่งออก Flow • ตั้งค่า API Key ครั้งแรก",completed=prepared,currentStep=active,
             statusText=if(prepared) "เตรียมคำสั่ง / มีบทแล้ว" else "พร้อมเริ่มวางบท") { flowPlanning() }
-        stepCard(2,"📥","นำเข้าบท / ZIP","นำเข้า story.json หรือ ZIP บท • ไม่ต้องรอภาพฉาก • เพิ่มไฟล์ภาพและคลิปภายหลังได้",completed=current!=null,currentStep=active,
+        stepCard(2,"📥","นำเข้าบท / ZIP","นำเข้า story.json หรือ ZIP บท • ไม่ต้องรอภาพฉาก",completed=current!=null,currentStep=active,
             statusText=if(current!=null) "นำเข้าบทแล้ว • เพิ่มไฟล์ได้" else "รอนำเข้า story.json / ZIP") { packagePicker.launch(arrayOf("*/*")) }
         stepCard(3,"📦","คำสั่งสร้างรูป + Flow • ตอนละ 2 ไฟล์",if(current==null) "สร้างหรือนำเข้าบทก่อน แล้วใช้คำสั่งเพียง 2 ไฟล์" else if(issues.isNotEmpty()) "บทต้องแก้ ${issues.size} จุด • แตะดูรายการก่อนส่งออก" else "เลือก EP → ไฟล์ภาพ + ไฟล์ Flow • มีสารบัญ รหัสซีน และตรวจคำสั่งก่อนส่งออก • MASTER เก็บในแอป",
             enabled=current!=null,completed=exported,currentStep=active,statusText=when { current==null -> "รอนำเข้าบท"; issues.isNotEmpty() -> "ต้องตรวจแก้บท"; exported -> "ส่งออกบทฉบับนี้แล้ว"; else -> "พร้อมส่งออกคำสั่ง" }) {
             if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else commandCardsMenu()
         }
-        stepCard(4,"🎥","รับ MP4 / รวม EP / ดาวน์โหลด",if(current==null) "ต้องมีบทเพื่อจับคู่คลิปกับซีน • รับคลิปจาก Flow แล้วรวมและดาวน์โหลด MP4" else "สร้างภาพฉาก → เทียบ MASTER / ยืนยัน → สร้างวิดีโอจากภาพนั้น → รับคลิป $clipCount/$sceneCount และรวม EP",
-            enabled=current!=null,completed=finished,currentStep=active,statusText=when { current==null -> "รอบทสำหรับจับคู่คลิป"; finished -> "รวม EP ครบแล้ว"; clipCount<sceneCount -> "รับคลิป / ทำต่อได้"; else -> "คลิปครบ • พร้อมรวม EP" }) {
-            choiceMenu("งานวิดีโอและ EP",listOf("EP / ซีน • ตรวจภาพก่อนสร้างคลิป","รวม EP / ดาวน์โหลด MP4")) { if(it==0) episodesMenu() else moviesMenu() }
-        }
+        label("นำคลิปที่สร้างใน Flow ไปตัดต่อด้วยโปรแกรมภายนอก",13)
         if(current!=null && current.optString("aspect_ratio","16:9")!="9:16") button("↔ สร้างสำเนาเรื่องแนวตั้ง 9:16",false) { landscapeCopyMenu() }
         button("📋 คำสั่งภาพ / วิดีโอ • ปกและซีน",false) { commandCardsMenu() }
         label("เครื่องมือเสริม",15,true)
