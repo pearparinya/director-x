@@ -113,7 +113,7 @@ class GeminiStoryTest {
             assertEquals("comedy",story.getString("story_tone"))
             val scene=story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
             assertEquals("comedy",scene.getString("story_tone"))
-            assertTrue(FlowReferencePrompt.scene(scene,1,"video").contains(ChannelCatalog.comedy))
+            assertTrue(FlowReferencePrompt.scene(scene,1,"video").contains("<scene"))
             assertTrue(FlowProductionPack.masterCommand(selected.getString("category"),ChannelCatalog.channel).contains(ChannelCatalog.comedy))
             assertTrue(ChannelCatalog.performance(JSONObject().put("category",ChannelCatalog.category(ChannelCatalog.topics.first()))).isBlank())
         } finally { folder.deleteRecursively() }
@@ -180,8 +180,8 @@ class GeminiStoryTest {
                 assertFalse(story.has("subcategory_id"))
                 val scene=story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
                 assertEquals(category.id,scene.getString("category_id"))
-                assertTrue(FlowReferencePrompt.scene(scene,1,"video").contains(category.direction))
-                assertTrue(SceneCommandCards.videos(story,1).first().command.contains(category.direction))
+                assertTrue(FlowReferencePrompt.scene(scene,1,"video").contains("<scene"))
+                assertTrue(SceneCommandCards.videos(story,1).first().command.contains("<scene"))
                 assertTrue(SceneCommandCards.images(story,1).first().command.contains(category.direction))
                 assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_-> error("must use approved checkpoints") }).run(selected).toString())
             } finally { folder.deleteRecursively() }

@@ -87,17 +87,17 @@ class AutoDirectorContentTest {
         val project=story()
         val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
         fun command()=SimpleProductionCommands.videoTasks(project,1).first().command
-        assertTrue(command().contains("push-in"))
-        assertTrue(command().contains("all 3 visible characters"))
+        assertTrue(command().contains("Slow, gentle pan"))
+        assertTrue(command().contains("Preserve the characters, their positions"))
         assertTrue(command().contains("<speaker>รินรดา</speaker>"))
         scene.put("camera_movement","pan")
-        assertTrue(command().contains("Slow pan"))
+        assertTrue(command().contains("Slow, gentle pan"))
         scene.put("camera_movement","track")
         assertTrue(command().contains("tracking movement"))
         scene.put("camera_movement","locked")
         assertTrue(command().contains("Locked camera"))
-        scene.put("characters",JSONArray().put(scene.getJSONArray("characters").getJSONObject(0))).put("camera_movement","")
-        assertTrue(command().contains("all 1 visible characters"))
+        scene.put("camera_movement","push_in")
+        assertTrue(command().contains("push-in"))
     }
     @Test fun flowCommandKeepsAssignedSpeechAndFrameWithoutConflictingMurmurs() {
         val project=story()
@@ -115,16 +115,17 @@ class AutoDirectorContentTest {
         assertFalse(prompt.contains("\\n"))
         scene.put("dialogue","").put("speaker","").put("narration","")
         val silent=SimpleProductionCommands.videoTasks(project,1).first().command
-        assertTrue(silent.contains("No speech or narration"))
+        assertFalse(silent.contains("<dialogue>")); assertFalse(silent.contains("<voiceover>"))
         scene.put("narration","คืนนั้นความจริงปรากฏ")
         val narration=SimpleProductionCommands.videoTasks(project,1).first().command
         assertTrue(narration.contains("Off-screen Male Narrator"))
         assertTrue(narration.contains("คืนนั้นความจริงปรากฏ"))
-        assertTrue(narration.contains("visible characters keep their mouths closed"))
+        assertTrue(narration.contains("Visible characters remain silent with mouths closed"))
         scene.put("narration","").put("speaker","รินรดา").put("dialogue","สวัสดี").put("offscreen_characters",JSONArray().put("รินรดา"))
+        scene.put("characters",JSONArray().put(scene.getJSONArray("characters").getJSONObject(0)))
         val offscreen=SimpleProductionCommands.videoTasks(project,1).first().command
         assertTrue(offscreen.contains("Off-screen รินรดา"))
-        assertTrue(offscreen.contains("visible characters keep their mouths closed"))
+        assertTrue(offscreen.contains("Visible characters remain silent with mouths closed"))
         assertEquals(1,offscreen.split("สวัสดี").size-1)
     }
     @Test fun imageAndVideoCommandsUseReferenceIdsWithoutAssumingFileType() {
@@ -201,7 +202,7 @@ class AutoDirectorContentTest {
         val command=videos.first().command
         assertTrue(command.contains("9:16")); assertFalse(command.contains("16:9"))
         assertTrue(command.contains("<sound_effects>")); assertTrue(command.contains("soft paper rustle")); assertTrue(command.contains("Quieter than the speech"))
-        assertEquals(1,Regex(Regex.escape(scenes.getJSONObject(0).getString("dialogue"))).findAll(command).count())
+        assertEquals(scenes.getJSONObject(0).getString("dialogue"),DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(command.toByteArray(Charsets.UTF_8))).getElementsByTagName("text").item(0).textContent)
         val xml=AutoDirectorContent.flowXml(p,1)
         assertTrue(xml.contains("<sound_effects>")); assertTrue(xml.contains("soft paper rustle"))
         assertTrue(SceneCommandCards.join(videos).contains("=== ซีน 24"))

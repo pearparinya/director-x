@@ -40,7 +40,7 @@ internal object FlowScenePrompt {
         }
         val speaker = if (narration.isNotEmpty()) "Off-screen Male Narrator" else if (offscreen) "Off-screen ${s.speaker}" else s.speaker
         val tag = if (narration.isNotEmpty() || offscreen) "voiceover" else "dialogue"
-        val sound = s.sound.trim().ifEmpty { "Quiet natural ambience." }
+        val sound = s.sound.trim().ifEmpty { "Quiet natural ambience." }.replace(Regex("\\b(?:indoor )?murmurs\\b", RegexOption.IGNORE_CASE), "quiet room tone")
         return buildString {
             append("<scene id=\"${xml(id)}\">\n  <aspect_ratio>9:16</aspect_ratio>\n  <duration>8</duration>\n  <reference_image>attached_image</reference_image>\n")
             append("  <prompt>Use the attached image as the first frame. One continuous 8-second vertical shot. ${xml(s.action.trim())} Preserve the characters, their positions, clothing and props from the first frame. ${xml(voice)} Camera: ${xml(camera)}</prompt>\n")
