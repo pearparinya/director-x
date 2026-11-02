@@ -139,8 +139,8 @@ class GeminiStoryTest {
     }
     @Test fun mainCategoryContractsUseTenReadableStylesWithoutSelectingPresetSubplots() {
         val categories=ChannelCatalog.mainCategories
-        assertEquals(12,categories.size)
-        assertEquals(12,categories.map { it.id }.distinct().size)
+        assertEquals(14,categories.size)
+        assertEquals(14,categories.map { it.id }.distinct().size)
         assertEquals("รักวุ่นชวนเข้าใจผิด",categories[8].name)
         assertEquals("คู่ป่วนต่างอาชีพ",categories[9].name)
         for(c in categories) {
@@ -160,6 +160,22 @@ class GeminiStoryTest {
         }
         assertEquals(35,ChannelCatalog.topics.size)
         ChannelCatalog.topics.forEach { assertTrue(ChannelCatalog.acceptedCategories.contains(ChannelCatalog.category(it))) }
+    }
+    @Test fun shortStoryGuideFitsSelectedGenreAndNeverTrimsScenes() {
+        val comedy=ChannelCatalog.mainCategories.first { it.id=="office_sitcom" }
+        val warm=ChannelCatalog.mainCategories.first { it.id=="heartwarming" }
+        val mystery=ChannelCatalog.mainCategories.first { it.id=="mystery_twist" }
+        val short=ChannelCatalog.shortDirection(comedy.label,4)
+        assertTrue(short.contains("scene 4 resolve"))
+        assertTrue(short.contains("COMEDY:")); assertTrue(short.contains("payoff"))
+        assertTrue(short.contains("exactly eight seconds")); assertTrue(short.contains("without cuts, trimming"))
+        assertTrue(short.contains("title and cover")); assertTrue(short.contains("not a serial"))
+        assertTrue(ChannelCatalog.shortDirection(warm.label,4).contains("HEARTWARMING:"))
+        assertTrue(ChannelCatalog.shortDirection(mystery.label,4).contains("MYSTERY:"))
+        assertFalse(ChannelCatalog.shortDirection(comedy.label,8).contains("FOUR-SCENE STRUCTURE"))
+        assertEquals(4,ClipPlan.scenes(30)); assertEquals(32,ClipPlan.scenes(30)*8)
+        assertTrue(ChannelCatalog.shortTopics("heartwarming").isNotEmpty())
+        assertTrue(ChannelCatalog.shortTopics("everyday_lesson").isNotEmpty())
     }
     @Test fun mainCategoryAutomaticallyContinuesPastLegacyApprovalFlagAndKeepsGenre() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
