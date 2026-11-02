@@ -26,7 +26,9 @@ internal object ChannelCatalog {
         MainCategory("romantic_misunderstanding","รักวุ่นชวนเข้าใจผิด","โรแมนติกคอมเมดี้ • ความเข้าใจผิด • รักวุ่นวาย","comedy","💞","Romantic comedy: a plausible adult misunderstanding, contrasting wants, playful chemistry, clarification and a romantic or hopeful payoff. Both romance and comedy remain central. Vary the trigger and resolution; mistaken identity and wrong appointments are optional ideas, not a fixed plot."),
         MainCategory("career_buddy_comedy","คู่ป่วนต่างอาชีพ","คอมเมดี้คู่หู • ภารกิจวุ่น • คนต่างขั้ว","comedy","🎭","Buddy comedy pairing adults from different professions or approaches on one concrete shared task. Their contrasting skills create a safe comic escalation and cooperative payoff. Romance is optional. Vary the professions and task; do not lock the pair to tutor-student or cook-partner roles."),
         MainCategory("younger_man_older_woman","รักต่างวัย | หนุ่มรุ่นน้องกับสาวรุ่นพี่","โรแมนติกดราม่า • เปิดใจใหม่ • ความต่างวัย","drama","💗","Consensual adult romance between a male lead aged 25–30 and a female lead aged 45–55, using assigned catalog ages. The woman is older by at least 15 years. Explore mutual respect, life-stage differences and earned trust. Vary occupations, conflict and ending; no fixed patron or financial-dependence plot."),
-        MainCategory("mystery_twist","สืบสวน ความลับ และหักมุม","สืบความจริง • ความลับ • เฉลย","drama","🔎","Mystery drama with clues, investigation and a coherent reveal. Keep all cast identities and roles consistent. Avoid graphic violence and criminal instructions."))
+        MainCategory("mystery_twist","สืบสวน ความลับ และหักมุม","สืบความจริง • ความลับ • เฉลย","drama","🔎","Mystery drama with clues, investigation and a coherent reveal. Keep all cast identities and roles consistent. Avoid graphic violence and criminal instructions."),
+        MainCategory("heartwarming","อบอุ่นหัวใจ","น้ำใจ • ครอบครัว • มิตรภาพ","drama","🌤️","Heartwarming everyday story with a specific small need, a meaningful caring action, and a satisfying emotional resolution. Keep family relationships non-sexual; show warmth through behavior, not speeches."),
+        MainCategory("everyday_lesson","ข้อคิดใกล้ตัว","ชีวิตประจำวัน • ทางเลือก • ข้อคิด","drama","💡","A relatable everyday choice and its visible consequence, ending with a clear takeaway through action. Avoid lectures, forced morals and added subplots."))
     // These are story seeds, not fixed scripts; users can also choose automatic selection.
     fun shortTopics(id: String): List<String> = when(id) {
         "domestic_secrets" -> listOf("ของหายในบ้าน","ความลับที่เข้าใจผิด","มื้ออาหารชวนสงสัย")
@@ -41,6 +43,8 @@ internal object ChannelCatalog {
         "career_buddy_comedy" -> listOf("ลูกค้ากับช่างคู่กัด","ภารกิจส่งของ","สองอาชีพช่วยกันแก้ปัญหา")
         "younger_man_older_woman" -> listOf("คำชวนที่คิดไม่ถึง","รุ่นน้องช่วยงาน","ความห่วงใยที่ตีความผิด")
         "mystery_twist" -> listOf("เบาะแสชิ้นเดียว","คนที่หายไปไหน","ความจริงที่ไม่เหมือนที่คิด")
+        "heartwarming" -> listOf("น้ำใจเล็ก ๆ ในวันยาก","คนแปลกหน้าช่วยกัน","ของขวัญที่มีความหมาย")
+        "everyday_lesson" -> listOf("ฟังให้จบก่อนตัดสิน","ความซื่อสัตย์เรื่องเล็ก","โอกาสที่สอง")
         else -> emptyList()
     }
     private fun main(category: String) = mainCategories.firstOrNull { category==it.label || category==it.name }
@@ -106,6 +110,21 @@ internal object ChannelCatalog {
         }
         val topic=topics.firstOrNull { category(it)==value.optString("category") } ?: return value
         return value.put("main_category",groups.first { topic in it.topics }.title).put("subcategory",topic.title).put("subcategory_id",topic.id).put("story_tone",topic.tone)
+    }
+    /** A short is a complete story. Count remains governed by ClipPlan, never by editorial trimming. */
+    fun shortDirection(selectedCategory: String, sceneCount: Int): String {
+        val selected = main(selectedCategory)
+        val tone = when {
+            selected?.tone == "comedy" || topics.any { it.tone == "comedy" && category(it) == selectedCategory } ->
+                "COMEDY: establish a relatable situation, escalate one misunderstanding or prop gag, then deliver one clear visual or verbal payoff and reaction. No canned laughter."
+            selected?.id == "heartwarming" -> "HEARTWARMING: show a specific need and a caring action, ending with a clear emotional response."
+            selected?.id == "everyday_lesson" -> "EVERYDAY LESSON: show one choice and its consequence; let the action convey the takeaway without a lecture."
+            selected?.id == "mystery_twist" -> "MYSTERY: set up one question, show a relevant clue, then reveal an understandable answer within this clip."
+            selected?.id in setOf("age_status_romance", "younger_man_older_woman", "romantic_misunderstanding") -> "ROMANCE: show a concrete interaction and a small believable change in mutual understanding, with a clear emotional ending."
+            else -> "DRAMA: show one understandable conflict, a visible response and an earned resolution within this clip."
+        }
+        val structure = if (sceneCount == 4) "FOUR-SCENE STRUCTURE: Scene 1 introduce the situation immediately; scene 2 develop one problem; scene 3 turn or escalation; scene 4 resolve the situation or deliver the payoff and reaction. Do not leave the plot unfinished." else "Distribute setup, development, turn and resolution across the selected scenes; finish the story in the final scene."
+        return "SHORT CLIP: One complete standalone story, not a serial or teaser. Use one clear situation, preferably one or two visible characters and one location where appropriate. A Thai title and cover must honestly reflect the actual situation and payoff; no invented events or promises. Make the story understandable without previous episodes. Use natural concise spoken Thai with phrase spacing; let actions and reactions carry meaning, with no extra narration needed. Each scene is exactly eight seconds, one continuous shot, without cuts, trimming, speeding up or montage. Cover time is separate. $structure $tone"
     }
     const val safety = "All characters are fictional adults aged 25 or older. Non-explicit adult relationship drama; consensual romance only. No sexual or romantic stepfamily relationships, sexual coercion, sexual debt repayment, or intimate imagery. Family plots concern inheritance and secrets. Female styling follows the MASTER identity and existing SFW wardrobe rules."
     const val comedy = "COMEDY PERFORMANCE DIRECTION: Adult romantic sitcom and situational comedy. Prioritize a readable setup, misunderstanding, one safe physical or prop gag, reaction pause and payoff. Balance confidence with embarrassment and let each character retain dignity and agency. Use distinct expressive eyes, a brief double-take and playful Thai delivery when supported by the action. Do not force dark betrayal, threats, tears or a hidden villain into a comic premise. One principal action per 8-second shot; distribute setup and payoff across separate scenes when needed. No extra voices, audible laughs, canned laugh track, gasps, overlapping dialogue or ad-libs. Preserve the exact assigned speech and silent listeners. Freeze one comic instant in stills, no montage. Maintain MASTER anatomy and exact daily wardrobe. No revealing clothing accidents, transparent or wet-clothing gags, breast-focused framing or anatomy exaggeration. Any contact is consensual; no sexual activity with an intoxicated person. Props, animals and movement remain safe; no fire stunts. Use playful adult ensemble cover expressions and a relevant comedy prop, not an ominous affair-poster pose."

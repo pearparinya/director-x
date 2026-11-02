@@ -1904,20 +1904,20 @@ class StudioActivity : AppCompatActivity() {
         }
     }
     private fun chooseChannelTopic(done: (Int) -> Unit) {
-        val labels=listOf("🏡 ดราม่าครอบครัวและความลับ","💔 ความรักและการทรยศ","❤️ รักต่างวัยและต่างฐานะ","🏢 ที่ทำงานและอาชีพ","🔎 สืบสวน ความลับ และหักมุม","🔥 ล้างแค้นและปลอมตัว","💞 โรแมนติกคอมเมดี้","🏘️ คอมเมดี้ชีวิตประจำวัน","🎭 คู่หูและภารกิจ","💎 สังคมหรูและระทึกขวัญ")
+        val labels=listOf("🏡 ดราม่าครอบครัวและความลับ","💔 ความรักและการทรยศ","❤️ รักต่างวัยและต่างฐานะ","🏢 ที่ทำงานและอาชีพ","🔎 สืบสวน ความลับ และหักมุม","🔥 ล้างแค้นและปลอมตัว","💞 โรแมนติกคอมเมดี้","🏘️ คอมเมดี้ชีวิตประจำวัน","🎭 คู่หูและภารกิจ","💎 สังคมหรูและระทึกขวัญ","🌤️ อบอุ่นหัวใจ","💡 ข้อคิดใกล้ตัว")
         fun index(id: String)=ChannelCatalog.mainCategories.indexOfFirst { it.id==id }.also { require(it>=0) }
         choiceMenu("เลือกหมวดหลัก • เลือกแนวเพิ่มเติมได้",labels) { selected ->
             when(selected) {
                 2 -> choiceMenu("รักต่างวัย • เลือกแนว",listOf("รักต่างวัยหรือต่างฐานะทั่วไป","หนุ่มรุ่นน้อง 25–30 • สาวรุ่นพี่ 45–55 (ห่างอย่างน้อย 15 ปี)")) { pick -> chooseStoryTopic(index(if(pick==0) "age_status_romance" else "younger_man_older_woman"),done) }
                 3 -> choiceMenu("ที่ทำงาน • เลือกโทน",listOf("ดราม่าและอาชีพ","ซิตคอมในที่ทำงาน")) { pick -> chooseStoryTopic(index(if(pick==0) "office_career" else "office_sitcom"),done) }
-                else -> chooseStoryTopic(index(listOf("domestic_secrets","betrayal_rivalry","","","mystery_twist","revenge_disguise","romantic_misunderstanding","neighborhood_comedy","career_buddy_comedy","high_society_underworld")[selected]),done)
+                else -> chooseStoryTopic(index(listOf("domestic_secrets","betrayal_rivalry","","","mystery_twist","revenge_disguise","romantic_misunderstanding","neighborhood_comedy","career_buddy_comedy","high_society_underworld","heartwarming","everyday_lesson")[selected]),done)
             }
         }
     }
     private fun chooseClip(done: (String,Int) -> Unit) {
         choiceMenu("เลือกรูปแบบ • ทุกแบบแนวตั้ง 9:16",listOf("คลิปสั้น","คลิปยาว")) { format ->
             val times=if(format==0) ClipPlan.shortSeconds else ClipPlan.longSeconds
-            choiceMenu("เวลาเนื้อหาต่อ EP • ไม่รวมปกเปิด 3 วินาที",times.map { ClipPlan.label(it)+(if(it==if(format==0) 60 else 300) " • แนะนำเริ่มต้น" else "") }) { index -> done(if(format==0) "short" else "long",times[index]) }
+            choiceMenu(if(format==0) "เวลาเนื้อหาคลิปสั้น • ไม่รวมปก" else "เวลาเนื้อหาต่อ EP • ไม่รวมปกเปิด",times.map { ClipPlan.label(it)+(if(it==if(format==0) 30 else 300) " • แนะนำเริ่มต้น" else "") }) { index -> done(if(format==0) "short" else "long",times[index]) }
         }
     }
     private fun flowPlanning(autoDirector: Boolean = false) {
@@ -1932,7 +1932,7 @@ class StudioActivity : AppCompatActivity() {
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
             val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("1 EP • จบในตอน","ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); if(format!="short") panel.addView(this) }
             if(format=="short") panel.addView(TextView(this).apply { text="คลิปสั้น • จบในคลิปเดียว" })
-            panel.addView(TextView(this).apply { text="${if(format=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(seconds)} ต่อ EP • ไม่รวมปกเปิด 3 วินาที • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้ • ${StoryProvider.label(this@StudioActivity)} • ใช้โมเดลที่ตั้งไว้ • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ของคุณภายหลัง" })
+            panel.addView(TextView(this).apply { text="${if(format=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(seconds)}${if(format=="short") "" else " ต่อ EP"} • ไม่รวมปกเปิด 3 วินาที • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้ • ${StoryProvider.label(this@StudioActivity)} • ใช้โมเดลที่ตั้งไว้ • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ของคุณภายหลัง" })
             AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
                     runCatching {
@@ -1966,7 +1966,7 @@ class StudioActivity : AppCompatActivity() {
             chooseClip { format, seconds ->
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (เว้นว่างให้คิดใหม่)" }
             fun prepare(): String {
-                val code=FlowProductionPack.masterCommand(categories[index],originalChannel)+"\n"+ChannelCatalog.direction(categories[index])+"\nUSER DURATION OVERRIDE: ${if(format=="short") "One standalone episode only; beginning, middle and ending within this one clip. " else ""}${ClipPlan.scenes(seconds)} scenes per EP, 8 seconds each, ${ClipPlan.time(ClipPlan.scenes(seconds)*8)} content per EP. Supersedes default 24 scenes and 180-second minimum above. Set clip_plan_version=1, clip_format=$format, target_seconds=$seconds, scenes_per_episode=${ClipPlan.scenes(seconds)} in story.json.\nแนวย่อย: "+selectedStoryTopic+"\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" }
+                val code=FlowProductionPack.masterCommand(categories[index],originalChannel)+"\n"+ChannelCatalog.direction(categories[index])+(if(format=="short") "\n"+ChannelCatalog.shortDirection(categories[index],ClipPlan.scenes(seconds)) else "")+"\nUSER DURATION OVERRIDE: ${if(format=="short") "One standalone episode only; beginning, middle and ending within this one clip. " else ""}${ClipPlan.scenes(seconds)} scenes per EP, 8 seconds each, ${ClipPlan.time(ClipPlan.scenes(seconds)*8)} content per EP. Supersedes default 24 scenes and 180-second minimum above. Set clip_plan_version=1, clip_format=$format, target_seconds=$seconds, scenes_per_episode=${ClipPlan.scenes(seconds)} in story.json.\nแนวย่อย: "+selectedStoryTopic+"\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" }
                 File(project,"flow_story_command.txt").writeText(code)
                 render()
                 return code
