@@ -132,22 +132,32 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
                 else -> "Slow subtle push-in toward the emotional focus."
             }
             val motion=listOf("Start: ${spec.startState}",spec.action,"End: ${spec.endState}",performance.takeIf { it.isNotBlank() }?.let { "Performance: $it" },scene.optString("production_video_note").takeIf { it.isNotBlank() }?.let { "Direction: $it" }).filterNotNull().joinToString(". ")
+            val line=if(spec.dialogue.isNotBlank()) spec.dialogue else spec.narration
+            val offscreen=spec.dialogue.isNotBlank() && spec.speaker in spec.offscreen
             val voice=when {
-                spec.dialogue.isNotBlank() && spec.speaker in spec.offscreen -> "Off-screen ${spec.speaker} speaks Thai once:\n“${spec.dialogue}”\nVisible characters keep their mouths closed."
-                spec.dialogue.isNotBlank() -> "${spec.speaker} speaks Thai once:\n“${spec.dialogue}”\nOnly ${spec.speaker} moves their lips; others listen silently."
-                spec.narration.isNotBlank() -> "An off-screen male narrator speaks Thai once:\n“${spec.narration}”\nVisible characters keep their mouths closed."
+                spec.dialogue.isNotBlank() && offscreen -> "Off-screen ${spec.speaker}; visible characters keep their mouths closed."
+                spec.dialogue.isNotBlank() -> "${spec.speaker} speaks with synchronized lips; other characters remain silent."
+                spec.narration.isNotBlank() -> "Off-screen Male Narrator; visible characters keep their mouths closed."
                 else -> "No speech or narration; visible characters keep their mouths closed."
             }
-            val command="""Use the attached image as the first frame.
-Create one continuous 8-second vertical shot.
-
-Characters: $cast. Keep all ${visible.size} visible characters and their established appearance and positions.
-Action: $motion
-Keep held objects intact and in contact with the hand while held; do not split or duplicate them.
-Camera: $cameraAction
-
-$voice
-Sound: $sound Keep sound quieter than speech. No other voices or subtitles.""".trim()
+            val voiceBlock=if(line.isBlank()) "" else {
+                val tag=if(spec.narration.isNotBlank() || offscreen) "voiceover" else "dialogue"
+                val speaker=if(spec.narration.isNotBlank()) "Off-screen Male Narrator" else spec.speaker
+                """
+  <$tag>
+    <speaker>${xml(speaker)}</speaker>
+    <text>${xml(line)}</text>
+    <language>th-TH</language>
+    <subtitles>false</subtitles>
+  </$tag>"""
+            }
+            val command="""<scene id="${xml(id)}">
+  <aspect_ratio>9:16</aspect_ratio>
+  <duration>8</duration>
+  <reference_image>attached_image</reference_image>
+  <prompt>Use the attached image as the first frame. One continuous 8-second vertical shot. Characters: ${xml(cast)}. Keep all ${visible.size} visible characters and their established appearance and positions. ${xml(motion)} Keep held objects intact and in contact with the hand while held; do not split or duplicate them. Camera: ${xml(cameraAction)} ${xml(voice)}</prompt>$voiceBlock
+  <sound_effects><ambient>${xml(sound)} Keep sound quieter than speech. No other voices or subtitles.</ambient></sound_effects>
+</scene>""".trim()
             Task(id,"EP.$number | ซีน %03d | วิดีโอ 9:16 | 8 วินาที".format(n),"9:16",command)
         }
     }
