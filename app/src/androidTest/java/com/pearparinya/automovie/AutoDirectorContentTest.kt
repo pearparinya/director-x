@@ -89,7 +89,7 @@ class AutoDirectorContentTest {
         fun command()=SimpleProductionCommands.videoTasks(project,1).first().command
         assertTrue(command().contains("push-in"))
         assertTrue(command().contains("all 3 visible characters"))
-        assertTrue(command().contains("รินรดา speaks once in Thai"))
+        assertTrue(command().contains("<speaker>รินรดา</speaker>"))
         scene.put("camera_movement","pan")
         assertTrue(command().contains("Slow pan"))
         scene.put("camera_movement","track")
@@ -104,8 +104,9 @@ class AutoDirectorContentTest {
         val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
         scene.put("sound_design",JSONObject().put("ambience","subtle indoor murmurs").put("sfx","none").put("music","low strings"))
         val prompt=SimpleProductionCommands.videoTasks(project,1).first().command
-        assertTrue(prompt.contains(scene.getString("dialogue")))
-        assertTrue(prompt.contains("รินรดา speaks once in Thai"))
+        val parsed=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(prompt.toByteArray(Charsets.UTF_8)))
+        assertEquals(scene.getString("dialogue"),parsed.getElementsByTagName("text").item(0).textContent)
+        assertTrue(prompt.contains("<speaker>รินรดา</speaker>"))
         assertTrue(prompt.contains("quiet room tone"))
         assertFalse(prompt.contains("indoor murmurs"))
         assertFalse(prompt.contains("MASTER ID:"))
@@ -117,7 +118,7 @@ class AutoDirectorContentTest {
         assertTrue(silent.contains("No speech or narration"))
         scene.put("narration","คืนนั้นความจริงปรากฏ")
         val narration=SimpleProductionCommands.videoTasks(project,1).first().command
-        assertTrue(narration.contains("Off-screen male narrator"))
+        assertTrue(narration.contains("off-screen narrator"))
         assertTrue(narration.contains("คืนนั้นความจริงปรากฏ"))
         assertTrue(narration.contains("Visible mouths stay closed"))
     }
@@ -127,7 +128,7 @@ class AutoDirectorContentTest {
         assertTrue(poster.contains("MASTER ID: GAWIN_MASTER"))
         assertFalse(poster.contains("GAWIN_MASTER.png"))
         val video=SimpleProductionCommands.videoTasks(project,1).first().command
-        assertTrue(video.contains("8-second vertical shot"))
+        assertTrue(video.contains("<duration_seconds>8</duration_seconds>"))
         assertFalse(video.contains("EP01_SC001.png"))
     }
     @Test fun legacyChannelIsUpdatedForOldProjectCoversAndCustomNamesRemain() {
@@ -229,7 +230,7 @@ class AutoDirectorContentTest {
                 }
                 assertFalse(images.contains("=== EP")); assertTrue(images.contains("สารบัญ"))
                 assertTrue(images.contains("แก้ภาพ <รหัส>")); assertTrue(images.contains("PENDING"))
-                assertTrue(videos.contains("Sound:")); assertTrue(videos.contains("กวิน บอกว่า A & B < C ใช่ไหม"))
+                assertTrue(videos.contains("<audio>")); assertTrue(videos.contains("กวิน บอกว่า A &amp; B &lt; C ใช่ไหม"))
                 assertFalse(videos.contains("STALE AUDIO"))
                 assertTrue("Image export must remain reasonably compact",images.length<135000)
             }
