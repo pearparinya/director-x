@@ -1567,10 +1567,12 @@ class StudioActivity : AppCompatActivity() {
             val code=SimpleProductionCommands.block(task,index,images)+"\n\nล่าสุดที่เปิด: ${task.id} | ถัดไป: $next\nสถานะนี้บันทึกการเปิดคำสั่ง ไม่ได้ยืนยันว่าภาพหรือคลิปสร้างสำเร็จแล้ว"
             val problems=ProductionCommandCheck.issues(story)
             val dialog=showFlowCode("${task.id} • ถัดไป $next",code,"${task.id}_${if(images) "IMAGE" else "FLOW"}.txt")
-            if(images) {
-                activeProductionDialog=dialog
-                dialog.getButton(-2).text="กลับรายการรูป/ซีน"
-                dialog.getButton(-2).setOnClickListener { dialog.dismiss(); activeProductionDialog=null; productionTaskDeck(story,number,true) }
+            if(images) activeProductionDialog=dialog
+            dialog.getButton(-2).text=if(images) "กลับรายการรูป/ซีน" else "กลับรายการซีน"
+            dialog.getButton(-2).setOnClickListener {
+                dialog.dismiss()
+                if(images) activeProductionDialog=null
+                productionTaskDeck(story,number,images)
             }
             if(problems.isNotEmpty()) dialog.getButton(-1).setOnClickListener { notice("คำสั่งยังมีจุดต้องแก้ • เปิด ตรวจคำสั่ง / แก้เฉพาะจุด ก่อนคัดลอก") }
             dialog.getButton(-1).text=if(images) "เลือกแอปสร้างภาพ + MASTER" else "คัดลอกคำสั่ง Flow"
