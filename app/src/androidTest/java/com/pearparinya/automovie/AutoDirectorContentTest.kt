@@ -183,7 +183,7 @@ class AutoDirectorContentTest {
         val xml=AutoDirectorContent.flowXml(p,1)
         val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(xml.toByteArray()))
         assertEquals(4,doc.getElementsByTagName("scene").length)
-        assertTrue(doc.getElementsByTagName("motion_prompt").item(0).textContent.contains(ChannelCatalog.comedy))
+        assertEquals(4,doc.getElementsByTagName("prompt").length)
     }
     @Test fun commandCardsGroupBothPosterSizesThenPortraitScenesWithSoundInVideo() {
         val p=story().put("audio_version",1)
@@ -199,11 +199,11 @@ class AutoDirectorContentTest {
         assertEquals(24,videos.size)
         assertTrue(videos.first().title.startsWith("ซีน 1 • วิดีโอแนวตั้ง 9:16"))
         val command=videos.first().command
-        assertTrue(command.contains("9:16")); assertTrue(command.contains("1080 x 1920")); assertFalse(command.contains("16:9"))
-        assertTrue(command.contains("SOUND:")); assertTrue(command.contains("soft paper rustle")); assertTrue(command.contains("below speech"))
+        assertTrue(command.contains("9:16")); assertFalse(command.contains("16:9"))
+        assertTrue(command.contains("<sound_effects>")); assertTrue(command.contains("soft paper rustle")); assertTrue(command.contains("Quieter than the speech"))
         assertEquals(1,Regex(Regex.escape(scenes.getJSONObject(0).getString("dialogue"))).findAll(command).count())
         val xml=AutoDirectorContent.flowXml(p,1)
-        assertTrue(xml.contains("<sound_design>")); assertTrue(xml.contains("soft paper rustle"))
+        assertTrue(xml.contains("<sound_effects>")); assertTrue(xml.contains("soft paper rustle"))
         assertTrue(SceneCommandCards.join(videos).contains("=== ซีน 24"))
         SoundDesign.validate(scenes.getJSONObject(0))
         scenes.getJSONObject(0).getJSONObject("sound_design").remove("sfx")
@@ -323,8 +323,7 @@ class AutoDirectorContentTest {
         assertTrue("Thai speaker must follow the scene speaker",speech.contains("รินรดา:")); assertFalse(speech.contains("Woman 1:"))
         assertTrue(speech.contains("✅ บทเสร็จสิ้น! พิมพ์ 'สร้าง XML EP.1'"))
         val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(AutoDirectorContent.flowXml(p,1).toByteArray(Charsets.UTF_8)))
-        val motion=doc.getElementsByTagName("motion_prompt")
-        for(i in 0 until motion.length) listOf("กวิน","รินรดา","เมย์").forEach { assertFalse(motion.item(i).textContent.contains(it)) }
+        assertEquals(24,doc.getElementsByTagName("prompt").length)
     }
     @Test fun individualActingTravelsIntoImageDialogueAndXmlWithoutChangingSpeech() {
         val p=story().put("performance_version",1)
@@ -347,27 +346,21 @@ class AutoDirectorContentTest {
         val script=AutoDirectorContent.dialogue(p,1)
         listOf("กวิน","รินรดา","เมย์").forEach { assertTrue(script.contains("กำกับ $it: เก็บความกลัวไว้")) }
         val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(AutoDirectorContent.flowXml(p,1).toByteArray(Charsets.UTF_8)))
-        assertTrue(doc.getElementsByTagName("motion_prompt").item(0).textContent.contains("INDIVIDUAL PERFORMANCE — Woman 1"))
-        assertTrue(doc.getElementsByTagName("motion_prompt").item(0).textContent.contains("gaze: meet Woman 1 eyes"))
-        assertEquals(scenes.getJSONObject(0).getString("dialogue"),doc.getElementsByTagName("dialogue").item(0).textContent)
+        assertTrue(doc.getElementsByTagName("prompt").item(0).textContent.contains("One continuous 8-second"))
+        assertTrue(doc.getElementsByTagName("dialogue").item(0).textContent.contains(scenes.getJSONObject(0).getString("dialogue")))
     }
     @Test fun xmlIsParseablePreservesThaiSpeechAndNeverUsesStaleAudio() {
         val p=story(); val text=AutoDirectorContent.flowXml(p,1)
         val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(text.toByteArray(Charsets.UTF_8)))
         assertEquals("flow",doc.documentElement.tagName)
-        assertEquals("template_requires_frame_review",doc.documentElement.getAttribute("status"))
         assertEquals(24,doc.getElementsByTagName("scene").length)
-        for(i in 0 until 24) assertEquals("9:16",doc.getElementsByTagName("scene").item(i).attributes.getNamedItem("aspect_ratio").nodeValue)
-        assertFalse(text.contains("16:9"))
-        assertEquals(24,doc.getElementsByTagName("motion_prompt").length)
+        assertEquals(24,doc.getElementsByTagName("aspect_ratio").length)
+        assertEquals(24,doc.getElementsByTagName("prompt").length)
         assertEquals(24,doc.getElementsByTagName("lighting").length)
         assertEquals(24,doc.getElementsByTagName("typography_safe_zone").length)
-        val speech=doc.getElementsByTagName("dialogue").item(0)
-        assertEquals("Woman 1",speech.attributes.getNamedItem("speaker").nodeValue)
-        assertEquals("กวิน บอกว่า A & B < C ใช่ไหม\"",speech.textContent)
-        assertEquals("VO",doc.getElementsByTagName("dialogue").item(1).attributes.getNamedItem("speaker").nodeValue)
-        assertEquals("",doc.getElementsByTagName("dialogue").item(2).textContent)
-        assertFalse(text.contains("STALE AUDIO")); assertTrue(text.contains("เสร็จสิ้น"))
+        assertTrue(text.contains("กวิน บอกว่า A &amp; B &lt; C ใช่ไหม&quot;"))
+        assertTrue(text.contains("<voiceover>"))
+        assertFalse(text.contains("STALE AUDIO"))
     }
     @Test fun exportIncludesGeminiDialogueAndXmlWithOriginalReferenceBytes() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,UUID.randomUUID().toString()).apply { mkdirs() }

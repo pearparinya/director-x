@@ -2,6 +2,9 @@ name: DIRECTOR X Release Signed APK
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
@@ -14,7 +17,7 @@ permissions:
 # This prevents an older overlapping run from finishing later and
 # incorrectly becoming GitHub's "latest" release.
 concurrency:
-  group: auto-movie-release-main
+  group: auto-movie-release-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'main' }}
   cancel-in-progress: true
 
 jobs:
@@ -241,6 +244,7 @@ jobs:
       # ============================================================
 
       - name: Publish APK to GitHub Release
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}

@@ -188,26 +188,6 @@ Images are generated externally in Gemini; video is generated externally in Flow
         }+"\n\n✅ บทเสร็จสิ้น! พิมพ์ 'สร้าง XML EP.$number'\nHARD STOP • จบ Phase 3"
     }
     private fun xml(value: String) = value.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;")
-    fun flowXml(story: JSONObject, number: Int): String {
-        LandscapeProduction.requirePlan(story)
-        val scenes=episode(story,number).getJSONArray("scenes")
-        return buildString {
-            append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<flow episode=\"$number\" status=\"template_requires_frame_review\" format=\"prompt_document_not_flow_api\">\n")
-            append("  <instructions>XML เป็นเอกสารจัดบท คัดลอก motion_prompt และ dialogue ไปใช้ใน Flow ทีละฉาก พร้อมแนบภาพฉากที่ตรวจแล้ว ไม่ใช่ไฟล์รันหรือ API ของ Flow ตรวจภาพ ผู้พูด และตำแหน่งจริงก่อนใช้</instructions>\n")
-            for(i in 0 until scenes.length()) {
-                val s=scenes.getJSONObject(i); val id="EP%02d_SC%03d".format(number,s.getInt("scene")); val line=speech(s.optString("dialogue")); val vo=speech(s.optString("narration"))
-                append("\n  <scene id=\"$id\" duration_seconds=\"8\" aspect_ratio=\"9:16\">\n    <start_frame>$id — ภาพฉากที่ตรวจเทียบ MASTER และยืนยันผู้พูดแล้วเท่านั้น</start_frame>\n")
-                val audio=when { line.isNotEmpty() -> "Only ${speaker(s)} speaks the exact Thai text from the sibling dialogue tag. All others mouth closed, lips sealed."; vo.isNotEmpty() -> "External male VO uses the sibling dialogue tag. All visible characters mouth closed, lips sealed."; else -> "Silent acting, no dialogue or narration; all mouths closed, lips sealed." }
-                val spec=FlowSceneSpec(FlowReferencePrompt.people(s).map { FlowPerson(it.getString("name"),it.getString("visual_description"),it.getString("screen_position"),it.getString("outfit"),PerformanceDirection.text(it)) },s.optString("speaker"),line,vo,s.optString("flow_action").ifBlank { s.getString("action") },s.getString("location"),s.getString("start_state"),s.getString("end_state"),8,"9:16",SoundDesign.notes(s),ProductionCommandCheck.offscreen(s))
-                var direction=FlowScenePrompt.build(externalSpec(story,spec))
-                if(line.isNotEmpty()) direction=direction.replace(line,"[exact Thai speech in sibling dialogue tag]")
-                if(vo.isNotEmpty()) direction=direction.replace(vo,"[exact Thai narration in sibling dialogue tag]")
-                val motion=direction+"\n"+ChannelCatalog.performance(story)+"\n"+ChannelCatalog.genre(story)+" FINAL AUDIO: $audio"
-                append("    <motion_prompt>${xml(motion)}</motion_prompt>\n    <dialogue speaker=\"${xml(if(line.isNotEmpty()) speaker(s) else if(vo.isNotEmpty()) "VO" else "") }\">${xml(line.ifEmpty { vo })}</dialogue>\n")
-                append("    <sound_design>${xml(SoundDesign.notes(s))}</sound_design>\n    <lighting temperature=\"5500K\" tone=\"cool_white\" source=\"reviewed_start_frame\">Preserve reviewed frame lighting; no yellow cast, no dark shadows.</lighting>\n    <typography_safe_zone position=\"lower_middle\" enabled=\"false\">Scene video has no typography; cover text belongs on separate cover images.</typography_safe_zone>\n  </scene>\n")
-            }
-            val hasNext=story.getJSONArray("episodes").let { eps -> (0 until eps.length()).any { eps.getJSONObject(it).getInt("ep")>number } }
-            append("  <next_step>${if(hasNext) "✅ เสร็จสิ้น พิมพ์ 'สร้างภาพ EP.${number+1}'" else "✅ เสร็จสิ้น พิมพ์ 'เสร็จสิ้น'"}</next_step>\n</flow>\n")
-        }
-    }
+    fun flowXml(story: JSONObject, number: Int): String =
+        SimpleProductionCommands.videoTasks(story,number).joinToString("\n", prefix="<flow>\n", postfix="\n</flow>") { it.command }
 }

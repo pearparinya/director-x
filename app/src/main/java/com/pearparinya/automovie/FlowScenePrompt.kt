@@ -24,34 +24,32 @@ internal object FlowScenePrompt {
         if (speech(s.dialogue).isEmpty() && speech(s.speaker).isNotEmpty()) add("ระบุบทพูดของผู้พูด หรือเว้นผู้พูดว่างสำหรับฉากเงียบ")
         if (speech(s.dialogue).isNotEmpty() && speech(s.narration).isNotEmpty()) add("แยกบทพูดและเสียงบรรยายเป็นคนละฉาก เพื่อไม่ให้เสียงทับกัน")
     }
-    fun build(s: FlowSceneSpec): String {
+    private fun xml(value: String) = value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&apos;")
+
+    /** A prompt, not a Flow API schema. The image must still be attached in Flow. */
+    fun build(s: FlowSceneSpec, id: String = "scene", camera: String = "Slow, gentle pan."): String {
         val problems = issues(s)
         if (problems.isNotEmpty()) return "ยังไม่พร้อมส่ง Flow • ตรวจภาพและกำหนดตัวละครก่อน:\n" + problems.joinToString("\n")
         val dialogue = speech(s.dialogue)
-        val narrator = speech(s.narration)
-        val talking = s.cast.firstOrNull { identity(it.name) == identity(s.speaker) }
-        fun label(p: FlowPerson) = "${p.name} [${p.appearance}; screen position: ${p.position}; wardrobe: ${p.outfit.ifBlank { "exactly as in the supplied image" }}]"
+        val narration = speech(s.narration)
+        val offscreen = dialogue.isNotEmpty() && s.offscreen.any { identity(it) == identity(s.speaker) }
+        val line = dialogue.ifEmpty { narration }
+        val voice = when {
+            dialogue.isNotEmpty() && !offscreen -> "${s.speaker} speaks naturally; the other visible characters remain silent."
+            else -> "Visible characters remain silent with mouths closed."
+        }
+        val speaker = if (narration.isNotEmpty()) "Off-screen Male Narrator" else if (offscreen) "Off-screen ${s.speaker}" else s.speaker
+        val tag = if (narration.isNotEmpty() || offscreen) "voiceover" else "dialogue"
+        val sound = s.sound.trim().ifEmpty { "Quiet natural ambience." }
         return buildString {
-            append("Flow / Veo 3.1 Lite: ${s.duration} seconds, ${s.aspect} vertical portrait, 1080 x 1920, locked-off static camera. Realistic Thai drama. One continuous shot.\n")
-            append("Use the supplied scene image as the first frame. Match the following confirmed people to that image; preserve their faces, hair, outfits, screen positions, room and props.\nCHARACTER MAP:\n")
-            s.cast.forEach { append("- ${label(it)}\n") }
-            if (s.startState.isNotBlank()) append("START STATE: ${s.startState}\n")
-            append("LOCATION: ${s.location}\nONE ACTION: ${s.action}\n")
-            append("Realistic acting: follow each person's stated intent, gaze and genre; preserve anatomy and the reviewed frame. PERFORMANCE BEATS: ${if(s.duration==8) "0-2s receive the cue; 2-6s perform the single stated action with assigned speech; 6-8s small silent response and held end-state" else "receive the cue, perform the single stated action, then hold a small response"}. Fit all beats naturally inside ${s.duration} seconds. Beat boundaries are approximate: finishing the exact assigned line naturally takes priority; never speed up, truncate or add words to force a beat. Performance notes never authorize extra voices; the audio rules below control all speech.\n")
-            s.cast.forEach { person -> append("INDIVIDUAL PERFORMANCE — ${person.name}: ${person.performance.ifBlank { "use the stated action and start/end emotional context; restrained, distinct reactions only" }}\n") }
-            if (dialogue.isNotEmpty() && talking != null) {
-                append("ONLY SPEAKER: ${label(talking)}. Only this person's lips move for the following Thai dialogue, said once: “$dialogue”.\n")
-                val listeners = s.cast.filter { identity(it.name) != identity(talking.name) }
-                listeners.forEach { append("SILENT LISTENER: ${label(it)}. Mouth stays closed; react only through eyes, expression and small gestures. No speech or lip-sync.\n") }
-                append("One voice only, no shared or overlapping delivery. Finish naturally within ${s.duration} seconds. No narrator.\n")
-            } else if(dialogue.isNotEmpty() && s.speaker in s.offscreen) {
-                append("OFF-SCREEN CHARACTER SPEAKER ONLY: ${s.speaker}. Exact Thai dialogue once: “$dialogue”. Keep this character outside the frame. All visible mouths stay closed; no lip-sync. No narrator or additional voices.\n")
-            } else if (narrator.isNotEmpty()) {
-                append("OFF-SCREEN MALE NARRATOR ONLY, in Thai: “$narrator”. All on-screen mouths stay closed; no character lip-syncs the narration.\n")
-            } else append("Silent scene: no dialogue or narration. All on-screen mouths stay closed.\n")
-            append("${SoundDesign.prompt(s.sound)}\n")
-            if (s.endState.isNotBlank()) append("END STATE: ${s.endState}. Hold this state briefly for the next scene.\n")
-            append("No cuts, camera movement, captions or added text. Keep document text indistinct; convey its meaning through speech.")
+            append("<scene id=\"${xml(id)}\">\n  <aspect_ratio>9:16</aspect_ratio>\n  <duration>8</duration>\n  <reference_image>attached_image</reference_image>\n")
+            append("  <prompt>Use the attached image as the first frame. One continuous 8-second vertical shot. ${xml(s.action.trim())} Preserve the characters, their positions, clothing and props from the first frame. ${xml(voice)} Camera: ${xml(camera)}</prompt>\n")
+            append("  <lighting>Preserve the lighting of the attached image.</lighting>\n")
+            append("  <typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone>\n")
+            if (line.isNotEmpty()) {
+                append("  <$tag>\n    <speaker>${xml(speaker)}</speaker>\n    <text>${xml(line)}</text>\n    <language>th-TH</language>\n    <subtitles>false</subtitles>\n  </$tag>\n")
+            }
+            append("  <sound_effects>\n    <ambient>${xml(sound)}${if (line.isNotEmpty()) " Quieter than the speech." else ""}</ambient>\n  </sound_effects>\n</scene>")
         }
     }
 }
