@@ -112,7 +112,7 @@ internal object FlowScenePrompt {
                 append("  </characters>\n")
             }
             val outfits = s.cast.filter { it.outfit.isNotBlank() }.joinToString(" ") { "${label(it.name)} outfit in scene: ${it.outfit.trim()}." }
-            append("  <prompt>(9:16 aspect ratio). Masterpiece, 8k resolution, highly detailed. Full vertical continuous 8-second shot with no cuts. Use the attached image as the first frame. ${xml(action)}. ${xml(outfits)} ${xml(voice)} Preserve the characters, their faces, hair, body proportions, positions, clothing and props from the first frame. Keep held objects together and in contact with the hands. Camera: ${xml(camera)}</prompt>\n")
+            append("  <prompt>(9:16 aspect ratio). Masterpiece, 8k resolution, highly detailed. Full vertical continuous 8-second shot with no cuts. Use the attached image as the first frame. ${xml(action)}. ${xml(outfits)} ${xml(voice)} Preserve the characters, their faces, hair, body proportions, positions, clothing and props from the first frame. Clothing remains securely in place. Use natural eye-level framing focused on expressions and action. Keep held objects together and in contact with the hands. Camera: ${xml(camera)}</prompt>\n")
 
             if (line.isNotEmpty()) {
                 append("  <$tag>\n    <speaker>${xml(speaker)}</speaker>\n    <text>${xml(line)}</text>\n    <language>th-TH</language>\n    <subtitles>false</subtitles>\n  </$tag>\n")
