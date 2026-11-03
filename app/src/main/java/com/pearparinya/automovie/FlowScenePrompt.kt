@@ -16,11 +16,13 @@ internal object FlowScenePrompt {
         "mind" -> "May"
         "พัชรินทร์" -> "Patcharin"
         "นที" -> "Natee"
+        "ปิยวรรณ" -> "Piyawan"
         else -> "Character_" + java.lang.Integer.toUnsignedString(name.trim().hashCode(), 16).uppercase()
     }
     private fun speech(value: String) = value.trim().takeUnless { it in listOf("", "ไม่มี", "ไม่มีเสียงบรรยาย", "none", "None") }.orEmpty()
     fun issues(s: FlowSceneSpec): List<String> = buildList {
         if(s.aspect!=LandscapeProduction.ASPECT) add("คำสั่งวิดีโอต้องเป็นแนวตั้ง 9:16")
+        unknownActionNames(s).forEach { add("พบชื่อภาษาอังกฤษ '$it' ที่ยังจับคู่ตัวละครไม่ได้ ใน flow_action ให้แก้เป็นชื่อตัวละครภาษาไทยตามรายชื่อในซีน แล้วเปิดคำสั่งใหม่") }
         if (s.cast.isEmpty() && speech(s.dialogue).isNotEmpty()) add("ระบุตัวละครที่ปรากฏในภาพฉากนี้")
         if (s.cast.any { it.name.isBlank() }) add("ตัวละครต้องมีชื่อ")
         if (s.cast.map { identity(it.name) }.distinct().size != s.cast.size || s.cast.map { refName(it.name) }.distinct().size != s.cast.size) add("ชื่อตัวละครซ้ำหรือรหัสอ้างอิงชนกัน")
@@ -31,6 +33,25 @@ internal object FlowScenePrompt {
         if (speech(s.dialogue).isNotEmpty() && (s.cast.count { identity(it.name) == identity(s.speaker) } + s.offscreen.count { identity(it)==identity(s.speaker) }) != 1) add("เลือกผู้พูดหนึ่งคนจากตัวละครในภาพหรือรายชื่อคนนอกภาพ")
         if (speech(s.dialogue).isEmpty() && speech(s.speaker).isNotEmpty()) add("ระบุบทพูดของผู้พูด หรือเว้นผู้พูดว่างสำหรับฉากเงียบ")
         if (speech(s.dialogue).isNotEmpty() && speech(s.narration).isNotEmpty()) add("แยกบทพูดและเสียงบรรยายเป็นคนละฉาก เพื่อไม่ให้เสียงทับกัน")
+    }
+    // Unknown subject names cannot safely be guessed from character order or appearance.
+    private fun unknownActionNames(s: FlowSceneSpec): List<String> {
+        if(s.cast.isEmpty()) return emptyList()
+        val known=s.cast.flatMap { p ->
+            val aliases=when(identity(p.name)) {
+                "gawin" -> listOf("gawin", "kawin")
+                "rinlada" -> listOf("rinlada", "rinrada")
+                "mind" -> listOf("mind", "may")
+                "พัชรินทร์" -> listOf("patcharin")
+                "นที" -> listOf("natee")
+                "ปิยวรรณ" -> listOf("piyawan")
+                else -> emptyList()
+            }
+            aliases + listOf(p.name,refName(p.name))
+        }.map { it.lowercase() }.toSet()
+        val generic=setOf("he","she","they","man","woman","person","character","people","someone","everyone","camera","phone","door","screen","light","wind","paper","music","sound","document","folder","manager","boss","coworker","colleague","worker","narrator")
+        val pattern=Regex("(?<![\\w\\]])\\b([A-Za-z][A-Za-z0-9_]*)\\s+(?:holds|looks|watches|stares|speaks|says|asks|replies|walks|stands|sits|leans|smiles|reacts|turns|opens|closes|reads|inspects|observes|hands|places|shows|checks|nods|waves|slides|reaches|takes|points)\\b",RegexOption.IGNORE_CASE)
+        return pattern.findAll(s.action).map { it.groupValues[1] }.filter { it.lowercase() !in known && it.lowercase() !in generic }.distinct().toList()
     }
     private fun xml(value: String) = value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&apos;")
 
@@ -71,6 +92,7 @@ internal object FlowScenePrompt {
                 "mind" -> listOf("เมย์", "มายด์", "May", "Mind", "Woman 2")
                 "พัชรินทร์" -> listOf("พัชรินทร์", "Patcharin")
                 "นที" -> listOf("นที", "Natee")
+                "ปิยวรรณ" -> listOf("ปิยวรรณ", "Piyawan")
                 else -> emptyList()
             }
             (known + person.name).distinct().map { it to label(person.name) }
