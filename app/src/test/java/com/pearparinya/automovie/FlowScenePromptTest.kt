@@ -94,6 +94,17 @@ class FlowScenePromptTest {
         assertTrue(FlowScenePrompt.issues(establishing).isEmpty())
         assertFalse(FlowScenePrompt.build(establishing).contains("<dialogue>"))
     }
+    @Test fun piyawanAliasIsBoundAndUnknownRomanizedNamesAreNotGuessed() {
+        val person=FlowPerson("ปิยวรรณ","woman with dark hair","center","white shirt")
+        val spec=scene(speaker="ปิยวรรณ",dialogue="สวัสดี").copy(cast=listOf(person),action="piyawan holds her document folder firmly")
+        val result=FlowScenePrompt.build(spec)
+        assertTrue(result.contains("[Piyawan] holds her document folder firmly"))
+        assertTrue(result.contains("<speaker>[Piyawan] — center, woman with dark hair</speaker>"))
+        assertFalse(result.contains("piyawan holds"))
+        val unknown=spec.copy(action="unmappedname holds a folder")
+        assertTrue(FlowScenePrompt.issues(unknown).any { it.contains("unmappedname") })
+        assertFalse(FlowScenePrompt.build(unknown).contains("<scene"))
+    }
     @Test fun duplicateAliasesAndIndistinguishableMappingsAreRejected() {
         assertTrue(FlowScenePrompt.issues(scene().copy(cast=listOf(may,may.copy(name="มายด์")))).isNotEmpty())
         assertTrue(FlowScenePrompt.issues(scene().copy(cast=listOf(may,rin.copy(appearance=may.appearance,position=may.position)))).isNotEmpty())
