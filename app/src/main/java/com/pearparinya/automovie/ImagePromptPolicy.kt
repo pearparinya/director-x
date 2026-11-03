@@ -4,6 +4,9 @@ package com.pearparinya.automovie
 internal object ImagePromptPolicy {
     const val skinTone = "SKIN AND LIGHTING: Preserve each character’s own visible skin tone and features from their MASTER. Use natural balanced lighting appropriate to the scene without changing identity or washing out skin."
     const val referenceAppeal = "คงเสน่ห์และความเซ็กซี่ตามภาพอ้างอิงของตัวละครผู้ใหญ่"
+    fun threeViewCharacter(description: String): String =
+        "Character design reference sheet, multiple views of the EXACT SAME character side-by-side. Front view, 45-degree profile view, and back view of ${description.trim()}. Standing straight in a neutral pose. Identical facial features and identical clothing across all three views. Plain white background, pure bright studio lighting, no shadows on the background, 8k resolution, photorealistic cinematic quality. --ar 16:9"
+
     fun productionMaster(name: String, source: String, profile: String): String = """
 สร้างภาพอ้างอิงตัวละครผู้ใหญ่ $name จาก $source ที่แนบ หนึ่งคนต่อหนึ่งภาพ
 ${identity(source)}
