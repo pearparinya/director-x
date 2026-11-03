@@ -300,7 +300,8 @@ class StudioActivity : AppCompatActivity() {
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(240)) })
             val name=EditText(this).apply { hint="ชื่อนักแสดงใหม่ (ชื่อถาวร)"; panel.addView(this) }
             val age=EditText(this).apply { hint="อายุสมมติ 25–90 ปี"; inputType=android.text.InputType.TYPE_CLASS_NUMBER; panel.addView(this) }
-            val face=EditText(this).apply { hint="ลักษณะใบหน้าและทรงผมใหม่"; panel.addView(this) }
+            val face=EditText(this).apply { hint="ลักษณะใบหน้าและทรงผมใหม่ (ไทยหรืออังกฤษ)"; panel.addView(this) }
+            val styling=EditText(this).apply { hint="สีผิวและเสื้อผ้า (ไทยหรืออังกฤษ)"; panel.addView(this) }
             panel.addView(TextView(this).apply { text="1. ส่งคำสั่งพร้อมแม่แบบไปสร้างใน ChatGPT หรือ Gemini\n2. ตรวจภาพจริง แล้วกลับมาเลือก นำเข้าภาพเพื่อบันทึก" })
             val dialog=AlertDialog.Builder(this).setTitle("สร้างตัวละครจากแม่แบบ ${index+1}").setView(ScrollView(this).apply { addView(panel) })
                 .setPositiveButton("ส่งคำสั่งสร้างภาพ",null).setNeutralButton("นำเข้าภาพที่ตรวจแล้ว",null).setNegativeButton("ปิด",null).showDirector()
@@ -313,7 +314,10 @@ class StudioActivity : AppCompatActivity() {
             }
             dialog.getButton(-1).setOnClickListener {
                 val p=profile() ?: return@setOnClickListener
-                val command="Create a fictional adult character portrait. Name: ${p.getString("display_name")}; assigned age: ${p.getInt("character_age")} years. New distinctive face and hairstyle: ${p.getString("casting_description")}. Use the attached reference ONLY for visible body silhouette and proportions. Create a different face and hair from the reference. Preserve apparent body proportions; do not infer hidden anatomy or measurements. Neutral clothes fitted naturally to the body. One person, three consistent views (front, three-quarter, side) in one image, no labels. This is a new character; review the image before saving."
+                val gender=p.getString("character_gender")
+                val appearance=p.getString("casting_description")
+                val style=styling.text.toString().trim().ifBlank { "natural skin tone and elegant opaque clothing" }
+                val command=ImagePromptPolicy.threeViewCharacter("a fictional adult $gender aged ${p.getInt("character_age")} years, new face and hairstyle: $appearance, $style, body silhouette and proportions based on the attached reference image")
                 shareImageCommand(command,listOf("BODY_TEMPLATE_${index+1}" to file),bodyOnly=true)
             }
             dialog.getButton(-3).setOnClickListener {
@@ -1188,7 +1192,7 @@ class StudioActivity : AppCompatActivity() {
     private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT", imagePackage: Boolean = false, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false) {
         var text = if (lockCreation && !inputText.contains("ค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง)")) inputText + "\nค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง): EP=${prefs.getString("plan_episodes", "").orEmpty().ifBlank { "AI ประเมิน" }} ฉาก/EP=${prefs.getString("plan_scenes", "").orEmpty().ifBlank { "AI ประเมิน" }} เวลา=${prefs.getString("plan_duration", "8")} วินาที สัดส่วน=${"9:16"} กำหนด duration_seconds และ aspect_ratio ใน story.json และคำสั่งทุกฉากตามนี้" else inputText
         if (imagePackage && !bodyOnly && !text.contains(BodyReferencePolicy.imageIdentityLock)) text += "\n\n" + BodyReferencePolicy.imageIdentityLock
-        if (imagePackage && !text.contains(ImagePromptPolicy.skinTone)) text += "\n\n" + ImagePromptPolicy.skinTone
+        if (imagePackage && !bodyOnly && !text.contains(ImagePromptPolicy.skinTone)) text += "\n\n" + ImagePromptPolicy.skinTone
         if (imagePackage) for ((name,_) in referenceImages) {
             val id=referenceId(name)
             text=text.replace(Regex("(?i)"+Regex.escape(id)+"[.](png|jpe?g|webp)\\b"),id)
