@@ -61,7 +61,7 @@ class PerformanceDirectionTest {
             FlowPerson("รินรดา","long black hair","right","blouse","hurt beneath dignity; voice: silent")),"กวิน","ฟังผมก่อน","","place the envelope","room","envelope in hand","envelope on table",8,"9:16")
         val prompt=FlowScenePrompt.build(spec)
         assertTrue(prompt.contains("<dialogue>"))
-        assertTrue(prompt.contains("<speaker>[Gawin]</speaker>"))
+        assertTrue(prompt.contains("<speaker>[Gawin] — left, short dark hair</speaker>"))
         assertTrue(prompt.contains("One continuous 8-second vertical shot"))
         assertEquals(1,Regex("ฟังผมก่อน").findAll(prompt).count())
         assertFalse(prompt.contains("angry whisper"))
