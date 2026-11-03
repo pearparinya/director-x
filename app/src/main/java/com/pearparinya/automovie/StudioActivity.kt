@@ -1700,11 +1700,11 @@ class StudioActivity : AppCompatActivity() {
             root.addView(geminiProgressView,LinearLayout.LayoutParams(-1,dp(10)).apply { setMargins(dp(8),0,dp(8),dp(8)) })
             button("🤖 งานเขียนบท • ดูสถานะ / ทำต่อ",false) { geminiJobMenu() }
         } else { geminiStatusView=null; geminiProgressView=null }
-        if(current!=null && current.optString("clip_format")=="short" && current.optString("social_caption").isNotBlank()) {
-            button("💬 ดูและคัดลอกแคปชั่นคลิปสั้น",false) {
-                val caption=current.optString("social_caption")
-                AlertDialog.Builder(this).setTitle("แคปชั่นคลิปสั้น").setMessage(caption)
-                    .setPositiveButton("คัดลอก") { _,_ -> copyCommand(caption) }.setNegativeButton("ปิด",null).showDirector()
+        if(current!=null && current.optString("clip_format")=="short") {
+            button("💬 ชื่อเรื่อง เรื่องย่อ และแคปชั่น",false) {
+                val details=ShortStoryDetails.text(current)
+                AlertDialog.Builder(this).setTitle("ข้อมูลและแคปชั่นคลิปสั้น").setMessage(details)
+                    .setPositiveButton("คัดลอกทั้งหมด") { _,_ -> copyCommand(details) }.setNegativeButton("ปิด",null).showDirector()
             }
         }
         if(current!=null && prefs.getInt("last_image_deck_${project.name}",0)>0) button("📋 กลับรายการรูป/ซีนล่าสุด",false) { if(!returnToImageList()) notice("ไม่พบ EP ที่เคยเปิดในเรื่องนี้") }
