@@ -210,6 +210,17 @@ class AutoDirectorContentTest {
         scenes.getJSONObject(0).getJSONObject("sound_design").remove("sfx")
         assertTrue(runCatching { SoundDesign.validate(scenes.getJSONObject(0)) }.isFailure)
     }
+    @Test fun compactImagesKeepBrightWhiteLightingForOlderDarkScenes() {
+        val p=story()
+        val scene=p.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
+        scene.put("lighting", "underexposed, dark orange shadows")
+        val tasks=SimpleProductionCommands.imageTasks(p,1)
+        val image=tasks.first { it.id=="EP01_SC001" }.command
+        assertTrue(image.contains("Bright neutral-white 5500K"))
+        assertTrue(image.contains("night remains night with bright neutral lighting"))
+        assertFalse(image.contains("underexposed, dark orange shadows"))
+        assertTrue(tasks.first { it.id=="STORY_COVER_9x16" }.command.contains(ImagePromptPolicy.skinTone))
+    }
     @Test fun compactExportHasTwoFilesPerEpisodeClearIdsAndSingleOverallCoverPair() {
         for(auto in listOf(true,false)) {
             val p=story()
