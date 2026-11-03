@@ -19,6 +19,7 @@ $references
 
 POSTER PROMPT
 ${layout(ratio)}
+${ImagePromptPolicy.productionDirection}
 $identity
 ${BodyReferencePolicy.preciseIdentity}
 $color

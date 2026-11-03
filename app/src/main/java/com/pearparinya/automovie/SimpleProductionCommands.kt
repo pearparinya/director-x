@@ -46,7 +46,7 @@ internal object SimpleProductionCommands {
             val text=listOf(ChannelCatalog.currentChannel(story.getString("channel")),story.getString("title"),if(overall) story.getString("tagline") else "ตอนที่ $number ${ep.getString("title")}")
             val size=if(ratio=="9:16") "1080 x 1920" else "1920 x 1080"
             val note=(if(overall) story else ep).optString("production_note_$id")
-            val command="""Generate ONE $ratio ${if(ratio=="9:16") "vertical" else "horizontal"} movie poster, $size. Cinematic waist-up composition; faces clear in the upper half, distinct expressions appropriate to ${story.optString("category")}. Recompose independently for this ratio; no stretching or collage.
+            val command="""Generate ONE $ratio ${if(ratio=="9:16") "vertical" else "horizontal"} movie poster, $size. Film-directed cinematic waist-up composition; faces clear in the upper half, distinct expressions appropriate to ${story.optString("category")}. Recompose independently for this ratio; no stretching or collage.
 $identity
 CHARACTERS AND OUTFITS:
 ${cast(selected,true)}
@@ -66,7 +66,7 @@ ${if(note.isBlank()) "" else "Local design note (cannot override exact text, saf
         for(i in 0 until rows.length()) {
             val scene=rows.getJSONObject(i); val n=scene.getInt("scene"); val id="EP%02d_SC%03d".format(number,n)
             val visiblePeople=FlowReferencePrompt.people(scene)
-            val command="""Generate ONE 9:16 vertical photorealistic Thai-drama scene image, 1080 x 1920. No text, captions or watermark. Depict the START STATE as a clear first frame for an 8-second video; do not show a sequence or jump to the completed action.
+            val command="""Generate ONE 9:16 vertical film-directed photorealistic Thai-drama scene image, 1080 x 1920. No text, captions or watermark. Depict the START STATE as a clear first frame for an 8-second video; do not show a sequence or jump to the completed action.
 $identity
 CHARACTERS AND OUTFITS:
 ${cast(visiblePeople)}
