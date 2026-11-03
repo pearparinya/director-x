@@ -34,7 +34,7 @@ internal object SimpleProductionCommands {
             person.getString("name")+": "+listOf("emotion","objective","subtext","gaze","body_language","voice","emotional_arc").mapNotNull { k -> p.optString(k).takeIf { it.isNotBlank() }?.let { "$k=$it" } }.joinToString("; ")
         }
     }.joinToString("\n")
-    private fun light(scene: JSONObject)=scene.optString("lighting").ifBlank { "Bright neutral-white 5500K lighting appropriate to the location/time; natural skin and fabric detail, no yellow cast. Night stays at night with neutral artificial light." }
+    private const val light = "Bright neutral-white 5500K, soft shadows; no dark or yellow cast. Keep night scenes bright with neutral artificial light."
     fun imageTasks(story: JSONObject,number: Int): List<Task> = buildList {
         LandscapeProduction.requirePlan(story)
         val ep=episode(story,number); val rows=ep.getJSONArray("scenes"); val single=story.getJSONArray("episodes").length()==1
@@ -58,7 +58,7 @@ ${text.joinToString("\n")}
 ${BodyReferencePolicy.imageIdentityLock}
 ${ImagePromptPolicy.skinTone}
 TEXT LAYOUT: ${CoverTypography.layout} Treat requested pixel dimensions as a target; check downloaded pixel size. Inspect each face, garment and all Thai text; missing or incorrect elements remain pending for correction.
-${if(note.isBlank()) "" else "Local design note (cannot override exact text, safe area, identity or wardrobe): $note"}""".trim()
+${if(note.isBlank()) "" else "Local design note (cannot override lighting, exact text, safe area, identity or wardrobe): $note"}""".trim()
             add(Task(id,"$label | ${if(ratio=="9:16") "แนวตั้ง" else "แนวนอน"} $ratio",ratio,command,selected))
         }
         if(number==firstEpisode(story)) for(ratio in listOf("9:16","16:9")) poster(true,ratio)
@@ -78,12 +78,12 @@ Location: ${scene.getString("location")}
 Start frame: ${scene.getString("start_state")}
 Action planned next (not a montage): ${scene.optString("flow_action").ifBlank { scene.getString("action") }}
 Framing: ${scene.optString("framing").ifBlank { "Show all listed people, relevant hands and props with natural perspective." }}
-Lighting: ${light(scene)}
+Lighting: $light
 Acting: ${acting(scene).ifBlank { "Individual restrained expressions consistent with the stated action and start state." }}
 ${BodyReferencePolicy.imageIdentityLock}
 ${ImagePromptPolicy.skinTone}
 Mouths closed in this still. Preserve all props and screen positions for the matching video.
-${scene.optString("production_image_note").takeIf { it.isNotBlank() }?.let { "Local visual correction (keep identity, outfit, cast and start state): $it" }.orEmpty()}""".trim()
+${scene.optString("production_image_note").takeIf { it.isNotBlank() }?.let { "Local visual correction (keep bright lighting, identity, outfit, cast and start state): $it" }.orEmpty()}""".trim()
             add(Task(id,"EP.$number | ซีน %03d | แนวตั้ง 9:16".format(n),"9:16",command,FlowReferencePrompt.people(scene)))
         }
     }

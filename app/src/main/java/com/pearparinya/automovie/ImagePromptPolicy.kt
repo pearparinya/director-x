@@ -3,7 +3,7 @@ package com.pearparinya.automovie
 /** A shared brief for image requests. References identify people; scene facts define clothes and action. */
 internal object ImagePromptPolicy {
     const val productionDirection = "CINEMATIC PRODUCTION: Film-director composition, story-led camera and lighting, realistic depth and textures; clear expressions, hands and props. Maintain identity, wardrobe and continuity."
-    const val skinTone = "SKIN AND LIGHTING: Preserve each character’s own visible skin tone and features from their MASTER. Use natural balanced lighting appropriate to the scene without changing identity or washing out skin."
+    const val skinTone = "LIGHTING PRIORITY: Bright neutral-white light, soft shadows, clear faces and background; no dark or yellow cast. Preserve natural skin tone and highlight detail; night remains night with bright neutral lighting."
     const val referenceAppeal = "คงเสน่ห์และความเซ็กซี่ตามภาพอ้างอิงของตัวละครผู้ใหญ่"
     fun threeViewCharacter(description: String): String =
         "Character design reference sheet, multiple views of the EXACT SAME character side-by-side. Front view, 45-degree profile view, and back view of ${description.trim()}. Standing straight in a neutral pose. Identical facial features and identical clothing across all three views. Plain white background, pure bright studio lighting, no shadows on the background, 8k resolution, photorealistic cinematic quality. --ar 16:9"
@@ -22,7 +22,7 @@ ${if(profile.isNotBlank()) "ข้อมูลอ้างอิงรายค�
         "ใช้ $source ให้ตรงตัวละครรายคน คงใบหน้า ทรงผม สีผิว สัดส่วนรูปร่างโดยรวมตามภาพอ้างอิงของตัวละครผู้ใหญ่ โดยไม่เพิ่มหรือลดสัดส่วนเอง $referenceAppeal ชุดยึดบทของฉากปัจจุบัน\n${BodyReferencePolicy.preciseIdentity}\n${BodyReferencePolicy.imageIdentityLock}\n${EditorialImagePolicy.referenceRendering}\n${EditorialImagePolicy.wardrobe}"
 
     fun style(aspect: String, framing: String = "", lighting: String = "") =
-        "ภาพถ่ายสมจริง $aspect • ${framing.ifBlank { "จัดระยะให้เห็นใบหน้าและการกระทำครบตามฉาก" }} • ${lighting.ifBlank { "แสงเหมาะกับเวลาและสถานที่ตามบท" }}"
+        "ภาพถ่ายสมจริง $aspect • ${framing.ifBlank { "จัดระยะให้เห็นใบหน้าและการกระทำครบตามฉาก" }} • ${lighting.ifBlank { "แสงเหมาะกับเวลาและสถานที่ตามบท" }} • $skinTone"
 
     fun scene(cast: String, location: String, action: String, aspect: String = "9:16",
               source: String = "ภาพ MASTER ที่แนบ", framing: String = "", lighting: String = "",
