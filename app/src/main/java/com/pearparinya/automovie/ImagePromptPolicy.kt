@@ -2,7 +2,7 @@ package com.pearparinya.automovie
 
 /** A shared brief for image requests. References identify people; scene facts define clothes and action. */
 internal object ImagePromptPolicy {
-    const val productionDirection = "FILM PRODUCTION DIRECTION: Work as a film director, cinematographer and production designer. Create a polished photorealistic, production-ready frame with purposeful composition, depth, natural perspective, detailed materials and controlled highlights. Choose camera angle, lighting, color and expressions to support this specific story, location and emotion. Keep faces, hands and important props clear; preserve each character’s identity, assigned wardrobe and scene continuity. Avoid generic poses, stretched anatomy and unrelated visual elements. Review the generated image for visual continuity; quality and likeness are targets, not guarantees."
+    const val productionDirection = "CINEMATIC PRODUCTION: Film-director composition, story-led camera and lighting, realistic depth and textures; clear expressions, hands and props. Maintain identity, wardrobe and continuity."
     const val skinTone = "SKIN AND LIGHTING: Preserve each character’s own visible skin tone and features from their MASTER. Use natural balanced lighting appropriate to the scene without changing identity or washing out skin."
     const val referenceAppeal = "คงเสน่ห์และความเซ็กซี่ตามภาพอ้างอิงของตัวละครผู้ใหญ่"
     fun threeViewCharacter(description: String): String =
