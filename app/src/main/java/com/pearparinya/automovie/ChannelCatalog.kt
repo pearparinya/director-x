@@ -29,7 +29,34 @@ internal object ChannelCatalog {
         MainCategory("mystery_twist","สืบสวน ความลับ และหักมุม","สืบความจริง • ความลับ • เฉลย","drama","🔎","Mystery drama with clues, investigation and a coherent reveal. Keep all cast identities and roles consistent. Avoid graphic violence and criminal instructions."),
         MainCategory("heartwarming","อบอุ่นหัวใจ","น้ำใจ • ครอบครัว • มิตรภาพ","drama","🌤️","Heartwarming everyday story with a specific small need, a meaningful caring action, and a satisfying emotional resolution. Keep family relationships non-sexual; show warmth through behavior, not speeches."),
         MainCategory("everyday_lesson","ข้อคิดใกล้ตัว","ชีวิตประจำวัน • ทางเลือก • ข้อคิด","drama","💡","A relatable everyday choice and its visible consequence, ending with a clear takeaway through action. Avoid lectures, forced morals and added subplots."))
-    data class StoryShelf(val title: String, val categoryIds: List<String>)
+    private val genreDisplay = mapOf(
+        "domestic_secrets" to ("ความลับในครอบครัว | Family Secrets" to "ความสัมพันธ์ในบ้านกับความลับที่เปลี่ยนชีวิต"),
+        "betrayal_rivalry" to ("รัก ความไว้ใจ และการทรยศ | Love & Betrayal" to "ความสัมพันธ์ที่ถูกทดสอบด้วยความจริงและการตัดสินใจ"),
+        "office_career" to ("ชีวิตการทำงาน | Workplace Drama" to "ความฝัน ความกดดัน และความสัมพันธ์ในอาชีพ"),
+        "high_society_underworld" to ("สังคมชั้นสูงและเงื่อนงำ | High Society Suspense" to "ภาพลักษณ์ อำนาจ และความลับในสังคม"),
+        "revenge_disguise" to ("ทวงความจริงและปลอมตัว | Revenge & Disguise" to "ค้นหาความจริงและเผชิญผลของการแก้แค้น"),
+        "age_status_romance" to ("รักต่างวัยและต่างฐานะ | Age & Status Romance" to "ความรักของผู้ใหญ่ที่มีชีวิตและความคาดหวังต่างกัน"),
+        "office_sitcom" to ("ออฟฟิศป่วน | Workplace Comedy" to "มุกจากงานและความเข้าใจผิดของเพื่อนร่วมงาน"),
+        "neighborhood_comedy" to ("เพื่อนบ้านชวนฮา | Neighborhood Comedy" to "เหตุการณ์ใกล้ตัวชวนยิ้มในชุมชน"),
+        "romantic_misunderstanding" to ("รักวุ่นชวนเข้าใจผิด | Romantic Comedy" to "ความรักและความเข้าใจผิดที่คลี่คลายด้วยอารมณ์ขัน"),
+        "career_buddy_comedy" to ("คู่หูต่างอาชีพ | Buddy Comedy" to "คนต่างความคิดร่วมภารกิจจนเกิดเรื่องขำ"),
+        "younger_man_older_woman" to ("หนุ่มรุ่นน้องกับสาวรุ่นพี่ | Later-Life Romance" to "รักต่างวัยของผู้ใหญ่ที่เรียนรู้และเคารพกัน"),
+        "mystery_twist" to ("สืบความจริงและหักมุม | Mystery & Revelation" to "ปริศนา เบาะแส และคำตอบที่มีเหตุผล"),
+        "heartwarming" to ("น้ำใจและความผูกพัน | Heartwarming Drama" to "การช่วยเหลือเล็ก ๆ ที่สร้างความเปลี่ยนแปลง"),
+        "everyday_lesson" to ("ทางเลือกและข้อคิด | Everyday Lessons" to "การตัดสินใจใกล้ตัวและผลที่มองเห็นได้")
+    )
+    fun genreMenuLabel(category: MainCategory): String = genreDisplay[category.id]?.let { "${category.icon} ${it.first}\n${it.second}" } ?: category.menuLabel
+    data class StoryShelf(val title: String, val categoryIds: List<String>) {
+        val menuLabel: String get() = when(title) {
+            "😂 ยิ้มได้ทุกวัน" -> "😂 คอมเมดี้และชีวิตประจำวัน\nComedy & Everyday Life"
+            "❤️ ร้อยเรื่องรัก" -> "❤️ รักและความสัมพันธ์\nRomance & Relationships"
+            "💔 รอยร้าวในใจ" -> "💔 ดราม่าชีวิตและครอบครัว\nLife & Family Drama"
+            "🔎 ปมลับชวนติดตาม" -> "🔎 สืบสวนและปมปริศนา\nMystery & Suspense"
+            "🌤️ เรื่องเล่าอบอุ่นใจ" -> "🌤️ เรื่องเล่าอบอุ่นหัวใจ\nHeartwarming Stories"
+            "💡 ชีวิตสอนใจ" -> "💡 เรื่องเล่าชีวิตและข้อคิด\nLife Stories & Lessons"
+            else -> title
+        }
+    }
     // Menu grouping is independent of saved category IDs, so old stories remain readable.
     val storyShelves = listOf(
         StoryShelf("😂 ยิ้มได้ทุกวัน", listOf("office_sitcom", "neighborhood_comedy", "career_buddy_comedy")),
@@ -137,6 +164,8 @@ internal object ChannelCatalog {
         val structure = if (sceneCount == 4) "FOUR-SCENE STRUCTURE: Scene 1 introduce the situation immediately; scene 2 develop one problem; scene 3 turn or escalation; scene 4 resolve the situation or deliver the payoff and reaction. Do not leave the plot unfinished." else "Distribute setup, development, turn and resolution across the selected scenes; finish the story in the final scene."
         return "SHORT CLIP: One complete standalone story, not a serial or teaser. Use one clear situation, preferably one or two visible characters and one location where appropriate. A Thai title and cover must honestly reflect the actual situation and payoff; no invented events or promises. Make the story understandable without previous episodes. Use natural concise spoken Thai with phrase spacing; let actions and reactions carry meaning, with no extra narration needed. Each scene is exactly eight seconds, one continuous shot, without cuts, trimming, speeding up or montage. Cover time is separate. $structure $tone"
     }
+    const val longDirection = "LONG-FORM STORY: Develop clear character goals, escalating conflicts, cause and effect and continuity across the selected episodes. Give each episode a meaningful progression and resolve the overall story. Each scene is exactly 8 seconds in one continuous shot; never cut, trim, speed up or use filler. Cover time is separate."
+    const val storyConsistency = "STORY CONSISTENCY REVIEW: Before returning the story, check that the title, synopsis, cover incident, selected genre, chosen situation and scenes describe the same actual story. Use only registered characters and preserve their roles, names and MASTER references. Each scene's visible cast and sole speaker must match the action and dialogue. Revise contradictions before returning; do not claim visual results were generated or verified."
     const val safety = "All characters are fictional adults aged 25 or older. Non-explicit adult relationship drama; consensual romance only. No sexual or romantic stepfamily relationships, sexual coercion, sexual debt repayment, or intimate imagery. Family plots concern inheritance and secrets. Female styling follows the MASTER identity and existing SFW wardrobe rules."
     const val comedy = "COMEDY PERFORMANCE DIRECTION: Adult romantic sitcom and situational comedy. Prioritize a readable setup, misunderstanding, one safe physical or prop gag, reaction pause and payoff. Balance confidence with embarrassment and let each character retain dignity and agency. Use distinct expressive eyes, a brief double-take and playful Thai delivery when supported by the action. Do not force dark betrayal, threats, tears or a hidden villain into a comic premise. One principal action per 8-second shot; distribute setup and payoff across separate scenes when needed. No extra voices, audible laughs, canned laugh track, gasps, overlapping dialogue or ad-libs. Preserve the exact assigned speech and silent listeners. Freeze one comic instant in stills, no montage. Maintain MASTER anatomy and exact daily wardrobe. No revealing clothing accidents, transparent or wet-clothing gags, breast-focused framing or anatomy exaggeration. Any contact is consensual; no sexual activity with an intoxicated person. Props, animals and movement remain safe; no fire stunts. Use playful adult ensemble cover expressions and a relevant comedy prop, not an ominous affair-poster pose."
     fun performance(value: JSONObject): String = if(value.optString("story_tone")=="comedy" || main(value)?.tone=="comedy" || topics.any { it.tone=="comedy" && category(it)==value.optString("category") }) comedy else ""
