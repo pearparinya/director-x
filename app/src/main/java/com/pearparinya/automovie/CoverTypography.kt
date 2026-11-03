@@ -23,6 +23,7 @@ ${lines(channel,story,ep,episode,tagline).joinToString("\n")}
 END EXACT COVER TEXT
 Do not draw the BEGIN/END labels. Draw only the three required entries. Thai spelling, punctuation and wording must match exactly. Main story title largest; channel smaller; ${if(ep==null) "story tagline" else "episode number and episode title"} secondary. Do not add ${if(ep==null) "episode labels" else "a fourth tagline line"}.
 $layout
+PRODUCTION TYPOGRAPHY: Use a professional film-poster typographic hierarchy, clear Thai letterforms, appropriate kerning and line spacing, and contrast suited to the scene. Preserve exact wording; never invent extra copy.
 COVER TEXT CHECK BEFORE DONE: verify every required entry is visibly present and readable inside the image. If missing, misspelled or cropped, repair this same cover while preserving cast, locked wardrobe and composition; do not advance to next. If the tool cannot render the lettering, report PENDING and ask for correction instead of claiming DONE. No extra text or watermark.
         """.trimIndent()
     }

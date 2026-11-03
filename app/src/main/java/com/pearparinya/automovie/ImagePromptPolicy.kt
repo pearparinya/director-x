@@ -2,6 +2,7 @@ package com.pearparinya.automovie
 
 /** A shared brief for image requests. References identify people; scene facts define clothes and action. */
 internal object ImagePromptPolicy {
+    const val productionDirection = "FILM PRODUCTION DIRECTION: Work as a film director, cinematographer and production designer. Create a polished photorealistic, production-ready frame with purposeful composition, depth, natural perspective, detailed materials and controlled highlights. Choose camera angle, lighting, color and expressions to support this specific story, location and emotion. Keep faces, hands and important props clear; preserve each character’s identity, assigned wardrobe and scene continuity. Avoid generic poses, stretched anatomy and unrelated visual elements. Review the generated image for visual continuity; quality and likeness are targets, not guarantees."
     const val skinTone = "SKIN AND LIGHTING: Preserve each character’s own visible skin tone and features from their MASTER. Use natural balanced lighting appropriate to the scene without changing identity or washing out skin."
     const val referenceAppeal = "คงเสน่ห์และความเซ็กซี่ตามภาพอ้างอิงของตัวละครผู้ใหญ่"
     fun threeViewCharacter(description: String): String =
@@ -26,7 +27,7 @@ ${if(profile.isNotBlank()) "ข้อมูลอ้างอิงรายค�
     fun scene(cast: String, location: String, action: String, aspect: String = "9:16",
               source: String = "ภาพ MASTER ที่แนบ", framing: String = "", lighting: String = "",
               continuity: String = "", filename: String = "", changeWardrobe: Boolean = true): String = buildString {
-        append("สร้างภาพฉากละครจากไฟล์อ้างอิงที่แนบ ${if(changeWardrobe) "ใช้ชุดที่ระบุสำหรับฉากนี้ เปลี่ยนชุดเมื่อวันเวลา กิจกรรม หรือบทกำหนด เหตุการณ์ต่อเนื่องให้ใช้ชุดเดิม" else "คงเครื่องแต่งกายตามภาพอ้างอิง"} สร้างภาพจริงหนึ่งภาพ\n${identity(source)}\nตัวละครและชุด:\n$cast\nสถานที่: $location\nการกระทำ: $action\n${style(aspect,framing,lighting)}\n")
+        append("สร้างภาพฉากละครจากไฟล์อ้างอิงที่แนบ ${if(changeWardrobe) "ใช้ชุดที่ระบุสำหรับฉากนี้ เปลี่ยนชุดเมื่อวันเวลา กิจกรรม หรือบทกำหนด เหตุการณ์ต่อเนื่องให้ใช้ชุดเดิม" else "คงเครื่องแต่งกายตามภาพอ้างอิง"} สร้างภาพจริงหนึ่งภาพ\n${identity(source)}\nตัวละครและชุด:\n$cast\nสถานที่: $location\nการกระทำ: $action\n${style(aspect,framing,lighting)}\n$productionDirection\n")
         if (continuity.isNotBlank()) append("ความต่อเนื่อง: $continuity\n")
         append("${PerformanceDirection.guide}\nFreeze one meaningful expressive instant, not a sequence or collage.\nไม่มีข้อความหรือลายน้ำ")
         if (filename.isNotBlank()) append("\nชื่อไฟล์: $filename")
