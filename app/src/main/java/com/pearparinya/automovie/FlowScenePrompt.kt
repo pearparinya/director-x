@@ -78,8 +78,8 @@ internal object FlowScenePrompt {
         val voice = when {
             dialogue.isNotEmpty() && !offscreen && visiblePerson != null ->
                 "ONLY ${bound(visiblePerson)} speaks the Thai dialogue with natural mouth movement. " +
-                listeners.joinToString(" ") { "${bound(it)} must NOT speak. Keep their lips closed and still throughout; react silently with eyes. Do not animate their mouth or add vocal sounds." }
-            else -> "Visible characters remain silent with mouths closed. No visible character makes vocal sounds."
+                listeners.joinToString(" ") { "${bound(it)} must NOT speak. Keep their lips closed and still throughout. They may blink, move their head, hands and body, and react naturally without making any vocal sound. Do not animate their mouth or add speech, laughter, gasps, humming or ad-libs." }
+            else -> "Visible characters remain silent with mouths closed. They may blink, gesture and move naturally without making vocal sounds. No visible character speaks, laughs, gasps, hums or adds ad-libs."
         }
         val speaker = if (narration.isNotEmpty()) "Off-screen Male Narrator" else if (offscreen) "Off-screen ${label(s.speaker)}" else label(visibleSpeaker)
         val tag = if (narration.isNotEmpty() || offscreen) "voiceover" else "dialogue"

@@ -17,6 +17,8 @@ class FlowScenePromptTest {
         assertTrue(prompt.contains("[เมย์] outfit in scene: cream top."))
         assertTrue(prompt.contains("<lighting>5500K daylight white balance"))
         assertTrue(prompt.contains("Keep their lips closed and still throughout"))
+        assertTrue(prompt.contains("move their head, hands and body"))
+        assertTrue(prompt.contains("without making any vocal sound"))
         assertTrue(prompt.contains("พี่ริน หนูเป็นน้องสาวของพี่"))
         assertFalse(prompt.contains("<voiceover>"))
     }
@@ -89,6 +91,8 @@ class FlowScenePromptTest {
         assertTrue(narrator.contains("Visible characters remain silent with mouths closed"))
         val silent=FlowScenePrompt.build(scene(speaker="",dialogue="",narration="ไม่มี"))
         assertFalse(silent.contains("<voiceover>"))
+        assertTrue(silent.contains("They may blink, gesture and move naturally"))
+        assertTrue(narrator.contains("They may blink, gesture and move naturally"))
         assertTrue(FlowScenePrompt.issues(scene(narration="เสียงบรรยายซ้อน")).isNotEmpty())
     }
     @Test fun emptyEstablishingShotIsAllowedWithoutInventingPeople() {
