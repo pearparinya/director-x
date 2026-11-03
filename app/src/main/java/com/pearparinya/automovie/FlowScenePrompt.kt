@@ -63,7 +63,7 @@ internal object FlowScenePrompt {
         val narration = speech(s.narration)
         val offscreen = dialogue.isNotEmpty() && s.offscreen.any { identity(it) == identity(s.speaker) }
         val line = dialogue.ifEmpty { narration }
-        fun label(name: String): String = "[${refName(name)}]"
+        fun label(name: String): String = "[${name.trim()}]"
         val visiblePerson = s.cast.firstOrNull { identity(it.name) == identity(s.speaker) }
         val visibleSpeaker = visiblePerson?.name ?: s.speaker
         fun descriptor(p: FlowPerson): String {
@@ -81,7 +81,7 @@ internal object FlowScenePrompt {
                 listeners.joinToString(" ") { "${bound(it)} must NOT speak. Keep their lips closed and still throughout; react silently with eyes. Do not animate their mouth or add vocal sounds." }
             else -> "Visible characters remain silent with mouths closed. No visible character makes vocal sounds."
         }
-        val speaker = if (narration.isNotEmpty()) "Off-screen Male Narrator" else if (offscreen) "Off-screen ${label(s.speaker)}" else visiblePerson?.let { bound(it) } ?: label(visibleSpeaker)
+        val speaker = if (narration.isNotEmpty()) "Off-screen Male Narrator" else if (offscreen) "Off-screen ${label(s.speaker)}" else label(visibleSpeaker)
         val tag = if (narration.isNotEmpty() || offscreen) "voiceover" else "dialogue"
         var action = s.action.trim().trimEnd('.', '!', '?').ifBlank { "The scene remains still" }
         // Only replace aliases with an established identity; never infer a new person's name from position or gender.
@@ -100,6 +100,7 @@ internal object FlowScenePrompt {
         aliases.forEach { (alias, replacement) ->
             val boundary = if (alias.any { it in 'ก'..'๙' }) "(?<![ก-๙])${Regex.escape(alias)}(?![ก-๙])" else "(?<![A-Za-z0-9])${Regex.escape(alias)}(?![A-Za-z0-9])"
             val options = if (alias == "May") emptySet() else setOf(RegexOption.IGNORE_CASE)
+            action = Regex("\\[" + Regex.escape(alias) + "\\]", options).replace(action) { replacement }
             action = Regex("(?<!\\[)$boundary(?!\\])", options).replace(action) { replacement }
         }
         val sound = s.sound.trim().ifEmpty { "Quiet natural ambience." }.replace(Regex("\\b(?:indoor )?murmurs\\b", RegexOption.IGNORE_CASE), "quiet room tone")
@@ -107,11 +108,11 @@ internal object FlowScenePrompt {
             append("<scene id=\"${xml(id)}\">\n  <aspect_ratio>9:16</aspect_ratio>\n  <duration>8</duration>\n  <reference_image>attached_image</reference_image>\n  <lighting>5500K daylight white balance, pure bright studio lighting, no yellow light</lighting>\n  <typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone>\n")
             if (s.cast.isNotEmpty()) {
                 append("  <characters>\n")
-                s.cast.forEach { append("    <character>${xml(bound(it))}</character>\n") }
+                s.cast.forEach { append("    <character>${xml(label(it.name))}</character>\n") }
                 append("  </characters>\n")
             }
             val outfits = s.cast.filter { it.outfit.isNotBlank() }.joinToString(" ") { "${label(it.name)} outfit in scene: ${it.outfit.trim()}." }
-            append("  <prompt>One continuous 8-second vertical shot with no cuts. Use the attached image as the first frame. ${xml(action)}. ${xml(outfits)} ${xml(voice)} Preserve the characters, their faces, hair, body proportions, positions, clothing and props from the first frame. Keep held objects together and in contact with the hands. Camera: ${xml(camera)}</prompt>\n")
+            append("  <prompt>(9:16 aspect ratio). Masterpiece, 8k resolution, highly detailed. Full vertical continuous 8-second shot with no cuts. Use the attached image as the first frame. ${xml(action)}. ${xml(outfits)} ${xml(voice)} Preserve the characters, their faces, hair, body proportions, positions, clothing and props from the first frame. Keep held objects together and in contact with the hands. Camera: ${xml(camera)}</prompt>\n")
 
             if (line.isNotEmpty()) {
                 append("  <$tag>\n    <speaker>${xml(speaker)}</speaker>\n    <text>${xml(line)}</text>\n    <language>th-TH</language>\n    <subtitles>false</subtitles>\n  </$tag>\n")
