@@ -41,27 +41,28 @@ internal object ChannelCatalog {
     )
     // These are story seeds, not fixed scripts; users can also choose automatic selection.
     fun shortTopics(id: String): List<String> = when(id) {
-        "domestic_secrets" -> listOf("ของหายในบ้าน","ความลับที่เข้าใจผิด","มื้ออาหารชวนสงสัย","จดหมายในลิ้นชัก","มรดกที่ไม่คาดคิด")
-        "betrayal_rivalry" -> listOf("ข้อความส่งผิดคน","เจอแฟนเก่าโดยบังเอิญ","คำโกหกที่จับได้","ความจริงจากเพื่อนสนิท","คำสัญญาที่ผิดนัด")
-        "office_career" -> listOf("ประชุมผิดห้อง","ความดีที่ไม่มีใครเห็น","ลูกค้าคนสำคัญ","เพื่อนร่วมงานเข้าใจผิด","งานชิ้นสุดท้ายก่อนเลิกงาน")
-        "high_society_underworld" -> listOf("แขกปริศนาในงานเลี้ยง","ของหรูที่มีเรื่องซ่อน","คนธรรมดาในงานไฮโซ","คำเชิญลึกลับ","ความลับในกระเป๋าหรู")
-        "revenge_disguise" -> listOf("กลับมาพิสูจน์ตัวเอง","คนแปลกหน้าที่เคยรู้จัก","แผนเอาคืนที่พลิกล็อก","จดหมายจากอดีต","เปิดโปงความเข้าใจผิด")
-        "age_status_romance" -> listOf("เดตแรกต่างวัย","เข้าใจผิดเรื่องฐานะ","ดูแลกันในวันธรรมดา","ของขวัญแทนคำขอบคุณ","คนต่างวัยช่วยกันแก้ปัญหา")
-        "office_sitcom" -> listOf("ส่งข้อความผิดกลุ่ม","ประชุมเปิดไมค์ค้าง","ของกินในตู้เย็นหาย","เตรียมเอกสารผิดชุด","เจ้านายได้ยินผิด")
-        "neighborhood_comedy" -> listOf("รับพัสดุผิดบ้าน","เสียงปริศนาข้างบ้าน","ยืมของแล้วเรื่องบาน","ตะกร้าหน้าบ้านสลับกัน","ทักคนผิดหน้าร้าน")
-        "romantic_misunderstanding" -> listOf("เข้าใจผิดว่าเป็นแฟน","นัดเจอผิดคน","ของขวัญผิดเจ้าของ","แชตผิดห้อง","คำสารภาพที่เข้าใจผิด")
-        "career_buddy_comedy" -> listOf("ลูกค้ากับช่างคู่กัด","ภารกิจส่งของ","สองอาชีพช่วยกันแก้ปัญหา","ช่างกับลูกค้าต่างความคิด","แผนงานสลับบทบาท")
-        "younger_man_older_woman" -> listOf("คำชวนที่คิดไม่ถึง","รุ่นน้องช่วยงาน","ความห่วงใยที่ตีความผิด","อาหารมื้อแรกที่ทำด้วยกัน","คำขอบคุณที่ไม่ทันพูด")
-        "mystery_twist" -> listOf("เบาะแสชิ้นเดียว","คนที่หายไปไหน","ความจริงที่ไม่เหมือนที่คิด","กุญแจที่ไม่มีเจ้าของ","เสียงจากห้องข้าง ๆ")
-        "heartwarming" -> listOf("น้ำใจเล็ก ๆ ในวันยาก","คนแปลกหน้าช่วยกัน","ของขวัญที่มีความหมาย","มื้ออาหารแบ่งปัน","ความช่วยเหลือระหว่างทาง")
-        "everyday_lesson" -> listOf("ฟังให้จบก่อนตัดสิน","ความซื่อสัตย์เรื่องเล็ก","โอกาสที่สอง","คำขอโทษที่ไม่สาย","สิ่งเล็ก ๆ ที่มองข้าม")
+        "domestic_secrets" -> listOf("ของหายในบ้าน","ความลับที่เข้าใจผิด","มื้ออาหารชวนสงสัย","จดหมายในลิ้นชัก","มรดกที่ไม่คาดคิด","ภาพเก่าที่ทำให้เข้าใจใหม่","กุญแจของสมาชิกในบ้าน")
+        "betrayal_rivalry" -> listOf("ข้อความส่งผิดคน","เจอแฟนเก่าโดยบังเอิญ","คำโกหกที่จับได้","ความจริงจากเพื่อนสนิท","คำสัญญาที่ผิดนัด","ความไว้วางใจที่ต้องพิสูจน์","การตัดสินใจในวันสำคัญ")
+        "office_career" -> listOf("ประชุมผิดห้อง","ความดีที่ไม่มีใครเห็น","ลูกค้าคนสำคัญ","เพื่อนร่วมงานเข้าใจผิด","งานชิ้นสุดท้ายก่อนเลิกงาน","ผลงานที่ถูกเข้าใจผิด","ทางเลือกก่อนรับตำแหน่งใหม่")
+        "high_society_underworld" -> listOf("แขกปริศนาในงานเลี้ยง","ของหรูที่มีเรื่องซ่อน","คนธรรมดาในงานไฮโซ","คำเชิญลึกลับ","ความลับในกระเป๋าหรู","ภาพถ่ายในงานประมูล","คำสัญญาในงานเลี้ยง")
+        "revenge_disguise" -> listOf("กลับมาพิสูจน์ตัวเอง","คนแปลกหน้าที่เคยรู้จัก","แผนเอาคืนที่พลิกล็อก","จดหมายจากอดีต","เปิดโปงความเข้าใจผิด","หลักฐานที่หายไป","กลับมาทวงความยุติธรรม")
+        "age_status_romance" -> listOf("เดตแรกต่างวัย","เข้าใจผิดเรื่องฐานะ","ดูแลกันในวันธรรมดา","ของขวัญแทนคำขอบคุณ","คนต่างวัยช่วยกันแก้ปัญหา","มุมมองต่างกันในวันสำคัญ","จดหมายขอบคุณที่ไม่คาดคิด")
+        "office_sitcom" -> listOf("ส่งข้อความผิดกลุ่ม","ประชุมเปิดไมค์ค้าง","ของกินในตู้เย็นหาย","เตรียมเอกสารผิดชุด","เจ้านายได้ยินผิด","พรีเซนต์ผิดไฟล์","อีเมลตอบทุกคน")
+        "neighborhood_comedy" -> listOf("รับพัสดุผิดบ้าน","เสียงปริศนาข้างบ้าน","ยืมของแล้วเรื่องบาน","ตะกร้าหน้าบ้านสลับกัน","ทักคนผิดหน้าร้าน","ป้ายหน้าบ้านสลับกัน","ของฝากส่งผิดคน")
+        "romantic_misunderstanding" -> listOf("เข้าใจผิดว่าเป็นแฟน","นัดเจอผิดคน","ของขวัญผิดเจ้าของ","แชตผิดห้อง","คำสารภาพที่เข้าใจผิด","ข้อความลับจากคนใกล้ตัว","คู่เดตจำเป็น")
+        "career_buddy_comedy" -> listOf("ลูกค้ากับช่างคู่กัด","ภารกิจส่งของ","สองอาชีพช่วยกันแก้ปัญหา","ช่างกับลูกค้าต่างความคิด","แผนงานสลับบทบาท","ภารกิจแข่งกับเวลา","คู่หูรับงานผิดที่")
+        "younger_man_older_woman" -> listOf("คำชวนที่คิดไม่ถึง","รุ่นน้องช่วยงาน","ความห่วงใยที่ตีความผิด","อาหารมื้อแรกที่ทำด้วยกัน","คำขอบคุณที่ไม่ทันพูด","ร่มคันเดียวในวันฝนตก","พบกันอีกครั้งหลังเลิกงาน")
+        "mystery_twist" -> listOf("เบาะแสชิ้นเดียว","คนที่หายไปไหน","ความจริงที่ไม่เหมือนที่คิด","กุญแจที่ไม่มีเจ้าของ","เสียงจากห้องข้าง ๆ","รอยเท้าในภาพเก่า","ข้อความที่ปรากฏซ้ำ")
+        "heartwarming" -> listOf("น้ำใจเล็ก ๆ ในวันยาก","คนแปลกหน้าช่วยกัน","ของขวัญที่มีความหมาย","มื้ออาหารแบ่งปัน","ความช่วยเหลือระหว่างทาง","จดหมายจากคนเคยช่วย","รอยยิ้มในวันฝนตก")
+        "everyday_lesson" -> listOf("ฟังให้จบก่อนตัดสิน","ความซื่อสัตย์เรื่องเล็ก","โอกาสที่สอง","คำขอโทษที่ไม่สาย","สิ่งเล็ก ๆ ที่มองข้าม","คำพูดที่เปลี่ยนวันหนึ่ง","คืนของที่เก็บได้")
         else -> emptyList()
     }
     private fun main(category: String) = mainCategories.firstOrNull { category==it.label || category==it.name }
     private fun main(value: JSONObject) = main(value.optString("category")) ?: mainCategories.firstOrNull { it.id==value.optString("category_id") }
     val acceptedCategories get() = mainCategories.flatMap { listOf(it.label,it.name) } + topics.map { category(it) } + groups.map { it.title }
-    fun genre(value: JSONObject): String = main(value)?.let { "SELECTED GENRE: ${it.id}. ${it.direction} Preserve the written scene and assigned speech; genre direction does not add events, characters or sounds." }.orEmpty()
-    private const val creative = "MAIN CATEGORY ONLY: Invent a fresh Thai title, central incident, adult occupations/relationships, obstacles, escalation and ending inside the selected category. There is no mandatory subcategory or canned incident to reproduce. Maintain the selected setting and primary tone through outline, every scene, acting, covers and sound. A twist must deepen this genre rather than switch it. Use only registered reference actors and decide roles freely; names/reference identities are not automatic husband-wife-affair roles. After outline approval keep the agreed roles, motives and continuity stable across EPs."
+    private const val filmCraft = "FILMMAKING DIRECTION: Develop a clear premise, character goals and stakes, motivated actions, coherent setup and payoff. Direct natural performances and meaningful visual storytelling; use composition, lighting, camera and sound appropriate to the selected genre and location. Make the title, synopsis, cover and scenes agree with the actual story. Keep each shot continuous for 8 seconds; avoid filler and unrelated events."
+    fun genre(value: JSONObject): String = main(value)?.let { "SELECTED GENRE: ${it.id}. ${it.direction} Preserve the written scene and assigned speech; genre direction does not add events, characters or sounds. $filmCraft" }.orEmpty()
+    private const val creative = "MAIN CATEGORY ONLY: Invent a fresh Thai title, central incident, adult occupations/relationships, obstacles, escalation and ending inside the selected category. Treat a user-selected situation as the creative starting point, not a fixed script; vary its characters and resolution. Maintain the selected setting and primary tone through outline, every scene, acting, covers and sound. A twist must deepen this genre rather than switch it. Use only registered reference actors and decide roles freely; names/reference identities are not automatic husband-wife-affair roles. After outline approval keep the agreed roles, motives and continuity stable across EPs."
     data class Topic(val id: Int, val title: String, val premise: String, val tone: String = "drama")
     data class Group(val title: String, val topics: List<Topic>)
     val groups = listOf(
@@ -141,7 +142,7 @@ internal object ChannelCatalog {
     fun performance(value: JSONObject): String = if(value.optString("story_tone")=="comedy" || main(value)?.tone=="comedy" || topics.any { it.tone=="comedy" && category(it)==value.optString("category") }) comedy else ""
     fun direction(selectedCategory: String): String {
         main(selectedCategory)?.let { selected ->
-            return safety+"\n$creative\nSelected category: ${selected.label}\n${selected.direction}"+(if(selected.tone=="comedy") "\n$comedy" else "\nMaintain drama/suspense and use realistic emotional beats; no automatic comedy sound effects.")
+            return safety+"\n$creative\n$filmCraft\nSelected category: ${selected.label}\n${selected.direction}"+(if(selected.tone=="comedy") "\n$comedy" else "\nMaintain drama/suspense and use realistic emotional beats; no automatic comedy sound effects.")
         }
         return topics.firstOrNull { category(it)==selectedCategory }?.let {
             safety+"\nSelected premise: "+it.premise+if(it.tone=="comedy") "\n$comedy" else ""
