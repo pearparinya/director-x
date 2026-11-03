@@ -36,6 +36,7 @@ internal object FlowScenePrompt {
     }
     // Unknown subject names cannot safely be guessed from character order or appearance.
     private fun unknownActionNames(s: FlowSceneSpec): List<String> {
+        if(s.cast.isEmpty()) return emptyList()
         val known=s.cast.flatMap { p ->
             val aliases=when(identity(p.name)) {
                 "gawin" -> listOf("gawin", "kawin")
