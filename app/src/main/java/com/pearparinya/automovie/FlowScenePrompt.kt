@@ -43,12 +43,24 @@ internal object FlowScenePrompt {
         val offscreen = dialogue.isNotEmpty() && s.offscreen.any { identity(it) == identity(s.speaker) }
         val line = dialogue.ifEmpty { narration }
         fun label(name: String): String = "[${refName(name)}]"
-        val visibleSpeaker = s.cast.firstOrNull { identity(it.name) == identity(s.speaker) }?.name ?: s.speaker
-        val voice = when {
-            dialogue.isNotEmpty() && !offscreen -> "${label(visibleSpeaker)} speaks naturally; the other visible characters remain silent."
-            else -> "Visible characters remain silent with mouths closed."
+        val visiblePerson = s.cast.firstOrNull { identity(it.name) == identity(s.speaker) }
+        val visibleSpeaker = visiblePerson?.name ?: s.speaker
+        fun descriptor(p: FlowPerson): String {
+            val position=p.position.trim().replace(Regex("\\s+")," ")
+            val appearance=p.appearance.trim().replace(Regex("\\s+")," ")
+            // Profiles sometimes contain long MASTER instructions, rather than a visual description.
+            val cue=appearance.takeIf { it.length<=160 && !it.contains("MASTER",ignoreCase=true) && !it.contains("Fictional character",ignoreCase=true) }
+            return listOfNotNull(position.takeIf { it.isNotBlank() },cue).joinToString(", ")
         }
-        val speaker = if (narration.isNotEmpty()) "Off-screen Male Narrator" else if (offscreen) "Off-screen ${label(s.speaker)}" else label(visibleSpeaker)
+        fun bound(p: FlowPerson) = "${label(p.name)} — ${descriptor(p)}"
+        val listeners = s.cast.filter { visiblePerson == null || identity(it.name) != identity(visiblePerson.name) }
+        val voice = when {
+            dialogue.isNotEmpty() && !offscreen && visiblePerson != null ->
+                "ONLY ${bound(visiblePerson)} speaks the Thai dialogue with natural mouth movement. " +
+                listeners.joinToString(" ") { "${bound(it)} must NOT speak. Keep their lips closed and still throughout; react silently with eyes. Do not animate their mouth or add vocal sounds." }
+            else -> "Visible characters remain silent with mouths closed. No visible character makes vocal sounds."
+        }
+        val speaker = if (narration.isNotEmpty()) "Off-screen Male Narrator" else if (offscreen) "Off-screen ${label(s.speaker)}" else visiblePerson?.let { bound(it) } ?: label(visibleSpeaker)
         val tag = if (narration.isNotEmpty() || offscreen) "voiceover" else "dialogue"
         var action = s.action.trim().trimEnd('.', '!', '?').ifBlank { "The scene remains still" }
         // Only replace aliases with an established identity; never infer a new person's name from position or gender.
@@ -73,17 +85,15 @@ internal object FlowScenePrompt {
             append("<scene id=\"${xml(id)}\">\n  <aspect_ratio>9:16</aspect_ratio>\n  <duration>8</duration>\n  <reference_image>attached_image</reference_image>\n")
             if (s.cast.isNotEmpty()) {
                 append("  <characters>\n")
-                s.cast.forEach { append("    <character>${xml(label(it.name))}</character>\n") }
+                s.cast.forEach { append("    <character>${xml(bound(it))}</character>\n") }
                 append("  </characters>\n")
             }
-            val mapping = s.cast.joinToString(" ") { "${label(it.name)}: ${it.appearance}, ${it.position} in the first frame." }
-            append("  <prompt>Masterpiece, 8k resolution, cinematic shot. One continuous 8-second vertical shot. ${xml(mapping)} ${xml(action)}. Preserve the characters, their positions, clothing and props from the first frame. Keep held objects together and in contact with the hands. ${xml(voice)} Camera: ${xml(camera)}</prompt>\n")
-            append("  <lighting>5500K daylight white balance, pure bright studio lighting, no yellow light</lighting>\n")
-            append("  <typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone>\n")
+            append("  <prompt>One continuous 8-second vertical shot with no cuts. Use the attached image as the first frame. ${xml(action)}. ${xml(voice)} Preserve the characters, their faces, hair, body proportions, positions, clothing and props from the first frame. Keep held objects together and in contact with the hands. Camera: ${xml(camera)}</prompt>\n")
+
             if (line.isNotEmpty()) {
                 append("  <$tag>\n    <speaker>${xml(speaker)}</speaker>\n    <text>${xml(line)}</text>\n    <language>th-TH</language>\n    <subtitles>false</subtitles>\n  </$tag>\n")
             }
-            append("  <sound_effects>\n    <ambient>${xml(sound)}${if (line.isNotEmpty()) " Quieter than the speech." else ""}</ambient>\n  </sound_effects>\n</scene>")
+            append("  <sound_effects>\n    <ambient>Begin quietly. ${xml(sound)}${if (line.isNotEmpty()) " Quieter than the speech. No additional voices or vocal sounds." else " No voices or vocal sounds."}</ambient>\n  </sound_effects>\n</scene>")
         }
     }
 }

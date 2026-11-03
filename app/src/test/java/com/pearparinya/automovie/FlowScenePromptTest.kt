@@ -11,19 +11,20 @@ class FlowScenePromptTest {
     @Test fun speakerIsBoundToAppearanceAndListenersStaySilent() {
         val prompt=FlowScenePrompt.build(scene())
         assertTrue(prompt.contains("<dialogue>"))
-        assertTrue(prompt.contains("<speaker>[May]</speaker>"))
-        assertTrue(prompt.contains("[May] speaks naturally"))
+        assertTrue(prompt.contains("<speaker>[May] — left, short-haired woman</speaker>"))
+        assertTrue(prompt.contains("ONLY [May] — left, short-haired woman speaks"))
+        assertTrue(prompt.contains("[Rinrada] — right, long-haired woman must NOT speak"))
+        assertTrue(prompt.contains("Keep their lips closed and still throughout"))
         assertTrue(prompt.contains("พี่ริน หนูเป็นน้องสาวของพี่"))
         assertFalse(prompt.contains("<voiceover>"))
     }
     @Test fun narratorMatchesReferenceLayoutAndKeepsOriginalSpeech() {
         val line="การตรวจสอบพื้นที่เริ่มต้นขึ้น ท่ามกลางความระแวง"
         val prompt=FlowScenePrompt.build(scene(speaker="",dialogue="",narration=line),"scene_investigation_01")
-        val tags=listOf("<aspect_ratio>","<duration>","<reference_image>","<characters>","<prompt>","<lighting>","<typography_safe_zone>","<voiceover>","<sound_effects>")
+        val tags=listOf("<aspect_ratio>","<duration>","<reference_image>","<characters>","<prompt>","<voiceover>","<sound_effects>")
         assertEquals(tags.map { prompt.indexOf(it) }.sorted(),tags.map { prompt.indexOf(it) })
         assertTrue(tags.all { prompt.contains(it) })
-        assertTrue(prompt.contains("Masterpiece, 8k resolution, cinematic shot. One continuous 8-second vertical shot."))
-        assertTrue(prompt.contains("5500K daylight white balance, pure bright studio lighting, no yellow light"))
+        assertTrue(prompt.contains("One continuous 8-second vertical shot with no cuts."))
         assertEquals(1,Regex(Regex.escape(line)).findAll(prompt).count())
         assertTrue(prompt.contains("<language>th-TH</language>"))
         assertTrue(prompt.contains("<subtitles>false</subtitles>"))
@@ -39,11 +40,11 @@ class FlowScenePromptTest {
     }
     @Test fun characterReferencesMatchActionsAndSpeakerWithoutChangingDialogue() {
         val prompt=FlowScenePrompt.build(scene())
-        assertTrue(prompt.contains("<character>[May]</character>"))
-        assertTrue(prompt.contains("<character>[Rinrada]</character>"))
+        assertTrue(prompt.contains("<character>[May] — left, short-haired woman</character>"))
+        assertTrue(prompt.contains("<character>[Rinrada] — right, long-haired woman</character>"))
         assertTrue(prompt.contains("[May] slides the envelope"))
-        assertTrue(prompt.contains("[May]: short-haired woman, left in the first frame"))
-        assertTrue(prompt.contains("<speaker>[May]</speaker>"))
+        assertTrue(prompt.contains("[Rinrada] — right, long-haired woman must NOT speak"))
+        assertTrue(prompt.contains("<speaker>[May] — left, short-haired woman</speaker>"))
         assertTrue(prompt.contains("พี่ริน หนูเป็นน้องสาวของพี่"))
         assertFalse(prompt.contains("<character>Off-screen"))
     }
@@ -52,8 +53,8 @@ class FlowScenePromptTest {
         val man=FlowPerson("นที","short dark hair","right background","dark trousers")
         val spec=scene(speaker="",dialogue="",narration="พัชรินทร์มองนที").copy(cast=listOf(woman,man),action="patcharin inspects the blueprints while natee observes")
         val result=FlowScenePrompt.build(spec)
-        assertTrue(result.contains("<character>[Patcharin]</character>"))
-        assertTrue(result.contains("<character>[Natee]</character>"))
+        assertTrue(result.contains("<character>[Patcharin] — center, long brown hair</character>"))
+        assertTrue(result.contains("<character>[Natee] — right background, short dark hair</character>"))
         assertTrue(result.contains("[Patcharin] inspects the blueprints while [Natee] observes"))
         assertTrue(result.contains("<text>พัชรินทร์มองนที</text>"))
         assertEquals(FlowScenePrompt.build(spec).substringAfter("<character>" ).substringBefore("</character>"),FlowScenePrompt.build(spec.copy(cast=listOf(man,woman))).substringAfterLast("<character>").substringBefore("</character>"))
@@ -66,7 +67,7 @@ class FlowScenePromptTest {
         val first=prompt.substringAfter("<character>").substringBefore("</character>")
         val second=prompt.substringAfterLast("<character>").substringBefore("</character>")
         assertTrue(first.startsWith("[Character_")); assertNotEquals(first,second)
-        assertTrue(prompt.contains("$first waves at $second"))
+        assertTrue(prompt.contains("${first.substringBefore(" —")} waves at ${second.substringBefore(" —")}"))
         assertTrue(prompt.contains("<speaker>$first</speaker>"))
         assertTrue(prompt.contains("<text>สวัสดี</text>"))
     }
