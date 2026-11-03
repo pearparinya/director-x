@@ -56,6 +56,7 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
         if(plan.optInt("audio_version")>=1) AutoDirectorWardrobe.shots(plan).forEach { shot -> runCatching { SoundDesign.validate(shot.scene) }.exceptionOrNull()?.let { add("EP${shot.ep}: ${it.message}") } }
         val eps=plan.optJSONArray("episodes")
         if(eps==null || eps.length()==0) { add("ยังไม่มี EP"); return@buildList }
+        if(plan.optString("clip_format")=="short" && eps.length()!=1) add("คลิปสั้นต้องมีเรื่องจบในคลิปเดียว (1 EP)")
         for(i in 0 until eps.length()) {
             val ep=eps.getJSONObject(i); val scenes=ep.optJSONArray("scenes")
             if(ep.optInt("ep")!=i+1) add("เลข EP ต้องเรียงจาก 1")

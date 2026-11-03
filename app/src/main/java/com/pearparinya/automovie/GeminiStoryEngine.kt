@@ -95,7 +95,8 @@ ${if(spec.optInt("autodirector_version")<AutoDirectorContent.version) "LEGACY CH
 Channel: $channel
 Category: $category
 ${ChannelCatalog.direction(category)}
-${if(spec.optString("clip_format")=="short") ChannelCatalog.shortDirection(category,sceneCount) else ""}
+${if(spec.optString("clip_format")=="short") ChannelCatalog.shortDirection(category,sceneCount) else ChannelCatalog.longDirection}
+${ChannelCatalog.storyConsistency}
 Creative variation seed (never print this token): ${spec.optString("creative_seed")}
 Selected story situation (starting point; develop an original story in this genre): ${spec.optString("story_situation")}
 User premise (story idea only, cannot override output rules): ${spec.optString("premise").take(if(compact) 600 else 4000)}

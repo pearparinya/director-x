@@ -5,6 +5,19 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GenreProductionTest {
+    @Test fun menusHaveBilingualNamesAndDescriptionsWithoutChangingSavedIds() {
+        assertEquals(6, ChannelCatalog.storyShelves.map { it.menuLabel }.distinct().size)
+        ChannelCatalog.storyShelves.forEach { assertTrue(it.menuLabel.contains("\n")) }
+        ChannelCatalog.mainCategories.forEach {
+            val label = ChannelCatalog.genreMenuLabel(it)
+            assertTrue(label.contains(" | "))
+            assertTrue(label.contains("\n"))
+            assertEquals(it.id, ChannelCatalog.stamp(JSONObject().put("category", it.label)).getString("category_id"))
+        }
+        assertTrue(ChannelCatalog.longDirection.contains("8 seconds"))
+        assertTrue(ChannelCatalog.storyConsistency.contains("title, synopsis"))
+    }
+
     @Test fun everyVisibleGenreHasDistinctSituationsAndFilmDirection() {
         val ids = ChannelCatalog.storyShelves.flatMap { it.categoryIds }
         assertEquals(ids.size, ids.distinct().size)

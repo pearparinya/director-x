@@ -1915,18 +1915,17 @@ class StudioActivity : AppCompatActivity() {
     private fun chooseStoryTopic(index: Int, done: (Int) -> Unit) {
         val topics=ChannelCatalog.shortTopics(ChannelCatalog.mainCategories[index].id)
         if(topics.isEmpty()) { selectedStoryTopic=""; done(index); return }
-        choiceMenu("เลือกสถานการณ์ • ${ChannelCatalog.mainCategories[index].name}",listOf("🎲 สุ่มสถานการณ์")+topics) { choice ->
+        choiceMenu("ขั้นที่ 3 • เลือกสถานการณ์ • ${ChannelCatalog.mainCategories[index].name}",listOf("🎲 สุ่มสถานการณ์")+topics) { choice ->
             selectedStoryTopic=if(choice==0) topics.random() else topics[choice-1]
             done(index)
         }
     }
     private fun chooseChannelTopic(done: (Int) -> Unit) {
         val shelves=ChannelCatalog.storyShelves
-        choiceMenu("เลือกหมวดหลัก",shelves.map { it.title }) { selected ->
+        choiceMenu("ขั้นที่ 1 • เลือกหมวดหลัก",shelves.map { it.menuLabel }) { selected ->
             val shelf=shelves[selected]
             val choices=shelf.categoryIds.map { id -> ChannelCatalog.mainCategories.indexOfFirst { it.id==id }.also { require(it>=0) } }
-            if(choices.size==1) chooseStoryTopic(choices.single(),done)
-            else choiceMenu("${shelf.title} • เลือกแนวย่อย",choices.map { ChannelCatalog.mainCategories[it].menuLabel }) { picked ->
+            choiceMenu("ขั้นที่ 2 • เลือกแนวย่อย",choices.map { ChannelCatalog.genreMenuLabel(ChannelCatalog.mainCategories[it]) }) { picked ->
                 chooseStoryTopic(choices[picked],done)
             }
         }
@@ -1983,7 +1982,7 @@ class StudioActivity : AppCompatActivity() {
             chooseClip { format, seconds ->
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (เว้นว่างให้คิดใหม่)" }
             fun prepare(): String {
-                val code=FlowProductionPack.masterCommand(categories[index],originalChannel)+"\n"+ChannelCatalog.direction(categories[index])+(if(format=="short") "\n"+ChannelCatalog.shortDirection(categories[index],ClipPlan.scenes(seconds)) else "")+"\nUSER DURATION OVERRIDE: ${if(format=="short") "One standalone episode only; beginning, middle and ending within this one clip. " else ""}${ClipPlan.scenes(seconds)} scenes per EP, 8 seconds each, ${ClipPlan.time(ClipPlan.scenes(seconds)*8)} content per EP. Supersedes default 24 scenes and 180-second minimum above. Set clip_plan_version=1, clip_format=$format, target_seconds=$seconds, scenes_per_episode=${ClipPlan.scenes(seconds)} in story.json.\nแนวย่อย: "+selectedStoryTopic+"\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" }
+                val code=FlowProductionPack.masterCommand(categories[index],originalChannel)+"\n"+ChannelCatalog.direction(categories[index])+"\n"+(if(format=="short") ChannelCatalog.shortDirection(categories[index],ClipPlan.scenes(seconds)) else ChannelCatalog.longDirection)+"\n"+ChannelCatalog.storyConsistency+"\nUSER DURATION OVERRIDE: ${if(format=="short") "One standalone episode only; beginning, middle and ending within this one clip. " else ""}${ClipPlan.scenes(seconds)} scenes per EP, 8 seconds each, ${ClipPlan.time(ClipPlan.scenes(seconds)*8)} content per EP. Supersedes default 24 scenes and 180-second minimum above. Set clip_plan_version=1, clip_format=$format, target_seconds=$seconds, scenes_per_episode=${ClipPlan.scenes(seconds)} in story.json.\nแนวย่อย: "+selectedStoryTopic+"\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" }
                 File(project,"flow_story_command.txt").writeText(code)
                 render()
                 return code
