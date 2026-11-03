@@ -134,7 +134,7 @@ class AutoDirectorContentTest {
         assertTrue(poster.contains("MASTER ID: GAWIN_MASTER"))
         assertFalse(poster.contains("GAWIN_MASTER.png"))
         val video=SimpleProductionCommands.videoTasks(project,1).first().command
-        assertTrue(video.contains("8-second vertical shot"))
+        assertTrue(video.contains("continuous 8-second shot"))
         assertFalse(video.contains("EP01_SC001.png"))
     }
     @Test fun legacyChannelIsUpdatedForOldProjectCoversAndCustomNamesRemain() {
