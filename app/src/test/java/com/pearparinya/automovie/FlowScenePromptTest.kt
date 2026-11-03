@@ -14,6 +14,8 @@ class FlowScenePromptTest {
         assertTrue(prompt.contains("<speaker>[May] — left, short-haired woman</speaker>"))
         assertTrue(prompt.contains("ONLY [May] — left, short-haired woman speaks"))
         assertTrue(prompt.contains("[Rinrada] — right, long-haired woman must NOT speak"))
+        assertTrue(prompt.contains("[May] outfit in scene: cream top."))
+        assertTrue(prompt.contains("<lighting>5500K daylight white balance"))
         assertTrue(prompt.contains("Keep their lips closed and still throughout"))
         assertTrue(prompt.contains("พี่ริน หนูเป็นน้องสาวของพี่"))
         assertFalse(prompt.contains("<voiceover>"))
