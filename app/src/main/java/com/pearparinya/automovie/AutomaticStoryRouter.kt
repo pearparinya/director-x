@@ -16,6 +16,7 @@ internal class AutomaticStoryRouter(
     private val cancelled: () -> Boolean,
     private val progress: (StoryProvider,String)->Unit
 ) {
+    var onFailure: (StoryProvider,String)->Unit = { _,_ -> }
     private val routes=listOf(StoryProvider.GROQ to StoryProvider.GEMINI,StoryProvider.CEREBRAS to StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER to null)
 
     fun generate(prompt: String,schema: JSONObject): JSONObject {
@@ -24,6 +25,7 @@ internal class AutomaticStoryRouter(
         for((writer,formatter) in routes) {
             if(cancelled()) throw CancellationException()
             if(writer !in clients || formatter != null && formatter !in clients) continue
+            var current=writer
             try {
                 val cache=draftFile(writer,prompt,schema)
                 val draft=if(cache.isFile) GeminiStoryFiles.read(cache) else {
@@ -32,6 +34,7 @@ internal class AutomaticStoryRouter(
                 }
                 if(cancelled()) throw CancellationException()
                 val result=if(sceneBatch && formatter!=null) {
+                    current=formatter
                     progress(formatter,"กำลังจัดรูปแบบ XML")
                     val request="""Create a well-formed XML document with root <flow>. For every input scene include exactly one <scene id="NUMBER"><prompt>ENGLISH ACTION</prompt><dialogue>EXACT THAI DIALOGUE</dialogue></scene>. The scene id and dialogue must exactly match the input; use empty dialogue for silent or narrated scenes. Escape XML special characters. The prompt must be an English visible action using only the same people and events; preserve their names and do not add speech. No other scene or tag. Return JSON with one field named xml containing the XML. Input scenes: ${draft.getJSONArray("scenes")}"""
                     val xmlSchema=JSONObject().put("type","object").put("properties",JSONObject().put("xml",JSONObject().put("type","string"))).put("required",JSONArray().put("xml"))
@@ -43,11 +46,20 @@ internal class AutomaticStoryRouter(
                 return result
             } catch(e: Exception) {
                 if(cancelled() || e is CancellationException) throw CancellationException()
+                onFailure(current,failureCategory(e))
                 if(!canSwitch(e)) throw e
                 last=e
             }
         }
         throw last ?: IllegalStateException("ตั้งค่า Groq + Gemini หรือ Cerebras + DeepSeek หรือ OpenRouter ก่อนเริ่ม")
+    }
+    private fun failureCategory(e: Exception): String = when(e) {
+        is InvalidSceneXml -> "XML ไม่ตรงบท"
+        is StoryHttpFailure -> "HTTP ${e.status}" + if(e.detail in setOf("invalid_schema","context_length_exceeded","json_validate_failed")) " • ${e.detail}" else ""
+        is java.net.SocketTimeoutException -> "หมดเวลารอ"
+        is javax.net.ssl.SSLException -> "TLS ขัดข้อง"
+        is java.io.IOException -> "เครือข่ายขัดข้อง"
+        else -> "ตรวจคำตอบไม่ผ่าน"
     }
     private fun canSwitch(e: Exception): Boolean = e is InvalidSceneXml || StoryRequestRetry.canFallback(e) ||
         e is StoryHttpFailure && e.status in setOf(401,403,404)

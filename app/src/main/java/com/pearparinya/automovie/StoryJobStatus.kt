@@ -1,6 +1,7 @@
 package com.pearparinya.automovie
 
 import org.json.JSONObject
+import org.json.JSONArray
 
 /** Heartbeat measures app liveness/time only. Percent advances only at validated checkpoints. */
 internal class StoryJobStatus(previous: JSONObject?, checkpoint: Int,
@@ -11,6 +12,27 @@ internal class StoryJobStatus(previous: JSONObject?, checkpoint: Int,
     private var phaseStart=start
     private val value=JSONObject().put("state","running").put("percent",checkpoint.coerceIn(0,99))
         .put("phase","preparing").put("started_at",previous?.optLong("started_at",wall()) ?: wall())
+        .put("failures",previous?.optJSONArray("failures") ?: JSONArray())
+    @Synchronized fun recordFailure(provider: StoryProvider,category: String): JSONObject {
+        // Never store provider payload, prompt, story text, or credentials in diagnostics.
+        val safe=if(category.matches(Regex("HTTP [1-5][0-9][0-9]( • (invalid_schema|context_length_exceeded|json_validate_failed))?")) ||
+            category in setOf("XML ไม่ตรงบท","หมดเวลารอ","TLS ขัดข้อง","เครือข่ายขัดข้อง","ตรวจคำตอบไม่ผ่าน")) category else "ตรวจคำตอบไม่ผ่าน"
+        val old=value.getJSONArray("failures"); val next=JSONArray()
+        for(i in maxOf(0,old.length()-5) until old.length()) next.put(old.getJSONObject(i))
+        next.put(JSONObject().put("provider",provider.label).put("reason",safe))
+        value.put("failures",next)
+        return snapshot(true)
+    }
+    @Synchronized fun setTask(message: String) {
+        val task=when {
+            message.contains("เลือก MASTER") -> "เลือกตัวละคร"
+            message.contains("โครงเรื่อง") -> "วางโครงเรื่อง"
+            message.startsWith("เขียน EP") -> message.take(80)
+            message.startsWith("บันทึกแล้ว") -> message.take(80)
+            else -> null
+        }
+        if(task!=null) value.put("task",task)
+    }
     @Synchronized fun update(state: String,percent: Int,message: String,provider: String,phase: String): JSONObject {
         if(value.optString("phase")!=phase || value.optString("provider")!=provider) phaseStart=elapsed()
         value.put("state",state).put("percent",if(state=="complete") 100 else maxOf(value.optInt("percent"),percent.coerceIn(0,99)))
@@ -53,6 +75,9 @@ internal object StoryStatusText {
         val time=duration(status.optLong("elapsed_ms"))
         val phase=if(running && !stale) " • ช่วงนี้ ${duration(status.optLong("phase_elapsed_ms"))}" else ""
         val update=if(heartbeat>0) java.text.SimpleDateFormat("HH:mm:ss",java.util.Locale.ROOT).format(java.util.Date(heartbeat)) else "—"
-        return "$provider • ซีนที่ผ่านตรวจ ${status.optInt("percent").coerceIn(0,100)}%\n$label\nใช้เวลา $time$phase\n${if(state=="awaiting_outline") "เปิดงานเขียนบท แล้วกดทำต่อ • ใช้โครงเรื่องเดิม ไม่ต้องยืนยันอีก" else status.optString("message")}\nแอปอัปเดตสถานะล่าสุด $update"
+        val failures=status.optJSONArray("failures")
+        val history=if(failures==null || failures.length()==0) "" else "\nการลองล่าสุด:\n"+(0 until failures.length()).joinToString("\n") { i -> failures.getJSONObject(i).let { "${it.optString("provider")}: ${it.optString("reason")}" } }
+        val task=status.optString("task").takeIf { it.isNotBlank() }?.let { "\nขั้นตอน: $it" }.orEmpty()
+        return "$provider • ซีนที่ผ่านตรวจ ${status.optInt("percent").coerceIn(0,100)}%\n$label\nใช้เวลา $time$phase$task\n${if(state=="awaiting_outline") "เปิดงานเขียนบท แล้วกดทำต่อ • ใช้โครงเรื่องเดิม ไม่ต้องยืนยันอีก" else status.optString("message")}$history\nแอปอัปเดตสถานะล่าสุด $update"
     }
 }
