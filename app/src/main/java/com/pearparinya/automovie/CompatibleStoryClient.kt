@@ -65,10 +65,10 @@ internal class CompatibleStoryClient(
         }
         fun parse(response: JSONObject, service: CompatibleService): JSONObject {
             val choice = response.optJSONArray("choices")?.optJSONObject(0) ?: error("${service.label} ไม่ส่งคำตอบ")
-            if(choice.optString("finish_reason") == "length") throw InvalidStoryResponse("${service.label} ส่งคำตอบไม่ครบ")
-            require(choice.optString("finish_reason") == "stop") { "${service.label} หยุดคำขอ กรุณาตรวจรายละเอียด" }
             val message = choice.optJSONObject("message") ?: error("${service.label} ไม่ส่งข้อความ")
             require(message.optString("refusal").let { it.isBlank() || it == "null" }) { "${service.label} ปฏิเสธคำขอ" }
+            if(choice.optString("finish_reason") == "length") throw InvalidStoryResponse("${service.label} ส่งคำตอบไม่ครบ")
+            require(choice.optString("finish_reason") == "stop") { "${service.label} หยุดคำขอ กรุณาตรวจรายละเอียด" }
             return try { JSONObject(message.getString("content")) } catch (_: Exception) { throw InvalidStoryResponse("${service.label} ส่ง JSON ไม่สมบูรณ์") }
         }
     }

@@ -22,5 +22,7 @@ class CompatibleStoryClientTest {
         assertTrue(runCatching { CompatibleStoryClient.parse(response("length","{\"ok\":true}"),CompatibleService.CEREBRAS) }.exceptionOrNull() is InvalidStoryResponse)
         assertTrue(runCatching { CompatibleStoryClient.parse(response("stop","invalid"),CompatibleService.DEEPSEEK) }.exceptionOrNull() is InvalidStoryResponse)
         assertFalse(runCatching { CompatibleStoryClient.parse(response("content_filter",""),CompatibleService.DEEPSEEK) }.exceptionOrNull() is InvalidStoryResponse)
+        val refusal=response("length","").apply { getJSONArray("choices").getJSONObject(0).getJSONObject("message").put("refusal","not allowed") }
+        assertFalse(runCatching { CompatibleStoryClient.parse(refusal,CompatibleService.OPENROUTER) }.exceptionOrNull() is InvalidStoryResponse)
     }
 }
