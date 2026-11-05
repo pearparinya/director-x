@@ -1774,13 +1774,14 @@ class StudioActivity : AppCompatActivity() {
     private fun extraApiKeyDialog(provider: ExtraApiProvider) {
         val settings=ExtraApiSettings(this,provider)
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-        panel.addView(TextView(this).apply { text="บันทึกคีย์ ${provider.label} แบบเข้ารหัสบนเครื่องนี้ และไม่รวมในไฟล์สำรอง • รุ่นนี้เก็บคีย์ได้ แต่ยังไม่เชื่อมบริการนี้กับการเขียนบทหรือทดสอบคีย์" })
+        panel.addView(TextView(this).apply { text="${provider.label} • คีย์เก็บแบบเข้ารหัสบนเครื่องและไม่รวมในไฟล์สำรอง • สามารถแก้ชื่อโมเดลได้ • การเชื่อมเขียนบทยังอยู่ระหว่างพัฒนา" })
         val key=EditText(this).apply {
             hint=if(settings.hasKey()) "มีคีย์แล้ว • พิมพ์เฉพาะเมื่อเปลี่ยนคีย์" else "${provider.label} API Key"
             inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
             setSingleLine(true)
             panel.addView(this)
         }
+        val model=EditText(this).apply { hint="ชื่อโมเดล"; setSingleLine(true); setText(settings.model()); panel.addView(this) }
         val dialog=AlertDialog.Builder(this).setTitle("${provider.label} • จัดเก็บ API Key")
             .setView(panel).setPositiveButton("บันทึก",null)
             .setNeutralButton("ลบคีย์") { _,_ -> settings.clear(); notice("ลบคีย์ ${provider.label} จากเครื่องแล้ว") }
@@ -1788,7 +1789,7 @@ class StudioActivity : AppCompatActivity() {
         dialog.getButton(-1).setOnClickListener {
             runCatching {
                 val value=key.text.toString().trim()
-                if(value.isNotEmpty()) settings.save(value) else require(settings.hasKey()) { "กรุณาใส่ API Key" }
+                settings.save(value.ifBlank { settings.key() }, model.text.toString().trim())
             }.onSuccess { key.setText(""); dialog.dismiss(); notice("บันทึกคีย์ ${provider.label} แล้ว • ยังไม่เชื่อมใช้เขียนบท") }
                 .onFailure { Toast.makeText(this,it.message ?: "บันทึกไม่ได้",Toast.LENGTH_LONG).show() }
         }
