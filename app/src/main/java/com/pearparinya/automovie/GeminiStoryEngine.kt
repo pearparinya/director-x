@@ -68,6 +68,13 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
         require(FlowCast.issues(JSONObject().put("supporting_characters",support)).isEmpty()) { "ข้อมูลตัวละครเสริมไม่ถูกต้อง" }
         val compact=spec.optString("provider") in setOf("groq","cerebras","deepseek","openrouter") || spec.optBoolean("hybrid") || spec.optBoolean("auto_pipeline")
         val batchSize=if(compact) 2 else 6
+        val roleSummary=if(compact) JSONArray().apply {
+            for(i in 0 until support.length()) {
+                val source=support.getJSONObject(i); val row=JSONObject()
+                for(field in listOf("name","master","library_id","role","romance_role","character_age")) if(source.has(field)) row.put(field,source.get(field))
+                put(row)
+            }
+        } else support
         val speechRules="""
 AUDIO FIELDS: choose exactly ONE mode per scene.
 THAI SPEECH SPACING: Write Thai dialogue and narration with natural phrase-level spacing and appropriate punctuation for a comfortable spoken cadence. Example: "การตรวจสอบพื้นที่เริ่มต้นขึ้น ท่ามกลางความระแวง". Do not join distinct phrases together, insert spaces between every Thai word, add pronunciation marks arbitrarily, change the meaning, or include stage directions in the spoken text. Keep each line short enough to finish naturally within eight seconds.
@@ -79,7 +86,7 @@ Never fill unused fields with descriptions, "none", "ไม่มี", "N/A", or
         val base="""
 You write complete Thai drama scripts and English Flow prompts. Return only the requested JSON, not markdown or downloadable file claims. Do not generate images/video or call other services. Only adult fictional characters from this map are allowed:
 ${FlowCast.definitions(spec).joinToString("\n") { p -> "${p.getString("name")} = ${p.getString("master")}; ${p.getString("visual_description")}" }}
-${if(spec.optBoolean("auto_cast")) "Use only the automatically selected cast above; their assigned names, roles and MASTER bindings are immutable across all episodes. Story concept: "+spec.optString("cast_concept")+"; roles: "+support.toString() else "The three leads are Gawin, Rinrada and May; registered supporting characters may appear when the story needs them."} Never invent an unregistered character.
+${if(spec.optBoolean("auto_cast")) "Use only the automatically selected cast above; their assigned names, roles and MASTER bindings are immutable across all episodes. Story concept: "+spec.optString("cast_concept")+"; roles: "+roleSummary.toString() else "The three leads are Gawin, Rinrada and May; registered supporting characters may appear when the story needs them."} Never invent an unregistered character.
 ${FlowVisualDirection.identity}
 ${FlowVisualDirection.color}
 ${AutoDirectorContent.femaleFashion}
@@ -108,6 +115,8 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         }
         // Continue from the validated outline automatically, including legacy jobs awaiting approval.
         val eps=outline.getJSONArray("episodes"); val output=JSONArray(); var completed=0
+        val recoveryFile=File(folder,"batch_recovery.json")
+        var smallerBatches=recoveryFile.isFile && runCatching { GeminiStoryFiles.read(recoveryFile).optBoolean("single_scene") }.getOrDefault(false)
         for(i in 0 until eps.length()) {
             val planned=eps.getJSONObject(i); val scenes=JSONArray()
             var start=1
@@ -117,7 +126,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                 // Pending responses retain their original range even after a provider switch.
                 val savedBatch=cachedFile.takeIf { it.isFile }
                     ?: File(folder,cachedFile.name+".pending.json").takeIf { it.isFile }
-                val size=if(savedBatch!=null) GeminiStoryFiles.read(savedBatch).getJSONArray("scenes").length() else minOf(batchSize,sceneCount+1-start)
+                val size=if(savedBatch!=null) GeminiStoryFiles.read(savedBatch).getJSONArray("scenes").length() else minOf(if(smallerBatches) 1 else batchSize,sceneCount+1-start)
                 require(size in 1..6 && start+size-1<=sceneCount) { "ขนาดช่วงบทที่บันทึกไม่ถูกต้อง" }
                 val end=start+size-1
                 lastPercent=completed*100/(eps.length()*sceneCount)
@@ -136,7 +145,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                 val priorDialogue=linkedMapOf<String,String>()
                 for(e in 0 until output.length()) checkDialogue(output.getJSONObject(e).getJSONArray("scenes"),e+1,priorDialogue)
                 checkDialogue(scenes,i+1,priorDialogue)
-                val batch=cached("EP%02d_%02d.json".format(i+1,start),prompt,batchSchema()) {
+                val batch=try { cached("EP%02d_%02d.json".format(i+1,start),prompt,batchSchema()) {
                     if(spec.optInt("performance_version")>=1) {
                         val sceneRows=it.getJSONArray("scenes")
                         for(n in 0 until sceneRows.length()) PerformanceDirection.normalizeSilentVoices(sceneRows.getJSONObject(n))
@@ -164,6 +173,12 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                         }
                     }
                     checkDialogue(it.getJSONArray("scenes"),i+1,priorDialogue.toMutableMap())
+                } } catch(e: StoryBatchTooLarge) {
+                    if(size<=1 || savedBatch!=null) throw e
+                    smallerBatches=true
+                    GeminiStoryFiles.write(recoveryFile,JSONObject().put("single_scene",true))
+                    progress(lastPercent,"คำขอใหญ่เกินกำหนด • ลดเหลือครั้งละ 1 ซีนและทำต่อ")
+                    continue
                 }
                 val rows=batch.getJSONArray("scenes"); for(n in 0 until rows.length()) {
                     val scene=JSONObject(rows.getJSONObject(n).toString())
