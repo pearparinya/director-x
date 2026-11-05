@@ -86,6 +86,31 @@ class AutomaticStoryRouterTest {
             assertTrue(File(folder,"auto_drafts").listFiles().orEmpty().isEmpty())
         } finally { folder.deleteRecursively() }
     }
+    @Test fun recordsSanitizedProviderFailureBeforeUsingBackup() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-status-${UUID.randomUUID()}")
+        try {
+            val failures=mutableListOf<Pair<StoryProvider,String>>()
+            val fail=client { _,_ -> throw StoryHttpFailure(429,null,"secret should not appear") }
+            val writer=client { _,_ -> draft() }
+            val format=client { _,_ -> xml() }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to fail,StoryProvider.GEMINI to format,StoryProvider.CEREBRAS to writer,StoryProvider.DEEPSEEK to format),{false},{_,_->})
+            router.onFailure={ p,c -> failures.add(p to c) }
+            router.generate("brief",schema())
+            assertEquals(listOf(StoryProvider.GROQ to "HTTP 429"),failures)
+        } finally { folder.deleteRecursively() }
+    }
+    @Test fun formatterFailureNamesFormatterNotWriter() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-formatter-${UUID.randomUUID()}")
+        try {
+            val failures=mutableListOf<Pair<StoryProvider,String>>()
+            val writer=client { _,_ -> draft() }
+            val formatter=client { _,_ -> throw StoryHttpFailure(429,null,"private info") }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to writer,StoryProvider.GEMINI to formatter),{false},{_,_->})
+            router.onFailure={ p,c -> failures.add(p to c) }
+            assertTrue(runCatching { router.generate("brief",schema()) }.isFailure)
+            assertEquals(listOf(StoryProvider.GEMINI to "HTTP 429"),failures)
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun recognizedInvalidSchemaUsesBackupWithoutExposingRequest() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-schema-${UUID.randomUUID()}")
         try {

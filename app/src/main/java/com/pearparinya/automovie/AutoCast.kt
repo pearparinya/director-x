@@ -6,6 +6,15 @@ import org.json.JSONObject
 
 /** Freeze AI casting before scene generation; retries reuse the same names and original bytes. */
 internal object AutoCast {
+    /** Send only casting information; keep original files, metadata and hashes for local verification. */
+    fun promptCatalog(catalog: JSONArray): JSONArray = JSONArray().apply {
+        val fields=listOf("id","display_name","character_age","character_gender","casting_description")
+        for(i in 0 until catalog.length()) {
+            val source=catalog.getJSONObject(i); val compact=JSONObject()
+            fields.forEach { field -> if(source.has(field)) compact.put(field,source.get(field)) }
+            put(compact)
+        }
+    }
     fun schema() = JSONObject("""{"type":"object","properties":{"story_concept":{"type":"string"},"cast":{"type":"array","items":{"type":"object","properties":{"library_id":{"type":"string"},"name":{"type":"string"},"role":{"type":"string"},"romance_role":{"type":"string"}},"required":["library_id","name","role"]}}},"required":["story_concept","cast"]}""")
     fun validate(value: JSONObject, catalog: JSONArray) {
         require(value.optString("story_concept").isNotBlank()) { "ขาดแนวคิดเรื่อง" }

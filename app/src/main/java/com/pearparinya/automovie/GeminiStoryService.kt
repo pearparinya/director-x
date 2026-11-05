@@ -72,6 +72,10 @@ class GeminiStoryService : Service() {
                         val autoRouter=AutomaticStoryRouter(folder,connections,{cancelled}) { target,message ->
                             provider=target; status("running",lastPercent,"อัตโนมัติ • ${target.label} • $message","requesting")
                         }
+                        autoRouter.onFailure={ target,category -> synchronized(statusLock) {
+                            val snapshot=liveStatus.recordFailure(target,category).put("hybrid",hybrid)
+                            GeminiStoryFiles.write(File(folder,"status.json"),snapshot)
+                        } }
                         val router=StoryProviderRouter({cancelled},{ target,fallback ->
                             provider=target
                             status("running",lastPercent,"${target.label} • "+if(fallback) "รับช่วงแทนบริการที่พักอยู่ • ใช้ข้อมูลเรื่องเดิม" else "กำลังเขียนตามหน้าที่","requesting")
@@ -83,7 +87,10 @@ class GeminiStoryService : Service() {
                             else if(hybrid) StoryRequestRetry().execute({cancelled},retryStatus) {
                                 router.generate(StoryProviderRouter.preferred(schema.getJSONObject("properties").has("scenes"))) { target -> connections.getValue(target).generate(prompt,schema) }
                             } else connections.getValue(provider).generate(prompt,schema)
-                        },{cancelled}) { percent,message -> status("running",percent,message,if(message.startsWith("บันทึกแล้ว")) "saved" else "preparing") }.run(spec)
+                        },{cancelled}) { percent,message ->
+                            synchronized(statusLock) { liveStatus.setTask(message) }
+                            status("running",percent,message,if(message.startsWith("บันทึกแล้ว")) "saved" else "preparing")
+                        }.run(spec)
                         if(cancelled) throw CancellationException()
                         val target=File(folder.parentFile,"story.json")
                         if(target.exists()) require(ChannelCatalog.updateLegacyChannel(GeminiStoryFiles.read(target)).toString()==story.toString()) { "พบ story.json ที่แก้ไขแล้ว ไม่เขียนทับ" }

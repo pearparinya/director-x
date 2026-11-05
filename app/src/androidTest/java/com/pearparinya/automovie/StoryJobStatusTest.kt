@@ -8,6 +8,18 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class StoryJobStatusTest {
+    @Test fun diagnosticHistorySurvivesPauseAndNeverStoresPayload() {
+        val live=StoryJobStatus(null,0,{0L},{1000L})
+        live.setTask("กำลังวางบทบาท เลือก MASTER และตั้งชื่อนักแสดง")
+        live.recordFailure(StoryProvider.GROQ,"HTTP 400 • invalid_schema")
+        live.recordFailure(StoryProvider.CEREBRAS,"secret-key and private story")
+        val paused=live.update("paused",0,"หยุดแล้ว","openrouter","paused")
+        val text=StoryStatusText.format(paused,false,1000L)
+        assertTrue(text.contains("เลือกตัวละคร")); assertTrue(text.contains("Groq: HTTP 400"))
+        assertTrue(text.contains("Cerebras: ตรวจคำตอบไม่ผ่าน")); assertFalse(text.contains("secret-key"))
+        val resumed=StoryJobStatus(paused,0,{0L},{2000L}).update("running",0,"ต่อ","groq","requesting")
+        assertEquals(2,resumed.getJSONArray("failures").length())
+    }
     @Test fun heartbeatAdvancesTimeWithoutInventingProgressAndResumeExcludesIdleTime() {
         var clock=0L; var wall=1_000_000L
         val old=JSONObject().put("elapsed_ms",10_000L).put("started_at",10L)
