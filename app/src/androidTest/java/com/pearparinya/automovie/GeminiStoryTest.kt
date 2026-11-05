@@ -139,8 +139,8 @@ class GeminiStoryTest {
     }
     @Test fun mainCategoryContractsUseTenReadableStylesWithoutSelectingPresetSubplots() {
         val categories=ChannelCatalog.mainCategories
-        assertEquals(14,categories.size)
-        assertEquals(14,categories.map { it.id }.distinct().size)
+        assertEquals(15,categories.size)
+        assertEquals(15,categories.map { it.id }.distinct().size)
         assertEquals("รักวุ่นชวนเข้าใจผิด",categories[8].name)
         assertEquals("คู่ป่วนต่างอาชีพ",categories[9].name)
         for(c in categories) {

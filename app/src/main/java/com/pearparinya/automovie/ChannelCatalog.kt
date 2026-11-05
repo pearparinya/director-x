@@ -26,6 +26,7 @@ internal object ChannelCatalog {
         MainCategory("romantic_misunderstanding","รักวุ่นชวนเข้าใจผิด","โรแมนติกคอมเมดี้ • ความเข้าใจผิด • รักวุ่นวาย","comedy","💞","Romantic comedy: a plausible adult misunderstanding, contrasting wants, playful chemistry, clarification and a romantic or hopeful payoff. Both romance and comedy remain central. Vary the trigger and resolution; mistaken identity and wrong appointments are optional ideas, not a fixed plot."),
         MainCategory("career_buddy_comedy","คู่ป่วนต่างอาชีพ","คอมเมดี้คู่หู • ภารกิจวุ่น • คนต่างขั้ว","comedy","🎭","Buddy comedy pairing adults from different professions or approaches on one concrete shared task. Their contrasting skills create a safe comic escalation and cooperative payoff. Romance is optional. Vary the professions and task; do not lock the pair to tutor-student or cook-partner roles."),
         MainCategory("younger_man_older_woman","รักต่างวัย | หนุ่มรุ่นน้องกับสาวรุ่นพี่","โรแมนติกดราม่า • เปิดใจใหม่ • ความต่างวัย","drama","💗","Consensual adult romance between a male lead aged 25–30 and a female lead aged 45–55, using assigned catalog ages. The woman is older by at least 15 years. Explore mutual respect, life-stage differences and earned trust. Vary occupations, conflict and ending; no fixed patron or financial-dependence plot."),
+        MainCategory("older_man_younger_woman","รักต่างวัย | หนุ่มรุ่นใหญ่กับสาวรุ่นน้อง","โรแมนติกดราม่า • ต่างวัย • เปิดใจรัก","drama","💖","Consensual adult romance with a male lead aged 45–60 and a female lead aged 25–35, at least 15 years younger, based on assigned MASTER ages. For example, 50 and 25 or 30. Build mutual respect and believable character goals; vary occupations, conflicts and endings."),
         MainCategory("mystery_twist","สืบสวน ความลับ และหักมุม","สืบความจริง • ความลับ • เฉลย","drama","🔎","Mystery drama with clues, investigation and a coherent reveal. Keep all cast identities and roles consistent. Avoid graphic violence and criminal instructions."),
         MainCategory("heartwarming","อบอุ่นหัวใจ","น้ำใจ • ครอบครัว • มิตรภาพ","drama","🌤️","Heartwarming everyday story with a specific small need, a meaningful caring action, and a satisfying emotional resolution. Keep family relationships non-sexual; show warmth through behavior, not speeches."),
         MainCategory("everyday_lesson","ข้อคิดใกล้ตัว","ชีวิตประจำวัน • ทางเลือก • ข้อคิด","drama","💡","A relatable everyday choice and its visible consequence, ending with a clear takeaway through action. Avoid lectures, forced morals and added subplots."))
@@ -41,6 +42,7 @@ internal object ChannelCatalog {
         "romantic_misunderstanding" to ("รักวุ่นชวนเข้าใจผิด | Romantic Comedy" to "ความรักและความเข้าใจผิดที่คลี่คลายด้วยอารมณ์ขัน"),
         "career_buddy_comedy" to ("คู่หูต่างอาชีพ | Buddy Comedy" to "คนต่างความคิดร่วมภารกิจจนเกิดเรื่องขำ"),
         "younger_man_older_woman" to ("หนุ่มรุ่นน้องกับสาวรุ่นพี่ | Later-Life Romance" to "รักต่างวัยของผู้ใหญ่ที่เรียนรู้และเคารพกัน"),
+        "older_man_younger_woman" to ("หนุ่มรุ่นใหญ่กับสาวรุ่นน้อง | Older Man & Younger Woman" to "ความรักต่างวัยของผู้ใหญ่ที่ค่อย ๆ เรียนรู้และเคารพกัน"),
         "mystery_twist" to ("สืบความจริงและหักมุม | Mystery & Revelation" to "ปริศนา เบาะแส และคำตอบที่มีเหตุผล"),
         "heartwarming" to ("น้ำใจและความผูกพัน | Heartwarming Drama" to "การช่วยเหลือเล็ก ๆ ที่สร้างความเปลี่ยนแปลง"),
         "everyday_lesson" to ("ทางเลือกและข้อคิด | Everyday Lessons" to "การตัดสินใจใกล้ตัวและผลที่มองเห็นได้")
@@ -60,7 +62,7 @@ internal object ChannelCatalog {
     // Menu grouping is independent of saved category IDs, so old stories remain readable.
     val storyShelves = listOf(
         StoryShelf("😂 ยิ้มได้ทุกวัน", listOf("office_sitcom", "neighborhood_comedy", "career_buddy_comedy")),
-        StoryShelf("❤️ ร้อยเรื่องรัก", listOf("romantic_misunderstanding", "age_status_romance", "younger_man_older_woman")),
+        StoryShelf("❤️ ร้อยเรื่องรัก", listOf("romantic_misunderstanding", "age_status_romance", "younger_man_older_woman", "older_man_younger_woman")),
         StoryShelf("💔 รอยร้าวในใจ", listOf("domestic_secrets", "betrayal_rivalry", "office_career")),
         StoryShelf("🔎 ปมลับชวนติดตาม", listOf("mystery_twist", "revenge_disguise", "high_society_underworld")),
         StoryShelf("🌤️ เรื่องเล่าอบอุ่นใจ", listOf("heartwarming")),
@@ -79,6 +81,7 @@ internal object ChannelCatalog {
         "romantic_misunderstanding" -> listOf("เข้าใจผิดว่าเป็นแฟน","นัดเจอผิดคน","ของขวัญผิดเจ้าของ","แชตผิดห้อง","คำสารภาพที่เข้าใจผิด","ข้อความลับจากคนใกล้ตัว","คู่เดตจำเป็น")
         "career_buddy_comedy" -> listOf("ลูกค้ากับช่างคู่กัด","ภารกิจส่งของ","สองอาชีพช่วยกันแก้ปัญหา","ช่างกับลูกค้าต่างความคิด","แผนงานสลับบทบาท","ภารกิจแข่งกับเวลา","คู่หูรับงานผิดที่")
         "younger_man_older_woman" -> listOf("คำชวนที่คิดไม่ถึง","รุ่นน้องช่วยงาน","ความห่วงใยที่ตีความผิด","อาหารมื้อแรกที่ทำด้วยกัน","คำขอบคุณที่ไม่ทันพูด","ร่มคันเดียวในวันฝนตก","พบกันอีกครั้งหลังเลิกงาน")
+        "older_man_younger_woman" -> listOf("พบกันในวันธรรมดา","เพื่อนร่วมงานต่างวัย","คำขอบคุณที่เปลี่ยนความสัมพันธ์","งานอดิเรกร่วมกัน","มุมมองต่างวัยในวันสำคัญ","ความห่วงใยที่ไม่คาดคิด","โอกาสครั้งใหม่ของหัวใจ")
         "mystery_twist" -> listOf("เบาะแสชิ้นเดียว","คนที่หายไปไหน","ความจริงที่ไม่เหมือนที่คิด","กุญแจที่ไม่มีเจ้าของ","เสียงจากห้องข้าง ๆ","รอยเท้าในภาพเก่า","ข้อความที่ปรากฏซ้ำ")
         "heartwarming" -> listOf("น้ำใจเล็ก ๆ ในวันยาก","คนแปลกหน้าช่วยกัน","ของขวัญที่มีความหมาย","มื้ออาหารแบ่งปัน","ความช่วยเหลือระหว่างทาง","จดหมายจากคนเคยช่วย","รอยยิ้มในวันฝนตก")
         "everyday_lesson" -> listOf("ฟังให้จบก่อนตัดสิน","ความซื่อสัตย์เรื่องเล็ก","โอกาสที่สอง","คำขอโทษที่ไม่สาย","สิ่งเล็ก ๆ ที่มองข้าม","คำพูดที่เปลี่ยนวันหนึ่ง","คืนของที่เก็บได้")
@@ -158,7 +161,7 @@ internal object ChannelCatalog {
             selected?.id == "heartwarming" -> "HEARTWARMING: show a specific need and a caring action, ending with a clear emotional response."
             selected?.id == "everyday_lesson" -> "EVERYDAY LESSON: show one choice and its consequence; let the action convey the takeaway without a lecture."
             selected?.id == "mystery_twist" -> "MYSTERY: set up one question, show a relevant clue, then reveal an understandable answer within this clip."
-            selected?.id in setOf("age_status_romance", "younger_man_older_woman", "romantic_misunderstanding") -> "ROMANCE: show a concrete interaction and a small believable change in mutual understanding, with a clear emotional ending."
+            selected?.id in setOf("age_status_romance", "younger_man_older_woman", "older_man_younger_woman", "romantic_misunderstanding") -> "ROMANCE: show a concrete interaction and a small believable change in mutual understanding, with a clear emotional ending."
             else -> "DRAMA: show one understandable conflict, a visible response and an earned resolution within this clip."
         }
         val structure = if (sceneCount == 4) "FOUR-SCENE STRUCTURE: Scene 1 introduce the situation immediately; scene 2 develop one problem; scene 3 turn or escalation; scene 4 resolve the situation or deliver the payoff and reaction. Do not leave the plot unfinished." else "Distribute setup, development, turn and resolution across the selected scenes; finish the story in the final scene."
