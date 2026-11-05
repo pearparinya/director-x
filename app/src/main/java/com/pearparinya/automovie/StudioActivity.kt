@@ -236,7 +236,7 @@ class StudioActivity : AppCompatActivity() {
         masterSlot = null
     }
     // Body references are not actor identities. New actors are registered only after image review.
-    private val bodyTemplateFiles=listOf("body_01.png","body_02.png","body_03.png")
+    private val bodyTemplateFiles=listOf("body_01.png")
     private val actorCatalogFile get() = File(filesDir,"actor_catalog_v2.json")
     private fun actorCatalog(): JSONArray = if(!actorCatalogFile.exists()) JSONArray() else JSONObject(actorCatalogFile.readText()).getJSONArray("records")
     // Include the bundled legacy references and user-created actors without changing either catalog.
@@ -294,7 +294,7 @@ class StudioActivity : AppCompatActivity() {
         }.onSuccess { notice("บันทึก MASTER ตัวละครใหม่แล้ว • ตรวจภาพและข้อมูลในคลังได้") }.onFailure { notice(it.message ?: "บันทึกตัวละครไม่ได้") }
     }
     private fun bodyTemplateMenu() {
-        choiceMenu("แม่แบบรูปร่าง • เลือก 1 จาก 3",listOf("แม่แบบ 1 • ผู้ชาย","แม่แบบ 2 • ผู้หญิงผมยาว","แม่แบบ 3 • ผู้หญิงผมสั้น")) { index ->
+        choiceMenu("แม่แบบรูปร่าง",listOf("แม่แบบ 1 • ผู้ชาย")) { index ->
             val file=runCatching { bodyTemplateFile(index) }.getOrElse { notice("เปิดแม่แบบไม่ได้"); return@choiceMenu }
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(240)) })
@@ -630,6 +630,7 @@ class StudioActivity : AppCompatActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        listOf("body_02.png", "body_03.png").forEach { File(cacheDir, "body_template_sources/$it").delete() }
         adoptGeminiProject(intent)
         val masterError = runCatching { installCharacterMasters() }.exceptionOrNull()
         render()
@@ -1960,6 +1961,14 @@ class StudioActivity : AppCompatActivity() {
                             val women=candidates.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 45..55 }
                             require(men.any { man -> women.any { woman -> woman.optInt("character_age")-man.optInt("character_age")>=15 } }) {
                                 "หมวดนี้ต้องมีผู้ชายอายุ 25–30 และผู้หญิงอายุ 45–55 ห่างกันอย่างน้อย 15 ปี ในคลัง MASTER • พบชาย ${men.size} คน หญิง ${women.size} คน กรุณาตรวจข้อมูลในคลังหรือเลือกแนวทั่วไป"
+                            }
+                        }
+                        if(ChannelCatalog.mainCategories[index].id=="older_man_younger_woman") {
+                            val candidates=(0 until catalog.length()).map { catalog.getJSONObject(it) }
+                            val men=candidates.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 45..60 }
+                            val women=candidates.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 25..35 }
+                            require(men.any { man -> women.any { woman -> man.optInt("character_age")-woman.optInt("character_age")>=15 } }) {
+                                "แนวนี้ต้องมี MASTER ผู้ชายอายุ 45–60 ปี และผู้หญิงอายุ 25–35 ปี โดยผู้ชายอายุมากกว่าอย่างน้อย 15 ปี กรุณาตรวจคลังตัวละคร"
                             }
                         }
                         val folder=File(base,UUID.randomUUID().toString()).apply { mkdirs() }

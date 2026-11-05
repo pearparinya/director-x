@@ -20,7 +20,8 @@ internal object AutoCast {
         }
     }
     fun validateGenre(value: JSONObject, catalog: JSONArray, category: String) {
-        if(!category.startsWith("รักต่างวัย | หนุ่มรุ่นน้องกับสาวรุ่นพี่")) return
+        val olderMan=category.startsWith("รักต่างวัย | หนุ่มรุ่นใหญ่กับสาวรุ่นน้อง")
+        if(!olderMan && !category.startsWith("รักต่างวัย | หนุ่มรุ่นน้องกับสาวรุ่นพี่")) return
         val cast=value.getJSONArray("cast")
         val rows=(0 until catalog.length()).map { catalog.getJSONObject(it) }.associateBy { it.getString("id") }
         fun lead(kind: String, gender: String, ages: IntRange): JSONObject {
@@ -30,8 +31,9 @@ internal object AutoCast {
             require(row.optString("character_gender")==gender && row.optInt("character_age") in ages) { "คู่หลัก $kind ต้องเป็น $gender อายุ $ages ตาม MASTER" }
             return row
         }
-        val man=lead("younger_man","man",25..30); val woman=lead("older_woman","woman",45..55)
-        require(woman.getInt("character_age")-man.getInt("character_age")>=15) { "คู่หลักต้องอายุห่างอย่างน้อย 15 ปี" }
+        val man=if(olderMan) lead("older_man","man",45..60) else lead("younger_man","man",25..30)
+        val woman=if(olderMan) lead("younger_woman","woman",25..35) else lead("older_woman","woman",45..55)
+        require(if(olderMan) man.getInt("character_age")-woman.getInt("character_age")>=15 else woman.getInt("character_age")-man.getInt("character_age")>=15) { "คู่หลักต้องอายุห่างอย่างน้อย 15 ปี" }
     }
     fun recentCasts(base: File, current: File): JSONArray {
         val casts=base.listFiles().orEmpty().filter { it.isDirectory && it.canonicalFile!=current.canonicalFile }.mapNotNull { project ->
@@ -66,6 +68,11 @@ internal object AutoCast {
                 val women=candidates.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 45..55 }
                 if(men.none { man -> women.any { woman -> woman.optInt("character_age")-man.optInt("character_age")>=15 } }) return false
             }
+            if(category.startsWith("รักต่างวัย | หนุ่มรุ่นใหญ่กับสาวรุ่นน้อง")) {
+                val men=candidates.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 45..60 }
+                val women=candidates.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 25..35 }
+                if(men.none { man -> women.any { woman -> man.optInt("character_age")-woman.optInt("character_age")>=15 } }) return false
+            }
             return true
         }
         val candidates=if(preservesEligibility(fresh)) fresh else rows
@@ -89,6 +96,11 @@ internal object AutoCast {
             val men=fresh.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 25..30 }
             val women=fresh.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 45..55 }
             if(men.none { man -> women.any { woman -> woman.optInt("character_age")-man.optInt("character_age")>=15 } }) return catalog
+        }
+        if(category.startsWith("รักต่างวัย | หนุ่มรุ่นใหญ่กับสาวรุ่นน้อง")) {
+            val men=fresh.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 45..60 }
+            val women=fresh.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 25..35 }
+            if(men.none { man -> women.any { woman -> man.optInt("character_age")-woman.optInt("character_age")>=15 } }) return catalog
         }
         // Preserve gender coverage when a fresh pool would eliminate an existing group.
         for(gender in listOf("man","woman")) if(rows.any { it.optString("character_gender")==gender } && fresh.none { it.optString("character_gender")==gender }) return catalog

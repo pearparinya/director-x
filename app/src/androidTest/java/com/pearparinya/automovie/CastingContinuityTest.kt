@@ -53,4 +53,19 @@ class CastingContinuityTest {
         cast.getJSONObject(1).put("library_id","CHAR_017");cast.getJSONObject(0).put("library_id","CHAR_023")
         assertTrue(runCatching { AutoCast.validateGenre(value,catalog,cat) }.isFailure)
     }
+    @Test fun olderManYoungerWomanRequiresMatchingLeadsAndAgeGap() {
+        fun master(id: String, gender: String, age: Int)=JSONObject().put("id",id).put("character_gender",gender).put("character_age",age)
+        fun actor(id: String, role: String)=JSONObject().put("library_id",id).put("romance_role",role)
+        val cat=ChannelCatalog.mainCategories.first { it.id=="older_man_younger_woman" }.label
+        val catalog=JSONArray().put(master("m","man",50)).put(master("w","woman",30)).put(master("w2","woman",35))
+        val cast=JSONArray().put(actor("m","older_man")).put(actor("w","younger_woman"))
+        AutoCast.validateGenre(JSONObject().put("cast",cast),catalog,cat)
+        cast.getJSONObject(1).put("library_id","w2")
+        AutoCast.validateGenre(JSONObject().put("cast",cast),catalog,cat)
+        catalog.getJSONObject(0).put("character_age",49)
+        assertTrue(runCatching { AutoCast.validateGenre(JSONObject().put("cast",cast),catalog,cat) }.isFailure)
+        catalog.getJSONObject(1).put("character_age",25)
+        cast.getJSONObject(1).put("library_id","w")
+        AutoCast.validateGenre(JSONObject().put("cast",cast),catalog,cat)
+    }
 }
