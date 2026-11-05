@@ -1748,20 +1748,21 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun geminiSettings(afterSave: (() -> Unit)?=null) {
         val choices=StoryProvider.entries.map { it.label+if(!StoryProvider.hybrid(this) && it==StoryProvider.selected(this)) " • เลือกอยู่" else "" }+
-            listOf("Groq + Gemini อัตโนมัติ"+if(StoryProvider.hybrid(this)) " • เลือกอยู่" else "","ทดสอบการเชื่อมต่อ API ทั้งสองตัว", "จัดเก็บคีย์ Cerebras / DeepSeek / OpenRouter")
+            listOf("Groq + Gemini อัตโนมัติ"+if(StoryProvider.hybrid(this)) " • เลือกอยู่" else "","ทดสอบ Groq และ Gemini", "ตั้งค่า Cerebras / DeepSeek / OpenRouter")
         choiceMenu("เลือก API เขียนบท",choices) { index ->
             when(index) {
                 0,1 -> storyProviderSettings(StoryProvider.entries[index],afterSave)
-                2 -> {
-                    val missing=StoryProvider.entries.filterNot { GeminiSettings(this,it).hasKey() }
+                2,3,4 -> extraApiKeyDialog(StoryProvider.entries[index].extra()!!,afterSave)
+                5 -> {
+                    val missing=StoryProvider.hybridProviders.filterNot { it.hasKey(this) }
                     if(missing.isNotEmpty()) notice("ยังขาดคีย์: "+missing.joinToString { it.label }+" • เลือกบริการในตั้งค่า API แล้วบันทึกคีย์ก่อน")
                     else {
                         StoryProvider.enableHybrid(this)
                         afterSave?.invoke() ?: notice("เลือก Groq + Gemini แล้ว • Gemini วางโครง / Groq เขียนซีน • ใช้ข้อมูลเรื่องและบัญชีชุดร่วมกัน • สลับเมื่อโควตาเต็มหรือบริการขัดข้อง • โควตาและค่าบริการตามบัญชีแต่ละตัว")
                     }
                 }
-                3 -> testStoryApis(StoryProvider.entries.toList())
-                4 -> extraApiSettingsMenu()
+                6 -> testStoryApis(StoryProvider.hybridProviders)
+                7 -> extraApiSettingsMenu()
             }
         }
     }
@@ -1771,10 +1772,10 @@ class StudioActivity : AppCompatActivity() {
         }
         choiceMenu("จัดเก็บ API Key เพิ่มเติม",choices) { index -> extraApiKeyDialog(ExtraApiProvider.entries[index]) }
     }
-    private fun extraApiKeyDialog(provider: ExtraApiProvider) {
+    private fun extraApiKeyDialog(provider: ExtraApiProvider,afterSave: (() -> Unit)?=null) {
         val settings=ExtraApiSettings(this,provider)
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-        panel.addView(TextView(this).apply { text="${provider.label} • คีย์เก็บแบบเข้ารหัสบนเครื่องและไม่รวมในไฟล์สำรอง • สามารถแก้ชื่อโมเดลได้ • การเชื่อมเขียนบทยังอยู่ระหว่างพัฒนา" })
+        panel.addView(TextView(this).apply { text="${provider.label} • คีย์เก็บแบบเข้ารหัสบนเครื่องและไม่รวมในไฟล์สำรอง • ใช้เขียนเรื่องตามโมเดลที่เลือก • การเรียกใช้ขึ้นอยู่กับโควตาและค่าบริการของบัญชี" })
         val key=EditText(this).apply {
             hint=if(settings.hasKey()) "มีคีย์แล้ว • พิมพ์เฉพาะเมื่อเปลี่ยนคีย์" else "${provider.label} API Key"
             inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
@@ -1788,14 +1789,15 @@ class StudioActivity : AppCompatActivity() {
                 .onFailure { notice(it.message ?: "ตรวจคีย์และชื่อโมเดล") }
         } })
         val dialog=AlertDialog.Builder(this).setTitle("${provider.label} • จัดเก็บ API Key")
-            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึก",null)
+            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึกและเลือกใช้",null)
             .setNeutralButton("ลบคีย์") { _,_ -> settings.clear(); notice("ลบคีย์ ${provider.label} จากเครื่องแล้ว") }
             .setNegativeButton("ปิด",null).showDirector()
         dialog.getButton(-1).setOnClickListener {
             runCatching {
                 val value=key.text.toString().trim()
                 settings.save(value.ifBlank { settings.key() }, model.text.toString().trim())
-            }.onSuccess { key.setText(""); dialog.dismiss(); notice("บันทึกคีย์ ${provider.label} แล้ว • ยังไม่เชื่อมใช้เขียนบท") }
+                StoryProvider.select(this,StoryProvider.from(provider.id))
+            }.onSuccess { key.setText(""); dialog.dismiss(); afterSave?.invoke() ?: notice("เลือก ${provider.label} สำหรับเขียนเรื่องแล้ว") }
                 .onFailure { Toast.makeText(this,it.message ?: "บันทึกไม่ได้",Toast.LENGTH_LONG).show() }
         }
     }
@@ -1994,8 +1996,6 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun flowPlanning(autoDirector: Boolean = false) {
         if(GeminiStoryService.running) { geminiJobMenu(); return }
-        val provider=StoryProvider.selected(this)
-        val settings=GeminiSettings(this,provider)
         if(!StoryProvider.ready(this)) { geminiSettings { flowPlanning(autoDirector) }; return }
         val configure: (Int) -> Unit = { index ->
             chooseClip { format, seconds ->

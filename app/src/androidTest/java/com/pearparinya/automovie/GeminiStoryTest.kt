@@ -30,6 +30,29 @@ class GeminiStoryTest {
         } })
     }
     private fun spec()=JSONObject().put("category","แนว").put("channel","ช่อง").put("episodes",3).put("premise","ซองบนโต๊ะ")
+    @Test fun additionalProvidersCompleteAndResumeThirtyEightScenes() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        for(provider in listOf("cerebras","deepseek","openrouter")) {
+            val folder=File(context.cacheDir,"provider-38-${UUID.randomUUID()}").apply { mkdirs() }
+            try {
+                val selected=ClipPlan.apply(spec().put("episodes",1).put("provider",provider).put("channel",ChannelCatalog.channel)
+                    .put("category",ChannelCatalog.category(ChannelCatalog.topics.first())),"long",300)
+                GeminiStoryFiles.write(File(folder,"spec.json"),selected)
+                var interrupted=false
+                val generate: (String,JSONObject)->JSONObject = { prompt,_ ->
+                    if(prompt.contains("Plan a complete story")) outline().apply { put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0))) }
+                    else if(prompt.contains("Write exactly scenes 3 to 4") && !interrupted) { interrupted=true; error("simulated interruption") }
+                    else batch(prompt)
+                }
+                assertTrue(runCatching { GeminiStoryEngine(folder,generate).run(selected) }.isFailure)
+                assertTrue(File(folder,"EP01_01.json").isFile)
+                val story=GeminiStoryEngine(folder,generate).run(selected)
+                assertEquals(38,story.getInt("scene_count"))
+                assertTrue(FlowProductionPack.issues(story).toString(),FlowProductionPack.issues(story).isEmpty())
+                assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_ -> error("already saved") }).run(selected).toString())
+            } finally { folder.deleteRecursively() }
+        }
+    }
     @Test fun selectedClipDurationsCompleteResumeAndExportWithoutLegacyMinimum() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         assertEquals(10,ChannelCatalog.groups.size)

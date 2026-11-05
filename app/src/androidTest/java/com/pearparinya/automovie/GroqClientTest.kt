@@ -55,8 +55,8 @@ class GroqClientTest {
     }
     @Test fun providerKeysAndModelsAreEncryptedSeparatelyWithoutChangingOldGeminiKey() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
-        val settings=StoryProvider.entries.associateWith { GeminiSettings(context,it) }
-        val files=StoryProvider.entries.associateWith { File(context.noBackupFilesDir,"${it.id}/settings.json") }
+        val settings=StoryProvider.hybridProviders.associateWith { GeminiSettings(context,it) }
+        val files=StoryProvider.hybridProviders.associateWith { File(context.noBackupFilesDir,"${it.id}/settings.json") }
         val old=files.mapValues { it.value.takeIf { f -> f.exists() }?.readBytes() }
         try {
             val gemini="gemini-test-only-fake-key-1234567890"; val groq="gsk_test-only-fake-key-123456789012345"
