@@ -36,8 +36,9 @@ internal class AutomaticStoryRouter(
                     progress(formatter,"กำลังจัดรูปแบบ XML")
                     val request="""Create a well-formed XML document with root <flow>. For every input scene include exactly one <scene id="NUMBER"><prompt>ENGLISH ACTION</prompt><dialogue>EXACT THAI DIALOGUE</dialogue></scene>. The scene id and dialogue must exactly match the input; use empty dialogue for silent or narrated scenes. Escape XML special characters. The prompt must be an English visible action using only the same people and events; preserve their names and do not add speech. No other scene or tag. Return JSON with one field named xml containing the XML. Input scenes: ${draft.getJSONArray("scenes")}"""
                     val xmlSchema=JSONObject().put("type","object").put("properties",JSONObject().put("xml",JSONObject().put("type","string"))).put("required",JSONArray().put("xml"))
-                    val xml=clients.getValue(formatter).generate(request,xmlSchema).getString("xml")
-                    SceneXml.apply(draft,xml)
+                    val formatted=clients.getValue(formatter).generate(request,xmlSchema)
+                    try { SceneXml.apply(draft,formatted.getString("xml")) }
+                    catch(e: Exception) { throw InvalidSceneXml(e) }
                 } else draft
                 cache.delete()
                 return result
@@ -49,9 +50,11 @@ internal class AutomaticStoryRouter(
         }
         throw last ?: IllegalStateException("ตั้งค่า Groq + Gemini หรือ Cerebras + DeepSeek หรือ OpenRouter ก่อนเริ่ม")
     }
-    private fun canSwitch(e: Exception): Boolean = StoryRequestRetry.canFallback(e) ||
+    private fun canSwitch(e: Exception): Boolean = e is InvalidSceneXml || StoryRequestRetry.canFallback(e) ||
         e is StoryHttpFailure && e.status in setOf(401,403,404)
 }
+
+internal class InvalidSceneXml(cause: Exception): IllegalArgumentException("XML ที่ได้ไม่ตรงกับบทต้นฉบับ",cause)
 
 /** Reject DTDs, missing/duplicate IDs and changed dialogue before merging formatted actions. */
 internal object SceneXml {
