@@ -23,15 +23,16 @@ class CharacterLibraryResetTest {
             assertTrue(fresh.isFile)
         } finally { root.deleteRecursively() }
     }
-    @Test fun replacementLibraryContainsFortyFiveOriginalSheetsAndNames() {
+    @Test fun replacementLibraryContainsAllOriginalSheetsAndNames() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val root=File(context.cacheDir,"new-library-${UUID.randomUUID()}")
         try {
             val library=MasterLibrary(root) { context.assets.open(it).use { input -> input.readBytes() } }
             val entries=library.entries()
-            assertEquals((101..145).map { "CHAR_%03d".format(it) },entries.map { it.id })
-            assertEquals(listOf("รินรดา","เมย์","กวิน","ณิชา","อรพรรณ","มินตรา","ศศิ","แพรวา","วราภรณ์","กาญจนา","ขวัญข้าว","อิงฟ้า","ชญาดา","น้ำฝน","วริศรา","พัชรินทร์","สุภาวดี","นลินี","ดารารัตน์","ปาริฉัตร","ศิรินทร์","วาสนา","บุษบา","จิราภา","ชลธิชา","มาลินี","สายสมร","ฟ้าลดา","ปิยวรรณ","คมสัน","ภูวดล","ธำรง","ปกรณ์","วายุ","ภาคิน","ลุงสมบัติ","นที","ธีรภัทร","อัคนี","บุญมี","กฤต","ชาญ","ภาณุ","ศุภชัย","พิทักษ์"),entries.map { it.displayName })
-            assertEquals(45,entries.map { it.sha256 }.distinct().size)
+            assertEquals((101..152).map { "CHAR_%03d".format(it) },entries.map { it.id })
+            assertEquals(listOf("รินรดา","เมย์","กวิน","ณิชา","อรพรรณ","มินตรา","ศศิ","แพรวา","วราภรณ์","กาญจนา","ขวัญข้าว","อิงฟ้า","ชญาดา","น้ำฝน","วริศรา","พัชรินทร์","สุภาวดี","นลินี","ดารารัตน์","ปาริฉัตร","ศิรินทร์","วาสนา","บุษบา","จิราภา","ชลธิชา","มาลินี","สายสมร","ฟ้าลดา","ปิยวรรณ","คมสัน","ภูวดล","ธำรง","ปกรณ์","วายุ","ภาคิน","ลุงสมบัติ","นที","ธีรภัทร","อัคนี","บุญมี","กฤต","ชาญ","ภาณุ","ศุภชัย","พิทักษ์","ปิ่นมณี","ลลิตา","เพ็ญศรี","พิมพ์ชนก","ภัทรวดี","ณัฐชา","ศุภรัตน์"),entries.map { it.displayName })
+            assertEquals(listOf(38,33,50,25,42,28,46),entries.takeLast(7).map { it.characterAge })
+            assertEquals(52,entries.map { it.sha256 }.distinct().size)
             entries.forEach { entry ->
                 val source=library.source(entry)
                 assertEquals(entry.sha256,MasterLibrary.digest(source.readBytes()))
@@ -40,7 +41,7 @@ class CharacterLibraryResetTest {
                 assertTrue(bounds.outWidth>0 && bounds.outHeight>0)
             }
             assertTrue(context.assets.list("character_masters").orEmpty().isEmpty())
-            assertEquals(46,context.assets.list("master_library")!!.size)
+            assertEquals(53,context.assets.list("master_library")!!.size)
         } finally { root.deleteRecursively() }
     }
 }
