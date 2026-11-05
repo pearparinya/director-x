@@ -23,13 +23,12 @@ internal enum class StoryProvider(val id: String,val label: String,val defaultMo
         fun selected(context: Context)=from(context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).getString("selected","groq")!!)
         fun hybrid(context: Context)=context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).getBoolean("hybrid",false)
         fun enableHybrid(context: Context) { context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).edit().putBoolean("hybrid",true).apply() }
-        fun label(context: Context)=if(hybrid(context)) "Groq + Gemini อัตโนมัติ" else selected(context).label
+        fun label(context: Context)="API อัตโนมัติ"
         val hybridProviders=listOf(GROQ,GEMINI)
-        fun ready(context: Context)=if(hybrid(context)) hybridProviders.all { it.hasKey(context) } else selected(context).hasKey(context)
+        fun ready(context: Context)=(GROQ.hasKey(context) && GEMINI.hasKey(context)) || (CEREBRAS.hasKey(context) && DEEPSEEK.hasKey(context)) || OPENROUTER.hasKey(context)
         fun configure(context: Context,spec: JSONObject): JSONObject {
-            val chosen=selected(context)
-            spec.put("provider",chosen.id).put("model",chosen.model(context)).put("hybrid",hybrid(context))
-            if(hybrid(context)) hybridProviders.forEach { spec.put("${it.id}_model",it.model(context)) }
+            spec.put("provider",GROQ.id).put("model",GROQ.model(context)).put("hybrid",false).put("auto_pipeline",true)
+            entries.filter { it.hasKey(context) }.forEach { spec.put("${it.id}_model",it.model(context)) }
             return spec
         }
         fun select(context: Context,provider: StoryProvider) { context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).edit().putString("selected",provider.id).putBoolean("hybrid",false).apply() }
