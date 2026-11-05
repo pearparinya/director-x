@@ -1729,7 +1729,7 @@ class StudioActivity : AppCompatActivity() {
         splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
     }
     private fun flowSettings() {
-        choiceMenu("ตั้งค่า DIRECTOR X",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","Groq / Gemini API • ตั้งค่าการเขียนบท")) { i -> when(i) {
+        choiceMenu("ตั้งค่า DIRECTOR X",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","API 5 ค่าย • ตั้งค่าการเขียนบทอัตโนมัติ")) { i -> when(i) {
             0 -> updater.check()
             1 -> { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
             2 -> if(plan==null) notice("ยังไม่มีเรื่องให้สำรอง") else { backupMode=true; zipPicker.launch(StoryFiles.zipName(plan!!.optString("title")+"_สำรอง")) }
@@ -1747,22 +1747,13 @@ class StudioActivity : AppCompatActivity() {
         return StoryStatusText.format(status,GeminiStoryService.running && GeminiStoryService.projectId==project.name)
     }
     private fun geminiSettings(afterSave: (() -> Unit)?=null) {
-        val choices=StoryProvider.entries.map { it.label+if(!StoryProvider.hybrid(this) && it==StoryProvider.selected(this)) " • เลือกอยู่" else "" }+
-            listOf("Groq + Gemini อัตโนมัติ"+if(StoryProvider.hybrid(this)) " • เลือกอยู่" else "","ทดสอบ Groq และ Gemini", "ตั้งค่า Cerebras / DeepSeek / OpenRouter")
-        choiceMenu("เลือก API เขียนบท",choices) { index ->
+        val choices=StoryProvider.entries.map { it.label+if(it.hasKey(this)) " • บันทึกคีย์แล้ว" else " • ยังไม่มีคีย์" }+
+            listOf("ทดสอบ Groq และ Gemini")
+        choiceMenu("ตั้งค่าคีย์ API • ใช้อัตโนมัติ",choices) { index ->
             when(index) {
                 0,1 -> storyProviderSettings(StoryProvider.entries[index],afterSave)
                 2,3,4 -> extraApiKeyDialog(StoryProvider.entries[index].extra()!!,afterSave)
-                5 -> {
-                    val missing=StoryProvider.hybridProviders.filterNot { it.hasKey(this) }
-                    if(missing.isNotEmpty()) notice("ยังขาดคีย์: "+missing.joinToString { it.label }+" • เลือกบริการในตั้งค่า API แล้วบันทึกคีย์ก่อน")
-                    else {
-                        StoryProvider.enableHybrid(this)
-                        afterSave?.invoke() ?: notice("เลือก Groq + Gemini แล้ว • Gemini วางโครง / Groq เขียนซีน • ใช้ข้อมูลเรื่องและบัญชีชุดร่วมกัน • สลับเมื่อโควตาเต็มหรือบริการขัดข้อง • โควตาและค่าบริการตามบัญชีแต่ละตัว")
-                    }
-                }
-                6 -> testStoryApis(StoryProvider.hybridProviders)
-                7 -> extraApiSettingsMenu()
+                5 -> testStoryApis(StoryProvider.hybridProviders)
             }
         }
     }
@@ -1775,7 +1766,7 @@ class StudioActivity : AppCompatActivity() {
     private fun extraApiKeyDialog(provider: ExtraApiProvider,afterSave: (() -> Unit)?=null) {
         val settings=ExtraApiSettings(this,provider)
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-        panel.addView(TextView(this).apply { text="${provider.label} • คีย์เก็บแบบเข้ารหัสบนเครื่องและไม่รวมในไฟล์สำรอง • ใช้เขียนเรื่องตามโมเดลที่เลือก • การเรียกใช้ขึ้นอยู่กับโควตาและค่าบริการของบัญชี" })
+        panel.addView(TextView(this).apply { text="${provider.label} • คีย์เก็บแบบเข้ารหัสบนเครื่องและไม่รวมในไฟล์สำรอง • ระบบเลือกค่ายอัตโนมัติ • การเรียกใช้ขึ้นอยู่กับโควตาและค่าบริการของบัญชี" })
         val key=EditText(this).apply {
             hint=if(settings.hasKey()) "มีคีย์แล้ว • พิมพ์เฉพาะเมื่อเปลี่ยนคีย์" else "${provider.label} API Key"
             inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
@@ -1789,15 +1780,14 @@ class StudioActivity : AppCompatActivity() {
                 .onFailure { notice(it.message ?: "ตรวจคีย์และชื่อโมเดล") }
         } })
         val dialog=AlertDialog.Builder(this).setTitle("${provider.label} • จัดเก็บ API Key")
-            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึกและเลือกใช้",null)
+            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึก",null)
             .setNeutralButton("ลบคีย์") { _,_ -> settings.clear(); notice("ลบคีย์ ${provider.label} จากเครื่องแล้ว") }
             .setNegativeButton("ปิด",null).showDirector()
         dialog.getButton(-1).setOnClickListener {
             runCatching {
                 val value=key.text.toString().trim()
                 settings.save(value.ifBlank { settings.key() }, model.text.toString().trim())
-                StoryProvider.select(this,StoryProvider.from(provider.id))
-            }.onSuccess { key.setText(""); dialog.dismiss(); afterSave?.invoke() ?: notice("เลือก ${provider.label} สำหรับเขียนเรื่องแล้ว") }
+            }.onSuccess { key.setText(""); dialog.dismiss(); afterSave?.invoke() ?: notice("บันทึก ${provider.label} แล้ว • ระบบเลือกค่ายอัตโนมัติ") }
                 .onFailure { Toast.makeText(this,it.message ?: "บันทึกไม่ได้",Toast.LENGTH_LONG).show() }
         }
     }
@@ -1856,7 +1846,7 @@ class StudioActivity : AppCompatActivity() {
     private fun storyProviderSettings(provider: StoryProvider,afterSave: (() -> Unit)?=null) {
         val settings=GeminiSettings(this,provider)
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-        panel.addView(TextView(this).apply { text="${provider.label} • ใส่คีย์บนเครื่องนี้ คีย์แต่ละบริการเก็บแยกและเข้ารหัส ไม่ส่งออกในสำรองข้อมูล • ส่งเฉพาะข้อความบท/ลักษณะตัวละคร ไม่ส่งรูป MASTER • แผนฟรีมีโควตา ค่าบริการและเงื่อนไขข้อมูลขึ้นกับบัญชีของคุณ ไม่มีการเปิดแผนเสียเงินเอง • โหมด Groq + Gemini จะสลับระหว่างสองบริการตามคีย์และโมเดลที่คุณตั้งไว้" })
+        panel.addView(TextView(this).apply { text="${provider.label} • คีย์เก็บแยกและเข้ารหัสบนเครื่อง ไม่ส่งออกในสำรองข้อมูล • ระบบเลือกและส่งต่อระหว่างค่ายอัตโนมัติ • ส่งเฉพาะข้อความบท/ลักษณะตัวละคร ไม่ส่งรูป MASTER • โควตาและค่าบริการขึ้นกับบัญชีแต่ละค่าย" })
         val key=EditText(this).apply { hint=if(settings.hasKey()) "มีคีย์แล้ว • ว่างเพื่อใช้คีย์เดิม" else "${provider.label} API Key"; inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD; setSingleLine(true); panel.addView(this) }
         val model=EditText(this).apply { hint="ชื่อโมเดล"; setSingleLine(true); setText(settings.model()); panel.addView(this) }
         if(provider==StoryProvider.GROQ) panel.addView(TextView(this).apply { text="โมเดลที่รองรับ: "+GroqClient.MODELS.joinToString(" / ")+" • ครั้งละ 2 ซีน • เว้นคำขออย่างน้อย 65 วินาทีเพื่อลดการชนโควตาฟรี • หยุด / ทำต่อได้" })
@@ -1867,11 +1857,11 @@ class StudioActivity : AppCompatActivity() {
                 .onFailure { notice("ตรวจคีย์และชื่อโมเดลก่อนทดสอบ") }
         } })
         val dialog=AlertDialog.Builder(this).setTitle("${provider.label} • ตั้งค่า API")
-            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึกและเลือกใช้",null)
+            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึก",null)
             .setNeutralButton("ลบคีย์") { _,_ -> settings.clear(); notice("ลบคีย์ ${provider.label} จากเครื่องแล้ว") }.setNegativeButton("ปิด",null).showDirector()
         dialog.getButton(-1).setOnClickListener {
-            runCatching { settings.save(key.text.toString().trim().ifBlank { settings.key() },model.text.toString().trim()); StoryProvider.select(this,provider) }
-                .onSuccess { dialog.dismiss(); afterSave?.invoke() ?: notice("เลือก ${provider.label} แล้ว • งานเดิมกดทำต่อ / เรื่องใหม่เข้าขั้นตอน 1 • ยังไม่ได้ทดสอบเรียก API") }
+            runCatching { settings.save(key.text.toString().trim().ifBlank { settings.key() },model.text.toString().trim()) }
+                .onSuccess { dialog.dismiss(); afterSave?.invoke() ?: notice("บันทึก ${provider.label} แล้ว • ระบบเลือกค่ายอัตโนมัติ") }
                 .onFailure { Toast.makeText(this,it.message ?: "บันทึกไม่ได้",Toast.LENGTH_LONG).show() }
         }
     }
@@ -2004,7 +1994,7 @@ class StudioActivity : AppCompatActivity() {
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
             val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("1 EP • จบในตอน","ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); if(format!="short") panel.addView(this) }
             if(format=="short") panel.addView(TextView(this).apply { text="คลิปสั้น • จบในคลิปเดียว" })
-            panel.addView(TextView(this).apply { text="${if(format=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(seconds)}${if(format=="short") "" else " ต่อ EP"} • ไม่รวมปกเปิด 3 วินาที • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้ • ${StoryProvider.label(this@StudioActivity)} • ใช้โมเดลที่ตั้งไว้ • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ของคุณภายหลัง" })
+            panel.addView(TextView(this).apply { text="${if(format=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(seconds)}${if(format=="short") "" else " ต่อ EP"} • ไม่รวมปกเปิด 3 วินาที • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้\n\nอัตโนมัติ: Groq → Gemini; สำรอง Cerebras → DeepSeek; ฉุกเฉิน OpenRouter ฟรี • เนื้อหาอาจถูกส่งไปยังค่ายที่รับช่วง • โควตาและค่าบริการขึ้นอยู่กับแต่ละบัญชี • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ภายหลัง" })
             AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
                     runCatching {

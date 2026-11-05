@@ -30,6 +30,40 @@ class GeminiStoryTest {
         } })
     }
     private fun spec()=JSONObject().put("category","แนว").put("channel","ช่อง").put("episodes",3).put("premise","ซองบนโต๊ะ")
+    @Test fun automaticPipelineCreatesThirtyEightScenesWithXmlHandoff() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-38-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val selected=ClipPlan.apply(spec().put("episodes",1).put("auto_pipeline",true).put("channel",ChannelCatalog.channel)
+                .put("category",ChannelCatalog.category(ChannelCatalog.topics.first())),"long",300)
+            GeminiStoryFiles.write(File(folder,"spec.json"),selected)
+            var writerCalls=0; var formatterCalls=0
+            val writer=object: StoryTextClient {
+                override fun generate(prompt: String,schema: JSONObject): JSONObject {
+                    writerCalls++
+                    return if(prompt.contains("Plan a complete story")) outline().apply { put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0))) } else batch(prompt)
+                }
+                override fun cancel() {}
+            }
+            val formatter=object: StoryTextClient {
+                override fun generate(prompt: String,schema: JSONObject): JSONObject {
+                    formatterCalls++
+                    val rows=JSONArray(prompt.substringAfter("Input scenes: "))
+                    val xml=(0 until rows.length()).joinToString("", "<flow>", "</flow>") { i ->
+                        val row=rows.getJSONObject(i)
+                        "<scene id=\"${row.getInt("scene")}\"><prompt>May places the envelope on the table</prompt><dialogue></dialogue></scene>"
+                    }
+                    return JSONObject().put("xml",xml)
+                }
+                override fun cancel() {}
+            }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to writer,StoryProvider.GEMINI to formatter),{false},{_,_->})
+            val story=GeminiStoryEngine(folder,{ prompt,schema -> router.generate(prompt,schema) }).run(selected)
+            assertEquals(38,story.getInt("scene_count")); assertEquals(19,formatterCalls); assertEquals(20,writerCalls)
+            assertTrue(FlowProductionPack.issues(story).toString(),FlowProductionPack.issues(story).isEmpty())
+            assertTrue(AutoDirectorContent.flowXml(story,1).contains("<scene"))
+            assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_ -> error("checkpoint was not reused") }).run(selected).toString())
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun additionalProvidersCompleteAndResumeThirtyEightScenes() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         for(provider in listOf("cerebras","deepseek","openrouter")) {

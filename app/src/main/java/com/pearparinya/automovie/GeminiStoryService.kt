@@ -60,22 +60,27 @@ class GeminiStoryService : Service() {
                         val spec=GeminiStoryFiles.read(File(folder,"spec.json"))
                         provider=StoryProvider.from(spec.optString("provider","gemini"))
                         hybrid=spec.optBoolean("hybrid")
+                        val automatic=spec.optBoolean("auto_pipeline")
                         val retryStatus: (String)->Unit={ message -> status("running",lastPercent,"${if(hybrid) "Groq + Gemini" else provider.label} • $message",if(message.startsWith("กำลังทำต่อ")) "requesting" else "retry_wait") }
-                        val active=if(hybrid) StoryProvider.hybridProviders else listOf(provider)
+                        val active=if(automatic) StoryProvider.entries.filter { it.hasKey(this) && spec.has("${it.id}_model") } else if(hybrid) StoryProvider.hybridProviders else listOf(provider)
                         val connections=active.associateWith { target ->
                             val key=target.key(this); require(key.isNotBlank()) { "ตั้งค่า ${target.label} API Key ก่อนเริ่ม" }
-                            val model=if(hybrid) spec.getString("${target.id}_model") else spec.getString("model")
-                            StoryClientFactory.create(target,key,model,{ cancelled },{ seconds -> status("running",lastPercent,if(seconds>0) "Groq • พัก $seconds วินาที • ครบเวลาแล้วทำต่ออัตโนมัติ • กดหยุดได้" else "Groq • กำลังส่งคำขอ / รอคำตอบบท",if(seconds>0) "waiting" else "requesting") },retryStatus,!hybrid)
+                            val model=if(automatic || hybrid) spec.getString("${target.id}_model") else spec.getString("model")
+                            StoryClientFactory.create(target,key,model,{ cancelled },{ seconds -> status("running",lastPercent,if(seconds>0) "Groq • พัก $seconds วินาที • ครบเวลาแล้วทำต่ออัตโนมัติ • กดหยุดได้" else "Groq • กำลังส่งคำขอ / รอคำตอบบท",if(seconds>0) "waiting" else "requesting") },retryStatus,!hybrid && !automatic)
                         }
                         clients=connections.values.toList()
+                        val autoRouter=AutomaticStoryRouter(folder,connections,{cancelled}) { target,message ->
+                            provider=target; status("running",lastPercent,"อัตโนมัติ • ${target.label} • $message","requesting")
+                        }
                         val router=StoryProviderRouter({cancelled},{ target,fallback ->
                             provider=target
                             status("running",lastPercent,"${target.label} • "+if(fallback) "รับช่วงแทนบริการที่พักอยู่ • ใช้ข้อมูลเรื่องเดิม" else "กำลังเขียนตามหน้าที่","requesting")
                         })
-                        status("running",0,if(hybrid) "Groq + Gemini • Gemini วางเรื่อง / Groq เขียนซีน • สลับเมื่อโควตาเต็ม" else "กำลังเขียนบท • ไม่ได้สร้างวิดีโอ")
+                        status("running",0,if(automatic) "กำลังเขียนและจัดบทอัตโนมัติ" else if(hybrid) "Groq + Gemini • Gemini วางเรื่อง / Groq เขียนซีน • สลับเมื่อโควตาเต็ม" else "กำลังเขียนบท • ไม่ได้สร้างวิดีโอ")
                         val story=GeminiStoryEngine(folder,{ prompt,schema ->
                             status("running",lastPercent,"กำลังส่งคำขอ / รอคำตอบบท","requesting")
-                            if(hybrid) StoryRequestRetry().execute({cancelled},retryStatus) {
+                            if(automatic) StoryRequestRetry().execute({cancelled},retryStatus) { autoRouter.generate(prompt,schema) }
+                            else if(hybrid) StoryRequestRetry().execute({cancelled},retryStatus) {
                                 router.generate(StoryProviderRouter.preferred(schema.getJSONObject("properties").has("scenes"))) { target -> connections.getValue(target).generate(prompt,schema) }
                             } else connections.getValue(provider).generate(prompt,schema)
                         },{cancelled}) { percent,message -> status("running",percent,message,if(message.startsWith("บันทึกแล้ว")) "saved" else "preparing") }.run(spec)
