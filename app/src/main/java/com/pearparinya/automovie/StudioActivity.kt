@@ -1782,6 +1782,11 @@ class StudioActivity : AppCompatActivity() {
             panel.addView(this)
         }
         val model=EditText(this).apply { hint="ชื่อโมเดล"; setSingleLine(true); setText(settings.model()); panel.addView(this) }
+        panel.addView(Button(this).apply { text="บันทึกและทดสอบ ${provider.label}"; setOnClickListener {
+            runCatching { settings.save(key.text.toString().trim().ifBlank { settings.key() },model.text.toString().trim()) }
+                .onSuccess { key.setText(""); key.hint="มีคีย์แล้ว • พิมพ์เฉพาะเมื่อเปลี่ยนคีย์"; testExtraApi(provider) }
+                .onFailure { notice(it.message ?: "ตรวจคีย์และชื่อโมเดล") }
+        } })
         val dialog=AlertDialog.Builder(this).setTitle("${provider.label} • จัดเก็บ API Key")
             .setView(panel).setPositiveButton("บันทึก",null)
             .setNeutralButton("ลบคีย์") { _,_ -> settings.clear(); notice("ลบคีย์ ${provider.label} จากเครื่องแล้ว") }
@@ -1793,6 +1798,26 @@ class StudioActivity : AppCompatActivity() {
             }.onSuccess { key.setText(""); dialog.dismiss(); notice("บันทึกคีย์ ${provider.label} แล้ว • ยังไม่เชื่อมใช้เขียนบท") }
                 .onFailure { Toast.makeText(this,it.message ?: "บันทึกไม่ได้",Toast.LENGTH_LONG).show() }
         }
+    }
+    private fun testExtraApi(provider: ExtraApiProvider) {
+        if(GeminiStoryService.running) { notice("กรุณารอหรือหยุดงานเขียนบทก่อนทดสอบ API"); return }
+        val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
+        val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
+        val view=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text="กำลังทดสอบ ${provider.label} ด้วยข้อความสั้น • ใช้โควตาของบัญชี • ไม่ส่งบทหรือภาพ"; setTextIsSelectable(true) }
+        val dialog=AlertDialog.Builder(this).setTitle("ทดสอบ ${provider.label}").setView(view).setNegativeButton("ปิด / หยุด",null).showDirector()
+        dialog.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
+        Thread {
+            val result=try {
+                val settings=ExtraApiSettings(this,provider)
+                val client=CompatibleStoryClient(provider.service,settings.key(),settings.model(),{ stopped.get() },automaticRetry=false)
+                active.set(client)
+                if(stopped.get()) throw java.util.concurrent.CancellationException()
+                StoryApiProbe.check(client)
+                "${provider.label}: ผ่าน • ${settings.model()} • รับคำตอบ JSON สำเร็จ\n\nผลนี้ไม่รับประกันโควตาระหว่างเขียนเรื่องยาว"
+            } catch(e: Exception) { "${provider.label}: "+StoryApiProbe.error(e) }
+            finally { active.set(null) }
+            runOnUiThread { if(!stopped.get() && !isFinishing && !isDestroyed) view.text=result }
+        }.apply { name="director-extra-api-probe"; start() }
     }
     private fun testStoryApis(providers: List<StoryProvider>) {
         if(GeminiStoryService.running) { notice("กรุณารอหรือหยุดงานเขียนบทก่อนทดสอบ API"); return }
