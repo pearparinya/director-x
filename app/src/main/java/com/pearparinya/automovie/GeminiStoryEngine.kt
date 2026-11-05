@@ -115,7 +115,8 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         }
         // Continue from the validated outline automatically, including legacy jobs awaiting approval.
         val eps=outline.getJSONArray("episodes"); val output=JSONArray(); var completed=0
-        val smallerBatches=mutableSetOf<String>()
+        val recoveryFile=File(folder,"batch_recovery.json")
+        var smallerBatches=recoveryFile.isFile && runCatching { GeminiStoryFiles.read(recoveryFile).optBoolean("single_scene") }.getOrDefault(false)
         for(i in 0 until eps.length()) {
             val planned=eps.getJSONObject(i); val scenes=JSONArray()
             var start=1
@@ -125,7 +126,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                 // Pending responses retain their original range even after a provider switch.
                 val savedBatch=cachedFile.takeIf { it.isFile }
                     ?: File(folder,cachedFile.name+".pending.json").takeIf { it.isFile }
-                val size=if(savedBatch!=null) GeminiStoryFiles.read(savedBatch).getJSONArray("scenes").length() else minOf(if(cachedFile.name in smallerBatches) 1 else batchSize,sceneCount+1-start)
+                val size=if(savedBatch!=null) GeminiStoryFiles.read(savedBatch).getJSONArray("scenes").length() else minOf(if(smallerBatches) 1 else batchSize,sceneCount+1-start)
                 require(size in 1..6 && start+size-1<=sceneCount) { "ขนาดช่วงบทที่บันทึกไม่ถูกต้อง" }
                 val end=start+size-1
                 lastPercent=completed*100/(eps.length()*sceneCount)
@@ -174,7 +175,8 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                     checkDialogue(it.getJSONArray("scenes"),i+1,priorDialogue.toMutableMap())
                 } } catch(e: StoryBatchTooLarge) {
                     if(size<=1 || savedBatch!=null) throw e
-                    smallerBatches.add(cachedFile.name)
+                    smallerBatches=true
+                    GeminiStoryFiles.write(recoveryFile,JSONObject().put("single_scene",true))
                     progress(lastPercent,"คำขอใหญ่เกินกำหนด • ลดเหลือครั้งละ 1 ซีนและทำต่อ")
                     continue
                 }

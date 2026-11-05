@@ -46,6 +46,8 @@ class GeminiStoryTest {
             val rows=story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes")
             assertEquals(listOf(1,2,3,4),(0 until rows.length()).map { rows.getJSONObject(it).getInt("scene") })
             assertTrue(requests.any { it.contains("Write exactly scenes 1 to 1") })
+            assertTrue(requests.any { it.contains("Write exactly scenes 2 to 2") })
+            assertTrue(GeminiStoryFiles.read(File(folder,"batch_recovery.json")).getBoolean("single_scene"))
             assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_ -> error("must use saved chunks") }).run(selected).toString())
         } finally { folder.deleteRecursively() }
     }

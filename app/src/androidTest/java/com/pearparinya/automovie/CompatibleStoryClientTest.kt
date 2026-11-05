@@ -19,7 +19,8 @@ class CompatibleStoryClientTest {
     @Test fun rejectsTruncatedOrNonJsonResponse() {
         fun response(reason: String, content: String)=JSONObject().put("choices",JSONArray().put(JSONObject().put("finish_reason",reason).put("message",JSONObject().put("content",content))))
         assertTrue(CompatibleStoryClient.parse(response("stop","{\"ok\":true}"),CompatibleService.CEREBRAS).getBoolean("ok"))
-        assertTrue(runCatching { CompatibleStoryClient.parse(response("length","{\"ok\":true}"),CompatibleService.CEREBRAS) }.isFailure)
-        assertTrue(runCatching { CompatibleStoryClient.parse(response("stop","invalid"),CompatibleService.DEEPSEEK) }.isFailure)
+        assertTrue(runCatching { CompatibleStoryClient.parse(response("length","{\"ok\":true}"),CompatibleService.CEREBRAS) }.exceptionOrNull() is InvalidStoryResponse)
+        assertTrue(runCatching { CompatibleStoryClient.parse(response("stop","invalid"),CompatibleService.DEEPSEEK) }.exceptionOrNull() is InvalidStoryResponse)
+        assertFalse(runCatching { CompatibleStoryClient.parse(response("content_filter",""),CompatibleService.DEEPSEEK) }.exceptionOrNull() is InvalidStoryResponse)
     }
 }
