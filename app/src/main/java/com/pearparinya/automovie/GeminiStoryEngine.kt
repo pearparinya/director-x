@@ -174,7 +174,8 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                     }
                     checkDialogue(it.getJSONArray("scenes"),i+1,priorDialogue.toMutableMap())
                 } } catch(e: StoryBatchTooLarge) {
-                    if(size<=1 || savedBatch!=null) throw e
+                    if(size<=1 || cachedFile.isFile) throw e
+                    if(savedBatch!=null) splitPendingBatch(savedBatch,i+1,start,size)
                     smallerBatches=true
                     GeminiStoryFiles.write(recoveryFile,JSONObject().put("single_scene",true))
                     progress(lastPercent,"คำขอใหญ่เกินกำหนด • ลดเหลือครั้งละ 1 ซีนและทำต่อ")
@@ -209,6 +210,24 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         return story
     }
     companion object {
+        /** Preserve the original before splitting an unvalidated batch into resumable scenes. */
+        fun splitPendingBatch(pending: File,ep: Int,start: Int,size: Int) {
+            val original=GeminiStoryFiles.read(pending)
+            val rows=original.getJSONArray("scenes")
+            require(rows.length()==size && (0 until size).all { rows.getJSONObject(it).optInt("scene")==start+it }) { "หมายเลขซีนที่รอแก้ไม่ตรงกัน" }
+            val fragments=(0 until size).map { n -> JSONObject(original.toString()).put("scenes",JSONArray().put(rows.getJSONObject(n))) }
+            for(n in 1 until size) {
+                val committed=File(pending.parentFile,"EP%02d_%02d.json".format(ep,start+n))
+                val target=File(pending.parentFile,committed.name+".pending.json")
+                require(!committed.exists() && (!target.exists() || GeminiStoryFiles.read(target).toString()==fragments[n].toString())) { "พบซีนที่บันทึกไว้แล้ว จึงไม่เขียนทับ" }
+            }
+            val backup=File(pending.parentFile,pending.name+".batch-backup")
+            if(!backup.exists()) GeminiStoryFiles.write(backup,original)
+            for(n in size-1 downTo 0) {
+                val target=File(pending.parentFile,"EP%02d_%02d.json.pending.json".format(ep,start+n))
+                GeminiStoryFiles.write(target,fragments[n])
+            }
+        }
         /** Ignore punctuation/spacing differences, but allow short conversational replies. */
         fun dialogueKey(line: String): String = java.text.Normalizer.normalize(line,java.text.Normalizer.Form.NFC)
             .lowercase(java.util.Locale.ROOT).filter { it.isLetterOrDigit() || Character.getType(it)==Character.NON_SPACING_MARK.toInt() || Character.getType(it)==Character.COMBINING_SPACING_MARK.toInt() }

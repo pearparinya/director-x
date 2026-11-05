@@ -74,6 +74,9 @@ internal class AutomaticStoryRouter(
                 last=e
             }
         }
+        // A temporary failure in the last available provider can recover on retry,
+        // even if another provider rejected the request size.
+        if(sceneBatch && oversized && last!=null && StoryRequestRetry.canRetry(last)) throw last
         if(sceneBatch && oversized) throw StoryBatchTooLarge()
         throw last ?: IllegalStateException("ตั้งค่า Groq + Gemini หรือ Gemini + DeepSeek หรือ OpenRouter ก่อนเริ่ม")
     }
