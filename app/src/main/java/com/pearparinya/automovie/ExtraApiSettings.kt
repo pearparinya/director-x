@@ -16,7 +16,12 @@ import javax.crypto.spec.GCMParameterSpec
 internal enum class ExtraApiProvider(val id: String, val label: String) {
     CEREBRAS("cerebras", "Cerebras"),
     DEEPSEEK("deepseek", "DeepSeek"),
-    OPENROUTER("openrouter", "OpenRouter")
+    OPENROUTER("openrouter", "OpenRouter");
+    val service: CompatibleService get() = when(this) {
+        CEREBRAS -> CompatibleService.CEREBRAS
+        DEEPSEEK -> CompatibleService.DEEPSEEK
+        OPENROUTER -> CompatibleService.OPENROUTER
+    }
 }
 
 /** Keys stay on this device, encrypted by a non-exportable Android Keystore key. */
@@ -44,14 +49,17 @@ internal class ExtraApiSettings(context: Context, private val provider: ExtraApi
     }
 
     fun hasKey(): Boolean = runCatching { key().isNotBlank() }.getOrDefault(false)
+    fun model(): String = runCatching { GeminiStoryFiles.read(file).optString("model", provider.service.defaultModel) }.getOrDefault(provider.service.defaultModel)
 
-    fun save(value: String) {
+    fun save(value: String, selectedModel: String = model()) {
         val key = value.trim()
         require(key.length in 12..1024 && key.none { it.isWhitespace() }) { "ตรวจ API Key อีกครั้ง" }
+        require(Regex("[A-Za-z0-9_.:/-]{1,120}").matches(selectedModel)) { "ชื่อโมเดลไม่ถูกต้อง" }
+        if(provider == ExtraApiProvider.OPENROUTER) require(selectedModel == "openrouter/free" || selectedModel.endsWith(":free")) { "เลือกโมเดลฟรีของ OpenRouter" }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, secret())
         GeminiStoryFiles.write(file, JSONObject()
-            .put("iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
+            .put("model", selectedModel).put("iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
             .put("key", Base64.encodeToString(cipher.doFinal(key.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)))
     }
 
