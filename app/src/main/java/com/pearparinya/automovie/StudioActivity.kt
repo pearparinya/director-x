@@ -1788,7 +1788,7 @@ class StudioActivity : AppCompatActivity() {
                 .onFailure { notice(it.message ?: "ตรวจคีย์และชื่อโมเดล") }
         } })
         val dialog=AlertDialog.Builder(this).setTitle("${provider.label} • จัดเก็บ API Key")
-            .setView(panel).setPositiveButton("บันทึก",null)
+            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึก",null)
             .setNeutralButton("ลบคีย์") { _,_ -> settings.clear(); notice("ลบคีย์ ${provider.label} จากเครื่องแล้ว") }
             .setNegativeButton("ปิด",null).showDirector()
         dialog.getButton(-1).setOnClickListener {
