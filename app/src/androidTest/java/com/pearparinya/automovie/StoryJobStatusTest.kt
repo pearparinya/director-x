@@ -16,9 +16,17 @@ class StoryJobStatusTest {
         val paused=live.update("paused",0,"หยุดแล้ว","openrouter","paused")
         val text=StoryStatusText.format(paused,false,1000L)
         assertTrue(text.contains("เลือกตัวละคร")); assertTrue(text.contains("Groq: HTTP 400"))
-        assertTrue(text.contains("Cerebras: ตรวจคำตอบไม่ผ่าน")); assertFalse(text.contains("secret-key"))
+        assertFalse(text.contains("Cerebras")); assertFalse(text.contains("secret-key"))
         val resumed=StoryJobStatus(paused,0,{0L},{2000L}).update("running",0,"ต่อ","groq","requesting")
         assertEquals(2,resumed.getJSONArray("failures").length())
+    }
+    @Test fun oldProviderStatusIsHiddenWithoutErasingSavedDiagnostics() {
+        val old=JSONObject().put("state","paused").put("provider","cerebras")
+            .put("message","Cerebras HTTP 401").put("percent",8)
+            .put("failures",org.json.JSONArray().put(JSONObject().put("provider","Cerebras").put("reason","HTTP 401")))
+        val text=StoryStatusText.format(old,false)
+        assertFalse(text.contains("cerebras",ignoreCase=true)); assertTrue(text.contains("8%"))
+        assertEquals(1,old.getJSONArray("failures").length())
     }
     @Test fun heartbeatAdvancesTimeWithoutInventingProgressAndResumeExcludesIdleTime() {
         var clock=0L; var wall=1_000_000L

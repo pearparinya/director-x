@@ -6,6 +6,7 @@ internal object StoryClientFactory {
         when(provider) {
             StoryProvider.GROQ -> GroqClient(key,model,cancelled,onWait,onRetry,automaticRetry)
             StoryProvider.GEMINI -> GeminiClient(key,model,cancelled,onRetry,automaticRetry)
+            StoryProvider.CEREBRAS -> throw IllegalArgumentException("บริการนี้ถูกยกเลิกแล้ว กรุณาตั้งค่า API ที่ใช้งานอยู่")
             else -> CompatibleStoryClient(provider.extra()!!.service,key,model,cancelled,onRetry,automaticRetry)
         }
 }
