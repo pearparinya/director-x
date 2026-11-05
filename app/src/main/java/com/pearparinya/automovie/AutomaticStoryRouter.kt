@@ -25,8 +25,7 @@ internal class AutomaticStoryRouter(
             if(cancelled()) throw CancellationException()
             if(writer !in clients || formatter != null && formatter !in clients) continue
             try {
-                val digest=MessageDigest.getInstance("SHA-256").digest((writer.id+"\n"+prompt+"\n"+schema).toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
-                val cache=File(folder,"auto_drafts/$digest.json")
+                val cache=draftFile(writer,prompt,schema)
                 val draft=if(cache.isFile) GeminiStoryFiles.read(cache) else {
                     progress(writer,"กำลังเขียนบท")
                     clients.getValue(writer).generate(prompt,schema).also { GeminiStoryFiles.write(cache,it) }
@@ -40,7 +39,7 @@ internal class AutomaticStoryRouter(
                     try { SceneXml.apply(draft,formatted.getString("xml")) }
                     catch(e: Exception) { throw InvalidSceneXml(e) }
                 } else draft
-                cache.delete()
+                routes.forEach { (candidate,_) -> draftFile(candidate,prompt,schema).delete() }
                 return result
             } catch(e: Exception) {
                 if(cancelled() || e is CancellationException) throw CancellationException()
@@ -52,6 +51,10 @@ internal class AutomaticStoryRouter(
     }
     private fun canSwitch(e: Exception): Boolean = e is InvalidSceneXml || StoryRequestRetry.canFallback(e) ||
         e is StoryHttpFailure && e.status in setOf(401,403,404)
+    private fun draftFile(writer: StoryProvider,prompt: String,schema: JSONObject): File {
+        val digest=MessageDigest.getInstance("SHA-256").digest((writer.id+"\n"+prompt+"\n"+schema).toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+        return File(folder,"auto_drafts/$digest.json")
+    }
 }
 
 internal class InvalidSceneXml(cause: Exception): IllegalArgumentException("XML ที่ได้ไม่ตรงกับบทต้นฉบับ",cause)
