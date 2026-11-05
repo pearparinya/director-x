@@ -95,7 +95,7 @@ class AutomaticStoryRouterTest {
             val good=client { _,_ -> xml() }
             val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to writer,StoryProvider.GEMINI to bad,StoryProvider.DEEPSEEK to good),{false},{p,_->calls.add(p)})
             val result=router.generate("brief",schema())
-            assertEquals(listOf(StoryProvider.GROQ,StoryProvider.GEMINI,StoryProvider.GEMINI,StoryProvider.DEEPSEEK),calls)
+            assertEquals(listOf(StoryProvider.GROQ,StoryProvider.GEMINI,StoryProvider.DEEPSEEK),calls)
             assertEquals("สวัสดี",result.getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
         } finally { folder.deleteRecursively() }
     }
@@ -105,10 +105,10 @@ class AutomaticStoryRouterTest {
             val calls=mutableListOf<StoryProvider>()
             val writer=client { _,_ -> draft() }
             val quota=client { _,schema -> if(schema.getJSONObject("properties").has("xml")) throw StoryHttpFailure(429,"1","quota") else draft() }
-            val formatter=client { _,_ -> xml() }
+            val formatter=client { prompt,_ -> assertTrue(prompt.contains("เปิดประตู")); xml() }
             val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to writer,StoryProvider.GEMINI to quota,StoryProvider.DEEPSEEK to formatter),{false},{p,_->calls.add(p)})
             router.generate("brief",schema())
-            assertEquals(listOf(StoryProvider.GROQ,StoryProvider.GEMINI,StoryProvider.GEMINI,StoryProvider.DEEPSEEK),calls)
+            assertEquals(listOf(StoryProvider.GROQ,StoryProvider.GEMINI,StoryProvider.DEEPSEEK),calls)
             assertTrue(File(folder,"auto_drafts").listFiles().orEmpty().isEmpty())
         } finally { folder.deleteRecursively() }
     }
