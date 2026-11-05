@@ -55,7 +55,10 @@ internal class GroqClient(private val apiKey: String,private val model: String,p
             if(optString("type")=="object") {
                 put("additionalProperties",false)
                 val properties=getJSONObject("properties")
-                properties.keys().asSequence().toList().forEach { key -> properties.put(key,strictSchema(properties.getJSONObject(key))) }
+                val names=properties.keys().asSequence().toList()
+                names.forEach { key -> properties.put(key,strictSchema(properties.getJSONObject(key))) }
+                // Groq strict mode requires every declared property to be listed in required.
+                put("required",JSONArray(names))
             }
             if(optString("type")=="array") put("items",strictSchema(getJSONObject("items")))
         }
@@ -76,11 +79,20 @@ internal class GroqClient(private val apiKey: String,private val model: String,p
         }
         /** Classify only known codes; never persist/echo raw provider messages, prompts or failed generations. */
         fun failure(status: Int,retryAfter: String?,payload: String): StoryHttpFailure {
-            val code=runCatching { JSONObject(payload).optJSONObject("error")?.optString("code") }.getOrNull()
-            val detail=if(status==400 && code in setOf("json_validate_failed","context_length_exceeded")) code.orEmpty() else ""
+            val error=runCatching { JSONObject(payload).optJSONObject("error") }.getOrNull()
+            val code=error?.optString("code").orEmpty()
+            val text=error?.optString("message").orEmpty().lowercase(java.util.Locale.ROOT)
+            val schemaError=code=="invalid_json_schema" || (code=="invalid_request_error" &&
+                text.contains("schema") && text.contains("required") && !text.contains("policy"))
+            val detail=if(status==400) when {
+                code in setOf("json_validate_failed","context_length_exceeded") -> code
+                schemaError -> "invalid_schema"
+                else -> ""
+            } else ""
             val message=when(detail) {
                 "json_validate_failed" -> "Groq สร้าง JSON ไม่ผ่านรูปแบบ (HTTP 400 • json_validate_failed) • ช่วงที่เสร็จบันทึกไว้"
                 "context_length_exceeded" -> "คำสั่งเกินขนาดที่โมเดล Groq รับได้ (HTTP 400 • context_length_exceeded) • ช่วงที่เสร็จบันทึกไว้"
+                "invalid_schema" -> "Groq ไม่รับรูปแบบข้อมูลคำขอ (HTTP 400 • invalid_schema) • กำลังลองค่ายสำรอง"
                 else -> errorFor(status)
             }
             return StoryHttpFailure(status,retryAfter,message,detail)

@@ -86,4 +86,17 @@ class AutomaticStoryRouterTest {
             assertTrue(File(folder,"auto_drafts").listFiles().orEmpty().isEmpty())
         } finally { folder.deleteRecursively() }
     }
+    @Test fun recognizedInvalidSchemaUsesBackupWithoutExposingRequest() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-schema-${UUID.randomUUID()}")
+        try {
+            val calls=mutableListOf<StoryProvider>()
+            val failed=client { _,_ -> throw StoryHttpFailure(400,null,"invalid schema","invalid_schema") }
+            val writer=client { _,_ -> draft() }
+            val formatter=client { _,_ -> xml() }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to failed,StoryProvider.GEMINI to formatter,StoryProvider.CEREBRAS to writer,StoryProvider.DEEPSEEK to formatter),{false},{p,_->calls.add(p)})
+            val result=router.generate("brief",schema())
+            assertEquals(listOf(StoryProvider.GROQ,StoryProvider.CEREBRAS,StoryProvider.DEEPSEEK),calls)
+            assertEquals("สวัสดี",result.getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
+        } finally { folder.deleteRecursively() }
+    }
 }
