@@ -66,7 +66,7 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
         }
         val support=spec.optJSONArray("supporting_characters") ?: JSONArray()
         require(FlowCast.issues(JSONObject().put("supporting_characters",support)).isEmpty()) { "ข้อมูลตัวละครเสริมไม่ถูกต้อง" }
-        val compact=spec.optString("provider")=="groq" || spec.optBoolean("hybrid")
+        val compact=spec.optString("provider") in setOf("groq","cerebras","deepseek","openrouter") || spec.optBoolean("hybrid")
         val batchSize=if(compact) 2 else 6
         val speechRules="""
 AUDIO FIELDS: choose exactly ONE mode per scene.

@@ -61,13 +61,11 @@ class GeminiStoryService : Service() {
                         provider=StoryProvider.from(spec.optString("provider","gemini"))
                         hybrid=spec.optBoolean("hybrid")
                         val retryStatus: (String)->Unit={ message -> status("running",lastPercent,"${if(hybrid) "Groq + Gemini" else provider.label} • $message",if(message.startsWith("กำลังทำต่อ")) "requesting" else "retry_wait") }
-                        val active=if(hybrid) StoryProvider.entries.toList() else listOf(provider)
+                        val active=if(hybrid) StoryProvider.hybridProviders else listOf(provider)
                         val connections=active.associateWith { target ->
-                            val settings=GeminiSettings(this,target)
-                            val key=settings.key(); require(key.isNotBlank()) { "ตั้งค่า ${target.label} API Key ก่อนเริ่ม" }
+                            val key=target.key(this); require(key.isNotBlank()) { "ตั้งค่า ${target.label} API Key ก่อนเริ่ม" }
                             val model=if(hybrid) spec.getString("${target.id}_model") else spec.getString("model")
-                            if(target==StoryProvider.GROQ) GroqClient(key,model,{ cancelled },{ seconds -> status("running",lastPercent,if(seconds>0) "Groq • พัก $seconds วินาที • ครบเวลาแล้วทำต่ออัตโนมัติ • กดหยุดได้" else "Groq • กำลังส่งคำขอ / รอคำตอบบท",if(seconds>0) "waiting" else "requesting") },retryStatus,!hybrid)
-                            else GeminiClient(key,model,{ cancelled },retryStatus,!hybrid)
+                            StoryClientFactory.create(target,key,model,{ cancelled },{ seconds -> status("running",lastPercent,if(seconds>0) "Groq • พัก $seconds วินาที • ครบเวลาแล้วทำต่ออัตโนมัติ • กดหยุดได้" else "Groq • กำลังส่งคำขอ / รอคำตอบบท",if(seconds>0) "waiting" else "requesting") },retryStatus,!hybrid)
                         }
                         clients=connections.values.toList()
                         val router=StoryProviderRouter({cancelled},{ target,fallback ->

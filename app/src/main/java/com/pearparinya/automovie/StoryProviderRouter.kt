@@ -11,7 +11,8 @@ internal class StoryProviderRouter(
 ) {
     private val blockedUntil=mutableMapOf<StoryProvider,Long>()
     fun <T> generate(preferred: StoryProvider,request: (StoryProvider)->T): T {
-        val order=listOf(preferred,StoryProvider.entries.first { it!=preferred })
+        require(preferred in StoryProvider.hybridProviders)
+        val order=listOf(preferred,StoryProvider.hybridProviders.first { it!=preferred })
         for(candidate in order) {
             if(cancelled()) throw CancellationException()
             if((blockedUntil[candidate] ?: 0L)>now()) continue
