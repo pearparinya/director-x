@@ -10,6 +10,20 @@ import java.io.File
 import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class AutoCastTest {
+    @Test fun promptCatalogKeepsIdentityAndCastingFieldsWithoutFileMetadata() {
+        val original=JSONArray().put(JSONObject().put("id","CHAR_101").put("display_name","รินรดา")
+            .put("character_age",30).put("character_gender","woman").put("casting_description","long hair")
+            .put("file","original.png").put("sha256","private-hash").put("width",937))
+            .put(JSONObject().put("id","CHAR_102").put("display_name","เมย์").put("character_age",29).put("character_gender","woman"))
+        val before=original.toString()
+        val compact=AutoCast.promptCatalog(original)
+        assertEquals(2,compact.length()); assertEquals("CHAR_101",compact.getJSONObject(0).getString("id"))
+        assertEquals("CHAR_102",compact.getJSONObject(1).getString("id"))
+        assertEquals(30,compact.getJSONObject(0).getInt("character_age"))
+        assertEquals("long hair",compact.getJSONObject(0).getString("casting_description"))
+        assertFalse(compact.getJSONObject(0).has("file")); assertFalse(compact.getJSONObject(0).has("sha256"))
+        assertEquals(before,original.toString())
+    }
     @Test fun autoCastCanUseLegacyNamesWithTheirOwnCatalogMasters() {
         val catalog=JSONArray().put(JSONObject().put("id","CHAR_101")).put(JSONObject().put("id","CHAR_102")).put(JSONObject().put("id","CHAR_103"))
         val cast=JSONArray().put(JSONObject().put("library_id","CHAR_101").put("name","รินรดา").put("role","ผู้จัดการ"))
