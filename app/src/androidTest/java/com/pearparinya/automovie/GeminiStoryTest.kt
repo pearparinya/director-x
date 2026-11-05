@@ -51,6 +51,27 @@ class GeminiStoryTest {
             assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_ -> error("must use saved chunks") }).run(selected).toString())
         } finally { folder.deleteRecursively() }
     }
+    @Test fun oversizedRepairSplitsPendingBatchAndKeepsOtherScenes() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"pending-split-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val selected=ClipPlan.apply(spec().put("episodes",1).put("provider","groq"),"short",30)
+            GeminiStoryFiles.write(File(folder,"outline.json"),outline().apply { put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0))) })
+            val original=batch("Write exactly scenes 1 to 2 for EP 1")
+            original.getJSONArray("scenes").getJSONObject(0).put("duration_seconds",10)
+            val second=original.getJSONArray("scenes").getJSONObject(1).toString()
+            val pending=File(folder,"EP01_01.json.pending.json")
+            GeminiStoryFiles.write(pending,original)
+            var attempts=0
+            val story=GeminiStoryEngine(folder,{ prompt,_ ->
+                if(prompt.contains("Repair ONLY scene 1") && attempts++==0) throw StoryBatchTooLarge()
+                batch(prompt)
+            }).run(selected)
+            assertEquals(4,story.getInt("scene_count"))
+            assertEquals(second,GeminiStoryFiles.read(File(folder,"EP01_02.json")).getJSONArray("scenes").getJSONObject(0).toString())
+            assertTrue(File(folder,"EP01_01.json.pending.json.batch-backup").isFile)
+            assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_ -> error("must reuse checkpoints") }).run(selected).toString())
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun automaticPipelineCreatesThirtyEightScenesWithXmlHandoff() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-38-${UUID.randomUUID()}").apply { mkdirs() }
         try {

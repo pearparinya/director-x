@@ -101,6 +101,16 @@ class AutomaticStoryRouterTest {
             assertEquals(listOf(StoryProvider.GROQ,StoryProvider.GEMINI,StoryProvider.DEEPSEEK),calls)
         } finally { folder.deleteRecursively() }
     }
+    @Test fun oneSceneRetriesTemporaryBackupAfterOversizedPrimary() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"retry-after-413-${UUID.randomUUID()}")
+        try {
+            val large=client { _,_ -> throw StoryHttpFailure(413,null,"large") }
+            val unavailable=client { _,_ -> throw StoryHttpFailure(503,null,"temporary") }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to large,StoryProvider.GEMINI to unavailable,StoryProvider.DEEPSEEK to unavailable),{false},{_,_->})
+            val error=runCatching { router.generate("Write exactly scenes 5 to 5",schema()) }.exceptionOrNull()
+            assertTrue(error is StoryHttpFailure && error.status==503)
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun alteredDialogueTriggersBackupInsteadOfSavingIt() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-invalid-${UUID.randomUUID()}")
         try {
