@@ -21,6 +21,10 @@ internal class AutomaticStoryRouter(
 
     fun generate(prompt: String,schema: JSONObject): JSONObject {
         val sceneBatch=schema.getJSONObject("properties").has("scenes")
+        val range=Regex("Write exactly scenes ([0-9]+) to ([0-9]+)").find(prompt)
+        val multipleScenes=range?.let { it.groupValues[1].toIntOrNull()?.let { first ->
+            it.groupValues[2].toIntOrNull()?.let { last -> last>first }
+        } } == true
         var last: Exception?=null
         var oversized=false
         for((writer,formatter) in routes) {
@@ -61,6 +65,11 @@ internal class AutomaticStoryRouter(
                 if(cancelled() || e is CancellationException) throw CancellationException()
                 onFailure(current,failureCategory(e))
                 if(e is StoryHttpFailure && (e.status==413 || e.detail=="context_length_exceeded")) oversized=true
+                // Split a fresh multi-scene request immediately rather than waiting for
+                // every fallback to time out on the same oversized input. One-scene
+                // requests retain normal provider fallback and bounded retries.
+                if(sceneBatch && multipleScenes && current==writer && e is StoryHttpFailure &&
+                    (e.status==413 || e.detail=="context_length_exceeded")) throw StoryBatchTooLarge()
                 if(!canSwitch(e)) throw e
                 last=e
             }

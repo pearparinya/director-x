@@ -86,6 +86,21 @@ class AutomaticStoryRouterTest {
             assertTrue(runCatching { failing.generate("other",schema()) }.exceptionOrNull() is StoryBatchTooLarge)
         } finally { folder.deleteRecursively() }
     }
+    @Test fun oversizedWriterSplitsMultiSceneImmediatelyButSingleSceneUsesFallback() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-split-${UUID.randomUUID()}")
+        try {
+            val calls=mutableListOf<StoryProvider>()
+            val large=client { _,_ -> calls.add(StoryProvider.GROQ); throw StoryHttpFailure(413,null,"large") }
+            val gemini=client { _,_ -> calls.add(StoryProvider.GEMINI); draft() }
+            val deepseek=client { _,_ -> calls.add(StoryProvider.DEEPSEEK); xml() }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to large,StoryProvider.GEMINI to gemini,StoryProvider.DEEPSEEK to deepseek),{false},{_,_->})
+            assertTrue(runCatching { router.generate("Write exactly scenes 5 to 6",schema()) }.exceptionOrNull() is StoryBatchTooLarge)
+            assertEquals(listOf(StoryProvider.GROQ),calls)
+            calls.clear()
+            assertEquals("สวัสดี",router.generate("Write exactly scenes 5 to 5",schema()).getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
+            assertEquals(listOf(StoryProvider.GROQ,StoryProvider.GEMINI,StoryProvider.DEEPSEEK),calls)
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun alteredDialogueTriggersBackupInsteadOfSavingIt() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-invalid-${UUID.randomUUID()}")
         try {
