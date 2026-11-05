@@ -51,7 +51,7 @@ internal class StoryRequestRetry(
         fun canRetry(e: Exception): Boolean = e is IOException && e !is javax.net.ssl.SSLException ||
             e is StoryHttpFailure && (e.status==408 || e.status==429 || e.status in 500..599 || e.detail=="json_validate_failed")
         fun canFallback(e: Exception): Boolean = canRetry(e) || e is StoryHttpFailure &&
-            (e.status==413 || e.detail=="context_length_exceeded")
+            (e.status==413 || e.detail in setOf("context_length_exceeded","invalid_schema"))
         const val MAX_RETRIES=4
         const val MAX_WAIT_SECONDS=900L
         fun retrySeconds(value: String,now: Long): Long? {

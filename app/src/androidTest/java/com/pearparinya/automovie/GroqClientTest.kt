@@ -39,11 +39,33 @@ class GroqClientTest {
         assertTrue(StoryRequestRetry.canRetry(json)); assertTrue(StoryRequestRetry.canFallback(json))
         val context=failure("context_length_exceeded")
         assertFalse(StoryRequestRetry.canRetry(context)); assertTrue(StoryRequestRetry.canFallback(context))
+        val schemaError=GroqClient.failure(400,null,JSONObject().put("error",JSONObject().put("code","invalid_request_error").put("message","Invalid schema: required must include all properties; private story")).toString())
+        assertFalse(StoryRequestRetry.canRetry(schemaError)); assertTrue(StoryRequestRetry.canFallback(schemaError))
+        assertFalse(schemaError.message!!.contains("private"))
         listOf(failure("invalid_request_error"),failure("content_policy_violation"),failure("json_validate_failed",401),GroqClient.failure(400,null,"not-json")).forEach { error ->
             assertFalse(StoryRequestRetry.canRetry(error)); assertFalse(StoryRequestRetry.canFallback(error))
             assertFalse(error.message!!.contains("private"))
         }
         assertTrue(StoryRequestRetry.canFallback(failure("request_too_large",413)))
+    }
+    @Test fun strictCastingSchemaRequiresEveryNestedPropertyWithoutMutatingSource() {
+        val schema=AutoCast.schema()
+        val original=schema.toString()
+        val strict=GroqClient.request(StoryProvider.GROQ.defaultModel,"Thai casting",schema)
+            .getJSONObject("response_format").getJSONObject("json_schema").getJSONObject("schema")
+        fun verify(node: JSONObject) {
+            if(node.optString("type")=="object") {
+                val properties=node.getJSONObject("properties")
+                val names=properties.keys().asSequence().toSet()
+                val required=node.getJSONArray("required")
+                assertEquals(names,(0 until required.length()).map { required.getString(it) }.toSet())
+                assertFalse(node.getBoolean("additionalProperties"))
+                names.forEach { verify(properties.getJSONObject(it)) }
+            } else if(node.optString("type")=="array") verify(node.getJSONObject("items"))
+        }
+        verify(strict)
+        assertTrue(strict.getJSONObject("properties").getJSONObject("cast").getJSONObject("items").getJSONArray("required").toString().contains("romance_role"))
+        assertEquals(original,schema.toString())
     }
     @Test fun pacingWaitsBetweenCallsAndCanBeCancelledWithoutSleepingInTests() {
         var time=100L; var waits=0; var stop=false
