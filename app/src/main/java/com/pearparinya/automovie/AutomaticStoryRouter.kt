@@ -35,13 +35,25 @@ internal class AutomaticStoryRouter(
                 }
                 if(cancelled()) throw CancellationException()
                 val result=if(sceneBatch && formatter!=null) {
-                    current=formatter
-                    progress(formatter,"กำลังจัดรูปแบบ XML")
                     val request="""Create a well-formed XML document with root <flow>. For every input scene include exactly one <scene id="NUMBER"><prompt>ENGLISH ACTION</prompt><dialogue>EXACT THAI DIALOGUE</dialogue></scene>. The scene id and dialogue must exactly match the input; use empty dialogue for silent or narrated scenes. Escape XML special characters. The prompt must be an English visible action using only the same people and events; preserve their names and do not add speech. No other scene or tag. Return JSON with one field named xml containing the XML. Input scenes: ${draft.getJSONArray("scenes")}"""
                     val xmlSchema=JSONObject().put("type","object").put("properties",JSONObject().put("xml",JSONObject().put("type","string"))).put("required",JSONArray().put("xml"))
-                    val formatted=generateChecked(formatter,request,xmlSchema)
-                    try { SceneXml.apply(draft,formatted.getString("xml")) }
-                    catch(e: Exception) { throw InvalidSceneXml(e) }
+                    fun formatWith(provider: StoryProvider): JSONObject {
+                        current=provider
+                        progress(provider,"กำลังจัดรูปแบบ XML")
+                        val formatted=generateChecked(provider,request,xmlSchema)
+                        return try { SceneXml.apply(draft,formatted.getString("xml")) }
+                        catch(e: Exception) { throw InvalidSceneXml(e) }
+                    }
+                    try { formatWith(formatter) }
+                    catch(e: Exception) {
+                        if(cancelled() || e is CancellationException) throw CancellationException()
+                        // Keep the completed draft when the primary formatter is unavailable.
+                        // DeepSeek can format it without asking Gemini to write it again.
+                        if(writer!=StoryProvider.GROQ || formatter!=StoryProvider.GEMINI ||
+                            StoryProvider.DEEPSEEK !in clients || !canSwitch(e)) throw e
+                        onFailure(formatter,failureCategory(e))
+                        formatWith(StoryProvider.DEEPSEEK)
+                    }
                 } else draft
                 routes.forEach { (candidate,_) -> draftFile(candidate,prompt,schema).delete() }
                 return result
