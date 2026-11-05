@@ -31,18 +31,16 @@ class AutomaticStoryRouterTest {
             assertEquals("May opens the door",out.getJSONArray("scenes").getJSONObject(0).getString("flow_action"))
         } finally { folder.deleteRecursively() }
     }
-    @Test fun quotaFallsBackAndRetainsDraftForResume() {
+    @Test fun quotaRetainsDraftForResume() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-resume-${UUID.randomUUID()}")
         try {
             var writes=0; var ready=false
             val groq=client { _,_ -> writes++; draft() }
             val gemini=client { _,_ -> if(!ready) throw StoryHttpFailure(429,"1","quota") else xml() }
-            val cerebras=client { _,_ -> draft() }
-            val deepseek=client { _,_ -> xml() }
             val calls=mutableListOf<StoryProvider>()
-            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to groq,StoryProvider.GEMINI to gemini,StoryProvider.CEREBRAS to cerebras,StoryProvider.DEEPSEEK to deepseek),{false},{p,_->calls.add(p)})
-            router.generate("brief",schema())
-            assertEquals(listOf(StoryProvider.GROQ,StoryProvider.GEMINI,StoryProvider.CEREBRAS,StoryProvider.DEEPSEEK),calls)
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to groq,StoryProvider.GEMINI to gemini),{false},{p,_->calls.add(p)})
+            assertTrue(runCatching { router.generate("brief",schema()) }.isFailure)
+            assertEquals(listOf(StoryProvider.GROQ,StoryProvider.GEMINI),calls)
             ready=true; calls.clear(); router.generate("brief",schema())
             assertEquals(1,writes); assertEquals(listOf(StoryProvider.GEMINI),calls)
         } finally { folder.deleteRecursively() }
@@ -73,6 +71,19 @@ class AutomaticStoryRouterTest {
             val result=router.generate("brief",schema())
             assertEquals(listOf(StoryProvider.GROQ,StoryProvider.GEMINI,StoryProvider.CEREBRAS,StoryProvider.DEEPSEEK),calls)
             assertEquals("สวัสดี",result.getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
+        } finally { folder.deleteRecursively() }
+    }
+    @Test fun quotaUsesBackupAndCleansUnneededDraft() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-quota-${UUID.randomUUID()}")
+        try {
+            val calls=mutableListOf<StoryProvider>()
+            val writer=client { _,_ -> draft() }
+            val quota=client { _,_ -> throw StoryHttpFailure(429,"1","quota") }
+            val formatter=client { _,_ -> xml() }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to writer,StoryProvider.GEMINI to quota,StoryProvider.CEREBRAS to writer,StoryProvider.DEEPSEEK to formatter),{false},{p,_->calls.add(p)})
+            router.generate("brief",schema())
+            assertEquals(listOf(StoryProvider.GROQ,StoryProvider.GEMINI,StoryProvider.CEREBRAS,StoryProvider.DEEPSEEK),calls)
+            assertTrue(File(folder,"auto_drafts").listFiles().orEmpty().isEmpty())
         } finally { folder.deleteRecursively() }
     }
 }
