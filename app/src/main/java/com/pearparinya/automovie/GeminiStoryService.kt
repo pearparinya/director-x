@@ -62,7 +62,7 @@ class GeminiStoryService : Service() {
                         hybrid=spec.optBoolean("hybrid")
                         val automatic=spec.optBoolean("auto_pipeline")
                         val retryStatus: (String)->Unit={ message -> status("running",lastPercent,"${if(hybrid) "Groq + Gemini" else provider.label} • $message",if(message.startsWith("กำลังทำต่อ")) "requesting" else "retry_wait") }
-                        val active=if(automatic) StoryProvider.entries.filter { it.hasKey(this) && spec.has("${it.id}_model") } else if(hybrid) StoryProvider.hybridProviders else listOf(provider)
+                        val active=if(automatic) StoryProvider.activeProviders.filter { it.hasKey(this) && spec.has("${it.id}_model") } else if(hybrid) StoryProvider.hybridProviders else listOf(provider)
                         val connections=active.associateWith { target ->
                             val key=target.key(this); require(key.isNotBlank()) { "ตั้งค่า ${target.label} API Key ก่อนเริ่ม" }
                             val model=if(automatic || hybrid) spec.getString("${target.id}_model") else spec.getString("model")

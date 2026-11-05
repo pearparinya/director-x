@@ -7,14 +7,14 @@ class StoryPipelineTest {
     @Test fun selectedModeUsesOnlyItsProvidersInOrder() {
         for ((mode, expected) in listOf(
             StoryPipelineMode.GROQ_GEMINI to listOf("groq", "gemini", "validate"),
-            StoryPipelineMode.CEREBRAS_DEEPSEEK to listOf("cerebras", "deepseek", "validate"),
+            StoryPipelineMode.GEMINI_DEEPSEEK to listOf("gemini-writer", "deepseek", "validate"),
             StoryPipelineMode.OPENROUTER to listOf("openrouter", "validate")
         )) {
             val calls = mutableListOf<String>()
             val pipeline = StoryPipeline(
                 object : StoryPipelineWriter { override fun write(brief: String) = "draft".also { calls.add("groq") } },
                 object : StoryPipelineFormatter { override fun format(draft: String) = "xml".also { calls.add("gemini"); assertEquals("draft", draft) } },
-                object : StoryPipelineWriter { override fun write(brief: String) = "draft".also { calls.add("cerebras") } },
+                object : StoryPipelineWriter { override fun write(brief: String) = "draft".also { calls.add("gemini-writer") } },
                 object : StoryPipelineFormatter { override fun format(draft: String) = "xml".also { calls.add("deepseek"); assertEquals("draft", draft) } },
                 object : StoryPipelineSinglePass { override fun writeAndFormat(brief: String) = "xml".also { calls.add("openrouter") } },
                 { calls.add("validate"); assertEquals("xml", it) }
