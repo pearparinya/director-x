@@ -60,6 +60,21 @@ class AutomaticStoryRouterTest {
             assertTrue(runCatching { AutomaticStoryRouter(folder,emptyMap(),{false},{_,_->}).generate("other",schema()) }.isFailure)
         } finally { folder.deleteRecursively() }
     }
+    @Test fun invalidJsonRetriesOnceAndOversizedScenesSignalSplit() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-json-${UUID.randomUUID()}")
+        try {
+            var calls=0
+            val open=client { _,_ -> calls++; if(calls==1) throw InvalidStoryResponse("invalid") else draft() }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.OPENROUTER to open),{false},{_,_->})
+            assertEquals("สวัสดี",router.generate("brief",schema()).getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
+            assertEquals(2,calls)
+            val large=client { _,_ -> throw StoryHttpFailure(413,null,"large") }
+            val bad=client { _,_ -> throw InvalidStoryResponse("invalid") }
+            val writer=client { _,_ -> draft() }
+            val failing=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to large,StoryProvider.GEMINI to writer,StoryProvider.OPENROUTER to bad),{false},{_,_->})
+            assertTrue(runCatching { failing.generate("other",schema()) }.exceptionOrNull() is StoryBatchTooLarge)
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun alteredDialogueTriggersBackupInsteadOfSavingIt() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-invalid-${UUID.randomUUID()}")
         try {

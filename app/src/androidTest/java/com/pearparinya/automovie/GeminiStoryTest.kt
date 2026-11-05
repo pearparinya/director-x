@@ -30,6 +30,25 @@ class GeminiStoryTest {
         } })
     }
     private fun spec()=JSONObject().put("category","แนว").put("channel","ช่อง").put("episodes",3).put("premise","ซองบนโต๊ะ")
+    @Test fun oversizeBatchSplitsWithoutLosingOrDuplicatingScenes() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"split-413-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val selected=ClipPlan.apply(spec().put("episodes",1).put("provider","groq"),"short",30)
+            var rejected=0; val requests=mutableListOf<String>()
+            val story=GeminiStoryEngine(folder,{ prompt,_ ->
+                if(prompt.contains("Plan a complete story")) outline().apply { put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0))) }
+                else {
+                    requests.add(prompt)
+                    if(prompt.contains("Write exactly scenes 1 to 2") && rejected++==0) throw StoryBatchTooLarge()
+                    batch(prompt)
+                }
+            }).run(selected)
+            val rows=story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes")
+            assertEquals(listOf(1,2,3,4),(0 until rows.length()).map { rows.getJSONObject(it).getInt("scene") })
+            assertTrue(requests.any { it.contains("Write exactly scenes 1 to 1") })
+            assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_ -> error("must use saved chunks") }).run(selected).toString())
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun automaticPipelineCreatesThirtyEightScenesWithXmlHandoff() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-38-${UUID.randomUUID()}").apply { mkdirs() }
         try {

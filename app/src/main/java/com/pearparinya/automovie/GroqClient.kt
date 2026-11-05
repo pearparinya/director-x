@@ -64,7 +64,9 @@ internal class GroqClient(private val apiKey: String,private val model: String,p
         }
         fun request(model: String,prompt: String,schema: JSONObject): JSONObject {
             require(model in MODELS) { "เลือกโมเดล Groq ที่รองรับ JSON Schema" }
-            return JSONObject().put("model",model).put("stream",false).put("max_completion_tokens",if(schema.getJSONObject("properties").has("scenes")) 3072 else 4096)
+            val match=Regex("Write exactly scenes ([0-9]+) to ([0-9]+)").find(prompt)
+            val oneScene=match!=null && match.groupValues[1]==match.groupValues[2]
+            return JSONObject().put("model",model).put("stream",false).put("max_completion_tokens",if(schema.getJSONObject("properties").has("scenes")) { if(oneScene) 2048 else 3072 } else 4096)
                 .put("reasoning_effort","low")
                 .put("messages",JSONArray().put(JSONObject().put("role","user").put("content",prompt)))
                 .put("response_format",JSONObject().put("type","json_schema").put("json_schema",JSONObject()

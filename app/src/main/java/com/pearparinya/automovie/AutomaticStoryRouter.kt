@@ -22,6 +22,7 @@ internal class AutomaticStoryRouter(
     fun generate(prompt: String,schema: JSONObject): JSONObject {
         val sceneBatch=schema.getJSONObject("properties").has("scenes")
         var last: Exception?=null
+        var oversized=false
         for((writer,formatter) in routes) {
             if(cancelled()) throw CancellationException()
             if(writer !in clients || formatter != null && formatter !in clients) continue
@@ -30,7 +31,7 @@ internal class AutomaticStoryRouter(
                 val cache=draftFile(writer,prompt,schema)
                 val draft=if(cache.isFile) GeminiStoryFiles.read(cache) else {
                     progress(writer,"กำลังเขียนบท")
-                    clients.getValue(writer).generate(prompt,schema).also { GeminiStoryFiles.write(cache,it) }
+                    generateChecked(writer,prompt,schema).also { GeminiStoryFiles.write(cache,it) }
                 }
                 if(cancelled()) throw CancellationException()
                 val result=if(sceneBatch && formatter!=null) {
@@ -38,7 +39,7 @@ internal class AutomaticStoryRouter(
                     progress(formatter,"กำลังจัดรูปแบบ XML")
                     val request="""Create a well-formed XML document with root <flow>. For every input scene include exactly one <scene id="NUMBER"><prompt>ENGLISH ACTION</prompt><dialogue>EXACT THAI DIALOGUE</dialogue></scene>. The scene id and dialogue must exactly match the input; use empty dialogue for silent or narrated scenes. Escape XML special characters. The prompt must be an English visible action using only the same people and events; preserve their names and do not add speech. No other scene or tag. Return JSON with one field named xml containing the XML. Input scenes: ${draft.getJSONArray("scenes")}"""
                     val xmlSchema=JSONObject().put("type","object").put("properties",JSONObject().put("xml",JSONObject().put("type","string"))).put("required",JSONArray().put("xml"))
-                    val formatted=clients.getValue(formatter).generate(request,xmlSchema)
+                    val formatted=generateChecked(formatter,request,xmlSchema)
                     try { SceneXml.apply(draft,formatted.getString("xml")) }
                     catch(e: Exception) { throw InvalidSceneXml(e) }
                 } else draft
@@ -47,11 +48,21 @@ internal class AutomaticStoryRouter(
             } catch(e: Exception) {
                 if(cancelled() || e is CancellationException) throw CancellationException()
                 onFailure(current,failureCategory(e))
+                if(e is StoryHttpFailure && (e.status==413 || e.detail=="context_length_exceeded")) oversized=true
                 if(!canSwitch(e)) throw e
                 last=e
             }
         }
+        if(sceneBatch && oversized) throw StoryBatchTooLarge()
         throw last ?: IllegalStateException("ตั้งค่า Groq + Gemini หรือ Cerebras + DeepSeek หรือ OpenRouter ก่อนเริ่ม")
+    }
+    private fun generateChecked(provider: StoryProvider,prompt: String,schema: JSONObject): JSONObject = try {
+        clients.getValue(provider).generate(prompt,schema)
+    } catch(e: InvalidStoryResponse) {
+        if(cancelled()) throw CancellationException()
+        onFailure(provider,"ตรวจคำตอบไม่ผ่าน")
+        progress(provider,"คำตอบไม่สมบูรณ์ • ลองใหม่ 1 ครั้ง")
+        clients.getValue(provider).generate(prompt,schema)
     }
     private fun failureCategory(e: Exception): String = when(e) {
         is InvalidSceneXml -> "XML ไม่ตรงบท"
@@ -61,13 +72,15 @@ internal class AutomaticStoryRouter(
         is java.io.IOException -> "เครือข่ายขัดข้อง"
         else -> "ตรวจคำตอบไม่ผ่าน"
     }
-    private fun canSwitch(e: Exception): Boolean = e is InvalidSceneXml || StoryRequestRetry.canFallback(e) ||
+    private fun canSwitch(e: Exception): Boolean = e is InvalidSceneXml || e is InvalidStoryResponse || StoryRequestRetry.canFallback(e) ||
         e is StoryHttpFailure && e.status in setOf(401,403,404)
     private fun draftFile(writer: StoryProvider,prompt: String,schema: JSONObject): File {
         val digest=MessageDigest.getInstance("SHA-256").digest((writer.id+"\n"+prompt+"\n"+schema).toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
         return File(folder,"auto_drafts/$digest.json")
     }
 }
+
+internal class StoryBatchTooLarge: IllegalStateException("คำขอใหญ่เกินขีดจำกัด • กรุณาตรวจขนาดคำสั่งและโควตา")
 
 internal class InvalidSceneXml(cause: Exception): IllegalArgumentException("XML ที่ได้ไม่ตรงกับบทต้นฉบับ",cause)
 

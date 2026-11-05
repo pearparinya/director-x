@@ -13,6 +13,8 @@ internal enum class CompatibleService(val label: String, val url: String, val de
     OPENROUTER("OpenRouter", "https://openrouter.ai/api/v1/chat/completions", "openrouter/free")
 }
 
+internal class InvalidStoryResponse(message: String): IllegalStateException(message)
+
 internal class CompatibleStoryClient(
     private val service: CompatibleService,
     private val apiKey: String,
@@ -63,10 +65,11 @@ internal class CompatibleStoryClient(
         }
         fun parse(response: JSONObject, service: CompatibleService): JSONObject {
             val choice = response.optJSONArray("choices")?.optJSONObject(0) ?: error("${service.label} ไม่ส่งคำตอบ")
-            require(choice.optString("finish_reason") == "stop") { "${service.label} ส่งคำตอบไม่ครบ" }
+            if(choice.optString("finish_reason") == "length") throw InvalidStoryResponse("${service.label} ส่งคำตอบไม่ครบ")
+            require(choice.optString("finish_reason") == "stop") { "${service.label} หยุดคำขอ กรุณาตรวจรายละเอียด" }
             val message = choice.optJSONObject("message") ?: error("${service.label} ไม่ส่งข้อความ")
             require(message.optString("refusal").let { it.isBlank() || it == "null" }) { "${service.label} ปฏิเสธคำขอ" }
-            return try { JSONObject(message.getString("content")) } catch (_: Exception) { error("${service.label} ส่ง JSON ไม่สมบูรณ์") }
+            return try { JSONObject(message.getString("content")) } catch (_: Exception) { throw InvalidStoryResponse("${service.label} ส่ง JSON ไม่สมบูรณ์") }
         }
     }
 }

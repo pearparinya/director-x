@@ -16,6 +16,7 @@ class GroqClientTest {
         val req=GroqClient.request(StoryProvider.GROQ.defaultModel,"Thai script",schema)
         assertEquals("openai/gpt-oss-120b",req.getString("model"))
         assertEquals(3072,req.getInt("max_completion_tokens"))
+        assertEquals(2048,GroqClient.request(StoryProvider.GROQ.defaultModel,"Write exactly scenes 7 to 7 for EP 1",schema).getInt("max_completion_tokens"))
         val format=req.getJSONObject("response_format").getJSONObject("json_schema")
         assertTrue(format.getBoolean("strict"))
         val converted=format.getJSONObject("schema")
