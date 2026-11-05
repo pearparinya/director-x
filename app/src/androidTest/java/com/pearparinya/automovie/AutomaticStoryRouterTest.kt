@@ -62,4 +62,17 @@ class AutomaticStoryRouterTest {
             assertTrue(runCatching { AutomaticStoryRouter(folder,emptyMap(),{false},{_,_->}).generate("other",schema()) }.isFailure)
         } finally { folder.deleteRecursively() }
     }
+    @Test fun alteredDialogueTriggersBackupInsteadOfSavingIt() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-invalid-${UUID.randomUUID()}")
+        try {
+            val calls=mutableListOf<StoryProvider>()
+            val writer=client { _,_ -> draft() }
+            val bad=client { _,_ -> xml("เปลี่ยนบท") }
+            val good=client { _,_ -> xml() }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to writer,StoryProvider.GEMINI to bad,StoryProvider.CEREBRAS to writer,StoryProvider.DEEPSEEK to good),{false},{p,_->calls.add(p)})
+            val result=router.generate("brief",schema())
+            assertEquals(listOf(StoryProvider.GROQ,StoryProvider.GEMINI,StoryProvider.CEREBRAS,StoryProvider.DEEPSEEK),calls)
+            assertEquals("สวัสดี",result.getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
+        } finally { folder.deleteRecursively() }
+    }
 }
