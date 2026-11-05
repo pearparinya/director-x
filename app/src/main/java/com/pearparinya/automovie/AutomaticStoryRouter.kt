@@ -17,7 +17,7 @@ internal class AutomaticStoryRouter(
     private val progress: (StoryProvider,String)->Unit
 ) {
     var onFailure: (StoryProvider,String)->Unit = { _,_ -> }
-    private val routes=listOf(StoryProvider.GROQ to StoryProvider.GEMINI,StoryProvider.CEREBRAS to StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER to null)
+    private val routes=listOf(StoryProvider.GROQ to StoryProvider.GEMINI,StoryProvider.GEMINI to StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER to null)
 
     fun generate(prompt: String,schema: JSONObject): JSONObject {
         val sceneBatch=schema.getJSONObject("properties").has("scenes")
@@ -54,7 +54,7 @@ internal class AutomaticStoryRouter(
             }
         }
         if(sceneBatch && oversized) throw StoryBatchTooLarge()
-        throw last ?: IllegalStateException("ตั้งค่า Groq + Gemini หรือ Cerebras + DeepSeek หรือ OpenRouter ก่อนเริ่ม")
+        throw last ?: IllegalStateException("ตั้งค่า Groq + Gemini หรือ Gemini + DeepSeek หรือ OpenRouter ก่อนเริ่ม")
     }
     private fun generateChecked(provider: StoryProvider,prompt: String,schema: JSONObject): JSONObject = try {
         clients.getValue(provider).generate(prompt,schema)

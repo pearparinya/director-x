@@ -1,7 +1,7 @@
 package com.pearparinya.automovie
 
 /** Provider-independent orchestration. No API key is stored in a job or passed to another provider. */
-internal enum class StoryPipelineMode { GROQ_GEMINI, CEREBRAS_DEEPSEEK, OPENROUTER }
+internal enum class StoryPipelineMode { GROQ_GEMINI, GEMINI_DEEPSEEK, OPENROUTER }
 
 internal interface StoryPipelineWriter {
     fun write(brief: String): String
@@ -18,7 +18,7 @@ internal interface StoryPipelineSinglePass {
 internal class StoryPipeline(
     private val groq: StoryPipelineWriter,
     private val gemini: StoryPipelineFormatter,
-    private val cerebras: StoryPipelineWriter,
+    private val geminiWriter: StoryPipelineWriter,
     private val deepSeek: StoryPipelineFormatter,
     private val openRouter: StoryPipelineSinglePass,
     private val validate: (String) -> Unit
@@ -27,7 +27,7 @@ internal class StoryPipeline(
         require(brief.isNotBlank()) { "กรุณาระบุเรื่องย่อ" }
         val result = when (mode) {
             StoryPipelineMode.GROQ_GEMINI -> gemini.format(nonEmpty(groq.write(brief)))
-            StoryPipelineMode.CEREBRAS_DEEPSEEK -> deepSeek.format(nonEmpty(cerebras.write(brief)))
+            StoryPipelineMode.GEMINI_DEEPSEEK -> deepSeek.format(nonEmpty(geminiWriter.write(brief)))
             StoryPipelineMode.OPENROUTER -> openRouter.writeAndFormat(brief)
         }
         nonEmpty(result)
