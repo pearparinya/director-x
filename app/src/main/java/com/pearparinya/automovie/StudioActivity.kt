@@ -1748,7 +1748,7 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun geminiSettings(afterSave: (() -> Unit)?=null) {
         val choices=StoryProvider.entries.map { it.label+if(!StoryProvider.hybrid(this) && it==StoryProvider.selected(this)) " • เลือกอยู่" else "" }+
-            listOf("Groq + Gemini อัตโนมัติ"+if(StoryProvider.hybrid(this)) " • เลือกอยู่" else "","ทดสอบการเชื่อมต่อ API ทั้งสองตัว")
+            listOf("Groq + Gemini อัตโนมัติ"+if(StoryProvider.hybrid(this)) " • เลือกอยู่" else "","ทดสอบการเชื่อมต่อ API ทั้งสองตัว", "จัดเก็บคีย์ Cerebras / DeepSeek / OpenRouter")
         choiceMenu("เลือก API เขียนบท",choices) { index ->
             when(index) {
                 0,1 -> storyProviderSettings(StoryProvider.entries[index],afterSave)
@@ -1761,7 +1761,36 @@ class StudioActivity : AppCompatActivity() {
                     }
                 }
                 3 -> testStoryApis(StoryProvider.entries.toList())
+                4 -> extraApiSettingsMenu()
             }
+        }
+    }
+    private fun extraApiSettingsMenu() {
+        val choices=ExtraApiProvider.entries.map { provider ->
+            provider.label + if(ExtraApiSettings(this,provider).hasKey()) " • มีคีย์แล้ว" else " • ยังไม่มีคีย์"
+        }
+        choiceMenu("จัดเก็บ API Key เพิ่มเติม",choices) { index -> extraApiKeyDialog(ExtraApiProvider.entries[index]) }
+    }
+    private fun extraApiKeyDialog(provider: ExtraApiProvider) {
+        val settings=ExtraApiSettings(this,provider)
+        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+        panel.addView(TextView(this).apply { text="บันทึกคีย์ ${provider.label} แบบเข้ารหัสบนเครื่องนี้ และไม่รวมในไฟล์สำรอง • รุ่นนี้เก็บคีย์ได้ แต่ยังไม่เชื่อมบริการนี้กับการเขียนบทหรือทดสอบคีย์" })
+        val key=EditText(this).apply {
+            hint=if(settings.hasKey()) "มีคีย์แล้ว • พิมพ์เฉพาะเมื่อเปลี่ยนคีย์" else "${provider.label} API Key"
+            inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setSingleLine(true)
+            panel.addView(this)
+        }
+        val dialog=AlertDialog.Builder(this).setTitle("${provider.label} • จัดเก็บ API Key")
+            .setView(panel).setPositiveButton("บันทึก",null)
+            .setNeutralButton("ลบคีย์") { _,_ -> settings.clear(); notice("ลบคีย์ ${provider.label} จากเครื่องแล้ว") }
+            .setNegativeButton("ปิด",null).showDirector()
+        dialog.getButton(-1).setOnClickListener {
+            runCatching {
+                val value=key.text.toString().trim()
+                if(value.isNotEmpty()) settings.save(value) else require(settings.hasKey()) { "กรุณาใส่ API Key" }
+            }.onSuccess { key.setText(""); dialog.dismiss(); notice("บันทึกคีย์ ${provider.label} แล้ว • ยังไม่เชื่อมใช้เขียนบท") }
+                .onFailure { Toast.makeText(this,it.message ?: "บันทึกไม่ได้",Toast.LENGTH_LONG).show() }
         }
     }
     private fun testStoryApis(providers: List<StoryProvider>) {
