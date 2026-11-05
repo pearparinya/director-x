@@ -49,7 +49,7 @@ internal object FlowScenePrompt {
             }
             aliases + listOf(p.name,refName(p.name))
         }.map { it.lowercase() }.toSet()
-        val generic=setOf("he","she","they","man","woman","person","character","people","someone","everyone","camera","phone","door","screen","light","wind","paper","music","sound","document","folder","manager","boss","coworker","colleague","worker","narrator")
+        val generic=setOf("he","she","they","man","woman","person","character","people","someone","everyone","camera","phone","door","screen","light","wind","paper","music","sound","document","folder","manager","boss","coworker","colleague","worker","narrator", "and", "or", "then", "also", "but")
         val pattern=Regex("(?<![\\w\\]])\\b([A-Za-z][A-Za-z0-9_]*)\\s+(?:holds|looks|watches|stares|speaks|says|asks|replies|walks|stands|sits|leans|smiles|reacts|turns|opens|closes|reads|inspects|observes|hands|places|shows|checks|nods|waves|slides|reaches|takes|points)\\b",RegexOption.IGNORE_CASE)
         return pattern.findAll(s.action).map { it.groupValues[1] }.filter { it.lowercase() !in known && it.lowercase() !in generic }.distinct().toList()
     }
