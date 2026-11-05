@@ -111,6 +111,31 @@ class AutomaticStoryRouterTest {
             assertTrue(error is StoryHttpFailure && error.status==503)
         } finally { folder.deleteRecursively() }
     }
+    @Test fun skipsPaymentRequiredAndUsesOpenRouter() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-402-${UUID.randomUUID()}")
+        try {
+            var deepCalls=0; var openCalls=0
+            val groq=client { _,_ -> throw StoryHttpFailure(413,null,"large") }
+            val gemini=client { _,_ -> draft() }
+            val deep=client { _,_ -> deepCalls++; throw StoryHttpFailure(402,null,"balance") }
+            val open=client { _,_ -> openCalls++; draft() }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to groq,StoryProvider.GEMINI to gemini,StoryProvider.DEEPSEEK to deep,StoryProvider.OPENROUTER to open),{false},{_,_->})
+            router.generate("Write exactly scenes 5 to 5",schema())
+            router.generate("Write exactly scenes 6 to 6",schema())
+            assertEquals(1,deepCalls); assertEquals(2,openCalls)
+        } finally { folder.deleteRecursively() }
+    }
+    @Test fun temporaryFormatterErrorIsRetriedAfterPaymentRequired() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-402-retry-${UUID.randomUUID()}")
+        try {
+            val writer=client { _,_ -> draft() }
+            val gemini=client { _,_ -> throw StoryHttpFailure(503,null,"temporary") }
+            val deep=client { _,_ -> throw StoryHttpFailure(402,null,"balance") }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to writer,StoryProvider.GEMINI to gemini,StoryProvider.DEEPSEEK to deep),{false},{_,_->})
+            val error=runCatching { router.generate("Write exactly scenes 1 to 1",schema()) }.exceptionOrNull()
+            assertTrue(error is StoryHttpFailure && error.status==503)
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun alteredDialogueTriggersBackupInsteadOfSavingIt() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-invalid-${UUID.randomUUID()}")
         try {

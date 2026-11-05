@@ -42,7 +42,7 @@ internal class CompatibleStoryClient(
             conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val status = conn.responseCode
-            if (status !in 200..299) throw StoryHttpFailure(status, conn.getHeaderField("Retry-After"), "${service.label} ไม่พร้อมใช้งาน (HTTP $status) • ตรวจคีย์ โมเดล หรือโควตา")
+            if (status !in 200..299) throw StoryHttpFailure(status, conn.getHeaderField("Retry-After"), if(service==CompatibleService.DEEPSEEK && status==402) "DeepSeek: ยอดเงิน API ไม่เพียงพอ (HTTP 402) • ข้ามบริการนี้" else "${service.label} ไม่พร้อมใช้งาน (HTTP $status) • ตรวจคีย์ โมเดล หรือโควตา")
             val out = java.io.ByteArrayOutputStream(); val buffer = ByteArray(8192)
             conn.inputStream.use { input -> while (true) {
                 if (cancelled()) throw CancellationException()

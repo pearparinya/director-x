@@ -18,6 +18,7 @@ internal class AutomaticStoryRouter(
 ) {
     var onFailure: (StoryProvider,String)->Unit = { _,_ -> }
     private val routes=listOf(StoryProvider.GROQ to StoryProvider.GEMINI,StoryProvider.GEMINI to StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER to null)
+    private val unavailable=mutableMapOf<StoryProvider,StoryHttpFailure>()
 
     fun generate(prompt: String,schema: JSONObject): JSONObject {
         val sceneBatch=schema.getJSONObject("properties").has("scenes")
@@ -26,10 +27,11 @@ internal class AutomaticStoryRouter(
             it.groupValues[2].toIntOrNull()?.let { last -> last>first }
         } } == true
         var last: Exception?=null
+        var temporary: Exception?=null
         var oversized=false
         for((writer,formatter) in routes) {
             if(cancelled()) throw CancellationException()
-            if(writer !in clients || formatter != null && formatter !in clients) continue
+            if(writer !in clients || writer in unavailable || formatter != null && (formatter !in clients || formatter in unavailable)) continue
             var current=writer
             try {
                 val cache=draftFile(writer,prompt,schema)
@@ -54,8 +56,9 @@ internal class AutomaticStoryRouter(
                         // Keep the completed draft when the primary formatter is unavailable.
                         // DeepSeek can format it without asking Gemini to write it again.
                         if(writer!=StoryProvider.GROQ || formatter!=StoryProvider.GEMINI ||
-                            StoryProvider.DEEPSEEK !in clients || !canSwitch(e)) throw e
+                            StoryProvider.DEEPSEEK !in clients || StoryProvider.DEEPSEEK in unavailable || !canSwitch(e)) throw e
                         onFailure(formatter,failureCategory(e))
+                        if(StoryRequestRetry.canRetry(e)) temporary=e
                         formatWith(StoryProvider.DEEPSEEK)
                     }
                 } else draft
@@ -64,6 +67,8 @@ internal class AutomaticStoryRouter(
             } catch(e: Exception) {
                 if(cancelled() || e is CancellationException) throw CancellationException()
                 onFailure(current,failureCategory(e))
+                if(e is StoryHttpFailure && e.status==402) unavailable[current]=e
+                if(StoryRequestRetry.canRetry(e)) temporary=e
                 if(e is StoryHttpFailure && (e.status==413 || e.detail=="context_length_exceeded")) oversized=true
                 // Split a fresh multi-scene request immediately rather than waiting for
                 // every fallback to time out on the same oversized input. One-scene
@@ -76,9 +81,9 @@ internal class AutomaticStoryRouter(
         }
         // A temporary failure in the last available provider can recover on retry,
         // even if another provider rejected the request size.
-        if(sceneBatch && oversized && last!=null && StoryRequestRetry.canRetry(last)) throw last
+        temporary?.let { throw it }
         if(sceneBatch && oversized) throw StoryBatchTooLarge()
-        throw last ?: IllegalStateException("ตั้งค่า Groq + Gemini หรือ Gemini + DeepSeek หรือ OpenRouter ก่อนเริ่ม")
+        throw last ?: unavailable.values.firstOrNull() ?: IllegalStateException("ตั้งค่า Groq + Gemini หรือ Gemini + DeepSeek หรือ OpenRouter ก่อนเริ่ม")
     }
     private fun generateChecked(provider: StoryProvider,prompt: String,schema: JSONObject): JSONObject = try {
         clients.getValue(provider).generate(prompt,schema)
@@ -97,7 +102,7 @@ internal class AutomaticStoryRouter(
         else -> "ตรวจคำตอบไม่ผ่าน"
     }
     private fun canSwitch(e: Exception): Boolean = e is InvalidSceneXml || e is InvalidStoryResponse || StoryRequestRetry.canFallback(e) ||
-        e is StoryHttpFailure && e.status in setOf(401,403,404)
+        e is StoryHttpFailure && e.status in setOf(401,402,403,404)
     private fun draftFile(writer: StoryProvider,prompt: String,schema: JSONObject): File {
         val digest=MessageDigest.getInstance("SHA-256").digest((writer.id+"\n"+prompt+"\n"+schema).toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
         return File(folder,"auto_drafts/$digest.json")
