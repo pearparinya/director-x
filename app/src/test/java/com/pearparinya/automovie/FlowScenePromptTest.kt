@@ -111,6 +111,13 @@ class FlowScenePromptTest {
         assertTrue(FlowScenePrompt.issues(unknown).any { it.contains("unmappedname") })
         assertFalse(FlowScenePrompt.build(unknown).contains("<scene"))
     }
+    @Test fun conjunctionBeforeActionIsNotAnUnknownCharacter() {
+        val spec=scene().copy(action="เมย์ holds a folder and looks at รินรดา")
+        assertTrue(FlowScenePrompt.issues(spec).isEmpty())
+        assertTrue(FlowScenePrompt.build(spec).contains("<scene"))
+        val unknown=spec.copy(action="เมย์ holds a folder and UnknownPerson looks at รินรดา")
+        assertTrue(FlowScenePrompt.issues(unknown).any { it.contains("UnknownPerson") })
+    }
     @Test fun duplicateAliasesAndIndistinguishableMappingsAreRejected() {
         assertTrue(FlowScenePrompt.issues(scene().copy(cast=listOf(may,may.copy(name="มายด์")))).isNotEmpty())
         assertTrue(FlowScenePrompt.issues(scene().copy(cast=listOf(may,rin.copy(appearance=may.appearance,position=may.position)))).isNotEmpty())
