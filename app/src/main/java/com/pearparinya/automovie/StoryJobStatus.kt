@@ -71,13 +71,20 @@ internal object StoryStatusText {
             state=="paused" -> "หยุดแล้ว • กดทำต่อได้"
             else -> "หยุดเพราะข้อผิดพลาด • ตรวจรายละเอียด"
         }
-        val provider=if(status.optBoolean("hybrid")) "Groq + Gemini (ขณะนี้ ${status.optString("provider")})" else status.optString("provider").replaceFirstChar { it.uppercaseChar() }
+        val rawProvider=status.optString("provider")
+        val visibleProvider=if(rawProvider.equals("cerebras",ignoreCase=true)) "API อัตโนมัติ" else rawProvider.replaceFirstChar { it.uppercaseChar() }
+        val provider=if(status.optBoolean("hybrid")) "Groq + Gemini (ขณะนี้ $visibleProvider)" else visibleProvider
         val time=duration(status.optLong("elapsed_ms"))
         val phase=if(running && !stale) " • ช่วงนี้ ${duration(status.optLong("phase_elapsed_ms"))}" else ""
         val update=if(heartbeat>0) java.text.SimpleDateFormat("HH:mm:ss",java.util.Locale.ROOT).format(java.util.Date(heartbeat)) else "—"
         val failures=status.optJSONArray("failures")
-        val history=if(failures==null || failures.length()==0) "" else "\nการลองล่าสุด:\n"+(0 until failures.length()).joinToString("\n") { i -> failures.getJSONObject(i).let { "${it.optString("provider")}: ${it.optString("reason")}" } }
+        val rows=if(failures==null) emptyList() else (0 until failures.length()).mapNotNull { i ->
+            failures.optJSONObject(i)?.takeUnless { it.optString("provider").equals("cerebras",ignoreCase=true) }
+                ?.let { "${it.optString("provider")}: ${it.optString("reason")}" }
+        }
+        val history=if(rows.isEmpty()) "" else "\nการลองล่าสุด:\n"+rows.joinToString("\n")
         val task=status.optString("task").takeIf { it.isNotBlank() }?.let { "\nขั้นตอน: $it" }.orEmpty()
-        return "$provider • ซีนที่ผ่านตรวจ ${status.optInt("percent").coerceIn(0,100)}%\n$label\nใช้เวลา $time$phase$task\n${if(state=="awaiting_outline") "เปิดงานเขียนบท แล้วกดทำต่อ • ใช้โครงเรื่องเดิม ไม่ต้องยืนยันอีก" else status.optString("message")}$history\nแอปอัปเดตสถานะล่าสุด $update"
+        val message=if(status.optString("message").contains("cerebras",ignoreCase=true)) "กดทำต่อเพื่อใช้ API ที่ตั้งค่าปัจจุบัน" else status.optString("message")
+        return "$provider • ซีนที่ผ่านตรวจ ${status.optInt("percent").coerceIn(0,100)}%\n$label\nใช้เวลา $time$phase$task\n${if(state=="awaiting_outline") "เปิดงานเขียนบท แล้วกดทำต่อ • ใช้โครงเรื่องเดิม ไม่ต้องยืนยันอีก" else message}$history\nแอปอัปเดตสถานะล่าสุด $update"
     }
 }
