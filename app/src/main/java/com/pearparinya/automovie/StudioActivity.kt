@@ -1846,7 +1846,7 @@ class StudioActivity : AppCompatActivity() {
     private fun storyProviderSettings(provider: StoryProvider,afterSave: (() -> Unit)?=null) {
         val settings=GeminiSettings(this,provider)
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-        panel.addView(TextView(this).apply { text="${provider.label} • ใส่คีย์บนเครื่องนี้ คีย์แต่ละบริการเก็บแยกและเข้ารหัส ไม่ส่งออกในสำรองข้อมูล • ส่งเฉพาะข้อความบท/ลักษณะตัวละคร ไม่ส่งรูป MASTER • แผนฟรีมีโควตา ค่าบริการและเงื่อนไขข้อมูลขึ้นกับบัญชีของคุณ ไม่มีการเปิดแผนเสียเงินเอง • โหมด Groq + Gemini จะสลับระหว่างสองบริการตามคีย์และโมเดลที่คุณตั้งไว้" })
+        panel.addView(TextView(this).apply { text="${provider.label} • คีย์เก็บแยกและเข้ารหัสบนเครื่อง ไม่ส่งออกในสำรองข้อมูล • ระบบเลือกและส่งต่อระหว่างค่ายอัตโนมัติ • ส่งเฉพาะข้อความบท/ลักษณะตัวละคร ไม่ส่งรูป MASTER • โควตาและค่าบริการขึ้นกับบัญชีแต่ละค่าย" })
         val key=EditText(this).apply { hint=if(settings.hasKey()) "มีคีย์แล้ว • ว่างเพื่อใช้คีย์เดิม" else "${provider.label} API Key"; inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD; setSingleLine(true); panel.addView(this) }
         val model=EditText(this).apply { hint="ชื่อโมเดล"; setSingleLine(true); setText(settings.model()); panel.addView(this) }
         if(provider==StoryProvider.GROQ) panel.addView(TextView(this).apply { text="โมเดลที่รองรับ: "+GroqClient.MODELS.joinToString(" / ")+" • ครั้งละ 2 ซีน • เว้นคำขออย่างน้อย 65 วินาทีเพื่อลดการชนโควตาฟรี • หยุด / ทำต่อได้" })
