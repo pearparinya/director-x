@@ -34,7 +34,12 @@ internal class AutomaticStoryRouter(
         // Give the final repair to Cohere first when configured, instead of
         // repeatedly accepting invalid semantic output from the same writers.
         val offset=if(repair==3) routes.lastIndex else (repair-1)%routes.size
-        val ordered=routes.drop(offset)+routes.take(offset)
+        val rotated=routes.drop(offset)+routes.take(offset)
+        // A saved draft does not need another writer request. Otherwise prefer
+        // a ready provider over waiting inside Groq's local pacing interval.
+        val ordered=rotated.sortedBy { (writer,_) ->
+            if(draftFile(writer,prompt,schema).isFile) 0L else clients[writer]?.availableDelayMillis() ?: Long.MAX_VALUE
+        }
         for((writer,formatter) in ordered) {
             if(cancelled()) throw CancellationException()
             // The preferred formatter may be unavailable; another configured provider

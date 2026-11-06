@@ -71,7 +71,9 @@ class GroqClientTest {
     @Test fun pacingWaitsBetweenCallsAndCanBeCancelledWithoutSleepingInTests() {
         var time=100L; var waits=0; var stop=false
         val pacer=GroqRequestPacer({ time },{ time+=it; waits++ })
+        assertEquals(0L,pacer.remainingMillis())
         pacer.await({false},{ fail("first request should start immediately") })
+        assertEquals(65_000L,pacer.remainingMillis())
         pacer.await({false},{ assertTrue(it in 1..65) })
         assertEquals(65100L,time); assertTrue(waits>0)
         assertTrue(runCatching { pacer.await({stop},{ stop=true }) }.exceptionOrNull() is java.util.concurrent.CancellationException)

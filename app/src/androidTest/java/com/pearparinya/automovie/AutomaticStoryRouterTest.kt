@@ -12,6 +12,21 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class AutomaticStoryRouterTest {
+    @Test fun readyCohereStartsBeforeGroqStillInPacingWindow() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"paced-route-${UUID.randomUUID()}")
+        try {
+            val calls=mutableListOf<String>()
+            val groq=object: StoryTextClient {
+                override fun availableDelayMillis()=60_000L
+                override fun generate(prompt: String,schema: JSONObject): JSONObject { calls.add("groq"); return draft() }
+                override fun cancel() {}
+            }
+            val cohere=client { _,_ -> calls.add("cohere"); draft() }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to groq,StoryProvider.COHERE to cohere),{false},{_,_->})
+            assertEquals("สวัสดี",router.generate("brief",schema()).getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
+            assertEquals(listOf("cohere"),calls)
+        } finally { folder.deleteRecursively() }
+    }
     private fun draft()=JSONObject().put("scenes",JSONArray().put(JSONObject().put("scene",1).put("dialogue","สวัสดี").put("action","เปิดประตู")))
     private fun schema()=JSONObject().put("properties",JSONObject().put("scenes",JSONObject()))
     private fun client(f: (String,JSONObject)->JSONObject)=object: StoryTextClient {
