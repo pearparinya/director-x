@@ -19,6 +19,18 @@ class AutomaticStoryRouterTest {
         override fun cancel() {}
     }
     private fun xml(line: String="สวัสดี")=JSONObject().put("xml","<flow><scene id=\"1\"><prompt>May opens the door</prompt><dialogue>$line</dialogue></scene></flow>")
+    @Test fun finalRepairPrefersCohereWhenAvailable() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"cohere-final-repair-${UUID.randomUUID()}")
+        try {
+            val calls=mutableListOf<String>()
+            val cohere=client { _,_ -> calls.add("cohere"); draft() }
+            val groq=client { _,_ -> calls.add("groq"); draft() }
+            val gemini=client { _,_ -> calls.add("gemini"); xml() }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to groq,StoryProvider.GEMINI to gemini,StoryProvider.COHERE to cohere),{false},{_,_->})
+            router.generate("DIRECTOR_INTERNAL_REPAIR_ATTEMPT=3",schema())
+            assertEquals(listOf("cohere"),calls)
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun cohereFormatsGroqDraftWhenGeminiIsNotConfigured() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"cohere-missing-gemini-${UUID.randomUUID()}")
         try {

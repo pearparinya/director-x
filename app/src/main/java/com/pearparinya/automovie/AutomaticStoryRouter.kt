@@ -31,7 +31,9 @@ internal class AutomaticStoryRouter(
         var oversized=false
         // Repair attempts begin with different configured routes while retaining the same scene.
         val repair=Regex("DIRECTOR_INTERNAL_REPAIR_ATTEMPT=([1-3])").find(prompt)?.groupValues?.get(1)?.toIntOrNull() ?: 1
-        val offset=(repair-1)%routes.size
+        // Give the final repair to Cohere first when configured, instead of
+        // repeatedly accepting invalid semantic output from the same writers.
+        val offset=if(repair==3) routes.lastIndex else (repair-1)%routes.size
         val ordered=routes.drop(offset)+routes.take(offset)
         for((writer,formatter) in ordered) {
             if(cancelled()) throw CancellationException()
