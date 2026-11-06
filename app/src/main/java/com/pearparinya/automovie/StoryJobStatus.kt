@@ -52,7 +52,7 @@ internal object StoryStatusText {
         val seconds=ms.coerceAtLeast(0)/1000
         return "%02d:%02d:%02d".format(java.util.Locale.ROOT,seconds/3600,seconds/60%60,seconds%60)
     }
-    fun format(status: JSONObject,alive: Boolean,now: Long=System.currentTimeMillis()): String {
+    fun format(status: JSONObject,alive: Boolean,now: Long=System.currentTimeMillis(),details: Boolean=false): String {
         val state=status.optString("state")
         val running=state=="running" && alive
         val heartbeat=status.optLong("heartbeat_at",status.optLong("updated"))
@@ -82,7 +82,7 @@ internal object StoryStatusText {
             failures.optJSONObject(i)?.takeUnless { it.optString("provider").equals("cerebras",ignoreCase=true) }
                 ?.let { "${it.optString("provider")}: ${it.optString("reason")}" }
         }
-        val history=if(rows.isEmpty()) "" else "\nการลองล่าสุด:\n"+rows.joinToString("\n")
+        val history=if(!details || rows.isEmpty()) "" else "\nการลองล่าสุด:\n"+rows.joinToString("\n")
         val task=status.optString("task").takeIf { it.isNotBlank() }?.let { "\nขั้นตอน: $it" }.orEmpty()
         val message=if(status.optString("message").contains("cerebras",ignoreCase=true)) "กดทำต่อเพื่อใช้ API ที่ตั้งค่าปัจจุบัน" else status.optString("message")
         return "$provider • ซีนที่ผ่านตรวจ ${status.optInt("percent").coerceIn(0,100)}%\n$label\nใช้เวลา $time$phase$task\n${if(state=="awaiting_outline") "เปิดงานเขียนบท แล้วกดทำต่อ • ใช้โครงเรื่องเดิม ไม่ต้องยืนยันอีก" else message}$history\nแอปอัปเดตสถานะล่าสุด $update"

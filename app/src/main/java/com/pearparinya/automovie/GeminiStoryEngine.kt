@@ -163,7 +163,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                             require(problems.isEmpty()) { "EP ${i+1} ซีน ${rows.getJSONObject(n).optInt("scene")}: "+problems.joinToString("; ") }
                         }
                     }
-                    if(spec.optInt("audio_version")>=1) { val soundScenes=it.getJSONArray("scenes"); for(n in 0 until soundScenes.length()) SoundDesign.validate(soundScenes.getJSONObject(n)) }
+                    if(spec.optInt("audio_version")>=1) { val soundScenes=it.getJSONArray("scenes"); for(n in 0 until soundScenes.length()) { SoundDesign.normalizeOptionalMusic(soundScenes.getJSONObject(n)); SoundDesign.validate(soundScenes.getJSONObject(n)) } }
                     if(spec.optInt("performance_version")>=1) {
                         val sceneRows=it.getJSONArray("scenes"); for(n in 0 until sceneRows.length()) {
                             val scene=sceneRows.getJSONObject(n)

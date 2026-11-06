@@ -207,6 +207,10 @@ class AutoDirectorContentTest {
         assertTrue(xml.contains("<sound_effects>")); assertTrue(xml.contains("soft paper rustle"))
         assertTrue(SceneCommandCards.join(videos).contains("=== ซีน 24"))
         SoundDesign.validate(scenes.getJSONObject(0))
+        scenes.getJSONObject(0).getJSONObject("sound_design").remove("music")
+        SoundDesign.normalizeOptionalMusic(scenes.getJSONObject(0))
+        assertEquals("none",scenes.getJSONObject(0).getJSONObject("sound_design").getString("music"))
+        SoundDesign.validate(scenes.getJSONObject(0))
         scenes.getJSONObject(0).getJSONObject("sound_design").remove("sfx")
         assertTrue(runCatching { SoundDesign.validate(scenes.getJSONObject(0)) }.isFailure)
     }

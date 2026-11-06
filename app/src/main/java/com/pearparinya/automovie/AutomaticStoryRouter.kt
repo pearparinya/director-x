@@ -50,17 +50,24 @@ internal class AutomaticStoryRouter(
                         return try { SceneXml.apply(draft,formatted.getString("xml")) }
                         catch(e: Exception) { throw InvalidSceneXml(e) }
                     }
-                    try { formatWith(formatter) }
-                    catch(e: Exception) {
-                        if(cancelled() || e is CancellationException) throw CancellationException()
-                        // Keep the completed draft when the primary formatter is unavailable.
-                        // DeepSeek can format it without asking Gemini to write it again.
-                        if(writer!=StoryProvider.GROQ || formatter!=StoryProvider.GEMINI ||
-                            StoryProvider.DEEPSEEK !in clients || StoryProvider.DEEPSEEK in unavailable || !canSwitch(e)) throw e
-                        onFailure(formatter,failureCategory(e))
-                        if(StoryRequestRetry.canRetry(e)) temporary=e
-                        formatWith(StoryProvider.DEEPSEEK)
+                    // Pass the same completed draft to available formatters; never
+                    // rewrite the writer's scenes merely because formatting failed.
+                    val formatters=(listOf(formatter,StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER))
+                        .distinct().filter { it!=writer && it in clients && it !in unavailable }
+                    var formatted: JSONObject?=null
+                    var formatFailure: Exception?=null
+                    for(target in formatters) {
+                        try { formatted=formatWith(target); break }
+                        catch(e: Exception) {
+                            if(cancelled() || e is CancellationException) throw CancellationException()
+                            if(!canSwitch(e)) throw e
+                            if(target!=formatters.last()) onFailure(target,failureCategory(e))
+                            if(e is StoryHttpFailure && e.status==402) unavailable[target]=e
+                            if(StoryRequestRetry.canRetry(e)) temporary=e
+                            formatFailure=e
+                        }
                     }
+                    formatted ?: throw (formatFailure ?: IllegalStateException("ไม่มีบริการจัดรูปแบบที่พร้อม"))
                 } else draft
                 routes.forEach { (candidate,_) -> draftFile(candidate,prompt,schema).delete() }
                 return result
