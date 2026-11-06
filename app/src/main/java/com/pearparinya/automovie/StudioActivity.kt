@@ -645,6 +645,10 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun installCharacterMasters() {
         CharacterLibraryReset.install(filesDir)
+        // Refresh an existing cached copy of Krit's reference after the bundled image changes.
+        if(File(filesDir,"master_library/CHAR_141__1000030680.jpg").isFile) {
+            masterLibrary.entries().firstOrNull { it.id=="CHAR_141" }?.let { masterLibrary.source(it) }
+        }
     }
     override fun onResume() {
         super.onResume()

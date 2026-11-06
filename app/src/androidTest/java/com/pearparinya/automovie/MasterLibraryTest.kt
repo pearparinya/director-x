@@ -11,6 +11,18 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class MasterLibraryTest {
+    @Test fun updatedKritReferenceReplacesOldLibraryCache() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val root=File(context.cacheDir,"krit-cache-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val library=MasterLibrary(root) { context.assets.open(it).use { input -> input.readBytes() } }
+            val entry=library.entries().first { it.id=="CHAR_141" }
+            val cached=File(root,entry.filename).apply { writeText("old cached reference") }
+            assertEquals("b098bec656fed141d279b4ffba62ef58d489b9b72402a97eb75c1d63585e312d",entry.sha256)
+            assertEquals(entry.sha256,MasterLibrary.digest(library.source(entry).readBytes()))
+            assertEquals(entry.sha256,MasterLibrary.digest(cached.readBytes()))
+        } finally { root.deleteRecursively() }
+    }
     @Test fun bundledCatalogKeepsNewWomenAndMenWithoutOldWomenOrDuplicateImages() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val rows=JSONObject(context.assets.open("master_library/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records")
