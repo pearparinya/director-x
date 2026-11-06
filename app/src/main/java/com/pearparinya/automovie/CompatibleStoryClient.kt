@@ -10,7 +10,8 @@ import java.util.concurrent.CancellationException
 internal enum class CompatibleService(val label: String, val url: String, val defaultModel: String) {
     CEREBRAS("Cerebras", "https://api.cerebras.ai/v1/chat/completions", "llama3.1-8b"),
     DEEPSEEK("DeepSeek", "https://api.deepseek.com/chat/completions", "deepseek-flash"),
-    OPENROUTER("OpenRouter", "https://openrouter.ai/api/v1/chat/completions", "openrouter/free")
+    OPENROUTER("OpenRouter", "https://openrouter.ai/api/v1/chat/completions", "openrouter/free"),
+    COHERE("Cohere", "https://api.cohere.ai/compatibility/v1/chat/completions", "command-a-03-2025")
 }
 
 internal class InvalidStoryResponse(message: String): IllegalStateException(message)

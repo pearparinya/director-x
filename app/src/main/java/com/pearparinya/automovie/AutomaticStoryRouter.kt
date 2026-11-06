@@ -17,7 +17,7 @@ internal class AutomaticStoryRouter(
     private val progress: (StoryProvider,String)->Unit
 ) {
     var onFailure: (StoryProvider,String)->Unit = { _,_ -> }
-    private val routes=listOf(StoryProvider.GROQ to StoryProvider.GEMINI,StoryProvider.GEMINI to StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER to null)
+    private val routes=listOf(StoryProvider.GROQ to StoryProvider.GEMINI,StoryProvider.GEMINI to StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER to null,StoryProvider.COHERE to null)
     private val unavailable=mutableMapOf<StoryProvider,StoryHttpFailure>()
 
     fun generate(prompt: String,schema: JSONObject): JSONObject {
@@ -56,7 +56,7 @@ internal class AutomaticStoryRouter(
                     }
                     // Pass the same completed draft to available formatters; never
                     // rewrite the writer's scenes merely because formatting failed.
-                    val formatters=(listOf(formatter,StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER))
+                    val formatters=(listOf(formatter,StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER,StoryProvider.COHERE))
                         .distinct().filter { it!=writer && it in clients && it !in unavailable }
                     var formatted: JSONObject?=null
                     var formatFailure: Exception?=null
@@ -94,7 +94,7 @@ internal class AutomaticStoryRouter(
         // even if another provider rejected the request size.
         temporary?.let { throw it }
         if(sceneBatch && oversized) throw StoryBatchTooLarge()
-        throw last ?: unavailable.values.firstOrNull() ?: IllegalStateException("ตั้งค่า Groq + Gemini หรือ Gemini + DeepSeek หรือ OpenRouter ก่อนเริ่ม")
+        throw last ?: unavailable.values.firstOrNull() ?: IllegalStateException("ตั้งค่า Groq + Gemini หรือ Gemini + DeepSeek หรือ OpenRouter หรือ Cohere ก่อนเริ่ม")
     }
     private fun generateChecked(provider: StoryProvider,prompt: String,schema: JSONObject): JSONObject = try {
         clients.getValue(provider).generate(prompt,schema)

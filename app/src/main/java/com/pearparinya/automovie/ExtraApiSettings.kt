@@ -16,11 +16,13 @@ import javax.crypto.spec.GCMParameterSpec
 internal enum class ExtraApiProvider(val id: String, val label: String) {
     CEREBRAS("cerebras", "Cerebras"),
     DEEPSEEK("deepseek", "DeepSeek"),
-    OPENROUTER("openrouter", "OpenRouter");
+    OPENROUTER("openrouter", "OpenRouter"),
+    COHERE("cohere", "Cohere");
     val service: CompatibleService get() = when(this) {
         CEREBRAS -> CompatibleService.CEREBRAS
         DEEPSEEK -> CompatibleService.DEEPSEEK
         OPENROUTER -> CompatibleService.OPENROUTER
+        COHERE -> CompatibleService.COHERE
     }
 }
 
