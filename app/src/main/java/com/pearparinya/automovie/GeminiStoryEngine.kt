@@ -29,8 +29,13 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
             if(target!=null && rows!=null) {
                 val focused=prompt.replace(Regex("Write exactly scenes [0-9]+ to [0-9]+"),"Write exactly scenes $sceneNumber to $sceneNumber")
                 val replacement=generate(focused+marker+"Your previous JSON failed validation: "+issue.message.orEmpty().take(600)+
-                    "\nRepair ONLY scene $sceneNumber. Return scenes array with exactly this one scene. Keep its events and registered identities. Other scenes are frozen. Previous scene:\n"+rows.getJSONObject(target),schema).getJSONArray("scenes")
-                require(replacement.length()==1 && replacement.getJSONObject(0).optInt("scene")==sceneNumber) { "ซ่อมบทต้องส่งกลับเฉพาะซีน $sceneNumber" }
+                    "\nRepair ONLY scene $sceneNumber. Return scenes array with exactly this one scene. Keep its events and registered identities. Other scenes are frozen. Previous scene:\n"+rows.getJSONObject(target),schema).optJSONArray("scenes")
+                if(replacement==null || replacement.length()!=1 || replacement.optJSONObject(0)?.optInt("scene")!=sceneNumber) {
+                    // Keep the original pending batch and try the next route. Do not
+                    // commit a malformed repair or overwrite unrelated scenes.
+                    problem=IllegalArgumentException("ซ่อมบทต้องส่งกลับเฉพาะซีน $sceneNumber")
+                    continue
+                }
                 rows.put(target,replacement.getJSONObject(0))
             } else {
                 value=generate(prompt+marker+"Your previous JSON failed validation: "+issue.message.orEmpty().take(600)+

@@ -35,7 +35,9 @@ internal class AutomaticStoryRouter(
         val ordered=routes.drop(offset)+routes.take(offset)
         for((writer,formatter) in ordered) {
             if(cancelled()) throw CancellationException()
-            if(writer !in clients || writer in unavailable || formatter != null && (formatter !in clients || formatter in unavailable)) continue
+            // The preferred formatter may be unavailable; another configured provider
+            // can still format the writer's draft without losing completed work.
+            if(writer !in clients || writer in unavailable) continue
             var current=writer
             try {
                 val cache=draftFile(writer,prompt,schema)

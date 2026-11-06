@@ -513,6 +513,24 @@ class GeminiStoryTest {
             assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_->error("saved scenes must be reused") }).run(selected).toString())
         } finally { folder.deleteRecursively() }
     }
+    @Test fun malformedRepairKeepsPendingSceneAndTriesNextProvider() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"malformed-repair-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val selected=ClipPlan.apply(spec().put("episodes",1).put("provider","groq"),"short",30)
+            var calls=0; val markers=mutableListOf<String>()
+            val story=GeminiStoryEngine(folder,{ prompt,_ ->
+                if(prompt.contains("Plan a complete story")) outline().apply { put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0))) }
+                else {
+                    calls++
+                    Regex("DIRECTOR_INTERNAL_REPAIR_ATTEMPT=[0-9]+").find(prompt)?.value?.let { markers.add(it) }
+                    if(calls==2) JSONObject().put("scenes",JSONArray())
+                    else batch(prompt).apply { if(calls==1) getJSONArray("scenes").getJSONObject(0).put("duration_seconds",10) }
+                }
+            }).run(selected)
+            assertEquals(listOf("DIRECTOR_INTERNAL_REPAIR_ATTEMPT=1","DIRECTOR_INTERNAL_REPAIR_ATTEMPT=2"),markers)
+            assertEquals(4,story.getInt("scene_count")); assertTrue(File(folder,"EP01_01.json").isFile)
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun shortRepliesCanRepeatButLongRepeatedLinesIdentifyBothScenes() {
         val rows=batch("Write exactly scenes 1 to 6 for EP 1").getJSONArray("scenes")
         for(i in 0 until rows.length()) rows.getJSONObject(i).put("speaker","เมย์").put("dialogue",if(i%2==0) "ค่ะ" else "ทำไม")
