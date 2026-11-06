@@ -11,6 +11,21 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class MasterLibraryTest {
+    @Test fun bundledCatalogKeepsNewWomenAndMenWithoutOldWomenOrDuplicateImages() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val rows=JSONObject(context.assets.open("master_library/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records")
+        val entries=(0 until rows.length()).map { rows.getJSONObject(it) }
+        val women=entries.filter { it.getString("character_gender")=="woman" }
+        assertEquals((146..152).map { "CHAR_%03d".format(it) },women.map { it.getString("id") })
+        assertEquals(17,entries.count { it.getString("character_gender")=="man" })
+        val hashes=entries.map { row ->
+            val bytes=context.assets.open("master_library/"+row.getString("file")).use { it.readBytes() }
+            assertEquals(row.getString("sha256"),MasterLibrary.digest(bytes))
+            MasterLibrary.digest(bytes)
+        }
+        assertEquals(hashes.size,hashes.distinct().size)
+        assertTrue(runCatching { context.assets.open("master_library/CHAR_101__1000030761.jpg").close() }.isFailure)
+    }
     @Test fun allBundledReferencesDecodeAndRetainTheirOriginalBytes() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val root=File(context.cacheDir,UUID.randomUUID().toString())
