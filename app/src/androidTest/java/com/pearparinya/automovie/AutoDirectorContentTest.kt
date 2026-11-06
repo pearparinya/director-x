@@ -68,6 +68,8 @@ class AutoDirectorContentTest {
             assertTrue(task.command.contains("WARDROBE CONTINUITY"))
             assertTrue(task.command.contains("neckline, collar, sleeves, closures"))
             assertTrue(task.command.contains("their own MASTER controls face, hair and body"))
+            assertTrue(task.command.contains("three views in each MASTER represent ONE person"))
+            assertTrue(task.command.contains("new story day can use the outfit planned for that day"))
         }
     }
     @Test fun sceneImageLocksOnlyVisibleCastEvenWhenOthersAreMentioned() {

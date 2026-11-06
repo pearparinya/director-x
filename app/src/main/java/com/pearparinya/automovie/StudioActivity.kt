@@ -1175,6 +1175,10 @@ class StudioActivity : AppCompatActivity() {
             panel.addView(TextView(this).apply { text="${person.optString("name")} • $position\n$id"; setTypeface(null,Typeface.BOLD) })
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(220)); setOnClickListener { fullImage(file,person.optString("name")) } })
         }
+        references.drop(task.references.size).forEach { (id,file) ->
+            panel.addView(TextView(this).apply { text="ภาพสถานที่อ้างอิงที่ตรวจแล้ว • $id (ไม่ใช่ MASTER ตัวละคร)" })
+            panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(180)); setOnClickListener { fullImage(file,"ภาพสถานที่อ้างอิง") } })
+        }
         AlertDialog.Builder(this).setTitle("ตรวจ MASTER • ${task.id}").setView(ScrollView(this).apply { addView(panel) })
             .setPositiveButton("เลือกแอปและส่ง") { _,_ -> shareImageCommand(task.command,references,labels) }
             .setNegativeButton("กลับไปตรวจ",null).showDirector()
@@ -1606,8 +1610,16 @@ class StudioActivity : AppCompatActivity() {
                 if(refs.map { it.first.lowercase() }.distinct().size != refs.size) { notice("รหัส MASTER ซ้ำกัน กรุณาตรวจตัวละครก่อนสร้างภาพ"); return@setOnClickListener }
                 val hashes=runCatching { refs.map { MasterLibrary.digest(it.second.readBytes()) } }.getOrElse { notice("อ่าน MASTER ไม่ได้ กรุณาตรวจไฟล์ภาพ"); return@setOnClickListener }
                 if(hashes.distinct().size != hashes.size) { notice("MASTER ของตัวละครต่างคนเป็นไฟล์ภาพเดียวกัน กรุณาตรวจและเปลี่ยนภาพก่อนสร้าง"); return@setOnClickListener }
-                val labels=task.references.associate { referenceId(it.getString("master")) to it.getString("name") }
-                previewImageReferences(task,refs,labels)
+                val labels=task.references.associate { referenceId(it.getString("master")) to it.getString("name") }.toMutableMap()
+                val scene=rows(story).firstOrNull { key(it)==task.id }
+                val all=rows(story); val sceneIndex=if(scene==null) -1 else all.indexOfFirst { key(it)==task.id }
+                val previous=if(scene==null || sceneIndex<0 || scene.optString("location").isBlank()) null else all.take(sceneIndex).firstOrNull {
+                    it.optString("location").trim().equals(scene.optString("location").trim(),true) && sceneFrameApproved(it)
+                }
+                val context=previous?.let { prior ->
+                    val id=key(prior); labels[id]="ภาพสถานที่ที่ผู้ใช้ตรวจแล้ว • ใช้ดูสถานที่และสิ่งของเท่านั้น"; listOf(id to image(prior))
+                }.orEmpty()
+                previewImageReferences(task,refs+context,labels)
             }
             dialog.getButton(-3).text="แก้เฉพาะรายการนี้"
             dialog.getButton(-3).setOnClickListener {
