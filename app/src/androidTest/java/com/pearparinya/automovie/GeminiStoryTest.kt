@@ -379,7 +379,7 @@ class GeminiStoryTest {
             assertEquals(1,calls)
             assertEquals(before,JSONObject(File(folder,"EP01_01.json").readText()).getJSONArray("scenes").getJSONObject(0).toString())
             assertFalse(pending.exists()); assertEquals(4,story.getInt("scene_count"))
-            assertTrue(progress.any { it.contains("กำลังแก้ซีน 3") })
+            assertTrue(progress.any { it.contains("ซีน 3 ไปแก้ไข") })
         } finally { folder.deleteRecursively() }
     }
     @Test fun pendingBatchRetainsItsRangeAfterProviderSwitchAndRepairsOnlyWrongDuration() {
@@ -490,9 +490,27 @@ class GeminiStoryTest {
                         .put("speaker","เมย์").put("dialogue","ใครส่งมา").put("narration","เธอถาม") }
                 }
             }).run(spec()) }
-            assertTrue(failure.isFailure); assertEquals(2,batches)
-            assertTrue(failure.exceptionOrNull()!!.message!!.contains("หลังแก้ 1 ครั้ง"))
+            assertTrue(failure.isFailure); assertEquals(4,batches)
+            assertTrue(failure.exceptionOrNull()!!.message!!.contains("หลังแก้ 3 ครั้ง"))
             assertTrue(File(folder,"outline.json").exists()); assertFalse(File(folder,"EP01_01.json").exists())
+        } finally { folder.deleteRecursively() }
+    }
+    @Test fun triesAnotherRepairAndKeepsAlreadySavedScenes() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"repeat-repair-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val selected=ClipPlan.apply(spec().put("episodes",1).put("provider","groq"),"short",30)
+            var calls=0; val markers=mutableListOf<String>()
+            val story=GeminiStoryEngine(folder,{ prompt,_ ->
+                if(prompt.contains("Plan a complete story")) outline().apply { put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0))) }
+                else {
+                    calls++
+                    Regex("DIRECTOR_INTERNAL_REPAIR_ATTEMPT=[0-9]+").find(prompt)?.value?.let { markers.add(it) }
+                    batch(prompt).apply { if(calls<=2) getJSONArray("scenes").getJSONObject(0).put("duration_seconds",10) }
+                }
+            }).run(selected)
+            assertEquals(listOf("DIRECTOR_INTERNAL_REPAIR_ATTEMPT=1","DIRECTOR_INTERNAL_REPAIR_ATTEMPT=2"),markers)
+            assertEquals(4,story.getInt("scene_count")); assertTrue(File(folder,"EP01_01.json").isFile)
+            assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_->error("saved scenes must be reused") }).run(selected).toString())
         } finally { folder.deleteRecursively() }
     }
     @Test fun shortRepliesCanRepeatButLongRepeatedLinesIdentifyBothScenes() {
