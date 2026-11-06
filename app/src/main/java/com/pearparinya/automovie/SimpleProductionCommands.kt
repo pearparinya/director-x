@@ -82,6 +82,7 @@ Lighting: $light
 Acting: ${acting(scene).ifBlank { "Individual restrained expressions consistent with the stated action and start state." }}
 ${BodyReferencePolicy.imageIdentityLock}
 ${ImagePromptPolicy.skinTone}
+${ReadingPropPolicy.forScene(scene.optString("action"), scene.optString("flow_action"), scene.optString("start_state"), scene.optString("end_state"))}
 Mouths closed in this still. Preserve all props and screen positions for the matching video.
 ${scene.optString("production_image_note").takeIf { it.isNotBlank() }?.let { "Local visual correction (keep bright lighting, identity, outfit, cast and start state): $it" }.orEmpty()}""".trim()
             add(Task(id,"EP.$number | ซีน %03d | แนวตั้ง 9:16".format(n),"9:16",command,FlowReferencePrompt.people(scene)))

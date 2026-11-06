@@ -14,6 +14,17 @@ class BodyReferencePolicyTest {
         assertFalse(prompt.contains("RINLADA"))
         assertFalse(prompt.contains("100%"))
     }
+    @Test fun outfitChangesKeepMasterProportions() {
+        assertTrue(BodyReferencePolicy.imageIdentityLock.contains("every outfit change"))
+        assertTrue(BodyReferencePolicy.imageIdentityLock.contains("never slim, reduce or reshape"))
+    }
+    @Test fun documentDirectionOnlyAppliesToRelevantScenes() {
+        val prompt = ReadingPropPolicy.forScene("เธออ่านเอกสาร", "")
+        assertTrue(prompt.contains("written side faces the reader"))
+        assertTrue(prompt.contains("blank reverse to camera"))
+        assertTrue(prompt.contains("no readable or mirrored text"))
+        assertEquals("", ReadingPropPolicy.forScene("เดินเข้าห้อง", "she smiles"))
+    }
     @Test fun changingSceneMasterOrClothesInvalidatesHumanReview() {
         val stamp=BodyReviewStamp("imageA","masterA","shirtA")
         assertTrue(stamp.matches("imageA","masterA","shirtA"))
