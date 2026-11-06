@@ -40,6 +40,8 @@ internal class AutomaticStoryRouter(
             // The preferred formatter may be unavailable; another configured provider
             // can still format the writer's draft without losing completed work.
             if(writer !in clients || writer in unavailable) continue
+            if(sceneBatch && formatter!=null && listOf(formatter,StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER,StoryProvider.COHERE)
+                .none { it!=writer && it in clients && it !in unavailable }) continue
             var current=writer
             try {
                 val cache=draftFile(writer,prompt,schema)
