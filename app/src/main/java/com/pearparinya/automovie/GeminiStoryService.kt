@@ -60,7 +60,7 @@ class GeminiStoryService : Service() {
                         val spec=GeminiStoryFiles.read(File(folder,"spec.json"))
                         // Migrate old single-provider jobs without changing validated story files.
                         if(spec.optString("provider").equals("cerebras",ignoreCase=true)) {
-                            require(StoryProvider.ready(this)) { "ตั้งค่า Groq + Gemini หรือ Gemini + DeepSeek หรือ OpenRouter ก่อนทำต่อ" }
+                            require(StoryProvider.ready(this)) { "ตั้งค่า Groq + Gemini หรือ Gemini + DeepSeek หรือ OpenRouter หรือ Cohere ก่อนทำต่อ" }
                             StoryProvider.configure(this,spec)
                             GeminiStoryFiles.write(File(folder,"spec.json"),spec)
                         }

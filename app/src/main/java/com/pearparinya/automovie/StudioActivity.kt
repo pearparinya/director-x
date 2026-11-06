@@ -1729,7 +1729,7 @@ class StudioActivity : AppCompatActivity() {
         splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
     }
     private fun flowSettings() {
-        choiceMenu("ตั้งค่า DIRECTOR X",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","API 4 ค่าย • ตั้งค่าการเขียนบทอัตโนมัติ")) { i -> when(i) {
+        choiceMenu("ตั้งค่า DIRECTOR X",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","API • ตั้งค่าการเขียนบทอัตโนมัติ")) { i -> when(i) {
             0 -> updater.check()
             1 -> { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
             2 -> if(plan==null) notice("ยังไม่มีเรื่องให้สำรอง") else { backupMode=true; zipPicker.launch(StoryFiles.zipName(plan!!.optString("title")+"_สำรอง")) }
@@ -1751,11 +1751,9 @@ class StudioActivity : AppCompatActivity() {
         val choices=providers.map { it.label+if(it.hasKey(this)) " • บันทึกคีย์แล้ว" else " • ยังไม่มีคีย์" }+
             listOf("ทดสอบ Groq และ Gemini")
         choiceMenu("ตั้งค่าคีย์ API • ใช้อัตโนมัติ",choices) { index ->
-            when(index) {
-                0,1 -> storyProviderSettings(providers[index],afterSave)
-                2,3 -> extraApiKeyDialog(providers[index].extra()!!,afterSave)
-                4 -> testStoryApis(StoryProvider.hybridProviders)
-            }
+            if(index==providers.size) testStoryApis(StoryProvider.hybridProviders)
+            else if(providers[index].extra()==null) storyProviderSettings(providers[index],afterSave)
+            else extraApiKeyDialog(providers[index].extra()!!,afterSave)
         }
     }
     private fun extraApiSettingsMenu() {
@@ -1996,7 +1994,7 @@ class StudioActivity : AppCompatActivity() {
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
             val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("1 EP • จบในตอน","ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); if(format!="short") panel.addView(this) }
             if(format=="short") panel.addView(TextView(this).apply { text="คลิปสั้น • จบในคลิปเดียว" })
-            panel.addView(TextView(this).apply { text="${if(format=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(seconds)}${if(format=="short") "" else " ต่อ EP"} • ไม่รวมปกเปิด 3 วินาที • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้\n\nอัตโนมัติ: Groq → Gemini; สำรอง Gemini → DeepSeek; ฉุกเฉิน OpenRouter ฟรี • เนื้อหาอาจถูกส่งไปยังค่ายที่รับช่วง • โควตาและค่าบริการขึ้นอยู่กับแต่ละบัญชี • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ภายหลัง" })
+            panel.addView(TextView(this).apply { text="${if(format=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(seconds)}${if(format=="short") "" else " ต่อ EP"} • ไม่รวมปกเปิด 3 วินาที • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้\n\nอัตโนมัติ: Groq → Gemini; สำรอง Gemini → DeepSeek, OpenRouter หรือ Cohere • เนื้อหาอาจถูกส่งไปยังค่ายที่รับช่วง • โควตาและค่าบริการขึ้นอยู่กับแต่ละบัญชี • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ภายหลัง" })
             AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
                     runCatching {

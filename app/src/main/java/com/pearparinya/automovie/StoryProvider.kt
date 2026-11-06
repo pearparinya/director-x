@@ -8,11 +8,13 @@ internal enum class StoryProvider(val id: String,val label: String,val defaultMo
     GEMINI("gemini","Gemini",GeminiSettings.DEFAULT_MODEL,"https://aistudio.google.com/apikey"),
     CEREBRAS("cerebras","Cerebras",CompatibleService.CEREBRAS.defaultModel,"https://cloud.cerebras.ai/"),
     DEEPSEEK("deepseek","DeepSeek",CompatibleService.DEEPSEEK.defaultModel,"https://platform.deepseek.com/"),
-    OPENROUTER("openrouter","OpenRouter",CompatibleService.OPENROUTER.defaultModel,"https://openrouter.ai/keys");
+    OPENROUTER("openrouter","OpenRouter",CompatibleService.OPENROUTER.defaultModel,"https://openrouter.ai/keys"),
+    COHERE("cohere","Cohere",CompatibleService.COHERE.defaultModel,"https://dashboard.cohere.com/api-keys");
     fun extra(): ExtraApiProvider? = when(this) {
         CEREBRAS -> ExtraApiProvider.CEREBRAS
         DEEPSEEK -> ExtraApiProvider.DEEPSEEK
         OPENROUTER -> ExtraApiProvider.OPENROUTER
+        COHERE -> ExtraApiProvider.COHERE
         else -> null
     }
     fun key(context: Context): String = extra()?.let { ExtraApiSettings(context,it).key() } ?: GeminiSettings(context,this).key()
@@ -25,8 +27,8 @@ internal enum class StoryProvider(val id: String,val label: String,val defaultMo
         fun enableHybrid(context: Context) { context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).edit().putBoolean("hybrid",true).apply() }
         fun label(context: Context)="API อัตโนมัติ"
         val hybridProviders=listOf(GROQ,GEMINI)
-        val activeProviders=listOf(GROQ,GEMINI,DEEPSEEK,OPENROUTER)
-        fun ready(context: Context)=(GROQ.hasKey(context) && GEMINI.hasKey(context)) || (GEMINI.hasKey(context) && DEEPSEEK.hasKey(context)) || OPENROUTER.hasKey(context)
+        val activeProviders=listOf(GROQ,GEMINI,DEEPSEEK,OPENROUTER,COHERE)
+        fun ready(context: Context)=(GROQ.hasKey(context) && GEMINI.hasKey(context)) || (GEMINI.hasKey(context) && DEEPSEEK.hasKey(context)) || OPENROUTER.hasKey(context) || COHERE.hasKey(context)
         fun configure(context: Context,spec: JSONObject): JSONObject {
             spec.put("provider",GROQ.id).put("model",GROQ.model(context)).put("hybrid",false).put("auto_pipeline",true)
             activeProviders.filter { it.hasKey(context) }.forEach { spec.put("${it.id}_model",it.model(context)) }

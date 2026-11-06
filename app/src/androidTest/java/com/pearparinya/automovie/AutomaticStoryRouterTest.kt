@@ -19,6 +19,19 @@ class AutomaticStoryRouterTest {
         override fun cancel() {}
     }
     private fun xml(line: String="สวัสดี")=JSONObject().put("xml","<flow><scene id=\"1\"><prompt>May opens the door</prompt><dialogue>$line</dialogue></scene></flow>")
+    @Test fun cohereReceivesCompletedDraftWhenGeminiFails() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"cohere-handoff-${UUID.randomUUID()}")
+        try {
+            var writes=0; var formats=0
+            val groq=client { _,_ -> writes++; draft() }
+            val gemini=client { _,_ -> throw StoryHttpFailure(503,null,"unavailable") }
+            val cohere=client { prompt,_ -> formats++; assertTrue(prompt.contains("สวัสดี")); xml() }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to groq,StoryProvider.GEMINI to gemini,StoryProvider.COHERE to cohere),{false},{_,_->})
+            val result=router.generate("brief",schema())
+            assertEquals(1,writes); assertEquals(1,formats)
+            assertEquals("สวัสดี",result.getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun pairsRunInOrderAndKeepOriginalDialogue() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-test-${UUID.randomUUID()}")
         try {
