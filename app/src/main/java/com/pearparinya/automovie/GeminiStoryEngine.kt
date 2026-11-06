@@ -17,30 +17,30 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
         var value=if(pending.isFile) GeminiStoryFiles.read(pending) else generate(prompt,schema)
         GeminiStoryFiles.write(pending,value); check()
         progress(lastPercent,"ได้รับคำตอบแล้ว • กำลังตรวจ $name")
-        try { validate(value) } catch(first: IllegalArgumentException) {
-            // One bounded semantic repair; transport, quota and safety errors are never retried.
-            progress(lastPercent,"AI ตอบกลับแล้ว • กำลังแก้รูปแบบบท 1 ครั้ง")
+        var problem: IllegalArgumentException? = try { validate(value); null } catch(e: IllegalArgumentException) { e }
+        for(attempt in 1..3) {
+            val issue=problem ?: break
             check()
-            val sceneNumber=Regex("ซีน ([0-9]+)").find(first.message.orEmpty())?.groupValues?.get(1)?.toIntOrNull()
+            val sceneNumber=Regex("ซีน ([0-9]+)").find(issue.message.orEmpty())?.groupValues?.get(1)?.toIntOrNull()
             val rows=value.optJSONArray("scenes")
             val target=if(rows!=null && sceneNumber!=null) (0 until rows.length()).firstOrNull { rows.getJSONObject(it).optInt("scene")==sceneNumber } else null
+            progress(lastPercent,if(target!=null) "กำลังส่งซีน $sceneNumber ไปแก้ไข • ครั้งที่ $attempt/3 • เก็บซีนอื่นไว้" else "กำลังแก้รูปแบบบท • ครั้งที่ $attempt/3")
+            val marker="\nDIRECTOR_INTERNAL_REPAIR_ATTEMPT=$attempt\n"
             if(target!=null && rows!=null) {
-                progress(lastPercent,"ได้รับบทแล้ว • กำลังแก้ซีน $sceneNumber • เก็บซีนอื่นไว้แล้ว")
                 val focused=prompt.replace(Regex("Write exactly scenes [0-9]+ to [0-9]+"),"Write exactly scenes $sceneNumber to $sceneNumber")
-                val replacement=generate(focused+"\nYour previous JSON failed validation: "+first.message.orEmpty().take(600)+
+                val replacement=generate(focused+marker+"Your previous JSON failed validation: "+issue.message.orEmpty().take(600)+
                     "\nRepair ONLY scene $sceneNumber. Return scenes array with exactly this one scene. Keep its events and registered identities. Other scenes are frozen. Previous scene:\n"+rows.getJSONObject(target),schema).getJSONArray("scenes")
                 require(replacement.length()==1 && replacement.getJSONObject(0).optInt("scene")==sceneNumber) { "ซ่อมบทต้องส่งกลับเฉพาะซีน $sceneNumber" }
                 rows.put(target,replacement.getJSONObject(0))
             } else {
-                value=generate(prompt+"\nYour previous JSON failed validation: "+first.message.orEmpty().take(600)+
+                value=generate(prompt+marker+"Your previous JSON failed validation: "+issue.message.orEmpty().take(600)+
                     "\nReturn a corrected replacement with the same events and scene numbers. Previous JSON:\n"+value.toString(),schema)
             }
             GeminiStoryFiles.write(pending,value)
             check()
-            try { validate(value) } catch(second: IllegalArgumentException) {
-                throw IllegalArgumentException("AI ตอบกลับแล้ว แต่รูปแบบบทยังไม่ผ่านหลังแก้ 1 ครั้ง: "+second.message.orEmpty().take(300))
-            }
+            problem=try { validate(value); null } catch(e: IllegalArgumentException) { e }
         }
+        problem?.let { throw IllegalArgumentException("AI ตอบกลับแล้ว แต่รูปแบบบทยังไม่ผ่านหลังแก้ 3 ครั้ง: "+it.message.orEmpty().take(300),it) }
         GeminiStoryFiles.write(file,value); pending.delete(); return value
     }
     fun run(spec: JSONObject): JSONObject {

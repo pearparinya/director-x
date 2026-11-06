@@ -29,7 +29,11 @@ internal class AutomaticStoryRouter(
         var last: Exception?=null
         var temporary: Exception?=null
         var oversized=false
-        for((writer,formatter) in routes) {
+        // Repair attempts begin with different configured routes while retaining the same scene.
+        val repair=Regex("DIRECTOR_INTERNAL_REPAIR_ATTEMPT=([1-3])").find(prompt)?.groupValues?.get(1)?.toIntOrNull() ?: 1
+        val offset=(repair-1)%routes.size
+        val ordered=routes.drop(offset)+routes.take(offset)
+        for((writer,formatter) in ordered) {
             if(cancelled()) throw CancellationException()
             if(writer !in clients || writer in unavailable || formatter != null && (formatter !in clients || formatter in unavailable)) continue
             var current=writer

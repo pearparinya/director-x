@@ -125,6 +125,18 @@ class AutomaticStoryRouterTest {
             assertEquals(1,deepCalls); assertEquals(2,openCalls)
         } finally { folder.deleteRecursively() }
     }
+    @Test fun secondRepairStartsWithConfiguredBackupWriter() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"repair-route-${UUID.randomUUID()}")
+        try {
+            val calls=mutableListOf<String>()
+            val groq=client { _,_ -> calls.add("groq"); draft() }
+            val gemini=client { _,_ -> calls.add("gemini"); draft() }
+            val deep=client { _,_ -> calls.add("deepseek"); xml() }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to groq,StoryProvider.GEMINI to gemini,StoryProvider.DEEPSEEK to deep),{false},{_,_->})
+            router.generate("Write exactly scenes 1 to 1\nDIRECTOR_INTERNAL_REPAIR_ATTEMPT=2",schema())
+            assertEquals(listOf("gemini","deepseek"),calls)
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun passesCompletedDraftToOpenRouterFormatterWithoutRewriting() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"handoff-${UUID.randomUUID()}")
         try {
