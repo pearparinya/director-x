@@ -1577,15 +1577,41 @@ class StudioActivity : AppCompatActivity() {
         productionTaskDeck(story,number,true)
         return true
     }
-    private fun productionTaskDeck(story: JSONObject,number: Int,images: Boolean) {
-        val tasks=runCatching { if(images) SimpleProductionCommands.imageTasks(story,number) else SimpleProductionCommands.videoTasks(story,number) }.getOrElse {
+    private fun productionTaskDeck(story: JSONObject,number: Int,images: Boolean,queueIds: Set<String>?=null) {
+        val allTasks=runCatching { if(images) SimpleProductionCommands.imageTasks(story,number) else SimpleProductionCommands.videoTasks(story,number) }.getOrElse {
             notice(it.message ?: "ข้อมูลคำสั่งไม่ครบ"); productionCheckMenu(story); return
         }
+        if(images && queueIds==null) {
+            val covers=allTasks.filter { it.id.contains("_COVER_") }
+            val groups=allTasks.filter { it.id.contains("_SC") }.chunked(5)
+            val groupsWithCovers=(if(covers.isEmpty()) emptyList() else listOf(covers))+groups
+            val options=groupsWithCovers.map { group ->
+                val label=if(group.first().id.contains("_COVER_")) "ปก" else "${group.first().id} – ${group.last().id}"
+                val completed=group.count { task -> rows(story).firstOrNull { key(it)==task.id }?.let { sceneFrameApproved(it) } == true }
+                if(group.first().id.contains("_COVER_")) label else "$label • ตรวจผ่าน $completed/${group.size}"
+            }
+            if(options.isEmpty()) { notice("ยังไม่มีรายการภาพใน EP นี้"); return }
+            choiceMenu("EP.$number • เลือกชุดภาพ (ครั้งละ 5 ซีน)",options) { selected ->
+                productionTaskDeck(story,number,true,groupsWithCovers[selected].map { it.id }.toSet())
+            }
+            return
+        }
+        val tasks=if(queueIds==null) allTasks else allTasks.filter { it.id in queueIds }
+        if(tasks.isEmpty()) { notice("ไม่พบรายการภาพ"); return }
         if(images) prefs.edit().putInt("last_image_deck_${project.name}",number).apply()
         val preference="production_cursor_${project.name}_${number}_$images"
         val previous=prefs.getString(preference,"")
         val start=tasks.indexOfFirst { it.id==previous }.coerceAtLeast(0)
-        val options=listOf("ทำต่อจากล่าสุดที่เปิด • ${tasks[start].id}")+tasks.map { "${it.id} • ${it.title}" }
+        val options=listOf("ทำต่อจากล่าสุดที่เปิด • ${tasks[start].id}")+tasks.map { task ->
+            val scene=if(images) rows(story).firstOrNull { key(it)==task.id } else null
+            val status=if(scene==null) "" else when {
+                sceneFrameApproved(scene) -> " • ตรวจผ่าน"
+                !image(scene).isFile -> " • รอภาพ"
+                scene.optString("user_review")=="needs_revision" -> " • ต้องแก้"
+                else -> " • รอตรวจ"
+            }
+            "${task.id} • ${task.title}$status"
+        }
         choiceMenu("EP.$number • เลือกรหัสรูป/ซีน",options) { selected ->
             val index=if(selected==0) start else selected-1; val task=tasks[index]
             prefs.edit().putString(preference,task.id).apply()
@@ -1598,7 +1624,7 @@ class StudioActivity : AppCompatActivity() {
             dialog.getButton(-2).setOnClickListener {
                 dialog.dismiss()
                 if(images) activeProductionDialog=null
-                productionTaskDeck(story,number,images)
+                productionTaskDeck(story,number,images,queueIds)
             }
             if(problems.isNotEmpty()) dialog.getButton(-1).setOnClickListener { notice("คำสั่งยังมีจุดต้องแก้ • เปิด ตรวจคำสั่ง / แก้เฉพาะจุด ก่อนคัดลอก") }
             dialog.getButton(-1).text=if(images) "เลือกแอปสร้างภาพ + MASTER" else "คัดลอกคำสั่ง Flow"
