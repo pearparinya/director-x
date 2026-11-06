@@ -131,6 +131,8 @@ class GeminiStoryTest {
     }
     @Test fun selectedClipDurationsCompleteResumeAndExportWithoutLegacyMinimum() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
+        assertEquals(15,ClipPlan.count(ClipPlan.apply(JSONObject(),"long",120)))
+        assertEquals("15 ซีน × 8 วินาที = 2:00 เนื้อหา • ไม่รวมปกเปิด",ClipPlan.label(120))
         assertEquals(10,ChannelCatalog.groups.size)
         assertEquals((1..35).toList(),ChannelCatalog.topics.map { it.id })
         for(format in listOf("short","long")) for(seconds in if(format=="short") ClipPlan.shortSeconds else ClipPlan.longSeconds) {

@@ -184,7 +184,7 @@ internal object ChannelCatalog {
 
 internal object ClipPlan {
     val shortSeconds = listOf(30,60,120,180)
-    val longSeconds = listOf(180,300,420,600)
+    val longSeconds = listOf(120,180,300,420,600)
     fun scenes(seconds: Int): Int { require(seconds in 30..600); return (seconds+7)/8 }
     fun count(value: JSONObject): Int = if(value.optInt("clip_plan_version")==1) {
         val seconds=value.getInt("target_seconds")
