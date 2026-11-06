@@ -118,6 +118,16 @@ class FlowScenePromptTest {
         val unknown=spec.copy(action="เมย์ holds a folder and UnknownPerson looks at รินรดา")
         assertTrue(FlowScenePrompt.issues(unknown).any { it.contains("UnknownPerson") })
     }
+    @Test fun relativePronounsAreNotTreatedAsCharacterNames() {
+        for (word in listOf("who", "Who", "that", "which", "whoever")) {
+            val action="เมย์ sees รินรดา, $word holds a folder"
+            val spec=scene().copy(action=action)
+            assertFalse("Incorrectly flagged $word", FlowScenePrompt.issues(spec).any { it.contains("ชื่อภาษาอังกฤษ") })
+            assertTrue(FlowScenePrompt.build(spec).contains("<scene"))
+        }
+        assertTrue(FlowScenePrompt.issues(scene().copy(action="เมย์ sees Krit who holds a folder and Phakin walks away"))
+            .any { it.contains("Phakin") })
+    }
     @Test fun duplicateAliasesAndIndistinguishableMappingsAreRejected() {
         assertTrue(FlowScenePrompt.issues(scene().copy(cast=listOf(may,may.copy(name="มายด์")))).isNotEmpty())
         assertTrue(FlowScenePrompt.issues(scene().copy(cast=listOf(may,rin.copy(appearance=may.appearance,position=may.position)))).isNotEmpty())
