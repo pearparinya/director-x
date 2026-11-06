@@ -14,9 +14,10 @@ class StoryJobStatusTest {
         live.recordFailure(StoryProvider.GROQ,"HTTP 400 • invalid_schema")
         live.recordFailure(StoryProvider.CEREBRAS,"secret-key and private story")
         val paused=live.update("paused",0,"หยุดแล้ว","openrouter","paused")
-        val text=StoryStatusText.format(paused,false,1000L)
+        val text=StoryStatusText.format(paused,false,1000L,details=true)
         assertTrue(text.contains("เลือกตัวละคร")); assertTrue(text.contains("Groq: HTTP 400"))
         assertFalse(text.contains("Cerebras")); assertFalse(text.contains("secret-key"))
+        assertFalse(StoryStatusText.format(paused,false,1000L).contains("Groq: HTTP 400"))
         val resumed=StoryJobStatus(paused,0,{0L},{2000L}).update("running",0,"ต่อ","groq","requesting")
         assertEquals(2,resumed.getJSONArray("failures").length())
     }

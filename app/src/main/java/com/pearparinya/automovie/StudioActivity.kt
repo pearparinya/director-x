@@ -108,7 +108,7 @@ class StudioActivity : AppCompatActivity() {
             val status=readGeminiStatus()
             geminiStatusView?.text=geminiStatusText(status)
             geminiProgressView?.progress=status?.optInt("percent")?.coerceIn(0,100) ?: 0
-            geminiLiveDialog?.text=geminiStatusText(status)+if(status?.optString("state")=="running" && GeminiStoryService.running) "\n\nระบบจะทำต่อเองระหว่างรอ • กดหยุดเมื่อต้องการพักงาน" else ""
+            geminiLiveDialog?.text=geminiStatusText(status,true)+if(status?.optString("state")=="running" && GeminiStoryService.running) "\n\nระบบจะทำต่อเองระหว่างรอ • กดหยุดเมื่อต้องการพักงาน" else ""
             if(plan==null && File(project,"story.json").isFile && !importing) render()
             storyUiHandler.postDelayed(this,1000)
         }
@@ -1742,9 +1742,9 @@ class StudioActivity : AppCompatActivity() {
         } }
     }
     private fun readGeminiStatus(): JSONObject? = runCatching { GeminiStoryFiles.read(File(project,"gemini_job/status.json")) }.getOrNull()
-    private fun geminiStatusText(status: JSONObject?): String {
+    private fun geminiStatusText(status: JSONObject?,details: Boolean=false): String {
         if(status==null) return "${StoryProvider.label(this)} • ยังไม่เริ่มงาน"
-        return StoryStatusText.format(status,GeminiStoryService.running && GeminiStoryService.projectId==project.name)
+        return StoryStatusText.format(status,GeminiStoryService.running && GeminiStoryService.projectId==project.name,details=details)
     }
     private fun geminiSettings(afterSave: (() -> Unit)?=null) {
         val providers=StoryProvider.activeProviders
@@ -1878,7 +1878,7 @@ class StudioActivity : AppCompatActivity() {
         val state=readGeminiStatus()?.optString("state")
         if(state=="complete" && plan!=null) { if(plan!!.optString("content_profile")==AutoDirectorContent.profile) autoDirectorMenu() else episodesMenu(); return }
         if(GeminiStoryService.running) {
-            val live=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text=geminiStatusText(readGeminiStatus()); setTextIsSelectable(true) }
+            val live=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text=geminiStatusText(readGeminiStatus(),true); setTextIsSelectable(true) }
             geminiLiveDialog=live
             val dialog=AlertDialog.Builder(this).setTitle("สถานะงาน • อัปเดตทุกวินาที")
                 .setView(live)
@@ -1887,7 +1887,7 @@ class StudioActivity : AppCompatActivity() {
             dialog.setOnDismissListener { if(geminiLiveDialog===live) geminiLiveDialog=null }
         } else {
             AlertDialog.Builder(this).setTitle("เขียนบทต่อจากที่บันทึก")
-                .setMessage(geminiStatusText(readGeminiStatus())+"\nจะใช้ ${StoryProvider.label(this@StudioActivity)} และโมเดลที่ตั้งค่าปัจจุบัน เขียนเฉพาะช่วงที่ยังไม่สำเร็จ")
+                .setMessage(geminiStatusText(readGeminiStatus(),true)+"\nจะใช้ ${StoryProvider.label(this@StudioActivity)} และโมเดลที่ตั้งค่าปัจจุบัน เขียนเฉพาะช่วงที่ยังไม่สำเร็จ")
                 .setPositiveButton("ทำต่อ") { _,_ ->
                     if(!StoryProvider.ready(this)) geminiSettings { geminiJobMenu() }
                     else runCatching {

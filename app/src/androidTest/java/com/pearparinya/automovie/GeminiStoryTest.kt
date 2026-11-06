@@ -411,6 +411,21 @@ class GeminiStoryTest {
             assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_ -> error("must reuse repaired checkpoint") }).run(selected).toString())
         } finally { folder.deleteRecursively() }
     }
+    @Test fun pendingStoryWithMissingOptionalMusicResumesWithoutAnApiCall() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"pending-music-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val selected=ClipPlan.apply(spec().put("episodes",1).put("audio_version",1),"short",30)
+            GeminiStoryFiles.write(File(folder,"outline.json"),outline().apply { put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0))) })
+            val pending=batch("Write exactly scenes 1 to 4 for EP 1")
+            val rows=pending.getJSONArray("scenes")
+            for(i in 0 until rows.length()) rows.getJSONObject(i).put("sound_design",JSONObject().put("ambience","quiet room").put("sfx","soft paper"))
+            GeminiStoryFiles.write(File(folder,"EP01_01.json.pending.json"),pending)
+            val story=GeminiStoryEngine(folder,{ _,_ -> error("music default must not trigger an API call") }).run(selected)
+            val saved=story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes")
+            assertEquals(4,saved.length())
+            assertEquals("none",saved.getJSONObject(0).getJSONObject("sound_design").getString("music"))
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun pendingStoryResumesWhenListenerVoiceWasNotSilentWithoutRegenerating() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"pending-listener-${UUID.randomUUID()}").apply { mkdirs() }
         try {

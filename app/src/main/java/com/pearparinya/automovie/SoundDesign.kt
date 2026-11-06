@@ -3,6 +3,12 @@ package com.pearparinya.automovie
 import org.json.JSONObject
 
 internal object SoundDesign {
+    // Music is optional; an omitted cue means no music, not a new creative choice.
+    fun normalizeOptionalMusic(scene: JSONObject) {
+        val sound=scene.optJSONObject("sound_design") ?: return
+        val music=sound.opt("music")
+        if(!sound.has("music") || sound.isNull("music") || music is String && music.isBlank()) sound.put("music","none")
+    }
     const val planning = "SOUND DESIGN: Every scene must contain sound_design with three short English strings: ambience (realistic location room tone), sfx (specific visible action, material, timing and volume, or none), music (a subtle non-vocal cue only when the scene benefits, or none). For comedy, add a brief non-vocal pop/pluck/boing only on a written comic payoff when appropriate; no repeated gag sounds. Keep real synchronized foley primary. No new events, human voices, vocal laughs, laugh track, ad-libs or dialogue in sound fields. Never cover the assigned Thai line; duck ambience, foley and music beneath speech. A silent scene means no dialogue/narration, not necessarily no environmental audio."
     fun validate(scene: JSONObject) {
         val sound=requireNotNull(scene.optJSONObject("sound_design")) { "ขาดแผนเสียงของซีน" }

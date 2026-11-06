@@ -118,11 +118,24 @@ class AutomaticStoryRouterTest {
             val groq=client { _,_ -> throw StoryHttpFailure(413,null,"large") }
             val gemini=client { _,_ -> draft() }
             val deep=client { _,_ -> deepCalls++; throw StoryHttpFailure(402,null,"balance") }
-            val open=client { _,_ -> openCalls++; draft() }
+            val open=client { _,schema -> openCalls++; if(schema.getJSONObject("properties").has("xml")) xml() else draft() }
             val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to groq,StoryProvider.GEMINI to gemini,StoryProvider.DEEPSEEK to deep,StoryProvider.OPENROUTER to open),{false},{_,_->})
             router.generate("Write exactly scenes 5 to 5",schema())
             router.generate("Write exactly scenes 6 to 6",schema())
             assertEquals(1,deepCalls); assertEquals(2,openCalls)
+        } finally { folder.deleteRecursively() }
+    }
+    @Test fun passesCompletedDraftToOpenRouterFormatterWithoutRewriting() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"handoff-${UUID.randomUUID()}")
+        try {
+            var writes=0; var formatted=0
+            val groq=client { _,_ -> writes++; draft() }
+            val gemini=client { _,_ -> throw StoryHttpFailure(503,null,"temporary") }
+            val deep=client { _,_ -> throw StoryHttpFailure(402,null,"balance") }
+            val open=client { prompt,schema -> formatted++; assertTrue(schema.getJSONObject("properties").has("xml")); assertTrue(prompt.contains("เปิดประตู")); xml() }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to groq,StoryProvider.GEMINI to gemini,StoryProvider.DEEPSEEK to deep,StoryProvider.OPENROUTER to open),{false},{_,_->})
+            assertEquals("สวัสดี",router.generate("brief",schema()).getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
+            assertEquals(1,writes); assertEquals(1,formatted)
         } finally { folder.deleteRecursively() }
     }
     @Test fun temporaryFormatterErrorIsRetriedAfterPaymentRequired() {
