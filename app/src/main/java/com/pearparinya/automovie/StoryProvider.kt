@@ -40,4 +40,5 @@ internal enum class StoryProvider(val id: String,val label: String,val defaultMo
 internal interface StoryTextClient {
     fun generate(prompt: String,schema: JSONObject): JSONObject
     fun cancel()
+    fun availableDelayMillis(): Long = 0L
 }
