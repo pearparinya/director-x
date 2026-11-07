@@ -35,13 +35,13 @@ class FlowProductionPackTest {
                 assertFalse(home.contains("พร้อมใช้ใน Flow"))
                 assertTrue(home.contains("เลือกคลิปสั้น / คลิปยาว"))
                 assertTrue(home.contains("เลือกเวลาต่อ EP"))
-                assertTrue(home.contains("คำสั่งภาพ / วิดีโอ"))
+                assertTrue(home.contains("คำสั่งสร้างภาพและวิดีโอ"))
                 assertFalse(home.contains("ตอนละอย่างน้อย 3 นาที"))
-                assertTrue(home.contains("คำสั่งสร้างรูป + Flow • ตอนละ 2 ไฟล์"))
+                assertFalse(home.contains("นำเข้าบท / ZIP"))
                 assertFalse(home.contains("ChatGPT"))
-                                val stages=listOf("วางบทและเขียนคำสั่ง","นำเข้าบท / ZIP","คำสั่งสร้างรูป + Flow • ตอนละ 2 ไฟล์")
+                                val stages=listOf("สร้างบทในแอป","คำสั่งสร้างภาพและวิดีโอ","นำเข้าบทที่มีอยู่")
                 stages.forEach { assertTrue(home.contains(it)) }
-                assertTrue(home.contains("รอนำเข้าบท"))
+                assertTrue(home.contains("รอบทเขียนเสร็จ"))
                 assertFalse(home.contains("รับ MP4 / รวม EP / ดาวน์โหลด"))
                 assertTrue(home.contains("นำคลิปที่สร้างใน Flow ไปตัดต่อด้วยโปรแกรมภายนอก"))
                 assertFalse(home.contains("เครื่องมือภาพเดิม"))
@@ -67,20 +67,20 @@ class FlowProductionPackTest {
                     return text(activity.window.decorView)
                 }
                 scenario.onActivity { a ->
-                    assertTrue(home(a).contains("นำเข้าบทแล้ว"))
-                    assertTrue(home(a).contains("พร้อมส่งออกคำสั่ง"))
+                    assertTrue(home(a).contains("มีบทพร้อมใช้งาน"))
+                    assertTrue(home(a).contains("พร้อมใช้คำสั่ง"))
                     assertFalse(home(a).contains("รับ MP4 / รวม EP / ดาวน์โหลด"))
                     assertTrue(home(a).contains("นำคลิปที่สร้างใน Flow ไปตัดต่อด้วยโปรแกรมภายนอก"))
                     assertFalse(home(a).contains("รอนำเข้าบท"))
                 }
                 File(folder,"flow_pack_exported.sha256").writeText(EpisodeMedia.digest(story))
                 scenario.recreate()
-                scenario.onActivity { assertTrue(home(it).contains("ส่งออกบทฉบับนี้แล้ว")) }
+                scenario.onActivity { assertTrue(home(it).contains("เคยส่งออกบทนี้แล้ว")) }
                 story.writeText(JSONObject(story.readText()).put("title","ชื่อเรื่องแก้ไขแล้ว").toString())
                 scenario.recreate()
                 scenario.onActivity {
-                    assertFalse(home(it).contains("ส่งออกบทฉบับนี้แล้ว"))
-                    assertTrue(home(it).contains("พร้อมส่งออกคำสั่ง"))
+                    assertFalse(home(it).contains("เคยส่งออกบทนี้แล้ว"))
+                    assertTrue(home(it).contains("พร้อมใช้คำสั่ง"))
                     assertTrue(home(it).contains("ทดสอบสร้างวิดีโอ"))
                 }
             }
