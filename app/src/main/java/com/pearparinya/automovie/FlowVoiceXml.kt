@@ -2,6 +2,7 @@ package com.pearparinya.automovie
 
 /** Text prompt in the concise XML style tested by the user; not a Flow API schema. */
 internal object FlowVoiceXml {
+    internal const val accent = "The speaker speaks Thai with a natural Central Thai accent."
     private fun xml(v: String)=v.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;")
     private fun spoken(v: String)=v.trim().takeUnless { it.isBlank() || it.equals("none",true) || it=="ไม่มี" || it=="ไม่มีเสียงบรรยาย" }.orEmpty()
     fun build(s: FlowSceneSpec, camera: String): String {
@@ -14,7 +15,8 @@ internal object FlowVoiceXml {
             dialogue.isNotEmpty() && !offscreen -> "Only [${s.speaker}] speaks with natural lip movement; other visible characters stay silent."
             else -> "Visible characters remain silent with mouths closed."
         }
-        val prompt="$action. $visible Preserve the attached first frame, faces, hair, body proportions, positions, clothes, shoes, props, lighting and location. ${camera.trim()}"
+        val accentDirection=if(dialogue.isNotEmpty() || narration.isNotEmpty()) " $accent" else ""
+        val prompt="$action. $visible$accentDirection Preserve the attached first frame, faces, hair, body proportions, positions, clothes, shoes, props, lighting and location. ${camera.trim()}"
         val audio=when {
             narration.isNotEmpty() -> "    <dialogue off_screen=\"true\">\n      <voice name=\"male_narrator_thai\">${xml(narration)}</voice>\n    </dialogue>\n"
             dialogue.isNotEmpty() && offscreen -> "    <dialogue off_screen=\"true\">\n      <speaker>${xml(s.speaker)}</speaker>\n      <voice language=\"th-TH\">${xml(dialogue)}</voice>\n    </dialogue>\n"
