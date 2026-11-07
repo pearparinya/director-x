@@ -9,12 +9,15 @@ internal object FlowVoiceXml {
         val dialogue=spoken(s.dialogue)
         val narration=spoken(s.narration)
         val offscreen=dialogue.isNotEmpty() && s.offscreen.any { it.trim()==s.speaker.trim() }
-        val action=s.action.trim().ifBlank { "The scene remains still" }
+        val action=s.action.trim().trimEnd('.', '!', '?').ifBlank { "The scene remains still" }
+        val speakerPosition=s.cast.firstOrNull { it.name.trim()==s.speaker.trim() }?.position?.trim().orEmpty()
+        val speakerLabel=if(speakerPosition.isNotEmpty()) "[${s.speaker}] at $speakerPosition" else "[${s.speaker}]"
         val visible=when {
-            dialogue.isNotEmpty() && !offscreen -> "Only [${s.speaker}] speaks with natural lip movement; other visible characters stay silent."
+            dialogue.isNotEmpty() && !offscreen -> "Only $speakerLabel speaks with natural lip movement; other visible characters stay silent."
             else -> "Visible characters remain silent with mouths closed."
         }
-        val prompt="$action. $visible Preserve the attached first frame, faces, hair, body proportions, positions, clothes, shoes, props, lighting and location. ${camera.trim()}"
+        val pronunciation=if(dialogue.isNotEmpty() || narration.isNotEmpty()) " Speak the written words exactly in clear, natural Central Thai, with standard Thai pronunciation and tones, at a conversational pace." else ""
+        val prompt="$action. $visible$pronunciation Preserve the attached first frame, faces, hair, body proportions, positions, clothes, shoes, props, lighting and location. ${camera.trim()}"
         val audio=when {
             narration.isNotEmpty() -> "    <dialogue off_screen=\"true\">\n      <voice name=\"male_narrator_thai\">${xml(narration)}</voice>\n    </dialogue>\n"
             dialogue.isNotEmpty() && offscreen -> "    <dialogue off_screen=\"true\">\n      <speaker>${xml(s.speaker)}</speaker>\n      <voice language=\"th-TH\">${xml(dialogue)}</voice>\n    </dialogue>\n"
