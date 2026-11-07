@@ -27,6 +27,26 @@ class AutomaticStoryRouterTest {
             assertEquals(listOf("cohere"),calls)
         } finally { folder.deleteRecursively() }
     }
+    @Test fun blockedProviderHandsOffWithoutStartingDuplicate() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"bounded-route-${UUID.randomUUID()}")
+        val release=java.util.concurrent.CountDownLatch(1)
+        val entered=java.util.concurrent.CountDownLatch(1)
+        try {
+            val calls=java.util.concurrent.atomic.AtomicInteger()
+            val slow=client { _,_ ->
+                calls.incrementAndGet(); entered.countDown()
+                while(release.count>0) { try { release.await() } catch(_: InterruptedException) {} }
+                draft()
+            }
+            val next=client { _,_ -> draft() }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.OPENROUTER to slow,StoryProvider.COHERE to next),{false},{_,_->})
+            router.requestTimeoutMillis=100
+            assertEquals("สวัสดี",router.generate("first",schema()).getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
+            assertTrue(entered.await(1,java.util.concurrent.TimeUnit.SECONDS))
+            assertEquals("สวัสดี",router.generate("second",schema()).getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
+            assertEquals(1,calls.get())
+        } finally { release.countDown(); folder.deleteRecursively() }
+    }
     private fun draft()=JSONObject().put("scenes",JSONArray().put(JSONObject().put("scene",1).put("dialogue","สวัสดี").put("action","เปิดประตู")))
     private fun schema()=JSONObject().put("properties",JSONObject().put("scenes",JSONObject()))
     private fun client(f: (String,JSONObject)->JSONObject)=object: StoryTextClient {
