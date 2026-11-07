@@ -15,16 +15,18 @@ internal object AutoCast {
             put(compact)
         }
     }
-    fun schema() = JSONObject("""{"type":"object","properties":{"story_concept":{"type":"string"},"cast":{"type":"array","items":{"type":"object","properties":{"library_id":{"type":"string"},"name":{"type":"string"},"role":{"type":"string"},"romance_role":{"type":"string"}},"required":["library_id","name","role"]}}},"required":["story_concept","cast"]}""")
+    fun schema() = JSONObject("""{"type":"object","properties":{"story_concept":{"type":"string"},"cast":{"type":"array","items":{"type":"object","properties":{"library_id":{"type":"string"},"name":{"type":"string"},"english_name":{"type":"string"},"role":{"type":"string"},"romance_role":{"type":"string"}},"required":["library_id","name","role"]}}},"required":["story_concept","cast"]}""")
     fun validate(value: JSONObject, catalog: JSONArray) {
         require(value.optString("story_concept").isNotBlank()) { "ขาดแนวคิดเรื่อง" }
         val cast=value.getJSONArray("cast"); require(cast.length() in 1..8) { "เลือกนักแสดง 1–8 คนตามบท" }
         val ids=(0 until catalog.length()).map { catalog.getJSONObject(it).getString("id") }.toSet()
-        val names=mutableSetOf<String>(); val used=mutableSetOf<String>()
+        val names=mutableSetOf<String>(); val englishNames=mutableSetOf<String>(); val used=mutableSetOf<String>()
         for(i in 0 until cast.length()) {
             val p=cast.getJSONObject(i)
             require(p.getString("library_id") in ids && used.add(p.getString("library_id"))) { "MASTER ไม่อยู่ในคลังหรือเลือกซ้ำ" }
             val name=p.getString("name").trim()
+            val english=p.optString("english_name").trim()
+            if(english.isNotEmpty()) require(Regex("[A-Za-z][A-Za-z-]{1,40}").matches(english) && englishNames.add(english.lowercase())) { "ชื่ออังกฤษต้องไม่ซ้ำและเป็นอักษรอังกฤษ" }
             require(name.isNotBlank() && names.add(name) && p.getString("role").isNotBlank()) { "ตั้งชื่อใหม่ไม่ซ้ำ พร้อมระบุบทบาท" }
         }
     }
@@ -133,7 +135,7 @@ internal object AutoCast {
                 val pending=File(target.parentFile,target.name+".pending"); source.copyTo(pending,overwrite=true); check(pending.renameTo(target))
             }
             result.put(JSONObject().put("name",p.getString("name").trim()).put("master","${key.uppercase()}_MASTER.png")
-                .put("auto_cast",true).put("library_id",id).put("role",p.getString("role"))
+                .put("english_name",p.optString("english_name").trim()).put("auto_cast",true).put("library_id",id).put("role",p.getString("role"))
                 .put("romance_role",p.optString("romance_role")).put("character_age",row.optInt("character_age",0)).put("age_basis",row.optString("age_basis"))
                 .put("visual_description",MasterLibrary.description(id)+(if(row.optInt("character_age")>0) " Assigned fictional character age: ${row.getInt("character_age")} years. Keep this age consistent throughout the story." else "")+" Reference appearance: "+row.optString("casting_description")))
         }

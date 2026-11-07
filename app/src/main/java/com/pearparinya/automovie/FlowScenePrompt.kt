@@ -1,6 +1,6 @@
 package com.pearparinya.automovie
 
-internal data class FlowPerson(val name: String, val appearance: String, val position: String, val outfit: String,val performance: String="")
+internal data class FlowPerson(val name: String, val appearance: String, val position: String, val outfit: String,val performance: String="", val englishName: String="")
 internal data class FlowSceneSpec(
     val cast: List<FlowPerson>, val speaker: String, val dialogue: String, val narration: String,
     val action: String, val location: String, val startState: String, val endState: String,
@@ -30,6 +30,7 @@ internal object FlowScenePrompt {
         if(s.aspect!=LandscapeProduction.ASPECT) add("คำสั่งวิดีโอต้องเป็นแนวตั้ง 9:16")
         unknownActionNames(s).forEach { add("พบชื่อภาษาอังกฤษ '$it' ที่ยังจับคู่ตัวละครไม่ได้ ใน flow_action ให้แก้เป็นชื่อตัวละครภาษาไทยตามรายชื่อในซีน แล้วเปิดคำสั่งใหม่") }
         if (s.cast.isEmpty() && speech(s.dialogue).isNotEmpty()) add("ระบุตัวละครที่ปรากฏในภาพฉากนี้")
+        if (s.cast.map { it.englishName.trim().lowercase() }.filter { it.isNotEmpty() }.let { it.distinct().size!=it.size }) add("ชื่ออังกฤษของตัวละครซ้ำ กรุณาตรวจรายชื่อ")
         if (s.cast.any { it.name.isBlank() }) add("ตัวละครต้องมีชื่อ")
         if (s.cast.map { identity(it.name) }.distinct().size != s.cast.size || s.cast.map { refName(it.name) }.distinct().size != s.cast.size) add("ชื่อตัวละครซ้ำหรือรหัสอ้างอิงชนกัน")
         s.cast.forEach {
@@ -53,7 +54,7 @@ internal object FlowScenePrompt {
                 "ปิยวรรณ" -> listOf("piyawan")
                 else -> emptyList()
             }
-            aliases + listOf(p.name,refName(p.name))
+            aliases + listOf(p.name,refName(p.name),p.englishName)
         }.map { it.lowercase() }.toSet()
         val generic=setOf("he","she","they","who","whom","whose","which","that","what","whoever","whatever","it","this","there","man","woman","person","character","people","someone","everyone","camera","phone","door","screen","light","wind","paper","music","sound","document","folder","manager","boss","coworker","colleague","worker","narrator", "and", "or", "then", "also", "but")
         val pattern=Regex("(?<![\\w\\]])\\b([A-Za-z][A-Za-z0-9_]*)\\s+(?:holds|looks|watches|stares|speaks|says|asks|replies|walks|stands|sits|leans|smiles|reacts|turns|opens|closes|reads|inspects|observes|hands|places|shows|checks|nods|waves|slides|reaches|takes|points)\\b",RegexOption.IGNORE_CASE)
@@ -101,7 +102,7 @@ internal object FlowScenePrompt {
                 "ปิยวรรณ" -> listOf("ปิยวรรณ", "Piyawan")
                 else -> emptyList()
             }
-            (known + person.name).distinct().map { it to label(person.name) }
+            (known + person.name + person.englishName).filter { it.isNotBlank() }.distinct().map { it to label(person.name) }
         }.sortedByDescending { it.first.length }
         aliases.forEach { (alias, replacement) ->
             val boundary = if (alias.any { it in 'ก'..'๙' }) "(?<![ก-๙])${Regex.escape(alias)}(?![ก-๙])" else "(?<![A-Za-z0-9])${Regex.escape(alias)}(?![A-Za-z0-9])"

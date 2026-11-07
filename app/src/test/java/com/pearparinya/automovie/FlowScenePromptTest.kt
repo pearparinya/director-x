@@ -130,6 +130,15 @@ class FlowScenePromptTest {
         assertTrue(FlowScenePrompt.issues(scene().copy(action="เมย์ sees Krit who holds a folder and Phakin walks away"))
             .any { it.contains("Phakin") })
     }
+    @Test fun registeredEnglishAliasIsMappedAndAmbiguousAliasesRejected() {
+        val person=FlowPerson("ภูวดล","dark hair","center","shirt",englishName="Phuvadol")
+        val s=scene(speaker="ภูวดล",dialogue="สวัสดี").copy(cast=listOf(person),action="Phuvadol opens the door")
+        assertTrue(FlowScenePrompt.issues(s).isEmpty())
+        assertTrue(FlowScenePrompt.build(s).contains("[ภูวดล] opens the door"))
+        val other=person.copy(name="คนอื่น",position="left")
+        assertTrue(FlowScenePrompt.issues(s.copy(cast=listOf(person,other))).any { it.contains("ชื่ออังกฤษ") })
+        assertTrue(FlowScenePrompt.issues(s.copy(cast=listOf(person.copy(englishName="")))).any { it.contains("Phuvadol") })
+    }
     @Test fun duplicateAliasesAndIndistinguishableMappingsAreRejected() {
         assertTrue(FlowScenePrompt.issues(scene().copy(cast=listOf(may,may.copy(name="มายด์")))).isNotEmpty())
         assertTrue(FlowScenePrompt.issues(scene().copy(cast=listOf(may,rin.copy(appearance=may.appearance,position=may.position)))).isNotEmpty())
