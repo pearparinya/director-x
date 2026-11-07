@@ -22,21 +22,21 @@ internal object SimpleProductionCommands {
         for(i in 0 until rows.length()) FlowReferencePrompt.people(rows.getJSONObject(i)).forEach { all.putIfAbsent(it.getString("name"),it) }
         return all.values.toList()
     }
-    private const val identity="REFERENCE ROLE MAPPING: Match each name to its attached MASTER; filenames or upload order alone may not reliably identify an image. If unclear, ask. Multi-view panels depict one person; use the clear front view for identity. Keep the exact visible hairstyle, including length, parting and whether hair is loose or tied, unless the user explicitly requests a change. Keep facial features recognizable through natural expressions. Preserve each person's face, hair, adult age and natural proportions without blending or generic beautification. MASTER is for identity only; use the planned outfits, not reference clothing. Fictional adults 25+; natural anatomy and opaque clothing. When planning a new outfit, prefer elegant opaque clothing with a moderately open neckline as appropriate to the scene; garments stay securely in place. Frame at eye level and focus on expressions and action."
+    private const val identity="REFERENCE ROLE MAPPING: filenames or upload order alone may not reliably identify an image. If unclear, ask. Preserve each person's face and exact hairstyle from their own MASTER; use the planned outfit."
     /** The MASTER remains authoritative: stored descriptions are only hints, not verified facts. */
     internal fun referenceBindings(people: List<JSONObject>): String {
         if (people.isEmpty()) return "REFERENCE BINDING: No visible characters."
         val rows = people.mapIndexed { i, person ->
             val name = person.getString("name")
-            val master = person.optString("master").trim()
+            val master = referenceId(person.optString("master").trim())
             val cue = person.optString("visual_description").trim().takeUnless { it.isBlank() || it.equals("null", true) }
             val description = cue?.let { "Saved visual cue (verify against MASTER): $it" }
                 ?: "Visual cue unavailable: identify this MASTER with the user before generation."
-            "Reference ${i + 1}: $name | MASTER file: ${master.ifBlank { "not specified" }} | $description"
+            "Reference ${i + 1}: $name | MASTER ID: ${master.ifBlank { "not specified" }} | $description"
         }.joinToString("\n")
         return """REFERENCE BINDING — match each named person to their own original attached MASTER:
 $rows
-Use the clear front-facing view for face and hairstyle; a multi-view sheet is ONE person. Keep each face, hairstyle and skin tone with its own MASTER; do not substitute or blend people. Reference order and filenames are aids, not proof: if the image-to-name mapping is unclear, ask before creating. A separate front-view crop of the same original may be attached as an additional aid; it does not replace the full MASTER. Any saved cue is only a hint; if it conflicts with the original, trust the original image."""
+Use the clear front view for face and hair. If the image-to-name mapping is unclear, ask. A front-view crop can supplement the original MASTER. A saved cue is only a hint; if it conflicts with the original, trust the original image."""
     }
     private const val wardrobeContinuity="WARDROBE CONTINUITY: Same day: identical outfit, including neckline, collar, sleeves, closures, shoes and accessories. A new story day can use the outfit planned for that day. The three views in each MASTER represent ONE person; their own MASTER controls face, hair and body. Never mix characters. If a location reference is attached, preserve its layout and props across camera angles. Review results."
     private fun cast(people: List<JSONObject>,poster: Boolean=false)=people.mapIndexed { i,p ->
