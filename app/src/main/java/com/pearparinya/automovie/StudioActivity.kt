@@ -1612,7 +1612,12 @@ class StudioActivity : AppCompatActivity() {
             prefs.edit().putString(preference,task.id).apply()
             val next=tasks.getOrNull(index+1)?.id ?: "จบชุดนี้ • เลือกชุดถัดไป"
             val sceneSummary=rows(story).firstOrNull { key(it)==task.id }?.let { SceneOverview.detail(it,task.id) }
-            val code=(sceneSummary?.plus("\n\n") ?: "")+SimpleProductionCommands.block(task,index,images)+"\n\nล่าสุดที่เปิด: ${task.id} | ถัดไป: $next\nสถานะนี้บันทึกการเปิดคำสั่ง ไม่ได้ยืนยันว่าภาพหรือคลิปสร้างสำเร็จแล้ว"
+            val sceneForFlow=if(images) null else rows(story).firstOrNull { key(it)==task.id }
+            val flowSpec=sceneForFlow?.let { ProductionCommandCheck.spec(it) }
+            val flowCamera=when(sceneForFlow?.optString("camera_movement")) { "track" -> "Gentle tracking movement."; "locked" -> "Locked camera."; "push_in" -> "Slow push-in."; else -> "Slow gentle pan." }
+            val flowText=if(flowSpec!=null && FlowScenePrompt.issues(flowSpec).isEmpty()) CompactFlowPrompt.build(flowSpec,flowCamera,false) else task.command
+            val shownTask=if(images) task else task.copy(command=flowText)
+            val code=(sceneSummary?.plus("\n\n") ?: "")+SimpleProductionCommands.block(shownTask,index,images)+"\n\nล่าสุดที่เปิด: ${task.id} | ถัดไป: $next\nสถานะนี้บันทึกการเปิดคำสั่ง ไม่ได้ยืนยันว่าภาพหรือคลิปสร้างสำเร็จแล้ว"
             val problems=ProductionCommandCheck.issues(story)
             val dialog=showFlowCode("${task.id} • ถัดไป $next",code,"${task.id}_${if(images) "IMAGE" else "FLOW"}.txt")
             if(images) activeProductionDialog=dialog
@@ -1625,7 +1630,14 @@ class StudioActivity : AppCompatActivity() {
             if(problems.isNotEmpty()) dialog.getButton(-1).setOnClickListener { notice("คำสั่งยังมีจุดต้องแก้ • เปิด ตรวจคำสั่ง / แก้เฉพาะจุด ก่อนคัดลอก") }
             dialog.getButton(-1).text=if(images) "เลือกแอปสร้างภาพ + MASTER" else "คัดลอกคำสั่ง Flow"
             dialog.getButton(-1).setOnClickListener {
-                if(!images) { copyCommand(task.command); return@setOnClickListener }
+                if(!images) {
+                    if(problems.isNotEmpty() || flowSpec==null) { productionCheckMenu(story); return@setOnClickListener }
+                    choiceMenu("เลือกคำสั่ง Flow • ${task.id}",listOf("คัดลอกแบบกระชับ • พร้อมบทเสียง","คัดลอกแบบเงียบ • ไปใส่เสียงภายหลัง","คัดลอกบทเสียงแยก")) { mode ->
+                        val value=when(mode) { 0 -> CompactFlowPrompt.build(flowSpec,flowCamera,false); 1 -> CompactFlowPrompt.build(flowSpec,flowCamera,true); else -> CompactFlowPrompt.voiceText(flowSpec) }
+                        copyCommand(value)
+                    }
+                    return@setOnClickListener
+                }
                 if(problems.isNotEmpty()) { productionCheckMenu(story); return@setOnClickListener }
                 val refs=task.references.map { person -> referenceId(person.getString("master")) to masterFor(person) }
                 if(refs.isEmpty() || refs.any { !it.second.isFile }) { notice("ขาด MASTER ของตัวละครในรายการนี้"); return@setOnClickListener }
