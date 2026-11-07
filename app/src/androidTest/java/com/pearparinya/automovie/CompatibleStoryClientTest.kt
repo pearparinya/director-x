@@ -16,6 +16,13 @@ class CompatibleStoryClientTest {
         assertTrue(runCatching { CompatibleStoryClient.buildRequest(CompatibleService.OPENROUTER,"paid/model","test",schema) }.isFailure)
         assertFalse(req.toString().contains("fake-api-key"))
     }
+    @Test fun mistralRequestUsesJsonMode() {
+        val req=CompatibleStoryClient.buildRequest(CompatibleService.MISTRAL,CompatibleService.MISTRAL.defaultModel,"write a scene",JSONObject().put("type","object"))
+        assertEquals("https://api.mistral.ai/v1/chat/completions",CompatibleService.MISTRAL.url)
+        assertEquals("mistral-small-latest",req.getString("model"))
+        assertEquals("json_object",req.getJSONObject("response_format").getString("type"))
+        assertTrue(req.getJSONArray("messages").getJSONObject(0).getString("content").contains("JSON"))
+    }
     @Test fun rejectsTruncatedOrNonJsonResponse() {
         fun response(reason: String, content: String)=JSONObject().put("choices",JSONArray().put(JSONObject().put("finish_reason",reason).put("message",JSONObject().put("content",content))))
         assertTrue(CompatibleStoryClient.parse(response("stop","{\"ok\":true}"),CompatibleService.CEREBRAS).getBoolean("ok"))
