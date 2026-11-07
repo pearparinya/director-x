@@ -27,6 +27,20 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
             progress(lastPercent,if(target!=null) "กำลังส่งซีน $sceneNumber ไปแก้ไข • ครั้งที่ $attempt/3 • เก็บซีนอื่นไว้" else "กำลังแก้รูปแบบบท • ครั้งที่ $attempt/3")
             val marker="\nDIRECTOR_INTERNAL_REPAIR_ATTEMPT=$attempt\n"
             if(target!=null && rows!=null) {
+                val problemText=issue.message.orEmpty()
+                if(problemText.contains("พบชื่อภาษาอังกฤษ") && problemText.contains("flow_action")) {
+                    val scene=rows.getJSONObject(target)
+                    val cast=scene.optJSONArray("characters") ?: JSONArray()
+                    val permitted=(0 until cast.length()).map { cast.getJSONObject(it).optString("name") }.filter { it.isNotBlank() }
+                    val fixSchema=JSONObject().put("type","object").put("properties",JSONObject().put("flow_action",JSONObject().put("type","string"))).put("required",JSONArray().put("flow_action"))
+                    val fix=generate("Fix ONLY flow_action for scene $sceneNumber. Use exact Thai names from this visible cast: "+permitted.joinToString(", ")+". Preserve the original events. If an English name cannot be matched uniquely to the supplied character registry, keep that name unchanged for human review; do not guess or introduce another person. Return JSON containing only flow_action. Original scene: "+scene+marker,fixSchema)
+                    val action=fix.optString("flow_action").trim()
+                    if(action.isNotEmpty()) scene.put("flow_action",action)
+                    GeminiStoryFiles.write(pending,value)
+                    check()
+                    problem=try { validate(value); null } catch(e: IllegalArgumentException) { e }
+                    continue
+                }
                 val focused=prompt.replace(Regex("Write exactly scenes [0-9]+ to [0-9]+"),"Write exactly scenes $sceneNumber to $sceneNumber")
                 val replacement=generate(focused+marker+"Your previous JSON failed validation: "+issue.message.orEmpty().take(600)+
                     "\nRepair ONLY scene $sceneNumber. Return scenes array with exactly this one scene. Keep its events and registered identities. Other scenes are frozen. Previous scene:\n"+rows.getJSONObject(target),schema).optJSONArray("scenes")
@@ -64,7 +78,7 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
             }
             val variety=if(spec.optInt("casting_version")>=2) " Casting variation seed: "+spec.optString("creative_seed")+". Candidates are ordered by least recent and least frequent use; prefer the earliest suitable actors while respecting story, assigned ages, genders and genre. Prefer fresh pairings when the catalog offers suitable alternatives; prior casts are: "+recent.toString()+". Reuse a suitable pair when needed; do not reject a valid cast solely for repetition. Select actor count from actual story needs, never default to three. Do not favor early catalog entries. Give roles appropriate to the requested genre; choose different actors when an old pair would recur." else ""
             val casting=cached("casting.json", "Plan the concept and cast for a Thai film/drama. Category: "+spec.optString("category")+"; premise: "+spec.optString("premise")+
-                ChannelCatalog.direction(spec.optString("category"))+" For younger-man/older-woman set romance_role=younger_man and older_woman; for older-man/younger-woman set romance_role=older_man and younger_woman. Mark others supporting. "+variety+". Choose 1–8 adult fictional roles as needed, matching reference styling to the production. Use display_name from the catalog when provided as the canonical Thai character name; otherwise invent distinct Thai names. Describe each role and relationships. Choose only library IDs below. Use character_age from the catalog as the assigned fictional age, never as a verified real age. Match age requirements and age gaps in the requested story using these numeric ages; do not invent or change ages. Do not infer personality from looks or invent measurements. Hair/appearance come from each reference; costume changes by story. Return story_concept and cast. Catalog: "+AutoCast.promptCatalog(catalog).toString(), AutoCast.schema()) { if(spec.optInt("casting_version")>=2) AutoCast.validateVariety(it,catalog,recent) else AutoCast.validate(it,catalog); AutoCast.validateGenre(it,catalog,spec.optString("category")) }
+                ChannelCatalog.direction(spec.optString("category"))+" For younger-man/older-woman set romance_role=younger_man and older_woman; for older-man/younger-woman set romance_role=older_man and younger_woman. Mark others supporting. "+variety+". Choose 1–8 adult fictional roles as needed, matching reference styling to the production. Use display_name from the catalog when provided as the canonical Thai character name; otherwise invent distinct Thai names. Provide a consistent distinct english_name for each Thai name and describe each role and relationships. Choose only library IDs below. Use character_age from the catalog as the assigned fictional age, never as a verified real age. Match age requirements and age gaps in the requested story using these numeric ages; do not invent or change ages. Do not infer personality from looks or invent measurements. Hair/appearance come from each reference; costume changes by story. Return story_concept and cast. Catalog: "+AutoCast.promptCatalog(catalog).toString(), AutoCast.schema()) { if(spec.optInt("casting_version")>=2) AutoCast.validateVariety(it,catalog,recent) else AutoCast.validate(it,catalog); AutoCast.validateGenre(it,catalog,spec.optString("category")) }
             spec.put("supporting_characters",AutoCast.apply(casting,catalog,folder.parentFile!!))
             spec.put("cast_concept",casting.getString("story_concept"))
             GeminiStoryFiles.write(File(folder,"spec.json"),spec)
@@ -76,7 +90,7 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
         val roleSummary=if(compact) JSONArray().apply {
             for(i in 0 until support.length()) {
                 val source=support.getJSONObject(i); val row=JSONObject()
-                for(field in listOf("name","master","library_id","role","romance_role","character_age")) if(source.has(field)) row.put(field,source.get(field))
+                for(field in listOf("name","master","library_id","role","romance_role","character_age","english_name")) if(source.has(field)) row.put(field,source.get(field))
                 put(row)
             }
         } else support
@@ -152,6 +166,19 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                 for(e in 0 until output.length()) checkDialogue(output.getJSONObject(e).getJSONArray("scenes"),e+1,priorDialogue)
                 checkDialogue(scenes,i+1,priorDialogue)
                 val batch=try { cached("EP%02d_%02d.json".format(i+1,start),prompt,batchSchema()) {
+                    val nameRows=it.getJSONArray("scenes")
+                    for(n in 0 until nameRows.length()) {
+                        val people=nameRows.getJSONObject(n).optJSONArray("characters") ?: continue
+                        for(j in 0 until people.length()) {
+                            val person=people.getJSONObject(j)
+                            val matches=(0 until support.length()).map { support.getJSONObject(it) }.filter { registered ->
+                                registered.optString("name")==person.optString("name") &&
+                                    registered.optString("master").equals(person.optString("master"),ignoreCase=true)
+                            }
+                            val english=matches.singleOrNull()?.optString("english_name").orEmpty()
+                            if(english.isNotBlank()) person.put("english_name",english) else person.remove("english_name")
+                        }
+                    }
                     if(spec.optInt("performance_version")>=1) {
                         val sceneRows=it.getJSONArray("scenes")
                         for(n in 0 until sceneRows.length()) PerformanceDirection.normalizeSilentVoices(sceneRows.getJSONObject(n))
