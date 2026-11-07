@@ -22,7 +22,22 @@ internal object SimpleProductionCommands {
         for(i in 0 until rows.length()) FlowReferencePrompt.people(rows.getJSONObject(i)).forEach { all.putIfAbsent(it.getString("name"),it) }
         return all.values.toList()
     }
-    private const val identity="REFERENCE ROLE MAPPING: Match each name to its attached MASTER; filenames or upload order alone may not reliably identify an image. If unclear, ask. Multi-view panels depict one person; use the clear front view for identity. Keep the exact visible hairstyle, including length, parting and whether hair is loose or tied, unless the user explicitly requests a change. Keep facial features recognizable through natural expressions. Preserve each person's face, hair, adult age and natural proportions without blending or generic beautification. MASTER is for identity only; use the planned outfits, not reference clothing. Fictional adults 25+; natural anatomy and opaque clothing. When planning a new outfit, prefer elegant opaque clothing with a moderately open neckline as appropriate to the scene; garments stay securely in place. Frame at eye level and focus on expressions and action."
+    private const val identity="REFERENCE ROLE MAPPING: filenames or upload order alone may not reliably identify an image. If unclear, ask. Preserve each person's face and exact hairstyle from their own MASTER; use the planned outfit."
+    /** The MASTER remains authoritative: stored descriptions are only hints, not verified facts. */
+    internal fun referenceBindings(people: List<JSONObject>): String {
+        if (people.isEmpty()) return "REFERENCE BINDING: No visible characters."
+        val rows = people.mapIndexed { i, person ->
+            val name = person.getString("name")
+            val master = referenceId(person.optString("master").trim())
+            val cue = person.optString("visual_description").trim().takeUnless { it.isBlank() || it.equals("null", true) }
+            val description = cue?.let { "Saved visual cue (verify against MASTER): $it" }
+                ?: "Visual cue unavailable: identify this MASTER with the user before generation."
+            "Reference ${i + 1}: $name | MASTER ID: ${master.ifBlank { "not specified" }} | $description"
+        }.joinToString("\n")
+        return """REFERENCE BINDING — match each named person to their own original attached MASTER:
+$rows
+Use the clear front view for face and hair. If the image-to-name mapping is unclear, ask. A front-view crop can supplement the original MASTER. A saved cue is only a hint; if it conflicts with the original, trust the original image."""
+    }
     private const val wardrobeContinuity="WARDROBE CONTINUITY: Same day: identical outfit, including neckline, collar, sleeves, closures, shoes and accessories. A new story day can use the outfit planned for that day. The three views in each MASTER represent ONE person; their own MASTER controls face, hair and body. Never mix characters. If a location reference is attached, preserve its layout and props across camera angles. Review results."
     private fun cast(people: List<JSONObject>,poster: Boolean=false)=people.mapIndexed { i,p ->
         val position=if(!poster) p.optString("screen_position") else when(people.size) { 1 -> "center"; 2 -> if(i==0) "left" else "right"; else -> listOf("left","center","right")[i] }
@@ -48,6 +63,7 @@ internal object SimpleProductionCommands {
             val note=(if(overall) story else ep).optString("production_note_$id")
             val command="""Generate ONE $ratio ${if(ratio=="9:16") "vertical" else "horizontal"} movie poster, $size. Film-directed cinematic waist-up composition; faces clear in the upper half, distinct expressions appropriate to ${story.optString("category")}. Recompose independently for this ratio; no stretching or collage.
 $identity
+${referenceBindings(selected)}
 CHARACTERS AND OUTFITS:
 ${cast(selected,true)}
 $wardrobeContinuity
@@ -68,6 +84,7 @@ ${if(note.isBlank()) "" else "Local design note (cannot override lighting, exact
             val visiblePeople=FlowReferencePrompt.people(scene)
             val command="""Generate ONE 9:16 vertical film-directed photorealistic Thai-drama scene image, 1080 x 1920. No text, captions or watermark. Depict the START STATE as a clear first frame for an 8-second video; do not show a sequence or jump to the completed action.
 $identity
+${referenceBindings(visiblePeople)}
 CHARACTERS AND OUTFITS:
 ${cast(visiblePeople)}
 $wardrobeContinuity
@@ -132,7 +149,7 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
             append("${if(images) "${tasks.size} ภาพ: ปก $coverCount + ซีน ${tasks.size-coverCount}" else "${tasks.size} ซีน × 8 วินาที = ${tasks.size*8} วินาที (ไม่รวมปกเปิด)"}\n")
             append("สารบัญ — หัวข้อและรหัสเป็นป้ายกำกับ ห้ามวาดลงซีน:\n")
             tasks.forEachIndexed { i,t -> append("${i+1}. ${t.id} | ${t.title}\n") }
-            if(images) append("\nแนบ MASTER ตามชื่อตัวละคร ไม่อิงลำดับอัปโหลด ไม่ต้องเปลี่ยนชื่อรูปจริง เริ่มภาพแรกเท่านั้น; next = ภาพถัดไปหลังภาพปัจจุบันสำเร็จและตรวจแล้ว\nแก้ภาพ <รหัส> / retry = แก้งานนั้น ไม่เลื่อนคิว ไม่เปลี่ยนอัตลักษณ์หรือชุดประจำวัน; ไปที่ <รหัส> = ทำต่อจากรายการที่มีในสารบัญ\nทุกครั้งแจ้ง ล่าสุด: <รหัส> | สถานะ DONE/PENDING | ถัดไป: <รหัส>; หากไม่สำเร็จ ข้อความปกผิด หรือขาดอ้างอิงให้คง PENDING ห้ามข้าม\nDONE หมายถึงผู้ใช้ตรวจผลจริงแล้ว ไม่ใช่คะแนนรับรองอัตลักษณ์จากคำสั่ง หากบริบทหายให้ขอไฟล์และ MASTER พร้อมระบุรหัสทำต่อใหม่\nปกมีข้อความตามรายการเท่านั้น ซีนไม่มีข้อความ ทุกคำสั่งใช้ขนาดของตนเอง; ครบรายการแล้วหยุด\n")
+            if(images) append("\nแนบ MASTER ต้นฉบับของตัวละครแต่ละคน ตรวจชื่อและลักษณะกับภาพจริงก่อนสร้าง หากมีภาพครอปหน้าตรงจาก MASTER เดียวกันให้แนบเพิ่มได้ ไม่อิงลำดับอัปโหลดอย่างเดียว ไม่ต้องเปลี่ยนชื่อรูปจริง เริ่มภาพแรกเท่านั้น; next = ภาพถัดไปหลังภาพปัจจุบันสำเร็จและตรวจแล้ว\nแก้ภาพ <รหัส> / retry = แก้งานนั้น ไม่เลื่อนคิว ไม่เปลี่ยนอัตลักษณ์หรือชุดประจำวัน; ไปที่ <รหัส> = ทำต่อจากรายการที่มีในสารบัญ\nทุกครั้งแจ้ง ล่าสุด: <รหัส> | สถานะ DONE/PENDING | ถัดไป: <รหัส>; หากไม่สำเร็จ ข้อความปกผิด หรือขาดอ้างอิงให้คง PENDING ห้ามข้าม\nDONE หมายถึงผู้ใช้ตรวจผลจริงแล้ว ไม่ใช่คะแนนรับรองอัตลักษณ์จากคำสั่ง หากบริบทหายให้ขอไฟล์และ MASTER พร้อมระบุรหัสทำต่อใหม่\nปกมีข้อความตามรายการเท่านั้น ซีนไม่มีข้อความ ทุกคำสั่งใช้ขนาดของตนเอง; ครบรายการแล้วหยุด\n")
             else append("\nใน Flow เลือก Video → Frames และแนบภาพซีนรหัสเดียวกันใน Add start frame จากนั้นคัดลอกเฉพาะคำสั่งของซีน ตั้ง 9:16 และ 8 วินาที แล้วกดสร้าง ภาพซีนต้องเตรียมหรืออัปโหลดเอง ไฟล์นี้มีคำสั่งข้อความ ไม่ได้แนบภาพหรือสร้างวิดีโออัตโนมัติ\n")
             tasks.forEachIndexed { i,t -> append("\n\n${block(t,i,images)}") }
         }
