@@ -16,6 +16,13 @@ class CompatibleStoryClientTest {
         assertTrue(runCatching { CompatibleStoryClient.buildRequest(CompatibleService.OPENROUTER,"paid/model","test",schema) }.isFailure)
         assertFalse(req.toString().contains("fake-api-key"))
     }
+    @Test fun sambaNovaRequestUsesJsonMode() {
+        val req=CompatibleStoryClient.buildRequest(CompatibleService.SAMBANOVA,CompatibleService.SAMBANOVA.defaultModel,"write a scene",JSONObject().put("type","object"))
+        assertEquals("https://api.sambanova.ai/v1/chat/completions",CompatibleService.SAMBANOVA.url)
+        assertEquals("Meta-Llama-3.3-70B-Instruct",req.getString("model"))
+        assertEquals("json_object",req.getJSONObject("response_format").getString("type"))
+        assertTrue(req.getJSONArray("messages").getJSONObject(0).getString("content").contains("JSON"))
+    }
     @Test fun mistralRequestUsesJsonMode() {
         val req=CompatibleStoryClient.buildRequest(CompatibleService.MISTRAL,CompatibleService.MISTRAL.defaultModel,"write a scene",JSONObject().put("type","object"))
         assertEquals("https://api.mistral.ai/v1/chat/completions",CompatibleService.MISTRAL.url)

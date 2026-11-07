@@ -11,6 +11,7 @@ internal enum class CompatibleService(val label: String, val url: String, val de
     CEREBRAS("Cerebras", "https://api.cerebras.ai/v1/chat/completions", "llama3.1-8b"),
     DEEPSEEK("DeepSeek", "https://api.deepseek.com/chat/completions", "deepseek-flash"),
     OPENROUTER("OpenRouter", "https://openrouter.ai/api/v1/chat/completions", "openrouter/free"),
+    SAMBANOVA("SambaNova", "https://api.sambanova.ai/v1/chat/completions", "Meta-Llama-3.3-70B-Instruct"),
     MISTRAL("Mistral", "https://api.mistral.ai/v1/chat/completions", "mistral-small-latest"),
     COHERE("Cohere", "https://api.cohere.ai/compatibility/v1/chat/completions", "command-a-03-2025")
 }

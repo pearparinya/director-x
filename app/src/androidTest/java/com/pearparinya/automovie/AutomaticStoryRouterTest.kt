@@ -12,6 +12,17 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class AutomaticStoryRouterTest {
+    @Test fun sambaNovaTakesOverWhenPreviousProviderFails() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"sambanova-handoff-${UUID.randomUUID()}")
+        try {
+            val calls=mutableListOf<String>()
+            val open=client { _,_ -> calls.add("open"); throw StoryHttpFailure(503,null,"unavailable") }
+            val samba=client { _,_ -> calls.add("sambanova"); draft() }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.OPENROUTER to open,StoryProvider.SAMBANOVA to samba),{false},{_,_->})
+            assertEquals("สวัสดี",router.generate("brief",schema()).getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
+            assertEquals(listOf("open","sambanova"),calls)
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun mistralTakesOverWhenOpenRouterFails() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"mistral-handoff-${UUID.randomUUID()}")
         try {
