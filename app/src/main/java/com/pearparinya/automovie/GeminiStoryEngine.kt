@@ -17,7 +17,7 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
         var value=if(pending.isFile) GeminiStoryFiles.read(pending) else generate(prompt,schema)
         GeminiStoryFiles.write(pending,value); check()
         progress(lastPercent,"ได้รับคำตอบแล้ว • กำลังตรวจ $name")
-        var problem: IllegalArgumentException? = try { validate(value); null } catch(e: IllegalArgumentException) { e }
+        var problem: IllegalArgumentException? = try { validate(value); null } catch(e: org.json.JSONException) { IllegalArgumentException("ข้อมูลซีนไม่ครบ: "+e.message.orEmpty(),e) } catch(e: IllegalArgumentException) { e }
         for(attempt in 1..3) {
             val issue=problem ?: break
             check()
@@ -41,7 +41,7 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                     if(action.isNotEmpty() && (unresolved.isEmpty() || action.contains(unresolved,ignoreCase=true))) scene.put("flow_action",action)
                     GeminiStoryFiles.write(pending,value)
                     check()
-                    problem=try { validate(value); null } catch(e: IllegalArgumentException) { e }
+                    problem=try { validate(value); null } catch(e: org.json.JSONException) { IllegalArgumentException("ข้อมูลซีนไม่ครบ: "+e.message.orEmpty(),e) } catch(e: IllegalArgumentException) { e }
                     continue
                 }
                 val focused=prompt.replace(Regex("Write exactly scenes [0-9]+ to [0-9]+"),"Write exactly scenes $sceneNumber to $sceneNumber")
@@ -60,7 +60,7 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
             }
             GeminiStoryFiles.write(pending,value)
             check()
-            problem=try { validate(value); null } catch(e: IllegalArgumentException) { e }
+            problem=try { validate(value); null } catch(e: org.json.JSONException) { IllegalArgumentException("ข้อมูลซีนไม่ครบ: "+e.message.orEmpty(),e) } catch(e: IllegalArgumentException) { e }
         }
         problem?.let { throw IllegalArgumentException("AI ตอบกลับแล้ว แต่รูปแบบบทยังไม่ผ่านหลังแก้ 3 ครั้ง: "+it.message.orEmpty().take(300),it) }
         GeminiStoryFiles.write(file,value); pending.delete(); return value
@@ -172,8 +172,16 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                 for(e in 0 until output.length()) checkDialogue(output.getJSONObject(e).getJSONArray("scenes"),e+1,priorDialogue)
                 checkDialogue(scenes,i+1,priorDialogue)
                 val batch=try { cached("EP%02d_%02d.json".format(i+1,start),prompt,batchSchema()) {
+                    val nameRows=it.optJSONArray("scenes")
+                        ?: throw IllegalArgumentException("EP ${i+1} ซีน $start: ข้อมูลซีนไม่ครบ กรุณาสร้างซีนใหม่")
+                    for(n in 0 until nameRows.length()) {
+                        val row=nameRows.optJSONObject(n)
+                            ?: throw IllegalArgumentException("EP ${i+1} ซีน ${start+n}: รูปแบบซีนไม่ถูกต้อง")
+                        require(row.optJSONArray("characters")!=null) {
+                            "EP ${i+1} ซีน ${row.optInt("scene",start+n)}: ขาดรายการ characters กรุณาเติมตัวละครที่ปรากฏตามทะเบียนเรื่อง โดยรักษาเหตุการณ์เดิม"
+                        }
+                    }
                     val confirmedAliases=CharacterAliasRegistry.read(folder)
-                    val nameRows=it.getJSONArray("scenes")
                     for(n in 0 until nameRows.length()) {
                         CharacterAliasRegistry.apply(nameRows.getJSONObject(n),confirmedAliases)
                         CharacterAliasRegistry.applyRegistered(nameRows.getJSONObject(n),FlowCast.definitions(spec),confirmedAliases)
