@@ -25,6 +25,30 @@ internal object CharacterAliasRegistry {
         if(it.isFile) GeminiStoryFiles.read(it) else JSONObject().put("entries",JSONArray())
     }
     fun save(folder: File, registry: JSONObject) = GeminiStoryFiles.write(File(folder,"character_aliases.json"),registry)
+    /** Trust only an exact English name recorded once in the story cast and its matching visible MASTER. */
+    fun applyRegistered(scene: JSONObject, definitions: List<JSONObject>, confirmed: JSONObject) {
+        val people=scene.optJSONArray("characters") ?: return
+        val confirmedEntries=confirmed.optJSONArray("entries") ?: JSONArray()
+        var action=scene.optString("flow_action")
+        for(personIndex in 0 until people.length()) {
+            val person=people.getJSONObject(personIndex)
+            val name=person.optString("name")
+            val master=person.optString("master")
+            if(name.isBlank() || master.isBlank()) continue
+            val exact=definitions.filter { it.optString("name")==name && it.optString("master").equals(master,true) }
+            if(exact.size!=1) continue
+            val alias=exact.single().optString("english_name").trim()
+            if(!Regex("[A-Za-z][A-Za-z0-9_]{1,80}").matches(alias)) continue
+            if(definitions.count { it.optString("english_name").trim().equals(alias,true) }!=1) continue
+            if((0 until people.length()).count { people.getJSONObject(it).optString("name")==name && people.getJSONObject(it).optString("master").equals(master,true) }!=1) continue
+            if((0 until confirmedEntries.length()).map { confirmedEntries.getJSONObject(it) }.any {
+                it.optString("alias").equals(alias,true) && (it.optString("name")!=name || !it.optString("master").equals(master,true))
+            }) continue
+            val pattern=Regex("(?<![A-Za-z0-9_])"+Regex.escape(alias)+"(?![A-Za-z0-9_])",RegexOption.IGNORE_CASE)
+            action=pattern.replace(action) { name }
+        }
+        if(scene.has("flow_action")) scene.put("flow_action",action)
+    }
     /** Only normalize when exactly one visible actor matches both the confirmed name and MASTER. */
     fun apply(scene: JSONObject, registry: JSONObject) {
         val people=scene.optJSONArray("characters") ?: return
