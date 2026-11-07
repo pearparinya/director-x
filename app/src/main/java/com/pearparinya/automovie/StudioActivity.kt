@@ -1520,16 +1520,11 @@ class StudioActivity : AppCompatActivity() {
         val story=plan ?: return notice("สร้างหรือนำเข้าบทก่อนครับ")
         if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
         val eps=story.getJSONArray("episodes")
-        val options=(0 until eps.length()).map { "EP.${eps.getJSONObject(it).getInt("ep")} • ${eps.getJSONObject(it).optString("title")} • 2 ไฟล์" }+
-            listOf("ตรวจคำสั่ง / แก้เฉพาะจุด","ดาวน์โหลด ZIP • ตอนละ 2 ไฟล์")
+        val options=(0 until eps.length()).map { "EP.${eps.getJSONObject(it).getInt("ep")} • ${eps.getJSONObject(it).optString("title")}" }+
+            listOf("ตรวจคำสั่ง / แก้เฉพาะจุด")
         choiceMenu("คำสั่งภาพ + Flow • แยกตาม EP",options) { index ->
             when {
                 index==eps.length() -> productionCheckMenu(story)
-                index>eps.length() -> {
-                    val problems=ProductionCommandCheck.issues(story)
-                    if(problems.isNotEmpty()) productionCheckMenu(story)
-                    else { starterFlowPack=false; flowPackPicker.launch(StoryFiles.zipName(story.optString("title"))) }
-                }
                 else -> {
                     val number=eps.getJSONObject(index).getInt("ep")
                     choiceMenu("EP.$number • คำสั่งพร้อมใช้",listOf("1. สร้างภาพ ChatGPT / Gemini • แนบ MASTER ให้","2. สร้างวิดีโอใน Flow • ใช้ภาพฉาก","ไฟล์คำสั่ง / แก้ไข / ทำต่อ")) { kind ->
@@ -1727,8 +1722,8 @@ class StudioActivity : AppCompatActivity() {
         val prepared=current!=null || File(project,"flow_story_command.txt").isFile
         val exported=current!=null && storyFile.isFile && File(project,"flow_pack_exported.sha256").takeIf { it.isFile }?.readText()==EpisodeMedia.digest(storyFile)
         val episodes=current?.getJSONArray("episodes")
-        val active=when { current==null -> if(prepared) 2 else 1; else -> 3 }
-        val labelText = if (current==null) "ยังไม่มีบท • เริ่มขั้นตอน 1 หรือนำเข้าบทที่มีแล้ว"
+        val active=if(current==null) 1 else 2
+        val labelText = if (current==null) "สร้างบทในแอป • ดูสถานะงานเขียนด้านล่าง"
             else if (current.optString("clip_format")=="short") "${current.optString("title")} • คลิปสั้น"
             else "${current.optString("title")} • ${episodes!!.length()} EP"
         label(labelText,14,true)
@@ -1752,22 +1747,19 @@ class StudioActivity : AppCompatActivity() {
         }
         if(current!=null && prefs.getInt("last_image_deck_${project.name}",0)>0) button("📋 กลับรายการรูป/ซีนล่าสุด",false) { if(!returnToImageList()) notice("ไม่พบ EP ที่เคยเปิดในเรื่องนี้") }
         if(File(project,"last_image_payload.json").isFile) button("🔁 ส่งคำสั่งและรูปอีกครั้ง",false) { retryLastImage() }
-        stepCard(1,"📝","วางบทและเขียนคำสั่ง","เลือกแนวเรื่อง → AI เขียนบทและรับกลับในแอป → ส่งออก Flow • ตั้งค่า API Key ครั้งแรก",completed=prepared,currentStep=active,
-            statusText=if(prepared) "เตรียมคำสั่ง / มีบทแล้ว" else "พร้อมเริ่มวางบท") { flowPlanning() }
-        stepCard(2,"📥","นำเข้าบท / ZIP","นำเข้า story.json หรือ ZIP บท • ไม่ต้องรอภาพฉาก",completed=current!=null,currentStep=active,
-            statusText=if(current!=null) "นำเข้าบทแล้ว • เพิ่มไฟล์ได้" else "รอนำเข้า story.json / ZIP") { packagePicker.launch(arrayOf("*/*")) }
-        stepCard(3,"📦","คำสั่งสร้างรูป + Flow • ตอนละ 2 ไฟล์",if(current==null) "สร้างหรือนำเข้าบทก่อน แล้วใช้คำสั่งเพียง 2 ไฟล์" else if(issues.isNotEmpty()) "บทต้องแก้ ${issues.size} จุด • แตะดูรายการก่อนส่งออก" else "เลือก EP → ไฟล์ภาพ + ไฟล์ Flow • มีสารบัญ รหัสซีน และตรวจคำสั่งก่อนส่งออก • MASTER เก็บในแอป",
-            enabled=current!=null,completed=exported,currentStep=active,statusText=when { current==null -> "รอนำเข้าบท"; issues.isNotEmpty() -> "ต้องตรวจแก้บท"; exported -> "ส่งออกบทฉบับนี้แล้ว"; else -> "พร้อมส่งออกคำสั่ง" }) {
+        stepCard(1,"📝","สร้างบทในแอป","เลือกแนวเรื่องและระยะเวลา → AI เขียนบทและบันทึกในแอป",
+            completed=current!=null,currentStep=active,statusText=if(current!=null) "มีบทพร้อมใช้งาน" else if(File(project,"gemini_job/spec.json").isFile) "ตรวจสถานะงานเขียนบทด้านบน" else "พร้อมเริ่มสร้างบท") { flowPlanning() }
+        stepCard(2,"🎬","คำสั่งสร้างภาพและวิดีโอ",if(current==null) "รอบทเขียนเสร็จ แล้วเลือกตอนและซีนเพื่อใช้คำสั่ง" else if(issues.isNotEmpty()) "บทต้องตรวจแก้ ${issues.size} จุดก่อนใช้คำสั่ง" else "เลือก EP → สร้างภาพด้วย ChatGPT / Gemini → ใช้ภาพและคำสั่งสร้างคลิปใน Flow",
+            enabled=current!=null,completed=exported,currentStep=active,statusText=when { current==null -> "รอบทเขียนเสร็จ"; issues.isNotEmpty() -> "ต้องตรวจแก้บท"; exported -> "เคยส่งออกบทนี้แล้ว"; else -> "พร้อมใช้คำสั่ง" }) {
             if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else commandCardsMenu()
         }
         label("นำคลิปที่สร้างใน Flow ไปตัดต่อด้วยโปรแกรมภายนอก",13)
         if(current!=null && current.optString("aspect_ratio","16:9")!="9:16") button("↔ สร้างสำเนาเรื่องแนวตั้ง 9:16",false) { landscapeCopyMenu() }
-        button("📋 คำสั่งภาพ / วิดีโอ • ปกและซีน",false) { commandCardsMenu() }
         label("เครื่องมือเสริม",15,true)
+        button("📥 นำเข้าบทที่มีอยู่",false) { packagePicker.launch(arrayOf("*/*")) }
         button("⚙️ AutoDirector v45 • ภาพ Gemini / วิดีโอ Flow",false) { autoDirectorMenu() }
         button("🧪 ทดสอบสร้างวิดีโอ • เลือกตัวละคร",false) { flowTestMenu() }
         button("🎭 แม่แบบรูปร่างและคลังตัวละคร",false) { choiceMenu("ตัวละคร",listOf("สร้างตัวละครจากแม่แบบ","คลังตัวละครใหม่","ตัวละครของเรื่องที่เปิด")) { when(it) { 0 -> bodyTemplateMenu(); 1 -> actorCatalogMenu(); else -> castMenu() } } }
-        button("⬇ ดาวน์โหลดแม่บทเริ่มงาน + MASTER",false) { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
         splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
     }
     private fun flowSettings() {
