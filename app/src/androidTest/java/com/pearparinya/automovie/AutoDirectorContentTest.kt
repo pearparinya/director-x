@@ -245,7 +245,18 @@ class AutoDirectorContentTest {
             val bytes=ByteArrayOutputStream(); SimpleProductionCommands.write(bytes,p)
             val entries=linkedMapOf<String,String>()
             ZipInputStream(ByteArrayInputStream(bytes.toByteArray())).use { zip -> while(true) { val entry=zip.nextEntry ?: break; entries[entry.name]=String(zip.readBytes(),Charsets.UTF_8) } }
-            assertEquals(setOf("EP01_IMAGES.txt","EP01_FLOW.txt","EP02_IMAGES.txt","EP02_FLOW.txt"),entries.keys)
+            val expected=setOf("EP01_IMAGES.txt","EP01_FLOW.txt","EP02_IMAGES.txt","EP02_FLOW.txt") +
+                (1..2).flatMap { ep -> (0..4).map { index -> SimpleProductionCommands.flowGroupPath(ep,index) } }
+            assertEquals(expected,entries.keys)
+            for(ep in 1..2) {
+                val groups=SimpleProductionCommands.groupScenes(SimpleProductionCommands.videoTasks(p,ep))
+                assertEquals(listOf(5,5,5,5,4),groups.map { it.size })
+                groups.forEachIndexed { index, group ->
+                    val content=entries.getValue(SimpleProductionCommands.flowGroupPath(ep,index))
+                    assertEquals(group.size,Regex("ภาพซีนที่ต้องแนบเป็นเฟรมแรก:").findAll(content).count())
+                    group.forEach { assertTrue(content.contains("รหัส: "+it.id)) }
+                }
+            }
             assertEquals(28,SimpleProductionCommands.imageTasks(p,1).size)
             assertEquals(26,SimpleProductionCommands.imageTasks(p,2).size)
             assertFalse(entries.getValue("EP02_IMAGES.txt").contains("STORY_COVER"))
