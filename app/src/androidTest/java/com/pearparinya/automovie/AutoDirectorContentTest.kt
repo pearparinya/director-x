@@ -85,6 +85,13 @@ class AutoDirectorContentTest {
         val multi=FlowReferencePrompt.visibleCastLock(listOf(solo,JSONObject().put("name","อีกคน")))
         assertTrue(multi.contains("Show exactly 2 people"))
     }
+    @Test fun videoDocumentPairsEveryCommandWithItsSceneImage() {
+        val doc=SimpleProductionCommands.videos(story(),1)
+        assertTrue(doc.contains("Video → Frames"))
+        assertTrue(doc.contains("Add start frame"))
+        assertTrue(doc.contains("ภาพซีนที่ต้องแนบเป็นเฟรมแรก: EP01_SC001"))
+        assertTrue(doc.contains("ไฟล์นี้มีคำสั่งข้อความ"))
+    }
     @Test fun sceneCameraKeepsCastAndSupportsExplicitModes() {
         val project=story()
         val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)

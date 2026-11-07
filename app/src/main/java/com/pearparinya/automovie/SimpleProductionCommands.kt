@@ -120,7 +120,7 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
             Task(id,"EP.$number | ซีน %03d | วิดีโอ 9:16 | 8 วินาที".format(n),"9:16",command)
         }
     }
-    fun block(task: Task,index: Int,images: Boolean)="[${if(images) "รูปที่ %02d".format(index+1) else "วิดีโอ"} | ${task.title}]\nรหัส: ${task.id}\n${if(images) "ชื่อไฟล์ภาพ" else "ชื่อไฟล์วิดีโอ"}: ${task.id}.${if(images) "png" else "mp4"}\n${task.command}"
+    fun block(task: Task,index: Int,images: Boolean)="[${if(images) "รูปที่ %02d".format(index+1) else "วิดีโอ"} | ${task.title}]\nรหัส: ${task.id}\n${if(images) "ชื่อไฟล์ภาพ" else "ชื่อไฟล์วิดีโอ"}: ${task.id}.${if(images) "png" else "mp4"}\n${if(images) "" else "ภาพซีนที่ต้องแนบเป็นเฟรมแรก: ${task.id} (ใช้ไฟล์ภาพซีนรหัสนี้ เช่น ${task.id}.png)\n"}${task.command}"
     fun document(story: JSONObject,number: Int,images: Boolean): String {
         val tasks=if(images) imageTasks(story,number) else videoTasks(story,number)
         val coverCount=tasks.count { it.id.contains("_COVER_") }
@@ -130,7 +130,7 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
             append("สารบัญ — หัวข้อและรหัสเป็นป้ายกำกับ ห้ามวาดลงซีน:\n")
             tasks.forEachIndexed { i,t -> append("${i+1}. ${t.id} | ${t.title}\n") }
             if(images) append("\nแนบ MASTER ตามชื่อตัวละคร ไม่อิงลำดับอัปโหลด ไม่ต้องเปลี่ยนชื่อรูปจริง เริ่มภาพแรกเท่านั้น; next = ภาพถัดไปหลังภาพปัจจุบันสำเร็จและตรวจแล้ว\nแก้ภาพ <รหัส> / retry = แก้งานนั้น ไม่เลื่อนคิว ไม่เปลี่ยนอัตลักษณ์หรือชุดประจำวัน; ไปที่ <รหัส> = ทำต่อจากรายการที่มีในสารบัญ\nทุกครั้งแจ้ง ล่าสุด: <รหัส> | สถานะ DONE/PENDING | ถัดไป: <รหัส>; หากไม่สำเร็จ ข้อความปกผิด หรือขาดอ้างอิงให้คง PENDING ห้ามข้าม\nDONE หมายถึงผู้ใช้ตรวจผลจริงแล้ว ไม่ใช่คะแนนรับรองอัตลักษณ์จากคำสั่ง หากบริบทหายให้ขอไฟล์และ MASTER พร้อมระบุรหัสทำต่อใหม่\nปกมีข้อความตามรายการเท่านั้น ซีนไม่มีข้อความ ทุกคำสั่งใช้ขนาดของตนเอง; ครบรายการแล้วหยุด\n")
-            else append("\nคัดลอกทีละบล็อกพร้อมภาพซีนรหัสเดียวกันเป็นเฟรมเริ่มต้น โดยไม่ขึ้นกับนามสกุลไฟล์ ไฟล์นี้ไม่ใช่การรัน Flow ทั้ง EP อัตโนมัติ; แต่ละบล็อกรวมภาพ การแสดง บทพูดและเสียงแล้ว\n")
+            else append("\nใน Flow เลือก Video → Frames และแนบภาพซีนรหัสเดียวกันใน Add start frame จากนั้นคัดลอกเฉพาะคำสั่งของซีน ตั้ง 9:16 และ 8 วินาที แล้วกดสร้าง ภาพซีนต้องเตรียมหรืออัปโหลดเอง ไฟล์นี้มีคำสั่งข้อความ ไม่ได้แนบภาพหรือสร้างวิดีโออัตโนมัติ\n")
             tasks.forEachIndexed { i,t -> append("\n\n${block(t,i,images)}") }
         }
     }
