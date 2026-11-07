@@ -110,7 +110,10 @@ internal object FlowScenePrompt {
             action = Regex("\\[" + Regex.escape(alias) + "\\]", options).replace(action) { replacement }
             action = Regex("(?<!\\[)$boundary(?!\\])", options).replace(action) { replacement }
         }
-        val sound = s.sound.trim().ifEmpty { "Quiet natural ambience." }.replace(Regex("\\b(?:indoor )?murmurs\\b", RegexOption.IGNORE_CASE), "quiet room tone")
+        // Do not invite human background speech when the same scene requires no extra voices.
+        val sound = s.sound.trim().ifEmpty { "Quiet natural ambience." }
+            .replace(Regex("\\b(?:(?:soft|quiet|low|faint|gentle|indoor)\\s+)*murmurs?\\s+of\\s+(?:(?:art|gallery|room|office)\\s+)*(?:patrons|people|crowds?|visitors|guests)\\b", RegexOption.IGNORE_CASE), "quiet room tone")
+            .replace(Regex("\\b(?:indoor )?murmurs\\b", RegexOption.IGNORE_CASE), "quiet room tone")
         return buildString {
             append("<scene id=\"${xml(id)}\">\n  <aspect_ratio>9:16</aspect_ratio>\n  <duration>8</duration>\n  <reference_image>attached_image</reference_image>\n  <lighting>Preserve the lighting and colors of the attached start frame.</lighting>\n  <typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone>\n")
             if (s.cast.isNotEmpty()) {
