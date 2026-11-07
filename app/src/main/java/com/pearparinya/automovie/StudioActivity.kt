@@ -1947,7 +1947,7 @@ class StudioActivity : AppCompatActivity() {
                 choiceMenu("เลือกตัวละครที่ตรงกับ $unknown",people.map { it.optString("name")+" • "+it.optString("master") }) { selected ->
                     val chosen=people[selected].optString("name")
                     AlertDialog.Builder(this).setTitle("ยืนยันตัวละคร")
-                        .setMessage("ใช้ $chosen แทน $unknown เฉพาะใน EP $ep ซีน $number แล้วทำต่อ?")
+                        .setMessage("จับคู่ $unknown กับ $chosen สำหรับเรื่องนี้ แล้วแก้ EP $ep ซีน $number และทำต่อ?")
                         .setPositiveButton("ยืนยันและทำต่อ") { _,_ ->
                             if(GeminiStoryService.running) { notice("งานกำลังทำงานอยู่ กรุณาหยุดก่อน"); return@setPositiveButton }
                             runCatching {
@@ -1957,6 +1957,15 @@ class StudioActivity : AppCompatActivity() {
                                 require(index<rows.length() && rows.getJSONObject(index).optInt("scene")==number)
                                 val target=rows.getJSONObject(index)
                                 require(target.optString("flow_action")==action)
+                                val selectedPerson=people[selected]
+                                val master=selectedPerson.getString("master")
+                                val spec=GeminiStoryFiles.read(File(job,"spec.json"))
+                                val definitions=FlowCast.definitions(spec)
+                                require(definitions.count { it.optString("name")==chosen && it.optString("master").equals(master,true) }==1) { "ตัวละครหรือ MASTER ไม่ตรงทะเบียนเรื่อง" }
+                                require(definitions.none { it.optString("name")!=chosen && it.optString("english_name").equals(unknown,true) }) { "ชื่อนี้เป็นชื่อของตัวละครอื่นในทะเบียน" }
+                                val registry=CharacterAliasRegistry.read(job)
+                                CharacterAliasRegistry.add(registry,unknown,chosen,master)
+                                CharacterAliasRegistry.save(job,registry)
                                 target.put("flow_action",token.replace(action) { chosen })
                                 GeminiStoryFiles.write(file,current)
                                 if(StoryProvider.ready(this)) {

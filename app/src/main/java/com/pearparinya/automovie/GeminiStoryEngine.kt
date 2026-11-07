@@ -169,7 +169,9 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                 for(e in 0 until output.length()) checkDialogue(output.getJSONObject(e).getJSONArray("scenes"),e+1,priorDialogue)
                 checkDialogue(scenes,i+1,priorDialogue)
                 val batch=try { cached("EP%02d_%02d.json".format(i+1,start),prompt,batchSchema()) {
+                    val confirmedAliases=CharacterAliasRegistry.read(folder)
                     val nameRows=it.getJSONArray("scenes")
+                    for(n in 0 until nameRows.length()) CharacterAliasRegistry.apply(nameRows.getJSONObject(n),confirmedAliases)
                     for(n in 0 until nameRows.length()) {
                         val people=nameRows.getJSONObject(n).optJSONArray("characters") ?: continue
                         for(j in 0 until people.length()) {
