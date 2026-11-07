@@ -2022,6 +2022,20 @@ class StudioActivity : AppCompatActivity() {
                 .setNegativeButton("ปิด",null).showDirector()
             dialog.setOnDismissListener { if(geminiLiveDialog===live) geminiLiveDialog=null }
         } else {
+            if(readGeminiStatus()?.optString("message")?.contains("พบชื่อภาษาอังกฤษ")==true) {
+                choiceMenu("งานค้างเพราะชื่อตัวละคร • เลือกวิธีทำต่อ",listOf(
+                    "เขียนซีนที่ค้างใหม่ • เก็บซีนที่ผ่านแล้ว",
+                    "จับคู่ชื่อตัวละครด้วยตัวเอง",
+                    "ตั้งค่า API"
+                )) { selected ->
+                    when(selected) {
+                        0 -> regeneratePendingScene()
+                        1 -> resolvePendingCharacterName()
+                        else -> geminiSettings()
+                    }
+                }
+                return
+            }
             AlertDialog.Builder(this).setTitle("เขียนบทต่อจากที่บันทึก")
                 .setMessage(geminiStatusText(readGeminiStatus(),true)+"\nจะใช้ ${StoryProvider.label(this@StudioActivity)} และโมเดลที่ตั้งค่าปัจจุบัน เขียนเฉพาะช่วงที่ยังไม่สำเร็จ")
                 .setPositiveButton("ทำต่อ") { _,_ ->
