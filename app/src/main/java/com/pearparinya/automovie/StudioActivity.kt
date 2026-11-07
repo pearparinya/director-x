@@ -1615,7 +1615,8 @@ class StudioActivity : AppCompatActivity() {
             val sceneForFlow=if(images) null else rows(story).firstOrNull { key(it)==task.id }
             val flowSpec=sceneForFlow?.let { ProductionCommandCheck.spec(it) }
             val flowCamera=when(sceneForFlow?.optString("camera_movement")) { "track" -> "Gentle tracking movement."; "locked" -> "Locked camera."; "push_in" -> "Slow push-in."; else -> "Slow gentle pan." }
-            val code=(sceneSummary?.plus("\n\n") ?: "")+SimpleProductionCommands.block(task,index,images)+"\n\nล่าสุดที่เปิด: ${task.id} | ถัดไป: $next\nสถานะนี้บันทึกการเปิดคำสั่ง ไม่ได้ยืนยันว่าภาพหรือคลิปสร้างสำเร็จแล้ว"
+            val preview=if(!images && flowSpec!=null && FlowScenePrompt.issues(flowSpec).isEmpty()) task.copy(command=FlowVoiceXml.build(flowSpec,flowCamera)) else task
+            val code=(sceneSummary?.plus("\n\n") ?: "")+SimpleProductionCommands.block(preview,index,images)+"\n\nล่าสุดที่เปิด: ${task.id} | ถัดไป: $next\nสถานะนี้บันทึกการเปิดคำสั่ง ไม่ได้ยืนยันว่าภาพหรือคลิปสร้างสำเร็จแล้ว"
             val problems=ProductionCommandCheck.issues(story)
             val dialog=showFlowCode("${task.id} • ถัดไป $next",code,"${task.id}_${if(images) "IMAGE" else "FLOW"}.txt")
             if(images) activeProductionDialog=dialog
@@ -1630,8 +1631,8 @@ class StudioActivity : AppCompatActivity() {
             dialog.getButton(-1).setOnClickListener {
                 if(!images) {
                     if(problems.isNotEmpty() || flowSpec==null) { productionCheckMenu(story); return@setOnClickListener }
-                    choiceMenu("เลือกคำสั่ง Flow • ${task.id}",listOf("คัดลอก XML • เสียงตามบท","คัดลอกแบบกระชับ • เสียงตามบท","คัดลอกแบบเงียบ • ใส่เสียงภายหลัง","คัดลอกบทเสียงแยก")) { mode ->
-                        val value=when(mode) { 0 -> task.command; 1 -> CompactFlowPrompt.build(flowSpec,flowCamera,false); 2 -> CompactFlowPrompt.build(flowSpec,flowCamera,true); else -> CompactFlowPrompt.voiceText(flowSpec) }
+                    choiceMenu("เลือกคำสั่ง Flow • ${task.id}",listOf("คัดลอก XML • รูปแบบกระชับ","คัดลอก XML • แบบเดิมพร้อมเสียงประกอบ","คัดลอกแบบเงียบ • ใส่เสียงภายหลัง","คัดลอกบทเสียงแยก")) { mode ->
+                        val value=when(mode) { 0 -> FlowVoiceXml.build(flowSpec,flowCamera); 1 -> task.command; 2 -> CompactFlowPrompt.build(flowSpec,flowCamera,true); else -> CompactFlowPrompt.voiceText(flowSpec) }
                         copyCommand(value)
                     }
                     return@setOnClickListener
