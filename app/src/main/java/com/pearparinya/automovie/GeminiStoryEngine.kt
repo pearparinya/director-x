@@ -35,7 +35,10 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                     val fixSchema=JSONObject().put("type","object").put("properties",JSONObject().put("flow_action",JSONObject().put("type","string"))).put("required",JSONArray().put("flow_action"))
                     val fix=generate("Fix ONLY flow_action for scene $sceneNumber. Use exact Thai names from this visible cast: "+permitted.joinToString(", ")+". Preserve the original events. If an English name cannot be matched uniquely to the supplied character registry, keep that name unchanged for human review; do not guess or introduce another person. Return JSON containing only flow_action. Original scene: "+scene+marker,fixSchema)
                     val action=fix.optString("flow_action").trim()
-                    if(action.isNotEmpty()) scene.put("flow_action",action)
+                    // An unregistered Latin name must not be silently reassigned to a person.
+                    // Keep the pending scene for review if the returned action removes it.
+                    val unresolved=Regex("พบชื่อภาษาอังกฤษ '([^']+)'").find(problemText)?.groupValues?.get(1).orEmpty()
+                    if(action.isNotEmpty() && (unresolved.isEmpty() || action.contains(unresolved,ignoreCase=true))) scene.put("flow_action",action)
                     GeminiStoryFiles.write(pending,value)
                     check()
                     problem=try { validate(value); null } catch(e: IllegalArgumentException) { e }

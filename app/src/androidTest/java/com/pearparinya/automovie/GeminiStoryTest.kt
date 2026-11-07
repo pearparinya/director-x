@@ -363,29 +363,26 @@ class GeminiStoryTest {
             assertEquals(story.toString(),cached.toString())
         } finally { folder.deleteRecursively() }
     }
-    @Test fun unknownCharacterActionIsRepairedWithoutChangingOtherFields() {
+    @Test fun unknownCharacterCannotBeSilentlyReassignedDuringActionRepair() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"unknown-name-repair-${UUID.randomUUID()}").apply { mkdirs() }
         try {
             val selected=ClipPlan.apply(spec().put("episodes",1).put("command_version",1),"short",30)
             var repairs=0
-            val story=GeminiStoryEngine(folder,{ prompt,_ ->
+            val result=runCatching { GeminiStoryEngine(folder,{ prompt,_ ->
                 if(prompt.contains("Plan a complete story")) outline().apply { put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0))) }
-                else if(prompt.contains("Fix ONLY flow_action")) {
-                    repairs++
-                    assertTrue(prompt.contains("เมย์"))
-                    JSONObject().put("flow_action","เมย์ places the envelope on the table")
-                } else batch(prompt).apply {
+                else if(prompt.contains("Fix ONLY flow_action")) { repairs++; JSONObject().put("flow_action","เมย์ places the envelope on the table") }
+                else batch(prompt).apply {
                     val rows=getJSONArray("scenes")
                     for(i in 0 until rows.length()) {
                         rows.getJSONObject(i).getJSONArray("characters").getJSONObject(0).put("outfit","Top: cream shirt; Bottom: beige trousers; Shoes: brown shoes; Accessories: none")
                         rows.getJSONObject(i).put("flow_action",if(i==0) "Phuvadol places the envelope on the table" else "เมย์ places the envelope on the table")
                     }
                 }
-            }).run(selected)
-            assertEquals(1,repairs)
-            val scene=story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
-            assertEquals("เมย์ places the envelope on the table",scene.getString("flow_action"))
-            assertEquals("EP 1 ซีน 1 วางซอง",scene.getString("action"))
+            }).run(selected) }
+            assertTrue(result.isFailure)
+            assertEquals(3,repairs)
+            val saved=JSONObject(File(folder,"EP01_01.json.pending.json").readText()).getJSONArray("scenes").getJSONObject(0)
+            assertTrue(saved.getString("flow_action").contains("Phuvadol"))
         } finally { folder.deleteRecursively() }
     }
     @Test fun failedSceneRepairKeepsOtherScenesAndResumesPendingResponse() {
