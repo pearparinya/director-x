@@ -14,26 +14,18 @@ class FlowVoiceXmlTest {
         FlowSceneSpec(listOf(FlowPerson("ภูวดล","adult man","center","shirt")),speaker,dialogue,narration,
             "ภูวดล checks A & B","office","standing","reading",8,"9:16","",offscreen)
     private fun xml(text: String)=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(InputSource(StringReader(text)))
-    @Test fun thaiSpeechGuidanceIsAddedWithoutChangingTheLineOrSilentScenes() {
+    @Test fun concisePromptRestoresPreviouslySuccessfulWording() {
         val line="ผลงานของคุณน่าสนใจมากค่ะ"
-        val visible=xml(FlowVoiceXml.build(spec(dialogue=line,speaker="ภูวดล"),"Slow pan."))
-        val prompt=visible.getElementsByTagName("prompt").item(0).textContent
-        assertTrue(prompt.contains("Only [ภูวดล] at center speaks"))
-        assertTrue(prompt.contains("clear, natural Central Thai"))
-        assertTrue(prompt.contains("Begin directly with the first written word"))
-        assertTrue(prompt.contains("no throat clearing, humming, fillers"))
-        assertEquals(line,visible.getElementsByTagName("text").item(0).textContent)
-        val narr=xml(FlowVoiceXml.build(spec(narration=line),"Slow pan."))
-        assertTrue(narr.getElementsByTagName("prompt").item(0).textContent.contains("standard Thai pronunciation and tones"))
-        assertTrue(narr.getElementsByTagName("prompt").item(0).textContent.contains("Begin directly with the first written word"))
-        assertEquals(line,narr.getElementsByTagName("voice").item(0).textContent)
-        val silent=xml(FlowVoiceXml.build(spec(),"Slow pan."))
-        assertFalse(silent.getElementsByTagName("prompt").item(0).textContent.contains("Central Thai"))
+        val doc=xml(FlowVoiceXml.build(spec(dialogue=line,speaker="ภูวดล"),"Slow pan."))
+        val prompt=doc.getElementsByTagName("prompt").item(0).textContent
+        assertEquals("ภูวดล checks A & B. Only [ภูวดล] speaks with natural lip movement; other visible characters stay silent. Preserve the attached first frame, faces, hair, body proportions, positions, clothes, shoes, props, lighting and location. Slow pan.",prompt)
+        assertEquals(line,doc.getElementsByTagName("text").item(0).textContent)
+        assertFalse(prompt.contains("throat clearing"))
+        assertFalse(prompt.contains("Central Thai"))
         val primary=FlowScenePrompt.build(spec(dialogue=line,speaker="ภูวดล"))
-        assertTrue(primary.contains("clear, natural Central Thai"))
-        assertTrue(primary.contains("no throat clearing, humming, fillers"))
         assertTrue(primary.contains(line))
-        assertFalse(FlowScenePrompt.build(spec()).contains("Central Thai"))
+        assertFalse(primary.contains("throat clearing"))
+        assertFalse(primary.contains("Central Thai"))
     }
     @Test fun narrationUsesOffscreenAndEscapesText() {
         val doc=xml(FlowVoiceXml.build(spec(narration="ตัวเลข A & B < C"),"Slow pan."))
