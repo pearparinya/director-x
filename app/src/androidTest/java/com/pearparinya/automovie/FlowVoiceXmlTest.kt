@@ -20,14 +20,18 @@ class FlowVoiceXmlTest {
         val prompt=visible.getElementsByTagName("prompt").item(0).textContent
         assertTrue(prompt.contains("Only [ภูวดล] at center speaks"))
         assertTrue(prompt.contains("clear, natural Central Thai"))
+        assertTrue(prompt.contains("Begin directly with the first written word"))
+        assertTrue(prompt.contains("no throat clearing, humming, fillers"))
         assertEquals(line,visible.getElementsByTagName("text").item(0).textContent)
         val narr=xml(FlowVoiceXml.build(spec(narration=line),"Slow pan."))
         assertTrue(narr.getElementsByTagName("prompt").item(0).textContent.contains("standard Thai pronunciation and tones"))
+        assertTrue(narr.getElementsByTagName("prompt").item(0).textContent.contains("Begin directly with the first written word"))
         assertEquals(line,narr.getElementsByTagName("voice").item(0).textContent)
         val silent=xml(FlowVoiceXml.build(spec(),"Slow pan."))
         assertFalse(silent.getElementsByTagName("prompt").item(0).textContent.contains("Central Thai"))
         val primary=FlowScenePrompt.build(spec(dialogue=line,speaker="ภูวดล"))
         assertTrue(primary.contains("clear, natural Central Thai"))
+        assertTrue(primary.contains("no throat clearing, humming, fillers"))
         assertTrue(primary.contains(line))
         assertFalse(FlowScenePrompt.build(spec()).contains("Central Thai"))
     }
