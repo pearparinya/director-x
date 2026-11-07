@@ -120,6 +120,9 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
             Task(id,"EP.$number | ซีน %03d | วิดีโอ 9:16 | 8 วินาที".format(n),"9:16",command)
         }
     }
+    fun groupScenes(tasks: List<Task>): List<List<Task>> = tasks.filter { it.id.contains("_SC") }.chunked(5)
+    fun flowGroupPath(ep: Int, index: Int) = "Flow_EP%02d/EP%02d_FLOW_%02d.txt".format(ep,ep,index+1)
+    fun flowGroupDocument(tasks: List<Task>): String = "คำสั่ง Flow ชุดนี้: แนบภาพรหัสเดียวกับซีนเป็น Start frame แล้วคัดลอกคำสั่งทีละซีน\n" + tasks.mapIndexed { i,task -> block(task,i,false) }.joinToString("\n\n")
     fun block(task: Task,index: Int,images: Boolean)="[${if(images) "รูปที่ %02d".format(index+1) else "วิดีโอ"} | ${task.title}]\nรหัส: ${task.id}\n${if(images) "ชื่อไฟล์ภาพ" else "ชื่อไฟล์วิดีโอ"}: ${task.id}.${if(images) "png" else "mp4"}\n${if(images) "" else "ภาพซีนที่ต้องแนบเป็นเฟรมแรก: ${task.id} (ใช้ไฟล์ภาพซีนรหัสนี้ เช่น ${task.id}.png)\n"}${task.command}"
     fun document(story: JSONObject,number: Int,images: Boolean): String {
         val tasks=if(images) imageTasks(story,number) else videoTasks(story,number)
@@ -141,7 +144,12 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
         require(problems.isEmpty()) { problems.take(20).joinToString("\n") }
         val eps=story.getJSONArray("episodes")
         // Build and validate every document before opening the archive.
-        val docs=(0 until eps.length()).flatMap { i -> val n=eps.getJSONObject(i).getInt("ep"); listOf(imageName(n) to images(story,n),flowName(n) to videos(story,n)) }
+        val docs=(0 until eps.length()).flatMap { i ->
+            val n=eps.getJSONObject(i).getInt("ep")
+            val groups=groupScenes(videoTasks(story,n))
+            listOf(imageName(n) to images(story,n),flowName(n) to videos(story,n)) +
+                groups.mapIndexed { index,group -> flowGroupPath(n,index) to flowGroupDocument(group) }
+        }
         ZipOutputStream(output).use { zip -> docs.forEach { (name,text) -> zip.putNextEntry(ZipEntry(name)); zip.write(text.toByteArray(Charsets.UTF_8)); zip.closeEntry() } }
     }
 }

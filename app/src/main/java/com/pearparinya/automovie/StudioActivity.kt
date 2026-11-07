@@ -1581,18 +1581,18 @@ class StudioActivity : AppCompatActivity() {
         val allTasks=runCatching { if(images) SimpleProductionCommands.imageTasks(story,number) else SimpleProductionCommands.videoTasks(story,number) }.getOrElse {
             notice(it.message ?: "ข้อมูลคำสั่งไม่ครบ"); productionCheckMenu(story); return
         }
-        if(images && queueIds==null) {
-            val covers=allTasks.filter { it.id.contains("_COVER_") }
-            val groups=allTasks.filter { it.id.contains("_SC") }.chunked(5)
+        if(queueIds==null) {
+            val covers=if(images) allTasks.filter { it.id.contains("_COVER_") } else emptyList()
+            val groups=SimpleProductionCommands.groupScenes(allTasks)
             val groupsWithCovers=(if(covers.isEmpty()) emptyList() else listOf(covers))+groups
             val options=groupsWithCovers.map { group ->
                 val label=if(group.first().id.contains("_COVER_")) "ปก" else "${group.first().id} – ${group.last().id}"
                 val completed=group.count { task -> rows(story).firstOrNull { key(it)==task.id }?.let { sceneFrameApproved(it) } == true }
-                if(group.first().id.contains("_COVER_")) label else "$label • ตรวจผ่าน $completed/${group.size}"
+                if(group.first().id.contains("_COVER_")) label else if(images) "$label • ตรวจผ่าน $completed/${group.size}" else "$label • ${group.size} ซีน"
             }
             if(options.isEmpty()) { notice("ยังไม่มีรายการภาพใน EP นี้"); return }
-            choiceMenu("EP.$number • เลือกชุดภาพ (ครั้งละ 5 ซีน)",options) { selected ->
-                productionTaskDeck(story,number,true,groupsWithCovers[selected].map { it.id }.toSet())
+            choiceMenu("EP.$number • เลือกชุด${if(images) "ภาพ" else "คำสั่ง Flow"} (ครั้งละ 5 ซีน)",options) { selected ->
+                productionTaskDeck(story,number,images,groupsWithCovers[selected].map { it.id }.toSet())
             }
             return
         }
@@ -1612,10 +1612,10 @@ class StudioActivity : AppCompatActivity() {
             }
             "${task.id} • ${task.title}$status"
         }
-        choiceMenu("EP.$number • เลือกรหัสรูป/ซีน",options) { selected ->
+        choiceMenu("EP.$number • เลือก${if(images) "รูป" else "คำสั่ง Flow"} ในชุด",options) { selected ->
             val index=if(selected==0) start else selected-1; val task=tasks[index]
             prefs.edit().putString(preference,task.id).apply()
-            val next=tasks.getOrNull(index+1)?.id ?: "จบรายการของ EP นี้"
+            val next=tasks.getOrNull(index+1)?.id ?: "จบชุดนี้ • เลือกชุดถัดไป"
             val code=SimpleProductionCommands.block(task,index,images)+"\n\nล่าสุดที่เปิด: ${task.id} | ถัดไป: $next\nสถานะนี้บันทึกการเปิดคำสั่ง ไม่ได้ยืนยันว่าภาพหรือคลิปสร้างสำเร็จแล้ว"
             val problems=ProductionCommandCheck.issues(story)
             val dialog=showFlowCode("${task.id} • ถัดไป $next",code,"${task.id}_${if(images) "IMAGE" else "FLOW"}.txt")
