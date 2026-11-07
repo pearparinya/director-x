@@ -27,6 +27,19 @@ class FlowVoiceXmlTest {
         assertFalse(primary.contains("throat clearing"))
         assertFalse(primary.contains("Central Thai"))
     }
+    @Test fun galleryPatronMurmursDoNotConflictWithNoExtraVoices() {
+        val sound="Ambience: soft murmur of art gallery patrons; SFX: gentle footsteps on polished floor; Music: subtle Thai classical strings with soft piano."
+        val line="ผลงานของคุณน่าสนใจมากค่ะ"
+        val command=FlowScenePrompt.build(spec(dialogue=line,speaker="ภูวดล").copy(sound=sound))
+        val doc=xml(command)
+        val ambient=doc.getElementsByTagName("ambient").item(0).textContent
+        assertTrue(ambient.contains("quiet room tone"))
+        assertFalse(ambient.contains("murmur of art gallery patrons"))
+        assertTrue(ambient.contains("gentle footsteps on polished floor"))
+        assertTrue(ambient.contains("subtle Thai classical strings with soft piano"))
+        assertEquals(line,doc.getElementsByTagName("text").item(0).textContent)
+        assertTrue(FlowScenePrompt.build(spec().copy(sound="murmur of wind")).contains("murmur of wind"))
+    }
     @Test fun narrationUsesOffscreenAndEscapesText() {
         val doc=xml(FlowVoiceXml.build(spec(narration="ตัวเลข A & B < C"),"Slow pan."))
         val d=doc.getElementsByTagName("dialogue").item(0) as org.w3c.dom.Element
