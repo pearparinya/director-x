@@ -1598,20 +1598,21 @@ class StudioActivity : AppCompatActivity() {
         val previous=prefs.getString(preference,"")
         val start=tasks.indexOfFirst { it.id==previous }.coerceAtLeast(0)
         val options=listOf("ทำต่อจากล่าสุดที่เปิด • ${tasks[start].id}")+tasks.map { task ->
-            val scene=if(images) rows(story).firstOrNull { key(it)==task.id } else null
-            val status=if(scene==null) "" else when {
+            val scene=rows(story).firstOrNull { key(it)==task.id }
+            val status=if(scene==null || !images) "" else when {
                 sceneFrameApproved(scene) -> " • ตรวจผ่าน"
                 !image(scene).isFile -> " • รอภาพ"
                 scene.optString("user_review")=="needs_revision" -> " • ต้องแก้"
                 else -> " • รอตรวจ"
             }
-            "${task.id} • ${task.title}$status"
+            "${task.id} • ${task.title}$status"+(scene?.let { "\n"+SceneOverview.short(it) } ?: "")
         }
         choiceMenu("EP.$number • เลือก${if(images) "รูป" else "คำสั่ง Flow"} ในชุด",options) { selected ->
             val index=if(selected==0) start else selected-1; val task=tasks[index]
             prefs.edit().putString(preference,task.id).apply()
             val next=tasks.getOrNull(index+1)?.id ?: "จบชุดนี้ • เลือกชุดถัดไป"
-            val code=SimpleProductionCommands.block(task,index,images)+"\n\nล่าสุดที่เปิด: ${task.id} | ถัดไป: $next\nสถานะนี้บันทึกการเปิดคำสั่ง ไม่ได้ยืนยันว่าภาพหรือคลิปสร้างสำเร็จแล้ว"
+            val sceneSummary=rows(story).firstOrNull { key(it)==task.id }?.let { SceneOverview.detail(it,task.id) }
+            val code=(sceneSummary?.plus("\n\n") ?: "")+SimpleProductionCommands.block(task,index,images)+"\n\nล่าสุดที่เปิด: ${task.id} | ถัดไป: $next\nสถานะนี้บันทึกการเปิดคำสั่ง ไม่ได้ยืนยันว่าภาพหรือคลิปสร้างสำเร็จแล้ว"
             val problems=ProductionCommandCheck.issues(story)
             val dialog=showFlowCode("${task.id} • ถัดไป $next",code,"${task.id}_${if(images) "IMAGE" else "FLOW"}.txt")
             if(images) activeProductionDialog=dialog
