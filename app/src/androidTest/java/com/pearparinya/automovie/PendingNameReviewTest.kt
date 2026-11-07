@@ -27,4 +27,25 @@ class PendingNameReviewTest {
         assertEquals(listOf("Pinmanee"),PendingNameReview.collect(batch,spec,registry).map { it.alias })
         assertEquals(original,batch.toString())
     }
+    @Test fun registeredAliasRequiresUniqueCastAndMatchingMaster() {
+        val registry=JSONObject()
+        val actor=person("ปิ่นมณี","SUPPORT_00000002_MASTER.png").put("english_name","Pinmanee")
+        val spec=JSONObject().put("supporting_characters",JSONArray().put(actor.put("auto_cast",true)))
+        val row=scene(9,"ปิ่นมณี","SUPPORT_00000002_MASTER.png","Pinmanee walks")
+        val batch=JSONObject().put("scenes",JSONArray().put(row))
+        assertTrue(PendingNameReview.collect(batch,spec,registry).isEmpty())
+        assertEquals("Pinmanee walks",row.getString("flow_action"))
+        val copy=JSONObject(row.toString())
+        CharacterAliasRegistry.applyRegistered(copy,FlowCast.definitions(spec),registry)
+        assertEquals("ปิ่นมณี walks",copy.getString("flow_action"))
+        val duplicate=person("คนอื่น","SUPPORT_00000003_MASTER.png").put("english_name","PINMANEE").put("auto_cast",true)
+        spec.getJSONArray("supporting_characters").put(duplicate)
+        val ambiguous=JSONObject(row.toString())
+        CharacterAliasRegistry.applyRegistered(ambiguous,FlowCast.definitions(spec),registry)
+        assertEquals("Pinmanee walks",ambiguous.getString("flow_action"))
+        spec.getJSONArray("supporting_characters").remove(1)
+        val wrong=scene(9,"ปิ่นมณี","SUPPORT_00000003_MASTER.png","Pinmanee walks")
+        CharacterAliasRegistry.applyRegistered(wrong,FlowCast.definitions(spec),registry)
+        assertEquals("Pinmanee walks",wrong.getString("flow_action"))
+    }
 }
