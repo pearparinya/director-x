@@ -17,11 +17,13 @@ internal enum class ExtraApiProvider(val id: String, val label: String) {
     CEREBRAS("cerebras", "Cerebras"),
     DEEPSEEK("deepseek", "DeepSeek"),
     OPENROUTER("openrouter", "OpenRouter"),
+    MISTRAL("mistral", "Mistral"),
     COHERE("cohere", "Cohere");
     val service: CompatibleService get() = when(this) {
         CEREBRAS -> CompatibleService.CEREBRAS
         DEEPSEEK -> CompatibleService.DEEPSEEK
         OPENROUTER -> CompatibleService.OPENROUTER
+        MISTRAL -> CompatibleService.MISTRAL
         COHERE -> CompatibleService.COHERE
     }
 }
