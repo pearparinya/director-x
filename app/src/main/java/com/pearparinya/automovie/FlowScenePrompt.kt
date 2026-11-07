@@ -42,7 +42,7 @@ internal object FlowScenePrompt {
         if (speech(s.dialogue).isNotEmpty() && speech(s.narration).isNotEmpty()) add("แยกบทพูดและเสียงบรรยายเป็นคนละฉาก เพื่อไม่ให้เสียงทับกัน")
     }
     // Unknown subject names cannot safely be guessed from character order or appearance.
-    private fun unknownActionNames(s: FlowSceneSpec): List<String> {
+    fun unknownActionNames(s: FlowSceneSpec): List<String> {
         if(s.cast.isEmpty()) return emptyList()
         val known=s.cast.flatMap { p ->
             val aliases=when(identity(p.name)) {
