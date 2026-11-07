@@ -51,6 +51,26 @@ class GeminiStoryTest {
         } })
     }
     private fun spec()=JSONObject().put("category","แนว").put("channel","ช่อง").put("episodes",3).put("premise","ซองบนโต๊ะ")
+    @Test fun missingCharactersInPendingSceneIsRepairedAndResumed() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"missing-cast-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val selected=ClipPlan.apply(spec().put("episodes",1).put("provider","groq"),"short",30)
+            GeminiStoryFiles.write(File(folder,"outline.json"),outline().apply { put("episodes",JSONArray().put(getJSONArray("episodes").getJSONObject(0))) })
+            val first=batch("Write exactly scenes 1 to 1 for EP 1")
+            first.getJSONArray("scenes").getJSONObject(0).remove("characters")
+            GeminiStoryFiles.write(File(folder,"EP01_01.json.pending.json"),first)
+            GeminiStoryFiles.write(File(folder,"batch_recovery.json"),JSONObject().put("single_scene",true))
+            var repairs=0
+            val result=GeminiStoryEngine(folder,{ prompt,_ ->
+                if(prompt.contains("DIRECTOR_INTERNAL_REPAIR_ATTEMPT")) { repairs++; assertTrue(prompt.contains("characters")) }
+                batch(prompt)
+            }).run(selected)
+            assertEquals(1,repairs)
+            assertEquals(4,result.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").length())
+            assertTrue(File(folder,"EP01_01.json").isFile)
+            assertFalse(File(folder,"EP01_01.json.pending.json").exists())
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun oversizeBatchSplitsWithoutLosingOrDuplicatingScenes() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"split-413-${UUID.randomUUID()}").apply { mkdirs() }
         try {
