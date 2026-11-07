@@ -110,7 +110,7 @@ internal object FlowScenePrompt {
             action = Regex("\\[" + Regex.escape(alias) + "\\]", options).replace(action) { replacement }
             action = Regex("(?<!\\[)$boundary(?!\\])", options).replace(action) { replacement }
         }
-        val pronunciation = if (line.isNotEmpty()) "Speak the written words exactly in clear, natural Central Thai, with standard Thai pronunciation and tones, at a conversational pace." else ""
+        val pronunciation = if (line.isNotEmpty()) FlowVoiceXml.speechDirection else ""
         val sound = s.sound.trim().ifEmpty { "Quiet natural ambience." }.replace(Regex("\\b(?:indoor )?murmurs\\b", RegexOption.IGNORE_CASE), "quiet room tone")
         return buildString {
             append("<scene id=\"${xml(id)}\">\n  <aspect_ratio>9:16</aspect_ratio>\n  <duration>8</duration>\n  <reference_image>attached_image</reference_image>\n  <lighting>Preserve the lighting and colors of the attached start frame.</lighting>\n  <typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone>\n")
