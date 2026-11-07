@@ -1914,6 +1914,61 @@ class StudioActivity : AppCompatActivity() {
             androidx.core.content.ContextCompat.startForegroundService(this,intent)
         }.onFailure { notice("เริ่มงานไม่ได้ กรุณาเปิดแอปค้างไว้แล้วลองใหม่") }
     }
+    private fun resolvePendingCharacterName() {
+        if(GeminiStoryService.running) { notice("กรุณาหยุดงานก่อนแก้ชื่อ"); return }
+        val job=File(project,"gemini_job")
+        val status=readGeminiStatus() ?: return notice("ไม่พบสถานะงาน")
+        val match=Regex("EP ([0-9]+) ซีน ([0-9]+): พบชื่อภาษาอังกฤษ '([A-Za-z][A-Za-z0-9_]*)'").find(status.optString("message"))
+            ?: return notice("ไม่พบชื่อที่ต้องจับคู่ในสถานะปัจจุบัน")
+        val ep=match.groupValues[1].toInt()
+        val number=match.groupValues[2].toInt()
+        val unknown=match.groupValues[3]
+        val files=job.listFiles().orEmpty().filter { it.name.matches(Regex("EP%02d_[0-9]+[.]json[.]pending[.]json".format(ep))) }
+        val found=files.mapNotNull { file ->
+            runCatching {
+                val value=GeminiStoryFiles.read(file)
+                val rows=value.getJSONArray("scenes")
+                val indices=(0 until rows.length()).filter { rows.getJSONObject(it).optInt("scene")==number }
+                if(indices.size!=1) null else Triple(file,value,indices.single())
+            }.getOrNull()
+        }
+        if(found.size!=1) { notice("ไม่พบซีนที่ค้างเพียงรายการเดียว จึงยังไม่แก้ข้อมูล"); return }
+        val (file,value,index)=found.single()
+        val scene=value.getJSONArray("scenes").getJSONObject(index)
+        val cast=scene.optJSONArray("characters") ?: return notice("ซีนนี้ไม่มีรายชื่อตัวละครให้เลือก")
+        val people=(0 until cast.length()).map { cast.getJSONObject(it) }.filter { it.optString("name").isNotBlank() && it.optString("master").isNotBlank() }
+        if(people.isEmpty() || people.map { it.optString("name") }.distinct().size!=people.size) { notice("รายชื่อตัวละครไม่ครบหรือซ้ำ กรุณาตรวจบทก่อน"); return }
+        val action=scene.optString("flow_action")
+        val token=Regex("(?<![A-Za-z0-9_])"+Regex.escape(unknown)+"(?![A-Za-z0-9_])",RegexOption.IGNORE_CASE)
+        if(!token.containsMatchIn(action)) { notice("ไม่พบชื่อนี้ในซีนที่ค้างแล้ว กรุณาเปิดสถานะใหม่"); return }
+        AlertDialog.Builder(this).setTitle("จับคู่ชื่อ $unknown • EP $ep ซีน $number")
+            .setMessage("ตรวจการกระทำก่อนเลือกตัวละคร: \n$action\n\nเลือกเฉพาะเมื่อแน่ใจว่าเป็นคนเดียวกัน ซีนอื่นและบทพูดจะไม่เปลี่ยน")
+            .setPositiveButton("เลือกรายชื่อ") { _,_ ->
+                choiceMenu("เลือกตัวละครที่ตรงกับ $unknown",people.map { it.optString("name")+" • "+it.optString("master") }) { selected ->
+                    val chosen=people[selected].optString("name")
+                    AlertDialog.Builder(this).setTitle("ยืนยันตัวละคร")
+                        .setMessage("ใช้ $chosen แทน $unknown เฉพาะใน EP $ep ซีน $number แล้วทำต่อ?")
+                        .setPositiveButton("ยืนยันและทำต่อ") { _,_ ->
+                            if(GeminiStoryService.running) { notice("งานกำลังทำงานอยู่ กรุณาหยุดก่อน"); return@setPositiveButton }
+                            runCatching {
+                                // Re-read and reject if the pending action changed while the picker was open.
+                                val current=GeminiStoryFiles.read(file)
+                                val rows=current.getJSONArray("scenes")
+                                require(index<rows.length() && rows.getJSONObject(index).optInt("scene")==number)
+                                val target=rows.getJSONObject(index)
+                                require(target.optString("flow_action")==action)
+                                target.put("flow_action",token.replace(action) { chosen })
+                                GeminiStoryFiles.write(file,current)
+                                if(StoryProvider.ready(this)) {
+                                    val specFile=File(job,"spec.json")
+                                    GeminiStoryFiles.write(specFile,StoryProvider.configure(this,GeminiStoryFiles.read(specFile)))
+                                    startGeminiJob(project)
+                                } else geminiSettings { geminiJobMenu() }
+                            }.onFailure { notice("บันทึกการจับคู่ไม่ได้: "+(it.message ?: "กรุณาลองใหม่")) }
+                        }.setNegativeButton("ยกเลิก",null).showDirector()
+                }
+            }.setNegativeButton("กลับ",null).showDirector()
+    }
     private fun geminiJobMenu() {
         val state=readGeminiStatus()?.optString("state")
         if(state=="complete" && plan!=null) { if(plan!!.optString("content_profile")==AutoDirectorContent.profile) autoDirectorMenu() else episodesMenu(); return }
@@ -1934,7 +1989,7 @@ class StudioActivity : AppCompatActivity() {
                         val specFile=File(project,"gemini_job/spec.json"); val spec=StoryProvider.configure(this,GeminiStoryFiles.read(specFile))
                         GeminiStoryFiles.write(specFile,spec); startGeminiJob(project)
                     }.onFailure { notice("อ่านงานเดิมไม่ได้ กรุณาเริ่มเรื่องใหม่") }
-                }.setNeutralButton("ตั้งค่า API") { _,_ -> geminiSettings() }.setNegativeButton("ปิด",null).showDirector()
+                }.setNeutralButton(if(readGeminiStatus()?.optString("message")?.contains("พบชื่อภาษาอังกฤษ")==true) "จับคู่ชื่อตัวละคร" else "ตั้งค่า API") { _,_ -> if(readGeminiStatus()?.optString("message")?.contains("พบชื่อภาษาอังกฤษ")==true) resolvePendingCharacterName() else geminiSettings() }.setNegativeButton("ปิด",null).showDirector()
         }
     }
     private fun landscapeCopyMenu() {
