@@ -18,14 +18,14 @@ class FlowVoiceXmlTest {
         val line="ผลงานของคุณน่าสนใจมากค่ะ"
         val doc=xml(FlowVoiceXml.build(spec(dialogue=line,speaker="ภูวดล"),"Slow pan."))
         val prompt=doc.getElementsByTagName("prompt").item(0).textContent
-        assertEquals("ภูวดล checks A & B. Only [ภูวดล] speaks with natural lip movement; other visible characters stay silent. Preserve the attached first frame, faces, hair, body proportions, positions, clothes, shoes, props, lighting and location. Slow pan.",prompt)
+        assertEquals("ภูวดล checks A & B. Only [ภูวดล] speaks with natural lip movement; other visible characters stay silent. The speaker speaks Thai with a natural Central Thai accent. Preserve the attached first frame, faces, hair, body proportions, positions, clothes, shoes, props, lighting and location. Slow pan.",prompt)
         assertEquals(line,doc.getElementsByTagName("text").item(0).textContent)
         assertFalse(prompt.contains("throat clearing"))
-        assertFalse(prompt.contains("Central Thai"))
+        assertTrue(prompt.contains(FlowVoiceXml.accent))
         val primary=FlowScenePrompt.build(spec(dialogue=line,speaker="ภูวดล"))
         assertTrue(primary.contains(line))
         assertFalse(primary.contains("throat clearing"))
-        assertFalse(primary.contains("Central Thai"))
+        assertTrue(primary.contains(FlowVoiceXml.accent))
     }
     @Test fun galleryPatronMurmursDoNotConflictWithNoExtraVoices() {
         val sound="Ambience: soft murmur of art gallery patrons; SFX: gentle footsteps on polished floor; Music: subtle Thai classical strings with soft piano."
@@ -45,6 +45,7 @@ class FlowVoiceXmlTest {
         val d=doc.getElementsByTagName("dialogue").item(0) as org.w3c.dom.Element
         assertEquals("true",d.getAttribute("off_screen"))
         assertEquals("ตัวเลข A & B < C",doc.getElementsByTagName("voice").item(0).textContent)
+        assertTrue(doc.getElementsByTagName("prompt").item(0).textContent.contains(FlowVoiceXml.accent))
         assertTrue(doc.getElementsByTagName("prompt").item(0).textContent.contains("A & B"))
     }
     @Test fun visibleAndOffscreenDialogueKeepSpeakerAndLines() {
@@ -53,5 +54,7 @@ class FlowVoiceXmlTest {
         assertEquals("ตรวจสอบด้วยครับ",visible.getElementsByTagName("text").item(0).textContent)
         val silent=xml(FlowVoiceXml.build(spec(),"Locked camera."))
         assertEquals(0,silent.getElementsByTagName("dialogue").length)
+        assertFalse(silent.getElementsByTagName("prompt").item(0).textContent.contains(FlowVoiceXml.accent))
+        assertFalse(FlowScenePrompt.build(spec()).contains(FlowVoiceXml.accent))
     }
 }
