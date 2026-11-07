@@ -1921,62 +1921,65 @@ class StudioActivity : AppCompatActivity() {
         val match=Regex("EP ([0-9]+) ซีน ([0-9]+): พบชื่อภาษาอังกฤษ '([A-Za-z][A-Za-z0-9_]*)'").find(status.optString("message"))
             ?: return notice("ไม่พบชื่อที่ต้องจับคู่ในสถานะปัจจุบัน")
         val ep=match.groupValues[1].toInt()
-        val number=match.groupValues[2].toInt()
-        val unknown=match.groupValues[3]
+        val sceneNumber=match.groupValues[2].toInt()
         val files=job.listFiles().orEmpty().filter { it.name.matches(Regex("EP%02d_[0-9]+[.]json[.]pending[.]json".format(ep))) }
-        val found=files.mapNotNull { file ->
+        val candidates=files.filter { file -> runCatching {
+            val rows=GeminiStoryFiles.read(file).getJSONArray("scenes")
+            (0 until rows.length()).count { rows.getJSONObject(it).optInt("scene")==sceneNumber }==1
+        }.getOrDefault(false) }
+        if(candidates.size!=1) { notice("ไม่พบช่วงซีนที่ค้างเพียงรายการเดียว จึงยังไม่แก้ข้อมูล"); return }
+        val file=candidates.single()
+        val specFile=File(job,"spec.json")
+        val state=runCatching {
+            val batch=GeminiStoryFiles.read(file)
+            val spec=GeminiStoryFiles.read(specFile)
+            Triple(batch.toString(),spec,PendingNameReview.collect(batch,spec,CharacterAliasRegistry.read(job)))
+        }.getOrElse { notice("อ่านรายการที่ค้างไม่ได้ กรุณาตรวจงานเดิม"); return }
+        val (snapshot,spec,issues)=state
+        if(issues.isEmpty()) {
+            if(!StoryProvider.ready(this)) { geminiSettings { geminiJobMenu() }; return }
             runCatching {
-                val value=GeminiStoryFiles.read(file)
-                val rows=value.getJSONArray("scenes")
-                val indices=(0 until rows.length()).filter { rows.getJSONObject(it).optInt("scene")==number }
-                if(indices.size!=1) null else Triple(file,value,indices.single())
-            }.getOrNull()
+                GeminiStoryFiles.write(specFile,StoryProvider.configure(this,GeminiStoryFiles.read(specFile)))
+                startGeminiJob(project)
+            }.onFailure { notice("เริ่มงานต่อไม่ได้: "+(it.message ?: "กรุณาลองใหม่")) }
+            return
         }
-        if(found.size!=1) { notice("ไม่พบซีนที่ค้างเพียงรายการเดียว จึงยังไม่แก้ข้อมูล"); return }
-        val (file,value,index)=found.single()
-        val scene=value.getJSONArray("scenes").getJSONObject(index)
-        val cast=scene.optJSONArray("characters") ?: return notice("ซีนนี้ไม่มีรายชื่อตัวละครให้เลือก")
-        val people=(0 until cast.length()).map { cast.getJSONObject(it) }.filter { it.optString("name").isNotBlank() && it.optString("master").isNotBlank() }
-        if(people.isEmpty() || people.map { it.optString("name") }.distinct().size!=people.size) { notice("รายชื่อตัวละครไม่ครบหรือซ้ำ กรุณาตรวจบทก่อน"); return }
-        val action=scene.optString("flow_action")
-        val token=Regex("(?<![A-Za-z0-9_])"+Regex.escape(unknown)+"(?![A-Za-z0-9_])",RegexOption.IGNORE_CASE)
-        if(!token.containsMatchIn(action)) { notice("ไม่พบชื่อนี้ในซีนที่ค้างแล้ว กรุณาเปิดสถานะใหม่"); return }
-        AlertDialog.Builder(this).setTitle("จับคู่ชื่อ $unknown • EP $ep ซีน $number")
-            .setMessage("ตรวจการกระทำก่อนเลือกตัวละคร: \n$action\n\nเลือกเฉพาะเมื่อแน่ใจว่าเป็นคนเดียวกัน ซีนอื่นและบทพูดจะไม่เปลี่ยน")
-            .setPositiveButton("เลือกรายชื่อ") { _,_ ->
-                choiceMenu("เลือกตัวละครที่ตรงกับ $unknown",people.map { it.optString("name")+" • "+it.optString("master") }) { selected ->
-                    val chosen=people[selected].optString("name")
-                    AlertDialog.Builder(this).setTitle("ยืนยันตัวละคร")
-                        .setMessage("จับคู่ $unknown กับ $chosen สำหรับเรื่องนี้ แล้วแก้ EP $ep ซีน $number และทำต่อ?")
-                        .setPositiveButton("ยืนยันและทำต่อ") { _,_ ->
-                            if(GeminiStoryService.running) { notice("งานกำลังทำงานอยู่ กรุณาหยุดก่อน"); return@setPositiveButton }
-                            runCatching {
-                                // Re-read and reject if the pending action changed while the picker was open.
-                                val current=GeminiStoryFiles.read(file)
-                                val rows=current.getJSONArray("scenes")
-                                require(index<rows.length() && rows.getJSONObject(index).optInt("scene")==number)
-                                val target=rows.getJSONObject(index)
-                                require(target.optString("flow_action")==action)
-                                val selectedPerson=people[selected]
-                                val master=selectedPerson.getString("master")
-                                val spec=GeminiStoryFiles.read(File(job,"spec.json"))
-                                val definitions=FlowCast.definitions(spec)
-                                require(definitions.count { it.optString("name")==chosen && it.optString("master").equals(master,true) }==1) { "ตัวละครหรือ MASTER ไม่ตรงทะเบียนเรื่อง" }
-                                require(definitions.none { it.optString("name")!=chosen && it.optString("english_name").equals(unknown,true) }) { "ชื่อนี้เป็นชื่อของตัวละครอื่นในทะเบียน" }
-                                val registry=CharacterAliasRegistry.read(job)
-                                CharacterAliasRegistry.add(registry,unknown,chosen,master)
-                                CharacterAliasRegistry.save(job,registry)
-                                target.put("flow_action",token.replace(action) { chosen })
-                                GeminiStoryFiles.write(file,current)
-                                if(StoryProvider.ready(this)) {
-                                    val specFile=File(job,"spec.json")
-                                    GeminiStoryFiles.write(specFile,StoryProvider.configure(this,GeminiStoryFiles.read(specFile)))
-                                    startGeminiJob(project)
-                                } else geminiSettings { geminiJobMenu() }
-                            }.onFailure { notice("บันทึกการจับคู่ไม่ได้: "+(it.message ?: "กรุณาลองใหม่")) }
-                        }.setNegativeButton("ยกเลิก",null).showDirector()
-                }
-            }.setNegativeButton("กลับ",null).showDirector()
+        choiceMenu("EP $ep • ชื่อที่ต้องตรวจในชุดนี้ (${issues.size})",issues.map { "ซีน ${it.scene} • ${it.alias}" }) { index ->
+            val issue=issues[index]
+            val definitions=FlowCast.definitions(spec)
+            val people=issue.people.filter { person ->
+                person.optString("name").isNotBlank() && person.optString("master").isNotBlank() &&
+                    definitions.count { it.optString("name")==person.optString("name") && it.optString("master").equals(person.optString("master"),true) }==1
+            }
+            if(people.isEmpty() || people.map { it.optString("name") }.distinct().size!=people.size) {
+                notice("รายชื่อตัวละครในซีนไม่ครบหรือซ้ำ กรุณาตรวจบทก่อน"); return@choiceMenu
+            }
+            AlertDialog.Builder(this).setTitle("ตรวจ ${issue.alias} • ซีน ${issue.scene}")
+                .setMessage("การกระทำในซีน:\n${issue.action}\n\nเลือกเฉพาะเมื่อแน่ใจว่าเป็นคนเดียวกัน")
+                .setPositiveButton("เลือกรายชื่อ") { _,_ ->
+                    choiceMenu("เลือกตัวละครที่ตรงกับ ${issue.alias}",people.map { it.optString("name")+" • "+it.optString("master") }) { selected ->
+                        val person=people[selected]
+                        val chosen=person.getString("name")
+                        val master=person.getString("master")
+                        AlertDialog.Builder(this).setTitle("ยืนยันตัวละคร")
+                            .setMessage("จับคู่ ${issue.alias} กับ $chosen สำหรับเรื่องนี้ แล้วตรวจชื่อที่เหลือต่อ?")
+                            .setPositiveButton("ยืนยัน") { _,_ ->
+                                if(GeminiStoryService.running) { notice("งานกำลังทำงานอยู่ กรุณาหยุดก่อน"); return@setPositiveButton }
+                                runCatching {
+                                    require(GeminiStoryFiles.read(file).toString()==snapshot) { "ซีนที่ค้างเปลี่ยนไป กรุณาเปิดรายการใหม่" }
+                                    val freshSpec=GeminiStoryFiles.read(specFile)
+                                    val fresh=FlowCast.definitions(freshSpec)
+                                    require(fresh.count { it.optString("name")==chosen && it.optString("master").equals(master,true) }==1) { "ตัวละครหรือ MASTER ไม่ตรงทะเบียนเรื่อง" }
+                                    require(fresh.none { it.optString("name")!=chosen && it.optString("english_name").equals(issue.alias,true) }) { "ชื่อนี้เป็นชื่อของตัวละครอื่นในทะเบียน" }
+                                    val registry=CharacterAliasRegistry.read(job)
+                                    CharacterAliasRegistry.add(registry,issue.alias,chosen,master)
+                                    CharacterAliasRegistry.save(job,registry)
+                                }.onSuccess { resolvePendingCharacterName() }
+                                 .onFailure { notice("บันทึกการจับคู่ไม่ได้: "+(it.message ?: "กรุณาลองใหม่")) }
+                            }.setNegativeButton("ยกเลิก",null).showDirector()
+                    }
+                }.setNegativeButton("กลับ",null).showDirector()
+        }
     }
     private fun geminiJobMenu() {
         val state=readGeminiStatus()?.optString("state")
