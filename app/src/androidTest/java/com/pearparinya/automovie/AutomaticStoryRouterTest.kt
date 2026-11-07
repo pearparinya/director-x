@@ -12,6 +12,17 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class AutomaticStoryRouterTest {
+    @Test fun mistralTakesOverWhenOpenRouterFails() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"mistral-handoff-${UUID.randomUUID()}")
+        try {
+            val calls=mutableListOf<String>()
+            val open=client { _,_ -> calls.add("open"); throw StoryHttpFailure(503,null,"unavailable") }
+            val mistral=client { _,_ -> calls.add("mistral"); draft() }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.OPENROUTER to open,StoryProvider.MISTRAL to mistral),{false},{_,_->})
+            assertEquals("สวัสดี",router.generate("brief",schema()).getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
+            assertEquals(listOf("open","mistral"),calls)
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun readyCohereStartsBeforeGroqStillInPacingWindow() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"paced-route-${UUID.randomUUID()}")
         try {
