@@ -9,12 +9,14 @@ internal enum class StoryProvider(val id: String,val label: String,val defaultMo
     CEREBRAS("cerebras","Cerebras",CompatibleService.CEREBRAS.defaultModel,"https://cloud.cerebras.ai/"),
     DEEPSEEK("deepseek","DeepSeek",CompatibleService.DEEPSEEK.defaultModel,"https://platform.deepseek.com/"),
     OPENROUTER("openrouter","OpenRouter",CompatibleService.OPENROUTER.defaultModel,"https://openrouter.ai/keys"),
+    SAMBANOVA("sambanova","SambaNova",CompatibleService.SAMBANOVA.defaultModel,"https://cloud.sambanova.ai/"),
     MISTRAL("mistral","Mistral",CompatibleService.MISTRAL.defaultModel,"https://console.mistral.ai/api-keys"),
     COHERE("cohere","Cohere",CompatibleService.COHERE.defaultModel,"https://dashboard.cohere.com/api-keys");
     fun extra(): ExtraApiProvider? = when(this) {
         CEREBRAS -> ExtraApiProvider.CEREBRAS
         DEEPSEEK -> ExtraApiProvider.DEEPSEEK
         OPENROUTER -> ExtraApiProvider.OPENROUTER
+        SAMBANOVA -> ExtraApiProvider.SAMBANOVA
         MISTRAL -> ExtraApiProvider.MISTRAL
         COHERE -> ExtraApiProvider.COHERE
         else -> null
@@ -29,8 +31,8 @@ internal enum class StoryProvider(val id: String,val label: String,val defaultMo
         fun enableHybrid(context: Context) { context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).edit().putBoolean("hybrid",true).apply() }
         fun label(context: Context)="API อัตโนมัติ"
         val hybridProviders=listOf(GROQ,GEMINI)
-        val activeProviders=listOf(GROQ,GEMINI,DEEPSEEK,OPENROUTER,MISTRAL,COHERE)
-        fun ready(context: Context)=(GROQ.hasKey(context) && GEMINI.hasKey(context)) || (GEMINI.hasKey(context) && DEEPSEEK.hasKey(context)) || OPENROUTER.hasKey(context) || COHERE.hasKey(context) || MISTRAL.hasKey(context)
+        val activeProviders=listOf(GROQ,GEMINI,DEEPSEEK,OPENROUTER,MISTRAL,SAMBANOVA,COHERE)
+        fun ready(context: Context)=(GROQ.hasKey(context) && GEMINI.hasKey(context)) || (GEMINI.hasKey(context) && DEEPSEEK.hasKey(context)) || OPENROUTER.hasKey(context) || COHERE.hasKey(context) || MISTRAL.hasKey(context) || SAMBANOVA.hasKey(context)
         fun configure(context: Context,spec: JSONObject): JSONObject {
             spec.put("provider",GROQ.id).put("model",GROQ.model(context)).put("hybrid",false).put("auto_pipeline",true)
             activeProviders.filter { it.hasKey(context) }.forEach { spec.put("${it.id}_model",it.model(context)) }
