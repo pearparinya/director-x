@@ -16,6 +16,23 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 @RunWith(AndroidJUnit4::class)
 class AutoDirectorContentTest {
+    @Test fun imageCommandsBindEachVisibleMasterToItsOwnSavedCue() {
+        val project = story()
+        val scene = project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
+        val cast = scene.getJSONArray("characters")
+        assertTrue(cast.length() >= 2)
+        val first = cast.getJSONObject(0).put("visual_description", "unique braid cue")
+        val second = cast.getJSONObject(1).put("visual_description", "unique beard cue")
+        val tasks = SimpleProductionCommands.imageTasks(project, 1)
+        val command = tasks.first { it.id == "EP01_SC001" }.command
+        assertTrue(command.contains(first.getString("name") + " | MASTER file: " + first.getString("master") + " | Saved visual cue (verify against MASTER): unique braid cue"))
+        assertTrue(command.contains(second.getString("name") + " | MASTER file: " + second.getString("master") + " | Saved visual cue (verify against MASTER): unique beard cue"))
+        assertTrue(command.contains("if the image-to-name mapping is unclear, ask"))
+        assertTrue(command.contains("if it conflicts with the original, trust the original image"))
+        assertTrue(tasks.first { it.id == "STORY_COVER_9x16" }.command.contains("unique braid cue"))
+        second.remove("visual_description")
+        assertTrue(SimpleProductionCommands.imageTasks(project, 1).first { it.id == "EP01_SC001" }.command.contains("Visual cue unavailable"))
+    }
     @Test fun imageCommandsHaveRealLineBreaksAndOldCategoriesRemainUsable() {
         val project=story()
         val task=SimpleProductionCommands.imageTasks(project,1).first()
