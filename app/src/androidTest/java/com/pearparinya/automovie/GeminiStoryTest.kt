@@ -12,6 +12,27 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class GeminiStoryTest {
+    @Test fun regeneratingPendingSceneKeepsOtherScenesAndBacksUpOriginal() {
+        for (target in listOf(9,10)) {
+            val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"regenerate-${UUID.randomUUID()}").apply { mkdirs() }
+            try {
+                val original=batch("Write exactly scenes 9 to 10 for EP 2")
+                val pending=File(folder,"EP02_09.json.pending.json")
+                GeminiStoryFiles.write(pending,original)
+                val completed=File(folder,"EP02_01.json")
+                GeminiStoryFiles.write(completed,JSONObject().put("saved",true))
+                GeminiStoryEngine.prepareSceneRegeneration(folder,pending,2,target)
+                assertFalse(File(folder,"EP02_%02d.json.pending.json".format(target)).exists())
+                val other=if(target==9) 10 else 9
+                val saved=GeminiStoryFiles.read(File(folder,"EP02_%02d.json.pending.json".format(other)))
+                assertEquals(other,saved.getJSONArray("scenes").getJSONObject(0).getInt("scene"))
+                assertTrue(GeminiStoryFiles.read(completed).getBoolean("saved"))
+                assertTrue(GeminiStoryFiles.read(File(folder,"batch_recovery.json")).getBoolean("single_scene"))
+                assertTrue(File(folder,"regenerate_EP02_%02d.json".format(target)).isFile)
+                assertTrue(folder.listFiles().orEmpty().any { it.name.startsWith("EP02_09.json.pending.json.recovery-") && GeminiStoryFiles.read(it).toString()==original.toString() })
+            } finally { folder.deleteRecursively() }
+        }
+    }
     private fun outline(): JSONObject = JSONObject().put("title","ซองบนโต๊ะ").put("tagline","ใครเป็นคนส่ง")
         .put("episodes",JSONArray().apply { repeat(3) { n -> put(JSONObject().put("ep",n+1).put("title","ตอน ${n+1}")
             .put("tagline","คำโปรย ${n+1}").put("synopsis","พบซอง").put("cover_incident","ซองบนโต๊ะ").put("ending","คลี่ปม")) } })
