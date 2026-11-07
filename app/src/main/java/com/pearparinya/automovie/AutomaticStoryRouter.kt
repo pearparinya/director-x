@@ -16,9 +16,37 @@ internal class AutomaticStoryRouter(
     private val cancelled: () -> Boolean,
     private val progress: (StoryProvider,String)->Unit
 ) {
+    internal var requestTimeoutMillis: Long = 75_000L
     var onFailure: (StoryProvider,String)->Unit = { _,_ -> }
     private val routes=listOf(StoryProvider.GROQ to StoryProvider.GEMINI,StoryProvider.GEMINI to StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER to null,StoryProvider.COHERE to null)
     private val unavailable=mutableMapOf<StoryProvider,StoryHttpFailure>()
+    // Never start another request on a client whose previous transport is still blocked.
+    private val activeRequests=java.util.concurrent.ConcurrentHashMap<StoryProvider,java.util.concurrent.atomic.AtomicBoolean>()
+    private val workers=java.util.concurrent.Executors.newCachedThreadPool { task ->
+        Thread(task,"story-provider-request").apply { isDaemon=true }
+    }
+    private fun boundedRequest(provider: StoryProvider,prompt: String,schema: JSONObject): JSONObject {
+        val active=java.util.concurrent.atomic.AtomicBoolean(true)
+        if(activeRequests.putIfAbsent(provider,active)!=null) throw java.net.SocketTimeoutException("บริการยังปิดคำขอก่อนหน้า")
+        val future=workers.submit<JSONObject> {
+            try { clients.getValue(provider).generate(prompt,schema) }
+            finally { active.set(false); activeRequests.remove(provider,active) }
+        }
+        try {
+            return future.get(requestTimeoutMillis,java.util.concurrent.TimeUnit.MILLISECONDS)
+        } catch(e: java.util.concurrent.TimeoutException) {
+            future.cancel(true)
+            throw java.net.SocketTimeoutException("หมดเวลารอผู้ให้บริการ")
+        } catch(e: java.util.concurrent.ExecutionException) {
+            val cause=e.cause
+            if(cause is Exception) throw cause
+            throw IllegalStateException("คำขอผู้ให้บริการล้มเหลว",cause)
+        } catch(e: InterruptedException) {
+            future.cancel(true)
+            Thread.currentThread().interrupt()
+            throw CancellationException()
+        }
+    }
 
     fun generate(prompt: String,schema: JSONObject): JSONObject {
         val sceneBatch=schema.getJSONObject("properties").has("scenes")
@@ -108,12 +136,12 @@ internal class AutomaticStoryRouter(
         throw last ?: unavailable.values.firstOrNull() ?: IllegalStateException("ตั้งค่า Groq + Gemini หรือ Gemini + DeepSeek หรือ OpenRouter หรือ Cohere ก่อนเริ่ม")
     }
     private fun generateChecked(provider: StoryProvider,prompt: String,schema: JSONObject): JSONObject = try {
-        clients.getValue(provider).generate(prompt,schema)
+        boundedRequest(provider,prompt,schema)
     } catch(e: InvalidStoryResponse) {
         if(cancelled()) throw CancellationException()
         onFailure(provider,"ตรวจคำตอบไม่ผ่าน")
         progress(provider,"คำตอบไม่สมบูรณ์ • ลองใหม่ 1 ครั้ง")
-        clients.getValue(provider).generate(prompt,schema)
+        boundedRequest(provider,prompt,schema)
     }
     private fun failureCategory(e: Exception): String = when(e) {
         is InvalidSceneXml -> "XML ไม่ตรงบท"
