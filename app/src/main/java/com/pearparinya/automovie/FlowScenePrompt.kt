@@ -111,14 +111,14 @@ internal object FlowScenePrompt {
         }
         val sound = s.sound.trim().ifEmpty { "Quiet natural ambience." }.replace(Regex("\\b(?:indoor )?murmurs\\b", RegexOption.IGNORE_CASE), "quiet room tone")
         return buildString {
-            append("<scene id=\"${xml(id)}\">\n  <aspect_ratio>9:16</aspect_ratio>\n  <duration>8</duration>\n  <reference_image>attached_image</reference_image>\n  <lighting>5500K daylight white balance, pure bright studio lighting, no yellow light</lighting>\n  <typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone>\n")
+            append("<scene id=\"${xml(id)}\">\n  <aspect_ratio>9:16</aspect_ratio>\n  <duration>8</duration>\n  <reference_image>attached_image</reference_image>\n  <lighting>Preserve the lighting and colors of the attached start frame.</lighting>\n  <typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone>\n")
             if (s.cast.isNotEmpty()) {
                 append("  <characters>\n")
                 s.cast.forEach { append("    <character>${xml(label(it.name))}</character>\n") }
                 append("  </characters>\n")
             }
             val outfits = s.cast.filter { it.outfit.isNotBlank() }.joinToString(" ") { "${label(it.name)} outfit in scene: ${it.outfit.trim()}." }
-            append("  <prompt>(9:16 aspect ratio). Masterpiece, 8k resolution, highly detailed. Full vertical continuous 8-second shot with no cuts. Use the attached image as the first frame. ${xml(action)}. ${xml(outfits)} ${xml(voice)} Preserve the characters, their faces, hair, body proportions, positions, clothing and props from the first frame. Clothing remains securely in place. Use natural eye-level framing focused on expressions and action. Keep held objects together and in contact with the hands. ${xml(ReadingPropPolicy.forScene(s.action, s.startState, s.endState))} Camera: ${xml(camera)}</prompt>\n")
+            append("  <prompt>(9:16 aspect ratio). Photorealistic. Full vertical continuous 8-second shot with no cuts. Use the attached image as the first frame. ${xml(action)}. ${xml(outfits)} ${xml(voice)} Preserve the characters, their faces, hair, body proportions, positions, clothing and props from the first frame. Clothing remains securely in place. Use natural eye-level framing focused on expressions and action. Keep held objects together and in contact with the hands. ${xml(ReadingPropPolicy.forScene(s.action, s.startState, s.endState))} Camera: ${xml(camera)}</prompt>\n")
 
             if (line.isNotEmpty()) {
                 append("  <$tag>\n    <speaker>${xml(speaker)}</speaker>\n    <text>${xml(line)}</text>\n    <language>th-TH</language>\n    <subtitles>false</subtitles>\n  </$tag>\n")
