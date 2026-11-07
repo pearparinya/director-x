@@ -165,7 +165,9 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                 val priorWardrobe=(0 until output.length()).flatMap { e -> AutoDirectorWardrobe.batch(e+1,output.getJSONObject(e).getJSONArray("scenes")) }+AutoDirectorWardrobe.batch(i+1,scenes)
                 val wardrobeContext=if(spec.optString("content_profile")==AutoDirectorContent.profile || spec.optInt("command_version")>=1) "\nIMMUTABLE WARDROBE CATALOG — copy the exact four parts verbatim for the matching day/event/group:\n"+AutoDirectorWardrobe.catalog(priorWardrobe) else ""
                 val confirmedNames=CharacterAliasRegistry.read(folder).optJSONArray("entries") ?: JSONArray()
-                val prompt=base+wardrobeContext+"\nConfirmed story aliases (same actor only; keep exact Thai names and MASTER): "+confirmedNames.toString()+(if(compact) "\nBe concise: image_prompt and flow_prompt each <=80 English words; keep identity, outfits, action and speech complete." else "")+"\nFull story outline:\n$storyOutline\nActual previous episode events/dialogue (do not repeat):\n$past\nCurrent episode prior scenes (continue state/outfits):\n$previous\nWrite exactly scenes $start to $end for EP ${i+1}; each duration_seconds=8, scene numbers absolute within episode. This episode: ${if(compact) JSONObject(planned.toString()).apply { listOf("synopsis","cover_incident","ending").forEach { put(it,optString(it).take(250)) } } else planned}. Include continuity_group, story_day, story_time, activity, wardrobe_event. Set speaker/dialogue/narration to empty strings when unused. Characters use canonical Thai names and matching *_MASTER.png. Use screen_position and full visual_description. Copy character_age exactly from the registered cast (0 only when legacy cast has no assigned age). characters contains only visible people. mentioned_characters lists canonical names discussed but absent; offscreen_characters lists canonical names outside the frame. Only the exact assigned speaker can speak; off-screen speech keeps all visible mouths closed. Never place physical on-screen actions on absent people. In flow_action use each visible character's exact canonical Thai name as listed in characters; do not invent Romanized aliases. Identify each action by that name. In flow_prompt explicitly identify the sole speaker and exact Thai line, or closed mouths for silent/narrated scenes."
+                val retryMarker=File(folder,"regenerate_EP%02d_%02d.json".format(i+1,start))
+                val recoveryHint=if(retryMarker.isFile) "\nFresh scene recovery ID: "+GeminiStoryFiles.read(retryMarker).getString("id")+". Write this scene afresh using the story outline and registered cast; use exact Thai names, keep established events and continuity; do not guess identities." else ""
+                val prompt=base+recoveryHint+wardrobeContext+"\nConfirmed story aliases (same actor only; keep exact Thai names and MASTER): "+confirmedNames.toString()+(if(compact) "\nBe concise: image_prompt and flow_prompt each <=80 English words; keep identity, outfits, action and speech complete." else "")+"\nFull story outline:\n$storyOutline\nActual previous episode events/dialogue (do not repeat):\n$past\nCurrent episode prior scenes (continue state/outfits):\n$previous\nWrite exactly scenes $start to $end for EP ${i+1}; each duration_seconds=8, scene numbers absolute within episode. This episode: ${if(compact) JSONObject(planned.toString()).apply { listOf("synopsis","cover_incident","ending").forEach { put(it,optString(it).take(250)) } } else planned}. Include continuity_group, story_day, story_time, activity, wardrobe_event. Set speaker/dialogue/narration to empty strings when unused. Characters use canonical Thai names and matching *_MASTER.png. Use screen_position and full visual_description. Copy character_age exactly from the registered cast (0 only when legacy cast has no assigned age). characters contains only visible people. mentioned_characters lists canonical names discussed but absent; offscreen_characters lists canonical names outside the frame. Only the exact assigned speaker can speak; off-screen speech keeps all visible mouths closed. Never place physical on-screen actions on absent people. In flow_action use each visible character's exact canonical Thai name as listed in characters; do not invent Romanized aliases. Identify each action by that name. In flow_prompt explicitly identify the sole speaker and exact Thai line, or closed mouths for silent/narrated scenes."
                 val priorDialogue=linkedMapOf<String,String>()
                 for(e in 0 until output.length()) checkDialogue(output.getJSONObject(e).getJSONArray("scenes"),e+1,priorDialogue)
                 checkDialogue(scenes,i+1,priorDialogue)
@@ -249,6 +251,25 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         return story
     }
     companion object {
+        /** Back up the pending batch and retry one scene while leaving completed checkpoints intact. */
+        fun prepareSceneRegeneration(folder: File, pending: File, ep: Int, scene: Int) {
+            require(pending.parentFile.canonicalFile==folder.canonicalFile)
+            val name=Regex("EP%02d_([0-9]+)[.]json[.]pending[.]json".format(ep)).matchEntire(pending.name) ?: error("ไฟล์ช่วงบทไม่ตรง EP")
+            val start=name.groupValues[1].toInt()
+            val original=GeminiStoryFiles.read(pending)
+            val rows=original.getJSONArray("scenes")
+            val size=rows.length()
+            require(size in 1..6 && scene in start until start+size && (0 until size).all { rows.getJSONObject(it).optInt("scene")==start+it }) { "ซีนที่ค้างไม่ตรงกับไฟล์" }
+            require((0 until size).none { File(folder,"EP%02d_%02d.json".format(ep,start+it)).exists() }) { "พบซีนที่บันทึกแล้ว จึงไม่เขียนทับ" }
+            val backup=File(folder,pending.name+".recovery-"+java.util.UUID.randomUUID())
+            GeminiStoryFiles.write(backup,original)
+            if(size>1) splitPendingBatch(pending,ep,start,size)
+            val retry=File(folder,"EP%02d_%02d.json.pending.json".format(ep,scene))
+            require(retry.isFile && GeminiStoryFiles.read(retry).getJSONArray("scenes").length()==1) { "เตรียมซีนเดี่ยวไม่สำเร็จ" }
+            GeminiStoryFiles.write(File(folder,"batch_recovery.json"),JSONObject().put("single_scene",true))
+            GeminiStoryFiles.write(File(folder,"regenerate_EP%02d_%02d.json".format(ep,scene)),JSONObject().put("id",java.util.UUID.randomUUID().toString()))
+            check(retry.delete()) { "เตรียมซีนสำหรับเขียนใหม่ไม่สำเร็จ" }
+        }
         /** Preserve the original before splitting an unvalidated batch into resumable scenes. */
         fun splitPendingBatch(pending: File,ep: Int,start: Int,size: Int) {
             val original=GeminiStoryFiles.read(pending)

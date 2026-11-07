@@ -1981,6 +1981,35 @@ class StudioActivity : AppCompatActivity() {
                 }.setNegativeButton("กลับ",null).showDirector()
         }
     }
+    private fun regeneratePendingScene() {
+        if(GeminiStoryService.running) return notice("กรุณาหยุดงานก่อน")
+        val job=File(project,"gemini_job")
+        val match=Regex("EP ([0-9]+) ซีน ([0-9]+): พบชื่อภาษาอังกฤษ").find(readGeminiStatus()?.optString("message").orEmpty())
+            ?: return notice("ไม่พบซีนที่ต้องแก้ในสถานะปัจจุบัน")
+        val ep=match.groupValues[1].toInt()
+        val scene=match.groupValues[2].toInt()
+        val candidates=job.listFiles().orEmpty().filter { it.name.matches(Regex("EP%02d_[0-9]+[.]json[.]pending[.]json".format(ep))) }.filter { file ->
+            runCatching {
+                val rows=GeminiStoryFiles.read(file).getJSONArray("scenes")
+                (0 until rows.length()).count { rows.getJSONObject(it).optInt("scene")==scene }==1
+            }.getOrDefault(false)
+        }
+        if(candidates.size!=1) return notice("ไม่พบช่วงซีนที่ค้างเพียงรายการเดียว จึงยังไม่แก้ข้อมูล")
+        AlertDialog.Builder(this).setTitle("เขียนซีนที่ค้างใหม่")
+            .setMessage("สำรองช่วงเดิม แล้วเขียนใหม่เฉพาะ EP $ep ซีน $scene โดยใช้โครงเรื่องเดิม เนื้อหาซีนอาจเปลี่ยน ซีนที่บันทึกแล้วจะยังคงอยู่")
+            .setPositiveButton("เขียนซีนใหม่") { _,_ ->
+                if(GeminiStoryService.running) notice("กรุณาหยุดงานก่อน")
+                else runCatching {
+                    GeminiStoryEngine.prepareSceneRegeneration(job,candidates.single(),ep,scene)
+                    if(!StoryProvider.ready(this)) geminiSettings { geminiJobMenu() }
+                    else {
+                        val specFile=File(job,"spec.json")
+                        GeminiStoryFiles.write(specFile,StoryProvider.configure(this,GeminiStoryFiles.read(specFile)))
+                        startGeminiJob(project)
+                    }
+                }.onFailure { notice("เตรียมซีนใหม่ไม่ได้: "+(it.message ?: "กรุณาตรวจงานเดิม")) }
+            }.setNegativeButton("ยกเลิก",null).showDirector()
+    }
     private fun geminiJobMenu() {
         val state=readGeminiStatus()?.optString("state")
         if(state=="complete" && plan!=null) { if(plan!!.optString("content_profile")==AutoDirectorContent.profile) autoDirectorMenu() else episodesMenu(); return }
@@ -2001,7 +2030,11 @@ class StudioActivity : AppCompatActivity() {
                         val specFile=File(project,"gemini_job/spec.json"); val spec=StoryProvider.configure(this,GeminiStoryFiles.read(specFile))
                         GeminiStoryFiles.write(specFile,spec); startGeminiJob(project)
                     }.onFailure { notice("อ่านงานเดิมไม่ได้ กรุณาเริ่มเรื่องใหม่") }
-                }.setNeutralButton(if(readGeminiStatus()?.optString("message")?.contains("พบชื่อภาษาอังกฤษ")==true) "จับคู่ชื่อตัวละคร" else "ตั้งค่า API") { _,_ -> if(readGeminiStatus()?.optString("message")?.contains("พบชื่อภาษาอังกฤษ")==true) resolvePendingCharacterName() else geminiSettings() }.setNegativeButton("ปิด",null).showDirector()
+                }.setNeutralButton(if(readGeminiStatus()?.optString("message")?.contains("พบชื่อภาษาอังกฤษ")==true) "แก้ซีนที่ค้าง" else "ตั้งค่า API") { _,_ ->
+                    if(readGeminiStatus()?.optString("message")?.contains("พบชื่อภาษาอังกฤษ")==true)
+                        choiceMenu("แก้ซีนที่ค้าง",listOf("จับคู่ชื่อตัวละคร","เขียนซีนที่ค้างใหม่","ตั้งค่า API")) { when(it) { 0 -> resolvePendingCharacterName(); 1 -> regeneratePendingScene(); else -> geminiSettings() } }
+                    else geminiSettings()
+                }.setNegativeButton("ปิด",null).showDirector()
         }
     }
     private fun landscapeCopyMenu() {
