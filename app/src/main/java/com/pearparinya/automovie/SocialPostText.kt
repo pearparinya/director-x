@@ -10,14 +10,18 @@ internal object SocialPostText {
         val episode=story.optJSONArray("episodes")?.optJSONObject(episodeIndex)
         val channel=value(story,"channel")
         val title=value(story,"title")
+        val category=value(story,"category")
         val epTitle=value(episode,"title")
         val tagline=value(episode,"tagline").ifBlank { value(story,"tagline") }
-        val tags=listOf(channel,title,epTitle).map { tag(it) }.filter { it.isNotBlank() }.distinct().joinToString(" ") { "#$it" }
+        val description=value(episode,"social_description").ifBlank { value(story,"social_caption") }.ifBlank { value(episode,"synopsis") }.ifBlank { value(story,"synopsis") }
+        val tags=listOf(channel,title,epTitle,category).map { tag(it) }.filter { it.isNotBlank() }.distinct().joinToString(" ") { "#$it" }
         return listOfNotNull(
             channel.takeIf { it.isNotBlank() }?.let { "ช่อง: $it" },
             title.takeIf { it.isNotBlank() }?.let { "เรื่อง: $it" },
+            category.takeIf { it.isNotBlank() }?.let { "หมวดหมู่: $it" },
             epTitle.takeIf { it.isNotBlank() }?.let { "ตอนที่ ${episode?.optInt("ep",episodeIndex+1)}: $it" },
-            tagline.takeIf { it.isNotBlank() },
+            tagline.takeIf { it.isNotBlank() }?.let { "คำโปรย: $it" },
+            description.takeIf { it.isNotBlank() }?.let { "คำอธิบาย: $it" },
             tags.takeIf { it.isNotBlank() }
         ).joinToString("\n\n")
     }
