@@ -28,6 +28,7 @@ internal object CompactFlowPrompt {
     }
     fun voiceText(s: FlowSceneSpec): String {
         val dialogue=line(s.dialogue); val narration=line(s.narration)
+        if(s.turns.isNotEmpty()) return s.turns.joinToString("\n") { "${it.speaker}: ${it.text}" }
         return when {
             dialogue.isNotEmpty() -> "${s.speaker}: $dialogue"
             narration.isNotEmpty() -> "ผู้บรรยาย: $narration"

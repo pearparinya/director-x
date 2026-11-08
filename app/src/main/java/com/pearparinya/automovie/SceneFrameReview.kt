@@ -17,6 +17,7 @@ internal object SceneFrameReview {
         if(!image.isFile || image.length()==0L || masters.isEmpty() || masters.any { !it.isFile || it.length()==0L }) return null
         return runCatching {
             val facts=JSONObject(); fields.forEach { facts.put(it,scene.opt(it) ?: JSONObject.NULL) }
+            if(scene.optJSONArray("dialogue_turns")?.length()?.let { it>0 }==true) facts.put("dialogue_turns",scene.optJSONArray("dialogue_turns"))
             val input=canonical(facts)+"|"+resolvedFacts+"|"+EpisodeMedia.digest(image)+"|"+masters.joinToString("|") { EpisodeMedia.digest(it) }
             MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
         }.getOrNull()

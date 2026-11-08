@@ -1,11 +1,19 @@
 package com.pearparinya.automovie
 
 internal data class FlowPerson(val name: String, val appearance: String, val position: String, val outfit: String,val performance: String="", val englishName: String="")
+internal data class FlowDialogueTurn(val speaker: String, val text: String)
 internal data class FlowSceneSpec(
     val cast: List<FlowPerson>, val speaker: String, val dialogue: String, val narration: String,
     val action: String, val location: String, val startState: String, val endState: String,
-    val duration: Int, val aspect: String, val sound: String = "", val offscreen: List<String> = emptyList()
-)
+    val duration: Int, val aspect: String, val sound: String = "", val offscreen: List<String> = emptyList(),
+    val turns: List<FlowDialogueTurn> = emptyList()
+) {
+    // Preserve approvals made by older versions when no ordered turns exist.
+    override fun toString(): String {
+        val original="FlowSceneSpec(cast=$cast, speaker=$speaker, dialogue=$dialogue, narration=$narration, action=$action, location=$location, startState=$startState, endState=$endState, duration=$duration, aspect=$aspect, sound=$sound, offscreen=$offscreen)"
+        return if(turns.isEmpty()) original else original.dropLast(1)+", turns=$turns)"
+    }
+}
 
 internal object ReadingPropPolicy {
     private val paper = Regex("เอกสาร|จดหมาย|กระดาษ|หนังสือ|สัญญา|document|letter|paper|contract|book", RegexOption.IGNORE_CASE)
@@ -37,6 +45,13 @@ internal object FlowScenePrompt {
             if (it.appearance.isBlank() || it.position.isBlank()) add("ตรวจลักษณะและตำแหน่งในภาพของ ${it.name}")
         }
         if (s.cast.map { it.appearance.trim() to it.position.trim() }.distinct().size != s.cast.size) add("ลักษณะและตำแหน่งต้องแยกตัวละครออกจากกันได้")
+        if(s.turns.isNotEmpty()) {
+            if(speech(s.dialogue).isNotEmpty() || speech(s.speaker).isNotEmpty() || speech(s.narration).isNotEmpty()) add("บทสนทนาหลายคนต้องไม่ใช้ร่วมกับบทเดี่ยวหรือบรรยาย")
+            s.turns.forEachIndexed { index, turn ->
+                if(speech(turn.text).isEmpty() || speech(turn.speaker).isEmpty()) add("บทสนทนาลำดับ ${index+1} ต้องระบุผู้พูดและข้อความ")
+                else if(s.cast.count { identity(it.name)==identity(turn.speaker) } + s.offscreen.count { identity(it)==identity(turn.speaker) } != 1) add("ผู้พูดลำดับ ${index+1} ต้องอยู่ในรายชื่อคนในภาพหรือคนนอกภาพ")
+            }
+        }
         if (speech(s.dialogue).isNotEmpty() && (s.cast.count { identity(it.name) == identity(s.speaker) } + s.offscreen.count { identity(it)==identity(s.speaker) }) != 1) add("เลือกผู้พูดหนึ่งคนจากตัวละครในภาพหรือรายชื่อคนนอกภาพ")
         if (speech(s.dialogue).isEmpty() && speech(s.speaker).isNotEmpty()) add("ระบุบทพูดของผู้พูด หรือเว้นผู้พูดว่างสำหรับฉากเงียบ")
         if (speech(s.dialogue).isNotEmpty() && speech(s.narration).isNotEmpty()) add("แยกบทพูดและเสียงบรรยายเป็นคนละฉาก เพื่อไม่ให้เสียงทับกัน")
@@ -56,9 +71,12 @@ internal object FlowScenePrompt {
             }
             aliases + listOf(p.name,refName(p.name),p.englishName)
         }.map { it.lowercase() }.toSet()
-        val generic=setOf("i","me","my","mine","myself","you","your","yours","yourself","yourselves","he","him","his","himself","she","her","hers","herself","it","its","itself","we","us","our","ours","ourselves","they","them","their","theirs","themselves","who","whom","whose","which","that","what","whoever","whatever","it","this","there","man","woman","person","character","people","someone","everyone","camera","phone","door","screen","light","wind","paper","music","sound","document","folder","manager","boss","coworker","colleague","worker","narrator", "and", "or", "then", "also", "but")
+        val generic=setOf("i","me","my","mine","myself","you","your","yours","yourself","yourselves","he","him","his","himself","she","her","hers","herself","it","its","itself","we","us","our","ours","ourselves","they","them","their","theirs","themselves","who","whom","whose","which","that","what","whoever","whatever","it","this","there","man","woman","person","character","people","someone","everyone","camera","phone","door","screen","light","wind","paper","music","sound","document","folder","manager","boss","coworker","colleague","worker","narrator", "and", "or", "then", "also", "but", "with")
         val pattern=Regex("(?<![\\w\\]])\\b([A-Za-z][A-Za-z0-9_]*)\\s+(?:holds|looks|watches|stares|speaks|says|asks|replies|walks|stands|sits|leans|smiles|reacts|turns|opens|closes|reads|inspects|observes|hands|places|shows|checks|nods|waves|slides|reaches|takes|points)\\b",RegexOption.IGNORE_CASE)
-        return pattern.findAll(s.action).map { it.groupValues[1] }.filter { it.lowercase() !in known && it.lowercase() !in generic }.distinct().toList()
+        return pattern.findAll(s.action).filterNot { match ->
+            // "open hands" is an adjective plus noun, not a person performing an action.
+            match.value.equals("open hands", ignoreCase=true)
+        }.map { it.groupValues[1] }.filter { it.lowercase() !in known && it.lowercase() !in generic }.distinct().toList()
     }
     private fun xml(value: String) = value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&apos;")
 
@@ -66,6 +84,7 @@ internal object FlowScenePrompt {
     fun build(s: FlowSceneSpec, id: String = "scene", camera: String = "Slow, gentle pan."): String {
         val problems = issues(s)
         if (problems.isNotEmpty()) return "ยังไม่พร้อมส่ง Flow • ตรวจภาพและกำหนดตัวละครก่อน:\n" + problems.joinToString("\n")
+        if(s.turns.isNotEmpty()) return FlowVoiceXml.build(s,camera).removePrefix("<flow>\n  ").removeSuffix("\n</flow>").replaceFirst("<scene>","<scene id=\"${xml(id)}\">")
         val dialogue = speech(s.dialogue)
         val narration = speech(s.narration)
         val offscreen = dialogue.isNotEmpty() && s.offscreen.any { identity(it) == identity(s.speaker) }

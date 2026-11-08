@@ -1658,8 +1658,9 @@ class StudioActivity : AppCompatActivity() {
             dialog.getButton(-3).setOnClickListener {
                 dialog.dismiss()
                 val scene=rows(story).firstOrNull { key(it)==task.id }
-                choiceMenu("แก้ ${task.id}",if(scene==null) listOf("แก้การจัดภาพปก","แก้ข้อความบนปก") else if(images) listOf("แก้ทิศทางภาพเฉพาะจุด","แก้บท / การกระทำ / ชุด / ตำแหน่ง / เสียง") else listOf("แก้ทิศทางวิดีโอเฉพาะจุด","แก้บท / การกระทำ / ชุด / ตำแหน่ง / เสียง","เลือกการเคลื่อนกล้อง")) { action ->
-                    if(action==2 && scene!=null && !images) {
+                choiceMenu("แก้ ${task.id}",if(scene==null) listOf("แก้การจัดภาพปก","แก้ข้อความบนปก") else if(images) listOf("แก้ทิศทางภาพเฉพาะจุด","แก้บท / การกระทำ / ชุด / ตำแหน่ง / เสียง","เสนอขยายบทสั้น") else listOf("แก้ทิศทางวิดีโอเฉพาะจุด","แก้บท / การกระทำ / ชุด / ตำแหน่ง / เสียง","เลือกการเคลื่อนกล้อง","เสนอขยายบทสั้น")) { action ->
+                    if(scene!=null && (images && action==2 || !images && action==3)) suggestLongerSpeech(scene)
+                    else if(action==2 && scene!=null && !images) {
                         val modes=listOf("อัตโนมัติตามซีน","ซูมเข้าอย่างช้า ๆ","แพนกล้อง","เคลื่อนตามการกระทำ","กล้องนิ่ง")
                         val keys=listOf("","push_in","pan","track","locked")
                         choiceMenu("เลือกกล้อง • ${task.id}",modes) { selected ->
@@ -2243,7 +2244,7 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun flowSceneMenu(s: JSONObject) {
         if(plan?.optString("aspect_ratio","16:9")!="9:16") { landscapeCopyMenu(); return }
-        choiceMenu("${key(s)} • ${if(sceneFrameApproved(s)) "ภาพผ่านแล้ว" else "รอตรวจภาพ"}",listOf("1. สร้างภาพฉากจาก MASTER","3. สร้างวิดีโอจากภาพที่ผ่าน","แก้บท / ชุด / สถานที่","นำเข้าภาพจาก Gemini / Flow","นำเข้าคลิป MP4","2. เทียบ MASTER / ยืนยันภาพ","ดูคลิป","เวอร์ชันไฟล์")) { i -> when(i) {
+        choiceMenu("${key(s)} • ${if(sceneFrameApproved(s)) "ภาพผ่านแล้ว" else "รอตรวจภาพ"}",listOf("1. สร้างภาพฉากจาก MASTER","3. สร้างวิดีโอจากภาพที่ผ่าน","แก้บท / ชุด / สถานที่","นำเข้าภาพจาก Gemini / Flow","นำเข้าคลิป MP4","2. เทียบ MASTER / ยืนยันภาพ","ดูคลิป","เวอร์ชันไฟล์","เสนอขยายบทสั้น • ตรวจยืนยันก่อนบันทึก")) { i -> when(i) {
             0 -> if(plan?.optString("content_profile")==AutoDirectorContent.profile) {
                 val issues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(plan!!))
                 if(issues.isNotEmpty()) notice(issues.take(12).joinToString("\n")) else showFlowCode("IMAGE PROMPT • Gemini",AutoDirectorContent.sceneImage(plan!!,s),"AD_${key(s)}_IMAGE_GEMINI.txt")
@@ -2256,7 +2257,48 @@ class StudioActivity : AppCompatActivity() {
             5 -> compareScene(s)
             6 -> playVideo(s)
             7 -> versionsMenu(s)
+            8 -> suggestLongerSpeech(s)
         } }
+    }
+
+    private fun suggestLongerSpeech(scene: JSONObject) {
+        if(ProductionCommandCheck.dialogueTurns(scene).isNotEmpty()) return notice("ขณะนี้ให้แก้บทหลายคนในเมนูแก้บททีละช่วงก่อน")
+        val field=if(scene.optString("dialogue").trim().let { it.isNotBlank() && it !in listOf("ไม่มี","none") }) "dialogue" else "narration"
+        val original=scene.optString(field).trim()
+        if(original.isBlank() || original in listOf("ไม่มี","none","ไม่มีเสียงบรรยาย")) return notice("ฉากนี้ไม่มีบทพูดหรือบรรยายให้ขยาย")
+        val providers=StoryProvider.activeProviders.filter { it.hasKey(this) }
+        if(providers.isEmpty()) return notice("ตั้งค่า API เขียนบทก่อนใช้ระบบเสนอขยายบท")
+        val snapshot=scene.toString()
+        val projectId=project.name
+        val sceneId=key(scene)
+        val sceneContext=JSONObject().put("action",scene.optString("action")).put("speaker",scene.optString("speaker")).put("location",scene.optString("location")).put("speech",original)
+        notice("กำลังเสนอขยายบท • บทเดิมยังไม่เปลี่ยน")
+        Thread {
+            val schema=JSONObject().put("type","object").put("properties",JSONObject().put("text",JSONObject().put("type","string"))).put("required",JSONArray().put("text"))
+            val prompt="""Suggest a natural Thai ${if(field=="dialogue") "dialogue line" else "narration"} for an eight-second scene based only on the supplied scene. Expand the original only where the meaning and events support it; do not add facts, characters, plot events or stage directions. Keep it naturally speakable without rushing. Return JSON with a single text field. The user must review it before saving. Scene: $sceneContext"""
+            var result: String?=null
+            for(provider in providers) {
+                result=runCatching { StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false).generate(prompt,schema).optString("text").trim() }.getOrNull()?.takeIf { it.isNotBlank() }
+                if(result!=null) break
+            }
+            val proposal=result
+            runOnUiThread {
+                if(isFinishing || isDestroyed) return@runOnUiThread
+                if(proposal==null) { notice("ไม่สามารถขอข้อเสนอบทได้ กรุณาตรวจ API แล้วลองใหม่"); return@runOnUiThread }
+                if(project.name!=projectId || scene.toString()!=snapshot || plan?.let { current -> rows(current).none { it===scene } } != false) { notice("ซีนเปลี่ยนระหว่างขอข้อเสนอ กรุณาเปิดใหม่"); return@runOnUiThread }
+                val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
+                panel.addView(TextView(this).apply { text="บทเดิม:\n$original\n\nตรวจความหมาย เหตุการณ์ และทดลองอ่านให้เหมาะกับ 8 วินาที ก่อนยืนยัน" })
+                val edit=EditText(this).apply { setText(proposal); minLines=3; panel.addView(this) }
+                val dialog=AlertDialog.Builder(this).setTitle("ตรวจข้อเสนอบท • $sceneId").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันและบันทึก",null).setNegativeButton("ใช้บทเดิม",null).showDirector()
+                dialog.getButton(-1).setOnClickListener {
+                    val value=edit.text.toString().trim()
+                    if(value.isBlank()) { notice("กรุณาระบุบทหรือเลือกใช้บทเดิม"); return@setOnClickListener }
+                    if(project.name!=projectId || scene.toString()!=snapshot || plan?.let { current -> rows(current).none { it===scene } } != false) { dialog.dismiss(); notice("ซีนเปลี่ยนแล้ว กรุณาขอข้อเสนอใหม่"); return@setOnClickListener }
+                    scene.put(field,value); scene.put("user_review","needs_revision"); scene.remove("flow_image_revision")
+                    saveStory(); dialog.dismiss(); render(); notice("บันทึกบทที่ยืนยันแล้ว • โปรดตรวจภาพและคำสั่ง Flow อีกครั้ง")
+                }
+            }
+        }.apply { name="director-dialogue-suggestion"; start() }
     }
 
     private fun planning() {
@@ -2534,7 +2576,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         }, s.optString("speaker"), s.optString("dialogue"), s.optString("narration"),
             s.optString("flow_action").ifBlank { s.optString("action") }, s.optString("location"),
             s.optString("start_state"), s.optString("end_state"),
-            plan?.optInt("duration_seconds",8) ?: 8, plan?.optString("aspect_ratio","9:16") ?: "9:16",SoundDesign.notes(s),ProductionCommandCheck.offscreen(s))
+            plan?.optInt("duration_seconds",8) ?: 8, plan?.optString("aspect_ratio","9:16") ?: "9:16",SoundDesign.notes(s),ProductionCommandCheck.offscreen(s),ProductionCommandCheck.dialogueTurns(s))
     }
     private fun flowMappingCurrent(s: JSONObject): Boolean = image(s).exists() &&
         s.optLong("flow_image_revision",-1L) == image(s).lastModified()
@@ -2693,6 +2735,11 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         val fields = listOf("action" to "เหตุการณ์", "dialogue" to "บทพูด", "speaker" to "ผู้พูด", "narration" to "เสียงบรรยาย", "location" to "สถานที่", "continuity_group" to "กลุ่มความต่อเนื่อง", "props" to "อุปกรณ์", "story_time" to "เวลาในเรื่อง", "story_day" to "วันในเรื่อง เช่น DAY01", "activity" to "กิจกรรม เช่น meeting / home / sleep", "wardrobe_event" to "ช่วงชุด เช่น DAY01_MEETING", "image_prompt" to "คำสั่งภาพ", "framing" to "ระยะภาพ (ว่าง = ตามการกระทำ)", "lighting" to "แสงตามฉาก", "flow_prompt" to "VIDEO PROMPT (แก้ให้ตรงกับบทและชุดปัจจุบัน)", "flow_action" to "การกระทำสำหรับวิดีโอ (English)", "start_state" to "สถานะต้นฉาก", "end_state" to "สถานะท้ายฉาก")
         val panel = LinearLayout(this).apply { orientation = 1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
         val inputs = fields.map { (key,label) -> key to EditText(this).apply { hint = label; setText(draft.optString(key,s.optString(key))); panel.addView(this) } }
+        val turnInput=EditText(this).apply {
+            hint="บทสนทนาหลายคน: ชื่อผู้พูด: ข้อความ (หนึ่งบรรทัดต่อหนึ่งช่วง) • เว้นบทเดี่ยวและบรรยายให้ว่าง"
+            setText(draft.optString("dialogue_turns_draft").ifBlank { ProductionCommandCheck.dialogueTurns(draft).joinToString("\n") { "${it.speaker}: ${it.text}" } })
+            minLines=2; panel.addView(this)
+        }
         val cast = s.optJSONArray("characters") ?: JSONArray()
         val outfits = (0 until cast.length()).map { i -> i to EditText(this).apply {
             hint = "ชุด ${cast.getJSONObject(i).optString("name")}"; setText(draft.optJSONArray("characters")?.optJSONObject(i)?.optString("outfit") ?: cast.getJSONObject(i).optString("outfit")); panel.addView(this)
@@ -2707,6 +2754,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         fun persistDraft() {
             val copy=JSONObject(s.toString())
             inputs.forEach { (key,input) -> copy.put(key,input.text.toString()) }
+            copy.put("dialogue_turns_draft",turnInput.text.toString())
             val people=copy.optJSONArray("characters")
             outfits.forEach { (i,input) -> people?.optJSONObject(i)?.put("outfit",input.text.toString()) }
             positions.forEach { (i,input) -> people?.optJSONObject(i)?.put("screen_position",input.text.toString()) }
@@ -2718,13 +2766,31 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             override fun onTextChanged(text: CharSequence?, start: Int, before: Int, count: Int) { persistDraft() }
             override fun afterTextChanged(text: android.text.Editable?) {}
         }
-        (inputs.map { it.second }+outfits.map { it.second }+positions.map { it.second }+soundInputs.map { it.second }).forEach { it.addTextChangedListener(watcher) }
+        (inputs.map { it.second }+outfits.map { it.second }+positions.map { it.second }+soundInputs.map { it.second }+turnInput).forEach { it.addTextChangedListener(watcher) }
         AlertDialog.Builder(this).setTitle("แก้บท ${key(s)} • เก็บร่างอัตโนมัติ")
             .setView(ScrollView(this).apply { addView(panel) })
             .setPositiveButton("บันทึก") { _,_ ->
                 if(inputs.any { it.first in listOf("action","image_prompt","flow_prompt") && it.second.text.isBlank() }) { notice("เหตุการณ์ คำสั่งภาพ และคำสั่ง Flow ต้องไม่ว่าง"); return@setPositiveButton }
+                val turnLines=turnInput.text.toString().lines().map { it.trim() }.filter { it.isNotBlank() }
+                if(turnLines.any { ':' !in it || it.substringBefore(':').isBlank() || it.substringAfter(':').isBlank() }) { notice("แต่ละบรรทัดต้องเป็น ชื่อผู้พูด: ข้อความ"); return@setPositiveButton }
+                val turns=JSONArray().apply { turnLines.forEach { line -> put(JSONObject().put("speaker",line.substringBefore(':').trim()).put("text",line.substringAfter(':').trim())) } }
+                val candidate=JSONObject(s.toString())
+                inputs.forEach { (key,input) -> candidate.put(key,input.text.toString().trim()) }
+                candidate.put("dialogue_turns",turns)
+                if(turnLines.isNotEmpty()) {
+                    val turnIssues=FlowScenePrompt.issues(ProductionCommandCheck.spec(candidate)).filter { it.contains("บทสนทนา") || it.contains("ผู้พูดลำดับ") }
+                    if(turnIssues.isNotEmpty()) { notice(turnIssues.joinToString("\n")); return@setPositiveButton }
+                }
                 inputs.forEach { (key,input) -> s.put(key,input.text.toString().trim()) }
+                if(turns.length()>0) {
+                    s.put("dialogue_turns",turns)
+                    val speakers=ProductionCommandCheck.dialogueTurns(s).map { it.speaker }.toSet()
+                    FlowReferencePrompt.people(s).filter { it.optString("name") in speakers }.forEach { person ->
+                        person.optJSONObject("performance")?.let { performance -> if(performance.optString("voice")=="silent") performance.put("voice","natural Thai dialogue") }
+                    }
+                } else s.remove("dialogue_turns")
                 outfits.forEach { (i,input) -> cast.getJSONObject(i).put("outfit",input.text.toString().trim()) }
+                PerformanceDirection.normalizeSilentVoices(s)
                 positions.forEach { (i,input) -> cast.getJSONObject(i).put("screen_position",input.text.toString().trim()) }
                 if(soundInputs.any { it.second.text.isNotBlank() }) s.put("sound_design",JSONObject().apply { soundInputs.forEach { (field,input) -> put(field,input.text.toString().trim().ifBlank { "none" }) } })
                 val group = s.optString("continuity_group")
