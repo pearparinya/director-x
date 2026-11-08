@@ -58,7 +58,7 @@ Use the clear front view for face and hair. If the image-to-name mapping is uncl
             val text=listOf(ChannelCatalog.currentChannel(story.getString("channel")),story.getString("title"),if(overall) story.getString("tagline") else "ตอนที่ $number ${ep.getString("title")}")
             val size=if(ratio=="9:16") "1080 x 1920" else "1920 x 1080"
             val note=(if(overall) story else ep).optString("production_note_$id")
-            val command="""Generate ONE $ratio ${if(ratio=="9:16") "vertical" else "horizontal"} movie poster, $size. Film-directed cinematic waist-up composition; faces clear in the upper half, distinct expressions appropriate to ${story.optString("category")}. Recompose independently for this ratio; no stretching or collage.
+            val command="""Generate ONE $ratio ${if(ratio=="9:16") "vertical" else "horizontal"} movie poster, $size. Prestige theatrical key art with genre-specific world, cinematic depth, dramatic motivated light, premium production design and a clear focal character. Preserve identities and the planned outfit; expressions and visual effects must fit ${story.optString("category")} and the actual story. Recompose independently for this ratio; no stretching or collage.
 $identity
 ${referenceBindings(selected)}
 CHARACTERS AND OUTFITS:
@@ -131,7 +131,7 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
                 "push_in" -> "Slow, gentle push-in."
                 else -> "Slow, gentle pan."
             }
-            val command=FlowScenePrompt.build(spec,id,camera)
+            val command=FlowScenePrompt.build(spec,id,camera)+"\n"+ChannelCatalog.genre(story)
             Task(id,"EP.$number | ซีน %03d | วิดีโอ 9:16 | 8 วินาที".format(n),"9:16",command)
         }
     }
