@@ -21,7 +21,7 @@ internal object SocialPostText {
             category.takeIf { it.isNotBlank() }?.let { "หมวดหมู่: $it" },
             epTitle.takeIf { it.isNotBlank() }?.let { "ตอนที่ ${episode?.optInt("ep",episodeIndex+1)}: $it" },
             tagline.takeIf { it.isNotBlank() }?.take(180)?.let { "คำโปรย: $it" },
-            description.takeIf { it.isNotBlank() && tagline.isBlank() }?.take(180)?.let { "คำอธิบาย: $it" },
+            description.takeIf { it.isNotBlank() && it != tagline }?.take(180)?.let { "คำอธิบาย: $it" },
             tags.takeIf { it.isNotBlank() }
         ).joinToString("\n\n")
     }
