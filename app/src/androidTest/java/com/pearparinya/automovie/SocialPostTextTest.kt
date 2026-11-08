@@ -14,7 +14,7 @@ class SocialPostTextTest {
             .put("episodes",JSONArray().put(JSONObject().put("ep",1).put("title","จุดเริ่มต้น").put("tagline","ความลับเริ่มเปิดเผย").put("synopsis","การประชุมครั้งสำคัญ"))
                 .put(JSONObject().put("ep",2).put("title","ความจริง")))
         val first=SocialPostText.build(story,0)
-        assertTrue(first.contains("ช่อง: นายเปียบ้านคลองขุด")); assertTrue(first.contains("ตอนที่ 1: จุดเริ่มต้น"))
+        assertTrue(first.contains("คำโปรยหน้าปก: ความจริงต้องปรากฏ")); assertTrue(first.contains("ช่อง: นายเปียบ้านคลองขุด")); assertTrue(first.contains("ตอนที่ 1: จุดเริ่มต้น"))
         assertTrue(first.contains("หมวดหมู่: ชีวิตการทำงาน")); assertTrue(first.contains("คำโปรย: ความลับเริ่มเปิดเผย")); assertTrue(first.contains("คำอธิบาย: การประชุมครั้งสำคัญ")); assertTrue(first.contains("#นายเปียบ้านคลองขุด")); assertTrue(first.contains("#สัญญาแห่งแรงกดดัน"))
         val second=SocialPostText.build(story,1)
         assertTrue(second.contains("ตอนที่ 2: ความจริง")); assertTrue(second.contains("ความจริงต้องปรากฏ")); assertFalse(second.contains("จุดเริ่มต้น"))

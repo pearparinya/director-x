@@ -12,16 +12,18 @@ internal object SocialPostText {
         val title=value(story,"title")
         val category=value(story,"category")
         val epTitle=value(episode,"title")
-        val tagline=value(episode,"tagline").ifBlank { value(story,"tagline") }
+        val coverTagline=value(story,"tagline")
+        val tagline=value(episode,"tagline")
         val description=value(episode,"social_description").ifBlank { value(story,"social_caption") }.ifBlank { value(episode,"synopsis") }.ifBlank { value(story,"synopsis") }
         val tags=listOf(channel,title,epTitle.ifBlank { category }).map { tag(it) }.filter { it.isNotBlank() }.distinct().joinToString(" ") { "#$it" }
         return listOfNotNull(
             channel.takeIf { it.isNotBlank() }?.let { "ช่อง: $it" },
             title.takeIf { it.isNotBlank() }?.let { "เรื่อง: $it" },
+            coverTagline.takeIf { it.isNotBlank() }?.take(180)?.let { "คำโปรยหน้าปก: $it" },
             category.takeIf { it.isNotBlank() }?.let { "หมวดหมู่: $it" },
             epTitle.takeIf { it.isNotBlank() }?.let { "ตอนที่ ${episode?.optInt("ep",episodeIndex+1)}: $it" },
-            tagline.takeIf { it.isNotBlank() }?.take(180)?.let { "คำโปรย: $it" },
-            description.takeIf { it.isNotBlank() && it != tagline }?.take(180)?.let { "คำอธิบาย: $it" },
+            tagline.takeIf { it.isNotBlank() && it != coverTagline }?.take(180)?.let { "คำโปรย: $it" },
+            description.takeIf { it.isNotBlank() && it != tagline && it != coverTagline }?.take(180)?.let { "คำอธิบาย: $it" },
             tags.takeIf { it.isNotBlank() }
         ).joinToString("\n\n")
     }
