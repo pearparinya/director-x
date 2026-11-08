@@ -1751,7 +1751,7 @@ class StudioActivity : AppCompatActivity() {
             root.addView(geminiProgressView,LinearLayout.LayoutParams(-1,dp(10)).apply { setMargins(dp(8),0,dp(8),dp(8)) })
             button("🤖 งานเขียนบท • ดูสถานะ / ทำต่อ",false) { geminiJobMenu() }
         } else { geminiStatusView=null; geminiProgressView=null }
-        if(current!=null) button("📋 คัดลอกชื่อเรื่อง ชื่อตอน คำโปรย และแฮชแท็ก",false) { postDetails(current) }
+        if(current!=null) button("📋 คัดลอกข้อมูลโพสต์ Facebook / TikTok",false) { postDetails(current) }
         if(current!=null && current.optString("clip_format")=="short") {
             button("💬 ชื่อเรื่อง เรื่องย่อ และแคปชั่น",false) {
                 val details=ShortStoryDetails.text(current)
@@ -2127,8 +2127,16 @@ class StudioActivity : AppCompatActivity() {
         if(episodes==null || episodes.length()==0) { notice("เรื่องนี้ยังไม่มีข้อมูลตอน"); return }
         choiceMenu("เลือกตอนสำหรับคัดลอก",(0 until episodes.length()).map { i -> episodes.getJSONObject(i).let { "EP.${it.optInt("ep",i+1)} • ${it.optString("title").ifBlank { "ยังไม่มีชื่อตอน" }}" } }) { index ->
             val text=SocialPostText.build(story,index)
-            AlertDialog.Builder(this).setTitle("ข้อมูลโพสต์ • ตรวจและคัดลอก").setMessage(text.ifBlank { "ยังไม่มีข้อมูลให้คัดลอก" })
-                .setPositiveButton("คัดลอกทั้งหมด") { _,_ -> if(text.isNotBlank()) copyCommand(text) }.setNegativeButton("ปิด",null).showDirector()
+            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
+            panel.addView(TextView(this).apply { text="ตรวจและแก้ข้อความก่อนคัดลอก • คำอธิบายอาจมาจากเรื่องย่อ โปรดตรวจว่าไม่เปิดเผยตอนจบ • หากข้อมูลขาดสามารถพิมพ์เพิ่มได้" })
+            val edit=EditText(this).apply { setText(text); minLines=8; gravity=android.view.Gravity.TOP; panel.addView(this) }
+            val dialog=AlertDialog.Builder(this).setTitle("ข้อมูลโพสต์ • ตรวจและคัดลอก").setView(ScrollView(this).apply { addView(panel) })
+                .setPositiveButton("คัดลอกทั้งหมด",null).setNegativeButton("ปิด",null).showDirector()
+            dialog.getButton(-1).setOnClickListener {
+                val result=edit.text.toString().trim()
+                if(result.isBlank()) { notice("ยังไม่มีข้อมูลให้คัดลอก"); return@setOnClickListener }
+                copyCommand(result); dialog.dismiss()
+            }
         }
     }
     private fun savedChannelNames(): List<String> = runCatching {
