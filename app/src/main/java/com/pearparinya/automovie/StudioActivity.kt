@@ -2214,11 +2214,21 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun chooseChannelTopic(channel: String, done: (Int) -> Unit) {
         if(channel=="นายเปีย บ้านคลองขุด") {
-            val ids=listOf("pia_benefits","pia_safety","pia_products")
+            val ids=listOf("pia_benefits","pia_safety","personal_social_drama","pia_products")
             val labels=listOf("📌 สวัสดิการและสิทธิประโยชน์\nข้อมูลสิทธิและข่าวสวัสดิการ", "💡 ความรู้และเตือนภัย\nความรู้ใกล้ตัวและภัยมิจฉาชีพ", "🎬 ละครสั้นสะท้อนสังคม\nเรื่องเล่าและข้อคิด", "🛍️ นายเปียพาช้อป\nรีวิวและแนะนำสินค้า")
+            val subcategories=listOf(
+                listOf("สิทธิผู้สูงอายุ", "สิทธิผู้พิการ", "สวัสดิการเด็กและครอบครัว", "บัตรสวัสดิการแห่งรัฐ", "ประกันสังคม", "สิทธิรักษาพยาบาล", "ขั้นตอนตรวจสอบสิทธิ", "ข่าวสวัสดิการอื่น ๆ"),
+                listOf("เตือนภัยมิจฉาชีพ", "โทรศัพท์และข้อความหลอกลวง", "หลอกโอนเงินและซื้อขายออนไลน์", "ความปลอดภัยบัญชีและข้อมูล", "เรื่องไอทีและมือถือ", "วิธีใช้แอปใกล้ตัว", "ความรู้ในชีวิตประจำวัน", "รู้เท่าทันข่าวและข้อมูล"),
+                listOf("ครอบครัวและความกตัญญู", "ผู้สูงอายุและการดูแล", "น้ำใจและการช่วยเหลือ", "ความซื่อสัตย์และความไว้ใจ", "คนทำงานและอาชีพ", "ปัญหาในชุมชน", "การให้โอกาสและเริ่มต้นใหม่", "มิตรภาพและสัตว์เลี้ยง"),
+                listOf("เครื่องมือช่าง", "เครื่องมือสวนและเกษตร", "ของใช้ในบ้าน", "เครื่องใช้ไฟฟ้าในครัว", "อุปกรณ์ไอทีและมือถือ", "ของใช้ส่วนตัว", "ของใช้ในรถ", "เปรียบเทียบและเลือกซื้อสินค้า")
+            )
             choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",labels) { selected ->
-                if(selected==2) chooseDramaTopic(done)
-                else { selectedStoryTopic=""; val id=ids[if(selected==3) 2 else selected]; done(ChannelCatalog.allCategories.indexOfFirst { it.id==id }) }
+                val index=ChannelCatalog.allCategories.indexOfFirst { it.id==ids[selected] }
+                require(index>=0) { "ไม่พบหมวดที่เลือก" }
+                choiceMenu("เลือกหมวดย่อย • "+ChannelCatalog.allCategories[index].name,subcategories[selected]) { sub ->
+                    selectedStoryTopic=subcategories[selected][sub]
+                    done(index)
+                }
             }
             return
         }
