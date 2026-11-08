@@ -30,6 +30,11 @@ internal object AutoCast {
             require(name.isNotBlank() && names.add(name) && p.getString("role").isNotBlank()) { "ตั้งชื่อใหม่ไม่ซ้ำ พร้อมระบุบทบาท" }
         }
     }
+    fun requirePresenter(value: JSONObject, presenterId: String) {
+        if(presenterId.isBlank()) return
+        val cast=value.getJSONArray("cast")
+        require((0 until cast.length()).any { cast.getJSONObject(it).optString("library_id")==presenterId }) { "ต้องมี MASTER ผู้ดำเนินเรื่องที่เลือก" }
+    }
     fun validateGenre(value: JSONObject, catalog: JSONArray, category: String) {
         val olderMan=category.startsWith("รักต่างวัย | หนุ่มรุ่นใหญ่กับสาวรุ่นน้อง")
         if(!olderMan && !category.startsWith("รักต่างวัย | หนุ่มรุ่นน้องกับสาวรุ่นพี่")) return

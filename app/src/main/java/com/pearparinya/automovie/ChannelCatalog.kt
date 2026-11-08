@@ -30,6 +30,12 @@ internal object ChannelCatalog {
         MainCategory("mystery_twist","สืบสวน ความลับ และหักมุม","สืบความจริง • ความลับ • เฉลย","drama","🔎","Mystery drama with clues, investigation and a coherent reveal. Keep all cast identities and roles consistent. Avoid graphic violence and criminal instructions."),
         MainCategory("heartwarming","อบอุ่นหัวใจ","น้ำใจ • ครอบครัว • มิตรภาพ","drama","🌤️","Heartwarming everyday story with a specific small need, a meaningful caring action, and a satisfying emotional resolution. Keep family relationships non-sexual; show warmth through behavior, not speeches."),
         MainCategory("everyday_lesson","ข้อคิดใกล้ตัว","ชีวิตประจำวัน • ทางเลือก • ข้อคิด","drama","💡","A relatable everyday choice and its visible consequence, ending with a clear takeaway through action. Avoid lectures, forced morals and added subplots."))
+    val personalCategories = listOf(
+        MainCategory("pia_benefits","สวัสดิการและสิทธิประโยชน์","ข่าวสิทธิ • ข้อมูลใกล้ตัว","drama","📌","Explain only information explicitly supplied and verified by the user; do not invent current benefits, amounts, eligibility, deadlines or official claims. If facts are missing ask the user for them. Treat as factual explainer, not fictional news."),
+        MainCategory("pia_safety","ความรู้และเตือนภัย","ความรู้ • เตือนภัย","drama","💡","Explain the user-supplied facts clearly. Do not invent scams, incidents, safety statistics or official claims; ask for evidence if missing."),
+        MainCategory("pia_products","นายเปียพาช้อป","รีวิวสินค้า • ของใช้","drama","🛍️","Review only product details explicitly supplied by the user. Do not invent demonstrations, personal experience, prices, endorsements or product claims. Ask for missing product facts.")
+    )
+    val allCategories get() = mainCategories + personalCategories
     private val genreDisplay = mapOf(
         "domestic_secrets" to ("ความลับในครอบครัว | Family Secrets" to "ความสัมพันธ์ในบ้านกับความลับที่เปลี่ยนชีวิต"),
         "betrayal_rivalry" to ("รัก ความไว้ใจ และการทรยศ | Love & Betrayal" to "ความสัมพันธ์ที่ถูกทดสอบด้วยความจริงและการตัดสินใจ"),
@@ -87,11 +93,14 @@ internal object ChannelCatalog {
         "everyday_lesson" -> listOf("ฟังให้จบก่อนตัดสิน","ความซื่อสัตย์เรื่องเล็ก","โอกาสที่สอง","คำขอโทษที่ไม่สาย","สิ่งเล็ก ๆ ที่มองข้าม","คำพูดที่เปลี่ยนวันหนึ่ง","คืนของที่เก็บได้")
         else -> emptyList()
     }
-    private fun main(category: String) = mainCategories.firstOrNull { category==it.label || category==it.name }
-    private fun main(value: JSONObject) = main(value.optString("category")) ?: mainCategories.firstOrNull { it.id==value.optString("category_id") }
-    val acceptedCategories get() = mainCategories.flatMap { listOf(it.label,it.name) } + topics.map { category(it) } + groups.map { it.title }
+    private fun main(category: String) = allCategories.firstOrNull { category==it.label || category==it.name }
+    private fun main(value: JSONObject) = main(value.optString("category")) ?: allCategories.firstOrNull { it.id==value.optString("category_id") }
+    val acceptedCategories get() = allCategories.flatMap { listOf(it.label,it.name) } + topics.map { category(it) } + groups.map { it.title }
     private const val filmCraft = "FILMMAKING DIRECTION: Develop a clear premise, character goals and stakes, motivated actions, coherent setup and payoff. Direct natural performances and meaningful visual storytelling; use composition, lighting, camera and sound appropriate to the selected genre and location. Make the title, synopsis, cover and scenes agree with the actual story. Keep each shot continuous for 8 seconds; avoid filler and unrelated events."
-    fun genre(value: JSONObject): String = main(value)?.let { "SELECTED GENRE: ${it.id}. ${it.direction} Preserve the written scene and assigned speech; genre direction does not add events, characters or sounds. $filmCraft" }.orEmpty()
+    fun genre(value: JSONObject): String = main(value)?.let {
+        if(it.id.startsWith("pia_")) "FACTUAL CONTENT: ${it.direction} Preserve only the user-supplied facts and approved speech; do not invent events, product experiences or factual claims."
+        else "SELECTED GENRE: ${it.id}. ${it.direction} Preserve the written scene and assigned speech; genre direction does not add events, characters or sounds. $filmCraft"
+    }.orEmpty()
     private const val creative = "MAIN CATEGORY ONLY: Invent a fresh Thai title, central incident, adult occupations/relationships, obstacles, escalation and ending inside the selected category. Treat a user-selected situation as the creative starting point, not a fixed script; vary its characters and resolution. Maintain the selected setting and primary tone through outline, every scene, acting, covers and sound. A twist must deepen this genre rather than switch it. Use only registered reference actors and decide roles freely; names/reference identities are not automatic husband-wife-affair roles. After outline approval keep the agreed roles, motives and continuity stable across EPs."
     data class Topic(val id: Int, val title: String, val premise: String, val tone: String = "drama")
     data class Group(val title: String, val topics: List<Topic>)
@@ -155,6 +164,7 @@ internal object ChannelCatalog {
     /** A short is a complete story. Count remains governed by ClipPlan, never by editorial trimming. */
     fun shortDirection(selectedCategory: String, sceneCount: Int): String {
         val selected = main(selectedCategory)
+        if(selected?.id in setOf("pia_benefits","pia_safety","pia_products")) return "FACTUAL EXPLAINER: Use only user-supplied verified facts; never invent claims, figures, prices, eligibility, deadlines, official endorsements, product experience or events. Ask for missing information. Present a clear concise explanation and preserve the exact meaning. Each scene is 8 seconds; avoid forcing fictional drama."
         val tone = when {
             selected?.tone == "comedy" || topics.any { it.tone == "comedy" && category(it) == selectedCategory } ->
                 "COMEDY: establish a relatable situation, escalate one misunderstanding or prop gag, then deliver one clear visual or verbal payoff and reaction. No canned laughter."
@@ -174,6 +184,7 @@ internal object ChannelCatalog {
     fun performance(value: JSONObject): String = if(value.optString("story_tone")=="comedy" || main(value)?.tone=="comedy" || topics.any { it.tone=="comedy" && category(it)==value.optString("category") }) comedy else ""
     fun direction(selectedCategory: String): String {
         main(selectedCategory)?.let { selected ->
+            if(selected.id in setOf("pia_benefits","pia_safety","pia_products")) return "FACTUAL CONTENT PRIORITY: ${selected.direction} The user supplies facts; these are not independently verified by the app. Do not invent news, dates, official statements, product results or personal experience. For required outline fields use a neutral summary of the supplied information, not a fictional event."
             return safety+"\n$creative\n$filmCraft\nSelected category: ${selected.label}\n${selected.direction}"+(if(selected.tone=="comedy") "\n$comedy" else "\nMaintain drama/suspense and use realistic emotional beats; no automatic comedy sound effects.")
         }
         return topics.firstOrNull { category(it)==selectedCategory }?.let {
