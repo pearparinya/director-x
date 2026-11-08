@@ -25,8 +25,8 @@ class AutoDirectorContentTest {
         val second = cast.getJSONObject(1).put("visual_description", "unique beard cue")
         val tasks = SimpleProductionCommands.imageTasks(project, 1)
         val command = tasks.first { it.id == "EP01_SC001" }.command
-        assertTrue(command.contains(first.getString("name") + " | MASTER ID: " + referenceId(first.getString("master")) + " | Saved visual cue (verify against MASTER): unique braid cue"))
-        assertTrue(command.contains(second.getString("name") + " | MASTER ID: " + referenceId(second.getString("master")) + " | Saved visual cue (verify against MASTER): unique beard cue"))
+        assertTrue(command.contains(first.getString("name") + " | MASTER ID: " + referenceId(first.getString("master")) + " | Use this reference for identity only; ignore its clothes, pose, accessories and props."))
+        assertTrue(command.contains(second.getString("name") + " | MASTER ID: " + referenceId(second.getString("master")) + " | Use this reference for identity only; ignore its clothes, pose, accessories and props."))
         assertTrue(command.contains("If the image-to-name mapping is unclear, ask"))
         assertTrue(command.contains("if it conflicts with the original, trust the original image"))
         assertTrue(tasks.first { it.id == "STORY_COVER_9x16" }.command.contains("unique braid cue"))
