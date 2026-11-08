@@ -113,6 +113,11 @@ class FlowScenePromptTest {
         assertTrue(FlowScenePrompt.issues(unknown).any { it.contains("unmappedname") })
         assertFalse(FlowScenePrompt.build(unknown).contains("<scene"))
     }
+    @Test fun withIsNotTreatedAsCharacterName() {
+        val spec=scene().copy(action="เมย์ gestures with open hands and looks at รินรดา")
+        assertFalse(FlowScenePrompt.unknownActionNames(spec).contains("with"))
+        assertTrue(FlowScenePrompt.unknownActionNames(spec.copy(action="UnknownPerson looks at เมย์")).contains("UnknownPerson"))
+    }
     @Test fun conjunctionBeforeActionIsNotAnUnknownCharacter() {
         val spec=scene().copy(action="เมย์ holds a folder and looks at รินรดา")
         assertTrue(FlowScenePrompt.issues(spec).isEmpty())
