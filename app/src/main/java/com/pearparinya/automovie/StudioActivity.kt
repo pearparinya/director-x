@@ -252,7 +252,39 @@ class StudioActivity : AppCompatActivity() {
         }
         return result
     }
+    private val piaActorId = "CHAR_1999999999"
+    private fun piaCatalog(): JSONArray {
+        val catalog=castingCatalog()
+        require((0 until catalog.length()).none { catalog.getJSONObject(it).optString("id")==piaActorId }) { "รหัสตัวละครนายเปียซ้ำ" }
+        val bytes=assets.open("pia_outfits/01.png").use { it.readBytes() }
+        val row=JSONObject().put("id",piaActorId).put("display_name","นายเปีย บ้านคลองขุด")
+            .put("file","PIA_PRESENTER.png").put("sha256",MasterLibrary.digest(bytes))
+            .put("character_age",35).put("age_basis","fictional_casting_placeholder_not_real_age")
+            .put("character_gender","man").put("casting_description","Use the attached original MASTER for this presenter identity.")
+        val result=JSONArray().put(row)
+        for(i in 0 until catalog.length()) result.put(catalog.getJSONObject(i))
+        return result
+    }
+    private fun installPiaDefaults() {
+        for(slot in 1..12) {
+            val target=presenterOutfitFile(piaActorId,slot)
+            if(!target.exists()) {
+                target.parentFile!!.mkdirs()
+                val tmp=File(target.parentFile,"$slot.default.pending")
+                try {
+                    assets.open("pia_outfits/%02d.png".format(slot)).use { input -> tmp.outputStream().use { output -> input.copyTo(output) } }
+                    check(tmp.renameTo(target)) { "ติดตั้งภาพชุดนายเปียไม่สำเร็จ" }
+                } finally { tmp.delete() }
+            }
+        }
+    }
     private fun castingSource(row: JSONObject): File {
+        if(row.getString("id")==piaActorId) {
+            val bytes=assets.open("pia_outfits/01.png").use { it.readBytes() }
+            val target=File(filesDir,"pia_presenter_master.png")
+            if(!target.isFile || MasterLibrary.digest(target.readBytes())!=MasterLibrary.digest(bytes)) target.writeBytes(bytes)
+            return target
+        }
         val entry=masterLibrary.entries().firstOrNull { it.id==row.getString("id") }
         return if(entry!=null) masterLibrary.source(entry) else File(filesDir,"actor_master_v2/"+row.getString("file"))
     }
@@ -2224,11 +2256,11 @@ class StudioActivity : AppCompatActivity() {
                     runCatching { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://ads.tiktok.com/business/creativecenter/inspiration/topads/pc/en?region=TH"))) }.onFailure { notice("เปิด TikTok Creative Center ไม่ได้") }
                 } })
             }
-            val presenters=if(chosenChannel=="นายเปีย บ้านคลองขุด") runCatching { castingCatalog() }.getOrDefault(JSONArray()) else JSONArray()
+            val presenters=if(chosenChannel=="นายเปีย บ้านคลองขุด") runCatching { installPiaDefaults(); piaCatalog() }.getOrDefault(JSONArray()) else JSONArray()
             val presenter=Spinner(this).apply {
                 val labels=listOf("เลือก MASTER ผู้ดำเนินเรื่อง")+(0 until presenters.length()).map { presenters.getJSONObject(it).optString("display_name").ifBlank { presenters.getJSONObject(it).optString("id") } }
                 adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,labels)
-                if(chosenChannel=="นายเปีย บ้านคลองขุด") panel.addView(this)
+                if(chosenChannel=="นายเปีย บ้านคลองขุด") { panel.addView(this); if(presenters.length()>0 && presenters.getJSONObject(0).optString("id")==piaActorId) setSelection(1) }
             }
             val presenterOutfits=listOf("เลือกชุดตามเนื้อเรื่อง", "สูทกรมท่า เนกไทลายฟ้า", "ชุดช่างสีเขียวเข้ม", "ชุดช่างสีกรมท่าส้ม", "ชุดช่างสีเทาเข้ม", "ชุดช่างสีน้ำเงิน", "เสื้อเชิ้ตสีครีม กางเกงเขียว", "เสื้อเชิ้ตสีฟ้า กางเกงกรมท่า", "เสื้อเชิ้ตสีขาว กางเกงดำ", "เสื้อเชิ้ตสีดำ กางเกงเทา", "เสื้อช่างกรม กางเกงเทา ถุงมือ", "ชุดทำสวนสีครีม หมวกและรองเท้าบูท", "ชุดทำสวนกรมท่า หมวกคลุมต้นคอและรองเท้าบูท")
             val presenterOutfit=Spinner(this).apply {
@@ -2254,7 +2286,7 @@ class StudioActivity : AppCompatActivity() {
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
                     runCatching {
                         if(ChannelCatalog.allCategories[index].id in setOf("pia_benefits","pia_safety","pia_products")) require(premise.text.toString().trim().isNotEmpty()) { "กรุณาระบุข้อมูลที่ตรวจสอบแล้วหรือรายละเอียดสินค้าก่อนสร้างบท" }
-                        val catalog=castingCatalog()
+                        val catalog=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog() else castingCatalog()
                         val presenterId=if(chosenChannel=="นายเปีย บ้านคลองขุด") {
                             require(presenter.selectedItemPosition>0) { "กรุณาเพิ่มรูป MASTER ผู้ดำเนินเรื่องในคลัง แล้วเลือกจากรายการ" }
                             presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id")
