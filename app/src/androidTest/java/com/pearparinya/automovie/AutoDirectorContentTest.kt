@@ -25,13 +25,13 @@ class AutoDirectorContentTest {
         val second = cast.getJSONObject(1).put("visual_description", "unique beard cue")
         val tasks = SimpleProductionCommands.imageTasks(project, 1)
         val command = tasks.first { it.id == "EP01_SC001" }.command
-        assertTrue(command.contains(first.getString("name") + " | MASTER ID: " + referenceId(first.getString("master")) + " | Use this reference for identity only; ignore its clothes, pose, accessories and props."))
-        assertTrue(command.contains(second.getString("name") + " | MASTER ID: " + referenceId(second.getString("master")) + " | Use this reference for identity only; ignore its clothes, pose, accessories and props."))
+        assertTrue(command.contains(first.getString("name") + " | MASTER ID: " + referenceId(first.getString("master")) + " | Identity only."))
+        assertTrue(command.contains(second.getString("name") + " | MASTER ID: " + referenceId(second.getString("master")) + " | Identity only."))
         assertTrue(command.contains("If the image-to-name mapping is unclear, ask"))
-        assertTrue(command.contains("if it conflicts with the original, trust the original image"))
-        assertTrue(tasks.first { it.id == "STORY_COVER_9x16" }.command.contains("unique braid cue"))
+        assertTrue(command.contains("Scene Outfit overrides MASTER clothing."))
+        assertFalse(tasks.first { it.id == "STORY_COVER_9x16" }.command.contains("unique braid cue"))
         second.remove("visual_description")
-        assertTrue(SimpleProductionCommands.imageTasks(project, 1).first { it.id == "EP01_SC001" }.command.contains("Visual cue unavailable"))
+        assertFalse(SimpleProductionCommands.imageTasks(project, 1).first { it.id == "EP01_SC001" }.command.contains("unique beard cue"))
     }
     @Test fun imageCommandsHaveRealLineBreaksAndOldCategoriesRemainUsable() {
         val project=story()

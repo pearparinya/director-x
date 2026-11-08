@@ -29,13 +29,13 @@ internal object SimpleProductionCommands {
         val rows = people.mapIndexed { i, person ->
             val name = person.getString("name")
             val master = referenceId(person.optString("master").trim())
-            "Reference ${i + 1}: $name | MASTER ID: ${master.ifBlank { "not specified" }} | Use this reference for identity only; ignore its clothes, pose, accessories and props."
+            "Reference ${i + 1}: $name | MASTER ID: ${master.ifBlank { "not specified" }} | Identity only."
         }.joinToString("\n")
         return """REFERENCE BINDING — match each named person to their own original attached MASTER:
 $rows
-Use the clear front view for face and hair. If the image-to-name mapping is unclear, ask. A front-view crop can supplement the original MASTER. Use the MASTER for identity only. The scene outfit listed below has priority over the MASTER clothing."""
+Use the clear front view for face and hair. If the image-to-name mapping is unclear, ask. A front-view crop can supplement the original MASTER. Scene Outfit overrides MASTER clothing."""
     }
-    private const val wardrobeContinuity="WARDROBE PRIORITY: The exact per-character Outfit listed above is the only clothing specification. Do not copy clothing, colors, shoes or accessories from the MASTER unless explicitly listed. Do not substitute colors or invent garments. If an outfit detail is missing or ambiguous, ask instead of inventing. WARDROBE CONTINUITY: Same day: identical outfit, including neckline, collar, sleeves, closures, shoes and accessories. A new story day can use the outfit planned for that day. The three views in each MASTER represent ONE person; their own MASTER controls face, hair and body. Never mix characters. If a location reference is attached, preserve its layout and props across camera angles. Review results."
+    private const val wardrobeContinuity="WARDROBE CONTINUITY: Scene Outfit controls garment, color, shoes and accessories; do not copy MASTER clothing. Ask if unclear. Same day: identical outfit, including neckline, collar, sleeves, closures, shoes and accessories. A new story day can use the outfit planned for that day. The three views in each MASTER represent ONE person; their own MASTER controls face, hair and body. Never mix characters. If a location reference is attached, preserve its layout and props across camera angles. Review results."
     private fun cast(people: List<JSONObject>,poster: Boolean=false)=people.mapIndexed { i,p ->
         val position=if(!poster) p.optString("screen_position") else when(people.size) { 1 -> "center"; 2 -> if(i==0) "left" else "right"; else -> listOf("left","center","right")[i] }
         val alias=when(FlowCast.id(p)) { "gawin" -> "Kawin / Gawin"; "rinlada" -> "Rinrada / Rinlada"; "mind" -> "May / Mind"; else -> p.getString("name") }
@@ -90,7 +90,7 @@ Style: ${story.optString("category")} — follow the written action, no new plot
 Story day: ${scene.getString("story_day")} — exact wardrobe remains locked across locations and EPs.
 Location: ${scene.getString("location")}
 Start frame: ${scene.getString("start_state")}
-NAME CONFLICT CHECK: Only use the visible cast names above. If the start frame names a different person or conflicts with the cast, stop and ask for clarification; never silently replace, merge, or add a person.
+If start-frame names conflict with visible cast, stop and ask; never invent or replace people.
 Action planned next (not a montage): ${scene.optString("flow_action").ifBlank { scene.getString("action") }}
 Framing: ${scene.optString("framing").ifBlank { "Show all listed people, relevant hands and props with natural perspective." }}
 Lighting: $light
