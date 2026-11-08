@@ -181,6 +181,7 @@ internal object ChannelCatalog {
     fun performance(value: JSONObject): String = if(value.optString("story_tone")=="comedy" || main(value)?.tone=="comedy" || topics.any { it.tone=="comedy" && category(it)==value.optString("category") }) comedy else ""
     fun direction(selectedCategory: String): String {
         main(selectedCategory)?.let { selected ->
+            if(selected.id in setOf("pia_benefits","pia_safety","pia_products")) return "FACTUAL CONTENT PRIORITY: ${selected.direction} The user supplies facts; these are not independently verified by the app. Do not invent news, dates, official statements, product results or personal experience. For required outline fields use a neutral summary of the supplied information, not a fictional event."
             return safety+"\n$creative\n$filmCraft\nSelected category: ${selected.label}\n${selected.direction}"+(if(selected.tone=="comedy") "\n$comedy" else "\nMaintain drama/suspense and use realistic emotional beats; no automatic comedy sound effects.")
         }
         return topics.firstOrNull { category(it)==selectedCategory }?.let {

@@ -22,5 +22,9 @@ class PresenterSelectionTest {
     @Test fun personalCategoriesExistWithoutRemovingDramaCategories() {
         val ids=ChannelCatalog.allCategories.map { it.id }.toSet()
         assertTrue(ids.containsAll(listOf("pia_benefits","pia_safety","pia_products","office_career")))
+        ChannelCatalog.personalCategories.forEach { category ->
+            assertTrue(ChannelCatalog.direction(category.label).contains("Do not invent"))
+            assertFalse(ChannelCatalog.direction(category.label).contains("Invent a fresh Thai title"))
+        }
     }
 }

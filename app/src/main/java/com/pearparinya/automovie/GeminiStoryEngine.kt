@@ -130,6 +130,7 @@ ${if(spec.optInt("autodirector_version")<AutoDirectorContent.version) "LEGACY CH
 Channel: $channel
 Category: $category
 ${ChannelCatalog.direction(category)}
+${if(ChannelCatalog.personalCategories.any { it.label==category || it.name==category }) "HIGHEST CONTENT PRIORITY: This is a factual explainer or product description, not a fictional news event. Use only user-supplied facts; no invented product experience or testimonials. If the output schema requires an ending, describe a neutral recap of the supplied information. The user must verify all factual claims before publication." else ""}
 ${if(spec.optString("clip_format")=="short") ChannelCatalog.shortDirection(category,sceneCount) else ChannelCatalog.longDirection}
 ${ChannelCatalog.storyConsistency}
 Creative variation seed (never print this token): ${spec.optString("creative_seed")}

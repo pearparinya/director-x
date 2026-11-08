@@ -2196,6 +2196,7 @@ class StudioActivity : AppCompatActivity() {
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             panel.addView(TextView(this).apply { text="หมวด: ${categories[index]}\nสถานการณ์ตั้งต้น: $selectedStoryTopic\nAI เลือกนักแสดงจากคลัง MASTER และตั้งชื่ออัตโนมัติตามบท ${if(format=="short") "สร้างเรื่องจบในคลิปเดียว" else "แล้วเขียนเรื่องต่อครบทุก EP"}"; textSize=14f })
             val premise=EditText(this).apply { hint=if(chosenChannel=="นายเปีย บ้านคลองขุด") "รายละเอียดที่ตรวจสอบแล้ว / ข้อมูลสินค้า" else "แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
+            if(ChannelCatalog.allCategories[index].id in setOf("pia_benefits","pia_safety","pia_products")) panel.addView(TextView(this).apply { text="ระบุข้อเท็จจริงและแหล่งอ้างอิงที่ตรวจสอบแล้ว • แอปไม่ได้ตรวจข่าวหรือยืนยันข้อมูลสินค้าอัตโนมัติ" })
             if(ChannelCatalog.allCategories[index].id=="pia_products") {
                 panel.addView(TextView(this).apply { text="ดูตัวอย่างโฆษณาสินค้าจาก TikTok Creative Center แล้วกรอกรายละเอียดสินค้าที่ตรวจสอบเอง • ตัวอย่างโฆษณาไม่ใช่อันดับยอดขาย • ระบบยังไม่เชื่อมข้อมูล TikTok Shop อัตโนมัติ" })
                 panel.addView(Button(this).apply { text="ดูตัวอย่างโฆษณาสินค้า TikTok"; setOnClickListener {
