@@ -2222,7 +2222,15 @@ class StudioActivity : AppCompatActivity() {
             }
             return
         }
-        chooseDramaTopic(done)
+        val film=ChannelCatalog.filmCategories
+        choiceMenu("ขั้นที่ 1 • เลือกหมวดหลัก • ร้อยฉาก",film.map { it.menuLabel }) { selected ->
+            val index=ChannelCatalog.allCategories.indexOfFirst { it.id==film[selected].id }
+            val topics=ChannelCatalog.shortTopics(film[selected].id)
+            choiceMenu("ขั้นที่ 2 • เลือกแนวย่อย",listOf("🎲 สุ่มแนวย่อย")+topics) { choice ->
+                selectedStoryTopic=if(choice==0) topics.random() else topics[choice-1]
+                done(index)
+            }
+        }
     }
     private fun chooseDramaTopic(done: (Int) -> Unit) {
         val shelves=ChannelCatalog.storyShelves

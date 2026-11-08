@@ -3,9 +3,9 @@ package com.pearparinya.automovie
 import org.json.JSONObject
 
 internal object ChannelCatalog {
-    const val channel = "ร้อยฉาก - ซีรีส์สั้นหลากชีวิต"
+    const val channel = "ร้อยฉาก"
     private val legacyChannels = setOf("สตอรี่ทรงโต - ซีรีส์ลับฉบับผู้ใหญ่", "สตอรี่หลังบ้าน - ซีรีส์สั้นดราม่าผัวเมีย")
-    fun currentChannel(value: String): String = if (value.trim() in legacyChannels) channel else value
+    fun currentChannel(value: String): String = if (value.trim() in legacyChannels || value.trim()=="ร้อยฉาก - ซีรีส์สั้นหลากชีวิต") channel else value
     fun updateLegacyChannel(value: JSONObject): JSONObject {
         if (value.has("channel")) value.put("channel", currentChannel(value.optString("channel")))
         return value
@@ -30,12 +30,24 @@ internal object ChannelCatalog {
         MainCategory("mystery_twist","สืบสวน ความลับ และหักมุม","สืบความจริง • ความลับ • เฉลย","drama","🔎","Mystery drama with clues, investigation and a coherent reveal. Keep all cast identities and roles consistent. Avoid graphic violence and criminal instructions."),
         MainCategory("heartwarming","อบอุ่นหัวใจ","น้ำใจ • ครอบครัว • มิตรภาพ","drama","🌤️","Heartwarming everyday story with a specific small need, a meaningful caring action, and a satisfying emotional resolution. Keep family relationships non-sexual; show warmth through behavior, not speeches."),
         MainCategory("everyday_lesson","ข้อคิดใกล้ตัว","ชีวิตประจำวัน • ทางเลือก • ข้อคิด","drama","💡","A relatable everyday choice and its visible consequence, ending with a clear takeaway through action. Avoid lectures, forced morals and added subplots."))
+    val filmCategories = listOf(
+        MainCategory("film_drama","ดราม่าชีวิตและครอบครัว","ดราม่าชีวิตและครอบครัว","drama","🎭","Create grounded family and life drama. Match visuals, sound and performances to the selected story and its genre; preserve identities and continuity."),
+        MainCategory("film_romance","รักและความสัมพันธ์","รักและความสัมพันธ์","drama","❤️","Create adult romance and relationships. Match visuals, sound and performances to the selected story and its genre; preserve identities and continuity."),
+        MainCategory("film_comedy","ตลกและชีวิตประจำวัน","ตลกและชีวิตประจำวัน","comedy","😂","Create situational comedy and everyday life. Match visuals, sound and performances to the selected story and its genre; preserve identities and continuity."),
+        MainCategory("film_mystery","สืบสวนและปริศนา","สืบสวนและปริศนา","drama","🔍","Create mystery with coherent clues and reveal. Match visuals, sound and performances to the selected story and its genre; preserve identities and continuity."),
+        MainCategory("film_action","แอ็กชันและการต่อสู้","แอ็กชันและการต่อสู้","drama","⚔️","Create cinematic action with believable safe staging. Match visuals, sound and performances to the selected story and its genre; preserve identities and continuity."),
+        MainCategory("film_fantasy","แฟนตาซีและพลังพิเศษ","แฟนตาซีและพลังพิเศษ","drama","✨","Create photorealistic fantasy with consistent supernatural effects, explicit power rules and guardian identity. Match visuals, sound and performances to the selected story and its genre; preserve identities and continuity."),
+        MainCategory("film_horror","สยองขวัญและเรื่องลี้ลับ","สยองขวัญและเรื่องลี้ลับ","drama","👻","Create atmospheric supernatural suspense. Match visuals, sound and performances to the selected story and its genre; preserve identities and continuity."),
+        MainCategory("film_business","ธุรกิจ อำนาจ และการแก้แค้น","ธุรกิจ อำนาจ และการแก้แค้น","drama","💼","Create business and revenge drama with credible motivations. Match visuals, sound and performances to the selected story and its genre; preserve identities and continuity."),
+        MainCategory("film_warm","อบอุ่นหัวใจและแรงบันดาลใจ","อบอุ่นหัวใจและแรงบันดาลใจ","drama","🌤️","Create heartwarming inspiring drama. Match visuals, sound and performances to the selected story and its genre; preserve identities and continuity."),
+        MainCategory("film_time","ย้อนยุคและข้ามเวลา","ย้อนยุคและข้ามเวลา","drama","⏳","Create period drama and time travel with consistent rules. Match visuals, sound and performances to the selected story and its genre; preserve identities and continuity.")
+    )
     val personalCategories = listOf(
         MainCategory("pia_benefits","สวัสดิการและสิทธิประโยชน์","ข่าวสิทธิ • ข้อมูลใกล้ตัว","drama","📌","Explain only information explicitly supplied and verified by the user; do not invent current benefits, amounts, eligibility, deadlines or official claims. If facts are missing ask the user for them. Treat as factual explainer, not fictional news."),
         MainCategory("pia_safety","ความรู้และเตือนภัย","ความรู้ • เตือนภัย","drama","💡","Explain the user-supplied facts clearly. Do not invent scams, incidents, safety statistics or official claims; ask for evidence if missing."),
         MainCategory("pia_products","นายเปียพาช้อป","รีวิวสินค้า • ของใช้","drama","🛍️","Review only product details explicitly supplied by the user. Do not invent demonstrations, personal experience, prices, endorsements or product claims. Ask for missing product facts.")
     )
-    val allCategories get() = mainCategories + personalCategories
+    val allCategories get() = mainCategories + personalCategories + filmCategories
     private val genreDisplay = mapOf(
         "domestic_secrets" to ("ความลับในครอบครัว | Family Secrets" to "ความสัมพันธ์ในบ้านกับความลับที่เปลี่ยนชีวิต"),
         "betrayal_rivalry" to ("รัก ความไว้ใจ และการทรยศ | Love & Betrayal" to "ความสัมพันธ์ที่ถูกทดสอบด้วยความจริงและการตัดสินใจ"),
@@ -76,6 +88,16 @@ internal object ChannelCatalog {
     )
     // These are story seeds, not fixed scripts; users can also choose automatic selection.
     fun shortTopics(id: String): List<String> = when(id) {
+        "film_drama" -> listOf("ความลับในครอบครัว","แม่เลี้ยงเดี่ยวสู้ชีวิต","พ่อแม่กับลูกที่ห่างเหิน","พี่น้องแย่งมรดก","ชีวิตคู่และความไว้ใจ","ลูกสะใภ้กับครอบครัวสามี","คนจนที่ถูกดูถูก","วันที่ครอบครัวกลับมาคืนดีกัน")
+        "film_romance" -> listOf("รักต่างวัย","รักในที่ทำงาน","แอบรักเพื่อนสนิท","รักครั้งใหม่หลังผิดหวัง","คู่กัดกลายเป็นคู่รัก","รักต่างฐานะ","คนรักเก่ากลับมา","หัวใจกับครอบครัว")
+        "film_comedy" -> listOf("ออฟฟิศป่วนฮา","เพื่อนบ้านชวนปวดหัว","ส่งข้อความผิดคน","ครอบครัวสายฮา","ลูกค้ากับร้านค้าสุดวุ่น","เจ้านายกับลูกน้องคู่ปรับ","เดตแรกที่ไม่เป็นไปตามแผน","เข้าใจผิดกันทั้งหมู่บ้าน")
+        "film_mystery" -> listOf("คนหายตัวไปอย่างลึกลับ","จดหมายหรือพัสดุปริศนา","ความลับในบ้านหลังเก่า","หลักฐานที่ถูกซ่อนไว้","ใครคือคนที่โกหก","คดีเก่าที่ไม่มีใครอยากพูดถึง","ตัวตนที่ถูกปลอมแปลง","พยานคนสุดท้าย")
+        "film_action" -> listOf("ภารกิจช่วยคนสำคัญ","ผู้พิทักษ์ชุมชน","อดีตนักสู้ปกป้องครอบครัว","หนีการไล่ล่า","บอดี้การ์ดกับคนที่ต้องปกป้อง","ภารกิจลับทวงคืนหลักฐาน","รวมทีมต่อสู้กับผู้มีอิทธิพล","ปกป้องหมู่บ้านจากภัยคุกคาม")
+        "film_fantasy" -> listOf("ปลุกพลังที่หลับใหล","อัญเชิญผู้พิทักษ์ยักษ์","เกราะพลังและนักรบในตำนาน","คนธรรมดาที่ได้รับพลังพิเศษ","ผู้ใช้พลังที่ต้องปิดบังตัวตน","โรงเรียนผู้มีพลัง","สัตว์วิญญาณคู่ใจ","ศึกชิงพลังระหว่างแสงกับเงา")
+        "film_horror" -> listOf("บ้านร้างท้ายหมู่บ้าน","วิญญาณที่ต้องการบอกความจริง","คำสาปประจำตระกูล","ของเก่าที่มีเรื่องเล่า","ห้องพักต้องห้าม","คนแปลกหน้าที่ไม่มีใครจำได้","เสียงเรียกกลางดึก","เรื่องลี้ลับจากความเชื่อพื้นบ้าน")
+        "film_business" -> listOf("แย่งชิงตำแหน่งผู้บริหาร","ทายาทที่ถูกกีดกัน","พนักงานธรรมดาที่ซ่อนตัวตน","ถูกใส่ร้ายในที่ทำงาน","หุ้นส่วนหักหลัง","กลับมาทวงคืนบริษัท","เปิดโปงการทุจริต","แก้แค้นด้วยความจริง")
+        "film_warm" -> listOf("คนแปลกหน้าที่ยื่นมือช่วย","ลูกตอบแทนพระคุณพ่อแม่","ครูกับศิษย์ที่ไม่ยอมแพ้","เริ่มต้นชีวิตใหม่","เพื่อนแท้ในวันที่ลำบาก","ชุมชนร่วมใจกันช่วยคน","มิตรภาพระหว่างคนกับสัตว์","ความฝันเล็ก ๆ ที่เปลี่ยนชีวิต")
+        "film_time" -> listOf("กลับไปแก้ไขอดีต","ตื่นขึ้นมาในอีกยุคหนึ่ง","จดหมายจากอนาคต","ย้อนวัยกลับไปเริ่มต้นใหม่","รักข้ามภพข้ามเวลา","ความลับของบรรพบุรุษ","ของโบราณพาข้ามเวลา","พบตัวเองในอีกช่วงชีวิต")
         "domestic_secrets" -> listOf("ของหายในบ้าน","ความลับที่เข้าใจผิด","มื้ออาหารชวนสงสัย","จดหมายในลิ้นชัก","มรดกที่ไม่คาดคิด","ภาพเก่าที่ทำให้เข้าใจใหม่","กุญแจของสมาชิกในบ้าน")
         "betrayal_rivalry" -> listOf("ข้อความส่งผิดคน","เจอแฟนเก่าโดยบังเอิญ","คำโกหกที่จับได้","ความจริงจากเพื่อนสนิท","คำสัญญาที่ผิดนัด","ความไว้วางใจที่ต้องพิสูจน์","การตัดสินใจในวันสำคัญ")
         "office_career" -> listOf("ประชุมผิดห้อง","ความดีที่ไม่มีใครเห็น","ลูกค้าคนสำคัญ","เพื่อนร่วมงานเข้าใจผิด","งานชิ้นสุดท้ายก่อนเลิกงาน","ผลงานที่ถูกเข้าใจผิด","ทางเลือกก่อนรับตำแหน่งใหม่")
