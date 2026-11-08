@@ -177,14 +177,14 @@ Images are generated externally in Gemini; video is generated externally in Flow
             it.optString("name")==name || StoryIdentity.keyFor(name)?.let { key -> FlowCast.id(it)==key }==true
         }?.let { alias(it) } ?: name
         return spec.copy(cast=spec.cast.map { it.copy(name=label(it.name),appearance=normalize(it.appearance,story),outfit=normalize(it.outfit,story),performance=normalize(it.performance,story)) },
-            speaker=label(spec.speaker),action=normalize(spec.action,story),location=normalize(spec.location,story),startState=normalize(spec.startState,story),endState=normalize(spec.endState,story),sound=normalize(spec.sound,story))
+            speaker=label(spec.speaker),turns=spec.turns.map { it.copy(speaker=label(it.speaker)) },offscreen=spec.offscreen.map { label(it) },action=normalize(spec.action,story),location=normalize(spec.location,story),startState=normalize(spec.startState,story),endState=normalize(spec.endState,story),sound=normalize(spec.sound,story))
     }
     fun dialogue(story: JSONObject, number: Int): String {
         val scenes=episode(story,number).getJSONArray("scenes")
         return (0 until scenes.length()).joinToString("\n\n") { i ->
             val s=scenes.getJSONObject(i); val line=speech(s.optString("dialogue")); val vo=speech(s.optString("narration"))
             "[ฉากที่ ${s.getInt("scene")}] 8 วินาที\nการแสดง: ${s.getString("action")}\n${PerformanceDirection.script(s)}\n"+
-                when { line.isNotEmpty() -> "${FlowReferencePrompt.people(s).firstOrNull { it.optString("name")==s.optString("speaker") || StoryIdentity.keyFor(s.optString("speaker"))?.let { key -> FlowCast.id(it)==key }==true }?.optString("name") ?: s.optString("speaker")}: $line\nคนอื่นปิดปาก ไม่พูดแทรก"; vo.isNotEmpty() -> "VO (ผู้บรรยายภายนอก): $vo\nทุกคน mouth closed, lips sealed"; else -> "ไม่มีบทพูด • ทุกคน mouth closed, lips sealed" }
+                when { ProductionCommandCheck.dialogueTurns(s).isNotEmpty() -> ProductionCommandCheck.dialogueTurns(s).joinToString("\n") { "${it.speaker}: ${it.text}" }+"\nพูดตามลำดับ ไม่พูดทับกัน"; line.isNotEmpty() -> "${FlowReferencePrompt.people(s).firstOrNull { it.optString("name")==s.optString("speaker") || StoryIdentity.keyFor(s.optString("speaker"))?.let { key -> FlowCast.id(it)==key }==true }?.optString("name") ?: s.optString("speaker")}: $line\nคนอื่นปิดปาก ไม่พูดแทรก"; vo.isNotEmpty() -> "VO (ผู้บรรยายภายนอก): $vo\nทุกคน mouth closed, lips sealed"; else -> "ไม่มีบทพูด • ทุกคน mouth closed, lips sealed" }
         }+"\n\n✅ บทเสร็จสิ้น! พิมพ์ 'สร้าง XML EP.$number'\nHARD STOP • จบ Phase 3"
     }
     private fun xml(value: String) = value.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;")
