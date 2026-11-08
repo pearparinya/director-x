@@ -20,6 +20,7 @@ class FlowVoiceXmlUnitTest {
         val s=FlowSceneSpec(cast,"","","","May looks at Rinlada","office","standing","standing",8,"9:16",turns=turns)
         val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(InputSource(StringReader(FlowVoiceXml.build(s,"Locked camera."))))
         assertEquals(2,doc.getElementsByTagName("dialogue").length)
+        assertTrue(doc.getElementsByTagName("prompt").item(0).textContent.contains(ScenePropContinuity.video))
         assertEquals("[Character 1]",doc.getElementsByTagName("speaker").item(0).textContent)
         assertEquals("[Character 2]",doc.getElementsByTagName("speaker").item(1).textContent)
         assertEquals(turns[0].text,doc.getElementsByTagName("text").item(0).textContent)
@@ -37,5 +38,8 @@ class FlowVoiceXmlUnitTest {
         assertEquals("SLIGHTLY BELOW CENTER",doc.getElementsByTagName("typography_safe_zone").item(0).textContent)
         assertEquals(1,doc.getElementsByTagName("lighting").length)
         assertFalse(command.contains(".jpg",true))
+        assertTrue(doc.getElementsByTagName("prompt").item(0).textContent.contains(ScenePropContinuity.video))
+        assertTrue(FlowScenePrompt.build(s).contains(ScenePropContinuity.video))
+        assertTrue(CompactFlowPrompt.build(s,"Locked camera.",true).contains(ScenePropContinuity.video))
     }
 }

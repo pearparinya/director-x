@@ -18,7 +18,7 @@ class FlowVoiceXmlTest {
         val line="ผลงานของคุณน่าสนใจมากค่ะ"
         val doc=xml(FlowVoiceXml.build(spec(dialogue=line,speaker="ภูวดล"),"Slow pan."))
         val prompt=doc.getElementsByTagName("prompt").item(0).textContent
-        assertEquals("Character 1: center. Character 1 checks A & B. Only [Character 1] speaks with natural lip movement; other visible characters stay silent. The speaker speaks Thai with a natural Central Thai accent. Preserve the attached first frame, faces, hair, body proportions, positions, clothes, shoes, props, lighting and location. Slow pan.",prompt)
+        assertEquals("Character 1: center. Character 1 checks A & B. Only [Character 1] speaks with natural lip movement; other visible characters stay silent. The speaker speaks Thai with a natural Central Thai accent. Preserve the attached first frame, faces, hair, body proportions, positions, clothes, shoes, props, lighting and location. ${ScenePropContinuity.video} Slow pan.",prompt)
         assertEquals(line,doc.getElementsByTagName("text").item(0).textContent)
         assertFalse(prompt.contains("throat clearing"))
         assertTrue(prompt.contains(FlowVoiceXml.accent))

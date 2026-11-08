@@ -44,7 +44,7 @@ internal object FlowVoiceXml {
             else -> "Visible characters remain silent with mouths closed."
         }
         val accentDirection=if(dialogue.isNotEmpty() || narration.isNotEmpty() || s.turns.isNotEmpty()) " $accent" else ""
-        val prompt="$mapping $action. $visible$accentDirection Preserve the attached first frame, faces, hair, body proportions, positions, clothes, shoes, props, lighting and location. ${camera.trim()}".trim()
+        val prompt="$mapping $action. $visible$accentDirection Preserve the attached first frame, faces, hair, body proportions, positions, clothes, shoes, props, lighting and location. ${ScenePropContinuity.video} ${camera.trim()}".trim()
         val audio=when {
             s.turns.isNotEmpty() -> s.turns.joinToString("") { turn ->
                 val off=s.offscreen.any { it.trim()==turn.speaker.trim() || StoryIdentity.keyFor(it)?.let { key -> key==StoryIdentity.keyFor(turn.speaker) }==true }
