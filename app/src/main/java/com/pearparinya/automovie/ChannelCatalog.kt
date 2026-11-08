@@ -15,9 +15,6 @@ internal object ChannelCatalog {
         val menuLabel get() = "$icon $name\n($style)"
     }
     val mainCategories = listOf(
-        MainCategory("pia_benefits","สวัสดิการและสิทธิประโยชน์","ข่าวสิทธิ • ข้อมูลใกล้ตัว","drama","📌","Explain only information explicitly supplied and verified by the user; do not invent current benefits, amounts, eligibility, deadlines or official claims. If facts are missing ask the user for them. Treat as factual explainer, not fictional news."),
-        MainCategory("pia_safety","ความรู้และเตือนภัย","ความรู้ • เตือนภัย","drama","💡","Explain the user-supplied facts clearly. Do not invent scams, incidents, safety statistics or official claims; ask for evidence if missing."),
-        MainCategory("pia_products","นายเปียพาช้อป","รีวิวสินค้า • ของใช้","drama","🛍️","Review only product details explicitly supplied by the user. Do not invent demonstrations, personal experience, prices, endorsements or product claims. Ask for missing product facts."),
         MainCategory("domestic_secrets","ความลับในรั้วบ้าน","ดราม่าครอบครัว • ความลับ • หักมุม","drama","🏡","Family drama anchored in the home: conflicting loyalties, a meaningful household secret and a credible twist. Family relationships are non-sexual. Vary the household, adult roles, secret and resolution; never force an affair or inheritance plot every time."),
         MainCategory("betrayal_rivalry","ชิงรักหักสวาทและทรยศ","ดราม่าความรัก • รักสามเส้า • หักหลัง","drama","💔","Relationship drama about trust, rivalry and betrayal. Build layered adult motives, consequences and a clear emotional resolution. A love triangle is an option, not a compulsory preset. Do not assign permanent spouse or villain roles to the reference actors."),
         MainCategory("office_career","ที่ทำงานและสายอาชีพ","ดราม่าในที่ทำงาน • ความรัก • ชิงอำนาจ","drama","🏢","Workplace drama about professional ambitions, affection and power. Give the work conflict a concrete stake and credible occupation-specific setting. Vary the profession and hierarchy; do not always choose a boss-secretary affair. Do not turn the main story into a sitcom."),
@@ -33,6 +30,12 @@ internal object ChannelCatalog {
         MainCategory("mystery_twist","สืบสวน ความลับ และหักมุม","สืบความจริง • ความลับ • เฉลย","drama","🔎","Mystery drama with clues, investigation and a coherent reveal. Keep all cast identities and roles consistent. Avoid graphic violence and criminal instructions."),
         MainCategory("heartwarming","อบอุ่นหัวใจ","น้ำใจ • ครอบครัว • มิตรภาพ","drama","🌤️","Heartwarming everyday story with a specific small need, a meaningful caring action, and a satisfying emotional resolution. Keep family relationships non-sexual; show warmth through behavior, not speeches."),
         MainCategory("everyday_lesson","ข้อคิดใกล้ตัว","ชีวิตประจำวัน • ทางเลือก • ข้อคิด","drama","💡","A relatable everyday choice and its visible consequence, ending with a clear takeaway through action. Avoid lectures, forced morals and added subplots."))
+    val personalCategories = listOf(
+        MainCategory("pia_benefits","สวัสดิการและสิทธิประโยชน์","ข่าวสิทธิ • ข้อมูลใกล้ตัว","drama","📌","Explain only information explicitly supplied and verified by the user; do not invent current benefits, amounts, eligibility, deadlines or official claims. If facts are missing ask the user for them. Treat as factual explainer, not fictional news."),
+        MainCategory("pia_safety","ความรู้และเตือนภัย","ความรู้ • เตือนภัย","drama","💡","Explain the user-supplied facts clearly. Do not invent scams, incidents, safety statistics or official claims; ask for evidence if missing."),
+        MainCategory("pia_products","นายเปียพาช้อป","รีวิวสินค้า • ของใช้","drama","🛍️","Review only product details explicitly supplied by the user. Do not invent demonstrations, personal experience, prices, endorsements or product claims. Ask for missing product facts.")
+    )
+    val allCategories get() = mainCategories + personalCategories
     private val genreDisplay = mapOf(
         "domestic_secrets" to ("ความลับในครอบครัว | Family Secrets" to "ความสัมพันธ์ในบ้านกับความลับที่เปลี่ยนชีวิต"),
         "betrayal_rivalry" to ("รัก ความไว้ใจ และการทรยศ | Love & Betrayal" to "ความสัมพันธ์ที่ถูกทดสอบด้วยความจริงและการตัดสินใจ"),
@@ -90,9 +93,9 @@ internal object ChannelCatalog {
         "everyday_lesson" -> listOf("ฟังให้จบก่อนตัดสิน","ความซื่อสัตย์เรื่องเล็ก","โอกาสที่สอง","คำขอโทษที่ไม่สาย","สิ่งเล็ก ๆ ที่มองข้าม","คำพูดที่เปลี่ยนวันหนึ่ง","คืนของที่เก็บได้")
         else -> emptyList()
     }
-    private fun main(category: String) = mainCategories.firstOrNull { category==it.label || category==it.name }
-    private fun main(value: JSONObject) = main(value.optString("category")) ?: mainCategories.firstOrNull { it.id==value.optString("category_id") }
-    val acceptedCategories get() = mainCategories.flatMap { listOf(it.label,it.name) } + topics.map { category(it) } + groups.map { it.title }
+    private fun main(category: String) = allCategories.firstOrNull { category==it.label || category==it.name }
+    private fun main(value: JSONObject) = main(value.optString("category")) ?: allCategories.firstOrNull { it.id==value.optString("category_id") }
+    val acceptedCategories get() = allCategories.flatMap { listOf(it.label,it.name) } + topics.map { category(it) } + groups.map { it.title }
     private const val filmCraft = "FILMMAKING DIRECTION: Develop a clear premise, character goals and stakes, motivated actions, coherent setup and payoff. Direct natural performances and meaningful visual storytelling; use composition, lighting, camera and sound appropriate to the selected genre and location. Make the title, synopsis, cover and scenes agree with the actual story. Keep each shot continuous for 8 seconds; avoid filler and unrelated events."
     fun genre(value: JSONObject): String = main(value)?.let { "SELECTED GENRE: ${it.id}. ${it.direction} Preserve the written scene and assigned speech; genre direction does not add events, characters or sounds. $filmCraft" }.orEmpty()
     private const val creative = "MAIN CATEGORY ONLY: Invent a fresh Thai title, central incident, adult occupations/relationships, obstacles, escalation and ending inside the selected category. Treat a user-selected situation as the creative starting point, not a fixed script; vary its characters and resolution. Maintain the selected setting and primary tone through outline, every scene, acting, covers and sound. A twist must deepen this genre rather than switch it. Use only registered reference actors and decide roles freely; names/reference identities are not automatic husband-wife-affair roles. After outline approval keep the agreed roles, motives and continuity stable across EPs."

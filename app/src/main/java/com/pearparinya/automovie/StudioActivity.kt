@@ -214,7 +214,7 @@ class StudioActivity : AppCompatActivity() {
         "Family Secrets | ความลับใต้ชายคา...ที่ไม่มีใครกล้าพูด",
         "Twisted Truth | พล็อตหักมุม...ความจริงใต้เตียง",
         "Healing Hearts | ซ่อมรักหลังบ้าน ซีรีส์ฮีลใจ")
-    private val categories = ChannelCatalog.mainCategories.map { it.label }
+    private val categories = ChannelCatalog.allCategories.map { it.label }
     private var masterSlot: String?
         get() = prefs.getString("master_slot", null)
         set(value) { prefs.edit().putString("master_slot", value).apply() }
@@ -2152,9 +2152,9 @@ class StudioActivity : AppCompatActivity() {
     }
     private var selectedStoryTopic: String = ""
     private fun chooseStoryTopic(index: Int, done: (Int) -> Unit) {
-        val topics=ChannelCatalog.shortTopics(ChannelCatalog.mainCategories[index].id)
+        val topics=ChannelCatalog.shortTopics(ChannelCatalog.allCategories[index].id)
         if(topics.isEmpty()) { selectedStoryTopic=""; done(index); return }
-        choiceMenu("ขั้นที่ 3 • เลือกสถานการณ์ • ${ChannelCatalog.mainCategories[index].name}",listOf("🎲 สุ่มสถานการณ์")+topics) { choice ->
+        choiceMenu("ขั้นที่ 3 • เลือกสถานการณ์ • ${ChannelCatalog.allCategories[index].name}",listOf("🎲 สุ่มสถานการณ์")+topics) { choice ->
             selectedStoryTopic=if(choice==0) topics.random() else topics[choice-1]
             done(index)
         }
@@ -2165,7 +2165,7 @@ class StudioActivity : AppCompatActivity() {
             val labels=listOf("📌 สวัสดิการและสิทธิประโยชน์\nข้อมูลสิทธิและข่าวสวัสดิการ", "💡 ความรู้และเตือนภัย\nความรู้ใกล้ตัวและภัยมิจฉาชีพ", "🎬 ละครสั้นสะท้อนสังคม\nเรื่องเล่าและข้อคิด", "🛍️ นายเปียพาช้อป\nรีวิวและแนะนำสินค้า")
             choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",labels) { selected ->
                 if(selected==2) chooseDramaTopic(done)
-                else { selectedStoryTopic=""; val id=ids[if(selected==3) 2 else selected]; done(ChannelCatalog.mainCategories.indexOfFirst { it.id==id }) }
+                else { selectedStoryTopic=""; val id=ids[if(selected==3) 2 else selected]; done(ChannelCatalog.allCategories.indexOfFirst { it.id==id }) }
             }
             return
         }
@@ -2175,8 +2175,8 @@ class StudioActivity : AppCompatActivity() {
         val shelves=ChannelCatalog.storyShelves
         choiceMenu("ขั้นที่ 1 • เลือกหมวดหลัก",shelves.map { it.menuLabel }) { selected ->
             val shelf=shelves[selected]
-            val choices=shelf.categoryIds.map { id -> ChannelCatalog.mainCategories.indexOfFirst { it.id==id }.also { require(it>=0) } }
-            choiceMenu("ขั้นที่ 2 • เลือกแนวย่อย",choices.map { ChannelCatalog.genreMenuLabel(ChannelCatalog.mainCategories[it]) }) { picked ->
+            val choices=shelf.categoryIds.map { id -> ChannelCatalog.allCategories.indexOfFirst { it.id==id }.also { require(it>=0) } }
+            choiceMenu("ขั้นที่ 2 • เลือกแนวย่อย",choices.map { ChannelCatalog.genreMenuLabel(ChannelCatalog.allCategories[it]) }) { picked ->
                 chooseStoryTopic(choices[picked],done)
             }
         }
@@ -2196,6 +2196,12 @@ class StudioActivity : AppCompatActivity() {
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             panel.addView(TextView(this).apply { text="หมวด: ${categories[index]}\nสถานการณ์ตั้งต้น: $selectedStoryTopic\nAI เลือกนักแสดงจากคลัง MASTER และตั้งชื่ออัตโนมัติตามบท ${if(format=="short") "สร้างเรื่องจบในคลิปเดียว" else "แล้วเขียนเรื่องต่อครบทุก EP"}"; textSize=14f })
             val premise=EditText(this).apply { hint=if(chosenChannel=="นายเปีย บ้านคลองขุด") "รายละเอียดที่ตรวจสอบแล้ว / ข้อมูลสินค้า" else "แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
+            if(ChannelCatalog.allCategories[index].id=="pia_products") {
+                panel.addView(TextView(this).apply { text="ดูตัวอย่างโฆษณาสินค้าจาก TikTok Creative Center แล้วกรอกรายละเอียดสินค้าที่ตรวจสอบเอง • ตัวอย่างโฆษณาไม่ใช่อันดับยอดขาย • ระบบยังไม่เชื่อมข้อมูล TikTok Shop อัตโนมัติ" })
+                panel.addView(Button(this).apply { text="ดูตัวอย่างโฆษณาสินค้า TikTok"; setOnClickListener {
+                    runCatching { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://ads.tiktok.com/business/creativecenter/inspiration/topads/pc/en?region=TH"))) }.onFailure { notice("เปิด TikTok Creative Center ไม่ได้") }
+                } })
+            }
             val presenters=if(chosenChannel=="นายเปีย บ้านคลองขุด") runCatching { castingCatalog() }.getOrDefault(JSONArray()) else JSONArray()
             val presenter=Spinner(this).apply {
                 val labels=listOf("เลือก MASTER ผู้ดำเนินเรื่อง")+(0 until presenters.length()).map { presenters.getJSONObject(it).optString("display_name").ifBlank { presenters.getJSONObject(it).optString("id") } }
@@ -2208,14 +2214,14 @@ class StudioActivity : AppCompatActivity() {
             AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
                     runCatching {
-                        if(ChannelCatalog.mainCategories[index].id in setOf("pia_benefits","pia_safety","pia_products")) require(premise.text.toString().trim().isNotEmpty()) { "กรุณาระบุข้อมูลที่ตรวจสอบแล้วหรือรายละเอียดสินค้าก่อนสร้างบท" }
+                        if(ChannelCatalog.allCategories[index].id in setOf("pia_benefits","pia_safety","pia_products")) require(premise.text.toString().trim().isNotEmpty()) { "กรุณาระบุข้อมูลที่ตรวจสอบแล้วหรือรายละเอียดสินค้าก่อนสร้างบท" }
                         val catalog=castingCatalog()
                         val presenterId=if(chosenChannel=="นายเปีย บ้านคลองขุด") {
                             require(presenter.selectedItemPosition>0) { "กรุณาเพิ่มรูป MASTER ผู้ดำเนินเรื่องในคลัง แล้วเลือกจากรายการ" }
                             presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id")
                         } else ""
                         require(catalog.length()>0) { "คลัง MASTER ว่าง กรุณาเพิ่มตัวละครก่อน" }
-                        if(ChannelCatalog.mainCategories[index].id=="younger_man_older_woman") {
+                        if(ChannelCatalog.allCategories[index].id=="younger_man_older_woman") {
                             val candidates=(0 until catalog.length()).map { catalog.getJSONObject(it) }
                             val men=candidates.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 25..30 }
                             val women=candidates.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 45..55 }
@@ -2223,7 +2229,7 @@ class StudioActivity : AppCompatActivity() {
                                 "หมวดนี้ต้องมีผู้ชายอายุ 25–30 และผู้หญิงอายุ 45–55 ห่างกันอย่างน้อย 15 ปี ในคลัง MASTER • พบชาย ${men.size} คน หญิง ${women.size} คน กรุณาตรวจข้อมูลในคลังหรือเลือกแนวทั่วไป"
                             }
                         }
-                        if(ChannelCatalog.mainCategories[index].id=="older_man_younger_woman") {
+                        if(ChannelCatalog.allCategories[index].id=="older_man_younger_woman") {
                             val candidates=(0 until catalog.length()).map { catalog.getJSONObject(it) }
                             val men=candidates.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 45..60 }
                             val women=candidates.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 25..35 }

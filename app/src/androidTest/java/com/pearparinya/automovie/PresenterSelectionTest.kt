@@ -15,8 +15,12 @@ class PresenterSelectionTest {
         AutoCast.requirePresenter(value,"")
         assertTrue(runCatching { AutoCast.requirePresenter(value,"actor_2") }.isFailure)
     }
+    @Test fun dialogueGuidanceAllowsNaturalExchangesWithoutFiller() {
+        assertTrue(PerformanceDirection.planning.contains("two or three short alternating turns"))
+        assertTrue(PerformanceDirection.planning.contains("within the scene without rushing"))
+    }
     @Test fun personalCategoriesExistWithoutRemovingDramaCategories() {
-        val ids=ChannelCatalog.mainCategories.map { it.id }.toSet()
+        val ids=ChannelCatalog.allCategories.map { it.id }.toSet()
         assertTrue(ids.containsAll(listOf("pia_benefits","pia_safety","pia_products","office_career")))
     }
 }
