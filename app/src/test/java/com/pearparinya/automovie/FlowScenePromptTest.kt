@@ -115,7 +115,7 @@ class FlowScenePromptTest {
     }
     @Test fun withIsNotTreatedAsCharacterName() {
         val spec=scene().copy(action="เมย์ gestures with open hands and looks at รินรดา")
-        assertFalse(FlowScenePrompt.unknownActionNames(spec).contains("with"))
+        assertTrue(FlowScenePrompt.unknownActionNames(spec).isEmpty())
         // "with hands" previously matched the subject + verb pattern as if "with" were a name.
         assertFalse(FlowScenePrompt.unknownActionNames(spec.copy(action="เมย์ gestures with hands near the folder")).contains("with"))
         assertFalse(FlowScenePrompt.unknownActionNames(spec.copy(action="เมย์ moves her hands near the folder")).contains("her"))

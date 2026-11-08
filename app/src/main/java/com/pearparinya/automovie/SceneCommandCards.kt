@@ -39,7 +39,7 @@ internal object SceneCommandCards {
         val rows=episode(story,number).getJSONArray("scenes")
         return (0 until rows.length()).map { i ->
             val s=rows.getJSONObject(i)
-            val spec=FlowSceneSpec(FlowReferencePrompt.people(s).map { FlowPerson(it.getString("name"),it.getString("visual_description"),it.getString("screen_position"),it.getString("outfit"),PerformanceDirection.text(it)) },s.optString("speaker"),s.optString("dialogue"),s.optString("narration"),s.optString("flow_action").ifBlank { s.getString("action") },s.getString("location"),s.getString("start_state"),s.getString("end_state"),8,"9:16",SoundDesign.notes(s),ProductionCommandCheck.offscreen(s))
+            val spec=FlowSceneSpec(FlowReferencePrompt.people(s).map { FlowPerson(it.getString("name"),it.getString("visual_description"),it.getString("screen_position"),it.getString("outfit"),PerformanceDirection.text(it)) },s.optString("speaker"),s.optString("dialogue"),s.optString("narration"),s.optString("flow_action").ifBlank { s.getString("action") },s.getString("location"),s.getString("start_state"),s.getString("end_state"),8,"9:16",SoundDesign.notes(s),ProductionCommandCheck.offscreen(s),ProductionCommandCheck.dialogueTurns(s))
             val mapped=spec
             Card("ซีน ${s.getInt("scene")} • วิดีโอแนวตั้ง 9:16 • 8 วินาที",FlowScenePrompt.build(mapped,"EP%02d_SC%03d".format(number,s.getInt("scene"))))
         }

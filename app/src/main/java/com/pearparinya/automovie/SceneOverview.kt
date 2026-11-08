@@ -20,6 +20,7 @@ internal object SceneOverview {
         val speaker=field(scene,"speaker")
         val narration=field(scene,"narration")
         val speech=when {
+            ProductionCommandCheck.dialogueTurns(scene).isNotEmpty() -> ProductionCommandCheck.dialogueTurns(scene).joinToString(" / ") { "${it.speaker}: ${it.text}" }
             dialogue.isNotBlank() -> (if(speaker.isNotBlank()) "$speaker: " else "")+dialogue
             narration.isNotBlank() -> "บรรยาย: $narration"
             else -> "ไม่มีบทพูดหรือคำบรรยายที่ระบุ"

@@ -22,19 +22,23 @@ Write drama for psychologically mature adults: relationship history, trust, sham
     }.joinToString("\n")
     /** Derive silence only for visible non-speakers; never invent a speaker's voice. */
     fun normalizeSilentVoices(scene: JSONObject) {
-        val spoken=scene.optString("dialogue").trim().lowercase() !in setOf("","none","n/a","ไม่มี")
+        val turns=ProductionCommandCheck.dialogueTurns(scene)
+        val spoken=turns.isNotEmpty() || scene.optString("dialogue").trim().lowercase() !in setOf("","none","n/a","ไม่มี")
         FlowReferencePrompt.people(scene).forEach { person ->
-            val speaker=person.optString("name")==scene.optString("speaker") || StoryIdentity.keyFor(scene.optString("speaker"))?.let { FlowCast.id(person)==it }==true
+            val speaker=if(turns.isEmpty()) person.optString("name")==scene.optString("speaker") || StoryIdentity.keyFor(scene.optString("speaker"))?.let { FlowCast.id(person)==it }==true
+                else turns.any { turn -> person.optString("name")==turn.speaker || StoryIdentity.keyFor(turn.speaker)?.let { FlowCast.id(person)==it }==true }
             if(!spoken || !speaker) person.optJSONObject("performance")?.put("voice","silent")
         }
     }
     fun validate(scene: JSONObject) {
-        val spoken=scene.optString("dialogue").trim().lowercase() !in setOf("","none","n/a","ไม่มี")
+        val turns=ProductionCommandCheck.dialogueTurns(scene)
+        val spoken=turns.isNotEmpty() || scene.optString("dialogue").trim().lowercase() !in setOf("","none","n/a","ไม่มี")
         FlowReferencePrompt.people(scene).forEach { person ->
             val p=requireNotNull(person.optJSONObject("performance")) { "ขาดข้อมูลการแสดงของ ${person.optString("name")}" }
             fields.forEach { require(p.opt(it) is String && p.optString(it).isNotBlank()) { "${person.optString("name")} ขาดการแสดง $it" } }
             require(Regex("[ก-๙]").containsMatchIn(p.getString("thai_direction"))) { "กำกับการแสดงภาษาไทยไม่ครบ" }
-            val speaker=person.optString("name")==scene.optString("speaker") || StoryIdentity.keyFor(scene.optString("speaker"))?.let { FlowCast.id(person)==it }==true
+            val speaker=if(turns.isEmpty()) person.optString("name")==scene.optString("speaker") || StoryIdentity.keyFor(scene.optString("speaker"))?.let { FlowCast.id(person)==it }==true
+                else turns.any { turn -> person.optString("name")==turn.speaker || StoryIdentity.keyFor(turn.speaker)?.let { FlowCast.id(person)==it }==true }
             if(!spoken || !speaker) require(p.getString("voice")=="silent") { "${person.optString("name")} เป็นผู้ฟัง / ฉาก VO ต้องกำหนด voice=silent" }
             else require(p.getString("voice")!="silent") { "ผู้พูดต้องมีแนวทางน้ำเสียง" }
         }

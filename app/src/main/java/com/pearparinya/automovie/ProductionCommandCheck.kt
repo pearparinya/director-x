@@ -8,9 +8,12 @@ internal object ProductionCommandCheck {
     private fun people(scene: JSONObject)=scene.optJSONArray("characters")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty()
     private fun speech(value: String)=value.trim().takeUnless { it.lowercase() in setOf("", "none", "n/a", "ไม่มี", "ไม่มีเสียงบรรยาย") }.orEmpty()
     fun offscreen(scene: JSONObject): List<String> = scene.optJSONArray("offscreen_characters")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty()
+    fun dialogueTurns(scene: JSONObject): List<FlowDialogueTurn> = scene.optJSONArray("dialogue_turns")?.let { a ->
+        (0 until a.length()).map { i -> a.optJSONObject(i)?.let { FlowDialogueTurn(it.optString("speaker"),it.optString("text")) } ?: FlowDialogueTurn("","") }
+    }.orEmpty()
     fun spec(scene: JSONObject) = FlowSceneSpec(people(scene).map {
         FlowPerson(it.optString("name"),it.optString("visual_description"),it.optString("screen_position"),it.optString("outfit"),PerformanceDirection.text(it),it.optString("english_name"))
-    },speech(scene.optString("speaker")),speech(scene.optString("dialogue")),speech(scene.optString("narration")),scene.optString("flow_action").ifBlank { scene.optString("action") },scene.optString("location"),scene.optString("start_state"),scene.optString("end_state"),8,"9:16",SoundDesign.notes(scene),offscreen(scene))
+    },speech(scene.optString("speaker")),speech(scene.optString("dialogue")),speech(scene.optString("narration")),scene.optString("flow_action").ifBlank { scene.optString("action") },scene.optString("location"),scene.optString("start_state"),scene.optString("end_state"),8,"9:16",SoundDesign.notes(scene),offscreen(scene),dialogueTurns(scene))
     private fun position(text: String): String? {
         val value=text.trim().lowercase().substringBefore(',').trim()
         return when(value) { "left","ซ้าย" -> "left"; "right","ขวา" -> "right"; "center","centre","middle","กลาง" -> "center"; else -> null }
