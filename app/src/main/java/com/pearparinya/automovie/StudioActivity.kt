@@ -1751,6 +1751,7 @@ class StudioActivity : AppCompatActivity() {
             root.addView(geminiProgressView,LinearLayout.LayoutParams(-1,dp(10)).apply { setMargins(dp(8),0,dp(8),dp(8)) })
             button("🤖 งานเขียนบท • ดูสถานะ / ทำต่อ",false) { geminiJobMenu() }
         } else { geminiStatusView=null; geminiProgressView=null }
+        if(current!=null) button("📋 คัดลอกชื่อเรื่อง ชื่อตอน คำโปรย และแฮชแท็ก",false) { postDetails(current) }
         if(current!=null && current.optString("clip_format")=="short") {
             button("💬 ชื่อเรื่อง เรื่องย่อ และแคปชั่น",false) {
                 val details=ShortStoryDetails.text(current)
@@ -2121,6 +2122,38 @@ class StudioActivity : AppCompatActivity() {
             }
         }
     }
+    private fun postDetails(story: JSONObject) {
+        val episodes=story.optJSONArray("episodes")
+        if(episodes==null || episodes.length()==0) { notice("เรื่องนี้ยังไม่มีข้อมูลตอน"); return }
+        choiceMenu("เลือกตอนสำหรับคัดลอก",(0 until episodes.length()).map { i -> episodes.getJSONObject(i).let { "EP.${it.optInt("ep",i+1)} • ${it.optString("title").ifBlank { "ยังไม่มีชื่อตอน" }}" } }) { index ->
+            val text=SocialPostText.build(story,index)
+            AlertDialog.Builder(this).setTitle("ข้อมูลโพสต์ • ตรวจและคัดลอก").setMessage(text.ifBlank { "ยังไม่มีข้อมูลให้คัดลอก" })
+                .setPositiveButton("คัดลอกทั้งหมด") { _,_ -> if(text.isNotBlank()) copyCommand(text) }.setNegativeButton("ปิด",null).showDirector()
+        }
+    }
+    private fun savedChannelNames(): List<String> = runCatching {
+        val a=JSONArray(prefs.getString("story_channels","[]")); (0 until a.length()).map { a.optString(it).trim() }.filter { it.isNotBlank() }
+    }.getOrDefault(emptyList())
+    private fun chooseStoryChannel(done: (String)->Unit) {
+        val existing=base.listFiles().orEmpty().mapNotNull { folder ->
+            val source=if(File(folder,"story.json").isFile) File(folder,"story.json") else File(folder,"gemini_job/spec.json")
+            runCatching { JSONObject(source.readText()).optString("channel").trim().takeIf { it.isNotBlank() } }.getOrNull()
+        }
+        val names=(listOf("นายเปียบ้านคลองขุด",originalChannel)+savedChannelNames()+existing).distinct()
+        choiceMenu("ขั้นแรก • เลือกชื่อช่อง",names+"＋ เพิ่มชื่อช่อง") { index ->
+            if(index<names.size) { prefs.edit().putString("selected_story_channel",names[index]).apply(); done(names[index]) }
+            else {
+                val input=EditText(this).apply { hint="ชื่อช่องใหม่ เช่น ช่องขายสินค้า"; setSingleLine(true) }
+                val dialog=AlertDialog.Builder(this).setTitle("เพิ่มชื่อช่อง").setView(input).setPositiveButton("บันทึก",null).setNegativeButton("ยกเลิก",null).showDirector()
+                dialog.getButton(-1).setOnClickListener {
+                    val name=input.text.toString().trim()
+                    if(name.isBlank() || name.length>80) { notice("ระบุชื่อช่อง 1–80 ตัวอักษร"); return@setOnClickListener }
+                    val saved=(savedChannelNames()+name).distinct(); prefs.edit().putString("story_channels",JSONArray(saved).toString()).putString("selected_story_channel",name).apply()
+                    dialog.dismiss(); done(name)
+                }
+            }
+        }
+    }
     private var selectedStoryTopic: String = ""
     private fun chooseStoryTopic(index: Int, done: (Int) -> Unit) {
         val topics=ChannelCatalog.shortTopics(ChannelCatalog.mainCategories[index].id)
@@ -2149,6 +2182,7 @@ class StudioActivity : AppCompatActivity() {
     private fun flowPlanning(autoDirector: Boolean = false) {
         if(GeminiStoryService.running) { geminiJobMenu(); return }
         if(!StoryProvider.ready(this)) { geminiSettings { flowPlanning(autoDirector) }; return }
+        var chosenChannel=originalChannel
         val configure: (Int) -> Unit = { index ->
             chooseClip { format, seconds ->
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
@@ -2184,21 +2218,21 @@ class StudioActivity : AppCompatActivity() {
                             val source=castingSource(row); require(source.isFile && MasterLibrary.digest(source.readBytes())==row.getString("sha256")) { "ภาพ MASTER ของ ${row.optString("display_name")} สูญหายหรือเปลี่ยนไป" }; source.copyTo(target,overwrite=true)
                         }
                         val count=if(format=="short") 1 else when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
-                        GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",originalChannel)
+                        GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",chosenChannel)
                             .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",3).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("story_situation",selectedStoryTopic).put("premise",listOf("สถานการณ์ตั้งต้นที่เลือก: "+selectedStoryTopic,premise.text.toString()).filter { it.isNotBlank() }.joinToString("\n")).put("episodes",count)))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
                 }.setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
         }
         }
-        chooseChannelTopic(configure)
+        chooseStoryChannel { channel -> chosenChannel=channel; chooseChannelTopic(configure) }
     }
     private fun flowPlanningShare() {
-        chooseChannelTopic { index ->
+        chooseStoryChannel { channel -> chooseChannelTopic { index ->
             chooseClip { format, seconds ->
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (เว้นว่างให้คิดใหม่)" }
             fun prepare(): String {
-                val code=FlowProductionPack.masterCommand(categories[index],originalChannel)+"\n"+ChannelCatalog.direction(categories[index])+"\n"+(if(format=="short") ChannelCatalog.shortDirection(categories[index],ClipPlan.scenes(seconds)) else ChannelCatalog.longDirection)+"\n"+ChannelCatalog.storyConsistency+"\nUSER DURATION OVERRIDE: ${if(format=="short") "One standalone episode only; beginning, middle and ending within this one clip. " else ""}${ClipPlan.scenes(seconds)} scenes per EP, 8 seconds each, ${ClipPlan.time(ClipPlan.scenes(seconds)*8)} content per EP. Supersedes default 24 scenes and 180-second minimum above. Set clip_plan_version=1, clip_format=$format, target_seconds=$seconds, scenes_per_episode=${ClipPlan.scenes(seconds)} in story.json.\nแนวย่อย: "+selectedStoryTopic+"\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" }
+                val code=FlowProductionPack.masterCommand(categories[index],channel)+"\n"+ChannelCatalog.direction(categories[index])+"\n"+(if(format=="short") ChannelCatalog.shortDirection(categories[index],ClipPlan.scenes(seconds)) else ChannelCatalog.longDirection)+"\n"+ChannelCatalog.storyConsistency+"\nUSER DURATION OVERRIDE: ${if(format=="short") "One standalone episode only; beginning, middle and ending within this one clip. " else ""}${ClipPlan.scenes(seconds)} scenes per EP, 8 seconds each, ${ClipPlan.time(ClipPlan.scenes(seconds)*8)} content per EP. Supersedes default 24 scenes and 180-second minimum above. Set clip_plan_version=1, clip_format=$format, target_seconds=$seconds, scenes_per_episode=${ClipPlan.scenes(seconds)} in story.json.\nแนวย่อย: "+selectedStoryTopic+"\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" }
                 File(project,"flow_story_command.txt").writeText(code)
                 render()
                 return code
@@ -2209,6 +2243,7 @@ class StudioActivity : AppCompatActivity() {
                 .setNeutralButton("ดูคำสั่งก่อน") { _,_ -> showFlowCode("คำสั่งวางบท",prepare(),"FLOW_STORY_COMMAND.txt") }
                 .setNegativeButton("ยกเลิก",null).showDirector()
         }
+    }
     }
     }
     private fun flowTestMenu() {
@@ -2914,10 +2949,17 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
     }
     private fun storiesMenu() {
         val folders = base.listFiles()?.filter { File(it,"story.json").exists() || File(it,"gemini_job/spec.json").exists() }?.sortedByDescending { maxOf(File(it,"story.json").lastModified(),File(it,"gemini_job/status.json").lastModified()) }.orEmpty()
-        choiceMenu("📚 เรื่องของฉัน",folders.map { f ->
+        fun channelOf(folder: File): String = runCatching { JSONObject(File(folder,"story.json").readText()).optString("channel").trim() }.getOrDefault("").ifBlank {
+            runCatching { GeminiStoryFiles.read(File(folder,"gemini_job/spec.json")).optString("channel").trim() }.getOrDefault("")
+        }.ifBlank { "ไม่ระบุชื่อช่อง" }
+        if(folders.isEmpty()) { notice("ยังไม่มีเรื่องที่บันทึก"); return }
+        val channels=folders.map { channelOf(it) }.distinct().sorted()
+        choiceMenu("📚 เลือกชื่อช่อง",channels.map { channel -> "$channel • ${folders.count { channelOf(it)==channel }} เรื่อง" }) { selected ->
+        val chosen=channels[selected]; val grouped=folders.filter { channelOf(it)==chosen }
+        choiceMenu("📚 $chosen",grouped.map { f ->
             runCatching { JSONObject(File(f,"story.json").readText()).optString("title") }.getOrElse { runCatching { GeminiStoryFiles.read(File(f,"gemini_job/outline.json")).getString("title")+" • ยังเขียนไม่จบ" }.getOrDefault("งานเขียนบทที่ยังไม่จบ") } + if(File(f,"archived").exists()) " • เก็บแล้ว" else ""
         }) { i ->
-            prefs.edit().putString("project",folders[i].name).apply(); render()
+            prefs.edit().putString("project",grouped[i].name).apply(); render()
             if(plan==null) { geminiJobMenu(); return@choiceMenu }
             choiceMenu("จัดการเรื่อง",listOf("▶ ทำต่อ", "✏️ เปลี่ยนชื่อ", "📑 ทำสำเนา", "📁 เก็บ / เปิดใช้งาน", "🗑️ ลบเรื่อง")) { action -> when(action) {
                 0 -> resumeScene()
@@ -2932,6 +2974,7 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
                     .setPositiveButton("ลบเรื่อง") { _,_ -> folder.deleteRecursively(); prefs.edit().putString("project",UUID.randomUUID().toString()).apply(); render() }
                     .setNegativeButton("ยกเลิก",null).showDirector() }
             } }
+        }
         }
     }
     private fun settingsMenu() {
