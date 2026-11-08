@@ -25,6 +25,7 @@ class PresenterSelectionTest {
         ChannelCatalog.personalCategories.forEach { category ->
             assertTrue(ChannelCatalog.direction(category.label).contains("Do not invent"))
             assertFalse(ChannelCatalog.direction(category.label).contains("Invent a fresh Thai title"))
+            assertTrue(ChannelCatalog.genre(JSONObject().put("category",category.label)).contains("FACTUAL CONTENT"))
         }
     }
 }

@@ -109,8 +109,9 @@ NARRATION: speaker=""; dialogue=""; dialogue_turns=[]; narration=external male v
 SILENT: speaker=""; dialogue=""; dialogue_turns=[]; narration=""; all mouths closed.
 Never fill unused fields with descriptions, "none", "ไม่มี", "N/A", or stage directions. Put acting in action, never narration. Do not combine dialogue and narration in one scene. flow_prompt must match this mode exactly, without extra spoken lines. Example dialogue fields: {"speaker":"เมย์","dialogue":"ซองนี้ของใครคะ","narration":""}. Example narration fields: {"speaker":"","dialogue":"","narration":"คืนนั้น ความจริงเริ่มปรากฏ"}.
         """.trimIndent()
+        val factual=ChannelCatalog.personalCategories.any { it.label==category || it.name==category }
         val base="""
-You write complete Thai drama scripts and English Flow prompts. Return only the requested JSON, not markdown or downloadable file claims. Do not generate images/video or call other services. Only adult fictional characters from this map are allowed:
+${if(factual) "Write a Thai factual presenter-led script and English Flow prompts using only user-supplied facts. Do not invent news, product claims, testimonials or events." else "Write complete Thai drama scripts and English Flow prompts."} Return only the requested JSON, not markdown or downloadable file claims. Do not generate images/video or call other services. Only registered people from this map are allowed:
 ${FlowCast.definitions(spec).joinToString("\n") { p -> "${p.getString("name")} = ${p.getString("master")}; ${p.getString("visual_description")}" }}
 ${if(spec.optBoolean("auto_cast")) "Use only the automatically selected cast above; their assigned names, roles and MASTER bindings are immutable across all episodes. Story concept: "+spec.optString("cast_concept")+"; roles: "+roleSummary.toString() else "The three leads are Gawin, Rinrada and May; registered supporting characters may appear when the story needs them."} Never invent an unregistered character.
 ${FlowVisualDirection.identity}
@@ -130,7 +131,7 @@ ${if(spec.optInt("autodirector_version")<AutoDirectorContent.version) "LEGACY CH
 Channel: $channel
 Category: $category
 ${ChannelCatalog.direction(category)}
-${if(ChannelCatalog.personalCategories.any { it.label==category || it.name==category }) "HIGHEST CONTENT PRIORITY: This is a factual explainer or product description, not a fictional news event. Use only user-supplied facts; no invented product experience or testimonials. If the output schema requires an ending, describe a neutral recap of the supplied information. The user must verify all factual claims before publication." else ""}
+${if(factual) "HIGHEST CONTENT PRIORITY: This is a factual explainer or product description, not a fictional news event. Use only user-supplied facts; no invented product experience or testimonials. If the output schema requires an ending, describe a neutral recap of the supplied information. The user must verify all factual claims before publication." else ""}
 ${if(spec.optString("clip_format")=="short") ChannelCatalog.shortDirection(category,sceneCount) else ChannelCatalog.longDirection}
 ${ChannelCatalog.storyConsistency}
 Creative variation seed (never print this token): ${spec.optString("creative_seed")}

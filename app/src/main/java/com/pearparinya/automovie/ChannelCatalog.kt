@@ -97,7 +97,10 @@ internal object ChannelCatalog {
     private fun main(value: JSONObject) = main(value.optString("category")) ?: allCategories.firstOrNull { it.id==value.optString("category_id") }
     val acceptedCategories get() = allCategories.flatMap { listOf(it.label,it.name) } + topics.map { category(it) } + groups.map { it.title }
     private const val filmCraft = "FILMMAKING DIRECTION: Develop a clear premise, character goals and stakes, motivated actions, coherent setup and payoff. Direct natural performances and meaningful visual storytelling; use composition, lighting, camera and sound appropriate to the selected genre and location. Make the title, synopsis, cover and scenes agree with the actual story. Keep each shot continuous for 8 seconds; avoid filler and unrelated events."
-    fun genre(value: JSONObject): String = main(value)?.let { "SELECTED GENRE: ${it.id}. ${it.direction} Preserve the written scene and assigned speech; genre direction does not add events, characters or sounds. $filmCraft" }.orEmpty()
+    fun genre(value: JSONObject): String = main(value)?.let {
+        if(it.id.startsWith("pia_")) "FACTUAL CONTENT: ${it.direction} Preserve only the user-supplied facts and approved speech; do not invent events, product experiences or factual claims."
+        else "SELECTED GENRE: ${it.id}. ${it.direction} Preserve the written scene and assigned speech; genre direction does not add events, characters or sounds. $filmCraft"
+    }.orEmpty()
     private const val creative = "MAIN CATEGORY ONLY: Invent a fresh Thai title, central incident, adult occupations/relationships, obstacles, escalation and ending inside the selected category. Treat a user-selected situation as the creative starting point, not a fixed script; vary its characters and resolution. Maintain the selected setting and primary tone through outline, every scene, acting, covers and sound. A twist must deepen this genre rather than switch it. Use only registered reference actors and decide roles freely; names/reference identities are not automatic husband-wife-affair roles. After outline approval keep the agreed roles, motives and continuity stable across EPs."
     data class Topic(val id: Int, val title: String, val premise: String, val tone: String = "drama")
     data class Group(val title: String, val topics: List<Topic>)
