@@ -84,7 +84,7 @@ internal object FlowScenePrompt {
     fun build(s: FlowSceneSpec, id: String = "scene", camera: String = "Slow, gentle pan."): String {
         val problems = issues(s)
         if (problems.isNotEmpty()) return "ยังไม่พร้อมส่ง Flow • ตรวจภาพและกำหนดตัวละครก่อน:\n" + problems.joinToString("\n")
-        if(s.turns.isNotEmpty()) return FlowVoiceXml.build(s,camera).removePrefix("<flow>\n  ").removeSuffix("\n</flow>")
+        if(s.turns.isNotEmpty()) return FlowVoiceXml.build(s,camera).removePrefix("<flow>\n  ").removeSuffix("\n</flow>").replaceFirst("<scene>","<scene id=\"${xml(id)}\">")
         val dialogue = speech(s.dialogue)
         val narration = speech(s.narration)
         val offscreen = dialogue.isNotEmpty() && s.offscreen.any { identity(it) == identity(s.speaker) }
