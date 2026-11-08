@@ -7,7 +7,13 @@ internal data class FlowSceneSpec(
     val action: String, val location: String, val startState: String, val endState: String,
     val duration: Int, val aspect: String, val sound: String = "", val offscreen: List<String> = emptyList(),
     val turns: List<FlowDialogueTurn> = emptyList()
-)
+) {
+    // Preserve approvals made by older versions when no ordered turns exist.
+    override fun toString(): String {
+        val original="FlowSceneSpec(cast=$cast, speaker=$speaker, dialogue=$dialogue, narration=$narration, action=$action, location=$location, startState=$startState, endState=$endState, duration=$duration, aspect=$aspect, sound=$sound, offscreen=$offscreen)"
+        return if(turns.isEmpty()) original else original.dropLast(1)+", turns=$turns)"
+    }
+}
 
 internal object ReadingPropPolicy {
     private val paper = Regex("เอกสาร|จดหมาย|กระดาษ|หนังสือ|สัญญา|document|letter|paper|contract|book", RegexOption.IGNORE_CASE)

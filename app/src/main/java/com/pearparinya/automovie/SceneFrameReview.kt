@@ -7,7 +7,7 @@ import java.security.MessageDigest
 
 /** Human approval bound to exact scene/reference bytes, never an automated likeness score. */
 internal object SceneFrameReview {
-    private val fields=listOf("scene","ep","characters","offscreen_characters","mentioned_characters","action","flow_action","location","start_state","end_state","speaker","dialogue","dialogue_turns","narration","image_prompt","flow_prompt","framing","lighting","story_time","story_day","activity","wardrobe_event","props","continuity_group")
+    private val fields=listOf("scene","ep","characters","offscreen_characters","mentioned_characters","action","flow_action","location","start_state","end_state","speaker","dialogue","narration","image_prompt","flow_prompt","framing","lighting","story_time","story_day","activity","wardrobe_event","props","continuity_group")
     private fun canonical(value: Any?): String = when(value) {
         is JSONObject -> value.keys().asSequence().toList().sorted().joinToString(prefix="{",postfix="}") { JSONObject.quote(it)+":"+canonical(value.opt(it)) }
         is JSONArray -> (0 until value.length()).joinToString(prefix="[",postfix="]") { canonical(value.opt(it)) }
@@ -17,6 +17,7 @@ internal object SceneFrameReview {
         if(!image.isFile || image.length()==0L || masters.isEmpty() || masters.any { !it.isFile || it.length()==0L }) return null
         return runCatching {
             val facts=JSONObject(); fields.forEach { facts.put(it,scene.opt(it) ?: JSONObject.NULL) }
+            if(scene.optJSONArray("dialogue_turns")?.length()?.let { it>0 }==true) facts.put("dialogue_turns",scene.optJSONArray("dialogue_turns"))
             val input=canonical(facts)+"|"+resolvedFacts+"|"+EpisodeMedia.digest(image)+"|"+masters.joinToString("|") { EpisodeMedia.digest(it) }
             MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
         }.getOrNull()
