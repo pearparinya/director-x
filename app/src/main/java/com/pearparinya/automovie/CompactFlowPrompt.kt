@@ -20,6 +20,7 @@ internal object CompactFlowPrompt {
             "Use the attached image as the first frame. One continuous 8-second vertical 9:16 shot.",
             action,
             "Preserve the people, faces, hair, body proportions, positions, clothes, shoes, props and location from the first frame. Keep objects and hands in contact naturally.",
+            ScenePropContinuity.video,
             ReadingPropPolicy.forScene(s.action,s.startState,s.endState),
             "Camera: ${camera.trim()}",
             voices,

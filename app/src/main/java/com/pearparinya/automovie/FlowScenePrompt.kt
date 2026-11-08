@@ -15,6 +15,11 @@ internal data class FlowSceneSpec(
     }
 }
 
+internal object ScenePropContinuity {
+    const val video = "Use only the props and objects already visible in the attached first frame. Do not introduce, generate, reveal, or bring any new object into the scene during the shot; nothing materializes or pops into view. Existing objects may be handled and temporarily occluded naturally. If an action requires an object missing from the first frame, revise the action or first frame before generating the video."
+    const val planning = "PROP CONTINUITY: Include every object needed for the action in the scene's start_state and first-frame image. During the shot do not introduce, create, reveal or bring in any object absent from the first frame. Existing objects may move or be temporarily occluded naturally."
+}
+
 internal object ReadingPropPolicy {
     private val paper = Regex("เอกสาร|จดหมาย|กระดาษ|หนังสือ|สัญญา|document|letter|paper|contract|book", RegexOption.IGNORE_CASE)
     const val instruction = "When reading, the written side faces the reader, top edge up; when viewed from the front, show the blank reverse to camera. Keep the sheet and hands physically consistent; no readable or mirrored text."
@@ -142,7 +147,7 @@ internal object FlowScenePrompt {
                 append("  </characters>\n")
             }
             val outfits = s.cast.filter { it.outfit.isNotBlank() }.joinToString(" ") { "${label(it.name)} outfit in scene: ${it.outfit.trim()}." }
-            append("  <prompt>(9:16 aspect ratio). Photorealistic. Full vertical continuous 8-second shot with no cuts. Use the attached image as the first frame. ${xml(action)}. ${xml(outfits)} ${xml(voice)}${xml(accentDirection)} Preserve the characters, their faces, hair, body proportions, positions, clothing and props from the first frame. Clothing remains securely in place. Use natural eye-level framing focused on expressions and action. Keep held objects together and in contact with the hands. ${xml(ReadingPropPolicy.forScene(s.action, s.startState, s.endState))} Camera: ${xml(camera)}</prompt>\n")
+            append("  <prompt>(9:16 aspect ratio). Photorealistic. Full vertical continuous 8-second shot with no cuts. Use the attached image as the first frame. ${xml(action)}. ${xml(outfits)} ${xml(voice)}${xml(accentDirection)} Preserve the characters, their faces, hair, body proportions, positions, clothing and props from the first frame. Clothing remains securely in place. Use natural eye-level framing focused on expressions and action. Keep held objects together and in contact with the hands. ${xml(ScenePropContinuity.video)} ${xml(ReadingPropPolicy.forScene(s.action, s.startState, s.endState))} Camera: ${xml(camera)}</prompt>\n")
 
             if (line.isNotEmpty()) {
                 append("  <$tag>\n    <speaker>${xml(speaker)}</speaker>\n    <text>${xml(line)}</text>\n    <language>th-TH</language>\n    <subtitles>false</subtitles>\n  </$tag>\n")

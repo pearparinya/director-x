@@ -119,6 +119,7 @@ ${PerformanceDirection.guide}
 ${PerformanceDirection.planning}
 ${SoundDesign.planning}
 ${ProductionCommandCheck.planning}
+${ScenePropContinuity.planning}
 ${speechRules}
 ${if(spec.optString("content_profile")==AutoDirectorContent.profile) AutoDirectorContent.generationRules else ""}
 ${if(spec.optInt("autodirector_version")<AutoDirectorContent.version) "LEGACY CHECKPOINT PRIORITY: copy any already assigned daily wardrobe verbatim, even when it lacks shade/HEX or sleeve labels. Never retrofit or redesign an existing day to apply the new detail syntax." else ""}
