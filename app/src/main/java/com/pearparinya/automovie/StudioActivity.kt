@@ -293,6 +293,27 @@ class StudioActivity : AppCompatActivity() {
             prefs.edit().remove("new_actor_pending").apply()
         }.onSuccess { notice("บันทึก MASTER ตัวละครใหม่แล้ว • ตรวจภาพและข้อมูลในคลังได้") }.onFailure { notice(it.message ?: "บันทึกตัวละครไม่ได้") }
     }
+    // One private outfit image per person and outfit slot. Existing stories keep their own snapshot.
+    private fun presenterOutfitFile(actorId: String, slot: Int): File {
+        require(actorId.matches(Regex("[A-Za-z0-9_]+")) && slot in 1..12)
+        return File(filesDir,"presenter_outfits/$actorId/$slot.image")
+    }
+    private val presenterOutfitPicker=registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val actor=prefs.getString("presenter_outfit_actor", "").orEmpty()
+        val slot=prefs.getInt("presenter_outfit_slot",0)
+        if(uri!=null) runCatching {
+            val input=contentResolver.openInputStream(uri) ?: error("เปิดภาพไม่ได้")
+            val bytes=input.use { it.readBytes() }
+            require(bytes.size in 1..20_000_000) { "ภาพต้องมีขนาดไม่เกิน 20 MB" }
+            val info=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
+            android.graphics.BitmapFactory.decodeByteArray(bytes,0,bytes.size,info)
+            require(info.outWidth>0 && info.outHeight>0 && info.outMimeType in listOf("image/jpeg","image/png","image/webp")) { "กรุณาเลือกภาพ PNG, JPG หรือ WebP" }
+            val target=presenterOutfitFile(actor,slot); target.parentFile!!.mkdirs()
+            val tmp=File(target.parentFile,"$slot.pending")
+            try { tmp.writeBytes(bytes); check(tmp.renameTo(target)) { "บันทึกภาพชุดไม่ได้" } } finally { tmp.delete() }
+        }.onSuccess { notice("บันทึกภาพชุดกับตัวละครแล้ว • เลือกชุดนี้ตอนสร้างเรื่อง") }.onFailure { notice(it.message ?: "บันทึกภาพไม่ได้") }
+        prefs.edit().remove("presenter_outfit_actor").remove("presenter_outfit_slot").apply()
+    }
     private fun bodyTemplateMenu() {
         choiceMenu("แม่แบบรูปร่าง",listOf("แม่แบบ 1 • ผู้ชาย")) { index ->
             val file=runCatching { bodyTemplateFile(index) }.getOrElse { notice("เปิดแม่แบบไม่ได้"); return@choiceMenu }
@@ -2214,6 +2235,18 @@ class StudioActivity : AppCompatActivity() {
                 adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,presenterOutfits)
                 if(chosenChannel=="นายเปีย บ้านคลองขุด") { panel.addView(TextView(this@StudioActivity).apply { text="ชุดตัวละครหลัก • เลือกชุดเริ่มต้น" }); panel.addView(this) }
             }
+            if(chosenChannel=="นายเปีย บ้านคลองขุด") panel.addView(Button(this).apply {
+                text="เพิ่มหรือเปลี่ยนรูปของชุดที่เลือก"
+                setOnClickListener {
+                    if(presenter.selectedItemPosition<=0 || presenterOutfit.selectedItemPosition<=0) {
+                        notice("เลือก MASTER ผู้ดำเนินเรื่องและชุดก่อนเพิ่มรูป")
+                    } else {
+                        prefs.edit().putString("presenter_outfit_actor",presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id"))
+                            .putInt("presenter_outfit_slot",presenterOutfit.selectedItemPosition).apply()
+                        presenterOutfitPicker.launch(arrayOf("image/*"))
+                    }
+                }
+            })
             val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("1 EP • จบในตอน","ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); if(format!="short") panel.addView(this) }
             if(format=="short") panel.addView(TextView(this).apply { text="คลิปสั้น • จบในคลิปเดียว" })
             panel.addView(TextView(this).apply { text="${if(format=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(seconds)}${if(format=="short") "" else " ต่อ EP"} • ไม่รวมปกเปิด 3 วินาที • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้\n\nอัตโนมัติ: Groq → Gemini; สำรอง Gemini → DeepSeek, OpenRouter, Cohere, Mistral หรือ SambaNova • เนื้อหาอาจถูกส่งไปยังค่ายที่รับช่วง • โควตาและค่าบริการขึ้นอยู่กับแต่ละบัญชี • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ภายหลัง" })
@@ -2226,6 +2259,7 @@ class StudioActivity : AppCompatActivity() {
                             require(presenter.selectedItemPosition>0) { "กรุณาเพิ่มรูป MASTER ผู้ดำเนินเรื่องในคลัง แล้วเลือกจากรายการ" }
                             presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id")
                         } else ""
+                        if(presenterId.isNotBlank() && presenterOutfit.selectedItemPosition>0) require(presenterOutfitFile(presenterId,presenterOutfit.selectedItemPosition).isFile) { "กรุณาเพิ่มรูปของชุดที่เลือก หรือเลือกชุดตามเนื้อเรื่อง" }
                         require(catalog.length()>0) { "คลัง MASTER ว่าง กรุณาเพิ่มตัวละครก่อน" }
                         if(ChannelCatalog.allCategories[index].id=="younger_man_older_woman") {
                             val candidates=(0 until catalog.length()).map { catalog.getJSONObject(it) }
@@ -2246,7 +2280,11 @@ class StudioActivity : AppCompatActivity() {
                         val folder=File(base,UUID.randomUUID().toString()).apply { mkdirs() }
                         for(n in 0 until catalog.length()) {
                             val row=catalog.getJSONObject(n); val target=File(folder,"master_candidates/"+row.getString("file")); target.parentFile!!.mkdirs()
-                            val source=castingSource(row); require(source.isFile && MasterLibrary.digest(source.readBytes())==row.getString("sha256")) { "ภาพ MASTER ของ ${row.optString("display_name")} สูญหายหรือเปลี่ยนไป" }; source.copyTo(target,overwrite=true)
+                            val original=castingSource(row); require(original.isFile && MasterLibrary.digest(original.readBytes())==row.getString("sha256")) { "ภาพ MASTER ของ ${row.optString("display_name")} สูญหายหรือเปลี่ยนไป" }
+                            val outfitImage=if(row.getString("id")==presenterId && presenterOutfit.selectedItemPosition>0) presenterOutfitFile(presenterId,presenterOutfit.selectedItemPosition) else null
+                            val source=outfitImage?.takeIf { it.isFile } ?: original
+                            source.copyTo(target,overwrite=true)
+                            if(source!=original) row.put("sha256",MasterLibrary.digest(source.readBytes()))
                         }
                         val count=if(format=="short") 1 else when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",chosenChannel).put("presenter_library_id",presenterId)

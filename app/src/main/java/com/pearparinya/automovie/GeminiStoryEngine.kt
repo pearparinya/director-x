@@ -132,6 +132,7 @@ ${if(spec.optString("content_profile")==AutoDirectorContent.profile) AutoDirecto
 ${if(spec.optInt("autodirector_version")<AutoDirectorContent.version) "LEGACY CHECKPOINT PRIORITY: copy any already assigned daily wardrobe verbatim, even when it lacks shade/HEX or sleeve labels. Never retrofit or redesign an existing day to apply the new detail syntax." else ""}
 Channel: $channel
 Category: $category
+${if(spec.optString("presenter_outfit").isNotBlank()) "Selected presenter initial outfit: "+spec.optString("presenter_outfit")+". Keep it consistent in continuous scenes." else ""}
 ${ChannelCatalog.direction(category)}
 ${if(factual) "HIGHEST CONTENT PRIORITY: This is a factual explainer or product description, not a fictional news event. Use only user-supplied facts; no invented product experience or testimonials. If the output schema requires an ending, describe a neutral recap of the supplied information. The user must verify all factual claims before publication." else ""}
 ${if(spec.optString("clip_format")=="short") ChannelCatalog.shortDirection(category,sceneCount) else ChannelCatalog.longDirection}
