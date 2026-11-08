@@ -47,7 +47,8 @@ internal object ChannelCatalog {
         MainCategory("pia_safety","ความรู้และเตือนภัย","ความรู้ • เตือนภัย","drama","💡","Explain the user-supplied facts clearly. Do not invent scams, incidents, safety statistics or official claims; ask for evidence if missing."),
         MainCategory("pia_products","นายเปียพาช้อป","รีวิวสินค้า • ของใช้","drama","🛍️","Review only product details explicitly supplied by the user. Do not invent demonstrations, personal experience, prices, endorsements or product claims. Ask for missing product facts.")
     )
-    val allCategories get() = mainCategories + personalCategories + filmCategories
+    val personalDrama = MainCategory("personal_social_drama","ละครสั้นสะท้อนสังคม","เรื่องเล่า • สะท้อนสังคม","drama","🎬","Fictional social drama based on the selected topic with empathetic characters, clear consequences and a hopeful or thought-provoking resolution. Do not portray invented claims as verified news.")
+    val allCategories get() = mainCategories + personalCategories + filmCategories + listOf(personalDrama)
     private val genreDisplay = mapOf(
         "domestic_secrets" to ("ความลับในครอบครัว | Family Secrets" to "ความสัมพันธ์ในบ้านกับความลับที่เปลี่ยนชีวิต"),
         "betrayal_rivalry" to ("รัก ความไว้ใจ และการทรยศ | Love & Betrayal" to "ความสัมพันธ์ที่ถูกทดสอบด้วยความจริงและการตัดสินใจ"),
