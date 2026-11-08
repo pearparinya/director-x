@@ -1658,8 +1658,9 @@ class StudioActivity : AppCompatActivity() {
             dialog.getButton(-3).setOnClickListener {
                 dialog.dismiss()
                 val scene=rows(story).firstOrNull { key(it)==task.id }
-                choiceMenu("แก้ ${task.id}",if(scene==null) listOf("แก้การจัดภาพปก","แก้ข้อความบนปก") else if(images) listOf("แก้ทิศทางภาพเฉพาะจุด","แก้บท / การกระทำ / ชุด / ตำแหน่ง / เสียง") else listOf("แก้ทิศทางวิดีโอเฉพาะจุด","แก้บท / การกระทำ / ชุด / ตำแหน่ง / เสียง","เลือกการเคลื่อนกล้อง")) { action ->
-                    if(action==2 && scene!=null && !images) {
+                choiceMenu("แก้ ${task.id}",if(scene==null) listOf("แก้การจัดภาพปก","แก้ข้อความบนปก") else if(images) listOf("แก้ทิศทางภาพเฉพาะจุด","แก้บท / การกระทำ / ชุด / ตำแหน่ง / เสียง","เสนอขยายบทสั้น") else listOf("แก้ทิศทางวิดีโอเฉพาะจุด","แก้บท / การกระทำ / ชุด / ตำแหน่ง / เสียง","เลือกการเคลื่อนกล้อง","เสนอขยายบทสั้น")) { action ->
+                    if(scene!=null && (images && action==2 || !images && action==3)) suggestLongerSpeech(scene)
+                    else if(action==2 && scene!=null && !images) {
                         val modes=listOf("อัตโนมัติตามซีน","ซูมเข้าอย่างช้า ๆ","แพนกล้อง","เคลื่อนตามการกระทำ","กล้องนิ่ง")
                         val keys=listOf("","push_in","pan","track","locked")
                         choiceMenu("เลือกกล้อง • ${task.id}",modes) { selected ->
@@ -2789,6 +2790,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
                     }
                 } else s.remove("dialogue_turns")
                 outfits.forEach { (i,input) -> cast.getJSONObject(i).put("outfit",input.text.toString().trim()) }
+                PerformanceDirection.normalizeSilentVoices(s)
                 positions.forEach { (i,input) -> cast.getJSONObject(i).put("screen_position",input.text.toString().trim()) }
                 if(soundInputs.any { it.second.text.isNotBlank() }) s.put("sound_design",JSONObject().apply { soundInputs.forEach { (field,input) -> put(field,input.text.toString().trim().ifBlank { "none" }) } })
                 val group = s.optString("continuity_group")
