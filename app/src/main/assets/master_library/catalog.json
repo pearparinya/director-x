@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "records": [
     {
       "id": "CHAR_103",
@@ -359,6 +359,66 @@
       "age_basis": "assigned_fictional_age_not_inferred_from_photo",
       "character_gender": "woman",
       "casting_description": "long black wavy hair, light blue top and trousers",
+      "reference_layout": "one character: left main view, upper-right front full body, lower-right rear three-quarter view"
+    },
+    {
+      "id": "CHAR_153",
+      "display_name": "มะลิ",
+      "original_filename": "CHAR_153__MASTER.png",
+      "file": "CHAR_153__MASTER.png",
+      "width": 941,
+      "height": 1672,
+      "format": "PNG",
+      "sha256": "bb50be1f2af5033a537ea47febfe21197342c11fe31f59a610436617bbec6e75",
+      "character_age": 28,
+      "age_basis": "assigned_fictional_age_not_inferred_from_photo",
+      "character_gender": "woman",
+      "casting_description": "short wavy black bob, beige shirt, charcoal trousers",
+      "reference_layout": "one character: left main view, upper-right front full body, lower-right rear three-quarter view"
+    },
+    {
+      "id": "CHAR_154",
+      "display_name": "พรรณราย",
+      "original_filename": "CHAR_154__MASTER.png",
+      "file": "CHAR_154__MASTER.png",
+      "width": 941,
+      "height": 1672,
+      "format": "PNG",
+      "sha256": "269f21ec1ddf5c5cef9871af2ab3bb50b4e93ec645f337d8bce8ab0d1f8370f5",
+      "character_age": 39,
+      "age_basis": "assigned_fictional_age_not_inferred_from_photo",
+      "character_gender": "woman",
+      "casting_description": "straight shoulder-length dark brown hair, beige shirt, grey trousers",
+      "reference_layout": "one character: left main view, upper-right front full body, lower-right rear three-quarter view"
+    },
+    {
+      "id": "CHAR_155",
+      "display_name": "ครูวรรณา",
+      "original_filename": "CHAR_155__MASTER.png",
+      "file": "CHAR_155__MASTER.png",
+      "width": 941,
+      "height": 1672,
+      "format": "PNG",
+      "sha256": "851146a4127bb2851316a83e89d8c4a37b21852924654f1ddd088c836b04aaac",
+      "character_age": 56,
+      "age_basis": "assigned_fictional_age_not_inferred_from_photo",
+      "character_gender": "woman",
+      "casting_description": "short salt-and-pepper hair, beige blouse, brown trousers",
+      "reference_layout": "one character: left main view, upper-right front full body, lower-right rear three-quarter view"
+    },
+    {
+      "id": "CHAR_156",
+      "display_name": "ยายเพ็ญ",
+      "original_filename": "CHAR_156__MASTER.png",
+      "file": "CHAR_156__MASTER.png",
+      "width": 992,
+      "height": 1586,
+      "format": "PNG",
+      "sha256": "4e76130f3a22495743192dc463860946a355a0d49c2f8536874d9538e63010f7",
+      "character_age": 70,
+      "age_basis": "assigned_fictional_age_not_inferred_from_photo",
+      "character_gender": "woman",
+      "casting_description": "silver hair in a low bun, beige blouse, brown trousers",
       "reference_layout": "one character: left main view, upper-right front full body, lower-right rear three-quarter view"
     }
   ]

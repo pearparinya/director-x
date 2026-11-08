@@ -29,10 +29,10 @@ class CharacterLibraryResetTest {
         try {
             val library=MasterLibrary(root) { context.assets.open(it).use { input -> input.readBytes() } }
             val entries=library.entries()
-            assertEquals((listOf(103)+(130..152)).map { "CHAR_%03d".format(it) },entries.map { it.id })
-            assertEquals(listOf("กวิน","คมสัน","ภูวดล","ธำรง","ปกรณ์","วายุ","ภาคิน","ลุงสมบัติ","นที","ธีรภัทร","อัคนี","บุญมี","กฤต","ชาญ","ภาณุ","ศุภชัย","พิทักษ์","ปิ่นมณี","ลลิตา","เพ็ญศรี","พิมพ์ชนก","ภัทรวดี","ณัฐชา","ศุภรัตน์"),entries.map { it.displayName })
-            assertEquals(listOf(38,33,50,25,42,28,46),entries.takeLast(7).map { it.characterAge })
-            assertEquals(24,entries.map { it.sha256 }.distinct().size)
+            assertEquals((listOf(103)+(130..156)).map { "CHAR_%03d".format(it) },entries.map { it.id })
+            assertEquals(listOf("กวิน","คมสัน","ภูวดล","ธำรง","ปกรณ์","วายุ","ภาคิน","ลุงสมบัติ","นที","ธีรภัทร","อัคนี","บุญมี","กฤต","ชาญ","ภาณุ","ศุภชัย","พิทักษ์","ปิ่นมณี","ลลิตา","เพ็ญศรี","พิมพ์ชนก","ภัทรวดี","ณัฐชา","ศุภรัตน์","มะลิ","พรรณราย","ครูวรรณา","ยายเพ็ญ"),entries.map { it.displayName })
+            assertEquals(listOf(38,33,50,25,42,28,46,28,39,56,70),entries.takeLast(11).map { it.characterAge })
+            assertEquals(28,entries.map { it.sha256 }.distinct().size)
             entries.forEach { entry ->
                 val source=library.source(entry)
                 assertEquals(entry.sha256,MasterLibrary.digest(source.readBytes()))
@@ -41,7 +41,7 @@ class CharacterLibraryResetTest {
                 assertTrue(bounds.outWidth>0 && bounds.outHeight>0)
             }
             assertTrue(context.assets.list("character_masters").orEmpty().isEmpty())
-            assertEquals(25,context.assets.list("master_library")!!.size)
+            assertEquals(29,context.assets.list("master_library")!!.size)
         } finally { root.deleteRecursively() }
     }
 }
