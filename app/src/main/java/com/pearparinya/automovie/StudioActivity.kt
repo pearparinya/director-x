@@ -2143,23 +2143,11 @@ class StudioActivity : AppCompatActivity() {
         val a=JSONArray(prefs.getString("story_channels","[]")); (0 until a.length()).map { a.optString(it).trim() }.filter { it.isNotBlank() }
     }.getOrDefault(emptyList())
     private fun chooseStoryChannel(done: (String)->Unit) {
-        val existing=base.listFiles().orEmpty().mapNotNull { folder ->
-            val source=if(File(folder,"story.json").isFile) File(folder,"story.json") else File(folder,"gemini_job/spec.json")
-            runCatching { JSONObject(source.readText()).optString("channel").trim().takeIf { it.isNotBlank() } }.getOrNull()
-        }
-        val names=(listOf("นายเปียบ้านคลองขุด",originalChannel)+savedChannelNames()+existing).distinct()
-        choiceMenu("ขั้นแรก • เลือกชื่อช่อง",names+"＋ เพิ่มชื่อช่อง") { index ->
-            if(index<names.size) { prefs.edit().putString("selected_story_channel",names[index]).apply(); done(names[index]) }
-            else {
-                val input=EditText(this).apply { hint="ชื่อช่องใหม่ เช่น ช่องขายสินค้า"; setSingleLine(true) }
-                val dialog=AlertDialog.Builder(this).setTitle("เพิ่มชื่อช่อง").setView(input).setPositiveButton("บันทึก",null).setNegativeButton("ยกเลิก",null).showDirector()
-                dialog.getButton(-1).setOnClickListener {
-                    val name=input.text.toString().trim()
-                    if(name.isBlank() || name.length>80) { notice("ระบุชื่อช่อง 1–80 ตัวอักษร"); return@setOnClickListener }
-                    val saved=(savedChannelNames()+name).distinct(); prefs.edit().putString("story_channels",JSONArray(saved).toString()).putString("selected_story_channel",name).apply()
-                    dialog.dismiss(); done(name)
-                }
-            }
+        // Only the requested two channels are offered for new work. Existing stories stay untouched.
+        val names=listOf("นายเปีย บ้านคลองขุด",originalChannel)
+        choiceMenu("ขั้นแรก • เลือกชื่อช่อง",names) { index ->
+            prefs.edit().putString("selected_story_channel",names[index]).apply()
+            done(names[index])
         }
     }
     private var selectedStoryTopic: String = ""
@@ -2171,7 +2159,19 @@ class StudioActivity : AppCompatActivity() {
             done(index)
         }
     }
-    private fun chooseChannelTopic(done: (Int) -> Unit) {
+    private fun chooseChannelTopic(channel: String, done: (Int) -> Unit) {
+        if(channel=="นายเปีย บ้านคลองขุด") {
+            val ids=listOf("pia_benefits","pia_safety","pia_products")
+            val labels=listOf("📌 สวัสดิการและสิทธิประโยชน์\nข้อมูลสิทธิและข่าวสวัสดิการ", "💡 ความรู้และเตือนภัย\nความรู้ใกล้ตัวและภัยมิจฉาชีพ", "🎬 ละครสั้นสะท้อนสังคม\nเรื่องเล่าและข้อคิด", "🛍️ นายเปียพาช้อป\nรีวิวและแนะนำสินค้า")
+            choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",labels) { selected ->
+                if(selected==2) chooseDramaTopic(done)
+                else { selectedStoryTopic=""; val id=ids[if(selected==3) 2 else selected]; done(ChannelCatalog.mainCategories.indexOfFirst { it.id==id }) }
+            }
+            return
+        }
+        chooseDramaTopic(done)
+    }
+    private fun chooseDramaTopic(done: (Int) -> Unit) {
         val shelves=ChannelCatalog.storyShelves
         choiceMenu("ขั้นที่ 1 • เลือกหมวดหลัก",shelves.map { it.menuLabel }) { selected ->
             val shelf=shelves[selected]
@@ -2195,14 +2195,25 @@ class StudioActivity : AppCompatActivity() {
             chooseClip { format, seconds ->
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             panel.addView(TextView(this).apply { text="หมวด: ${categories[index]}\nสถานการณ์ตั้งต้น: $selectedStoryTopic\nAI เลือกนักแสดงจากคลัง MASTER และตั้งชื่ออัตโนมัติตามบท ${if(format=="short") "สร้างเรื่องจบในคลิปเดียว" else "แล้วเขียนเรื่องต่อครบทุก EP"}"; textSize=14f })
-            val premise=EditText(this).apply { hint="แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
+            val premise=EditText(this).apply { hint=if(chosenChannel=="นายเปีย บ้านคลองขุด") "รายละเอียดที่ตรวจสอบแล้ว / ข้อมูลสินค้า" else "แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
+            val presenters=if(chosenChannel=="นายเปีย บ้านคลองขุด") runCatching { castingCatalog() }.getOrDefault(JSONArray()) else JSONArray()
+            val presenter=Spinner(this).apply {
+                val labels=listOf("เลือก MASTER ผู้ดำเนินเรื่อง")+(0 until presenters.length()).map { presenters.getJSONObject(it).optString("display_name").ifBlank { presenters.getJSONObject(it).optString("id") } }
+                adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,labels)
+                if(chosenChannel=="นายเปีย บ้านคลองขุด") panel.addView(this)
+            }
             val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("1 EP • จบในตอน","ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); if(format!="short") panel.addView(this) }
             if(format=="short") panel.addView(TextView(this).apply { text="คลิปสั้น • จบในคลิปเดียว" })
             panel.addView(TextView(this).apply { text="${if(format=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(seconds)}${if(format=="short") "" else " ต่อ EP"} • ไม่รวมปกเปิด 3 วินาที • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้\n\nอัตโนมัติ: Groq → Gemini; สำรอง Gemini → DeepSeek, OpenRouter, Cohere, Mistral หรือ SambaNova • เนื้อหาอาจถูกส่งไปยังค่ายที่รับช่วง • โควตาและค่าบริการขึ้นอยู่กับแต่ละบัญชี • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ภายหลัง" })
             AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
                     runCatching {
+                        if(ChannelCatalog.mainCategories[index].id in setOf("pia_benefits","pia_safety","pia_products")) require(premise.text.toString().trim().isNotEmpty()) { "กรุณาระบุข้อมูลที่ตรวจสอบแล้วหรือรายละเอียดสินค้าก่อนสร้างบท" }
                         val catalog=castingCatalog()
+                        val presenterId=if(chosenChannel=="นายเปีย บ้านคลองขุด") {
+                            require(presenter.selectedItemPosition>0) { "กรุณาเพิ่มรูป MASTER ผู้ดำเนินเรื่องในคลัง แล้วเลือกจากรายการ" }
+                            presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id")
+                        } else ""
                         require(catalog.length()>0) { "คลัง MASTER ว่าง กรุณาเพิ่มตัวละครก่อน" }
                         if(ChannelCatalog.mainCategories[index].id=="younger_man_older_woman") {
                             val candidates=(0 until catalog.length()).map { catalog.getJSONObject(it) }
@@ -2226,17 +2237,19 @@ class StudioActivity : AppCompatActivity() {
                             val source=castingSource(row); require(source.isFile && MasterLibrary.digest(source.readBytes())==row.getString("sha256")) { "ภาพ MASTER ของ ${row.optString("display_name")} สูญหายหรือเปลี่ยนไป" }; source.copyTo(target,overwrite=true)
                         }
                         val count=if(format=="short") 1 else when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
-                        GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",chosenChannel)
+                        GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",chosenChannel).put("presenter_library_id",presenterId)
                             .put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",3).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("story_situation",selectedStoryTopic).put("premise",listOf("สถานการณ์ตั้งต้นที่เลือก: "+selectedStoryTopic,premise.text.toString()).filter { it.isNotBlank() }.joinToString("\n")).put("episodes",count)))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
                 }.setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
         }
         }
-        chooseStoryChannel { channel -> chosenChannel=channel; chooseChannelTopic(configure) }
+        chooseStoryChannel { channel -> chosenChannel=channel; chooseChannelTopic(channel,configure) }
     }
     private fun flowPlanningShare() {
-        chooseStoryChannel { channel -> chooseChannelTopic { index ->
+        chooseStoryChannel { channel ->
+        if(channel=="นายเปีย บ้านคลองขุด") { notice("ช่องนี้ต้องเลือก MASTER ผู้ดำเนินเรื่องผ่านเมนูสร้างบทในแอป"); return@chooseStoryChannel }
+        chooseChannelTopic(channel) { index ->
             chooseClip { format, seconds ->
             val premise=EditText(this).apply { hint="แนวคิดเรื่อง (เว้นว่างให้คิดใหม่)" }
             fun prepare(): String {
@@ -2959,7 +2972,13 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
         val folders = base.listFiles()?.filter { File(it,"story.json").exists() || File(it,"gemini_job/spec.json").exists() }?.sortedByDescending { maxOf(File(it,"story.json").lastModified(),File(it,"gemini_job/status.json").lastModified()) }.orEmpty()
         fun channelOf(folder: File): String = runCatching { JSONObject(File(folder,"story.json").readText()).optString("channel").trim() }.getOrDefault("").ifBlank {
             runCatching { GeminiStoryFiles.read(File(folder,"gemini_job/spec.json")).optString("channel").trim() }.getOrDefault("")
-        }.ifBlank { "ไม่ระบุชื่อช่อง" }
+        }.let { name ->
+            when {
+                name.isBlank() -> "ไม่ระบุชื่อช่อง"
+                name.replace(" ","")=="นายเปียบ้านคลองขุด" -> "นายเปีย บ้านคลองขุด"
+                else -> ChannelCatalog.currentChannel(name)
+            }
+        }
         if(folders.isEmpty()) { notice("ยังไม่มีเรื่องที่บันทึก"); return }
         val channels=folders.map { channelOf(it) }.distinct().sorted()
         choiceMenu("📚 เลือกชื่อช่อง",channels.map { channel -> "$channel • ${folders.count { channelOf(it)==channel }} เรื่อง" }) { selected ->

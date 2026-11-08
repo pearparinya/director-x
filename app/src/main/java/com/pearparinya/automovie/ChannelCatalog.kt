@@ -15,6 +15,9 @@ internal object ChannelCatalog {
         val menuLabel get() = "$icon $name\n($style)"
     }
     val mainCategories = listOf(
+        MainCategory("pia_benefits","สวัสดิการและสิทธิประโยชน์","ข่าวสิทธิ • ข้อมูลใกล้ตัว","drama","📌","Explain only information explicitly supplied and verified by the user; do not invent current benefits, amounts, eligibility, deadlines or official claims. If facts are missing ask the user for them. Treat as factual explainer, not fictional news."),
+        MainCategory("pia_safety","ความรู้และเตือนภัย","ความรู้ • เตือนภัย","drama","💡","Explain the user-supplied facts clearly. Do not invent scams, incidents, safety statistics or official claims; ask for evidence if missing."),
+        MainCategory("pia_products","นายเปียพาช้อป","รีวิวสินค้า • ของใช้","drama","🛍️","Review only product details explicitly supplied by the user. Do not invent demonstrations, personal experience, prices, endorsements or product claims. Ask for missing product facts."),
         MainCategory("domestic_secrets","ความลับในรั้วบ้าน","ดราม่าครอบครัว • ความลับ • หักมุม","drama","🏡","Family drama anchored in the home: conflicting loyalties, a meaningful household secret and a credible twist. Family relationships are non-sexual. Vary the household, adult roles, secret and resolution; never force an affair or inheritance plot every time."),
         MainCategory("betrayal_rivalry","ชิงรักหักสวาทและทรยศ","ดราม่าความรัก • รักสามเส้า • หักหลัง","drama","💔","Relationship drama about trust, rivalry and betrayal. Build layered adult motives, consequences and a clear emotional resolution. A love triangle is an option, not a compulsory preset. Do not assign permanent spouse or villain roles to the reference actors."),
         MainCategory("office_career","ที่ทำงานและสายอาชีพ","ดราม่าในที่ทำงาน • ความรัก • ชิงอำนาจ","drama","🏢","Workplace drama about professional ambitions, affection and power. Give the work conflict a concrete stake and credible occupation-specific setting. Vary the profession and hierarchy; do not always choose a boss-secretary affair. Do not turn the main story into a sitcom."),
@@ -155,6 +158,7 @@ internal object ChannelCatalog {
     /** A short is a complete story. Count remains governed by ClipPlan, never by editorial trimming. */
     fun shortDirection(selectedCategory: String, sceneCount: Int): String {
         val selected = main(selectedCategory)
+        if(selected?.id in setOf("pia_benefits","pia_safety","pia_products")) return "FACTUAL EXPLAINER: Use only user-supplied verified facts; never invent claims, figures, prices, eligibility, deadlines, official endorsements, product experience or events. Ask for missing information. Present a clear concise explanation and preserve the exact meaning. Each scene is 8 seconds; avoid forcing fictional drama."
         val tone = when {
             selected?.tone == "comedy" || topics.any { it.tone == "comedy" && category(it) == selectedCategory } ->
                 "COMEDY: establish a relatable situation, escalate one misunderstanding or prop gag, then deliver one clear visual or verbal payoff and reaction. No canned laughter."
