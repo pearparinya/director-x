@@ -352,7 +352,7 @@ class StudioActivity : AppCompatActivity() {
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(240)) })
             val name=EditText(this).apply { hint="ชื่อนักแสดงใหม่ (ชื่อถาวร)"; panel.addView(this) }
-            val age=EditText(this).apply { hint="อายุสมมติ 25–90 ปี"; inputType=android.text.InputType.TYPE_CLASS_NUMBER; panel.addView(this) }
+            val age=EditText(this).apply { hint="อายุสมมติ 0–1,000 ปี"; inputType=android.text.InputType.TYPE_CLASS_NUMBER; panel.addView(this) }
             val face=EditText(this).apply { hint="ลักษณะใบหน้าและทรงผมใหม่ (ไทยหรืออังกฤษ)"; panel.addView(this) }
             val styling=EditText(this).apply { hint="สีผิวและเสื้อผ้า (ไทยหรืออังกฤษ)"; panel.addView(this) }
             panel.addView(TextView(this).apply { text="1. ส่งคำสั่งพร้อมแม่แบบไปสร้างใน ChatGPT หรือ Gemini\n2. ตรวจภาพจริง แล้วกลับมาเลือก นำเข้าภาพเพื่อบันทึก" })
@@ -360,7 +360,7 @@ class StudioActivity : AppCompatActivity() {
                 .setPositiveButton("ส่งคำสั่งสร้างภาพ",null).setNeutralButton("นำเข้าภาพที่ตรวจแล้ว",null).setNegativeButton("ปิด",null).showDirector()
             fun profile(): JSONObject? {
                 val n=name.text.toString().trim(); val years=age.text.toString().toIntOrNull(); val appearance=face.text.toString().trim()
-                if(n.isEmpty() || years==null || years !in 25..90 || appearance.isEmpty()) { notice("กรอกชื่อ อายุ 25–90 ปี และลักษณะใบหน้า/ทรงผม"); return null }
+                if(n.isEmpty() || years==null || !CharacterAge.valid(years) || appearance.isEmpty()) { notice("กรอกชื่อ อายุ 0–1,000 ปี และลักษณะใบหน้า/ทรงผม"); return null }
                 if((0 until actorCatalog().length()).any { actorCatalog().getJSONObject(it).optString("display_name")==n }) { notice("ชื่อนี้มีในคลังแล้ว"); return null }
                 val id="CHAR_"+(System.currentTimeMillis()%2000000000L).toString()
                 return JSONObject().put("id",id).put("display_name",n).put("character_age",years).put("character_gender",if(index==0) "man" else "woman").put("casting_description",appearance).put("body_template",index+1)
@@ -370,7 +370,7 @@ class StudioActivity : AppCompatActivity() {
                 val gender=p.getString("character_gender")
                 val appearance=p.getString("casting_description")
                 val style=styling.text.toString().trim().ifBlank { "natural skin tone and elegant opaque clothing" }
-                val command=ImagePromptPolicy.threeViewCharacter("a fictional adult $gender aged ${p.getInt("character_age")} years, new face and hairstyle: $appearance, $style, body silhouette and proportions based on the attached reference image")
+                val command=ImagePromptPolicy.threeViewCharacter("a fictional $gender character with assigned age ${p.getInt("character_age")} years, age-appropriate nonsexual portrayal and outfit; for supernatural age preserve the reference appearance, new face and hairstyle: $appearance, $style, body silhouette and proportions based on the attached reference image")
                 shareImageCommand(command,listOf("BODY_TEMPLATE_${index+1}" to file),bodyOnly=true)
             }
             dialog.getButton(-3).setOnClickListener {
