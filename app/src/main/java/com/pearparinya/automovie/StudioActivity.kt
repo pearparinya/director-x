@@ -352,7 +352,7 @@ class StudioActivity : AppCompatActivity() {
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(240)) })
             val name=EditText(this).apply { hint="ชื่อนักแสดงใหม่ (ชื่อถาวร)"; panel.addView(this) }
-            val age=EditText(this).apply { hint="อายุสมมติ 25–90 ปี"; inputType=android.text.InputType.TYPE_CLASS_NUMBER; panel.addView(this) }
+            val age=EditText(this).apply { hint="อายุสมมติผู้ใหญ่ 18–120 ปี"; inputType=android.text.InputType.TYPE_CLASS_NUMBER; panel.addView(this) }
             val face=EditText(this).apply { hint="ลักษณะใบหน้าและทรงผมใหม่ (ไทยหรืออังกฤษ)"; panel.addView(this) }
             val styling=EditText(this).apply { hint="สีผิวและเสื้อผ้า (ไทยหรืออังกฤษ)"; panel.addView(this) }
             panel.addView(TextView(this).apply { text="1. ส่งคำสั่งพร้อมแม่แบบไปสร้างใน ChatGPT หรือ Gemini\n2. ตรวจภาพจริง แล้วกลับมาเลือก นำเข้าภาพเพื่อบันทึก" })
@@ -360,7 +360,7 @@ class StudioActivity : AppCompatActivity() {
                 .setPositiveButton("ส่งคำสั่งสร้างภาพ",null).setNeutralButton("นำเข้าภาพที่ตรวจแล้ว",null).setNegativeButton("ปิด",null).showDirector()
             fun profile(): JSONObject? {
                 val n=name.text.toString().trim(); val years=age.text.toString().toIntOrNull(); val appearance=face.text.toString().trim()
-                if(n.isEmpty() || years==null || years !in 25..90 || appearance.isEmpty()) { notice("กรอกชื่อ อายุ 25–90 ปี และลักษณะใบหน้า/ทรงผม"); return null }
+                if(n.isEmpty() || years==null || years !in 18..120 || appearance.isEmpty()) { notice("กรอกชื่อ อายุผู้ใหญ่ 18–120 ปี และลักษณะใบหน้า/ทรงผม"); return null }
                 if((0 until actorCatalog().length()).any { actorCatalog().getJSONObject(it).optString("display_name")==n }) { notice("ชื่อนี้มีในคลังแล้ว"); return null }
                 val id="CHAR_"+(System.currentTimeMillis()%2000000000L).toString()
                 return JSONObject().put("id",id).put("display_name",n).put("character_age",years).put("character_gender",if(index==0) "man" else "woman").put("casting_description",appearance).put("body_template",index+1)
@@ -3250,7 +3250,7 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
                     if(value.isBlank() || description.text.isBlank() || StoryIdentity.keyFor(value)!=null || (0 until roster.length()).any { roster.getJSONObject(it).getString("name")==value }) notice("ระบุชื่อไม่ซ้ำและคำบรรยายจากภาพ")
                     else {
                         val id=UUID.randomUUID().toString().take(8).uppercase()
-                        val person=JSONObject().put("name",value).put("master","SUPPORT_${id}_MASTER.png").put("visual_description","adult fictional character; "+description.text.toString())
+                        val person=JSONObject().put("name",value).put("master","SUPPORT_${id}_MASTER.png").put("visual_description","fictional character; "+description.text.toString())
                         prefs.edit().putString("pending_support",person.toString()).apply(); supportImagePicker.launch(arrayOf("image/*"))
                     }
                 }.setNegativeButton("ยกเลิก",null).showDirector()
