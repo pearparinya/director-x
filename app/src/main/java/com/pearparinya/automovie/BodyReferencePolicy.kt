@@ -8,7 +8,7 @@ internal object BodyReferencePolicy {
         "chest_waist" to "ความสัมพันธ์ทรวงอกและเอว", "hips_limbs" to "สะโพก แขนและขาที่เห็น", "reference_limits" to "ส่วนที่มองไม่เห็น / ข้อจำกัดมุมภาพ")
     val guide = "ยึดโครงร่างจาก MASTER ตรงรายคน: ความสัมพันธ์ของไหล่ ทรวงอก เอว สะโพก ความยาวลำตัวและแขนขาที่มองเห็น ให้เสื้อผ้ารับกับรูปร่างเดิมตามธรรมชาติ ไม่ปรับรูปร่างให้เข้ากับชุด ไม่ทำให้ผอมหรือเพิ่มสัดส่วนเอง ไม่ใช้รูปร่างคนหนึ่งแทนอีกคน คำนึงถึงมุมกล้อง ท่าทางและเนื้อผ้า ไม่เดาขนาดจริงหรือรายละเอียดส่วนที่ภาพไม่แสดง ภาพฉากก่อนหน้าใช้ดูสถานที่และอุปกรณ์ ไม่ใช้แทน MASTER ด้านรูปร่าง"
     fun singleCheck(name: String, reference: String, profile: String, outfit: String, aspect: String): String = """
-สร้างภาพทดสอบหนึ่งภาพของตัวละครผู้ใหญ่ $name เพียงคนเดียว ใช้ $reference ที่แนบเป็นต้นฉบับ
+สร้างภาพทดสอบหนึ่งภาพของตัวละคร $name เพียงคนเดียว ใช้ $reference ที่แนบเป็นต้นฉบับ
 ${ImagePromptPolicy.referenceAppeal}
 ${EditorialImagePolicy.referenceRendering}
 ข้อมูลรายคน: $profile
