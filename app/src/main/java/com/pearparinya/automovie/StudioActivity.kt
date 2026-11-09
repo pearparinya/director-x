@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 90909)
-Total output lines: 3524
-
 package com.pearparinya.automovie
 
 import android.content.Intent
@@ -1382,7 +1379,1181 @@ class StudioActivity : AppCompatActivity() {
         }
         val preview = LinearLayout(this).apply { orientation = 1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
         preview.addView(TextView(this).apply {
-            this.text = if(geminiImages) "$pendingStorySummary\n$imageList\nส่งคำสั่งสร้างภาพพร้อมภาพอ้างอิงไป Gemini และคัดลอกคำสั่งไว้ให้ด้วย\n\n1. ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง\n2. หาก Gemini ไม่แสดงคำสั่ง ให้แตะช่องข้อความค้างแล้วเลือก วาง\n3. หาก Gemini ตอบเป็นข้อความ ให้เปิดโหมดสร้างภาพแล้วลองใหม่" else if(filePackage) "$pendingStorySummary\n$imageList\nแนบไฟล์ READ_FIRST_IMAGE_COMMAND.txt พร้อม MASTER ไปในชุดเดียวกัน ต…30909 tokens truncated…อก").setView(idea).setPositiveButton("ส่งคำสั่ง") { _, _ ->
+            this.text = if(geminiImages) "$pendingStorySummary\n$imageList\nส่งคำสั่งสร้างภาพพร้อมภาพอ้างอิงไป Gemini และคัดลอกคำสั่งไว้ให้ด้วย\n\n1. ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง\n2. หาก Gemini ไม่แสดงคำสั่ง ให้แตะช่องข้อความค้างแล้วเลือก วาง\n3. หาก Gemini ตอบเป็นข้อความ ให้เปิดโหมดสร้างภาพแล้วลองใหม่" else if(filePackage) "$pendingStorySummary\n$imageList\nแนบไฟล์ READ_FIRST_IMAGE_COMMAND.txt พร้อม MASTER ไปในชุดเดียวกัน ตรวจว่า $destinationLabel แสดงไฟล์คำสั่งและรูปครบก่อนกดส่ง หากช่องข้อความว่างให้ระบุคำสั่งก่อนส่ง" else "$pendingStorySummary\n$imageList\nตรวจภาพและข้อความใน $destinationLabel ก่อนกดส่ง คำสั่งคัดลอกไว้ในคลิปบอร์ดแล้ว"
+            textSize = 13f
+        })
+        uris.filter { contentResolver.getType(it)?.startsWith("image/")==true }.forEach { uri ->
+            val filename=uri.lastPathSegment?.substringAfterLast('/').orEmpty()
+            val label=referenceLabels[referenceId(filename)]
+            preview.addView(TextView(this).apply { this.text = if(label.isNullOrBlank()) filename else "$label • $filename"; textSize=14f })
+            preview.addView(ImageView(this).apply {
+            setImageBitmap(previewBitmap(uri)); adjustViewBounds = true
+            layoutParams = LinearLayout.LayoutParams(-1,dp(120)).apply { bottomMargin = dp(8) }
+            contentDescription = label ?: uri.lastPathSegment
+        }) }
+        preview.addView(TextView(this).apply { this.text = text; textSize = 14f; setTextIsSelectable(true) })
+        AlertDialog.Builder(this).setTitle("ตรวจคำสั่งและภาพก่อนส่ง")
+            .setView(ScrollView(this).apply { addView(preview) })
+            .setPositiveButton("ส่งและเปิด $destinationLabel") { _,_ -> launchShare() }
+            .setNeutralButton("คัดลอก") { _,_ -> copyCommand(text) }
+            .setNegativeButton("ยกเลิก",null).showDirector()
+    }
+
+    private fun storyVisualGuide(mode: String): String {
+        val aspect = plan?.optString("aspect_ratio","9:16") ?: "9:16"
+        return neutralIdentityGuide(if (mode == "new") "CHARACTER MASTER ของเรื่องนี้" else "ภาพ MASTER ที่แนบ",aspect)
+    }
+    private fun sceneWardrobe(scene: JSONObject, person: JSONObject): String {
+        val character=memoryId(person)
+        val history=mutableListOf<WardrobeEntry>()
+        val scenes=plan?.let { rows(it) }.orEmpty()
+        for (item in scenes) {
+            val people=item.optJSONArray("characters") ?: JSONArray()
+            for(i in 0 until people.length()) {
+                val actor=people.getJSONObject(i)
+                if(memoryId(actor)!=character) continue
+                val activity=WardrobeTimeline.activity(item.optString("activity").ifBlank { item.optString("action") })
+                val beat=WardrobeBeat(character,item.optString("story_day"),actor.optString("wardrobe_event").ifBlank { item.optString("wardrobe_event") },
+                    activity,item.optString("continuity_group"),actor.optString("outfit"),actor.optBoolean("wardrobe_change",item.optBoolean("wardrobe_change",false)))
+                val outfit=WardrobeTimeline.resolve(beat,history)
+                if(item === scene || (item.optInt("ep")==scene.optInt("ep") && item.optInt("scene")==scene.optInt("scene"))) return outfit
+                history.add(WardrobeEntry(beat,outfit))
+            }
+        }
+        return person.optString("outfit").ifBlank { WardrobeTimeline.resolve(WardrobeBeat(character,scene.optString("story_day"),scene.optString("wardrobe_event"),WardrobeTimeline.activity(scene.optString("activity").ifBlank { scene.optString("action") }),scene.optString("continuity_group"),""),history) }
+    }
+    private fun sceneCastDescription(scene: JSONObject): String {
+        val cast = scene.optJSONArray("characters") ?: return ""
+        return (0 until cast.length()).joinToString("\n") { i ->
+            val person = cast.getJSONObject(i)
+            val master=masterFor(person)
+            val exported=masterExportName(master,person.optString("master").startsWith("CHARACTER",true)) ?: person.optString("master")
+            listOf("${person.optString("name")} → ${referenceId(exported)}",(if(detailedImageProfiles) memoryBrief(person) else ""),
+                "ชุด: ${sceneWardrobe(scene,person)}",PerformanceDirection.text(person).takeIf { it.isNotBlank() }?.let { "การแสดง: $it" }.orEmpty())
+                .filter { it.isNotBlank() }.joinToString(" | ") }
+    }
+    private fun storySceneCommand(p: JSONObject, scene: JSONObject): String {
+        val setting=listOf(scene.optString("location"),scene.optString("story_day"),scene.optString("story_time"),scene.optString("activity"),scene.optString("props")).filter { it.isNotBlank() }.joinToString(" • ")
+        val details=sceneCastDescription(scene)
+        val people=scene.optJSONArray("characters") ?: JSONArray()
+        val corrections=(0 until people.length()).mapNotNull { i ->
+            val person=people.getJSONObject(i)
+            val review=scene.optJSONObject("body_reviews")?.optJSONObject(memoryId(person))
+            val status=bodyReviewStatus(scene,person)
+            if(review!=null && status.startsWith("ต้องแก้") && review.optString("note").isNotBlank())
+                "${person.optString("name")}: ${review.optString("note")} • แก้ให้กลับมาตรง MASTER โดยไม่เพิ่มสัดส่วนเอง" else null
+        }.joinToString("; ")
+        val action=scene.optString("action").ifBlank { scene.optString("image_prompt") }
+        val continuity=listOf(scene.optString("start_state"),
+            "ภาพก่อนหน้าใช้ดูสถานที่และสิ่งของ ชุดยึดฉากปัจจุบัน ตัวบุคคลยึด MASTER รายคน",corrections).filter { it.isNotBlank() }.joinToString(" • ")
+        return ImagePromptPolicy.scene(details,setting,action,p.optString("aspect_ratio","9:16"),
+            if(p.optString("character_mode","original")=="new") "CHARACTER MASTER ที่แนบ" else "ภาพ MASTER ที่แนบ",
+            scene.optString("framing"),scene.optString("lighting"),continuity,"${key(scene)}.png")
+    }
+
+    private fun sendSceneImage(p: JSONObject, scene: JSONObject) {
+        val cast = scene.optJSONArray("characters")
+        val keys = if (cast != null) (0 until cast.length()).mapNotNull { FlowCast.id(cast.getJSONObject(it)) }
+            else StoryIdentity.keysFromPrompt(scene.optString("image_prompt"))
+        val original = p.optString("character_mode", "original") == "original"
+        if (original && keys.isEmpty()) { notice("ฉากนี้ยังจับคู่ MASTER ไม่ได้ กรุณาอัปเดตบทให้มีชื่อตัวละครใน image_prompt หรือ characters"); return }
+        val scenes = rows(p)
+        val index = scenes.indexOfFirst { key(it) == key(scene) }
+        val group = scene.optString("continuity_group")
+        val previous = if (group.isBlank()) null else scenes.take(index).lastOrNull {
+            it.optString("continuity_group") == group && image(it).exists()
+        }
+        val references = previous?.let { listOf(key(it) to image(it)) } ?: emptyList()
+        val masterRefs = if(cast != null) (0 until cast.length()).map { cast.getJSONObject(it) }.map { person ->
+            val source=masterFor(person)
+            val exported=masterExportName(source,!original) ?: run { notice("ขาด MASTER ของ ${person.optString("name")}"); return }
+            exported.substringBeforeLast('.') to source
+        } else keys.map { id -> val source=File(project,"original_masters/$id.master").takeIf { it.exists() } ?: File(filesDir,"character_masters/$id.master"); "${id.uppercase()}_MASTER" to source }
+        rememberScene(scene)
+        shareImageCommand(storySceneCommand(p,scene),masterRefs+references)
+    }
+    private fun wholeStoryCommands() {
+        val p = plan ?: return notice("นำเข้าแผนเรื่องก่อนครับ")
+        val episodes = p.getJSONArray("episodes")
+        val commands = (0 until episodes.length()).joinToString("\n\n") { i ->
+            val ep = episodes.getJSONObject(i)
+            rows(p).filter { it.getInt("ep") == ep.getInt("ep") }.joinToString("\n\n") { s -> storySceneCommand(p,s) } + "\n\n" + coverCommand(p,ep)
+        }
+        shareText("สร้างและแสดงภาพจริงตามรายการของเรื่อง ${p.getString("title")} เรียงครบทุก EP หนึ่งฉากหนึ่งภาพ เมื่อสร้างภาพฉากสุดท้ายของแต่ละ EP แล้วสร้างปกตามคำสั่งปกแยกต่างหาก หากติดข้อจำกัดให้แจ้งฉากล่าสุดเพื่อทำต่อ\n\n$commands")
+    }
+    private fun coverNames(p: JSONObject): List<String> {
+        val eps = p.getJSONArray("episodes")
+        return (0 until eps.length()).flatMap { i -> listOf("9x16","16x9").map { ratio -> "EP%02d_COVER_%s".format(eps.getJSONObject(i).getInt("ep"), ratio) } }
+    }
+    private fun coverFile(name: String, folder: File = project) = File(folder, "covers/$name.img")
+    private fun coverCommand(p: JSONObject, ep: JSONObject): String {
+        val number = ep.getInt("ep")
+        val title = ep.optString("title")
+        val scenes=ep.getJSONArray("scenes")
+        val people=linkedMapOf<String,JSONObject>()
+        for(i in 0 until scenes.length()) {
+            val cast=scenes.getJSONObject(i).getJSONArray("characters")
+            for(j in 0 until cast.length()) { val person=cast.getJSONObject(j); people.putIfAbsent(person.getString("name"),person) }
+        }
+        val refs=people.values.joinToString("\n") { person ->
+            val master=masterFor(person)
+            "${person.getString("name")} → ${masterExportName(master,false) ?: person.optString("master")} • ${person.optString("visual_description")} • Outfit: ${person.optString("outfit")}"
+        }
+        return listOf("9x16","16x9").joinToString("\n\n") { ratio ->
+            FlowVisualDirection.cover(ratio,refs,p.optString("channel",originalChannel),p.getString("title"),number,title,
+                ep.optString("tagline").ifBlank { p.optString("tagline") },ep.optString("cover_incident").ifBlank { scenes.getJSONObject(0).optString("action") })
+        }
+    }
+    private fun sendCoverCommands() {
+        val p = plan ?: return notice("นำเข้าบทและภาพฉากจาก ZIP ก่อนสร้างปก")
+        val eps = p.getJSONArray("episodes")
+        choiceMenu("🎨 สร้าง / ปรับปกจากภาพฉาก", listOf("สร้างปกทุก EP") + (0 until eps.length()).map { i ->
+            val ep = eps.getJSONObject(i)
+            "EP ${ep.getInt("ep")} • ${ep.optString("title")}" }) { index ->
+            if (index == 0) {
+                val references = (0 until eps.length()).map { i ->
+                    rows(p).lastOrNull { it.getInt("ep") == eps.getJSONObject(i).getInt("ep") && image(it).exists() }
+                }
+                if (references.any { it == null }) notice("ยังมี EP ที่ไม่มีภาพฉาก กรุณานำเข้า ZIP หรือภาพฉากก่อน")
+                else sendReferencedCovers(p, references.filterNotNull())
+            } else {
+                val ep = eps.getJSONObject(index - 1)
+                val available = rows(p).filter { it.getInt("ep") == ep.getInt("ep") && image(it).exists() }
+                if (available.isEmpty()) notice("EP นี้ยังไม่มีภาพฉาก กรุณานำเข้าภาพก่อน")
+                else choiceMenu("เลือกภาพฉากต้นแบบของปก", available.map { "${key(it)} • ${it.optString("action")}" }) { selected ->
+                    sendReferencedCovers(p, listOf(available[selected]))
+                }
+            }
+        }
+    }
+    private fun sendReferencedCovers(p: JSONObject, references: List<JSONObject>) {
+        val edits = EditText(this).apply { hint = "สิ่งที่อยากปรับ เช่น สี ตัวอักษร ตำแหน่งข้อความ (เว้นว่างได้)" }
+        AlertDialog.Builder(this).setTitle("ปกจากภาพฉากที่นำเข้า")
+            .setMessage("แนบภาพฉาก ${references.size} ภาพ ใช้ตัวละคร ชุด และสถานที่จากภาพเหล่านี้ สร้างปก 9:16")
+            .setView(edits).setPositiveButton("ส่งไป ChatGPT") { _, _ ->
+                val eps = p.getJSONArray("episodes")
+                val commands = references.joinToString("\n\n") { scene ->
+                    val ep = (0 until eps.length()).map { eps.getJSONObject(it) }.first { it.getInt("ep") == scene.getInt("ep") }
+                    val number = ep.getInt("ep")
+                    "สร้างปกแนวตั้ง 9:16 EP $number จากภาพ ${key(scene)} ที่แนบ หนึ่งภาพ ชื่อไฟล์ EP%02d_COVER_9x16.png\n".format(number)+
+                        ImagePromptPolicy.coverReference("ภาพฉากที่แนบ")+"\nเหตุการณ์: ${scene.optString("action")}\n"+
+                        CoverTypography.prompt(p.optString("channel",originalChannel),p.getString("title"),number,ep.optString("title"))
+                }
+                shareText("ใช้ภาพฉากที่แนบจากชุดงานที่นำเข้าเป็นต้นแบบปก แก้จากภาพเดิม โดยคงชุดและสถานที่ของภาพนั้น\nสิ่งที่ผู้ใช้ขอปรับ: ${edits.text.toString().ifBlank { "ออกแบบปกให้สวยงาม อ่านชัด" }}\n$commands\nแสดงปกจริงแยกไฟล์ และรวมเฉพาะปกที่สร้างใน ZIP สำหรับนำเข้ากลับ DIRECTOR X หากสร้างไม่ได้ให้แจ้งตามจริง", includeMasters = false, referenceImages = references.map { key(it) to image(it) })
+            }.setNegativeButton("ยกเลิก",null).showDirector()
+    }
+    private var starterFlowPack = false
+    private val flowPackPicker = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if(uri!=null) {
+            val current=if(starterFlowPack) null else plan?.let { JSONObject(it.toString()) }
+            val sources=FlowCast.definitions(current).associate { person ->
+                val id=FlowCast.id(person)!!
+                id to
+                if(current==null) File(filesDir,"character_masters/$id.master")
+                else File(project,"original_masters/$id.master").takeIf { it.exists() } ?: File(filesDir,"character_masters/$id.master")
+            }
+            val destination=project
+            val storyRevision=if(current!=null) File(destination,"story.json").takeIf { it.isFile }?.let { EpisodeMedia.digest(it) } else null
+            val memory=JSONObject()
+            sources.forEach { (id,file) -> memory.put(id,characterMemory.read(id,file)) }
+            background {
+                contentResolver.openOutputStream(uri)!!.use { output ->
+                    if(current!=null) SimpleProductionCommands.write(output,current)
+                    else FlowProductionPack.write(output,null,sources,memory,categories.first(),originalChannel)
+                }
+                if(storyRevision!=null) File(destination,"flow_pack_exported.sha256").writeText(storyRevision)
+            }
+        }
+    }
+    private val flowCodePicker = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        if(uri!=null) runCatching {
+            val text=prefs.getString("pending_flow_code","").orEmpty()
+            require(text.isNotBlank()) { "ไม่มีคำสั่งให้บันทึก" }
+            contentResolver.openOutputStream(uri)!!.use { it.write(text.toByteArray(Charsets.UTF_8)) }
+        }.onSuccess { notice("บันทึกไฟล์คำสั่งแล้ว") }.onFailure { notice("บันทึกไม่สำเร็จ: ${it.message}") }
+    }
+    private fun sendStoryPackage(code: String) {
+        runCatching {
+            val destination=File(cacheDir,"character_master_exports/${UUID.randomUUID()}").apply { mkdirs() }
+            val uris=arrayListOf<Uri>()
+            val command=File(destination,"FLOW_STORY_COMMAND.txt").apply { writeText(code,Charsets.UTF_8) }
+            uris.add(FileProvider.getUriForFile(this,"$packageName.fileprovider",command))
+            FlowProductionPack.names.keys.forEach { id ->
+                val source=File(project,"original_masters/$id.master").takeIf { it.isFile } ?: File(filesDir,"character_masters/$id.master")
+                val name=masterExportName(source,false) ?: error("อ่าน MASTER ของ ${FlowProductionPack.names[id]} ไม่ได้")
+                val image=File(destination,name); source.copyTo(image)
+                uris.add(FileProvider.getUriForFile(this,"$packageName.fileprovider",image))
+            }
+            val intro="อ่าน FLOW_STORY_COMMAND.txt และ MASTER ทั้ง 3 ภาพที่แนบ แล้วเริ่มเขียนบทตามคำสั่ง สร้าง story.json และ ZIP บทให้ดาวน์โหลดเพื่อนำกลับเข้า DIRECTOR X ไม่สร้างภาพหรือวิดีโอในขั้นตอนนี้\n\n$code"
+            val intent=buildStoryPackageIntent(intro,uris)
+            val chooser=Intent.createChooser(intent,"เลือกแอป AI สำหรับเขียนบท").apply {
+                clipData=intent.clipData; addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(chooser)
+        }.onFailure { notice("ส่งชุดวางบทไม่สำเร็จ: ${it.message}\nใช้ดูคำสั่งหรือบันทึกไฟล์เพื่อลองใหม่ได้") }
+    }
+    private fun commandCardsMenu() {
+        val story=plan ?: return notice("สร้างหรือนำเข้าบทก่อนครับ")
+        if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
+        val eps=story.getJSONArray("episodes")
+        val options=(0 until eps.length()).map { "EP.${eps.getJSONObject(it).getInt("ep")} • ${eps.getJSONObject(it).optString("title")}" }+
+            listOf("ตรวจคำสั่ง / แก้เฉพาะจุด")
+        choiceMenu("คำสั่งภาพ + Flow • แยกตาม EP",options) { index ->
+            when {
+                index==eps.length() -> productionCheckMenu(story)
+                else -> {
+                    val number=eps.getJSONObject(index).getInt("ep")
+                    choiceMenu("EP.$number • คำสั่งพร้อมใช้",listOf("1. สร้างภาพ ChatGPT / Gemini • แนบ MASTER ให้","2. สร้างวิดีโอใน Flow • ใช้ภาพฉาก","ไฟล์คำสั่ง / แก้ไข / ทำต่อ")) { kind ->
+                        if(kind<2) productionTaskDeck(story,number,kind==0)
+                        else productionTaskType(story,number)
+
+                    }
+                }
+            }
+        }
+    }
+    private fun productionCheckMenu(story: JSONObject) {
+        val problems=ProductionCommandCheck.issues(story)
+        val text=if(problems.isEmpty()) "ผ่านการตรวจโครงสร้าง ตัวละคร ผู้พูด ตำแหน่ง ชุดรายวัน และข้อขัดแย้งเสียงที่ระบบตรวจได้ • ยังต้องตรวจภาพและวิดีโอจริง" else problems.joinToString("\n\n")
+        AlertDialog.Builder(this).setTitle("ตรวจคำสั่ง • ${problems.size} จุด").setMessage(text)
+            .setPositiveButton("แก้ซีนที่เลือก") { _,_ ->
+                val scenes=rows(story)
+                choiceMenu("แก้เฉพาะซีน • ไม่เขียนเรื่องใหม่",scenes.map { key(it)+" • "+it.optString("action").take(50) }) { editScene(scenes[it]) }
+            }.setNeutralButton("แก้ข้อความปก") { _,_ -> editProductionCover(story) }.setNegativeButton("ปิด",null).showDirector()
+    }
+    private fun editProductionCover(story: JSONObject) {
+        val eps=story.getJSONArray("episodes")
+        choiceMenu("แก้ข้อความปก",listOf("ปกรวม • ชื่อช่อง / ชื่อเรื่อง / คำโปรย")+(0 until eps.length()).map { "EP.${eps.getJSONObject(it).getInt("ep")} • ชื่อตอน" }) { index ->
+            val target=if(index==0) story else eps.getJSONObject(index-1)
+            val fields=if(index==0) listOf("channel" to "ชื่อช่อง","title" to "ชื่อเรื่อง","tagline" to "คำโปรย") else listOf("title" to "ชื่อตอน")
+            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+            val inputs=fields.map { (key,label) -> key to EditText(this).apply { hint=label; setText(target.optString(key)); panel.addView(this) } }
+            val dialog=AlertDialog.Builder(this).setTitle("แก้ข้อความปก • ไม่เปลี่ยนซีน").setView(panel).setPositiveButton("บันทึก",null).setNegativeButton("ปิด",null).showDirector()
+            dialog.getButton(-1).setOnClickListener {
+                if(inputs.any { it.second.text.isBlank() }) notice("กรอกข้อความปกให้ครบ")
+                else { inputs.forEach { (key,input) -> target.put(key,input.text.toString().trim()) }; saveStory(); dialog.dismiss(); render(); notice("บันทึกข้อความปกแล้ว • ส่งออกไฟล์ใหม่ได้ ไม่ต้องเขียนบทใหม่") }
+            }
+        }
+    }
+    private fun productionTaskType(story: JSONObject,number: Int) {
+        choiceMenu("EP.$number • เปิดหรือแก้เฉพาะรายการ",listOf("รูปและปก ChatGPT / Gemini","วิดีโอ Flow")) { productionTaskDeck(story,number,it==0) }
+    }
+    private fun returnToImageList(): Boolean {
+        val story=plan ?: return false
+        val number=prefs.getInt("last_image_deck_${project.name}",0)
+        val eps=story.optJSONArray("episodes") ?: return false
+        if(number<=0 || (0 until eps.length()).none { eps.optJSONObject(it)?.optInt("ep")==number }) return false
+        activeProductionDialog?.dismiss()
+        activeProductionDialog=null
+        productionTaskDeck(story,number,true)
+        return true
+    }
+    private fun productionTaskDeck(story: JSONObject,number: Int,images: Boolean,queueIds: Set<String>?=null) {
+        val allTasks=runCatching { if(images) SimpleProductionCommands.imageTasks(story,number) else SimpleProductionCommands.videoTasks(story,number) }.getOrElse {
+            notice(it.message ?: "ข้อมูลคำสั่งไม่ครบ"); productionCheckMenu(story); return
+        }
+        if(queueIds==null) {
+            val covers=if(images) allTasks.filter { it.id.contains("_COVER_") } else emptyList()
+            val groups=SimpleProductionCommands.groupScenes(allTasks)
+            val groupsWithCovers=(if(covers.isEmpty()) emptyList() else listOf(covers))+groups
+            val options=groupsWithCovers.map { group ->
+                val label=if(group.first().id.contains("_COVER_")) "ปก" else "${group.first().id} – ${group.last().id}"
+                val completed=group.count { task -> rows(story).firstOrNull { key(it)==task.id }?.let { sceneFrameApproved(it) } == true }
+                if(group.first().id.contains("_COVER_")) label else if(images) "$label • ตรวจผ่าน $completed/${group.size}" else "$label • ${group.size} ซีน"
+            }
+            if(options.isEmpty()) { notice("ยังไม่มีรายการภาพใน EP นี้"); return }
+            choiceMenu("EP.$number • เลือกชุด${if(images) "ภาพ" else "คำสั่ง Flow"} (ครั้งละ 5 ซีน)",options) { selected ->
+                productionTaskDeck(story,number,images,groupsWithCovers[selected].map { it.id }.toSet())
+            }
+            return
+        }
+        val tasks=if(queueIds==null) allTasks else allTasks.filter { it.id in queueIds }
+        if(tasks.isEmpty()) { notice("ไม่พบรายการภาพ"); return }
+        if(images) prefs.edit().putInt("last_image_deck_${project.name}",number).apply()
+        val preference="production_cursor_${project.name}_${number}_$images"
+        val previous=prefs.getString(preference,"")
+        val start=tasks.indexOfFirst { it.id==previous }.coerceAtLeast(0)
+        val options=listOf("ทำต่อจากล่าสุดที่เปิด • ${tasks[start].id}")+tasks.map { task ->
+            val scene=rows(story).firstOrNull { key(it)==task.id }
+            val status=if(scene==null || !images) "" else when {
+                sceneFrameApproved(scene) -> " • ตรวจผ่าน"
+                !image(scene).isFile -> " • รอภาพ"
+                scene.optString("user_review")=="needs_revision" -> " • ต้องแก้"
+                else -> " • รอตรวจ"
+            }
+            "${task.id} • ${task.title}$status"+(scene?.let { "\n"+SceneOverview.short(it) } ?: "")
+        }
+        choiceMenu("EP.$number • เลือก${if(images) "รูป" else "คำสั่ง Flow"} ในชุด",options) { selected ->
+            val index=if(selected==0) start else selected-1; val task=tasks[index]
+            prefs.edit().putString(preference,task.id).apply()
+            val next=tasks.getOrNull(index+1)?.id ?: "จบชุดนี้ • เลือกชุดถัดไป"
+            val sceneSummary=rows(story).firstOrNull { key(it)==task.id }?.let { SceneOverview.detail(it,task.id) }
+            val sceneForFlow=if(images) null else rows(story).firstOrNull { key(it)==task.id }
+            val flowSpec=sceneForFlow?.let { ProductionCommandCheck.spec(it) }
+            val flowCamera=when(sceneForFlow?.optString("camera_movement")) { "track" -> "Gentle tracking movement."; "locked" -> "Locked camera."; "push_in" -> "Slow push-in."; else -> "Slow gentle pan." }
+            val preview=if(!images && flowSpec!=null && FlowScenePrompt.issues(flowSpec).isEmpty()) task.copy(command=FlowVoiceXml.build(flowSpec,flowCamera)) else task
+            val code=(sceneSummary?.plus("\n\n") ?: "")+SimpleProductionCommands.block(preview,index,images)+"\n\nล่าสุดที่เปิด: ${task.id} | ถัดไป: $next\nสถานะนี้บันทึกการเปิดคำสั่ง ไม่ได้ยืนยันว่าภาพหรือคลิปสร้างสำเร็จแล้ว"
+            val problems=ProductionCommandCheck.issues(story)
+            val dialog=showFlowCode("${task.id} • ถัดไป $next",code,"${task.id}_${if(images) "IMAGE" else "FLOW"}.txt")
+            if(images) activeProductionDialog=dialog
+            dialog.getButton(-2).text=if(images) "กลับรายการรูป/ซีน" else "กลับรายการซีน"
+            dialog.getButton(-2).setOnClickListener {
+                dialog.dismiss()
+                if(images) activeProductionDialog=null
+                productionTaskDeck(story,number,images,queueIds)
+            }
+            if(problems.isNotEmpty()) dialog.getButton(-1).setOnClickListener { notice("คำสั่งยังมีจุดต้องแก้ • เปิด ตรวจคำสั่ง / แก้เฉพาะจุด ก่อนคัดลอก") }
+            dialog.getButton(-1).text=if(images) "เลือกแอปสร้างภาพ + MASTER" else "คัดลอกคำสั่ง Flow"
+            dialog.getButton(-1).setOnClickListener {
+                if(!images) {
+                    if(problems.isNotEmpty() || flowSpec==null) { productionCheckMenu(story); return@setOnClickListener }
+                    choiceMenu("เลือกคำสั่ง Flow • ${task.id}",listOf("คัดลอก XML • รูปแบบกระชับ","คัดลอก XML • แบบเดิมพร้อมเสียงประกอบ","คัดลอกแบบเงียบ • ใส่เสียงภายหลัง","คัดลอกบทเสียงแยก")) { mode ->
+                        val value=when(mode) { 0 -> FlowVoiceXml.build(flowSpec,flowCamera); 1 -> task.command; 2 -> CompactFlowPrompt.build(flowSpec,flowCamera,true); else -> CompactFlowPrompt.voiceText(flowSpec) }
+                        copyCommand(value)
+                    }
+                    return@setOnClickListener
+                }
+                if(problems.isNotEmpty()) { productionCheckMenu(story); return@setOnClickListener }
+                val refs=task.references.map { person -> referenceId(person.getString("master")) to masterFor(person) }
+                if(refs.isEmpty() || refs.any { !it.second.isFile }) { notice("ขาด MASTER ของตัวละครในรายการนี้"); return@setOnClickListener }
+                if(refs.map { it.first.lowercase() }.distinct().size != refs.size) { notice("รหัส MASTER ซ้ำกัน กรุณาตรวจตัวละครก่อนสร้างภาพ"); return@setOnClickListener }
+                val hashes=runCatching { refs.map { MasterLibrary.digest(it.second.readBytes()) } }.getOrElse { notice("อ่าน MASTER ไม่ได้ กรุณาตรวจไฟล์ภาพ"); return@setOnClickListener }
+                if(hashes.distinct().size != hashes.size) { notice("MASTER ของตัวละครต่างคนเป็นไฟล์ภาพเดียวกัน กรุณาตรวจและเปลี่ยนภาพก่อนสร้าง"); return@setOnClickListener }
+                val labels=task.references.associate { referenceId(it.getString("master")) to it.getString("name") }.toMutableMap()
+                val scene=rows(story).firstOrNull { key(it)==task.id }
+                val all=rows(story); val sceneIndex=if(scene==null) -1 else all.indexOfFirst { key(it)==task.id }
+                val previous=if(scene==null || sceneIndex<0 || scene.optString("location").isBlank()) null else all.take(sceneIndex).firstOrNull {
+                    it.optString("location").trim().equals(scene.optString("location").trim(),true) && sceneFrameApproved(it)
+                }
+                val context=previous?.let { prior ->
+                    val id=key(prior); labels[id]="ภาพสถานที่ที่ผู้ใช้ตรวจแล้ว • ใช้ดูสถานที่และสิ่งของเท่านั้น"; listOf(id to image(prior))
+                }.orEmpty()
+                previewImageReferences(task,refs+context,labels)
+            }
+            dialog.getButton(-3).text="แก้เฉพาะรายการนี้"
+            dialog.getButton(-3).setOnClickListener {
+                dialog.dismiss()
+                val scene=rows(story).firstOrNull { key(it)==task.id }
+                choiceMenu("แก้ ${task.id}",if(scene==null) listOf("แก้การจัดภาพปก","แก้ข้อความบนปก") else if(images) listOf("แก้ทิศทางภาพเฉพาะจุด","แก้บท / การกระทำ / ชุด / ตำแหน่ง / เสียง","เสนอขยายบทสั้น") else listOf("แก้ทิศทางวิดีโอเฉพาะจุด","แก้บท / การกระทำ / ชุด / ตำแหน่ง / เสียง","เลือกการเคลื่อนกล้อง","เสนอขยายบทสั้น")) { action ->
+                    if(scene!=null && (images && action==2 || !images && action==3)) suggestLongerSpeech(scene)
+                    else if(action==2 && scene!=null && !images) {
+                        val modes=listOf("อัตโนมัติตามซีน","ซูมเข้าอย่างช้า ๆ","แพนกล้อง","เคลื่อนตามการกระทำ","กล้องนิ่ง")
+                        val keys=listOf("","push_in","pan","track","locked")
+                        choiceMenu("เลือกกล้อง • ${task.id}",modes) { selected ->
+                            scene.put("camera_movement",keys[selected]); saveStory(); render()
+                            notice("บันทึกการเคลื่อนกล้องแล้ว • เปิดซีนเดิมเพื่อคัดลอกคำสั่งใหม่")
+                        }
+                    } else if(action==1) { if(scene==null) editProductionCover(story) else editScene(scene) }
+                    else {
+                        val target=scene ?: if(task.id.startsWith("STORY_")) story else story.getJSONArray("episodes").let { eps -> (0 until eps.length()).map { eps.getJSONObject(it) }.first { it.getInt("ep")==number } }
+                        val field=if(scene==null) "production_note_${task.id}" else if(images) "production_image_note" else "production_video_note"
+                        val input=EditText(this).apply { hint="ระบุส่วนที่ต้องแก้ โดยคงตัวละคร ชุดและบทเดิม"; setText(target.optString(field)) }
+                        AlertDialog.Builder(this).setTitle("แก้เฉพาะ ${task.id}").setView(input).setPositiveButton("บันทึก") { _,_ ->
+                            target.put(field,input.text.toString().trim())
+                            if(scene!=null) { scene.put("user_review","needs_revision"); scene.remove("flow_image_revision") }
+                            saveStory(); render(); notice("บันทึกแล้ว • รายการอื่นและชุดประจำวันคงเดิม • เปิดรหัสเดิมหรือส่งออกใหม่ได้")
+                        }.setNegativeButton("ปิด",null).showDirector()
+                    }
+                }
+            }
+        }
+    }
+    private fun showCommandCards(cards: List<SceneCommandCards.Card>, number: Int, kind: Int) {
+        require(cards.isNotEmpty())
+        var index=0
+        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
+        val picker=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,cards.map { it.title }); panel.addView(this) }
+        panel.addView(TextView(this).apply { text=if(kind==0) "แนบ MASTER ตามรายชื่อ • สร้างทีละภาพใน Gemini" else "แม่แบบ Flow • แนบภาพซีนที่ตรวจแล้ว ตรวจผู้พูดและตำแหน่งก่อนใช้ • เสียงสร้างจากคำสั่งใน Flow"; textSize=12f })
+        val code=TextView(this).apply { textSize=13f; setTextIsSelectable(true); setPadding(dp(8),dp(8),dp(8),dp(8)) }
+        panel.addView(ScrollView(this).apply { addView(code) },LinearLayout.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.38).toInt()))
+        val nav=LinearLayout(this).apply { orientation=0; panel.addView(this) }
+        fun show(n: Int) { index=n.coerceIn(cards.indices); code.text=cards[index].command; if(picker.selectedItemPosition!=index) picker.setSelection(index) }
+        listOf("ก่อนหน้า" to -1,"ถัดไป" to 1).forEach { (label,step) -> nav.addView(android.widget.Button(this).apply { text=label; setOnClickListener { show(index+step) } },LinearLayout.LayoutParams(0,-2,1f)) }
+        picker.onItemSelectedListener=object: android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?,view: android.view.View?,position: Int,id: Long) { show(position) }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
+        val dialog=AlertDialog.Builder(this).setTitle("EP.$number • ${if(kind==0) "คำสั่งภาพ" else "คำสั่งวิดีโอ"}").setView(panel)
+            .setPositiveButton("คัดลอกชุดนี้",null).setNeutralButton("บันทึกทั้ง EP") { _,_ -> prefs.edit().putString("pending_flow_code",SceneCommandCards.join(cards)).apply(); flowCodePicker.launch("EP%02d_%s.txt".format(number,if(kind==0) "IMAGES" else "VIDEOS")) }
+            .setNegativeButton("ปิด",null).showDirector()
+        dialog.getButton(-1).setOnClickListener { copyCommand(cards[index].command) }
+        show(0)
+    }
+    private fun showFlowCode(title: String, code: String, filename: String): AlertDialog {
+        val text=TextView(this).apply {
+            this.text=code; textSize=13f; typeface=Typeface.MONOSPACE; setTextIsSelectable(true)
+            setPadding(dp(16),dp(12),dp(16),dp(12)); setTextColor(ice); setBackgroundColor(navy)
+        }
+        // Bound only the scroll area, leaving dialog title and action buttons visible.
+        val scroll=ScrollView(this).apply { addView(text) }
+        val frame=FrameLayout(this).apply {
+            addView(scroll,FrameLayout.LayoutParams(-1,-1))
+            layoutParams=android.view.ViewGroup.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.48f).toInt())
+        }
+        val builder=AlertDialog.Builder(this).setTitle(title)
+            .setMessage(if(filename.endsWith("_IMAGE.txt")) "คำสั่งภาพรายการเดียวสำหรับ Gemini • แนบ MASTER ที่ตรงกับตัวละคร • หัวข้อและชื่อไฟล์ไม่ใช่ข้อความให้วาดลงซีน" else if(filename.matches(Regex("EP[0-9]+_IMAGES[.]txt"))) "แนบไฟล์นี้พร้อม MASTER ใน Gemini • มีสารบัญและรหัสภาพ • next = ถัดไป / แก้ภาพ <รหัส> = แก้เฉพาะจุด • ตรวจข้อความปกในภาพจริง" else if(filename.matches(Regex("EP[0-9]+_FLOW[.]txt"))) "รวมทุกซีนของ EP นี้ • คัดลอกทีละบล็อกไป Flow พร้อมภาพ PNG รหัสเดียวกัน • บทพูดและเสียงอยู่ในบล็อกเดียวแล้ว" else if(filename.contains("GEMINI_NEXT")) "คัดลอกทั้งหมดครั้งเดียวไป Gemini พร้อม MASTER ที่ระบุ • สร้างทีละภาพแล้วพิมพ์ next • ถ้าข้อความยาวเกินช่องแชต ให้บันทึกไฟล์แนบพร้อม MASTER แล้วสั่งให้อ่านไฟล์และเริ่มคิว • ต้องตรวจผลจริง ภาพไม่ได้สร้างในแอป" else if(filename.startsWith("AD_")) "ภาพและปก: คัดลอกไป Gemini พร้อมภาพอ้างอิง • XML: คัดลอกคำสั่งทีละฉากไป Flow หลังตรวจภาพ • แอปไม่ได้สร้างสื่อในขั้นตอนนี้" else if(filename=="FLOW_STORY_COMMAND.txt") "ส่งคำสั่ง + MASTER 3 ภาพให้ AI เขียนบท → รับ story.json → นำเข้าขั้นตอน 2 • แอปปลายทางอาจให้กดส่งอีกครั้ง" else "ไฟล์คำสั่งสำหรับใช้งานใน Flow • ยังไม่ได้สร้างภาพหรือวิดีโอ")
+            .setView(frame)
+            .setPositiveButton(if(filename=="FLOW_STORY_COMMAND.txt") "ส่งให้ AI" else if(filename.contains("GEMINI_NEXT")) "คัดลอกทั้งหมด" else "คัดลอก") { _,_ ->
+                if(filename=="FLOW_STORY_COMMAND.txt") sendStoryPackage(code) else copyCommand(code)
+            }
+            .setNeutralButton("บันทึกไฟล์") { _,_ -> prefs.edit().putString("pending_flow_code",code).apply(); flowCodePicker.launch(filename) }
+            .setNegativeButton("ปิด",null)
+        val dialog=builder.showDirector()
+        frame.layoutParams=frame.layoutParams.apply { height=(resources.displayMetrics.heightPixels*0.48f).toInt() }
+        frame.requestLayout()
+        return dialog
+    }
+    private fun flowHome() {
+        label("เลือกคลิปสั้น / คลิปยาว • เลือกเวลาต่อ EP • ซีนละ 8 วินาที • 9:16",13)
+        val current=plan
+        val storyFile=File(project,"story.json")
+        val issues=current?.let { FlowProductionPack.issues(it) }.orEmpty()
+        val prepared=current!=null || File(project,"flow_story_command.txt").isFile
+        val exported=current!=null && storyFile.isFile && File(project,"flow_pack_exported.sha256").takeIf { it.isFile }?.readText()==EpisodeMedia.digest(storyFile)
+        val episodes=current?.getJSONArray("episodes")
+        val active=if(current==null) 1 else 2
+        val labelText = if (current==null) "สร้างบทในแอป • ดูสถานะงานเขียนด้านล่าง"
+            else if (current.optString("clip_format")=="short") "${current.optString("title")} • คลิปสั้น"
+            else "${current.optString("title")} • ${episodes!!.length()} EP"
+        label(labelText,14,true)
+        if(File(project,"gemini_job/spec.json").isFile) {
+            geminiStatusView=TextView(this).apply { text=geminiStatusText(readGeminiStatus()); setTextColor(ice); textSize=14f; setPadding(dp(8),dp(8),dp(8),dp(8)) }
+            root.addView(geminiStatusView)
+            geminiProgressView=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply {
+                max=100; progress=readGeminiStatus()?.optInt("percent")?.coerceIn(0,100) ?: 0
+                progressTintList=ColorStateList.valueOf(Color.rgb(0,210,240))
+                contentDescription="ความคืบหน้าบทที่บันทึกแล้ว"
+            }
+            root.addView(geminiProgressView,LinearLayout.LayoutParams(-1,dp(10)).apply { setMargins(dp(8),0,dp(8),dp(8)) })
+            button("🤖 งานเขียนบท • ดูสถานะ / ทำต่อ",false) { geminiJobMenu() }
+        } else { geminiStatusView=null; geminiProgressView=null }
+        if(current!=null) button("📋 คัดลอกข้อมูลโพสต์ Facebook / TikTok",false) { postDetails(current) }
+        if(current!=null && current.optString("clip_format")=="short") {
+            button("💬 ชื่อเรื่อง เรื่องย่อ และแคปชั่น",false) {
+                val details=ShortStoryDetails.text(current)
+                AlertDialog.Builder(this).setTitle("ข้อมูลและแคปชั่นคลิปสั้น").setMessage(details)
+                    .setPositiveButton("คัดลอกทั้งหมด") { _,_ -> copyCommand(details) }.setNegativeButton("ปิด",null).showDirector()
+            }
+        }
+        if(current!=null && prefs.getInt("last_image_deck_${project.name}",0)>0) button("📋 กลับรายการรูป/ซีนล่าสุด",false) { if(!returnToImageList()) notice("ไม่พบ EP ที่เคยเปิดในเรื่องนี้") }
+        if(File(project,"last_image_payload.json").isFile) button("🔁 ส่งคำสั่งและรูปอีกครั้ง",false) { retryLastImage() }
+        stepCard(1,"📝","สร้างบทในแอป","เลือกแนวเรื่องและระยะเวลา → AI เขียนบทและบันทึกในแอป",
+            completed=current!=null,currentStep=active,statusText=if(current!=null) "มีบทพร้อมใช้งาน" else if(File(project,"gemini_job/spec.json").isFile) "ตรวจสถานะงานเขียนบทด้านบน" else "พร้อมเริ่มสร้างบท") { flowPlanning() }
+        stepCard(2,"🎬","คำสั่งสร้างภาพและวิดีโอ",if(current==null) "รอบทเขียนเสร็จ แล้วเลือกตอนและซีนเพื่อใช้คำสั่ง" else if(issues.isNotEmpty()) "บทต้องตรวจแก้ ${issues.size} จุดก่อนใช้คำสั่ง" else "เลือก EP → สร้างภาพด้วย ChatGPT / Gemini → ใช้ภาพและคำสั่งสร้างคลิปใน Flow",
+            enabled=current!=null,completed=exported,currentStep=active,statusText=when { current==null -> "รอบทเขียนเสร็จ"; issues.isNotEmpty() -> "ต้องตรวจแก้บท"; exported -> "เคยส่งออกบทนี้แล้ว"; else -> "พร้อมใช้คำสั่ง" }) {
+            if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else commandCardsMenu()
+        }
+        label("นำคลิปที่สร้างใน Flow ไปตัดต่อด้วยโปรแกรมภายนอก",13)
+        if(current!=null && current.optString("aspect_ratio","16:9")!="9:16") button("↔ สร้างสำเนาเรื่องแนวตั้ง 9:16",false) { landscapeCopyMenu() }
+        label("เครื่องมือเสริม",15,true)
+        button("📥 นำเข้าบทที่มีอยู่",false) { packagePicker.launch(arrayOf("*/*")) }
+        button("⚙️ AutoDirector v45 • ภาพ Gemini / วิดีโอ Flow",false) { autoDirectorMenu() }
+        button("🧪 ทดสอบสร้างวิดีโอ • เลือกตัวละคร",false) { flowTestMenu() }
+        button("🎭 แม่แบบรูปร่างและคลังตัวละคร",false) { choiceMenu("ตัวละคร",listOf("สร้างตัวละครจากแม่แบบ","คลังตัวละครใหม่","ตัวละครของเรื่องที่เปิด")) { when(it) { 0 -> bodyTemplateMenu(); 1 -> actorCatalogMenu(); else -> castMenu() } } }
+        splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
+    }
+    private fun flowSettings() {
+        choiceMenu("ตั้งค่า DIRECTOR X",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","API • ตั้งค่าการเขียนบทอัตโนมัติ")) { i -> when(i) {
+            0 -> updater.check()
+            1 -> { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
+            2 -> if(plan==null) notice("ยังไม่มีเรื่องให้สำรอง") else { backupMode=true; zipPicker.launch(StoryFiles.zipName(plan!!.optString("title")+"_สำรอง")) }
+            3 -> restorePicker.launch(arrayOf("application/zip"))
+            4 -> AlertDialog.Builder(this).setTitle("เริ่มเรื่องใหม่")
+                .setMessage("เรื่องปัจจุบันยังอยู่ในรายการเรื่องที่บันทึก")
+                .setPositiveButton("เริ่มใหม่") { _,_ -> prefs.edit().putString("project",UUID.randomUUID().toString()).apply(); render() }
+                .setNegativeButton("ยกเลิก",null).showDirector()
+            5 -> geminiSettings()
+        } }
+    }
+    private fun readGeminiStatus(): JSONObject? = runCatching { GeminiStoryFiles.read(File(project,"gemini_job/status.json")) }.getOrNull()
+    private fun geminiStatusText(status: JSONObject?,details: Boolean=false): String {
+        if(status==null) return "${StoryProvider.label(this)} • ยังไม่เริ่มงาน"
+        return StoryStatusText.format(status,GeminiStoryService.running && GeminiStoryService.projectId==project.name,details=details)
+    }
+    private fun geminiSettings(afterSave: (() -> Unit)?=null) {
+        val providers=StoryProvider.activeProviders
+        val choices=providers.map { it.label+if(it.hasKey(this)) " • บันทึกคีย์แล้ว" else " • ยังไม่มีคีย์" }+
+            listOf("ทดสอบ Groq และ Gemini")
+        choiceMenu("ตั้งค่าคีย์ API • ใช้อัตโนมัติ",choices) { index ->
+            if(index==providers.size) testStoryApis(StoryProvider.hybridProviders)
+            else if(providers[index].extra()==null) storyProviderSettings(providers[index],afterSave)
+            else extraApiKeyDialog(providers[index].extra()!!,afterSave)
+        }
+    }
+    private fun extraApiSettingsMenu() {
+        val providers=ExtraApiProvider.entries.filter { it != ExtraApiProvider.CEREBRAS }
+        val choices=providers.map { provider ->
+            provider.label + if(ExtraApiSettings(this,provider).hasKey()) " • มีคีย์แล้ว" else " • ยังไม่มีคีย์"
+        }
+        choiceMenu("จัดเก็บ API Key เพิ่มเติม",choices) { index -> extraApiKeyDialog(providers[index]) }
+    }
+    private fun extraApiKeyDialog(provider: ExtraApiProvider,afterSave: (() -> Unit)?=null) {
+        val settings=ExtraApiSettings(this,provider)
+        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+        panel.addView(TextView(this).apply { text="${provider.label} • คีย์เก็บแบบเข้ารหัสบนเครื่องและไม่รวมในไฟล์สำรอง • ระบบเลือกค่ายอัตโนมัติ • การเรียกใช้ขึ้นอยู่กับโควตาและค่าบริการของบัญชี" })
+        val key=EditText(this).apply {
+            hint=if(settings.hasKey()) "มีคีย์แล้ว • พิมพ์เฉพาะเมื่อเปลี่ยนคีย์" else "${provider.label} API Key"
+            inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setSingleLine(true)
+            panel.addView(this)
+        }
+        if(provider==ExtraApiProvider.SAMBANOVA) panel.addView(TextView(this).apply { text="เลือก Model ID ที่บัญชี SambaNova ใช้งานได้ และรองรับ JSON • หากทดสอบไม่ผ่านให้ตรวจชื่อโมเดลและสิทธิ์บัญชี" })
+        val model=EditText(this).apply { hint="ชื่อโมเดล"; setSingleLine(true); setText(settings.model()); panel.addView(this) }
+        panel.addView(Button(this).apply { text="บันทึกและทดสอบ ${provider.label}"; setOnClickListener {
+            runCatching { settings.save(key.text.toString().trim().ifBlank { settings.key() },model.text.toString().trim()) }
+                .onSuccess { key.setText(""); key.hint="มีคีย์แล้ว • พิมพ์เฉพาะเมื่อเปลี่ยนคีย์"; testExtraApi(provider) }
+                .onFailure { notice(it.message ?: "ตรวจคีย์และชื่อโมเดล") }
+        } })
+        val dialog=AlertDialog.Builder(this).setTitle("${provider.label} • จัดเก็บ API Key")
+            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึก",null)
+            .setNeutralButton("ลบคีย์") { _,_ -> settings.clear(); notice("ลบคีย์ ${provider.label} จากเครื่องแล้ว") }
+            .setNegativeButton("ปิด",null).showDirector()
+        dialog.getButton(-1).setOnClickListener {
+            runCatching {
+                val value=key.text.toString().trim()
+                settings.save(value.ifBlank { settings.key() }, model.text.toString().trim())
+            }.onSuccess { key.setText(""); dialog.dismiss(); afterSave?.invoke() ?: notice("บันทึก ${provider.label} แล้ว • ระบบเลือกค่ายอัตโนมัติ") }
+                .onFailure { Toast.makeText(this,it.message ?: "บันทึกไม่ได้",Toast.LENGTH_LONG).show() }
+        }
+    }
+    private fun testExtraApi(provider: ExtraApiProvider) {
+        if(GeminiStoryService.running) { notice("กรุณารอหรือหยุดงานเขียนบทก่อนทดสอบ API"); return }
+        val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
+        val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
+        val view=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text="กำลังทดสอบ ${provider.label} ด้วยข้อความสั้น • ใช้โควตาของบัญชี • ไม่ส่งบทหรือภาพ"; setTextIsSelectable(true) }
+        val dialog=AlertDialog.Builder(this).setTitle("ทดสอบ ${provider.label}").setView(view).setNegativeButton("ปิด / หยุด",null).showDirector()
+        dialog.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
+        Thread {
+            val result=try {
+                val settings=ExtraApiSettings(this,provider)
+                val client=CompatibleStoryClient(provider.service,settings.key(),settings.model(),{ stopped.get() },automaticRetry=false)
+                active.set(client)
+                if(stopped.get()) throw java.util.concurrent.CancellationException()
+                StoryApiProbe.check(client)
+                "${provider.label}: ผ่าน • ${settings.model()} • รับคำตอบ JSON สำเร็จ\n\nผลนี้ไม่รับประกันโควตาระหว่างเขียนเรื่องยาว"
+            } catch(e: Exception) { "${provider.label}: "+StoryApiProbe.error(e) }
+            finally { active.set(null) }
+            runOnUiThread { if(!stopped.get() && !isFinishing && !isDestroyed) view.text=result }
+        }.apply { name="director-extra-api-probe"; start() }
+    }
+    private fun testStoryApis(providers: List<StoryProvider>) {
+        if(GeminiStoryService.running) { notice("กรุณารอหรือหยุดงานเขียนบทก่อนทดสอบ API"); return }
+        val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
+        val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
+        val view=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text="กำลังตรวจคีย์และโมเดลที่บันทึกไว้…\nส่งคำขอทดสอบสั้นจริงไปแต่ละบริการ ใช้โควตาของบัญชีนั้น ไม่ส่งบทหรือรูป"; setTextIsSelectable(true) }
+        val dialog=AlertDialog.Builder(this).setTitle("ทดสอบ API • ไม่สลับบริการแทนผลทดสอบ")
+            .setView(view).setNegativeButton("ปิด / หยุด",null).showDirector()
+        dialog.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
+        Thread {
+            val results=mutableListOf<String>()
+            for(target in providers) {
+                if(stopped.get()) break
+                val result=try {
+                    val settings=GeminiSettings(this,target)
+                    if(!settings.hasKey()) "${target.label}: ยังไม่มีคีย์ / อ่านคีย์ไม่ได้"
+                    else {
+                        val client: StoryTextClient=if(target==StoryProvider.GROQ) GroqClient(settings.key(),settings.model(),{stopped.get()},automaticRetry=false)
+                            else GeminiClient(settings.key(),settings.model(),{stopped.get()},automaticRetry=false)
+                        active.set(client)
+                        if(stopped.get()) throw java.util.concurrent.CancellationException()
+                        StoryApiProbe.check(client)
+                        "${target.label}: ผ่าน • ${settings.model()} • รับคำตอบ JSON สำเร็จ"
+                    }
+                } catch(e: Exception) { "${target.label}: "+StoryApiProbe.error(e) }
+                finally { active.set(null) }
+                results.add(result)
+                val text=results.joinToString("\n\n")+"\n\nผลทดสอบ ณ เวลานี้ ไม่รับประกันโควตาระหว่างเขียนเรื่องยาว"+
+                    if(results.size<providers.size) "\nกำลังทดสอบบริการถัดไป…" else ""
+                runOnUiThread { if(!stopped.get() && !isFinishing && !isDestroyed) view.text=text }
+            }
+        }.apply { name="director-api-probe"; start() }
+    }
+    private fun storyProviderSettings(provider: StoryProvider,afterSave: (() -> Unit)?=null) {
+        val settings=GeminiSettings(this,provider)
+        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+        panel.addView(TextView(this).apply { text="${provider.label} • คีย์เก็บแยกและเข้ารหัสบนเครื่อง ไม่ส่งออกในสำรองข้อมูล • ระบบเลือกและส่งต่อระหว่างค่ายอัตโนมัติ • ส่งเฉพาะข้อความบท/ลักษณะตัวละคร ไม่ส่งรูป MASTER • โควตาและค่าบริการขึ้นกับบัญชีแต่ละค่าย" })
+        val key=EditText(this).apply { hint=if(settings.hasKey()) "มีคีย์แล้ว • ว่างเพื่อใช้คีย์เดิม" else "${provider.label} API Key"; inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD; setSingleLine(true); panel.addView(this) }
+        val model=EditText(this).apply { hint="ชื่อโมเดล"; setSingleLine(true); setText(settings.model()); panel.addView(this) }
+        if(provider==StoryProvider.GROQ) panel.addView(TextView(this).apply { text="โมเดลที่รองรับ: "+GroqClient.MODELS.joinToString(" / ")+" • ครั้งละ 2 ซีน • เว้นคำขออย่างน้อย 65 วินาทีเพื่อลดการชนโควตาฟรี • หยุด / ทำต่อได้" })
+        panel.addView(Button(this).apply { text="สร้างคีย์ ${provider.label}"; setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(provider.keyUrl))) } })
+        panel.addView(Button(this).apply { text="บันทึกคีย์และทดสอบ ${provider.label}"; setOnClickListener {
+            runCatching { settings.save(key.text.toString().trim().ifBlank { settings.key() },model.text.toString().trim()) }
+                .onSuccess { key.setText(""); key.hint="มีคีย์แล้ว • ว่างเพื่อใช้คีย์เดิม"; testStoryApis(listOf(provider)) }
+                .onFailure { notice("ตรวจคีย์และชื่อโมเดลก่อนทดสอบ") }
+        } })
+        val dialog=AlertDialog.Builder(this).setTitle("${provider.label} • ตั้งค่า API")
+            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึก",null)
+            .setNeutralButton("ลบคีย์") { _,_ -> settings.clear(); notice("ลบคีย์ ${provider.label} จากเครื่องแล้ว") }.setNegativeButton("ปิด",null).showDirector()
+        dialog.getButton(-1).setOnClickListener {
+            runCatching { settings.save(key.text.toString().trim().ifBlank { settings.key() },model.text.toString().trim()) }
+                .onSuccess { dialog.dismiss(); afterSave?.invoke() ?: notice("บันทึก ${provider.label} แล้ว • ระบบเลือกค่ายอัตโนมัติ") }
+                .onFailure { Toast.makeText(this,it.message ?: "บันทึกไม่ได้",Toast.LENGTH_LONG).show() }
+        }
+    }
+    private fun startGeminiJob(folder: File) {
+        if(GeminiStoryService.running) { notice("มีงานเขียนบทกำลังทำงานอยู่ กรุณารอหรือหยุดงานเดิมก่อน"); return }
+        runCatching {
+            val intent=Intent(this,GeminiStoryService::class.java).putExtra("project",folder.name)
+            androidx.core.content.ContextCompat.startForegroundService(this,intent)
+        }.onFailure { notice("เริ่มงานไม่ได้ กรุณาเปิดแอปค้างไว้แล้วลองใหม่") }
+    }
+    private fun resolvePendingCharacterName() {
+        if(GeminiStoryService.running) { notice("กรุณาหยุดงานก่อนแก้ชื่อ"); return }
+        val job=File(project,"gemini_job")
+        val status=readGeminiStatus() ?: return notice("ไม่พบสถานะงาน")
+        val match=Regex("EP ([0-9]+) ซีน ([0-9]+): พบชื่อภาษาอังกฤษ '([A-Za-z][A-Za-z0-9_]*)'").find(status.optString("message"))
+            ?: return notice("ไม่พบชื่อที่ต้องจับคู่ในสถานะปัจจุบัน")
+        val ep=match.groupValues[1].toInt()
+        val sceneNumber=match.groupValues[2].toInt()
+        val files=job.listFiles().orEmpty().filter { it.name.matches(Regex("EP%02d_[0-9]+[.]json[.]pending[.]json".format(ep))) }
+        val candidates=files.filter { file -> runCatching {
+            val rows=GeminiStoryFiles.read(file).getJSONArray("scenes")
+            (0 until rows.length()).count { rows.getJSONObject(it).optInt("scene")==sceneNumber }==1
+        }.getOrDefault(false) }
+        if(candidates.size!=1) { notice("ไม่พบช่วงซีนที่ค้างเพียงรายการเดียว จึงยังไม่แก้ข้อมูล"); return }
+        val file=candidates.single()
+        val specFile=File(job,"spec.json")
+        val state=runCatching {
+            val batch=GeminiStoryFiles.read(file)
+            val spec=GeminiStoryFiles.read(specFile)
+            Triple(batch.toString(),spec,PendingNameReview.collect(batch,spec,CharacterAliasRegistry.read(job)))
+        }.getOrElse { notice("อ่านรายการที่ค้างไม่ได้ กรุณาตรวจงานเดิม"); return }
+        val (snapshot,spec,issues)=state
+        if(issues.isEmpty()) {
+            if(!StoryProvider.ready(this)) { geminiSettings { geminiJobMenu() }; return }
+            runCatching {
+                GeminiStoryFiles.write(specFile,StoryProvider.configure(this,GeminiStoryFiles.read(specFile)))
+                startGeminiJob(project)
+            }.onFailure { notice("เริ่มงานต่อไม่ได้: "+(it.message ?: "กรุณาลองใหม่")) }
+            return
+        }
+        choiceMenu("EP $ep • ชื่อที่ต้องตรวจในชุดนี้ (${issues.size})",issues.map { "ซีน ${it.scene} • ${it.alias}" }) { index ->
+            val issue=issues[index]
+            val definitions=FlowCast.definitions(spec)
+            val people=issue.people.filter { person ->
+                person.optString("name").isNotBlank() && person.optString("master").isNotBlank() &&
+                    definitions.count { it.optString("name")==person.optString("name") && it.optString("master").equals(person.optString("master"),true) }==1
+            }
+            if(people.isEmpty() || people.map { it.optString("name") }.distinct().size!=people.size) {
+                notice("รายชื่อตัวละครในซีนไม่ครบหรือซ้ำ กรุณาตรวจบทก่อน"); return@choiceMenu
+            }
+            AlertDialog.Builder(this).setTitle("ตรวจ ${issue.alias} • ซีน ${issue.scene}")
+                .setMessage("การกระทำในซีน:\n${issue.action}\n\nเลือกเฉพาะเมื่อแน่ใจว่าเป็นคนเดียวกัน")
+                .setPositiveButton("เลือกรายชื่อ") { _,_ ->
+                    choiceMenu("เลือกตัวละครที่ตรงกับ ${issue.alias}",people.map { it.optString("name")+" • "+it.optString("master") }) { selected ->
+                        val person=people[selected]
+                        val chosen=person.getString("name")
+                        val master=person.getString("master")
+                        AlertDialog.Builder(this).setTitle("ยืนยันตัวละคร")
+                            .setMessage("จับคู่ ${issue.alias} กับ $chosen สำหรับเรื่องนี้ แล้วตรวจชื่อที่เหลือต่อ?")
+                            .setPositiveButton("ยืนยัน") { _,_ ->
+                                if(GeminiStoryService.running) { notice("งานกำลังทำงานอยู่ กรุณาหยุดก่อน"); return@setPositiveButton }
+                                runCatching {
+                                    require(GeminiStoryFiles.read(file).toString()==snapshot) { "ซีนที่ค้างเปลี่ยนไป กรุณาเปิดรายการใหม่" }
+                                    val freshSpec=GeminiStoryFiles.read(specFile)
+                                    val fresh=FlowCast.definitions(freshSpec)
+                                    require(fresh.count { it.optString("name")==chosen && it.optString("master").equals(master,true) }==1) { "ตัวละครหรือ MASTER ไม่ตรงทะเบียนเรื่อง" }
+                                    require(fresh.none { it.optString("name")!=chosen && it.optString("english_name").equals(issue.alias,true) }) { "ชื่อนี้เป็นชื่อของตัวละครอื่นในทะเบียน" }
+                                    val registry=CharacterAliasRegistry.read(job)
+                                    CharacterAliasRegistry.add(registry,issue.alias,chosen,master)
+                                    CharacterAliasRegistry.save(job,registry)
+                                }.onSuccess { resolvePendingCharacterName() }
+                                 .onFailure { notice("บันทึกการจับคู่ไม่ได้: "+(it.message ?: "กรุณาลองใหม่")) }
+                            }.setNegativeButton("ยกเลิก",null).showDirector()
+                    }
+                }.setNegativeButton("กลับ",null).showDirector()
+        }
+    }
+    private fun regeneratePendingScene() {
+        if(GeminiStoryService.running) return notice("กรุณาหยุดงานก่อน")
+        val job=File(project,"gemini_job")
+        val match=Regex("EP ([0-9]+) ซีน ([0-9]+): พบชื่อภาษาอังกฤษ").find(readGeminiStatus()?.optString("message").orEmpty())
+            ?: return notice("ไม่พบซีนที่ต้องแก้ในสถานะปัจจุบัน")
+        val ep=match.groupValues[1].toInt()
+        val scene=match.groupValues[2].toInt()
+        val candidates=job.listFiles().orEmpty().filter { it.name.matches(Regex("EP%02d_[0-9]+[.]json[.]pending[.]json".format(ep))) }.filter { file ->
+            runCatching {
+                val rows=GeminiStoryFiles.read(file).getJSONArray("scenes")
+                (0 until rows.length()).count { rows.getJSONObject(it).optInt("scene")==scene }==1
+            }.getOrDefault(false)
+        }
+        if(candidates.size!=1) return notice("ไม่พบช่วงซีนที่ค้างเพียงรายการเดียว จึงยังไม่แก้ข้อมูล")
+        AlertDialog.Builder(this).setTitle("เขียนซีนที่ค้างใหม่")
+            .setMessage("สำรองช่วงเดิม แล้วเขียนใหม่เฉพาะ EP $ep ซีน $scene โดยใช้โครงเรื่องเดิม เนื้อหาซีนอาจเปลี่ยน ซีนที่บันทึกแล้วจะยังคงอยู่")
+            .setPositiveButton("เขียนซีนใหม่") { _,_ ->
+                if(GeminiStoryService.running) notice("กรุณาหยุดงานก่อน")
+                else runCatching {
+                    GeminiStoryEngine.prepareSceneRegeneration(job,candidates.single(),ep,scene)
+                    if(!StoryProvider.ready(this)) geminiSettings { geminiJobMenu() }
+                    else {
+                        val specFile=File(job,"spec.json")
+                        GeminiStoryFiles.write(specFile,StoryProvider.configure(this,GeminiStoryFiles.read(specFile)))
+                        startGeminiJob(project)
+                    }
+                }.onFailure { notice("เตรียมซีนใหม่ไม่ได้: "+(it.message ?: "กรุณาตรวจงานเดิม")) }
+            }.setNegativeButton("ยกเลิก",null).showDirector()
+    }
+    private fun geminiJobMenu() {
+        val state=readGeminiStatus()?.optString("state")
+        if(state=="complete" && plan!=null) { if(plan!!.optString("content_profile")==AutoDirectorContent.profile) autoDirectorMenu() else episodesMenu(); return }
+        if(GeminiStoryService.running) {
+            val live=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text=geminiStatusText(readGeminiStatus(),true); setTextIsSelectable(true) }
+            geminiLiveDialog=live
+            val dialog=AlertDialog.Builder(this).setTitle("สถานะงาน • อัปเดตทุกวินาที")
+                .setView(live)
+                .setPositiveButton("ดูต่อ",null).setNeutralButton("หยุดงาน") { _,_ -> startService(Intent(this,GeminiStoryService::class.java).setAction(GeminiStoryService.CANCEL)) }
+                .setNegativeButton("ปิด",null).showDirector()
+            dialog.setOnDismissListener { if(geminiLiveDialog===live) geminiLiveDialog=null }
+        } else {
+            if(readGeminiStatus()?.optString("message")?.contains("พบชื่อภาษาอังกฤษ")==true) {
+                choiceMenu("งานค้างเพราะชื่อตัวละคร • เลือกวิธีทำต่อ",listOf(
+                    "เขียนซีนที่ค้างใหม่ • เก็บซีนที่ผ่านแล้ว",
+                    "จับคู่ชื่อตัวละครด้วยตัวเอง",
+                    "ตั้งค่า API"
+                )) { selected ->
+                    when(selected) {
+                        0 -> regeneratePendingScene()
+                        1 -> resolvePendingCharacterName()
+                        else -> geminiSettings()
+                    }
+                }
+                return
+            }
+            AlertDialog.Builder(this).setTitle("เขียนบทต่อจากที่บันทึก")
+                .setMessage(geminiStatusText(readGeminiStatus(),true)+"\nจะใช้ ${StoryProvider.label(this@StudioActivity)} และโมเดลที่ตั้งค่าปัจจุบัน เขียนเฉพาะช่วงที่ยังไม่สำเร็จ")
+                .setPositiveButton("ทำต่อ") { _,_ ->
+                    if(!StoryProvider.ready(this)) geminiSettings { geminiJobMenu() }
+                    else runCatching {
+                        val specFile=File(project,"gemini_job/spec.json"); val spec=StoryProvider.configure(this,GeminiStoryFiles.read(specFile))
+                        GeminiStoryFiles.write(specFile,spec); startGeminiJob(project)
+                    }.onFailure { notice("อ่านงานเดิมไม่ได้ กรุณาเริ่มเรื่องใหม่") }
+                }.setNeutralButton(if(readGeminiStatus()?.optString("message")?.contains("พบชื่อภาษาอังกฤษ")==true) "แก้ซีนที่ค้าง" else "ตั้งค่า API") { _,_ ->
+                    if(readGeminiStatus()?.optString("message")?.contains("พบชื่อภาษาอังกฤษ")==true)
+                        choiceMenu("แก้ซีนที่ค้าง",listOf("จับคู่ชื่อตัวละคร","เขียนซีนที่ค้างใหม่","ตั้งค่า API")) { when(it) { 0 -> resolvePendingCharacterName(); 1 -> regeneratePendingScene(); else -> geminiSettings() } }
+                    else geminiSettings()
+                }.setNegativeButton("ปิด",null).showDirector()
+        }
+    }
+    private fun landscapeCopyMenu() {
+        val source=plan ?: return notice("ยังไม่มีบทให้ทำสำเนา")
+        AlertDialog.Builder(this).setTitle("สร้างสำเนาแนวตั้ง 9:16")
+            .setMessage("เก็บเรื่องเดิมไว้ แล้วทำสำเนาบทกับ MASTER เพื่อสร้างปก ภาพ และวิดีโอใหม่เป็นแนวตั้ง 1080×1920 • ไม่ยืดหรือครอปภาพ/คลิปเก่าอัตโนมัติ ต้องตรวจภาพใหม่ก่อนใช้ Flow")
+            .setPositiveButton("สร้างสำเนา") { _,_ ->
+                val original=project
+                val folder=File(base,UUID.randomUUID().toString())
+                runCatching {
+                    folder.mkdirs()
+                    listOf("original_masters","masters").forEach { name -> val refs=File(original,name); if(refs.isDirectory) check(refs.copyRecursively(File(folder,name))) }
+                    val copy=LandscapeProduction.copyPlan(source).put("portrait_copy_of",original.name)
+                    GeminiStoryFiles.write(File(folder,"story.json"),copy)
+                    prefs.edit().putString("project",folder.name).apply(); render()
+                    notice("สร้างสำเนาแนวตั้งแล้ว • สร้างปกและภาพใหม่ จากนั้นนำเข้ามาตรวจและสร้างวิดีโอ 9:16")
+                }.onFailure { folder.deleteRecursively(); notice(it.message ?: "สร้างสำเนาไม่ได้") }
+            }.setNegativeButton("ยกเลิก",null).showDirector()
+    }
+    private fun autoDirectorMenu() {
+        choiceMenu("AutoDirector v45",listOf("สร้างเรื่องใหม่ • เลือกหมวดหลัก / AI คิดพล็อต","Phase 1 • ดูโครงเรื่องที่เปิด","Phase 2–4 • ทำงานทีละ EP","ส่งออก ZIP • ตอนละ 2 ไฟล์","คำสั่งภาพ / Flow • เลือก EP")) { action ->
+            if(action==0) { flowPlanning(true); return@choiceMenu }
+            val story=plan
+            if(story==null) { if(File(project,"gemini_job/spec.json").isFile) geminiJobMenu() else notice("ยังไม่มีบท กรุณาสร้างเรื่องใหม่หรือนำเข้าบทก่อน"); return@choiceMenu }
+            if(story.optString("content_profile")!=AutoDirectorContent.profile) {
+                notice("เรื่องนี้ใช้รูปแบบเดิม เลือกสร้างเรื่องใหม่ใน AutoDirector v45 เพื่อเลือกเวลาคลิป เสื้อผ้า 4 ส่วน และไฟล์ Gemini / Flow XML"); return@choiceMenu
+            }
+            if(story.optString("aspect_ratio","16:9")!="9:16") { landscapeCopyMenu(); return@choiceMenu }
+            val wardrobeIssues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(story))
+            if(action>=2 && wardrobeIssues.isNotEmpty()) { notice(wardrobeIssues.take(12).joinToString("\n")); return@choiceMenu }
+            val revision=EpisodeMedia.digest(File(project,"story.json"))
+            val phaseKey="autodirector_${project.name}_$revision"
+            when(action) {
+                1 -> {
+                    showFlowCode("Phase 1 • โครงเรื่อง",AutoDirectorContent.outline(story),"AD_01_OUTLINE.txt")
+                    prefs.edit().putBoolean(phaseKey+"_outline",true).apply()
+                }
+                2 -> {
+                    val eps=story.getJSONArray("episodes")
+                    choiceMenu("เลือก EP",(0 until eps.length()).map { i -> "EP.${i+1} ${eps.getJSONObject(i).optString("title")}" }) { index ->
+                        val number=eps.getJSONObject(index).getInt("ep"); val key=phaseKey+"_ep$number"
+                        choiceMenu("EP.$number • เลือกทำทีละขั้น",listOf("ภาพ EP.$number • ปกและซีน","บทพูด EP.$number","วิดีโอ EP.$number • ทีละซีนพร้อมเสียง","XML EP.$number • ขั้นสูง")) { stage ->
+                            val reached=prefs.getInt(key,0)
+                            val code=when(stage) {
+                                0,2 -> ""
+                                1 -> AutoDirectorContent.dialogue(story,number)
+                                else -> AutoDirectorContent.flowXml(story,number)
+                            }
+                            val file=when(stage) { 0 -> "AD_EP%02d_IMAGES_GEMINI.txt"; 1 -> "AD_EP%02d_DIALOGUE.txt"; else -> "AD_EP%02d_FLOW.xml" }.format(number)
+                            when(stage) {
+                                0 -> productionTaskDeck(story,number,true)
+                                2 -> productionTaskDeck(story,number,false)
+                                else -> showFlowCode("Phase ${if(stage==3) 4 else 3} • EP.$number",code,file)
+                            }
+                            prefs.edit().putInt(key,maxOf(reached,minOf(stage+1,3))).apply()
+                        }
+                    }
+                }
+                4 -> commandCardsMenu()
+                3 -> {
+                    val issues=FlowProductionPack.issues(story)
+                    if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else { starterFlowPack=false; flowPackPicker.launch(StoryFiles.zipName(story.optString("title"))) }
+                }
+            }
+        }
+    }
+    private fun postDetails(story: JSONObject) {
+        val episodes=story.optJSONArray("episodes")
+        if(episodes==null || episodes.length()==0) { notice("เรื่องนี้ยังไม่มีข้อมูลตอน"); return }
+        choiceMenu("เลือกตอนสำหรับคัดลอก",(0 until episodes.length()).map { i -> episodes.getJSONObject(i).let { "EP.${it.optInt("ep",i+1)} • ${it.optString("title").ifBlank { "ยังไม่มีชื่อตอน" }}" } }) { index ->
+            val text=SocialPostText.build(story,index)
+            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
+            panel.addView(TextView(this).apply { this.text="ตรวจและแก้ข้อความก่อนคัดลอก • คำอธิบายอาจมาจากเรื่องย่อ โปรดตรวจว่าไม่เปิดเผยตอนจบ • หากข้อมูลขาดสามารถพิมพ์เพิ่มได้" })
+            val edit=EditText(this).apply { setText(text); minLines=8; gravity=android.view.Gravity.TOP; panel.addView(this) }
+            val dialog=AlertDialog.Builder(this).setTitle("ข้อมูลโพสต์ • ตรวจและคัดลอก").setView(ScrollView(this).apply { addView(panel) })
+                .setPositiveButton("คัดลอกทั้งหมด",null).setNegativeButton("ปิด",null).showDirector()
+            dialog.getButton(-1).setOnClickListener {
+                val result=edit.text.toString().trim()
+                if(result.isBlank()) { notice("ยังไม่มีข้อมูลให้คัดลอก"); return@setOnClickListener }
+                copyCommand(result); dialog.dismiss()
+            }
+        }
+    }
+    private fun savedChannelNames(): List<String> = runCatching {
+        val a=JSONArray(prefs.getString("story_channels","[]")); (0 until a.length()).map { a.optString(it).trim() }.filter { it.isNotBlank() }
+    }.getOrDefault(emptyList())
+    private fun chooseStoryChannel(done: (String)->Unit) {
+        // Only the requested two channels are offered for new work. Existing stories stay untouched.
+        val names=listOf("นายเปีย บ้านคลองขุด",originalChannel)
+        choiceMenu("ขั้นแรก • เลือกชื่อช่อง",names) { index ->
+            prefs.edit().putString("selected_story_channel",names[index]).apply()
+            done(names[index])
+        }
+    }
+    private var selectedStoryTopic: String = ""
+    private fun chooseStoryTopic(index: Int, done: (Int) -> Unit) {
+        val topics=ChannelCatalog.shortTopics(ChannelCatalog.allCategories[index].id)
+        if(topics.isEmpty()) { selectedStoryTopic=""; done(index); return }
+        choiceMenu("ขั้นที่ 3 • เลือกสถานการณ์ • ${ChannelCatalog.allCategories[index].name}",listOf("🎲 สุ่มสถานการณ์")+topics) { choice ->
+            selectedStoryTopic=if(choice==0) topics.random() else topics[choice-1]
+            done(index)
+        }
+    }
+    private fun chooseChannelTopic(channel: String, done: (Int) -> Unit) {
+        if(channel=="นายเปีย บ้านคลองขุด") {
+            val ids=listOf("pia_benefits","pia_safety","personal_social_drama","pia_products")
+            val labels=listOf("📌 สวัสดิการและสิทธิประโยชน์\nข้อมูลสิทธิและข่าวสวัสดิการ", "💡 ความรู้และเตือนภัย\nความรู้ใกล้ตัวและภัยมิจฉาชีพ", "🎬 ละครสั้นสะท้อนสังคม\nเรื่องเล่าและข้อคิด", "🛍️ นายเปียพาช้อป\nรีวิวและแนะนำสินค้า")
+            val subcategories=listOf(
+                listOf("สิทธิผู้สูงอายุ", "สิทธิผู้พิการ", "สวัสดิการเด็กและครอบครัว", "บัตรสวัสดิการแห่งรัฐ", "ประกันสังคม", "สิทธิรักษาพยาบาล", "ขั้นตอนตรวจสอบสิทธิ", "ข่าวสวัสดิการอื่น ๆ"),
+                listOf("เตือนภัยมิจฉาชีพ", "โทรศัพท์และข้อความหลอกลวง", "หลอกโอนเงินและซื้อขายออนไลน์", "ความปลอดภัยบัญชีและข้อมูล", "เรื่องไอทีและมือถือ", "วิธีใช้แอปใกล้ตัว", "ความรู้ในชีวิตประจำวัน", "รู้เท่าทันข่าวและข้อมูล"),
+                listOf("ครอบครัวและความกตัญญู", "ผู้สูงอายุและการดูแล", "น้ำใจและการช่วยเหลือ", "ความซื่อสัตย์และความไว้ใจ", "คนทำงานและอาชีพ", "ปัญหาในชุมชน", "การให้โอกาสและเริ่มต้นใหม่", "มิตรภาพและสัตว์เลี้ยง"),
+                listOf("เครื่องมือช่าง", "เครื่องมือสวนและเกษตร", "ของใช้ในบ้าน", "เครื่องใช้ไฟฟ้าในครัว", "อุปกรณ์ไอทีและมือถือ", "ของใช้ส่วนตัว", "ของใช้ในรถ", "เปรียบเทียบและเลือกซื้อสินค้า")
+            )
+            choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",labels) { selected ->
+                val index=ChannelCatalog.allCategories.indexOfFirst { it.id==ids[selected] }
+                require(index>=0) { "ไม่พบหมวดที่เลือก" }
+                choiceMenu("เลือกหมวดย่อย • "+ChannelCatalog.allCategories[index].name,subcategories[selected]) { sub ->
+                    selectedStoryTopic=subcategories[selected][sub]
+                    done(index)
+                }
+            }
+            return
+        }
+        val film=ChannelCatalog.filmCategories
+        choiceMenu("ขั้นที่ 1 • เลือกหมวดหลัก • ร้อยฉาก",film.map { it.menuLabel }) { selected ->
+            val index=ChannelCatalog.allCategories.indexOfFirst { it.id==film[selected].id }
+            val topics=ChannelCatalog.shortTopics(film[selected].id)
+            choiceMenu("ขั้นที่ 2 • เลือกแนวย่อย",listOf("🎲 สุ่มแนวย่อย")+topics) { choice ->
+                selectedStoryTopic=if(choice==0) topics.random() else topics[choice-1]
+                done(index)
+            }
+        }
+    }
+    private fun chooseDramaTopic(done: (Int) -> Unit) {
+        val shelves=ChannelCatalog.storyShelves
+        choiceMenu("ขั้นที่ 1 • เลือกหมวดหลัก",shelves.map { it.menuLabel }) { selected ->
+            val shelf=shelves[selected]
+            val choices=shelf.categoryIds.map { id -> ChannelCatalog.allCategories.indexOfFirst { it.id==id }.also { require(it>=0) } }
+            choiceMenu("ขั้นที่ 2 • เลือกแนวย่อย",choices.map { ChannelCatalog.genreMenuLabel(ChannelCatalog.allCategories[it]) }) { picked ->
+                chooseStoryTopic(choices[picked],done)
+            }
+        }
+    }
+    private fun chooseClip(done: (String,Int) -> Unit) {
+        choiceMenu("เลือกรูปแบบ • ทุกแบบแนวตั้ง 9:16",listOf("คลิปสั้น","คลิปยาว")) { format ->
+            val times=if(format==0) ClipPlan.shortSeconds else ClipPlan.longSeconds
+            choiceMenu(if(format==0) "เวลาเนื้อหาคลิปสั้น • ไม่รวมปก" else "เวลาเนื้อหาต่อ EP • ไม่รวมปกเปิด",times.map { ClipPlan.label(it)+(if(it==if(format==0) 30 else 300) " • แนะนำเริ่มต้น" else "") }) { index -> done(if(format==0) "short" else "long",times[index]) }
+        }
+    }
+    private fun flowPlanning(autoDirector: Boolean = false) {
+        if(GeminiStoryService.running) { geminiJobMenu(); return }
+        if(!StoryProvider.ready(this)) { geminiSettings { flowPlanning(autoDirector) }; return }
+        var chosenChannel=originalChannel
+        val configure: (Int) -> Unit = { index ->
+            chooseClip { format, seconds ->
+            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+            panel.addView(TextView(this).apply { text="หมวด: ${categories[index]}\nสถานการณ์ตั้งต้น: $selectedStoryTopic\nAI เลือกนักแสดงจากคลัง MASTER และตั้งชื่ออัตโนมัติตามบท ${if(format=="short") "สร้างเรื่องจบในคลิปเดียว" else "แล้วเขียนเรื่องต่อครบทุก EP"}"; textSize=14f })
+            val premise=EditText(this).apply { hint=if(chosenChannel=="นายเปีย บ้านคลองขุด") "รายละเอียดที่ตรวจสอบแล้ว / ข้อมูลสินค้า" else "แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
+            if(ChannelCatalog.allCategories[index].id in setOf("pia_benefits","pia_safety","pia_products")) panel.addView(TextView(this).apply { text="ระบุข้อเท็จจริงและแหล่งอ้างอิงที่ตรวจสอบแล้ว • แอปไม่ได้ตรวจข่าวหรือยืนยันข้อมูลสินค้าอัตโนมัติ" })
+            if(ChannelCatalog.allCategories[index].id=="pia_products") {
+                panel.addView(TextView(this).apply { text="ดูตัวอย่างโฆษณาสินค้าจาก TikTok Creative Center แล้วกรอกรายละเอียดสินค้าที่ตรวจสอบเอง • ตัวอย่างโฆษณาไม่ใช่อันดับยอดขาย • ระบบยังไม่เชื่อมข้อมูล TikTok Shop อัตโนมัติ" })
+                panel.addView(Button(this).apply { text="ดูตัวอย่างโฆษณาสินค้า TikTok"; setOnClickListener {
+                    runCatching { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://ads.tiktok.com/business/creativecenter/inspiration/topads/pc/en?region=TH"))) }.onFailure { notice("เปิด TikTok Creative Center ไม่ได้") }
+                } })
+            }
+            val presenters=if(chosenChannel=="นายเปีย บ้านคลองขุด") runCatching { installPiaDefaults(); piaCatalog() }.getOrDefault(JSONArray()) else JSONArray()
+            val presenter=Spinner(this).apply {
+                val labels=listOf("เลือก MASTER ผู้ดำเนินเรื่อง")+(0 until presenters.length()).map { presenters.getJSONObject(it).optString("display_name").ifBlank { presenters.getJSONObject(it).optString("id") } }
+                adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,labels)
+                if(chosenChannel=="นายเปีย บ้านคลองขุด") { panel.addView(this); if(presenters.length()>0 && presenters.getJSONObject(0).optString("id")==piaActorId) setSelection(1) }
+            }
+            val presenterOutfits=listOf("เลือกชุดตามเนื้อเรื่อง", "สูทกรมท่า เนกไทลายฟ้า", "ชุดช่างสีเขียวเข้ม", "ชุดช่างสีกรมท่าส้ม", "ชุดช่างสีเทาเข้ม", "ชุดช่างสีน้ำเงิน", "เสื้อเชิ้ตสีครีม กางเกงเขียว", "เสื้อเชิ้ตสีฟ้า กางเกงกรมท่า", "เสื้อเชิ้ตสีขาว กางเกงดำ", "เสื้อเชิ้ตสีดำ กางเกงเทา", "เสื้อช่างกรม กางเกงเทา ถุงมือ", "ชุดทำสวนสีครีม หมวกและรองเท้าบูท", "ชุดทำสวนกรมท่า หมวกคลุมต้นคอและรองเท้าบูท")
+            val presenterOutfit=Spinner(this).apply {
+                adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,presenterOutfits)
+                if(chosenChannel=="นายเปีย บ้านคลองขุด") { panel.addView(TextView(this@StudioActivity).apply { text="ชุดตัวละครหลัก • เลือกชุดเริ่มต้น" }); panel.addView(this) }
+            }
+            if(chosenChannel=="นายเปีย บ้านคลองขุด") panel.addView(Button(this).apply {
+                text="เพิ่มหรือเปลี่ยนรูปของชุดที่เลือก"
+                setOnClickListener {
+                    if(presenter.selectedItemPosition<=0 || presenterOutfit.selectedItemPosition<=0) {
+                        notice("เลือก MASTER ผู้ดำเนินเรื่องและชุดก่อนเพิ่มรูป")
+                    } else {
+                        prefs.edit().putString("presenter_outfit_actor",presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id"))
+                            .putInt("presenter_outfit_slot",presenterOutfit.selectedItemPosition).apply()
+                        presenterOutfitPicker.launch(arrayOf("image/*"))
+                    }
+                }
+            })
+            val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("1 EP • จบในตอน","ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); if(format!="short") panel.addView(this) }
+            if(format=="short") panel.addView(TextView(this).apply { text="คลิปสั้น • จบในคลิปเดียว" })
+            panel.addView(TextView(this).apply { text="${if(format=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(seconds)}${if(format=="short") "" else " ต่อ EP"} • ไม่รวมปกเปิด 3 วินาที • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้\n\nอัตโนมัติ: Groq → Gemini; สำรอง Gemini → DeepSeek, OpenRouter, Cohere, Mistral หรือ SambaNova • เนื้อหาอาจถูกส่งไปยังค่ายที่รับช่วง • โควตาและค่าบริการขึ้นอยู่กับแต่ละบัญชี • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ภายหลัง" })
+            AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
+                .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
+                    runCatching {
+                        if(ChannelCatalog.allCategories[index].id in setOf("pia_benefits","pia_safety","pia_products")) require(premise.text.toString().trim().isNotEmpty()) { "กรุณาระบุข้อมูลที่ตรวจสอบแล้วหรือรายละเอียดสินค้าก่อนสร้างบท" }
+                        val catalog=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog() else castingCatalog()
+                        val presenterId=if(chosenChannel=="นายเปีย บ้านคลองขุด") {
+                            require(presenter.selectedItemPosition>0) { "กรุณาเพิ่มรูป MASTER ผู้ดำเนินเรื่องในคลัง แล้วเลือกจากรายการ" }
+                            presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id")
+                        } else ""
+                        if(presenterId.isNotBlank() && presenterOutfit.selectedItemPosition>0) require(presenterOutfitFile(presenterId,presenterOutfit.selectedItemPosition).isFile) { "กรุณาเพิ่มรูปของชุดที่เลือก หรือเลือกชุดตามเนื้อเรื่อง" }
+                        require(catalog.length()>0) { "คลัง MASTER ว่าง กรุณาเพิ่มตัวละครก่อน" }
+                        if(ChannelCatalog.allCategories[index].id=="younger_man_older_woman") {
+                            val candidates=(0 until catalog.length()).map { catalog.getJSONObject(it) }
+                            val men=candidates.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 25..30 }
+                            val women=candidates.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 45..55 }
+                            require(men.any { man -> women.any { woman -> woman.optInt("character_age")-man.optInt("character_age")>=15 } }) {
+                                "หมวดนี้ต้องมีผู้ชายอายุ 25–30 และผู้หญิงอายุ 45–55 ห่างกันอย่างน้อย 15 ปี ในคลัง MASTER • พบชาย ${men.size} คน หญิง ${women.size} คน กรุณาตรวจข้อมูลในคลังหรือเลือกแนวทั่วไป"
+                            }
+                        }
+                        if(ChannelCatalog.allCategories[index].id=="older_man_younger_woman") {
+                            val candidates=(0 until catalog.length()).map { catalog.getJSONObject(it) }
+                            val men=candidates.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 45..60 }
+                            val women=candidates.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 25..35 }
+                            require(men.any { man -> women.any { woman -> man.optInt("character_age")-woman.optInt("character_age")>=15 } }) {
+                                "แนวนี้ต้องมี MASTER ผู้ชายอายุ 45–60 ปี และผู้หญิงอายุ 25–35 ปี โดยผู้ชายอายุมากกว่าอย่างน้อย 15 ปี กรุณาตรวจคลังตัวละคร"
+                            }
+                        }
+                        val folder=File(base,UUID.randomUUID().toString()).apply { mkdirs() }
+                        for(n in 0 until catalog.length()) {
+                            val row=catalog.getJSONObject(n); val target=File(folder,"master_candidates/"+row.getString("file")); target.parentFile!!.mkdirs()
+                            val original=castingSource(row); require(original.isFile && MasterLibrary.digest(original.readBytes())==row.getString("sha256")) { "ภาพ MASTER ของ ${row.optString("display_name")} สูญหายหรือเปลี่ยนไป" }
+                            val outfitImage=if(row.getString("id")==presenterId && presenterOutfit.selectedItemPosition>0) presenterOutfitFile(presenterId,presenterOutfit.selectedItemPosition) else null
+                            val source=outfitImage?.takeIf { it.isFile } ?: original
+                            source.copyTo(target,overwrite=true)
+                            if(source!=original) row.put("sha256",MasterLibrary.digest(source.readBytes()))
+                        }
+                        val count=if(format=="short") 1 else when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
+                        GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",chosenChannel).put("presenter_library_id",presenterId)
+                            .put("presenter_outfit",if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenterOutfit.selectedItemPosition>0) presenterOutfits[presenterOutfit.selectedItemPosition] else "").put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",3).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("story_situation",selectedStoryTopic).put("premise",listOf("สถานการณ์ตั้งต้นที่เลือก: "+selectedStoryTopic,premise.text.toString()).filter { it.isNotBlank() }.joinToString("\n")).put("episodes",count)))
+                        prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
+                    }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
+                }.setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
+        }
+        }
+        chooseStoryChannel { channel -> chosenChannel=channel; chooseChannelTopic(channel,configure) }
+    }
+    private fun flowPlanningShare() {
+        chooseStoryChannel { channel ->
+        if(channel=="นายเปีย บ้านคลองขุด") { notice("ช่องนี้ต้องเลือก MASTER ผู้ดำเนินเรื่องผ่านเมนูสร้างบทในแอป"); return@chooseStoryChannel }
+        chooseChannelTopic(channel) { index ->
+            chooseClip { format, seconds ->
+            val premise=EditText(this).apply { hint="แนวคิดเรื่อง (เว้นว่างให้คิดใหม่)" }
+            fun prepare(): String {
+                val code=FlowProductionPack.masterCommand(categories[index],channel)+"\n"+ChannelCatalog.direction(categories[index])+"\n"+(if(format=="short") ChannelCatalog.shortDirection(categories[index],ClipPlan.scenes(seconds)) else ChannelCatalog.longDirection)+"\n"+ChannelCatalog.storyConsistency+"\nUSER DURATION OVERRIDE: ${if(format=="short") "One standalone episode only; beginning, middle and ending within this one clip. " else ""}${ClipPlan.scenes(seconds)} scenes per EP, 8 seconds each, ${ClipPlan.time(ClipPlan.scenes(seconds)*8)} content per EP. Supersedes default 24 scenes and 180-second minimum above. Set clip_plan_version=1, clip_format=$format, target_seconds=$seconds, scenes_per_episode=${ClipPlan.scenes(seconds)} in story.json.\nแนวย่อย: "+selectedStoryTopic+"\nแนวคิด: "+premise.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" }
+                File(project,"flow_story_command.txt").writeText(code)
+                render()
+                return code
+            }
+            AlertDialog.Builder(this).setTitle("ส่งข้อมูลให้ AI วางบท")
+                .setMessage("แอปแนบคำสั่งและ MASTER 3 ภาพให้เอง เลือกแอป AI ที่รับไฟล์ แล้วตรวจไฟล์แนบและกดส่งในแอปนั้น ผลลัพธ์ที่ต้องรับกลับ: story.json / ZIP บท เพื่อนำเข้าขั้นตอน 2 • ยังไม่ใช่การเรียก API อัตโนมัติ")
+                .setView(premise).setPositiveButton("ส่งคำสั่ง + MASTER") { _,_ -> sendStoryPackage(prepare()) }
+                .setNeutralButton("ดูคำสั่งก่อน") { _,_ -> showFlowCode("คำสั่งวางบท",prepare(),"FLOW_STORY_COMMAND.txt") }
+                .setNegativeButton("ยกเลิก",null).showDirector()
+        }
+    }
+    }
+    }
+    private fun flowTestMenu() {
+        val ids=FlowProductionPack.names.keys.toList(); val checked=BooleanArray(ids.size)
+        val dialog=AlertDialog.Builder(this).setTitle("เลือกตัวละครทดสอบวิดีโอ")
+            .setMultiChoiceItems(ids.map { FlowProductionPack.names.getValue(it) }.toTypedArray(),checked) { _,i,value -> checked[i]=value }
+            .setPositiveButton("ตั้งค่าฉาก",null).setNegativeButton("ยกเลิก",null).create()
+        dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val selected=ids.filterIndexed { i,_ -> checked[i] }
+            if(selected.isEmpty()) Toast.makeText(this,"เลือกอย่างน้อย 1 คน",Toast.LENGTH_SHORT).show()
+            else { dialog.dismiss(); flowTestSetup(selected) }
+        } }; dialog.show()
+    }
+    private fun flowTestSetup(ids: List<String>) {
+        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+        panel.addView(TextView(this).apply { text="แนบภาพตัวละครที่เลือกตามรหัสอ้างอิงด้านบนคำสั่ง ไม่ต้องเปลี่ยนชื่อไฟล์หรือกรอกนามสกุล" })
+        val activity=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ลำลอง / อยู่บ้าน","ประชุม / ทำงาน","ชุดนอน")) }
+        panel.addView(activity)
+        val location=EditText(this).apply { hint="สถานที่และเวลา"; setText("ห้องนั่งเล่นตอนบ่าย แสงธรรมชาติ"); panel.addView(this) }
+        val action=EditText(this).apply { hint="ท่าทาง / การกระทำ"; setText("ยืนข้างโต๊ะ ถือแก้วน้ำอย่างผ่อนคลาย"); panel.addView(this) }
+        val outfit=EditText(this).apply { hint="ชุดที่ต้องการ (ว่าง = เลือกตามกิจกรรม)"; panel.addView(this) }
+        AlertDialog.Builder(this).setTitle("ทดสอบสร้างวิดีโอ • ${ids.joinToString { FlowProductionPack.names.getValue(it) }}")
+            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างคำสั่ง") { _,_ ->
+                val files=ids.associateWith { id -> File(filesDir,"character_masters/$id.master") }
+                runCatching {
+                    require(files.values.all { it.isFile && it.length()>0 }) { "ขาดภาพ MASTER ของตัวละครที่เลือก" }
+                    FlowTestPrompt.build(ids,listOf("home","meeting","sleep")[activity.selectedItemPosition],location.text.toString(),action.text.toString(),outfit.text.toString()) }
+                    .onSuccess { code ->
+                        showFlowCode("คำสั่งทดสอบสร้างวิดีโอ • แนบ MASTER ที่เลือก",code,"FLOW_VIDEO_TEST_${ids.joinToString("_")}.txt")
+                    }
+                    .onFailure { notice(it.message ?: "ตรวจข้อมูลทดสอบ") }
+            }.setNegativeButton("ยกเลิก",null).showDirector()
+    }
+    private fun flowSceneMenu(s: JSONObject) {
+        if(plan?.optString("aspect_ratio","16:9")!="9:16") { landscapeCopyMenu(); return }
+        choiceMenu("${key(s)} • ${if(sceneFrameApproved(s)) "ภาพผ่านแล้ว" else "รอตรวจภาพ"}",listOf("1. สร้างภาพฉากจาก MASTER","3. สร้างวิดีโอจากภาพที่ผ่าน","แก้บท / ชุด / สถานที่","นำเข้าภาพจาก Gemini / Flow","นำเข้าคลิป MP4","2. เทียบ MASTER / ยืนยันภาพ","ดูคลิป","เวอร์ชันไฟล์","เสนอขยายบทสั้น • ตรวจยืนยันก่อนบันทึก")) { i -> when(i) {
+            0 -> if(plan?.optString("content_profile")==AutoDirectorContent.profile) {
+                val issues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(plan!!))
+                if(issues.isNotEmpty()) notice(issues.take(12).joinToString("\n")) else showFlowCode("IMAGE PROMPT • Gemini",AutoDirectorContent.sceneImage(plan!!,s),"AD_${key(s)}_IMAGE_GEMINI.txt")
+            }
+                else showFlowCode("IMAGE PROMPT",FlowReferencePrompt.scene(s,s.optInt("ep",1),"image"),"${key(s)}_IMAGE.txt")
+            1 -> reviewedVideoCommand(s)
+            2 -> editScene(s)
+            3 -> { mediaSlot=key(s); mediaKind="image"; mediaProject=project.name; sceneMediaPicker.launch(arrayOf("image/*")) }
+            4 -> { mediaSlot=key(s); mediaKind="video"; mediaProject=project.name; sceneMediaPicker.launch(arrayOf("video/mp4")) }
+            5 -> compareScene(s)
+            6 -> playVideo(s)
+            7 -> versionsMenu(s)
+            8 -> suggestLongerSpeech(s)
+        } }
+    }
+
+    private fun suggestLongerSpeech(scene: JSONObject) {
+        if(ProductionCommandCheck.dialogueTurns(scene).isNotEmpty()) return notice("ขณะนี้ให้แก้บทหลายคนในเมนูแก้บททีละช่วงก่อน")
+        val field=if(scene.optString("dialogue").trim().let { it.isNotBlank() && it !in listOf("ไม่มี","none") }) "dialogue" else "narration"
+        val original=scene.optString(field).trim()
+        if(original.isBlank() || original in listOf("ไม่มี","none","ไม่มีเสียงบรรยาย")) return notice("ฉากนี้ไม่มีบทพูดหรือบรรยายให้ขยาย")
+        val providers=StoryProvider.activeProviders.filter { it.hasKey(this) }
+        if(providers.isEmpty()) return notice("ตั้งค่า API เขียนบทก่อนใช้ระบบเสนอขยายบท")
+        val snapshot=scene.toString()
+        val projectId=project.name
+        val sceneId=key(scene)
+        val sceneContext=JSONObject().put("action",scene.optString("action")).put("speaker",scene.optString("speaker")).put("location",scene.optString("location")).put("speech",original)
+        notice("กำลังเสนอขยายบท • บทเดิมยังไม่เปลี่ยน")
+        Thread {
+            val schema=JSONObject().put("type","object").put("properties",JSONObject().put("text",JSONObject().put("type","string"))).put("required",JSONArray().put("text"))
+            val prompt="""Suggest a natural Thai ${if(field=="dialogue") "dialogue line" else "narration"} for an eight-second scene based only on the supplied scene. Expand the original only where the meaning and events support it; do not add facts, characters, plot events or stage directions. Keep it naturally speakable without rushing. Return JSON with a single text field. The user must review it before saving. Scene: $sceneContext"""
+            var result: String?=null
+            for(provider in providers) {
+                result=runCatching { StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false).generate(prompt,schema).optString("text").trim() }.getOrNull()?.takeIf { it.isNotBlank() }
+                if(result!=null) break
+            }
+            val proposal=result
+            runOnUiThread {
+                if(isFinishing || isDestroyed) return@runOnUiThread
+                if(proposal==null) { notice("ไม่สามารถขอข้อเสนอบทได้ กรุณาตรวจ API แล้วลองใหม่"); return@runOnUiThread }
+                if(project.name!=projectId || scene.toString()!=snapshot || plan?.let { current -> rows(current).none { it===scene } } != false) { notice("ซีนเปลี่ยนระหว่างขอข้อเสนอ กรุณาเปิดใหม่"); return@runOnUiThread }
+                val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
+                panel.addView(TextView(this).apply { text="บทเดิม:\n$original\n\nตรวจความหมาย เหตุการณ์ และทดลองอ่านให้เหมาะกับ 8 วินาที ก่อนยืนยัน" })
+                val edit=EditText(this).apply { setText(proposal); minLines=3; panel.addView(this) }
+                val dialog=AlertDialog.Builder(this).setTitle("ตรวจข้อเสนอบท • $sceneId").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันและบันทึก",null).setNegativeButton("ใช้บทเดิม",null).showDirector()
+                dialog.getButton(-1).setOnClickListener {
+                    val value=edit.text.toString().trim()
+                    if(value.isBlank()) { notice("กรุณาระบุบทหรือเลือกใช้บทเดิม"); return@setOnClickListener }
+                    if(project.name!=projectId || scene.toString()!=snapshot || plan?.let { current -> rows(current).none { it===scene } } != false) { dialog.dismiss(); notice("ซีนเปลี่ยนแล้ว กรุณาขอข้อเสนอใหม่"); return@setOnClickListener }
+                    scene.put(field,value); scene.put("user_review","needs_revision"); scene.remove("flow_image_revision")
+                    saveStory(); dialog.dismiss(); render(); notice("บันทึกบทที่ยืนยันแล้ว • โปรดตรวจภาพและคำสั่ง Flow อีกครั้ง")
+                }
+            }
+        }.apply { name="director-dialogue-suggestion"; start() }
+    }
+
+    private fun planning() {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(18), dp(18), dp(10))
+            background = backdrop(navy, Color.rgb(27,24,57))
+        }
+        panel.addView(TextView(this).apply {
+            text = "🎬 เลือกช่องสร้างหนัง"; textSize = 20f
+            setTextColor(gold); setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER; setPadding(0, 0, 0, dp(14))
+        })
+        val dialog = AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setView(panel).create()
+        fun option(mainChannel: Boolean, title: String, colors: IntArray, action: () -> Unit) {
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                background = backdrop(colors[0], colors[1], Color.argb(150,255,255,255))
+                clipToOutline = true; elevation = dp(5).toFloat()
+                layoutParams = LinearLayout.LayoutParams(-1,-2).apply { bottomMargin = dp(14) }
+                isClickable = true; isFocusable = true
+                contentDescription = title.replace("\n", " ")
+                setOnClickListener { dialog.dismiss(); action() }
+            }
+            card.addView(ImageView(this).apply {
+                setImageResource(R.drawable.studio_movie)
+                adjustViewBounds = true
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                layoutParams = LinearLayout.LayoutParams(-1, -2)
+                contentDescription = "สตูดิโอ • เพิ่มตัวละครใหม่ของคุณ"
+            })
+            card.addView(TextView(this).apply {
+                text = title; textSize = 18f; setTextColor(navy)
+                setTypeface(null, Typeface.BOLD); gravity = Gravity.CENTER
+                setPadding(dp(10), dp(12), dp(10), dp(14))
+                layoutParams = LinearLayout.LayoutParams(-1,-2)
+                setSingleLine(false); maxLines = 2
+                setAutoSizeTextTypeUniformWithConfiguration(14, 18, 1, android.util.TypedValue.COMPLEX_UNIT_SP)
+            })
+            panel.addView(card)
+        }
+        panel.addView(Button(this).apply {
+            text = "🎭 ตรวจ / เปลี่ยน MASTER ก่อนสร้างเรื่อง"; isAllCaps = false
+            setOnClickListener { dialog.dismiss(); characterMasters() }
+        })
+        panel.addView(TextView(this).apply {
+            text = "ตรวจภาพต้นฉบับก่อนส่ง • เลือกช่องด้านล่างเมื่อพร้อม"; textSize = 12f
+            setTextColor(ice); setPadding(0,dp(6),0,dp(10))
+        })
+        option(true, "🎬 ร้อยฉาก\nซีรีส์สั้นหลากชีวิต", intArrayOf(Color.rgb(255,204,86), Color.rgb(255,174,38))) {
+            chooseGenre(originalChannel, "original")
+        }
+        option(false, "🎬 ระบบกำกับละครอัจฉริยะ\nสร้างละครครบทุกแนว", intArrayOf(Color.rgb(73,218,242), Color.rgb(32,169,228))) {
+            chooseGenre(prefs.getString("other_channel", "")?.takeIf { it.isNotBlank() } ?: smartDirector, "new")
+        }
+        panel.addView(TextView(this).apply {
+            text = "ยกเลิก"; textSize = 14f; setTextColor(muted)
+            gravity = Gravity.CENTER; minHeight = dp(48)
+            setOnClickListener { dialog.dismiss() }
+        })
+        dialog.show()
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setLayout(resources.displayMetrics.widthPixels - dp(24), -2)
+    }
+    private fun chooseGenre(channel: String, mode: String) {
+        if(mode=="original") { flowPlanning(); return }
+        val choices = if (mode == "original") categories else otherGenres
+        val labels = if (mode == "original") choices.mapIndexed { index, category -> "${menuIcon(index)} $category" } else genreLabels
+        val title = if (mode == "original") "🎬 เลือกหมวดหมู่\n$channel" else "🎬 $smartDirector\nเลือกแนวละคร • 10 แนว"
+        choiceMenu(title, labels) { index ->
+            planningForCategory(choices[index],channel,mode)
+        }
+    }
+    private fun planningForCategory(category: String, channel: String, mode: String) {
+        val idea = EditText(this).apply { hint = "แนวคิดเรื่อง (เว้นว่างให้คิดอัตโนมัติ)" }
+        AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setTitle(category).setMessage("สร้างเรื่องจนจบครบทุก EP\nเว้นแนวคิดว่างได้ ระบบจะคิดเรื่องในหมวดที่เลือก").setView(idea).setPositiveButton("ส่งคำสั่ง") { _, _ ->
             shareText("""วางบทหนัง/ละครให้ช่อง $channel จนจบครบทุก EP ตามแนวที่เลือก
 แนวคิด: ${idea.text.toString().ifBlank { "คิดเรื่องใหม่อัตโนมัติ" }}
 หมวดหมู่ที่ผู้ใช้เลือก: $category
