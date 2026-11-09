@@ -8,7 +8,7 @@ import org.json.JSONObject
 internal object AutoCast {
     /** Send only casting information; keep original files, metadata and hashes for local verification. */
     fun promptCatalog(catalog: JSONArray): JSONArray = JSONArray().apply {
-        val fields=listOf("id","display_name","character_age","character_gender","casting_description")
+        val fields=listOf("id","display_name","character_age","character_gender","character_type","casting_description")
         for(i in 0 until catalog.length()) {
             val source=catalog.getJSONObject(i); val compact=JSONObject()
             fields.forEach { field -> if(source.has(field)) compact.put(field,source.get(field)) }

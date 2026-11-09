@@ -380,17 +380,41 @@ class StudioActivity : AppCompatActivity() {
             }
         }
     }
+    private fun importCharacterMaster() {
+        val labels=listOf("มนุษย์", "เด็ก", "เทพ / ผู้ใช้พลัง", "อัศวิน", "สัตว์", "อสูร", "อื่น ๆ")
+        val types=listOf("human", "child", "deity", "knight", "animal", "creature", "other")
+        choiceMenu("เลือกประเภทตัวละคร", labels) { index ->
+            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+            val name=EditText(this).apply { hint="ชื่อตัวละคร"; panel.addView(this) }
+            val age=EditText(this).apply { hint="อายุสมมติ 0–1,000 ปี (0 = ต่ำกว่า 1 ปี)"; inputType=android.text.InputType.TYPE_CLASS_NUMBER; panel.addView(this) }
+            val description=EditText(this).apply { hint="ลักษณะหรือรายละเอียดเพิ่มเติม (ไม่บังคับ)"; panel.addView(this) }
+            panel.addView(TextView(this).apply { text="เลือกภาพ MASTER ต้นฉบับ 1 ภาพที่มี 3 มุม แอปบันทึกภาพโดยไม่สร้างใบหน้าใหม่" })
+            val dialog=AlertDialog.Builder(this).setTitle("นำเข้า MASTER • ${labels[index]}")
+                .setView(panel).setPositiveButton("เลือกภาพ",null).setNegativeButton("ยกเลิก",null).showDirector()
+            dialog.getButton(-1).setOnClickListener {
+                val n=name.text.toString().trim(); val years=age.text.toString().toIntOrNull()
+                if(n.isEmpty() || years==null || !CharacterAge.valid(years)) { notice("กรอกชื่อและอายุ 0–1,000 ปี"); return@setOnClickListener }
+                if((0 until actorCatalog().length()).any { actorCatalog().getJSONObject(it).optString("display_name")==n }) { notice("ชื่อนี้มีในคลังแล้ว"); return@setOnClickListener }
+                val id="CHAR_"+(System.currentTimeMillis()%2000000000L).toString()
+                val p=JSONObject().put("id",id).put("display_name",n).put("character_age",years)
+                    .put("character_type",types[index]).put("casting_description",description.text.toString().trim())
+                prefs.edit().putString("new_actor_pending",p.toString()).apply()
+                dialog.dismiss()
+                actorImagePicker.launch(arrayOf("image/*"))
+            }
+        }
+    }
     private fun actorCatalogMenu() {
         runCatching {
             val records=actorCatalog()
-            choiceMenu("คลังตัวละครใหม่", listOf("➕ สร้างตัวละครจากแม่แบบ","📚 ดู MASTER คลังเดิม")+(0 until records.length()).map { i -> records.getJSONObject(i).let { "${it.getString("display_name")} • อายุ ${it.getInt("character_age")} ปี" } }) { index ->
-                if(index==0) bodyTemplateMenu() else if(index==1) libraryMenu() else {
-                    val row=records.getJSONObject(index-2)
+            choiceMenu("คลังตัวละครใหม่", listOf("📥 นำเข้า MASTER ที่มีอยู่","➕ สร้างตัวละครจากแม่แบบ","📚 ดู MASTER คลังเดิม")+(0 until records.length()).map { i -> records.getJSONObject(i).let { "${it.getString("display_name")} • อายุ ${it.getInt("character_age")} ปี" } }) { index ->
+                if(index==0) importCharacterMaster() else if(index==1) bodyTemplateMenu() else if(index==2) libraryMenu() else {
+                    val row=records.getJSONObject(index-3)
                     val file=File(filesDir,"actor_master_v2/"+row.getString("file"))
                     choiceMenu(row.getString("display_name"),listOf("ดู MASTER","นำออกจากคลังเรื่องใหม่")) { action ->
                         if(action==0) { if(file.isFile) fullImage(file,row.getString("display_name")) else notice("ไม่พบภาพ MASTER") }
                         else {
-                            val rest=JSONArray(); for(i in 0 until records.length()) if(i!=index-2) rest.put(records.getJSONObject(i))
+                            val rest=JSONArray(); for(i in 0 until records.length()) if(i!=index-3) rest.put(records.getJSONObject(i))
                             val temp=File(filesDir,"actor_catalog_v2.pending")
                             temp.writeText(JSONObject().put("records",rest).toString(2))
                             if(temp.renameTo(actorCatalogFile)) notice("นำออกจากคลังแล้ว • เรื่องที่สร้างไว้ยังใช้ภาพเดิม") else notice("บันทึกคลังไม่ได้")
