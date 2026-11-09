@@ -2342,16 +2342,16 @@ class StudioActivity : AppCompatActivity() {
                         require(catalog.length()>0) { "คลัง MASTER ว่าง กรุณาเพิ่มตัวละครก่อน" }
                         if(ChannelCatalog.allCategories[index].id=="younger_man_older_woman") {
                             val candidates=(0 until catalog.length()).map { catalog.getJSONObject(it) }
-                            val men=candidates.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 25..30 }
-                            val women=candidates.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 45..55 }
+                            val men=candidates.filter { AutoCast.adultRomanceEligible(it) && it.optString("character_gender")=="man" && it.optInt("character_age") in 25..30 }
+                            val women=candidates.filter { AutoCast.adultRomanceEligible(it) && it.optString("character_gender")=="woman" && it.optInt("character_age") in 45..55 }
                             require(men.any { man -> women.any { woman -> woman.optInt("character_age")-man.optInt("character_age")>=15 } }) {
                                 "หมวดนี้ต้องมีผู้ชายอายุ 25–30 และผู้หญิงอายุ 45–55 ห่างกันอย่างน้อย 15 ปี ในคลัง MASTER • พบชาย ${men.size} คน หญิง ${women.size} คน กรุณาตรวจข้อมูลในคลังหรือเลือกแนวทั่วไป"
                             }
                         }
                         if(ChannelCatalog.allCategories[index].id=="older_man_younger_woman") {
                             val candidates=(0 until catalog.length()).map { catalog.getJSONObject(it) }
-                            val men=candidates.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 45..60 }
-                            val women=candidates.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 25..35 }
+                            val men=candidates.filter { AutoCast.adultRomanceEligible(it) && it.optString("character_gender")=="man" && it.optInt("character_age") in 45..60 }
+                            val women=candidates.filter { AutoCast.adultRomanceEligible(it) && it.optString("character_gender")=="woman" && it.optInt("character_age") in 25..35 }
                             require(men.any { man -> women.any { woman -> man.optInt("character_age")-woman.optInt("character_age")>=15 } }) {
                                 "แนวนี้ต้องมี MASTER ผู้ชายอายุ 45–60 ปี และผู้หญิงอายุ 25–35 ปี โดยผู้ชายอายุมากกว่าอย่างน้อย 15 ปี กรุณาตรวจคลังตัวละคร"
                             }
