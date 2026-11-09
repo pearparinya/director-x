@@ -10,6 +10,14 @@ import java.io.File
 import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class AutoCastTest {
+    @Test fun ageGapCastingRejectsChildrenAndNonhumanEvenWhenChronologicallyOld() {
+        for(type in listOf("child", "animal", "creature", "deity")) {
+            assertFalse(AutoCast.adultRomanceEligible(JSONObject().put("character_type",type).put("character_age",1000)))
+        }
+        assertFalse(AutoCast.adultRomanceEligible(JSONObject().put("character_type","human").put("character_age",17)))
+        assertTrue(AutoCast.adultRomanceEligible(JSONObject().put("character_type","human").put("character_age",30)))
+        assertTrue(AutoCast.adultRomanceEligible(JSONObject().put("character_age",30)))
+    }
     @Test fun promptCatalogKeepsIdentityAndCastingFieldsWithoutFileMetadata() {
         val original=JSONArray().put(JSONObject().put("id","CHAR_101").put("display_name","รินรดา")
             .put("character_age",30).put("character_gender","woman").put("casting_description","long hair")

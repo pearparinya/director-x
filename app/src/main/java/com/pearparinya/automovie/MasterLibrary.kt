@@ -14,7 +14,7 @@ internal class MasterLibrary(private val root: File, private val load: (String) 
             Entry(row.getString("id"), row.getString("file"), row.getString("original_filename"), row.getString("sha256"), row.getInt("character_age"), row.optString("display_name"))
         }.also { entries ->
             require(entries.map { it.id }.distinct().size == entries.size)
-            require(entries.all { it.id.matches(Regex("CHAR_[0-9]{3}")) && File(it.filename).name == it.filename && it.characterAge in 25..90 })
+            require(entries.all { it.id.matches(Regex("CHAR_[0-9]{3}")) && File(it.filename).name == it.filename && CharacterAge.valid(it.characterAge) })
         }
     }
     fun source(entry: Entry): File {
@@ -40,6 +40,6 @@ internal class MasterLibrary(private val root: File, private val load: (String) 
     }
     companion object {
         fun digest(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
-        fun description(id: String) = "Fictional character from reference $id. Match this character's own attached three-view MASTER: face, hair, skin, body silhouette and proportions. One sheet shows one character, not three people. Do not infer exact age, measurements or borrow another character's features."
+        fun description(id: String) = "Fictional character from reference $id. Match this character's own attached three-view MASTER: species or form, face, distinctive features, coloring, markings, silhouette and proportions. Preserve fur, scales, feathers, limbs or other anatomy when present; do not turn a nonhuman into a human. One sheet shows one character, not three people. Do not infer exact age, measurements or borrow another character's features."
     }
 }

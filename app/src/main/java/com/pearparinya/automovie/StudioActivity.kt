@@ -239,13 +239,14 @@ class StudioActivity : AppCompatActivity() {
     private val bodyTemplateFiles=listOf("body_01.png")
     private val actorCatalogFile get() = File(filesDir,"actor_catalog_v2.json")
     private fun actorCatalog(): JSONArray = if(!actorCatalogFile.exists()) JSONArray() else JSONObject(actorCatalogFile.readText()).getJSONArray("records")
+    private fun fantasyCatalog(): JSONArray = JSONObject(assets.open("fantasy_masters/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records")
     // Include the bundled legacy references and user-created actors without changing either catalog.
     private fun castingCatalog(): JSONArray {
         val legacy=JSONObject(assets.open("master_library/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records")
         val custom=actorCatalog()
         val result=JSONArray()
         val ids=mutableSetOf<String>()
-        for (rows in listOf(legacy,custom)) for (i in 0 until rows.length()) {
+        for (rows in listOf(legacy,custom,fantasyCatalog())) for (i in 0 until rows.length()) {
             val row=JSONObject(rows.getJSONObject(i).toString())
             require(ids.add(row.getString("id"))) { "รหัส MASTER ซ้ำในคลัง: ${row.getString("id")}" }
             result.put(row)
@@ -279,6 +280,19 @@ class StudioActivity : AppCompatActivity() {
         }
     }
     private fun castingSource(row: JSONObject): File {
+        if(row.optString("source_type")=="fantasy_bundle") {
+            val filename=row.getString("file")
+            require(filename.matches(Regex("FANTASY_[0-9]{2}[.]png"))) { "ชื่อไฟล์ MASTER ไม่ถูกต้อง" }
+            val bytes=assets.open("fantasy_masters/$filename").use { it.readBytes() }
+            require(MasterLibrary.digest(bytes)==row.getString("sha256")) { "ภาพ MASTER ไม่ตรงกับทะเบียน" }
+            val target=File(filesDir,"fantasy_masters/$filename")
+            if(!target.isFile || MasterLibrary.digest(target.readBytes())!=row.getString("sha256")) {
+                target.parentFile!!.mkdirs()
+                val temp=File(target.parentFile,target.name+".pending")
+                try { temp.writeBytes(bytes); check(temp.renameTo(target)) { "บันทึก MASTER ไม่สำเร็จ" } } finally { temp.delete() }
+            }
+            return target
+        }
         if(row.getString("id")==piaActorId) {
             val bytes=assets.open("pia_outfits/01.png").use { it.readBytes() }
             val target=File(filesDir,"pia_presenter_master.png")
@@ -352,7 +366,7 @@ class StudioActivity : AppCompatActivity() {
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(240)) })
             val name=EditText(this).apply { hint="ชื่อนักแสดงใหม่ (ชื่อถาวร)"; panel.addView(this) }
-            val age=EditText(this).apply { hint="อายุสมมติ 25–90 ปี"; inputType=android.text.InputType.TYPE_CLASS_NUMBER; panel.addView(this) }
+            val age=EditText(this).apply { hint="อายุสมมติ 0–1,000 ปี"; inputType=android.text.InputType.TYPE_CLASS_NUMBER; panel.addView(this) }
             val face=EditText(this).apply { hint="ลักษณะใบหน้าและทรงผมใหม่ (ไทยหรืออังกฤษ)"; panel.addView(this) }
             val styling=EditText(this).apply { hint="สีผิวและเสื้อผ้า (ไทยหรืออังกฤษ)"; panel.addView(this) }
             panel.addView(TextView(this).apply { text="1. ส่งคำสั่งพร้อมแม่แบบไปสร้างใน ChatGPT หรือ Gemini\n2. ตรวจภาพจริง แล้วกลับมาเลือก นำเข้าภาพเพื่อบันทึก" })
@@ -360,7 +374,7 @@ class StudioActivity : AppCompatActivity() {
                 .setPositiveButton("ส่งคำสั่งสร้างภาพ",null).setNeutralButton("นำเข้าภาพที่ตรวจแล้ว",null).setNegativeButton("ปิด",null).showDirector()
             fun profile(): JSONObject? {
                 val n=name.text.toString().trim(); val years=age.text.toString().toIntOrNull(); val appearance=face.text.toString().trim()
-                if(n.isEmpty() || years==null || years !in 25..90 || appearance.isEmpty()) { notice("กรอกชื่อ อายุ 25–90 ปี และลักษณะใบหน้า/ทรงผม"); return null }
+                if(n.isEmpty() || years==null || !CharacterAge.valid(years) || appearance.isEmpty()) { notice("กรอกชื่อ อายุ 0–1,000 ปี และลักษณะใบหน้า/ทรงผม"); return null }
                 if((0 until actorCatalog().length()).any { actorCatalog().getJSONObject(it).optString("display_name")==n }) { notice("ชื่อนี้มีในคลังแล้ว"); return null }
                 val id="CHAR_"+(System.currentTimeMillis()%2000000000L).toString()
                 return JSONObject().put("id",id).put("display_name",n).put("character_age",years).put("character_gender",if(index==0) "man" else "woman").put("casting_description",appearance).put("body_template",index+1)
@@ -370,7 +384,7 @@ class StudioActivity : AppCompatActivity() {
                 val gender=p.getString("character_gender")
                 val appearance=p.getString("casting_description")
                 val style=styling.text.toString().trim().ifBlank { "natural skin tone and elegant opaque clothing" }
-                val command=ImagePromptPolicy.threeViewCharacter("a fictional adult $gender aged ${p.getInt("character_age")} years, new face and hairstyle: $appearance, $style, body silhouette and proportions based on the attached reference image")
+                val command=ImagePromptPolicy.threeViewCharacter("a fictional $gender character with assigned age ${p.getInt("character_age")} years, age-appropriate nonsexual portrayal and outfit; for supernatural age preserve the reference appearance, new face and hairstyle: $appearance, $style, body silhouette and proportions based on the attached reference image")
                 shareImageCommand(command,listOf("BODY_TEMPLATE_${index+1}" to file),bodyOnly=true)
             }
             dialog.getButton(-3).setOnClickListener {
@@ -380,17 +394,52 @@ class StudioActivity : AppCompatActivity() {
             }
         }
     }
+    private fun importCharacterMaster() {
+        val labels=listOf("มนุษย์", "เด็ก", "เทพ / ผู้ใช้พลัง", "อัศวิน", "สัตว์", "อสูร", "อื่น ๆ")
+        val types=listOf("human", "child", "deity", "knight", "animal", "creature", "other")
+        choiceMenu("เลือกประเภทตัวละคร", labels) { index ->
+            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+            val name=EditText(this).apply { hint="ชื่อตัวละคร"; panel.addView(this) }
+            val age=EditText(this).apply { hint="อายุสมมติ 0–1,000 ปี (0 = ต่ำกว่า 1 ปี)"; inputType=android.text.InputType.TYPE_CLASS_NUMBER; panel.addView(this) }
+            val description=EditText(this).apply { hint="ลักษณะหรือรายละเอียดเพิ่มเติม (ไม่บังคับ)"; panel.addView(this) }
+            val gender=android.widget.Spinner(this).apply {
+                adapter=android.widget.ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ไม่ระบุเพศ", "ชาย", "หญิง"))
+                panel.addView(this)
+            }
+            panel.addView(TextView(this).apply { text="เลือกภาพ MASTER ต้นฉบับ 1 ภาพที่มี 3 มุม แอปบันทึกภาพโดยไม่สร้างใบหน้าใหม่" })
+            val dialog=AlertDialog.Builder(this).setTitle("นำเข้า MASTER • ${labels[index]}")
+                .setView(panel).setPositiveButton("เลือกภาพ",null).setNegativeButton("ยกเลิก",null).showDirector()
+            dialog.getButton(-1).setOnClickListener {
+                val n=name.text.toString().trim(); val years=age.text.toString().toIntOrNull()
+                if(n.isEmpty() || years==null || !CharacterAge.valid(years)) { notice("กรอกชื่อและอายุ 0–1,000 ปี"); return@setOnClickListener }
+                if((0 until actorCatalog().length()).any { actorCatalog().getJSONObject(it).optString("display_name")==n }) { notice("ชื่อนี้มีในคลังแล้ว"); return@setOnClickListener }
+                val id="CHAR_"+(System.currentTimeMillis()%2000000000L).toString()
+                val p=JSONObject().put("id",id).put("display_name",n).put("character_age",years)
+                    .put("character_type",types[index]).put("casting_description",description.text.toString().trim())
+                if(gender.selectedItemPosition>0) p.put("character_gender",if(gender.selectedItemPosition==1) "man" else "woman")
+                prefs.edit().putString("new_actor_pending",p.toString()).apply()
+                dialog.dismiss()
+                actorImagePicker.launch(arrayOf("image/*"))
+            }
+        }
+    }
     private fun actorCatalogMenu() {
         runCatching {
             val records=actorCatalog()
-            choiceMenu("คลังตัวละครใหม่", listOf("➕ สร้างตัวละครจากแม่แบบ","📚 ดู MASTER คลังเดิม")+(0 until records.length()).map { i -> records.getJSONObject(i).let { "${it.getString("display_name")} • อายุ ${it.getInt("character_age")} ปี" } }) { index ->
-                if(index==0) bodyTemplateMenu() else if(index==1) libraryMenu() else {
-                    val row=records.getJSONObject(index-2)
+            choiceMenu("คลังตัวละครใหม่", listOf("📥 นำเข้า MASTER ที่มีอยู่","➕ สร้างตัวละครจากแม่แบบ","📚 ดู MASTER คลังเดิม","✨ ดู MASTER แฟนตาซี 40 ตัว")+(0 until records.length()).map { i -> records.getJSONObject(i).let { "${it.getString("display_name")} • อายุ ${it.getInt("character_age")} ปี" } }) { index ->
+                if(index==0) importCharacterMaster() else if(index==1) bodyTemplateMenu() else if(index==2) libraryMenu() else if(index==3) {
+                    val fantasy=fantasyCatalog()
+                    choiceMenu("MASTER แฟนตาซี",(0 until fantasy.length()).map { fantasy.getJSONObject(it).getString("display_name") }) { selected ->
+                        val row=fantasy.getJSONObject(selected)
+                        runCatching { fullImage(castingSource(row),row.getString("display_name")) }.onFailure { notice(it.message ?: "เปิดภาพไม่ได้") }
+                    }
+                } else {
+                    val row=records.getJSONObject(index-4)
                     val file=File(filesDir,"actor_master_v2/"+row.getString("file"))
                     choiceMenu(row.getString("display_name"),listOf("ดู MASTER","นำออกจากคลังเรื่องใหม่")) { action ->
                         if(action==0) { if(file.isFile) fullImage(file,row.getString("display_name")) else notice("ไม่พบภาพ MASTER") }
                         else {
-                            val rest=JSONArray(); for(i in 0 until records.length()) if(i!=index-2) rest.put(records.getJSONObject(i))
+                            val rest=JSONArray(); for(i in 0 until records.length()) if(i!=index-4) rest.put(records.getJSONObject(i))
                             val temp=File(filesDir,"actor_catalog_v2.pending")
                             temp.writeText(JSONObject().put("records",rest).toString(2))
                             if(temp.renameTo(actorCatalogFile)) notice("นำออกจากคลังแล้ว • เรื่องที่สร้างไว้ยังใช้ภาพเดิม") else notice("บันทึกคลังไม่ได้")
@@ -697,7 +746,7 @@ class StudioActivity : AppCompatActivity() {
         super.onNewIntent(incoming); setIntent(incoming); adoptGeminiProject(incoming); render()
     }
     private fun installCharacterMasters() {
-        CharacterLibraryReset.install(filesDir)
+        // Preserve existing character libraries and project snapshots during upgrades.
         // Refresh an existing cached copy of Krit's reference after the bundled image changes.
         if(File(filesDir,"master_library/CHAR_141__1000030680.jpg").isFile) {
             masterLibrary.entries().firstOrNull { it.id=="CHAR_141" }?.let { masterLibrary.source(it) }
@@ -2274,11 +2323,12 @@ class StudioActivity : AppCompatActivity() {
                     runCatching { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://ads.tiktok.com/business/creativecenter/inspiration/topads/pc/en?region=TH"))) }.onFailure { notice("เปิด TikTok Creative Center ไม่ได้") }
                 } })
             }
-            val presenters=if(chosenChannel=="นายเปีย บ้านคลองขุด") runCatching { installPiaDefaults(); piaCatalog() }.getOrDefault(JSONArray()) else JSONArray()
+            val presenters=runCatching { if(chosenChannel=="นายเปีย บ้านคลองขุด") { installPiaDefaults(); piaCatalog() } else castingCatalog() }.getOrDefault(JSONArray())
             val presenter=Spinner(this).apply {
-                val labels=listOf("เลือก MASTER ผู้ดำเนินเรื่อง")+(0 until presenters.length()).map { presenters.getJSONObject(it).optString("display_name").ifBlank { presenters.getJSONObject(it).optString("id") } }
+                val labels=listOf(if(chosenChannel=="นายเปีย บ้านคลองขุด") "เลือก MASTER ผู้ดำเนินเรื่อง" else "ให้ AI เลือกตัวละครหลัก")+(0 until presenters.length()).map { presenters.getJSONObject(it).optString("display_name").ifBlank { presenters.getJSONObject(it).optString("id") } }
                 adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,labels)
-                if(chosenChannel=="นายเปีย บ้านคลองขุด") { panel.addView(this); if(presenters.length()>0 && presenters.getJSONObject(0).optString("id")==piaActorId) setSelection(1) }
+                panel.addView(this)
+                if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenters.length()>0 && presenters.getJSONObject(0).optString("id")==piaActorId) setSelection(1)
             }
             val presenterOutfits=listOf("เลือกชุดตามเนื้อเรื่อง", "สูทกรมท่า เนกไทลายฟ้า", "ชุดช่างสีเขียวเข้ม", "ชุดช่างสีกรมท่าส้ม", "ชุดช่างสีเทาเข้ม", "ชุดช่างสีน้ำเงิน", "เสื้อเชิ้ตสีครีม กางเกงเขียว", "เสื้อเชิ้ตสีฟ้า กางเกงกรมท่า", "เสื้อเชิ้ตสีขาว กางเกงดำ", "เสื้อเชิ้ตสีดำ กางเกงเทา", "เสื้อช่างกรม กางเกงเทา ถุงมือ", "ชุดทำสวนสีครีม หมวกและรองเท้าบูท", "ชุดทำสวนกรมท่า หมวกคลุมต้นคอและรองเท้าบูท")
             val presenterOutfit=Spinner(this).apply {
@@ -2308,21 +2358,21 @@ class StudioActivity : AppCompatActivity() {
                         val presenterId=if(chosenChannel=="นายเปีย บ้านคลองขุด") {
                             require(presenter.selectedItemPosition>0) { "กรุณาเพิ่มรูป MASTER ผู้ดำเนินเรื่องในคลัง แล้วเลือกจากรายการ" }
                             presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id")
-                        } else ""
+                        } else if(presenter.selectedItemPosition>0) presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id") else ""
                         if(presenterId.isNotBlank() && presenterOutfit.selectedItemPosition>0) require(presenterOutfitFile(presenterId,presenterOutfit.selectedItemPosition).isFile) { "กรุณาเพิ่มรูปของชุดที่เลือก หรือเลือกชุดตามเนื้อเรื่อง" }
                         require(catalog.length()>0) { "คลัง MASTER ว่าง กรุณาเพิ่มตัวละครก่อน" }
                         if(ChannelCatalog.allCategories[index].id=="younger_man_older_woman") {
                             val candidates=(0 until catalog.length()).map { catalog.getJSONObject(it) }
-                            val men=candidates.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 25..30 }
-                            val women=candidates.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 45..55 }
+                            val men=candidates.filter { AutoCast.adultRomanceEligible(it) && it.optString("character_gender")=="man" && it.optInt("character_age") in 25..30 }
+                            val women=candidates.filter { AutoCast.adultRomanceEligible(it) && it.optString("character_gender")=="woman" && it.optInt("character_age") in 45..55 }
                             require(men.any { man -> women.any { woman -> woman.optInt("character_age")-man.optInt("character_age")>=15 } }) {
                                 "หมวดนี้ต้องมีผู้ชายอายุ 25–30 และผู้หญิงอายุ 45–55 ห่างกันอย่างน้อย 15 ปี ในคลัง MASTER • พบชาย ${men.size} คน หญิง ${women.size} คน กรุณาตรวจข้อมูลในคลังหรือเลือกแนวทั่วไป"
                             }
                         }
                         if(ChannelCatalog.allCategories[index].id=="older_man_younger_woman") {
                             val candidates=(0 until catalog.length()).map { catalog.getJSONObject(it) }
-                            val men=candidates.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 45..60 }
-                            val women=candidates.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 25..35 }
+                            val men=candidates.filter { AutoCast.adultRomanceEligible(it) && it.optString("character_gender")=="man" && it.optInt("character_age") in 45..60 }
+                            val women=candidates.filter { AutoCast.adultRomanceEligible(it) && it.optString("character_gender")=="woman" && it.optInt("character_age") in 25..35 }
                             require(men.any { man -> women.any { woman -> man.optInt("character_age")-woman.optInt("character_age")>=15 } }) {
                                 "แนวนี้ต้องมี MASTER ผู้ชายอายุ 45–60 ปี และผู้หญิงอายุ 25–35 ปี โดยผู้ชายอายุมากกว่าอย่างน้อย 15 ปี กรุณาตรวจคลังตัวละคร"
                             }

@@ -6,9 +6,10 @@ import org.json.JSONObject
 
 /** Freeze AI casting before scene generation; retries reuse the same names and original bytes. */
 internal object AutoCast {
+    fun adultRomanceEligible(row: JSONObject): Boolean = row.optString("character_type") in listOf("", "human", "knight") && row.optInt("character_age") >= 18
     /** Send only casting information; keep original files, metadata and hashes for local verification. */
     fun promptCatalog(catalog: JSONArray): JSONArray = JSONArray().apply {
-        val fields=listOf("id","display_name","character_age","character_gender","casting_description")
+        val fields=listOf("id","display_name","character_age","character_gender","character_type","age_basis","casting_description")
         for(i in 0 until catalog.length()) {
             val source=catalog.getJSONObject(i); val compact=JSONObject()
             fields.forEach { field -> if(source.has(field)) compact.put(field,source.get(field)) }
@@ -44,7 +45,7 @@ internal object AutoCast {
             val matches=(0 until cast.length()).map { cast.getJSONObject(it) }.filter { it.optString("romance_role")==kind }
             require(matches.size==1) { "ระบุ romance_role=$kind ให้คู่หลักคนเดียว" }
             val row=rows[matches.single().getString("library_id")]!!
-            require(row.optString("character_gender")==gender && row.optInt("character_age") in ages) { "คู่หลัก $kind ต้องเป็น $gender อายุ $ages ตาม MASTER" }
+            require(adultRomanceEligible(row) && row.optString("character_gender")==gender && row.optInt("character_age") in ages) { "คู่หลัก $kind ต้องเป็น $gender อายุ $ages ตาม MASTER" }
             return row
         }
         val man=if(olderMan) lead("older_man","man",45..60) else lead("younger_man","man",25..30)
@@ -80,13 +81,13 @@ internal object AutoCast {
             for(gender in listOf("man","woman"))
                 if(rows.any { it.optString("character_gender")==gender } && candidates.none { it.optString("character_gender")==gender }) return false
             if(category.startsWith("รักต่างวัย | หนุ่มรุ่นน้องกับสาวรุ่นพี่")) {
-                val men=candidates.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 25..30 }
-                val women=candidates.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 45..55 }
+                val men=candidates.filter { adultRomanceEligible(it) && it.optString("character_gender")=="man" && it.optInt("character_age") in 25..30 }
+                val women=candidates.filter { adultRomanceEligible(it) && it.optString("character_gender")=="woman" && it.optInt("character_age") in 45..55 }
                 if(men.none { man -> women.any { woman -> woman.optInt("character_age")-man.optInt("character_age")>=15 } }) return false
             }
             if(category.startsWith("รักต่างวัย | หนุ่มรุ่นใหญ่กับสาวรุ่นน้อง")) {
-                val men=candidates.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 45..60 }
-                val women=candidates.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 25..35 }
+                val men=candidates.filter { adultRomanceEligible(it) && it.optString("character_gender")=="man" && it.optInt("character_age") in 45..60 }
+                val women=candidates.filter { adultRomanceEligible(it) && it.optString("character_gender")=="woman" && it.optInt("character_age") in 25..35 }
                 if(men.none { man -> women.any { woman -> man.optInt("character_age")-woman.optInt("character_age")>=15 } }) return false
             }
             return true
@@ -109,13 +110,13 @@ internal object AutoCast {
         val fresh=rows.filter { it.optString("id") !in used }
         if(fresh.size<8) return catalog
         if(category.startsWith("รักต่างวัย | หนุ่มรุ่นน้องกับสาวรุ่นพี่")) {
-            val men=fresh.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 25..30 }
-            val women=fresh.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 45..55 }
+            val men=fresh.filter { adultRomanceEligible(it) && it.optString("character_gender")=="man" && it.optInt("character_age") in 25..30 }
+            val women=fresh.filter { adultRomanceEligible(it) && it.optString("character_gender")=="woman" && it.optInt("character_age") in 45..55 }
             if(men.none { man -> women.any { woman -> woman.optInt("character_age")-man.optInt("character_age")>=15 } }) return catalog
         }
         if(category.startsWith("รักต่างวัย | หนุ่มรุ่นใหญ่กับสาวรุ่นน้อง")) {
-            val men=fresh.filter { it.optString("character_gender")=="man" && it.optInt("character_age") in 45..60 }
-            val women=fresh.filter { it.optString("character_gender")=="woman" && it.optInt("character_age") in 25..35 }
+            val men=fresh.filter { adultRomanceEligible(it) && it.optString("character_gender")=="man" && it.optInt("character_age") in 45..60 }
+            val women=fresh.filter { adultRomanceEligible(it) && it.optString("character_gender")=="woman" && it.optInt("character_age") in 25..35 }
             if(men.none { man -> women.any { woman -> man.optInt("character_age")-woman.optInt("character_age")>=15 } }) return catalog
         }
         // Preserve gender coverage when a fresh pool would eliminate an existing group.
@@ -142,7 +143,8 @@ internal object AutoCast {
             result.put(JSONObject().put("name",p.getString("name").trim()).put("master","${key.uppercase()}_MASTER.png")
                 .put("english_name",p.optString("english_name").trim()).put("auto_cast",true).put("library_id",id).put("role",p.getString("role"))
                 .put("romance_role",p.optString("romance_role")).put("character_age",row.optInt("character_age",0)).put("age_basis",row.optString("age_basis"))
-                .put("visual_description",MasterLibrary.description(id)+(if(row.optInt("character_age")>0) " Assigned fictional character age: ${row.getInt("character_age")} years. Keep this age consistent throughout the story." else "")+" Reference appearance: "+row.optString("casting_description")))
+                .put("character_type",row.optString("character_type"))
+                .put("visual_description",MasterLibrary.description(id)+(if(row.has("character_age") && (row.optInt("character_age")>0 || row.optString("age_basis")=="user_assigned")) " Assigned fictional character age: ${row.getInt("character_age")} years. Keep this age consistent throughout the story." else "")+" Reference appearance: "+row.optString("casting_description")))
         }
         return result
     }

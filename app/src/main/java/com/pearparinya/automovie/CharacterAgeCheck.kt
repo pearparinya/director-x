@@ -6,12 +6,13 @@ internal object CharacterAgeCheck {
         for(i in 0 until rows.length()) {
             val p=rows.getJSONObject(i)
             val master=definitions.firstOrNull { it.optString("name")==p.optString("name") } ?: continue
+            if(master.optString("character_type").isNotBlank()) p.put("character_type",master.getString("character_type"))
             val age=master.optInt("character_age")
-            if(age<=0) continue
+            if(age<0 || !master.has("character_age") || (age==0 && master.optString("age_basis")!="user_assigned")) continue
             if(!p.has("character_age")) p.put("character_age",age) // Upgrade legacy scenes from the frozen registry, never guess.
             if(p.optInt("character_age")!=age) add("${p.optString("name")} ต้องอายุ $age ปีตาม MASTER")
             val description=p.optString("visual_description")
-            val explicit=Regex("(?i)([0-9]{2})[ -]*(?:years? old|year-old|ปี)").findAll(description).map { it.groupValues[1].toInt() }
+            val explicit=Regex("(?i)([0-9]{1,4})[ -]*(?:years? old|year-old|ปี)").findAll(description).map { it.groupValues[1].toInt() }
             if(explicit.any { it!=age }) add("อายุในคำบรรยาย ${p.optString("name")} ไม่ตรง MASTER $age ปี")
         }
     }
