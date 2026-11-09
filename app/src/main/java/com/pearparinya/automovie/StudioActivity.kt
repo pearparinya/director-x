@@ -239,13 +239,14 @@ class StudioActivity : AppCompatActivity() {
     private val bodyTemplateFiles=listOf("body_01.png")
     private val actorCatalogFile get() = File(filesDir,"actor_catalog_v2.json")
     private fun actorCatalog(): JSONArray = if(!actorCatalogFile.exists()) JSONArray() else JSONObject(actorCatalogFile.readText()).getJSONArray("records")
+    private fun fantasyCatalog(): JSONArray = JSONObject(assets.open("fantasy_masters/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records")
     // Include the bundled legacy references and user-created actors without changing either catalog.
     private fun castingCatalog(): JSONArray {
         val legacy=JSONObject(assets.open("master_library/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records")
         val custom=actorCatalog()
         val result=JSONArray()
         val ids=mutableSetOf<String>()
-        for (rows in listOf(legacy,custom)) for (i in 0 until rows.length()) {
+        for (rows in listOf(legacy,custom,fantasyCatalog())) for (i in 0 until rows.length()) {
             val row=JSONObject(rows.getJSONObject(i).toString())
             require(ids.add(row.getString("id"))) { "รหัส MASTER ซ้ำในคลัง: ${row.getString("id")}" }
             result.put(row)
@@ -279,6 +280,19 @@ class StudioActivity : AppCompatActivity() {
         }
     }
     private fun castingSource(row: JSONObject): File {
+        if(row.optString("source_type")=="fantasy_bundle") {
+            val filename=row.getString("file")
+            require(filename.matches(Regex("FANTASY_[0-9]{2}[.]png"))) { "ชื่อไฟล์ MASTER ไม่ถูกต้อง" }
+            val bytes=assets.open("fantasy_masters/$filename").use { it.readBytes() }
+            require(MasterLibrary.digest(bytes)==row.getString("sha256")) { "ภาพ MASTER ไม่ตรงกับทะเบียน" }
+            val target=File(filesDir,"fantasy_masters/$filename")
+            if(!target.isFile || MasterLibrary.digest(target.readBytes())!=row.getString("sha256")) {
+                target.parentFile!!.mkdirs()
+                val temp=File(target.parentFile,target.name+".pending")
+                try { temp.writeBytes(bytes); check(temp.renameTo(target)) { "บันทึก MASTER ไม่สำเร็จ" } } finally { temp.delete() }
+            }
+            return target
+        }
         if(row.getString("id")==piaActorId) {
             val bytes=assets.open("pia_outfits/01.png").use { it.readBytes() }
             val target=File(filesDir,"pia_presenter_master.png")
@@ -412,14 +426,20 @@ class StudioActivity : AppCompatActivity() {
     private fun actorCatalogMenu() {
         runCatching {
             val records=actorCatalog()
-            choiceMenu("คลังตัวละครใหม่", listOf("📥 นำเข้า MASTER ที่มีอยู่","➕ สร้างตัวละครจากแม่แบบ","📚 ดู MASTER คลังเดิม")+(0 until records.length()).map { i -> records.getJSONObject(i).let { "${it.getString("display_name")} • อายุ ${it.getInt("character_age")} ปี" } }) { index ->
-                if(index==0) importCharacterMaster() else if(index==1) bodyTemplateMenu() else if(index==2) libraryMenu() else {
-                    val row=records.getJSONObject(index-3)
+            choiceMenu("คลังตัวละครใหม่", listOf("📥 นำเข้า MASTER ที่มีอยู่","➕ สร้างตัวละครจากแม่แบบ","📚 ดู MASTER คลังเดิม","✨ ดู MASTER แฟนตาซี 40 ตัว")+(0 until records.length()).map { i -> records.getJSONObject(i).let { "${it.getString("display_name")} • อายุ ${it.getInt("character_age")} ปี" } }) { index ->
+                if(index==0) importCharacterMaster() else if(index==1) bodyTemplateMenu() else if(index==2) libraryMenu() else if(index==3) {
+                    val fantasy=fantasyCatalog()
+                    choiceMenu("MASTER แฟนตาซี",(0 until fantasy.length()).map { fantasy.getJSONObject(it).getString("display_name") }) { selected ->
+                        val row=fantasy.getJSONObject(selected)
+                        runCatching { fullImage(castingSource(row),row.getString("display_name")) }.onFailure { notice(it.message ?: "เปิดภาพไม่ได้") }
+                    }
+                } else {
+                    val row=records.getJSONObject(index-4)
                     val file=File(filesDir,"actor_master_v2/"+row.getString("file"))
                     choiceMenu(row.getString("display_name"),listOf("ดู MASTER","นำออกจากคลังเรื่องใหม่")) { action ->
                         if(action==0) { if(file.isFile) fullImage(file,row.getString("display_name")) else notice("ไม่พบภาพ MASTER") }
                         else {
-                            val rest=JSONArray(); for(i in 0 until records.length()) if(i!=index-3) rest.put(records.getJSONObject(i))
+                            val rest=JSONArray(); for(i in 0 until records.length()) if(i!=index-4) rest.put(records.getJSONObject(i))
                             val temp=File(filesDir,"actor_catalog_v2.pending")
                             temp.writeText(JSONObject().put("records",rest).toString(2))
                             if(temp.renameTo(actorCatalogFile)) notice("นำออกจากคลังแล้ว • เรื่องที่สร้างไว้ยังใช้ภาพเดิม") else notice("บันทึกคลังไม่ได้")
@@ -2303,11 +2323,12 @@ class StudioActivity : AppCompatActivity() {
                     runCatching { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://ads.tiktok.com/business/creativecenter/inspiration/topads/pc/en?region=TH"))) }.onFailure { notice("เปิด TikTok Creative Center ไม่ได้") }
                 } })
             }
-            val presenters=if(chosenChannel=="นายเปีย บ้านคลองขุด") runCatching { installPiaDefaults(); piaCatalog() }.getOrDefault(JSONArray()) else JSONArray()
+            val presenters=runCatching { if(chosenChannel=="นายเปีย บ้านคลองขุด") { installPiaDefaults(); piaCatalog() } else castingCatalog() }.getOrDefault(JSONArray())
             val presenter=Spinner(this).apply {
-                val labels=listOf("เลือก MASTER ผู้ดำเนินเรื่อง")+(0 until presenters.length()).map { presenters.getJSONObject(it).optString("display_name").ifBlank { presenters.getJSONObject(it).optString("id") } }
+                val labels=listOf(if(chosenChannel=="นายเปีย บ้านคลองขุด") "เลือก MASTER ผู้ดำเนินเรื่อง" else "ให้ AI เลือกตัวละครหลัก")+(0 until presenters.length()).map { presenters.getJSONObject(it).optString("display_name").ifBlank { presenters.getJSONObject(it).optString("id") } }
                 adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,labels)
-                if(chosenChannel=="นายเปีย บ้านคลองขุด") { panel.addView(this); if(presenters.length()>0 && presenters.getJSONObject(0).optString("id")==piaActorId) setSelection(1) }
+                panel.addView(this)
+                if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenters.length()>0 && presenters.getJSONObject(0).optString("id")==piaActorId) setSelection(1)
             }
             val presenterOutfits=listOf("เลือกชุดตามเนื้อเรื่อง", "สูทกรมท่า เนกไทลายฟ้า", "ชุดช่างสีเขียวเข้ม", "ชุดช่างสีกรมท่าส้ม", "ชุดช่างสีเทาเข้ม", "ชุดช่างสีน้ำเงิน", "เสื้อเชิ้ตสีครีม กางเกงเขียว", "เสื้อเชิ้ตสีฟ้า กางเกงกรมท่า", "เสื้อเชิ้ตสีขาว กางเกงดำ", "เสื้อเชิ้ตสีดำ กางเกงเทา", "เสื้อช่างกรม กางเกงเทา ถุงมือ", "ชุดทำสวนสีครีม หมวกและรองเท้าบูท", "ชุดทำสวนกรมท่า หมวกคลุมต้นคอและรองเท้าบูท")
             val presenterOutfit=Spinner(this).apply {
@@ -2337,7 +2358,7 @@ class StudioActivity : AppCompatActivity() {
                         val presenterId=if(chosenChannel=="นายเปีย บ้านคลองขุด") {
                             require(presenter.selectedItemPosition>0) { "กรุณาเพิ่มรูป MASTER ผู้ดำเนินเรื่องในคลัง แล้วเลือกจากรายการ" }
                             presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id")
-                        } else ""
+                        } else if(presenter.selectedItemPosition>0) presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id") else ""
                         if(presenterId.isNotBlank() && presenterOutfit.selectedItemPosition>0) require(presenterOutfitFile(presenterId,presenterOutfit.selectedItemPosition).isFile) { "กรุณาเพิ่มรูปของชุดที่เลือก หรือเลือกชุดตามเนื้อเรื่อง" }
                         require(catalog.length()>0) { "คลัง MASTER ว่าง กรุณาเพิ่มตัวละครก่อน" }
                         if(ChannelCatalog.allCategories[index].id=="younger_man_older_woman") {
