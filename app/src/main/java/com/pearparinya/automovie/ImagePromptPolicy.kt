@@ -4,12 +4,12 @@ package com.pearparinya.automovie
 internal object ImagePromptPolicy {
     const val productionDirection = "CINEMATIC PRODUCTION: Film-director composition, story-led camera and lighting, realistic depth and textures; clear expressions, hands and props. Maintain identity, wardrobe and continuity."
     const val skinTone = "LIGHTING PRIORITY: Bright neutral-white light, soft shadows, clear faces and background; no dark or yellow cast. Preserve natural skin tone and highlight detail; night remains night with bright neutral lighting."
-    const val referenceAppeal = "คงเสน่ห์และความเซ็กซี่ตามภาพอ้างอิงของตัวละครผู้ใหญ่"
+    const val referenceAppeal = "คงเอกลักษณ์และรูปลักษณ์ตามภาพอ้างอิง เหมาะสมกับช่วงวัยและประเภทตัวละคร"
     fun threeViewCharacter(description: String): String =
         "Character design reference sheet, multiple views of the EXACT SAME character side-by-side. Front view, 45-degree profile view, and back view of ${description.trim()}. Standing straight in a neutral pose. Identical facial features and identical clothing across all three views. Plain white background, pure bright studio lighting, no shadows on the background, 8k resolution, photorealistic cinematic quality. --ar 16:9"
 
     fun productionMaster(name: String, source: String, profile: String): String = """
-สร้างภาพอ้างอิงตัวละครผู้ใหญ่ $name จาก $source ที่แนบ หนึ่งคนต่อหนึ่งภาพ
+สร้างภาพอ้างอิงตัวละคร $name จาก $source ที่แนบ หนึ่งคนต่อหนึ่งภาพ
 ${identity(source)}
 ${if(profile.isNotBlank()) "ข้อมูลอ้างอิงรายคน: $profile" else ""}
 เลือกเสื้อผ้าที่สวยงามเหมาะสม ทรงพอดีตัว มีแนวเอวและการทิ้งตัวของผ้าตามธรรมชาติ เลือกชนิด สี และรายละเอียดชุดให้เหมาะกับตัวละคร ไม่บังคับใช้เสื้อหลวมคลุมรูปร่าง
@@ -19,7 +19,7 @@ ${if(profile.isNotBlank()) "ข้อมูลอ้างอิงรายค�
     """.trimIndent()
 
     fun identity(source: String) =
-        "ใช้ $source ให้ตรงตัวละครรายคน คงใบหน้า ทรงผม สีผิว สัดส่วนรูปร่างโดยรวมตามภาพอ้างอิงของตัวละครผู้ใหญ่ โดยไม่เพิ่มหรือลดสัดส่วนเอง $referenceAppeal ชุดยึดบทของฉากปัจจุบัน\n${BodyReferencePolicy.preciseIdentity}\n${BodyReferencePolicy.imageIdentityLock}\n${EditorialImagePolicy.referenceRendering}\n${EditorialImagePolicy.wardrobe}"
+        "ใช้ $source ให้ตรงตัวละครรายคน คงใบหน้า ทรงผม สีผิว สัดส่วนรูปร่างโดยรวมตามภาพอ้างอิงของตัวละคร โดยไม่เพิ่มหรือลดสัดส่วนเอง $referenceAppeal ชุดยึดบทของฉากปัจจุบัน\n${BodyReferencePolicy.preciseIdentity}\n${BodyReferencePolicy.imageIdentityLock}\n${EditorialImagePolicy.referenceRendering}\n${EditorialImagePolicy.wardrobe}"
 
     fun style(aspect: String, framing: String = "", lighting: String = "") =
         "ภาพถ่ายสมจริง $aspect • ${framing.ifBlank { "จัดระยะให้เห็นใบหน้าและการกระทำครบตามฉาก" }} • ${lighting.ifBlank { "แสงเหมาะกับเวลาและสถานที่ตามบท" }} • $skinTone"
@@ -43,7 +43,7 @@ ${if(profile.isNotBlank()) "ข้อมูลอ้างอิงรายค�
     }
 
     fun newCharacter(reference: String, location: String) =
-        "สร้างภาพจริงหนึ่งภาพของตัวละครสมมุติผู้ใหญ่คนใหม่ ตั้งชื่อไทย ออกแบบใบหน้าและทรงผมใหม่\nอ้างอิง $reference เฉพาะสไตล์ภาพและความสมจริง\n${EditorialImagePolicy.freshDesign}\n${EditorialImagePolicy.referenceRendering}\n${EditorialImagePolicy.wardrobe}\nชุด: ชุดลำลองเหมาะกับกิจกรรม\nสถานที่: $location\nการกระทำ: เลือกหนึ่งกิจกรรมในชีวิตประจำวัน\n${style("9:16")} ไม่มีข้อความหรือลายน้ำ\nแสดงภาพจริงแล้วแจ้งชื่อและชุดสั้น ๆ หากสร้างไม่ได้ให้แจ้งตามจริง"
+        "สร้างภาพจริงหนึ่งภาพของตัวละครสมมุติคนใหม่ตามประเภทและช่วงวัยที่กำหนด ตั้งชื่อไทย ออกแบบลักษณะเฉพาะใหม่\nอ้างอิง $reference เฉพาะสไตล์ภาพและความสมจริง\n${EditorialImagePolicy.freshDesign}\n${EditorialImagePolicy.referenceRendering}\n${EditorialImagePolicy.wardrobe}\nชุด: ชุดลำลองเหมาะกับกิจกรรม\nสถานที่: $location\nการกระทำ: เลือกหนึ่งกิจกรรมในชีวิตประจำวัน\n${style("9:16")} ไม่มีข้อความหรือลายน้ำ\nแสดงภาพจริงแล้วแจ้งชื่อและชุดสั้น ๆ หากสร้างไม่ได้ให้แจ้งตามจริง"
 
     fun coverReference(source: String) =
         "ใช้ $source อ้างอิงตัวละคร ใบหน้า ทรงผม สัดส่วนรูปร่างโดยรวมตามต้นฉบับ $referenceAppeal ชุดและสถานที่ตามตอน จัดภาพถ่ายสมจริงให้สื่อเหตุการณ์เด่น และเว้นพื้นที่ข้อความตามรูปแบบปก\n${BodyReferencePolicy.imageIdentityLock}\n${EditorialImagePolicy.referenceRendering}\n${EditorialImagePolicy.wardrobe}"

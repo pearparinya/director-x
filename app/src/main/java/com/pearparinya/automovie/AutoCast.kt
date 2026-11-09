@@ -8,7 +8,7 @@ import org.json.JSONObject
 internal object AutoCast {
     /** Send only casting information; keep original files, metadata and hashes for local verification. */
     fun promptCatalog(catalog: JSONArray): JSONArray = JSONArray().apply {
-        val fields=listOf("id","display_name","character_age","character_gender","casting_description")
+        val fields=listOf("id","display_name","character_age","character_type","character_gender","casting_description")
         for(i in 0 until catalog.length()) {
             val source=catalog.getJSONObject(i); val compact=JSONObject()
             fields.forEach { field -> if(source.has(field)) compact.put(field,source.get(field)) }
@@ -141,7 +141,7 @@ internal object AutoCast {
             }
             result.put(JSONObject().put("name",p.getString("name").trim()).put("master","${key.uppercase()}_MASTER.png")
                 .put("english_name",p.optString("english_name").trim()).put("auto_cast",true).put("library_id",id).put("role",p.getString("role"))
-                .put("romance_role",p.optString("romance_role")).put("character_age",row.optInt("character_age",0)).put("age_basis",row.optString("age_basis"))
+                .put("romance_role",p.optString("romance_role")).put("character_age",row.optInt("character_age",0)).put("character_type",row.optString("character_type","human")).put("age_basis",row.optString("age_basis"))
                 .put("visual_description",MasterLibrary.description(id)+(if(row.optInt("character_age")>0) " Assigned fictional character age: ${row.getInt("character_age")} years. Keep this age consistent throughout the story." else "")+" Reference appearance: "+row.optString("casting_description")))
         }
         return result

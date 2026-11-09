@@ -72,7 +72,7 @@ class AutoDirectorContentTest {
         }
         val solo=tasks.first { it.id=="EP01_SC001" }
         assertEquals(1,solo.references.size)
-        assertTrue(solo.command.contains("Show exactly 1 person"))
+        assertTrue(solo.command.contains("Show exactly 1 named characters"))
         assertTrue(solo.command.contains("MASTER ID: "+referenceId(only.getString("master"))))
         assertTrue(SimpleProductionCommands.images(project,1).contains("ChatGPT / Gemini"))
     }
@@ -97,10 +97,10 @@ class AutoDirectorContentTest {
         scene.put("start_state","listens to others off-screen")
         val task=SimpleProductionCommands.imageTasks(project,1).first { it.id=="EP01_SC001" }
         assertEquals(1,task.references.size)
-        assertTrue(task.command.contains("Show exactly 1 person in this image: ${solo.getString("name")}"))
+        assertTrue(task.command.contains("Show exactly 1 named characters in this image: ${solo.getString("name")}"))
         assertTrue(task.command.contains("Anyone else mentioned, addressed, looked at or heard is outside the frame"))
         val multi=FlowReferencePrompt.visibleCastLock(listOf(solo,JSONObject().put("name","อีกคน")))
-        assertTrue(multi.contains("Show exactly 2 people"))
+        assertTrue(multi.contains("Show exactly 2 named characters"))
     }
     @Test fun videoDocumentPairsEveryCommandWithItsSceneImage() {
         val doc=SimpleProductionCommands.videos(story(),1)
@@ -114,7 +114,7 @@ class AutoDirectorContentTest {
         val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
         fun command()=SimpleProductionCommands.videoTasks(project,1).first().command
         assertTrue(command().contains("Slow, gentle pan"))
-        assertTrue(command().contains("Preserve the characters, their faces"))
+        assertTrue(command().contains("Preserve each character’s species or form, distinctive features"))
         assertTrue(command().contains("<speaker>[รินรดา]</speaker>"))
         scene.put("camera_movement","pan")
         assertTrue(command().contains("Slow, gentle pan"))

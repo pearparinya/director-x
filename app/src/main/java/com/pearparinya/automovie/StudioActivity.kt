@@ -352,7 +352,7 @@ class StudioActivity : AppCompatActivity() {
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(240)) })
             val name=EditText(this).apply { hint="ชื่อนักแสดงใหม่ (ชื่อถาวร)"; panel.addView(this) }
-            val age=EditText(this).apply { hint="อายุสมมติ 25–90 ปี"; inputType=android.text.InputType.TYPE_CLASS_NUMBER; panel.addView(this) }
+            val age=EditText(this).apply { hint="อายุสมมติผู้ใหญ่ 18–120 ปี"; inputType=android.text.InputType.TYPE_CLASS_NUMBER; panel.addView(this) }
             val face=EditText(this).apply { hint="ลักษณะใบหน้าและทรงผมใหม่ (ไทยหรืออังกฤษ)"; panel.addView(this) }
             val styling=EditText(this).apply { hint="สีผิวและเสื้อผ้า (ไทยหรืออังกฤษ)"; panel.addView(this) }
             panel.addView(TextView(this).apply { text="1. ส่งคำสั่งพร้อมแม่แบบไปสร้างใน ChatGPT หรือ Gemini\n2. ตรวจภาพจริง แล้วกลับมาเลือก นำเข้าภาพเพื่อบันทึก" })
@@ -360,7 +360,7 @@ class StudioActivity : AppCompatActivity() {
                 .setPositiveButton("ส่งคำสั่งสร้างภาพ",null).setNeutralButton("นำเข้าภาพที่ตรวจแล้ว",null).setNegativeButton("ปิด",null).showDirector()
             fun profile(): JSONObject? {
                 val n=name.text.toString().trim(); val years=age.text.toString().toIntOrNull(); val appearance=face.text.toString().trim()
-                if(n.isEmpty() || years==null || years !in 25..90 || appearance.isEmpty()) { notice("กรอกชื่อ อายุ 25–90 ปี และลักษณะใบหน้า/ทรงผม"); return null }
+                if(n.isEmpty() || years==null || years !in 18..120 || appearance.isEmpty()) { notice("กรอกชื่อ อายุผู้ใหญ่ 18–120 ปี และลักษณะใบหน้า/ทรงผม"); return null }
                 if((0 until actorCatalog().length()).any { actorCatalog().getJSONObject(it).optString("display_name")==n }) { notice("ชื่อนี้มีในคลังแล้ว"); return null }
                 val id="CHAR_"+(System.currentTimeMillis()%2000000000L).toString()
                 return JSONObject().put("id",id).put("display_name",n).put("character_age",years).put("character_gender",if(index==0) "man" else "woman").put("casting_description",appearance).put("body_template",index+1)
@@ -380,17 +380,44 @@ class StudioActivity : AppCompatActivity() {
             }
         }
     }
+    private fun importCharacterMenu() {
+        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+        val name=EditText(this).apply { hint="ชื่อตัวละคร"; panel.addView(this) }
+        val types=listOf("มนุษย์", "สัตว์", "หุ่นยนต์", "วิญญาณ", "เทพหรือปีศาจ", "สิ่งมีชีวิตแฟนตาซี", "อื่น ๆ")
+        val codes=listOf("human", "animal", "robot", "spirit", "deity_or_demon", "fantasy", "other")
+        val type=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,types); panel.addView(this) }
+        panel.addView(TextView(this).apply { text="เพศตัวละคร (เลือกได้หรือเว้นไม่ระบุ)" })
+        val genders=listOf("ไม่ระบุ", "ชาย", "หญิง")
+        val genderCodes=listOf("unspecified", "man", "woman")
+        val gender=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,genders); panel.addView(this) }
+        val age=EditText(this).apply { hint="อายุเป็นปี (เว้นว่างถ้าไม่ระบุ; ทารกระบุในคำอธิบาย)"; inputType=android.text.InputType.TYPE_CLASS_NUMBER; panel.addView(this) }
+        val description=EditText(this).apply { hint="ลักษณะเด่น ชนิด พันธุ์ หรือช่วงวัยตามภาพ"; panel.addView(this) }
+        val dialog=AlertDialog.Builder(this).setTitle("นำเข้าตัวละครจากภาพ").setView(panel)
+            .setPositiveButton("เลือกภาพ",null).setNegativeButton("ยกเลิก",null).showDirector()
+        dialog.getButton(-1).setOnClickListener {
+            val n=name.text.toString().trim(); val appearance=description.text.toString().trim()
+            val ageText=age.text.toString().trim(); val years=if(ageText.isEmpty()) 0 else ageText.toIntOrNull()
+            if(n.isEmpty() || appearance.isEmpty() || years==null || years !in 0..120) { notice("กรอกชื่อ ลักษณะเด่น และอายุ 0–120 ปี หรือเว้นอายุว่าง"); return@setOnClickListener }
+            if((0 until castingCatalog().length()).any { castingCatalog().getJSONObject(it).optString("display_name")==n }) { notice("ชื่อนี้มีในคลังแล้ว"); return@setOnClickListener }
+            val id="CHAR_"+(System.currentTimeMillis()%1900000000L).toString()
+            val person=JSONObject().put("id",id).put("display_name",n).put("character_age",years)
+                .put("character_type",codes[type.selectedItemPosition]).put("character_gender",genderCodes[gender.selectedItemPosition]).put("casting_description",appearance)
+            prefs.edit().putString("new_actor_pending",person.toString()).apply()
+            dialog.dismiss()
+            actorImagePicker.launch(arrayOf("image/*"))
+        }
+    }
     private fun actorCatalogMenu() {
         runCatching {
             val records=actorCatalog()
-            choiceMenu("คลังตัวละครใหม่", listOf("➕ สร้างตัวละครจากแม่แบบ","📚 ดู MASTER คลังเดิม")+(0 until records.length()).map { i -> records.getJSONObject(i).let { "${it.getString("display_name")} • อายุ ${it.getInt("character_age")} ปี" } }) { index ->
-                if(index==0) bodyTemplateMenu() else if(index==1) libraryMenu() else {
-                    val row=records.getJSONObject(index-2)
+            choiceMenu("คลังตัวละครใหม่", listOf("➕ สร้างตัวละครจากแม่แบบ","📚 ดู MASTER คลังเดิม","📥 นำเข้าตัวละครจากภาพ")+(0 until records.length()).map { i -> records.getJSONObject(i).let { "${it.getString("display_name")} • ${if(it.optInt("character_age")>0) "อายุ ${it.getInt("character_age")} ปี" else "ไม่ระบุอายุ"}" } }) { index ->
+                if(index==0) bodyTemplateMenu() else if(index==1) libraryMenu() else if(index==2) importCharacterMenu() else {
+                    val row=records.getJSONObject(index-3)
                     val file=File(filesDir,"actor_master_v2/"+row.getString("file"))
                     choiceMenu(row.getString("display_name"),listOf("ดู MASTER","นำออกจากคลังเรื่องใหม่")) { action ->
                         if(action==0) { if(file.isFile) fullImage(file,row.getString("display_name")) else notice("ไม่พบภาพ MASTER") }
                         else {
-                            val rest=JSONArray(); for(i in 0 until records.length()) if(i!=index-2) rest.put(records.getJSONObject(i))
+                            val rest=JSONArray(); for(i in 0 until records.length()) if(i!=index-3) rest.put(records.getJSONObject(i))
                             val temp=File(filesDir,"actor_catalog_v2.pending")
                             temp.writeText(JSONObject().put("records",rest).toString(2))
                             if(temp.renameTo(actorCatalogFile)) notice("นำออกจากคลังแล้ว • เรื่องที่สร้างไว้ยังใช้ภาพเดิม") else notice("บันทึกคลังไม่ได้")
@@ -413,7 +440,7 @@ class StudioActivity : AppCompatActivity() {
                 list.removeAllViews()
                 entries.filter { (it.id+" "+it.displayName+" "+it.original).contains(query,ignoreCase=true) }.forEach { entry ->
                     list.addView(android.widget.Button(this).apply {
-                        text="${entry.id} • ${entry.displayName} • อายุสมมติ ${entry.characterAge} ปี • ${entry.original}"
+                        text="${entry.id} • ${entry.displayName} • ${if(entry.characterAge>0) "อายุสมมติ ${entry.characterAge} ปี" else "ไม่ระบุอายุ"} • ${entry.original}"
                         setOnClickListener { libraryEntry(entry) }
                     })
                 }
@@ -432,7 +459,7 @@ class StudioActivity : AppCompatActivity() {
             val file=masterLibrary.source(entry)
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(400)); setOnClickListener { fullImage(file,entry.id) } })
-            panel.addView(TextView(this).apply { text="${entry.id} • ${entry.displayName} • อายุสมมติ ${entry.characterAge} ปี • ${entry.original}\nภาพต้นฉบับ 3 มุมมอง แตะภาพเพื่อขยาย" })
+            panel.addView(TextView(this).apply { text="${entry.id} • ${entry.displayName} • ${if(entry.characterAge>0) "อายุสมมติ ${entry.characterAge} ปี" else "ไม่ระบุอายุ"} • ${entry.original}\nภาพต้นฉบับ 3 มุมมอง แตะภาพเพื่อขยาย" })
             AlertDialog.Builder(this).setTitle("${entry.id} • ${entry.displayName}").setView(ScrollView(this).apply { addView(panel) })
                 .setPositiveButton("ใช้กับเรื่องใหม่") { _,_ ->
                     choiceMenu("กำหนดภาพ ${entry.id}",listOf("ตัวละครหลัก: กวิน","ตัวละครหลัก: รินรดา","ตัวละครหลัก: เมย์","เพิ่มตัวละครเสริมพร้อมตั้งชื่อ")) { slot ->
@@ -456,7 +483,7 @@ class StudioActivity : AppCompatActivity() {
                 require((0 until roster.length()).none { roster.getJSONObject(it).optString("library_id")==entry.id }) { "เลือก MASTER นี้ไว้แล้ว" }
                 val id="support_"+UUID.randomUUID().toString().take(8)
                 val person=JSONObject().put("name",name).put("master","${id.uppercase()}_MASTER.png")
-                    .put("library_id",entry.id).put("visual_description",MasterLibrary.description(entry.id))
+                    .put("library_id",entry.id).put("character_type",entry.characterType).put("character_age",entry.characterAge).put("visual_description",MasterLibrary.description(entry.id))
                 roster.put(person)
                 require(FlowCast.issues(JSONObject().put("supporting_characters",roster)).isEmpty()) { "ข้อมูลตัวละครไม่ถูกต้อง" }
                 masterLibrary.assign(entry,File(filesDir,"supporting_masters/$id.master"))
@@ -475,7 +502,7 @@ class StudioActivity : AppCompatActivity() {
             val file=File(filesDir,"character_masters/$id.master")
             if(file.isFile) {
                 val hash=MasterLibrary.digest(file.readBytes())
-                entries.firstOrNull { it.sha256==hash }?.let { selected.put(id,JSONObject().put("library_id",it.id).put("visual_description",MasterLibrary.description(it.id))) }
+                entries.firstOrNull { it.sha256==hash }?.let { selected.put(id,JSONObject().put("library_id",it.id).put("character_type",it.characterType).put("character_age",it.characterAge).put("visual_description",MasterLibrary.description(it.id))) }
             }
         }
         return selected
@@ -3227,7 +3254,7 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
                     if(value.isBlank() || description.text.isBlank() || StoryIdentity.keyFor(value)!=null || (0 until roster.length()).any { roster.getJSONObject(it).getString("name")==value }) notice("ระบุชื่อไม่ซ้ำและคำบรรยายจากภาพ")
                     else {
                         val id=UUID.randomUUID().toString().take(8).uppercase()
-                        val person=JSONObject().put("name",value).put("master","SUPPORT_${id}_MASTER.png").put("visual_description","adult fictional character; "+description.text.toString())
+                        val person=JSONObject().put("name",value).put("master","SUPPORT_${id}_MASTER.png").put("visual_description","fictional character; "+description.text.toString())
                         prefs.edit().putString("pending_support",person.toString()).apply(); supportImagePicker.launch(arrayOf("image/*"))
                     }
                 }.setNegativeButton("ยกเลิก",null).showDirector()

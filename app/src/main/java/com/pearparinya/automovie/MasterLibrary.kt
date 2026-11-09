@@ -6,15 +6,15 @@ import org.json.JSONObject
 
 /** Immutable source references. Assignments copy bytes; no project or legacy master is migrated. */
 internal class MasterLibrary(private val root: File, private val load: (String) -> ByteArray) {
-    data class Entry(val id: String, val filename: String, val original: String, val sha256: String, val characterAge: Int, val displayName: String = "")
+    data class Entry(val id: String, val filename: String, val original: String, val sha256: String, val characterAge: Int, val displayName: String = "", val characterType: String = "human")
     fun entries(): List<Entry> {
         val rows = JSONObject(String(load("master_library/catalog.json"), Charsets.UTF_8)).getJSONArray("records")
         return (0 until rows.length()).map { i ->
             val row = rows.getJSONObject(i)
-            Entry(row.getString("id"), row.getString("file"), row.getString("original_filename"), row.getString("sha256"), row.getInt("character_age"), row.optString("display_name"))
+            Entry(row.getString("id"), row.getString("file"), row.getString("original_filename"), row.getString("sha256"), row.getInt("character_age"), row.optString("display_name"), row.optString("character_type", "human"))
         }.also { entries ->
             require(entries.map { it.id }.distinct().size == entries.size)
-            require(entries.all { it.id.matches(Regex("CHAR_[0-9]{3}")) && File(it.filename).name == it.filename && it.characterAge in 25..90 })
+            require(entries.all { it.id.matches(Regex("CHAR_[0-9]{3}")) && File(it.filename).name == it.filename && it.characterAge in 0..120 })
         }
     }
     fun source(entry: Entry): File {
@@ -40,6 +40,6 @@ internal class MasterLibrary(private val root: File, private val load: (String) 
     }
     companion object {
         fun digest(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
-        fun description(id: String) = "Fictional character from reference $id. Match this character's own attached three-view MASTER: face, hair, skin, body silhouette and proportions. One sheet shows one character, not three people. Do not infer exact age, measurements or borrow another character's features."
+        fun description(id: String) = "Fictional character from reference $id. Match this character's own attached MASTER: species or form, identifying features, colors, silhouette and proportions. Multiple views of one subject represent one character, not multiple characters. Do not infer age or borrow another character's features."
     }
 }
