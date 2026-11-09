@@ -38,6 +38,7 @@ Images are generated externally in Gemini; video is generated externally in Flow
     fun validateWardrobes(batch: JSONObject,strictDetails: Boolean=false) {
         val scenes=batch.getJSONArray("scenes")
         for(i in 0 until scenes.length()) FlowReferencePrompt.people(scenes.getJSONObject(i)).forEach { person ->
+            if(AutoDirectorWardrobe.naturallyUnclothed(person)) return@forEach
             val outfit=person.getString("outfit")
             AutoDirectorWardrobe.parts(outfit)
             if(strictDetails) AutoDirectorWardrobe.v45Details(outfit)
