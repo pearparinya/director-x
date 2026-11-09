@@ -157,7 +157,7 @@ class FlowProductionPackTest {
         assertTrue(runCatching { FlowVisualDirection.cover("1x1","ref","ช่อง",title,2,"ชื่อ EP","คำโปรย","ซองบนโต๊ะ") }.isFailure)
         val vertical=FlowVisualDirection.cover("9x16","เมย์ → MIND_MASTER.jpg","ช่อง",title,2,"ชื่อ EP","คำโปรย","ซองบนโต๊ะ")
         assertTrue(vertical.contains(title)); assertTrue(vertical.contains("ตอนที่ 2 ชื่อ EP"))
-        assertTrue(vertical.contains("one compact group")); assertTrue(vertical.contains("chest-to-waist")); assertTrue(vertical.contains("without revealing the ending"))
+        assertTrue(vertical.contains("one compact group")); assertTrue(vertical.contains("natural body proportions appropriate to the character")); assertTrue(vertical.contains("without revealing the ending"))
         assertTrue(vertical.contains("1080 x 1920")); assertTrue(vertical.contains("native portrait key art"))
         assertFalse(vertical.contains("1920 x 1080"))
         assertTrue(runCatching { FlowVisualDirection.layout("1x1") }.isFailure)

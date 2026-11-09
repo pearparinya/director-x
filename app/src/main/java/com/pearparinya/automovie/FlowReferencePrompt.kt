@@ -22,7 +22,7 @@ internal object FlowReferencePrompt {
     }
     fun visibleCastLock(people: List<JSONObject>): String {
         val names=people.joinToString(", ") { it.getString("name") }
-        return "VISIBLE CAST LOCK: Show exactly ${people.size} named characters in this image: $names. Each character retains their own species or form. No other people or creatures appear. Anyone else mentioned, addressed, looked at or heard is outside the frame. If action conflicts with the cast, flag it for review; do not add characters."
+        return "VISIBLE CAST LOCK: Show exactly ${people.size} named characters in this image: $names. Each character retains their own species or form. No other people, creatures, body parts, shadows or reflections appear anywhere in frame. Anyone else mentioned, addressed, looked at or heard is outside the frame. If action conflicts with the cast, flag it for review; do not add characters."
     }
     fun people(scene: JSONObject): List<JSONObject> = scene.getJSONArray("characters").let { a -> (0 until a.length()).map { a.getJSONObject(it) } }
     fun scene(scene: JSONObject,ep: Int,kind: String?=null): String {
