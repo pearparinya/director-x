@@ -36,6 +36,15 @@ $rows
 Use the clear front view for face and hair. If the image-to-name mapping is unclear, ask. A front-view crop can supplement the original MASTER. Scene Outfit overrides MASTER clothing."""
     }
     private const val wardrobeContinuity="WARDROBE CONTINUITY: Scene Outfit controls garment, color, shoes and accessories; do not copy MASTER clothing. Ask if unclear. Same day: identical outfit, including neckline, collar, sleeves, closures, shoes and accessories. A new story day can use the outfit planned for that day. The three views in each MASTER represent ONE person; their own MASTER controls face, hair and body. Never mix characters. If a location reference is attached, preserve its layout and props across camera angles. Review results."
+    const val faceOnlyMarker = "FACE-ONLY MASTER REFERENCE"
+    /** Apply only to explicit user-selected face references; keep the original scene and wardrobe. */
+    fun faceOnly(command: String): String {
+        val instruction="""$faceOnlyMarker — For each human character, use only that person's own attached MASTER as the reference for facial identity and natural skin tone. The three views show one person; use the large clear front view for facial details. Preserve recognizable face shape, eyes, eyebrows, nose, lips and jaw. Do not invent a different face or blend identities. The scene controls clothes, hairstyle, body, pose and setting; do not copy MASTER clothing. For a nonhuman, preserve the MASTER's species, distinctive face, markings and anatomy. If the reference is missing or ambiguous, ask. Compare the generated result with the MASTER; similarity is a target, not a guarantee."""
+        return command.replace(identity,instruction)
+            .replace(BodyReferencePolicy.imageIdentityLock,"")
+            .replace("Use the clear front view for face and hair. If the image-to-name mapping is unclear, ask. A front-view crop can supplement the original MASTER. Scene Outfit overrides MASTER clothing.","Use the clear front view for facial identity. If the image-to-name mapping is unclear, ask. A front-view crop from the same MASTER may supplement it. Scene Outfit overrides MASTER clothing.")
+            .replace("their own MASTER controls face, hair and body", "their own MASTER controls facial identity for humans; nonhuman species and anatomy remain consistent")
+    }
     private fun cast(people: List<JSONObject>,poster: Boolean=false)=people.mapIndexed { i,p ->
         val position=if(!poster) p.optString("screen_position") else when(people.size) { 1 -> "center"; 2 -> if(i==0) "left" else "right"; else -> listOf("left","center","right")[i] }
         val alias=when(FlowCast.id(p)) { "gawin" -> "Kawin / Gawin"; "rinlada" -> "Rinrada / Rinlada"; "mind" -> "May / Mind"; else -> p.getString("name") }

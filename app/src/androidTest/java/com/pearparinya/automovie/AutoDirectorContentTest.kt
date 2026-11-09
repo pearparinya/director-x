@@ -16,6 +16,16 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 @RunWith(AndroidJUnit4::class)
 class AutoDirectorContentTest {
+    @Test fun faceOnlyModeKeepsSceneAndOutfitWithoutAddingBodyLock() {
+        val task=SimpleProductionCommands.imageTasks(story(),1).first { it.id=="EP01_SC001" }
+        val changed=SimpleProductionCommands.faceOnly(task.command)
+        assertTrue(changed.contains(SimpleProductionCommands.faceOnlyMarker))
+        assertTrue(changed.contains("Scene Outfit overrides MASTER clothing."))
+        assertTrue(changed.contains("scene controls clothes, hairstyle, body, pose and setting"))
+        assertTrue(changed.contains("nonhuman"))
+        assertFalse(changed.contains(BodyReferencePolicy.imageIdentityLock))
+        assertTrue(task.command.contains(BodyReferencePolicy.imageIdentityLock))
+    }
     @Test fun imageCommandsBindEachVisibleMasterToItsOwnSavedCue() {
         val project = story()
         val scene = project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
