@@ -440,7 +440,7 @@ class StudioActivity : AppCompatActivity() {
                 list.removeAllViews()
                 entries.filter { (it.id+" "+it.displayName+" "+it.original).contains(query,ignoreCase=true) }.forEach { entry ->
                     list.addView(android.widget.Button(this).apply {
-                        text="${entry.id} • ${entry.displayName} • อายุสมมติ ${entry.characterAge} ปี • ${entry.original}"
+                        text="${entry.id} • ${entry.displayName} • ${if(entry.characterAge>0) "อายุสมมติ ${entry.characterAge} ปี" else "ไม่ระบุอายุ"} • ${entry.original}"
                         setOnClickListener { libraryEntry(entry) }
                     })
                 }
@@ -459,7 +459,7 @@ class StudioActivity : AppCompatActivity() {
             val file=masterLibrary.source(entry)
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(400)); setOnClickListener { fullImage(file,entry.id) } })
-            panel.addView(TextView(this).apply { text="${entry.id} • ${entry.displayName} • อายุสมมติ ${entry.characterAge} ปี • ${entry.original}\nภาพต้นฉบับ 3 มุมมอง แตะภาพเพื่อขยาย" })
+            panel.addView(TextView(this).apply { text="${entry.id} • ${entry.displayName} • ${if(entry.characterAge>0) "อายุสมมติ ${entry.characterAge} ปี" else "ไม่ระบุอายุ"} • ${entry.original}\nภาพต้นฉบับ 3 มุมมอง แตะภาพเพื่อขยาย" })
             AlertDialog.Builder(this).setTitle("${entry.id} • ${entry.displayName}").setView(ScrollView(this).apply { addView(panel) })
                 .setPositiveButton("ใช้กับเรื่องใหม่") { _,_ ->
                     choiceMenu("กำหนดภาพ ${entry.id}",listOf("ตัวละครหลัก: กวิน","ตัวละครหลัก: รินรดา","ตัวละครหลัก: เมย์","เพิ่มตัวละครเสริมพร้อมตั้งชื่อ")) { slot ->
@@ -483,7 +483,7 @@ class StudioActivity : AppCompatActivity() {
                 require((0 until roster.length()).none { roster.getJSONObject(it).optString("library_id")==entry.id }) { "เลือก MASTER นี้ไว้แล้ว" }
                 val id="support_"+UUID.randomUUID().toString().take(8)
                 val person=JSONObject().put("name",name).put("master","${id.uppercase()}_MASTER.png")
-                    .put("library_id",entry.id).put("visual_description",MasterLibrary.description(entry.id))
+                    .put("library_id",entry.id).put("character_type",entry.characterType).put("character_age",entry.characterAge).put("visual_description",MasterLibrary.description(entry.id))
                 roster.put(person)
                 require(FlowCast.issues(JSONObject().put("supporting_characters",roster)).isEmpty()) { "ข้อมูลตัวละครไม่ถูกต้อง" }
                 masterLibrary.assign(entry,File(filesDir,"supporting_masters/$id.master"))
@@ -502,7 +502,7 @@ class StudioActivity : AppCompatActivity() {
             val file=File(filesDir,"character_masters/$id.master")
             if(file.isFile) {
                 val hash=MasterLibrary.digest(file.readBytes())
-                entries.firstOrNull { it.sha256==hash }?.let { selected.put(id,JSONObject().put("library_id",it.id).put("visual_description",MasterLibrary.description(it.id))) }
+                entries.firstOrNull { it.sha256==hash }?.let { selected.put(id,JSONObject().put("library_id",it.id).put("character_type",it.characterType).put("character_age",it.characterAge).put("visual_description",MasterLibrary.description(it.id))) }
             }
         }
         return selected

@@ -29,10 +29,11 @@ class CharacterLibraryResetTest {
         try {
             val library=MasterLibrary(root) { context.assets.open(it).use { input -> input.readBytes() } }
             val entries=library.entries()
-            assertEquals((listOf(103)+(130..152)).map { "CHAR_%03d".format(it) },entries.map { it.id })
-            assertEquals(listOf("กวิน","คมสัน","ภูวดล","ธำรง","ปกรณ์","วายุ","ภาคิน","ลุงสมบัติ","นที","ธีรภัทร","อัคนี","บุญมี","กฤต","ชาญ","ภาณุ","ศุภชัย","พิทักษ์","ปิ่นมณี","ลลิตา","เพ็ญศรี","พิมพ์ชนก","ภัทรวดี","ณัฐชา","ศุภรัตน์"),entries.map { it.displayName })
-            assertEquals(listOf(38,33,50,25,42,28,46),entries.takeLast(7).map { it.characterAge })
-            assertEquals(24,entries.map { it.sha256 }.distinct().size)
+            assertEquals((listOf(103)+(130..152)+(300..309)).map { "CHAR_%03d".format(it) },entries.map { it.id })
+            assertEquals(listOf("กวิน","คมสัน","ภูวดล","ธำรง","ปกรณ์","วายุ","ภาคิน","ลุงสมบัติ","นที","ธีรภัทร","อัคนี","บุญมี","กฤต","ชาญ","ภาณุ","ศุภชัย","พิทักษ์","ปิ่นมณี","ลลิตา","เพ็ญศรี","พิมพ์ชนก","ภัทรวดี","ณัฐชา","ศุภรัตน์"),entries.take(24).map { it.displayName })
+            assertEquals(listOf(38,33,50,25,42,28,46),entries.take(24).takeLast(7).map { it.characterAge })
+            assertEquals(entries.size,entries.map { it.sha256 }.distinct().size)
+            assertEquals(listOf("animal","animal","fantasy","spirit","human","fantasy","deity_or_demon","animal","deity_or_demon","fantasy"),entries.takeLast(10).map { it.characterType })
             entries.forEach { entry ->
                 val source=library.source(entry)
                 assertEquals(entry.sha256,MasterLibrary.digest(source.readBytes()))
@@ -41,7 +42,7 @@ class CharacterLibraryResetTest {
                 assertTrue(bounds.outWidth>0 && bounds.outHeight>0)
             }
             assertTrue(context.assets.list("character_masters").orEmpty().isEmpty())
-            assertEquals(25,context.assets.list("master_library")!!.size)
+            assertEquals(entries.size+1,context.assets.list("master_library")!!.size)
         } finally { root.deleteRecursively() }
     }
 }
