@@ -16,7 +16,7 @@ internal class AutomaticStoryRouter(
     private val cancelled: () -> Boolean,
     private val progress: (StoryProvider,String)->Unit
 ) {
-    internal var requestTimeoutMillis: Long = 75_000L
+    internal var requestTimeoutMillis: Long = 45_000L
     var onFailure: (StoryProvider,String)->Unit = { _,_ -> }
     private val routes=listOf(StoryProvider.GROQ to StoryProvider.GEMINI,StoryProvider.GEMINI to StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER to null,StoryProvider.MISTRAL to null,StoryProvider.SAMBANOVA to null,StoryProvider.COHERE to null)
     private val unavailable=mutableMapOf<StoryProvider,StoryHttpFailure>()
@@ -97,6 +97,7 @@ internal class AutomaticStoryRouter(
                     // rewrite the writer's scenes merely because formatting failed.
                     val formatters=(listOf(formatter,StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER,StoryProvider.COHERE,StoryProvider.MISTRAL,StoryProvider.SAMBANOVA))
                         .distinct().filter { it!=writer && it in clients && it !in unavailable }
+                        .sortedBy { clients.getValue(it).availableDelayMillis() }
                     var formatted: JSONObject?=null
                     var formatFailure: Exception?=null
                     for(target in formatters) {
@@ -140,6 +141,9 @@ internal class AutomaticStoryRouter(
     } catch(e: InvalidStoryResponse) {
         if(cancelled()) throw CancellationException()
         onFailure(provider,"ตรวจคำตอบไม่ผ่าน")
+        // Give a different configured provider a chance immediately. A single
+        // provider retains one retry, so existing single-key setups still work.
+        if(clients.keys.any { it!=provider && it !in unavailable }) throw e
         progress(provider,"คำตอบไม่สมบูรณ์ • ลองใหม่ 1 ครั้ง")
         boundedRequest(provider,prompt,schema)
     }

@@ -12,7 +12,7 @@ internal object ChannelCatalog {
     }
     data class MainCategory(val id: String,val name: String,val style: String,val tone: String,val icon: String,val direction: String) {
         val label get() = "$name ($style)"
-        val menuLabel get() = "$icon $name\n($style)"
+        val menuLabel get() = if(name.trim().equals(style.trim(),ignoreCase=true)) "$icon $name" else "$icon $name\n($style)"
     }
     val mainCategories = listOf(
         MainCategory("domestic_secrets","ความลับในรั้วบ้าน","ดราม่าครอบครัว • ความลับ • หักมุม","drama","🏡","Family drama anchored in the home: conflicting loyalties, a meaningful household secret and a credible twist. Family relationships are non-sexual. Vary the household, adult roles, secret and resolution; never force an affair or inheritance plot every time."),

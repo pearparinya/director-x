@@ -12,6 +12,21 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class AutomaticStoryRouterTest {
+    @Test fun invalidAnswerSwitchesProviderWithoutRepeatingSlowRequest() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-invalid-switch-${UUID.randomUUID()}")
+        try {
+            val calls=mutableListOf<String>()
+            val open=client { _,_ -> calls.add("open"); throw InvalidStoryResponse("invalid") }
+            val cohere=client { _,_ -> calls.add("cohere"); draft() }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.OPENROUTER to open,StoryProvider.COHERE to cohere),{false},{_,_->})
+            assertEquals("สวัสดี",router.generate("brief",schema()).getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
+            assertEquals(listOf("open","cohere"),calls)
+        } finally { folder.deleteRecursively() }
+    }
+    @Test fun categoryMenuOmitsRepeatedDescription() {
+        assertTrue(ChannelCatalog.filmCategories.all { it.menuLabel=="${it.icon} ${it.name}" })
+        assertTrue(ChannelCatalog.mainCategories.first().menuLabel.contains("\n("))
+    }
     @Test fun sambaNovaTakesOverWhenPreviousProviderFails() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"sambanova-handoff-${UUID.randomUUID()}")
         try {
