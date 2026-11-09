@@ -386,6 +386,10 @@ class StudioActivity : AppCompatActivity() {
         val types=listOf("มนุษย์", "สัตว์", "หุ่นยนต์", "วิญญาณ", "เทพหรือปีศาจ", "สิ่งมีชีวิตแฟนตาซี", "อื่น ๆ")
         val codes=listOf("human", "animal", "robot", "spirit", "deity_or_demon", "fantasy", "other")
         val type=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,types); panel.addView(this) }
+        panel.addView(TextView(this).apply { text="เพศตัวละคร (เลือกได้หรือเว้นไม่ระบุ)" })
+        val genders=listOf("ไม่ระบุ", "ชาย", "หญิง")
+        val genderCodes=listOf("unspecified", "man", "woman")
+        val gender=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,genders); panel.addView(this) }
         val age=EditText(this).apply { hint="อายุเป็นปี (เว้นว่างถ้าไม่ระบุ; ทารกระบุในคำอธิบาย)"; inputType=android.text.InputType.TYPE_CLASS_NUMBER; panel.addView(this) }
         val description=EditText(this).apply { hint="ลักษณะเด่น ชนิด พันธุ์ หรือช่วงวัยตามภาพ"; panel.addView(this) }
         val dialog=AlertDialog.Builder(this).setTitle("นำเข้าตัวละครจากภาพ").setView(panel)
@@ -397,7 +401,7 @@ class StudioActivity : AppCompatActivity() {
             if((0 until castingCatalog().length()).any { castingCatalog().getJSONObject(it).optString("display_name")==n }) { notice("ชื่อนี้มีในคลังแล้ว"); return@setOnClickListener }
             val id="CHAR_"+(System.currentTimeMillis()%1900000000L).toString()
             val person=JSONObject().put("id",id).put("display_name",n).put("character_age",years)
-                .put("character_type",codes[type.selectedItemPosition]).put("character_gender","unspecified").put("casting_description",appearance)
+                .put("character_type",codes[type.selectedItemPosition]).put("character_gender",genderCodes[gender.selectedItemPosition]).put("casting_description",appearance)
             prefs.edit().putString("new_actor_pending",person.toString()).apply()
             dialog.dismiss()
             actorImagePicker.launch(arrayOf("image/*"))
