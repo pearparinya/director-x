@@ -378,6 +378,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                 val copy=JSONObject(scene.toString()).put("scene",1)
                 val sample=JSONObject().put("aspect_ratio",LandscapeProduction.ASPECT).put("supporting_characters",support).put("title","ตรวจซีน").put("episodes",JSONArray().put(JSONObject().put("ep",1).put("scenes",JSONArray().put(copy))))
                 val ageIssues=CharacterAgeCheck.issues(scene,FlowCast.definitions(sample))
+                CharacterAgeCheck.issues(copy,FlowCast.definitions(sample))
                 require(ageIssues.isEmpty()) { "EP $ep ซีน ${start+i}: "+ageIssues.joinToString("; ") }
                 val issues=FlowProductionPack.issues(sample).filterNot { it.contains("ยาว 8 วินาที") }
                 require(issues.isEmpty()) { "EP $ep ซีน ${start+i}: "+issues.take(3).joinToString("; ") }
