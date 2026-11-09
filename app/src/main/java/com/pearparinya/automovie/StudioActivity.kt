@@ -746,7 +746,7 @@ class StudioActivity : AppCompatActivity() {
         super.onNewIntent(incoming); setIntent(incoming); adoptGeminiProject(incoming); render()
     }
     private fun installCharacterMasters() {
-        CharacterLibraryReset.install(filesDir)
+        // Preserve existing character libraries and project snapshots during upgrades.
         // Refresh an existing cached copy of Krit's reference after the bundled image changes.
         if(File(filesDir,"master_library/CHAR_141__1000030680.jpg").isFile) {
             masterLibrary.entries().firstOrNull { it.id=="CHAR_141" }?.let { masterLibrary.source(it) }
