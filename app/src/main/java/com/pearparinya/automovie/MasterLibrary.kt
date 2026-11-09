@@ -14,7 +14,7 @@ internal class MasterLibrary(private val root: File, private val load: (String) 
             Entry(row.getString("id"), row.getString("file"), row.getString("original_filename"), row.getString("sha256"), row.getInt("character_age"), row.optString("display_name"))
         }.also { entries ->
             require(entries.map { it.id }.distinct().size == entries.size)
-            require(entries.all { it.id.matches(Regex("CHAR_[0-9]{3}")) && File(it.filename).name == it.filename && it.characterAge in 1..120 })
+            require(entries.all { it.id.matches(Regex("CHAR_[0-9]{3}")) && File(it.filename).name == it.filename && it.characterAge in 0..120 })
         }
     }
     fun source(entry: Entry): File {
