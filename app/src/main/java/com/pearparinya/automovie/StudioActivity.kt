@@ -1271,6 +1271,7 @@ class StudioActivity : AppCompatActivity() {
     private fun previewImageReferences(task: SimpleProductionCommands.Task, references: List<Pair<String,File>>, labels: Map<String,String>) {
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
         panel.addView(TextView(this).apply { text="ตรวจภาพ MASTER ชื่อและตำแหน่งก่อนส่ง • แตะภาพเพื่อขยาย\nหลังเปิดแอปปลายทาง ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง" })
+        val faceOnly=android.widget.CheckBox(this).apply { text="ใช้ MASTER เฉพาะใบหน้ามนุษย์ • ชุดและทรงผมตามฉาก"; panel.addView(this) }
         task.references.forEachIndexed { index, person ->
             val (id,file)=references[index]
             val position=if(task.id.contains("_COVER_")) when(task.references.size) { 1 -> "center"; 2 -> if(index==0) "left" else "right"; else -> listOf("left","center","right")[index] } else person.optString("screen_position")
@@ -1282,7 +1283,7 @@ class StudioActivity : AppCompatActivity() {
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(180)); setOnClickListener { fullImage(file,"ภาพสถานที่อ้างอิง") } })
         }
         AlertDialog.Builder(this).setTitle("ตรวจ MASTER • ${task.id}").setView(ScrollView(this).apply { addView(panel) })
-            .setPositiveButton("เลือกแอปและส่ง") { _,_ -> shareImageCommand(task.command,references,labels) }
+            .setPositiveButton("เลือกแอปและส่ง") { _,_ -> shareImageCommand(if(faceOnly.isChecked) SimpleProductionCommands.faceOnly(task.command) else task.command,references,labels) }
             .setNegativeButton("กลับไปตรวจ",null).showDirector()
     }
     private fun shareImageCommand(command: String, references: List<Pair<String,File>>, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false) {
@@ -1302,7 +1303,7 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT", imagePackage: Boolean = false, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false) {
         var text = if (lockCreation && !inputText.contains("ค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง)")) inputText + "\nค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง): EP=${prefs.getString("plan_episodes", "").orEmpty().ifBlank { "AI ประเมิน" }} ฉาก/EP=${prefs.getString("plan_scenes", "").orEmpty().ifBlank { "AI ประเมิน" }} เวลา=${prefs.getString("plan_duration", "8")} วินาที สัดส่วน=${"9:16"} กำหนด duration_seconds และ aspect_ratio ใน story.json และคำสั่งทุกฉากตามนี้" else inputText
-        if (imagePackage && !bodyOnly && !text.contains(BodyReferencePolicy.imageIdentityLock)) text += "\n\n" + BodyReferencePolicy.imageIdentityLock
+        if (imagePackage && !bodyOnly && !text.contains(SimpleProductionCommands.faceOnlyMarker) && !text.contains(BodyReferencePolicy.imageIdentityLock)) text += "\n\n" + BodyReferencePolicy.imageIdentityLock
         if (imagePackage && !bodyOnly && !text.contains(ImagePromptPolicy.skinTone)) text += "\n\n" + ImagePromptPolicy.skinTone
         if (imagePackage) for ((name,_) in referenceImages) {
             val id=referenceId(name)
