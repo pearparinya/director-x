@@ -388,6 +388,10 @@ class StudioActivity : AppCompatActivity() {
             val name=EditText(this).apply { hint="ชื่อตัวละคร"; panel.addView(this) }
             val age=EditText(this).apply { hint="อายุสมมติ 0–1,000 ปี (0 = ต่ำกว่า 1 ปี)"; inputType=android.text.InputType.TYPE_CLASS_NUMBER; panel.addView(this) }
             val description=EditText(this).apply { hint="ลักษณะหรือรายละเอียดเพิ่มเติม (ไม่บังคับ)"; panel.addView(this) }
+            val gender=android.widget.Spinner(this).apply {
+                adapter=android.widget.ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ไม่ระบุเพศ", "ชาย", "หญิง"))
+                panel.addView(this)
+            }
             panel.addView(TextView(this).apply { text="เลือกภาพ MASTER ต้นฉบับ 1 ภาพที่มี 3 มุม แอปบันทึกภาพโดยไม่สร้างใบหน้าใหม่" })
             val dialog=AlertDialog.Builder(this).setTitle("นำเข้า MASTER • ${labels[index]}")
                 .setView(panel).setPositiveButton("เลือกภาพ",null).setNegativeButton("ยกเลิก",null).showDirector()
@@ -398,6 +402,7 @@ class StudioActivity : AppCompatActivity() {
                 val id="CHAR_"+(System.currentTimeMillis()%2000000000L).toString()
                 val p=JSONObject().put("id",id).put("display_name",n).put("character_age",years)
                     .put("character_type",types[index]).put("casting_description",description.text.toString().trim())
+                if(gender.selectedItemPosition>0) p.put("character_gender",if(gender.selectedItemPosition==1) "man" else "woman")
                 prefs.edit().putString("new_actor_pending",p.toString()).apply()
                 dialog.dismiss()
                 actorImagePicker.launch(arrayOf("image/*"))

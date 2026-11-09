@@ -70,6 +70,14 @@ class AutoDirectorWardrobeTest {
         }
         assertTrue(runCatching { AutoDirectorWardrobe.v45Details(clothes) }.isFailure)
     }
+    @Test fun nonhumanMayKeepNaturalAppearanceAcrossDaysWithoutHumanClothes() {
+        val natural="Top: none; Bottom: none; Shoes: none; Accessories: none"
+        AutoDirectorWardrobe.v45Details(natural,true)
+        assertTrue(runCatching { AutoDirectorWardrobe.v45Details(natural) }.isFailure)
+        val first=scene(1,natural); val second=scene(1,natural,day="DAY02")
+        listOf(first,second).forEach { it.getJSONArray("characters").getJSONObject(0).put("character_type","animal") }
+        assertTrue(AutoDirectorWardrobe.issues(listOf(shot(1,first),shot(2,second))).isEmpty())
+    }
     @Test fun completePartsAllowExplicitNoneButRejectPlaceholdersDuplicatesAndEmptyJewelry() {
         assertEquals(4,AutoDirectorWardrobe.parts(clothes).size)
         val simple="Top: white shirt; Bottom: black trousers; Shoes: black loafers; Accessories: none"

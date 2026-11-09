@@ -40,6 +40,6 @@ internal class MasterLibrary(private val root: File, private val load: (String) 
     }
     companion object {
         fun digest(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
-        fun description(id: String) = "Fictional character from reference $id. Match this character's own attached three-view MASTER: face, hair, skin, body silhouette and proportions. One sheet shows one character, not three people. Do not infer exact age, measurements or borrow another character's features."
+        fun description(id: String) = "Fictional character from reference $id. Match this character's own attached three-view MASTER: species or form, face, distinctive features, coloring, markings, silhouette and proportions. Preserve fur, scales, feathers, limbs or other anatomy when present; do not turn a nonhuman into a human. One sheet shows one character, not three people. Do not infer exact age, measurements or borrow another character's features."
     }
 }
