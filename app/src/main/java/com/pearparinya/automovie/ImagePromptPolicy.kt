@@ -43,7 +43,7 @@ ${if(profile.isNotBlank()) "ข้อมูลอ้างอิงรายค�
     }
 
     fun newCharacter(reference: String, location: String) =
-        "สร้างภาพจริงหนึ่งภาพของตัวละครสมมุติผู้ใหญ่คนใหม่ ตั้งชื่อไทย ออกแบบใบหน้าและทรงผมใหม่\nอ้างอิง $reference เฉพาะสไตล์ภาพและความสมจริง\n${EditorialImagePolicy.freshDesign}\n${EditorialImagePolicy.referenceRendering}\n${EditorialImagePolicy.wardrobe}\nชุด: ชุดลำลองเหมาะกับกิจกรรม\nสถานที่: $location\nการกระทำ: เลือกหนึ่งกิจกรรมในชีวิตประจำวัน\n${style("9:16")} ไม่มีข้อความหรือลายน้ำ\nแสดงภาพจริงแล้วแจ้งชื่อและชุดสั้น ๆ หากสร้างไม่ได้ให้แจ้งตามจริง"
+        "สร้างภาพจริงหนึ่งภาพของตัวละครสมมุติคนใหม่ตามประเภทและช่วงวัยที่กำหนด ตั้งชื่อไทย ออกแบบลักษณะเฉพาะใหม่\nอ้างอิง $reference เฉพาะสไตล์ภาพและความสมจริง\n${EditorialImagePolicy.freshDesign}\n${EditorialImagePolicy.referenceRendering}\n${EditorialImagePolicy.wardrobe}\nชุด: ชุดลำลองเหมาะกับกิจกรรม\nสถานที่: $location\nการกระทำ: เลือกหนึ่งกิจกรรมในชีวิตประจำวัน\n${style("9:16")} ไม่มีข้อความหรือลายน้ำ\nแสดงภาพจริงแล้วแจ้งชื่อและชุดสั้น ๆ หากสร้างไม่ได้ให้แจ้งตามจริง"
 
     fun coverReference(source: String) =
         "ใช้ $source อ้างอิงตัวละคร ใบหน้า ทรงผม สัดส่วนรูปร่างโดยรวมตามต้นฉบับ $referenceAppeal ชุดและสถานที่ตามตอน จัดภาพถ่ายสมจริงให้สื่อเหตุการณ์เด่น และเว้นพื้นที่ข้อความตามรูปแบบปก\n${BodyReferencePolicy.imageIdentityLock}\n${EditorialImagePolicy.referenceRendering}\n${EditorialImagePolicy.wardrobe}"
