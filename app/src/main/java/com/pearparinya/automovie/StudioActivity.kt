@@ -1274,12 +1274,24 @@ class StudioActivity : AppCompatActivity() {
         val faceOnly=android.widget.CheckBox(this).apply { text="ใช้ MASTER เฉพาะใบหน้ามนุษย์ • ชุดและทรงผมตามฉาก"; panel.addView(this) }
         val crops=linkedMapOf<String,Pair<String,File>>()
         val cropLabels=linkedMapOf<String,String>()
+        val cropStore=FaceReferenceStore(File(filesDir,"master_face_references"))
         task.references.forEachIndexed { index, person ->
             val (id,file)=references[index]
             val position=if(task.id.contains("_COVER_")) when(task.references.size) { 1 -> "center"; 2 -> if(index==0) "left" else "right"; else -> listOf("left","center","right")[index] } else person.optString("screen_position")
             panel.addView(TextView(this).apply { text="${person.optString("name")} • $position\n$id"; setTypeface(null,Typeface.BOLD) })
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(220)); setOnClickListener { fullImage(file,person.optString("name")) } })
             val status=TextView(this).apply { text="ยังไม่ได้เลือกกรอบใบหน้า"; panel.addView(this) }
+            val cropPreview=ImageView(this).apply { adjustViewBounds=true; visibility=android.view.View.GONE; layoutParams=LinearLayout.LayoutParams(-1,dp(160)); panel.addView(this) }
+            fun showCrop(target: File) {
+                val cropId="${referenceId(id)}_FACE_CROP"
+                crops[id]=cropId to target
+                cropLabels[cropId]="ภาพครอปใบหน้า ${person.optString("name")} จาก MASTER $id"
+                status.text="ภาพครอป • ${person.optString("name")} • ตรวจให้ตรง MASTER"
+                cropPreview.setImageBitmap(previewBitmap(Uri.fromFile(target)))
+                cropPreview.visibility=android.view.View.VISIBLE
+                cropPreview.setOnClickListener { fullImage(target,"ตรวจภาพครอป • ${person.optString("name")}") }
+            }
+            runCatching { cropStore.latest(file) }.getOrNull()?.let { showCrop(it); faceOnly.isChecked=true }
             panel.addView(Button(this).apply {
                 text="เลือกกรอบใบหน้าจาก MASTER"
                 setOnClickListener {
@@ -1289,14 +1301,11 @@ class StudioActivity : AppCompatActivity() {
                         val dialog=AlertDialog.Builder(this@StudioActivity).setTitle("เลือกใบหน้า • ${person.optString("name")}").setView(layout).setPositiveButton("บันทึกกรอบ",null).setNegativeButton("ยกเลิก",null).showDirector()
                         dialog.getButton(-1).setOnClickListener {
                             runCatching {
-                                val cropId="${referenceId(id)}_FACE_CROP"
-                                val target=File(cacheDir,"face_reference_crops/${UUID.randomUUID()}/$cropId.png")
-                                cropView.save(target)
-                                crops[id]=cropId to target
-                                cropLabels[cropId]="ภาพครอปใบหน้า ${person.optString("name")} จาก MASTER $id"
+                                val target=cropStore.newFile(file)
+                                val pending=File(target.parentFile,target.name+".pending")
+                                try { cropView.save(pending); check(pending.renameTo(target)) { "บันทึกภาพครอปไม่ได้" } } finally { pending.delete() }
+                                showCrop(target)
                                 faceOnly.isChecked=true
-                                status.text="เลือกกรอบแล้ว • ${person.optString("name")} • แตะภาพครอปเพื่อตรวจ"
-                                status.setOnClickListener { fullImage(target,"ตรวจภาพครอป • ${person.optString("name")}") }
                                 dialog.dismiss()
                             }.onFailure { notice(it.message ?: "บันทึกภาพครอปไม่ได้") }
                         }
@@ -1311,7 +1320,7 @@ class StudioActivity : AppCompatActivity() {
         AlertDialog.Builder(this).setTitle("ตรวจ MASTER • ${task.id}").setView(ScrollView(this).apply { addView(panel) })
             .setPositiveButton("เลือกแอปและส่ง") { _,_ ->
                 val selected=if(faceOnly.isChecked) crops else emptyMap()
-                val bindings=selected.entries.joinToString("\n") { (id,crop) -> "FACE CROP ${crop.first} is cropped from MASTER ${referenceId(id)}; both show the same character. Use the crop for facial identity and the original MASTER for verification." }
+                val bindings=selected.entries.joinToString("\n") { (id,crop) -> "CHARACTER ${labels[id].orEmpty()} — FACE CROP ${crop.first} is cropped from MASTER ${referenceId(id)}; both show the same character. Use the crop for facial identity and the original MASTER for verification. Never use this crop for another character." }
                 val command=if(faceOnly.isChecked) SimpleProductionCommands.faceOnly(task.command)+if(bindings.isBlank()) "" else "\n\n$bindings" else task.command
                 shareImageCommand(command,references+selected.values,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } })
             }
