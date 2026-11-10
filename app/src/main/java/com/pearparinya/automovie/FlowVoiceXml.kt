@@ -1,6 +1,11 @@
 package com.pearparinya.automovie
 
 /** Text prompt in the concise XML style tested by the user; not a Flow API schema. */
+internal object ThaiSpeechPacing {
+    const val direction = "Speak the exact written Thai words naturally, with clear phrase-level pauses guided by existing spaces and punctuation. Do not read punctuation aloud, add words or rush; fit the delivery within the shot."
+    fun format(text: String): String = text.replace(Regex("(\\.{3}|…)(?=[ก-๙A-Za-z])"), "$1 ")
+}
+
 internal object FlowVoiceXml {
     internal const val accent = "The speaker speaks Thai with a natural Central Thai accent."
     private fun xml(v: String)=v.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;")
@@ -43,16 +48,16 @@ internal object FlowVoiceXml {
             dialogue.isNotEmpty() && !offscreen -> "Only [$speakerLabel] speaks with natural lip movement; other visible characters stay silent."
             else -> "Visible characters remain silent with mouths closed."
         }
-        val accentDirection=if(dialogue.isNotEmpty() || narration.isNotEmpty() || s.turns.isNotEmpty()) " $accent" else ""
+        val accentDirection=if(dialogue.isNotEmpty() || narration.isNotEmpty() || s.turns.isNotEmpty()) " $accent ${ThaiSpeechPacing.direction}" else ""
         val prompt="$mapping $action. $visible$accentDirection Preserve the attached first frame, faces, hair, body proportions, positions, clothes, shoes, props, lighting and location. ${ScenePropContinuity.video} ${camera.trim()}".trim()
         val audio=when {
             s.turns.isNotEmpty() -> s.turns.joinToString("") { turn ->
                 val off=s.offscreen.any { it.trim()==turn.speaker.trim() || StoryIdentity.keyFor(it)?.let { key -> key==StoryIdentity.keyFor(turn.speaker) }==true }
-                "    <dialogue${if(off) " off_screen=\"true\"" else ""}>\n      <speaker>${xml(if(off) role(turn.speaker) else "[${role(turn.speaker)}]")}</speaker>\n      <text>${xml(turn.text)}</text>\n      <language>th-TH</language>\n    </dialogue>\n"
+                "    <dialogue${if(off) " off_screen=\"true\"" else ""}>\n      <speaker>${xml(if(off) role(turn.speaker) else "[${role(turn.speaker)}]")}</speaker>\n      <text>${xml(ThaiSpeechPacing.format(turn.text))}</text>\n      <language>th-TH</language>\n    </dialogue>\n"
             }
-            narration.isNotEmpty() -> "    <dialogue off_screen=\"true\">\n      <voice name=\"male_narrator_thai\">${xml(narration)}</voice>\n    </dialogue>\n"
-            dialogue.isNotEmpty() && offscreen -> "    <dialogue off_screen=\"true\">\n      <speaker>${xml(speakerLabel)}</speaker>\n      <text>${xml(dialogue)}</text>\n      <language>th-TH</language>\n    </dialogue>\n"
-            dialogue.isNotEmpty() -> "    <dialogue>\n      <speaker>[${xml(speakerLabel)}]</speaker>\n      <text>${xml(dialogue)}</text>\n      <language>th-TH</language>\n    </dialogue>\n"
+            narration.isNotEmpty() -> "    <dialogue off_screen=\"true\">\n      <voice name=\"male_narrator_thai\">${xml(ThaiSpeechPacing.format(narration))}</voice>\n    </dialogue>\n"
+            dialogue.isNotEmpty() && offscreen -> "    <dialogue off_screen=\"true\">\n      <speaker>${xml(speakerLabel)}</speaker>\n      <text>${xml(ThaiSpeechPacing.format(dialogue))}</text>\n      <language>th-TH</language>\n    </dialogue>\n"
+            dialogue.isNotEmpty() -> "    <dialogue>\n      <speaker>[${xml(speakerLabel)}]</speaker>\n      <text>${xml(ThaiSpeechPacing.format(dialogue))}</text>\n      <language>th-TH</language>\n    </dialogue>\n"
             else -> ""
         }
         return "<flow>\n  <scene>\n    <aspect_ratio>9:16</aspect_ratio>\n    <duration>8</duration>\n    <lighting>Preserve the lighting and colors of the attached start frame.</lighting>\n    <typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone>\n    <prompt>${xml(prompt)}</prompt>\n"+audio+"  </scene>\n</flow>"
