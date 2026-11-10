@@ -34,11 +34,43 @@ internal enum class StoryProvider(val id: String,val label: String,val defaultMo
         val activeProviders=listOf(GROQ,GEMINI,DEEPSEEK,OPENROUTER,MISTRAL,SAMBANOVA,COHERE)
         fun freeOnly(context: Context)=context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).getBoolean("free_only",false)
         fun setFreeOnly(context: Context,enabled: Boolean) { context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).edit().putBoolean("free_only",enabled).apply() }
-        fun eligible(context: Context)=if(freeOnly(context)) listOf(OPENROUTER) else activeProviders
-        fun ready(context: Context)=if(freeOnly(context)) OPENROUTER.hasKey(context) else (GROQ.hasKey(context) && GEMINI.hasKey(context)) || (GEMINI.hasKey(context) && DEEPSEEK.hasKey(context)) || OPENROUTER.hasKey(context) || COHERE.hasKey(context) || MISTRAL.hasKey(context) || SAMBANOVA.hasKey(context)
+        fun allowedIds(context: Context): Set<String> = context.getSharedPreferences("story_provider",Context.MODE_PRIVATE)
+            .getStringSet("allowed_providers",activeProviders.map { it.id }.toSet())?.toSet().orEmpty()
+        fun setAllowed(context: Context,providers: Set<String>) {
+            require(providers.isNotEmpty() && providers.all { id -> activeProviders.any { it.id==id } }) { "เลือก API อย่างน้อยหนึ่งเจ้า" }
+            context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).edit().putStringSet("allowed_providers",providers.toSet()).apply()
+        }
+        fun eligible(context: Context)=activeProviders.filter { it.id in allowedIds(context) && (!freeOnly(context) || it==OPENROUTER) }
+        fun viable(providers: Collection<StoryProvider>): Boolean {
+            val available=providers.toSet()
+            return available.any { it in setOf(OPENROUTER,COHERE,MISTRAL,SAMBANOVA) } ||
+                (available.size>=2 && (GROQ in available || GEMINI in available))
+        }
+        fun ready(context: Context)=viable(eligible(context).filter { it.hasKey(context) })
+        private fun testFingerprint(context: Context,provider: StoryProvider): String {
+            val data=provider.key(context)+"\n"+provider.model(context)
+            return java.security.MessageDigest.getInstance("SHA-256").digest(data.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+        }
+        fun recordTest(context: Context,provider: StoryProvider,passed: Boolean) {
+            if(!provider.hasKey(context)) return
+            val prefs=context.getSharedPreferences("story_api_test",Context.MODE_PRIVATE)
+            prefs.edit().putString(provider.id+"_fingerprint",testFingerprint(context,provider))
+                .putString(provider.id+"_result",if(passed) "ผ่าน" else "ไม่ผ่าน")
+                .putLong(provider.id+"_time",System.currentTimeMillis()).apply()
+        }
+        fun lastTest(context: Context,provider: StoryProvider): String {
+            if(!provider.hasKey(context)) return "ยังไม่มีคีย์"
+            val prefs=context.getSharedPreferences("story_api_test",Context.MODE_PRIVATE)
+            if(runCatching { testFingerprint(context,provider) }.getOrNull()!=prefs.getString(provider.id+"_fingerprint",null)) return "ยังไม่ได้ทดสอบคีย์/โมเดลนี้"
+            val time=prefs.getLong(provider.id+"_time",0L)
+            if(time<=0L) return "ยังไม่ได้ทดสอบคีย์/โมเดลนี้"
+            val stamp=java.text.SimpleDateFormat("dd/MM HH:mm",java.util.Locale.getDefault()).format(java.util.Date(time))
+            return "ทดสอบล่าสุด $stamp • ${prefs.getString(provider.id+"_result", "ไม่ทราบ")}" 
+        }
         fun configure(context: Context,spec: JSONObject): JSONObject {
             spec.put("provider",GROQ.id).put("model",GROQ.model(context)).put("hybrid",false).put("auto_pipeline",true)
             spec.put("free_only",freeOnly(context))
+            activeProviders.forEach { spec.remove("${it.id}_model") }
             eligible(context).filter { it.hasKey(context) }.forEach { spec.put("${it.id}_model",it.model(context)) }
             return spec
         }
