@@ -2120,12 +2120,29 @@ $context"""
     private fun geminiSettings(afterSave: (() -> Unit)?=null) {
         val providers=StoryProvider.activeProviders
         val choices=providers.map { it.label+if(it.hasKey(this)) " • บันทึกคีย์แล้ว" else " • ยังไม่มีคีย์" }+
-            listOf("🔍 ตรวจ API เขียนบททุกเจ้า", if(StoryProvider.freeOnly(this)) "🟢 ใช้เฉพาะ OpenRouter ฟรี: เปิด" else "⚪ ใช้เฉพาะ OpenRouter ฟรี: ปิด")
+            listOf("☑️ เลือก API ที่อนุญาต", "🔍 ตรวจ API ที่เลือก", if(StoryProvider.freeOnly(this)) "🟢 ใช้เฉพาะ OpenRouter ฟรี: เปิด" else "⚪ ใช้เฉพาะ OpenRouter ฟรี: ปิด")
         choiceMenu("ตั้งค่าคีย์ API • ใช้อัตโนมัติ",choices) { index ->
-            if(index==providers.size) testStoryApis(if(StoryProvider.freeOnly(this)) listOf(StoryProvider.OPENROUTER) else providers)
-            else if(index==providers.size+1) { StoryProvider.setFreeOnly(this,!StoryProvider.freeOnly(this)); notice(if(StoryProvider.freeOnly(this)) "เปิดโหมดฟรี: ใช้เฉพาะ OpenRouter รุ่นฟรี • มีผลกับงานที่เริ่มหรือทำต่อครั้งถัดไป" else "ปิดโหมดฟรี: ผู้ให้บริการอื่นอาจมีค่าบริการตามบัญชี"); geminiSettings(afterSave) }
+            if(index==providers.size) selectStoryApiProviders(afterSave)
+            else if(index==providers.size+1) { val selected=StoryProvider.eligible(this); if(selected.isEmpty()) notice("ยังไม่มี API ที่เลือกในโหมดปัจจุบัน") else testStoryApis(selected) }
+            else if(index==providers.size+2) { StoryProvider.setFreeOnly(this,!StoryProvider.freeOnly(this)); notice(if(StoryProvider.freeOnly(this)) "เปิดโหมดฟรี: ใช้เฉพาะ OpenRouter รุ่นฟรี • มีผลกับงานที่เริ่มหรือทำต่อครั้งถัดไป" else "ปิดโหมดฟรี: ผู้ให้บริการอื่นอาจมีค่าบริการตามบัญชี"); geminiSettings(afterSave) }
             else if(providers[index].extra()==null) storyProviderSettings(providers[index],afterSave)
             else extraApiKeyDialog(providers[index].extra()!!,afterSave)
+        }
+    }
+    private fun selectStoryApiProviders(afterSave: (() -> Unit)?=null) {
+        val providers=StoryProvider.activeProviders
+        val allowed=StoryProvider.allowedIds(this)
+        val checks=BooleanArray(providers.size) { providers[it].id in allowed }
+        val labels=providers.map { "${it.label} • ${StoryProvider.lastTest(this,it)}" }.toTypedArray()
+        val dialog=AlertDialog.Builder(this)
+            .setTitle("เลือก API ที่อนุญาต\nตรวจแพ็กเกจและค่าบริการก่อนเลือก • ผลทดสอบอาจเปลี่ยนได้\nโหมดฟรีใช้เฉพาะ OpenRouter • มีผลเมื่อเริ่ม/ทำต่อ")
+            .setMultiChoiceItems(labels,checks) { _,which,checked -> checks[which]=checked }
+            .setPositiveButton("บันทึก",null).setNegativeButton("ยกเลิก",null).showDirector()
+        dialog.getButton(-1).setOnClickListener {
+            val chosen=providers.filterIndexed { i,_ -> checks[i] }.map { it.id }.toSet()
+            runCatching { StoryProvider.setAllowed(this,chosen) }
+                .onSuccess { dialog.dismiss(); notice(if(StoryProvider.freeOnly(this) && StoryProvider.OPENROUTER.id !in chosen) "บันทึกแล้ว • โหมดฟรียังเปิดอยู่ แต่ไม่ได้เลือก OpenRouter จึงเริ่มงานไม่ได้" else "บันทึก API ที่อนุญาตแล้ว • มีผลกับงานเริ่มหรือทำต่อครั้งถัดไป") }
+                .onFailure { notice(it.message ?: "เลือก API อย่างน้อยหนึ่งเจ้า") }
         }
     }
     private fun extraApiSettingsMenu() {
@@ -2173,15 +2190,18 @@ $context"""
         val dialog=AlertDialog.Builder(this).setTitle("ทดสอบ ${provider.label}").setView(view).setNegativeButton("ปิด / หยุด",null).showDirector()
         dialog.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
         Thread {
+            var passed=false
             val result=try {
                 val settings=ExtraApiSettings(this,provider)
                 val client=CompatibleStoryClient(provider.service,settings.key(),settings.model(),{ stopped.get() },automaticRetry=false)
                 active.set(client)
                 if(stopped.get()) throw java.util.concurrent.CancellationException()
                 StoryApiProbe.check(client)
+                passed=true
                 "${provider.label}: ผ่าน • ${settings.model()} • รับคำตอบ JSON สำเร็จ\n\nผลนี้ไม่รับประกันโควตาระหว่างเขียนเรื่องยาว"
             } catch(e: Exception) { "${provider.label}: "+StoryApiProbe.error(e) }
             finally { active.set(null) }
+            if(!stopped.get()) runCatching { StoryProvider.recordTest(this,StoryProvider.from(provider.id),passed) }
             runOnUiThread { if(!stopped.get() && !isFinishing && !isDestroyed) view.text=result }
         }.apply { name="director-extra-api-probe"; start() }
     }
@@ -2198,6 +2218,7 @@ $context"""
             val results=mutableListOf<String>()
             for(target in providers) {
                 if(stopped.get()) break
+                var passed=false
                 val result=try {
                     if(!target.hasKey(this)) "${target.label}: ยังไม่ได้ตั้งคีย์"
                     else {
@@ -2206,10 +2227,12 @@ $context"""
                         active.set(client)
                         if(stopped.get()) throw java.util.concurrent.CancellationException()
                         StoryApiProbe.check(client)
+                        passed=true
                         "${target.label}: ผ่าน • $model • รับคำตอบ JSON สำเร็จ"
                     }
                 } catch(e: Exception) { "${target.label}: "+StoryApiProbe.error(e) }
                 finally { active.set(null) }
+                if(!stopped.get() && target.hasKey(this)) runCatching { StoryProvider.recordTest(this,target,passed) }
                 results.add(result)
                 val text=results.joinToString("\n\n")+"\n\nผลทดสอบ ณ เวลานี้ ไม่รับประกันโควตาระหว่างเขียนเรื่องยาว"+
                     if(results.size<providers.size) "\nกำลังทดสอบบริการถัดไป…" else ""

@@ -69,6 +69,7 @@ class GeminiStoryService : Service() {
                         val automatic=spec.optBoolean("auto_pipeline")
                         val retryStatus: (String)->Unit={ message -> status("running",lastPercent,"${if(hybrid) "Groq + Gemini" else provider.label} • $message",if(message.startsWith("กำลังทำต่อ")) "requesting" else "retry_wait") }
                         val active=if(automatic) StoryProvider.eligible(this).filter { it.hasKey(this) && (spec.has("${it.id}_model") || StoryProvider.freeOnly(this)) && (!spec.optBoolean("free_only") || it==StoryProvider.OPENROUTER) } else if(hybrid) StoryProvider.hybridProviders else listOf(provider)
+                        require(automatic || (!hybrid && provider in StoryProvider.eligible(this)) || (hybrid && StoryProvider.hybridProviders.all { it in StoryProvider.eligible(this) })) { "งานเดิมใช้ API ที่ไม่ได้เลือก • ตั้งค่า API และกดทำต่อใหม่" }
                         require(!StoryProvider.freeOnly(this) || automatic) { "โหมดฟรีรองรับงานอัตโนมัติที่ตั้งค่าด้วย OpenRouter ฟรีเท่านั้น กรุณาเริ่มหรือตั้งค่างานใหม่" }
                         if(automatic && active.isEmpty()) throw IllegalStateException("ไม่มี API ที่พร้อมในโหมดปัจจุบัน • ตรวจคีย์ OpenRouter และตั้งค่าการเขียนบทใหม่")
                         val connections=active.associateWith { target ->
