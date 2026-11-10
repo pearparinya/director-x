@@ -10,6 +10,14 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class FlowVoiceXmlTest {
+    @Test fun pausesPreserveWordsAndKeepExistingSpaces() {
+        assertEquals("ผนึกถูกทำลายแล้ว... สงครามเริ่มต้นแล้ว",ThaiSpeechPacing.format("ผนึกถูกทำลายแล้ว...สงครามเริ่มต้นแล้ว"))
+        assertEquals("รอ… แล้วไป",ThaiSpeechPacing.format("รอ… แล้วไป"))
+        assertEquals("ราคา 3.14 บาท",ThaiSpeechPacing.format("ราคา 3.14 บาท"))
+        val d=xml(FlowVoiceXml.build(spec(dialogue="ผนึก...แตกแล้ว",speaker="ภูวดล"),"Locked."))
+        assertEquals("ผนึก... แตกแล้ว",d.getElementsByTagName("text").item(0).textContent)
+        assertTrue(d.getElementsByTagName("prompt").item(0).textContent.contains(ThaiSpeechPacing.direction))
+    }
     private fun spec(dialogue: String="", narration: String="", speaker: String="", offscreen: List<String> = emptyList()) =
         FlowSceneSpec(listOf(FlowPerson("ภูวดล","adult man","center","shirt")),speaker,dialogue,narration,
             "ภูวดล checks A & B","office","standing","reading",8,"9:16","",offscreen)
@@ -18,7 +26,7 @@ class FlowVoiceXmlTest {
         val line="ผลงานของคุณน่าสนใจมากค่ะ"
         val doc=xml(FlowVoiceXml.build(spec(dialogue=line,speaker="ภูวดล"),"Slow pan."))
         val prompt=doc.getElementsByTagName("prompt").item(0).textContent
-        assertEquals("Character 1: center. Character 1 checks A & B. Only [Character 1] speaks with natural lip movement; other visible characters stay silent. The speaker speaks Thai with a natural Central Thai accent. Preserve the attached first frame, faces, hair, body proportions, positions, clothes, shoes, props, lighting and location. ${ScenePropContinuity.video} Slow pan.",prompt)
+        assertEquals("Character 1: center. Character 1 checks A & B. Only [Character 1] speaks with natural lip movement; other visible characters stay silent. The speaker speaks Thai with a natural Central Thai accent. ${ThaiSpeechPacing.direction} Preserve the attached first frame, faces, hair, body proportions, positions, clothes, shoes, props, lighting and location. ${ScenePropContinuity.video} Slow pan.",prompt)
         assertEquals(line,doc.getElementsByTagName("text").item(0).textContent)
         assertFalse(prompt.contains("throat clearing"))
         assertTrue(prompt.contains(FlowVoiceXml.accent))
