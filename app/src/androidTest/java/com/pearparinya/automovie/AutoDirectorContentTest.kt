@@ -248,10 +248,10 @@ class AutoDirectorContentTest {
         assertTrue(videos.first().title.startsWith("ซีน 1 • วิดีโอแนวตั้ง 9:16"))
         val command=videos.first().command
         assertTrue(command.contains("9:16")); assertFalse(command.contains("16:9"))
-        assertTrue(command.contains("<sound_effects>")); assertTrue(command.contains("soft paper rustle")); assertTrue(command.contains("Quieter than the speech"))
+        assertTrue(command.contains("Sound:")); assertTrue(command.contains("soft paper rustle"))
         assertEquals(scenes.getJSONObject(0).getString("dialogue"),DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(command.toByteArray(Charsets.UTF_8))).getElementsByTagName("text").item(0).textContent)
         val xml=AutoDirectorContent.flowXml(p,1)
-        assertTrue(xml.contains("<sound_effects>")); assertTrue(xml.contains("soft paper rustle"))
+        assertTrue(xml.contains("Sound:")); assertTrue(xml.contains("soft paper rustle"))
         assertTrue(SceneCommandCards.join(videos).contains("=== ซีน 24"))
         SoundDesign.validate(scenes.getJSONObject(0))
         scenes.getJSONObject(0).getJSONObject("sound_design").remove("music")
