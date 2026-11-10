@@ -1759,7 +1759,7 @@ class StudioActivity : AppCompatActivity() {
         }
     }
     private fun suggestStoryProps(story: JSONObject) {
-        val providers=StoryProvider.activeProviders.filter { it.hasKey(this) }
+        val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
         if(providers.isEmpty()) return notice("ตั้งค่า API เขียนบทก่อนใช้ AI เสนออุปกรณ์")
         val projectId=project.name
         val scenes=rows(story)
@@ -2120,9 +2120,10 @@ $context"""
     private fun geminiSettings(afterSave: (() -> Unit)?=null) {
         val providers=StoryProvider.activeProviders
         val choices=providers.map { it.label+if(it.hasKey(this)) " • บันทึกคีย์แล้ว" else " • ยังไม่มีคีย์" }+
-            listOf("🔍 ตรวจ API เขียนบททุกเจ้า")
+            listOf("🔍 ตรวจ API เขียนบททุกเจ้า", if(StoryProvider.freeOnly(this)) "🟢 ใช้เฉพาะ OpenRouter ฟรี: เปิด" else "⚪ ใช้เฉพาะ OpenRouter ฟรี: ปิด")
         choiceMenu("ตั้งค่าคีย์ API • ใช้อัตโนมัติ",choices) { index ->
-            if(index==providers.size) testStoryApis(providers)
+            if(index==providers.size) testStoryApis(if(StoryProvider.freeOnly(this)) listOf(StoryProvider.OPENROUTER) else providers)
+            else if(index==providers.size+1) { StoryProvider.setFreeOnly(this,!StoryProvider.freeOnly(this)); notice(if(StoryProvider.freeOnly(this)) "เปิดโหมดฟรี: ใช้เฉพาะ OpenRouter รุ่นฟรี • มีผลกับงานที่เริ่มหรือทำต่อครั้งถัดไป" else "ปิดโหมดฟรี: ผู้ให้บริการอื่นอาจมีค่าบริการตามบัญชี"); geminiSettings(afterSave) }
             else if(providers[index].extra()==null) storyProviderSettings(providers[index],afterSave)
             else extraApiKeyDialog(providers[index].extra()!!,afterSave)
         }
@@ -2164,6 +2165,7 @@ $context"""
         }
     }
     private fun testExtraApi(provider: ExtraApiProvider) {
+        if(StoryProvider.freeOnly(this) && provider!=ExtraApiProvider.OPENROUTER) { notice("โหมดฟรีเปิดอยู่ • ทดสอบได้เฉพาะ OpenRouter โมเดลฟรี") ; return }
         if(GeminiStoryService.running) { notice("กรุณารอหรือหยุดงานเขียนบทก่อนทดสอบ API"); return }
         val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
         val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
@@ -2733,7 +2735,7 @@ $context"""
         val field=if(scene.optString("dialogue").trim().let { it.isNotBlank() && it !in listOf("ไม่มี","none") }) "dialogue" else "narration"
         val original=scene.optString(field).trim()
         if(original.isBlank() || original in listOf("ไม่มี","none","ไม่มีเสียงบรรยาย")) return notice("ฉากนี้ไม่มีบทพูดหรือบรรยายให้ขยาย")
-        val providers=StoryProvider.activeProviders.filter { it.hasKey(this) }
+        val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
         if(providers.isEmpty()) return notice("ตั้งค่า API เขียนบทก่อนใช้ระบบเสนอขยายบท")
         val snapshot=scene.toString()
         val projectId=project.name
