@@ -16,6 +16,16 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 @RunWith(AndroidJUnit4::class)
 class AutoDirectorContentTest {
+    @Test fun appearanceLockBindsOnlySelectedMasterAndPreservesCoveredFaces() {
+        val lock=SimpleProductionCommands.masterAppearanceLock(listOf("ผู้พิทักษ์" to "KNIGHT_MASTER", "นางฟ้า" to "WOMAN_MASTER"))
+        assertTrue(lock.contains("Character: ผู้พิทักษ์ | attached MASTER ID: KNIGHT_MASTER"))
+        assertTrue(lock.contains("Character: นางฟ้า | attached MASTER ID: WOMAN_MASTER"))
+        assertTrue(lock.contains("keep it closed"))
+        assertTrue(lock.contains("overrides generic face-only"))
+        assertFalse(lock.contains("VILLAIN_MASTER"))
+        assertEquals("",SimpleProductionCommands.masterAppearanceLock(emptyList()))
+    }
+
     @Test fun faceOnlyModeKeepsSceneAndOutfitWithoutAddingBodyLock() {
         val task=SimpleProductionCommands.imageTasks(story(),1).first { it.id=="EP01_SC001" }
         val changed=SimpleProductionCommands.faceOnly(task.command)
