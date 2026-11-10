@@ -16,9 +16,12 @@ internal class AutomaticStoryRouter(
     private val cancelled: () -> Boolean,
     private val progress: (StoryProvider,String)->Unit
 ) {
+    internal var verifyBeforeUse: Boolean = false
     internal var requestTimeoutMillis: Long = 45_000L
     var onFailure: (StoryProvider,String)->Unit = { _,_ -> }
     private val routes=listOf(StoryProvider.GROQ to StoryProvider.GEMINI,StoryProvider.GEMINI to StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER to null,StoryProvider.MISTRAL to null,StoryProvider.SAMBANOVA to null,StoryProvider.COHERE to null)
+    private val verified=mutableSetOf<StoryProvider>()
+    private val cooldown=mutableMapOf<StoryProvider,Long>()
     private val unavailable=mutableMapOf<StoryProvider,StoryHttpFailure>()
     // Never start another request on a client whose previous transport is still blocked.
     private val activeRequests=java.util.concurrent.ConcurrentHashMap<StoryProvider,java.util.concurrent.atomic.AtomicBoolean>()
@@ -29,7 +32,14 @@ internal class AutomaticStoryRouter(
         val active=java.util.concurrent.atomic.AtomicBoolean(true)
         if(activeRequests.putIfAbsent(provider,active)!=null) throw java.net.SocketTimeoutException("บริการยังปิดคำขอก่อนหน้า")
         val future=workers.submit<JSONObject> {
-            try { clients.getValue(provider).generate(prompt,schema) }
+            try {
+                val client=clients.getValue(provider)
+                if(verifyBeforeUse && provider !in verified) {
+                    try { StoryApiProbe.check(client) } catch(e: IllegalArgumentException) { throw InvalidStoryResponse("API test returned an invalid response") }
+                    verified.add(provider)
+                }
+                client.generate(prompt,schema)
+            }
             finally { active.set(false); activeRequests.remove(provider,active) }
         }
         try {
@@ -72,9 +82,9 @@ internal class AutomaticStoryRouter(
             if(cancelled()) throw CancellationException()
             // The preferred formatter may be unavailable; another configured provider
             // can still format the writer's draft without losing completed work.
-            if(writer !in clients || writer in unavailable) continue
+            if(writer !in clients || writer in unavailable || (cooldown[writer] ?: 0L)>android.os.SystemClock.elapsedRealtime()) continue
             if(sceneBatch && formatter!=null && listOf(formatter,StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER,StoryProvider.COHERE,StoryProvider.MISTRAL,StoryProvider.SAMBANOVA)
-                .none { it!=writer && it in clients && it !in unavailable }) continue
+                .none { it!=writer && it in clients && it !in unavailable && (cooldown[it] ?: 0L)<=android.os.SystemClock.elapsedRealtime() }) continue
             var current=writer
             try {
                 val cache=draftFile(writer,prompt,schema)
@@ -96,7 +106,7 @@ internal class AutomaticStoryRouter(
                     // Pass the same completed draft to available formatters; never
                     // rewrite the writer's scenes merely because formatting failed.
                     val formatters=(listOf(formatter,StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER,StoryProvider.COHERE,StoryProvider.MISTRAL,StoryProvider.SAMBANOVA))
-                        .distinct().filter { it!=writer && it in clients && it !in unavailable }
+                        .distinct().filter { it!=writer && it in clients && it !in unavailable && (cooldown[it] ?: 0L)<=android.os.SystemClock.elapsedRealtime() }
                         .sortedBy { clients.getValue(it).availableDelayMillis() }
                     var formatted: JSONObject?=null
                     var formatFailure: Exception?=null
@@ -107,6 +117,7 @@ internal class AutomaticStoryRouter(
                             if(!canSwitch(e)) throw e
                             if(target!=formatters.last()) onFailure(target,failureCategory(e))
                             if(e is StoryHttpFailure && e.status==402) unavailable[target]=e
+                            coolDown(target,e)
                             if(StoryRequestRetry.canRetry(e)) temporary=e
                             formatFailure=e
                         }
@@ -119,6 +130,7 @@ internal class AutomaticStoryRouter(
                 if(cancelled() || e is CancellationException) throw CancellationException()
                 onFailure(current,failureCategory(e))
                 if(e is StoryHttpFailure && e.status==402) unavailable[current]=e
+                coolDown(current,e)
                 if(StoryRequestRetry.canRetry(e)) temporary=e
                 if(e is StoryHttpFailure && (e.status==413 || e.detail=="context_length_exceeded")) oversized=true
                 // Split a fresh multi-scene request immediately rather than waiting for
@@ -133,8 +145,16 @@ internal class AutomaticStoryRouter(
         // A temporary failure in the last available provider can recover on retry,
         // even if another provider rejected the request size.
         temporary?.let { throw it }
+        val next=cooldown.filterKeys { it in clients }.values.filter { it>android.os.SystemClock.elapsedRealtime() }.minOrNull()
+        if(next!=null) throw StoryHttpFailure(429,(((next-android.os.SystemClock.elapsedRealtime())+999)/1000).toString(),"รอ API คืนโควตา")
         if(sceneBatch && oversized) throw StoryBatchTooLarge()
         throw last ?: unavailable.values.firstOrNull() ?: IllegalStateException("ตั้งค่า Groq + Gemini หรือ Gemini + DeepSeek หรือ OpenRouter หรือ Cohere หรือ Mistral หรือ SambaNova ก่อนเริ่ม")
+    }
+    private fun coolDown(provider: StoryProvider,e: Exception) {
+        if(verifyBeforeUse && e is StoryHttpFailure && e.status==429) {
+            val seconds=maxOf(65L,e.retryAfter?.let { StoryRequestRetry.retrySeconds(it,System.currentTimeMillis()) } ?: 0L).coerceAtMost(86_400L)
+            cooldown[provider]=android.os.SystemClock.elapsedRealtime()+seconds*1000L
+        }
     }
     private fun generateChecked(provider: StoryProvider,prompt: String,schema: JSONObject): JSONObject = try {
         boundedRequest(provider,prompt,schema)
