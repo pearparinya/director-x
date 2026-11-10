@@ -309,7 +309,7 @@ class AutoDirectorContentTest {
                 }
                 assertFalse(images.contains("=== EP")); assertTrue(images.contains("สารบัญ"))
                 assertTrue(images.contains("แก้ภาพ <รหัส>")); assertTrue(images.contains("PENDING"))
-                assertTrue(videos.contains("<sound_effects>")); assertTrue(videos.contains("กวิน บอกว่า A &amp; B &lt; C ใช่ไหม"))
+                assertTrue(videos.contains("<duration>8</duration>")); assertTrue(videos.contains("กวิน บอกว่า A &amp; B &lt; C ใช่ไหม"))
                 assertFalse(videos.contains("STALE AUDIO"))
                 assertTrue("Image export must remain reasonably compact",images.length<135000)
             }
@@ -430,10 +430,10 @@ class AutoDirectorContentTest {
         assertEquals(24,doc.getElementsByTagName("scene").length)
         assertEquals(24,doc.getElementsByTagName("aspect_ratio").length)
         assertEquals(24,doc.getElementsByTagName("prompt").length)
-        assertEquals(24,doc.getElementsByTagName("lighting").length)
-        assertEquals(24,doc.getElementsByTagName("typography_safe_zone").length)
+        assertEquals(24,doc.getElementsByTagName("duration").length)
+        assertTrue(text.contains("Use the attached first frame"))
         assertTrue(text.contains("กวิน บอกว่า A &amp; B &lt; C ใช่ไหม&quot;"))
-        assertTrue(text.contains("<voiceover>"))
+        assertTrue(text.contains("Off-screen narrator"))
         assertFalse(text.contains("STALE AUDIO"))
     }
     @Test fun exportIncludesGeminiDialogueAndXmlWithOriginalReferenceBytes() {
