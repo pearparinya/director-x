@@ -4,6 +4,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class EditorialImagePolicyTest {
+    @Test fun storyWardrobeGuidanceSupportsRolesWithoutForcingHumanClothes() {
+        val guidance=AutoDirectorContent.dailyWardrobe
+        listOf("teachers", "doctors", "villagers", "Buddhist monks", "ghosts", "animals and creatures").forEach { assertTrue(guidance.contains(it)) }
+        assertTrue(guidance.contains("never infer occupation from face"))
+        assertTrue(guidance.contains("no forced human garments"))
+        assertTrue(guidance.contains("existing story wardrobe"))
+        assertTrue(AutoDirectorContent.generationRules.contains("ROLE AND SETTING WARDROBE"))
+    }
     @Test fun imageRoutesShareRealismWhilePreservingReferencesAndExplicitOutfits() {
         val outfit="Top: opaque navy cotton blouse, V-neck, long-sleeve; Bottom: charcoal trousers; Shoes: black loafers; Accessories: one silver watch, left wrist"
         val references=listOf(
