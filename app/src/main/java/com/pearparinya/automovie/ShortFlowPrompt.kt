@@ -48,6 +48,8 @@ internal object ShortFlowPrompt {
         val action=aliases(s,s.action.trim())
         val positions=s.cast.map { aliases(s,it.position.trim()) }
         val sound=aliases(s,s.sound.trim())
+            .replace(Regex("\\b(?:(?:soft|quiet|low|faint|gentle|indoor)\\s+)*murmurs?\\s+of\\s+(?:(?:art|gallery|room|office)\\s+)*(?:patrons|people|crowds?|visitors|guests)\\b",RegexOption.IGNORE_CASE),"quiet room tone")
+            .replace(Regex("\\b(?:indoor )?murmurs\\b",RegexOption.IGNORE_CASE),"quiet room tone")
         require(!thai.containsMatchIn(action) && positions.none { thai.containsMatchIn(it) } && !thai.containsMatchIn(sound) && !thai.containsMatchIn(camera)) {
             "คำบรรยายการกระทำ ตำแหน่ง หรือเสียงยังมีภาษาไทย • กรุณาแก้เป็นภาษาอังกฤษก่อนคัดลอก โดยคงบทพูดภาษาไทย"
         }
@@ -61,7 +63,7 @@ internal object ShortFlowPrompt {
             spoken(s.narration).isNotEmpty() -> "<dialogue><speaker>Off-screen narrator</speaker><text>${xml(ThaiSpeechPacing.format(spoken(s.narration)))}</text></dialogue>"
             else -> ""
         }
-        val audio=if(silent) "No dialogue or narration." else if(lines.isEmpty()) "No dialogue or narration." else "Speak the exact lines in order, naturally in Thai; no overlapping voices or subtitles."
+        val audio=if(silent) "No speech, narration, music or sound effects; visible mouths remain closed." else if(lines.isEmpty()) "No dialogue or narration; visible mouths remain closed." else "Speak the exact lines in order, naturally in Thai; only the current visible speaker moves their lips. Other visible characters remain silent. No extra voices, overlap or subtitles."
         val ambience=if(silent) "" else sound.takeIf { it.isNotBlank() }?.let { " Sound: $it." }.orEmpty()
         return "<flow><scene><duration>8</duration><aspect_ratio>9:16</aspect_ratio><prompt>${xml(visual+". "+audio+ambience)}</prompt>$lines</scene></flow>"
     }
