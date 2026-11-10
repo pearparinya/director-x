@@ -1323,13 +1323,14 @@ class StudioActivity : AppCompatActivity() {
             panel.addView(TextView(this).apply { text="ภาพสถานที่อ้างอิงที่ตรวจแล้ว • $id (ไม่ใช่ MASTER ตัวละคร)" })
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(180)); setOnClickListener { fullImage(file,"ภาพสถานที่อ้างอิง") } })
         }
-        val propNames=listOf("ดาบเงาจันทรา", "ดาบเวทมนตร์แสงฟ้า", "ดาบอัศวินสุริยัน", "ดาบมังกรเพลิง", "คทาดวงดาวและกาลเวลา", "คทาผู้พิทักษ์แสง", "คทาผลึกเหมันต์", "หอกผู้พิทักษ์นภา", "โล่อัศวินศักดิ์สิทธิ์", "ดาบพลังงานจักรกล", "ธนูผู้พิทักษ์พงไพร", "โล่พลังงานไซเบอร์", "คทาปราบวิญญาณ", "ดาบอาคมโบราณ", "มีดหมอพิธีกรรม", "ถุงมือควบคุมพลัง", "ตะเกียงส่องวิญญาณ", "หนังสือผนึกคำสาป", "กุญแจประตูมิติ", "ลูกประคำและเครื่องรางป้องกัน")
+        val propNames=propCatalog
         val propPreference="prop_master_${project.name}_${task.id}"
         val automatic=runCatching { JSONObject(File(project,"prop_assignments.json").readText()).optJSONArray(task.id) }.getOrNull()
         val autoIds=(0 until (automatic?.length() ?: 0)).mapNotNull { automatic?.optJSONObject(it)?.optString("prop_id") }.toSet()
-        val saved=if(prefs.contains(propPreference)) prefs.getStringSet(propPreference, emptySet()).orEmpty() else autoIds
+        val coverIds=if(task.id.contains("_COVER_")) task.references.map { characterProp(it.optString("master")) }.filter { it.isNotBlank() }.toSet() else emptySet()
+        val saved=if(prefs.contains(propPreference)) prefs.getStringSet(propPreference, emptySet()).orEmpty() else autoIds+coverIds
         val checks=linkedMapOf<String,android.widget.CheckBox>()
-        panel.addView(TextView(this).apply { text="MASTER อุปกรณ์ • เลือกเฉพาะชิ้นที่ปรากฏในภาพนี้ แล้วใช้ชิ้นเดียวกันในซีนอื่น"; setTypeface(null,Typeface.BOLD) })
+        panel.addView(TextView(this).apply { text="MASTER อุปกรณ์ • ตรวจเฉพาะชิ้นที่ปรากฏในภาพเริ่มต้น\nหากซีนไม่มีข้อเสนอ ให้เลือกเองหรือวิเคราะห์บทก่อน • ตรวจผู้ถือและสถานะจากบท"; setTypeface(null,Typeface.BOLD) })
         propNames.forEachIndexed { index,name ->
             val id="PROP_%02d_MASTER".format(index+1)
             val checkbox=android.widget.CheckBox(this).apply { text="$name • $id"; isChecked=id in saved }
@@ -1365,9 +1366,10 @@ class StudioActivity : AppCompatActivity() {
                 } }.getOrElse { notice(it.message ?: "เปิด MASTER อุปกรณ์ไม่ได้"); return@setPositiveButton }
                 if (prefs.contains(propPreference) || chosen != saved) prefs.edit().putStringSet(propPreference,chosen.toSet()).apply()
                 val propLabels=propRefs.associate { (id,_) -> id to propNames[id.substring(5,7).toInt()-1] }
-                val owners=(0 until (automatic?.length() ?: 0)).mapNotNull { automatic?.optJSONObject(it) }.filter { it.optString("prop_id") in chosen && it.optString("holder").isNotBlank() }.joinToString("\n") { "${it.optString("holder")} is the planned holder of ${it.optString("prop_id")} in this scene; follow the start state and action." }
+                val coverOwners=if(task.id.contains("_COVER_")) task.references.mapNotNull { person -> characterProp(person.optString("master")).takeIf { it.isNotBlank() && it in chosen }?.let { "${person.optString("name")} is associated with $it; show it only if appropriate to this cover." } }.joinToString("\n") else ""
+                val owners=(0 until (automatic?.length() ?: 0)).mapNotNull { automatic?.optJSONObject(it) }.filter { it.optString("prop_id") in chosen }.joinToString("\n") { "${it.optString("holder").ifBlank { "Holder unspecified" }} is associated with ${it.optString("prop_id")} in this scene. Start-frame prop state: ${it.optString("start_prop_state").ifBlank { "unspecified; follow the story, do not assume it is held" }}. Follow the start state and action." }
                 val propInstruction=if(propRefs.isEmpty()) "" else "\n\nPROP MASTER REFERENCES: Each selected image shows multiple views of ONE object. Match each named object to its own attached MASTER. Preserve its distinctive silhouette, proportions, materials, colors, markings, gems, guard and handle across scenes. Do not invent a replacement or mix different objects. Depict only the selected props appropriate to this scene; follow the planned action and placement. If the mapping is unclear, ask. Similarity is a target and cannot be guaranteed.\n"+propLabels.entries.joinToString("\n") { "${it.value} | MASTER ID: ${it.key}" }
-                shareImageCommand(command+propInstruction+(if(owners.isBlank()) "" else "\n$owners"),references+selected.values+propRefs,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
+                shareImageCommand(command+propInstruction+(if(owners.isBlank()) "" else "\n$owners")+(if(coverOwners.isBlank()) "" else "\n$coverOwners"),references+selected.values+propRefs,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
             }
             .setNegativeButton("กลับไปตรวจ",null).showDirector()
     }
@@ -1704,16 +1706,41 @@ class StudioActivity : AppCompatActivity() {
             startActivity(chooser)
         }.onFailure { notice("ส่งชุดวางบทไม่สำเร็จ: ${it.message}\nใช้ดูคำสั่งหรือบันทึกไฟล์เพื่อลองใหม่ได้") }
     }
+    private val propCatalog = listOf("ดาบเงาจันทรา", "ดาบเวทมนตร์แสงฟ้า", "ดาบอัศวินสุริยัน", "ดาบมังกรเพลิง", "คทาดวงดาวและกาลเวลา", "คทาผู้พิทักษ์แสง", "คทาผลึกเหมันต์", "หอกผู้พิทักษ์นภา", "โล่อัศวินศักดิ์สิทธิ์", "ดาบพลังงานจักรกล", "ธนูผู้พิทักษ์พงไพร", "โล่พลังงานไซเบอร์", "คทาปราบวิญญาณ", "ดาบอาคมโบราณ", "มีดหมอพิธีกรรม", "ถุงมือควบคุมพลัง", "ตะเกียงส่องวิญญาณ", "หนังสือผนึกคำสาป", "กุญแจประตูมิติ", "ลูกประคำและเครื่องรางป้องกัน")
+    private fun propId(index: Int) = "PROP_%02d_MASTER".format(index+1)
+    private fun characterPropKey(master: String) = "character_prop_${project.name}_${referenceId(master).lowercase()}"
+    private fun characterProp(master: String) = prefs.getString(characterPropKey(master), "").orEmpty()
+    private fun characterPropMenu(story: JSONObject) {
+        val people=rows(story).flatMap { FlowReferencePrompt.people(it) }.distinctBy { referenceId(it.optString("master")).lowercase() }.filter { it.optString("master").isNotBlank() }
+        if(people.isEmpty()) return notice("ไม่พบตัวละครที่มี MASTER ในเรื่อง")
+        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
+        panel.addView(TextView(this).apply { text="ผูกอุปกรณ์ประจำตัวละคร • บันทึกเฉพาะเรื่องนี้ • ไม่ได้หมายความว่าต้องปรากฏทุกซีน\nกำหนดแล้วให้ใช้เมนู AI วิเคราะห์บทเพื่อตรวจแต่ละซีน" })
+        val spinners=people.map { person ->
+            val master=referenceId(person.getString("master"))
+            panel.addView(TextView(this).apply { text="${person.optString("name")} • $master"; setTypeface(null,Typeface.BOLD) })
+            Spinner(this).apply {
+                adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ไม่กำหนด")+propCatalog.mapIndexed { index,name -> "$name • ${propId(index)}" })
+                setSelection(propCatalog.indices.indexOfFirst { propId(it)==characterProp(master) }.let { if(it<0) 0 else it+1 })
+                panel.addView(this)
+            }
+        }
+        AlertDialog.Builder(this).setTitle("อุปกรณ์ประจำตัวละคร").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึก") { _,_ ->
+            val editor=prefs.edit()
+            people.forEachIndexed { index,person -> val selected=spinners[index].selectedItemPosition; editor.putString(characterPropKey(person.getString("master")),if(selected<=0) "" else propId(selected-1)) }
+            editor.apply(); notice("บันทึกอุปกรณ์ประจำตัวละครแล้ว • ตรวจซีนด้วยเมนู AI ก่อนสร้างภาพ")
+        }.setNegativeButton("ยกเลิก",null).showDirector()
+    }
     private fun commandCardsMenu() {
         val story=plan ?: return notice("สร้างหรือนำเข้าบทก่อนครับ")
         if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
         val eps=story.getJSONArray("episodes")
         val options=(0 until eps.length()).map { "EP.${eps.getJSONObject(it).getInt("ep")} • ${eps.getJSONObject(it).optString("title")}" }+
-            listOf("ตรวจคำสั่ง / แก้เฉพาะจุด", "✨ ให้ AI เสนออุปกรณ์ตามบท • ตรวจและบันทึก")
+            listOf("ตรวจคำสั่ง / แก้เฉพาะจุด", "✨ ให้ AI เสนออุปกรณ์ตามบท • ตรวจและบันทึก", "⚔ อุปกรณ์ประจำตัวละคร • เลือกและบันทึก")
         choiceMenu("คำสั่งภาพ + Flow • แยกตาม EP",options) { index ->
             when {
                 index==eps.length() -> productionCheckMenu(story)
                 index==eps.length()+1 -> suggestStoryProps(story)
+                index==eps.length()+2 -> characterPropMenu(story)
                 else -> {
                     val number=eps.getJSONObject(index).getInt("ep")
                     choiceMenu("EP.$number • คำสั่งพร้อมใช้",listOf("1. สร้างภาพ ChatGPT / Gemini • แนบ MASTER ให้","2. สร้างวิดีโอใน Flow • ใช้ภาพฉาก","ไฟล์คำสั่ง / แก้ไข / ทำต่อ")) { kind ->
@@ -1732,13 +1759,16 @@ class StudioActivity : AppCompatActivity() {
         val scenes=rows(story)
         val storySnapshot=story.toString()
         val context=JSONArray(scenes.map { scene -> JSONObject().put("id",key(scene)).put("action",scene.optString("action")).put("start_state",scene.optString("start_state")).put("end_state",scene.optString("end_state")).put("dialogue",scene.optString("dialogue")).put("characters",JSONArray(FlowReferencePrompt.people(scene).map { it.optString("name") })) })
-        val catalog=listOf("ดาบเงาจันทรา", "ดาบเวทมนตร์แสงฟ้า", "ดาบอัศวินสุริยัน", "ดาบมังกรเพลิง", "คทาดวงดาวและกาลเวลา", "คทาผู้พิทักษ์แสง", "คทาผลึกเหมันต์", "หอกผู้พิทักษ์นภา", "โล่อัศวินศักดิ์สิทธิ์", "ดาบพลังงานจักรกล", "ธนูผู้พิทักษ์พงไพร", "โล่พลังงานไซเบอร์", "คทาปราบวิญญาณ", "ดาบอาคมโบราณ", "มีดหมอพิธีกรรม", "ถุงมือควบคุมพลัง", "ตะเกียงส่องวิญญาณ", "หนังสือผนึกคำสาป", "กุญแจประตูมิติ", "ลูกประคำและเครื่องรางป้องกัน")
+        val catalog=propCatalog
+        val characterBindings=scenes.flatMap { FlowReferencePrompt.people(it) }.distinctBy { it.optString("master") }.mapNotNull { person -> characterProp(person.optString("master")).takeIf { it.isNotBlank() }?.let { "${person.optString("name")} = $it" } }.joinToString("\n")
         val catalogText=catalog.mapIndexed { i,n -> "PROP_%02d_MASTER = %s".format(i+1,n) }.joinToString("\n")
         notice("กำลังให้ AI เสนออุปกรณ์ • ตรวจรายการก่อนบันทึก • บทเดิมไม่เปลี่ยน")
         Thread {
             val item=JSONObject().put("type","object").put("properties",JSONObject().put("scene_id",JSONObject().put("type","string")).put("prop_id",JSONObject().put("type","string")).put("holder",JSONObject().put("type","string"))).put("required",JSONArray().put("scene_id").put("prop_id").put("holder"))
             val schema=JSONObject().put("type","object").put("properties",JSONObject().put("assignments",JSONObject().put("type","array").put("items",item))).put("required",JSONArray().put("assignments"))
             val prompt="""Review the following movie scenes and choose matching prop references from this catalog. Return JSON assignments with scene_id, prop_id, holder. Only propose an object when it is visibly present in the START STATE of that scene, not merely mentioned in dialogue or future action. Do not add story events, objects or people. Assign the same prop ID across scenes for the same object. A holder must be an exact visible character name in that scene; if unclear use empty string. Respect any transfers explicitly in the story. If the object is unclear, omit it for human review. Do not assign covers.
+CHARACTER PROP BINDINGS (only when visibly present in this scene; don't invent appearances or change ownership without story evidence):
+$characterBindings
 CATALOG:
 $catalogText
 SCENES:
@@ -1766,6 +1796,9 @@ $context"""
                 panel.addView(TextView(this).apply { text="ตรวจว่าของปรากฏในเฟรมเริ่มต้น เลือกผู้ถือหรือไม่ระบุ และยกเลิกรายการที่ไม่ต้องการ • การบันทึกแทนข้อเสนอ AI เดิมของทั้งเรื่อง ตัวเลือกที่เคยเลือกเองในซีนยังคงอยู่" })
                 val boxes=mutableListOf<android.widget.CheckBox>()
                 val holders=mutableListOf<android.widget.Spinner>()
+                val propStates=mutableListOf<android.widget.Spinner>()
+                val stateLabels=listOf("ยังไม่ระบุสถานะ • ตรวจบท", "ถืออยู่", "เก็บในฝัก / สะพาย", "วางอยู่ในฉาก")
+                val stateValues=listOf("", "held", "sheathed_or_carried", "placed")
                 proposals.forEach { row ->
                     val id=row.getString("prop_id")
                     val name=catalog[id.substring(5,7).toInt()-1]
@@ -1777,7 +1810,8 @@ $context"""
                         adapter=android.widget.ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,options)
                         setSelection(names.indexOf(row.optString("holder")).let { if(it<0) 0 else it+1 })
                     }
-                    boxes.add(box); holders.add(spinner); panel.addView(box); panel.addView(spinner)
+                    val stateSpinner=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,stateLabels) }
+                    boxes.add(box); holders.add(spinner); propStates.add(stateSpinner); panel.addView(box); panel.addView(spinner); panel.addView(stateSpinner)
                 }
                 AlertDialog.Builder(this).setTitle("ตรวจข้อเสนอ AI • ${proposals.size} รายการ").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึกรายการที่เลือก") { _,_ ->
                     runCatching {
@@ -1785,7 +1819,7 @@ $context"""
                         check(project.name==projectId && plan===story && story.toString()==storySnapshot) { "เรื่องเปลี่ยนระหว่างตรวจ กรุณาเริ่มใหม่" }
                         val data=JSONObject()
                         val approved=proposals.mapIndexedNotNull { index,row ->
-                            if (!boxes[index].isChecked) null else JSONObject(row.toString()).put("holder", if(holders[index].selectedItemPosition==0) "" else holders[index].selectedItem.toString())
+                            if (!boxes[index].isChecked) null else JSONObject(row.toString()).put("holder", if(holders[index].selectedItemPosition==0) "" else holders[index].selectedItem.toString()).put("start_prop_state",stateValues[propStates[index].selectedItemPosition.coerceIn(0,stateValues.lastIndex)])
                         }.groupBy { it.getString("scene_id") }
                         approved.forEach { (sceneId,items) -> data.put(sceneId,JSONArray(items)) }
                         val pending=File(project,"prop_assignments.json.pending"); pending.writeText(data.toString(2)); check(pending.renameTo(file)) { "บันทึกไม่สำเร็จ" }
@@ -1872,7 +1906,16 @@ $context"""
             val next=tasks.getOrNull(index+1)?.id ?: "จบชุดนี้ • เลือกชุดถัดไป"
             val sceneSummary=rows(story).firstOrNull { key(it)==task.id }?.let { SceneOverview.detail(it,task.id) }
             val sceneForFlow=if(images) null else rows(story).firstOrNull { key(it)==task.id }
-            val flowSpec=sceneForFlow?.let { ProductionCommandCheck.spec(it) }
+            val flowSpec=sceneForFlow?.let { scene ->
+                val original=ProductionCommandCheck.spec(scene)
+                val prefKey="prop_master_${project.name}_${task.id}"
+                val assigned=runCatching { JSONObject(File(project,"prop_assignments.json").readText()).optJSONArray(task.id) }.getOrNull()
+                val manual=if(prefs.contains(prefKey)) prefs.getStringSet(prefKey,emptySet()).orEmpty() else null
+                val notes=(0 until (assigned?.length() ?: 0)).mapNotNull { assigned?.optJSONObject(it) }.filter { manual==null || it.optString("prop_id") in manual }.map { row ->
+                    "${row.optString("prop_id")} with ${row.optString("holder").ifBlank { "holder unspecified" }}; initial state ${row.optString("start_prop_state").ifBlank { "unspecified; follow first frame" }}"
+                }
+                if(notes.isEmpty()) original else original.copy(action=original.action+". Prop continuity: "+notes.joinToString("; ")+". Preserve the actual first frame; do not create missing objects.")
+            }
             val flowCamera=when(sceneForFlow?.optString("camera_movement")) { "track" -> "Gentle tracking movement."; "locked" -> "Locked camera."; "push_in" -> "Slow push-in."; else -> "Slow gentle pan." }
             val preview=if(!images && flowSpec!=null && FlowScenePrompt.issues(flowSpec).isEmpty()) task.copy(command=FlowVoiceXml.build(flowSpec,flowCamera)) else task
             val code=(sceneSummary?.plus("\n\n") ?: "")+SimpleProductionCommands.block(preview,index,images)+"\n\nล่าสุดที่เปิด: ${task.id} | ถัดไป: $next\nสถานะนี้บันทึกการเปิดคำสั่ง ไม่ได้ยืนยันว่าภาพหรือคลิปสร้างสำเร็จแล้ว"
@@ -1891,7 +1934,7 @@ $context"""
                 if(!images) {
                     if(problems.isNotEmpty() || flowSpec==null) { productionCheckMenu(story); return@setOnClickListener }
                     choiceMenu("เลือกคำสั่ง Flow • ${task.id}",listOf("คัดลอก XML • รูปแบบกระชับ","คัดลอก XML • แบบเดิมพร้อมเสียงประกอบ","คัดลอกแบบเงียบ • ใส่เสียงภายหลัง","คัดลอกบทเสียงแยก")) { mode ->
-                        val value=when(mode) { 0 -> FlowVoiceXml.build(flowSpec,flowCamera); 1 -> task.command; 2 -> CompactFlowPrompt.build(flowSpec,flowCamera,true); else -> CompactFlowPrompt.voiceText(flowSpec) }
+                        val value=when(mode) { 0 -> FlowVoiceXml.build(flowSpec,flowCamera); 1 -> FlowScenePrompt.build(flowSpec,task.id,flowCamera)+"\n"+ChannelCatalog.genre(story); 2 -> CompactFlowPrompt.build(flowSpec,flowCamera,true); else -> CompactFlowPrompt.voiceText(flowSpec) }
                         copyCommand(value)
                     }
                     return@setOnClickListener
