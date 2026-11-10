@@ -68,16 +68,18 @@ class GeminiStoryService : Service() {
                         hybrid=spec.optBoolean("hybrid")
                         val automatic=spec.optBoolean("auto_pipeline")
                         val retryStatus: (String)->Unit={ message -> status("running",lastPercent,"${if(hybrid) "Groq + Gemini" else provider.label} • $message",if(message.startsWith("กำลังทำต่อ")) "requesting" else "retry_wait") }
-                        val active=if(automatic) StoryProvider.activeProviders.filter { it.hasKey(this) && spec.has("${it.id}_model") } else if(hybrid) StoryProvider.hybridProviders else listOf(provider)
+                        val active=if(automatic) StoryProvider.eligible(this).filter { it.hasKey(this) && (spec.has("${it.id}_model") || StoryProvider.freeOnly(this)) && (!spec.optBoolean("free_only") || it==StoryProvider.OPENROUTER) } else if(hybrid) StoryProvider.hybridProviders else listOf(provider)
+                        require(!StoryProvider.freeOnly(this) || automatic) { "โหมดฟรีรองรับงานอัตโนมัติที่ตั้งค่าด้วย OpenRouter ฟรีเท่านั้น กรุณาเริ่มหรือตั้งค่างานใหม่" }
+                        if(automatic && active.isEmpty()) throw IllegalStateException("ไม่มี API ที่พร้อมในโหมดปัจจุบัน • ตรวจคีย์ OpenRouter และตั้งค่าการเขียนบทใหม่")
                         val connections=active.associateWith { target ->
                             val key=target.key(this); require(key.isNotBlank()) { "ตั้งค่า ${target.label} API Key ก่อนเริ่ม" }
-                            val model=if(automatic || hybrid) spec.getString("${target.id}_model") else spec.getString("model")
+                            val model=if(automatic || hybrid) spec.optString("${target.id}_model").ifBlank { target.model(this) } else spec.getString("model")
                             StoryClientFactory.create(target,key,model,{ cancelled },{ seconds -> status("running",lastPercent,if(seconds>0) "Groq • พัก $seconds วินาที • ครบเวลาแล้วทำต่ออัตโนมัติ • กดหยุดได้" else "Groq • กำลังส่งคำขอ / รอคำตอบบท",if(seconds>0) "waiting" else "requesting") },retryStatus,!hybrid && !automatic)
                         }
                         clients=connections.values.toList()
                         val autoRouter=AutomaticStoryRouter(folder,connections,{cancelled}) { target,message ->
                             provider=target; status("running",lastPercent,"อัตโนมัติ • ${target.label} • $message","requesting")
-                        }
+                        }.apply { verifyBeforeUse=true }
                         autoRouter.onFailure={ target,category -> synchronized(statusLock) {
                             val snapshot=liveStatus.recordFailure(target,category).put("hybrid",hybrid)
                             GeminiStoryFiles.write(File(folder,"status.json"),snapshot)
