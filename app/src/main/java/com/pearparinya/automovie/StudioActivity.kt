@@ -2186,6 +2186,7 @@ $context"""
         }.apply { name="director-extra-api-probe"; start() }
     }
     private fun testStoryApis(providers: List<StoryProvider>) {
+        if(StoryProvider.freeOnly(this) && providers.any { it!=StoryProvider.OPENROUTER }) { notice("โหมดฟรีเปิดอยู่ • ทดสอบได้เฉพาะ OpenRouter โมเดลฟรี"); return }
         if(GeminiStoryService.running) { notice("กรุณารอหรือหยุดงานเขียนบทก่อนทดสอบ API"); return }
         val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
         val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
