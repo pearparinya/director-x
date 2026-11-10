@@ -35,7 +35,7 @@ internal class AutomaticStoryRouter(
             try {
                 val client=clients.getValue(provider)
                 if(verifyBeforeUse && provider !in verified) {
-                    try { StoryApiProbe.check(client) } catch(e: IllegalArgumentException) { throw InvalidStoryResponse("API test returned an invalid response") }
+                    try { StoryApiProbe.check(client) } catch(e: IllegalArgumentException) { throw InvalidStoryResponse("API test returned an invalid response") } catch(e: IllegalStateException) { if(e is StoryHttpFailure) throw e; throw InvalidStoryResponse("API test returned an invalid response") }
                     verified.add(provider)
                 }
                 client.generate(prompt,schema)
@@ -116,7 +116,7 @@ internal class AutomaticStoryRouter(
                             if(cancelled() || e is CancellationException) throw CancellationException()
                             if(!canSwitch(e)) throw e
                             if(target!=formatters.last()) onFailure(target,failureCategory(e))
-                            if(e is StoryHttpFailure && e.status==402) unavailable[target]=e
+                            if(e is StoryHttpFailure && e.status in setOf(401,402,403,404)) unavailable[target]=e
                             coolDown(target,e)
                             if(StoryRequestRetry.canRetry(e)) temporary=e
                             formatFailure=e
@@ -129,7 +129,7 @@ internal class AutomaticStoryRouter(
             } catch(e: Exception) {
                 if(cancelled() || e is CancellationException) throw CancellationException()
                 onFailure(current,failureCategory(e))
-                if(e is StoryHttpFailure && e.status==402) unavailable[current]=e
+                if(e is StoryHttpFailure && e.status in setOf(401,402,403,404)) unavailable[current]=e
                 coolDown(current,e)
                 if(StoryRequestRetry.canRetry(e)) temporary=e
                 if(e is StoryHttpFailure && (e.status==413 || e.detail=="context_length_exceeded")) oversized=true
@@ -152,8 +152,9 @@ internal class AutomaticStoryRouter(
     }
     private fun coolDown(provider: StoryProvider,e: Exception) {
         if(verifyBeforeUse && e is StoryHttpFailure && e.status==429) {
-            val seconds=maxOf(65L,e.retryAfter?.let { StoryRequestRetry.retrySeconds(it,System.currentTimeMillis()) } ?: 0L).coerceAtMost(86_400L)
-            cooldown[provider]=android.os.SystemClock.elapsedRealtime()+seconds*1000L
+            val now=android.os.SystemClock.elapsedRealtime()
+            val seconds=maxOf(65L,e.retryAfter?.let { StoryRequestRetry.retrySeconds(it,System.currentTimeMillis()) } ?: 0L).coerceAtMost((Long.MAX_VALUE-now)/1000)
+            cooldown[provider]=now+seconds*1000L
         }
     }
     private fun generateChecked(provider: StoryProvider,prompt: String,schema: JSONObject): JSONObject = try {
