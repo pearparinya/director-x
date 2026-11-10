@@ -1272,6 +1272,7 @@ class StudioActivity : AppCompatActivity() {
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
         panel.addView(TextView(this).apply { text="ตรวจภาพ MASTER ชื่อและตำแหน่งก่อนส่ง • แตะภาพเพื่อขยาย\nหลังเปิดแอปปลายทาง ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง" })
         val faceOnly=android.widget.CheckBox(this).apply { text="ใช้ MASTER เฉพาะใบหน้ามนุษย์ • ชุดและทรงผมตามฉาก"; panel.addView(this) }
+        val masterAppearance=linkedMapOf<String,android.widget.CheckBox>()
         val crops=linkedMapOf<String,Pair<String,File>>()
         val cropLabels=linkedMapOf<String,String>()
         val cropStore=FaceReferenceStore(File(filesDir,"master_face_references"))
@@ -1279,6 +1280,11 @@ class StudioActivity : AppCompatActivity() {
             val (id,file)=references[index]
             val position=if(task.id.contains("_COVER_")) when(task.references.size) { 1 -> "center"; 2 -> if(index==0) "left" else "right"; else -> listOf("left","center","right")[index] } else person.optString("screen_position")
             panel.addView(TextView(this).apply { text="${person.optString("name")} • $position\n$id"; setTypeface(null,Typeface.BOLD) })
+            masterAppearance[id]=android.widget.CheckBox(this).apply {
+                text="คงชุด เกราะ หมวก และลักษณะตาม MASTER ของตัวละครนี้"
+                isChecked=task.id.contains("_COVER_") || person.optString("character_type")=="knight"
+                panel.addView(this)
+            }
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(220)); setOnClickListener { fullImage(file,person.optString("name")) } })
             val status=TextView(this).apply { text="ยังไม่ได้เลือกกรอบใบหน้า"; panel.addView(this) }
             val cropPreview=ImageView(this).apply { adjustViewBounds=true; visibility=android.view.View.GONE; layoutParams=LinearLayout.LayoutParams(-1,dp(160)); panel.addView(this) }
@@ -1291,7 +1297,7 @@ class StudioActivity : AppCompatActivity() {
                 cropPreview.visibility=android.view.View.VISIBLE
                 cropPreview.setOnClickListener { fullImage(target,"ตรวจภาพครอป • ${person.optString("name")}") }
             }
-            runCatching { cropStore.latest(file) }.getOrNull()?.let { showCrop(it); faceOnly.isChecked=true }
+            runCatching { cropStore.latest(file) }.getOrNull()?.let { showCrop(it) }
             panel.addView(Button(this).apply {
                 text="เลือกกรอบใบหน้าจาก MASTER"
                 setOnClickListener {
@@ -1344,7 +1350,12 @@ class StudioActivity : AppCompatActivity() {
             .setPositiveButton("เลือกแอปและส่ง") { _,_ ->
                 val selected=if(faceOnly.isChecked) crops else emptyMap()
                 val bindings=selected.entries.joinToString("\n") { (id,crop) -> "CHARACTER ${labels[id].orEmpty()} — FACE CROP ${crop.first} is cropped from MASTER ${referenceId(id)}; both show the same character. Use the crop for facial identity and the original MASTER for verification. Never use this crop for another character." }
-                val command=if(faceOnly.isChecked) SimpleProductionCommands.faceOnly(task.command)+if(bindings.isBlank()) "" else "\n\n$bindings" else task.command
+                val baseCommand=if(faceOnly.isChecked) SimpleProductionCommands.faceOnly(task.command)+if(bindings.isBlank()) "" else "\n\n$bindings" else task.command
+                val locked=task.references.mapIndexedNotNull { index,person ->
+                    val id=references[index].first
+                    if(masterAppearance[id]?.isChecked==true) person.optString("name") to referenceId(id) else null
+                }
+                val command=baseCommand+SimpleProductionCommands.masterAppearanceLock(locked)
                 val chosen=checks.filterValues { it.isChecked }.keys
                 val propRefs=runCatching { chosen.map { id ->
                     val file=File(cacheDir,"prop_masters/$id.png")
