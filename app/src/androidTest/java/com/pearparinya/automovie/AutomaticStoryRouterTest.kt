@@ -12,6 +12,26 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class AutomaticStoryRouterTest {
+    @Test fun verifiedFallbackSkipsThrottledProviderUntilCooldown() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"verified-fallback-${UUID.randomUUID()}")
+        try {
+            var firstCalls=0; var secondProbes=0; var secondWrites=0
+            val first=client { _,_ -> firstCalls++; throw StoryHttpFailure(429,"1","quota") }
+            val second=client { prompt,_ ->
+                if(prompt.startsWith("Connection test")) { secondProbes++; JSONObject().put("ok",true) }
+                else { secondWrites++; draft() }
+            }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.OPENROUTER to first,StoryProvider.COHERE to second),{false},{_,_->}).apply { verifyBeforeUse=true }
+            router.generate("first",schema()); router.generate("second",schema())
+            assertEquals(1,firstCalls); assertEquals(1,secondProbes); assertEquals(2,secondWrites)
+        } finally { folder.deleteRecursively() }
+    }
+    @Test fun freeOnlyPolicyLimitsAutomaticProviders() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val before=StoryProvider.freeOnly(context)
+        try { StoryProvider.setFreeOnly(context,true); assertEquals(listOf(StoryProvider.OPENROUTER),StoryProvider.eligible(context)) }
+        finally { StoryProvider.setFreeOnly(context,before) }
+    }
     @Test fun invalidAnswerSwitchesProviderWithoutRepeatingSlowRequest() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-invalid-switch-${UUID.randomUUID()}")
         try {

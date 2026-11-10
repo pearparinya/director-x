@@ -32,10 +32,14 @@ internal enum class StoryProvider(val id: String,val label: String,val defaultMo
         fun label(context: Context)="API อัตโนมัติ"
         val hybridProviders=listOf(GROQ,GEMINI)
         val activeProviders=listOf(GROQ,GEMINI,DEEPSEEK,OPENROUTER,MISTRAL,SAMBANOVA,COHERE)
-        fun ready(context: Context)=(GROQ.hasKey(context) && GEMINI.hasKey(context)) || (GEMINI.hasKey(context) && DEEPSEEK.hasKey(context)) || OPENROUTER.hasKey(context) || COHERE.hasKey(context) || MISTRAL.hasKey(context) || SAMBANOVA.hasKey(context)
+        fun freeOnly(context: Context)=context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).getBoolean("free_only",false)
+        fun setFreeOnly(context: Context,enabled: Boolean) { context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).edit().putBoolean("free_only",enabled).apply() }
+        fun eligible(context: Context)=if(freeOnly(context)) listOf(OPENROUTER) else activeProviders
+        fun ready(context: Context)=if(freeOnly(context)) OPENROUTER.hasKey(context) else (GROQ.hasKey(context) && GEMINI.hasKey(context)) || (GEMINI.hasKey(context) && DEEPSEEK.hasKey(context)) || OPENROUTER.hasKey(context) || COHERE.hasKey(context) || MISTRAL.hasKey(context) || SAMBANOVA.hasKey(context)
         fun configure(context: Context,spec: JSONObject): JSONObject {
             spec.put("provider",GROQ.id).put("model",GROQ.model(context)).put("hybrid",false).put("auto_pipeline",true)
-            activeProviders.filter { it.hasKey(context) }.forEach { spec.put("${it.id}_model",it.model(context)) }
+            spec.put("free_only",freeOnly(context))
+            eligible(context).filter { it.hasKey(context) }.forEach { spec.put("${it.id}_model",it.model(context)) }
             return spec
         }
         fun select(context: Context,provider: StoryProvider) { context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).edit().putString("selected",provider.id).putBoolean("hybrid",false).apply() }
