@@ -45,7 +45,7 @@ class GeminiStoryTest {
                     .put("visual_description","short auburn bob").put("screen_position","center")))
                 .put("story_day","DAY01").put("story_time","บ่าย").put("activity","home").put("wardrobe_event","DAY01_HOME").put("continuity_group","DAY01_HOME")
                 .put("location","ห้องนั่งเล่น").put("start_state","ถือซอง").put("end_state","วางซอง").put("action","EP $ep ซีน ${start+n} วางซอง")
-                .put("speaker","").put("dialogue","").put("narration","")
+                .put("flow_action","May places the envelope on the table").put("speaker","").put("dialogue","").put("narration","")
                 .put("image_prompt","May with short auburn bob wears cream shirt, holds envelope in living room. MIND_MASTER.png. Neutral white light.")
                 .put("flow_prompt","8 seconds 9:16 locked camera. May puts envelope on table, no speech. MIND_MASTER.png."))
         } })
