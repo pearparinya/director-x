@@ -1282,7 +1282,7 @@ class StudioActivity : AppCompatActivity() {
             panel.addView(TextView(this).apply { text="${person.optString("name")} • $position\n$id"; setTypeface(null,Typeface.BOLD) })
             masterAppearance[id]=android.widget.CheckBox(this).apply {
                 text="คงชุด เกราะ หมวก และลักษณะตาม MASTER ของตัวละครนี้"
-                isChecked=task.id.contains("_COVER_") || person.optString("character_type")=="knight"
+                isChecked=person.optString("character_type")=="knight"
                 panel.addView(this)
             }
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(220)); setOnClickListener { fullImage(file,person.optString("name")) } })
