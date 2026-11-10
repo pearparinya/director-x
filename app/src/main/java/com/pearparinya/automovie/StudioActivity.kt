@@ -1317,12 +1317,43 @@ class StudioActivity : AppCompatActivity() {
             panel.addView(TextView(this).apply { text="ภาพสถานที่อ้างอิงที่ตรวจแล้ว • $id (ไม่ใช่ MASTER ตัวละคร)" })
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(180)); setOnClickListener { fullImage(file,"ภาพสถานที่อ้างอิง") } })
         }
+        val propNames=listOf("ดาบเงาจันทรา", "ดาบเวทมนตร์แสงฟ้า", "ดาบอัศวินสุริยัน", "ดาบมังกรเพลิง", "คทาดวงดาวและกาลเวลา", "คทาผู้พิทักษ์แสง", "คทาผลึกเหมันต์", "หอกผู้พิทักษ์นภา", "โล่อัศวินศักดิ์สิทธิ์", "ดาบพลังงานจักรกล", "ธนูผู้พิทักษ์พงไพร", "โล่พลังงานไซเบอร์", "คทาปราบวิญญาณ", "ดาบอาคมโบราณ", "มีดหมอพิธีกรรม", "ถุงมือควบคุมพลัง", "ตะเกียงส่องวิญญาณ", "หนังสือผนึกคำสาป", "กุญแจประตูมิติ", "ลูกประคำและเครื่องรางป้องกัน")
+        val propPreference="prop_master_${project.name}_${task.id}"
+        val saved=prefs.getStringSet(propPreference, emptySet()).orEmpty()
+        val checks=linkedMapOf<String,android.widget.CheckBox>()
+        panel.addView(TextView(this).apply { text="MASTER อุปกรณ์ • เลือกเฉพาะชิ้นที่ปรากฏในภาพนี้ แล้วใช้ชิ้นเดียวกันในซีนอื่น"; setTypeface(null,Typeface.BOLD) })
+        propNames.forEachIndexed { index,name ->
+            val id="PROP_%02d_MASTER".format(index+1)
+            val checkbox=android.widget.CheckBox(this).apply { text="$name • $id"; isChecked=id in saved }
+            checks[id]=checkbox
+            panel.addView(checkbox)
+            val image=ImageView(this).apply { adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(180)); visibility=if(checkbox.isChecked) android.view.View.VISIBLE else android.view.View.GONE }
+            fun propFile(): File {
+                val file=File(cacheDir,"prop_masters/$id.png")
+                if (!file.isFile) { file.parentFile!!.mkdirs(); assets.open("prop_masters/$id.png").use { input -> file.outputStream().use { input.copyTo(it) } } }
+                return file
+            }
+            fun showProp() { runCatching { val file=propFile(); image.setImageBitmap(previewBitmap(Uri.fromFile(file))); image.setOnClickListener { fullImage(file,name) } }.onFailure { notice("เปิดภาพอุปกรณ์ไม่ได้: $name") } }
+            if(checkbox.isChecked) showProp()
+            checkbox.setOnCheckedChangeListener { _,checked -> image.visibility=if(checked) android.view.View.VISIBLE else android.view.View.GONE; if(checked) showProp() }
+            panel.addView(image)
+        }
         AlertDialog.Builder(this).setTitle("ตรวจ MASTER • ${task.id}").setView(ScrollView(this).apply { addView(panel) })
             .setPositiveButton("เลือกแอปและส่ง") { _,_ ->
                 val selected=if(faceOnly.isChecked) crops else emptyMap()
                 val bindings=selected.entries.joinToString("\n") { (id,crop) -> "CHARACTER ${labels[id].orEmpty()} — FACE CROP ${crop.first} is cropped from MASTER ${referenceId(id)}; both show the same character. Use the crop for facial identity and the original MASTER for verification. Never use this crop for another character." }
                 val command=if(faceOnly.isChecked) SimpleProductionCommands.faceOnly(task.command)+if(bindings.isBlank()) "" else "\n\n$bindings" else task.command
-                shareImageCommand(command,references+selected.values,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } })
+                val chosen=checks.filterValues { it.isChecked }.keys
+                val propRefs=runCatching { chosen.map { id ->
+                    val file=File(cacheDir,"prop_masters/$id.png")
+                    if(!file.isFile) { file.parentFile!!.mkdirs(); assets.open("prop_masters/$id.png").use { input -> file.outputStream().use { input.copyTo(it) } } }
+                    check(file.isFile && file.length()>0) { "ไม่พบภาพ $id" }
+                    id to file
+                } }.getOrElse { notice(it.message ?: "เปิด MASTER อุปกรณ์ไม่ได้"); return@setPositiveButton }
+                prefs.edit().putStringSet(propPreference,chosen.toSet()).apply()
+                val propLabels=propRefs.associate { (id,_) -> id to propNames[id.substring(5,7).toInt()-1] }
+                val propInstruction=if(propRefs.isEmpty()) "" else "\n\nPROP MASTER REFERENCES: Each selected image shows multiple views of ONE object. Match each named object to its own attached MASTER. Preserve its distinctive silhouette, proportions, materials, colors, markings, gems, guard and handle across scenes. Do not invent a replacement or mix different objects. Depict only the selected props appropriate to this scene; follow the planned action and placement. If the mapping is unclear, ask. Similarity is a target and cannot be guaranteed.\n"+propLabels.entries.joinToString("\n") { "${it.value} | MASTER ID: ${it.key}" }
+                shareImageCommand(command+propInstruction,references+selected.values+propRefs,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
             }
             .setNegativeButton("กลับไปตรวจ",null).showDirector()
     }
