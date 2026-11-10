@@ -12,6 +12,23 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class AutomaticStoryRouterTest {
+    @Test fun allowedProvidersRestrictRoutingAndFreeOnlyStillWins() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val before=StoryProvider.allowedIds(context); val free=StoryProvider.freeOnly(context)
+        try {
+            StoryProvider.setFreeOnly(context,false)
+            StoryProvider.setAllowed(context,setOf("groq","gemini","cohere"))
+            assertEquals(listOf(StoryProvider.GROQ,StoryProvider.GEMINI,StoryProvider.COHERE),StoryProvider.eligible(context))
+            assertTrue(StoryProvider.viable(listOf(StoryProvider.GROQ,StoryProvider.GEMINI)))
+            assertFalse(StoryProvider.viable(listOf(StoryProvider.GROQ)))
+            assertFalse(StoryProvider.viable(emptyList()))
+            assertTrue(runCatching { StoryProvider.setAllowed(context,emptySet()) }.isFailure)
+            StoryProvider.setFreeOnly(context,true)
+            assertTrue(StoryProvider.eligible(context).isEmpty())
+            StoryProvider.setAllowed(context,setOf("openrouter","groq"))
+            assertEquals(listOf(StoryProvider.OPENROUTER),StoryProvider.eligible(context))
+        } finally { StoryProvider.setAllowed(context,before); StoryProvider.setFreeOnly(context,free) }
+    }
     @Test fun verifiedFallbackSkipsThrottledProviderUntilCooldown() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"verified-fallback-${UUID.randomUUID()}")
         try {
