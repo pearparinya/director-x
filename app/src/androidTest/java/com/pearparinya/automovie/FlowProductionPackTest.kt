@@ -201,7 +201,7 @@ class FlowProductionPackTest {
             assertTrue(cover.contains("BEGIN EXACT COVER TEXT\nช่อง\nซองบนโต๊ะ\nความลับในซอง\nEND EXACT COVER TEXT"))
             assertFalse(cover.contains("EP.00")); assertTrue(cover.contains(story.getString("title")))
             val scene=FlowReferencePrompt.scene(story.getJSONArray("episodes").getJSONObject(6).getJSONArray("scenes").getJSONObject(1),7,"video")
-            assertTrue(scene.startsWith("<flow><scene>"))
+            assertTrue(scene.startsWith("<flow><scene id=\"EP07_SC002\">"))
             assertTrue(scene.contains("Use the attached first frame"))
             assertTrue(scene.contains("<duration>8</duration>"))
             assertTrue(ep.contains(FlowVisualDirection.referencePriority))
