@@ -6,8 +6,8 @@ internal object CompactFlowPrompt {
     fun build(s: FlowSceneSpec, camera: String, silent: Boolean): String {
         require(FlowScenePrompt.issues(s).isEmpty()) { "กรุณาตรวจแก้ข้อมูลซีนก่อนคัดลอก" }
         val action=s.action.trim().ifBlank { "The scene remains still." }
-        val dialogue=line(s.dialogue)
-        val narration=line(s.narration)
+        val dialogue=ThaiSpeechPacing.format(line(s.dialogue))
+        val narration=ThaiSpeechPacing.format(line(s.narration))
         val offscreen=s.offscreen.any { it.trim()==s.speaker.trim() }
         val voices=when {
             silent -> "No speech, narration, music or sound effects. Keep visible mouths closed."
@@ -24,12 +24,13 @@ internal object CompactFlowPrompt {
             ReadingPropPolicy.forScene(s.action,s.startState,s.endState),
             "Camera: ${camera.trim()}",
             voices,
+            if (!silent && (dialogue.isNotEmpty() || narration.isNotEmpty() || s.turns.isNotEmpty())) ThaiSpeechPacing.direction else "",
             "No subtitles or on-screen text."
         ).filter { it.isNotBlank() }.joinToString("\n\n")
     }
     fun voiceText(s: FlowSceneSpec): String {
-        val dialogue=line(s.dialogue); val narration=line(s.narration)
-        if(s.turns.isNotEmpty()) return s.turns.joinToString("\n") { "${it.speaker}: ${it.text}" }
+        val dialogue=ThaiSpeechPacing.format(line(s.dialogue)); val narration=ThaiSpeechPacing.format(line(s.narration))
+        if(s.turns.isNotEmpty()) return s.turns.joinToString("\n") { "${it.speaker}: ${ThaiSpeechPacing.format(it.text)}" }
         return when {
             dialogue.isNotEmpty() -> "${s.speaker}: $dialogue"
             narration.isNotEmpty() -> "ผู้บรรยาย: $narration"
