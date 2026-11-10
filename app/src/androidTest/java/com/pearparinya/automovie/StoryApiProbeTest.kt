@@ -24,5 +24,10 @@ class StoryApiProbeTest {
         assertTrue(runCatching { StoryApiProbe.check(client) }.isFailure)
         assertTrue(StoryApiProbe.error(StoryHttpFailure(429,null,"secret-key")).contains("โควตา"))
         assertFalse(StoryApiProbe.error(IllegalStateException("secret-key")).contains("secret-key"))
+        assertTrue(StoryApiProbe.error(StoryHttpFailure(401,null,"secret-key")).contains("ยังยืนยันวันหมดอายุไม่ได้"))
+        assertTrue(StoryApiProbe.error(StoryHttpFailure(403,null,"secret-key")).contains("ไม่มีสิทธิ์"))
+        assertTrue(StoryApiProbe.error(StoryHttpFailure(402,null,"secret-key")).contains("เครดิต"))
+        assertTrue(StoryApiProbe.error(StoryHttpFailure(503,null,"secret-key")).contains("ชั่วคราว"))
+        assertFalse(StoryApiProbe.error(StoryHttpFailure(401,null,"secret-key")).contains("secret-key"))
     }
 }
