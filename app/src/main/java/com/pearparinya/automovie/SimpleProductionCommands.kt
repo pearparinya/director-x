@@ -150,7 +150,7 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
                 "push_in" -> "Slow, gentle push-in."
                 else -> "Slow, gentle pan."
             }
-            val command=FlowScenePrompt.build(spec,id,camera)+"\n"+ChannelCatalog.genre(story)
+            val command=runCatching { ShortFlowPrompt.build(spec,camera) }.getOrElse { "Flow prompt needs review: non-English scene direction." }
             Task(id,"EP.$number | ซีน %03d | วิดีโอ 9:16 | 8 วินาที".format(n),"9:16",command)
         }
     }
