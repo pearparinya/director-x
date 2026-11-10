@@ -134,8 +134,8 @@ class AutoDirectorContentTest {
         val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
         fun command()=SimpleProductionCommands.videoTasks(project,1).first().command
         assertTrue(command().contains("Slow, gentle pan"))
-        assertTrue(command().contains("Preserve the characters, their faces"))
-        assertTrue(command().contains("<speaker>[รินรดา]</speaker>"))
+        assertTrue(command().contains("Keep identities, outfits, objects and location consistent"))
+        assertTrue(command().contains("<speaker>Character 2</speaker>"))
         scene.put("camera_movement","pan")
         assertTrue(command().contains("Slow, gentle pan"))
         scene.put("camera_movement","track")
@@ -152,7 +152,7 @@ class AutoDirectorContentTest {
         val prompt=SimpleProductionCommands.videoTasks(project,1).first().command
         val parsed=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(prompt.toByteArray(Charsets.UTF_8)))
         assertEquals(scene.getString("dialogue"),parsed.getElementsByTagName("text").item(0).textContent)
-        assertTrue(prompt.contains("<speaker>[รินรดา]</speaker>"))
+        assertTrue(prompt.contains("<speaker>Character 2</speaker>"))
         assertTrue(prompt.contains("quiet room tone"))
         assertFalse(prompt.contains("indoor murmurs"))
         assertFalse(prompt.contains("MASTER ID:"))
@@ -164,14 +164,15 @@ class AutoDirectorContentTest {
         assertFalse(silent.contains("<dialogue>")); assertFalse(silent.contains("<voiceover>"))
         scene.put("narration","คืนนั้นความจริงปรากฏ")
         val narration=SimpleProductionCommands.videoTasks(project,1).first().command
-        assertTrue(narration.contains("Off-screen Male Narrator"))
+        assertTrue(narration.contains("Off-screen narrator"))
         assertTrue(narration.contains("คืนนั้นความจริงปรากฏ"))
-        assertTrue(narration.contains("Visible characters remain silent with mouths closed"))
+        assertTrue(narration.contains("Other visible characters remain silent"))
         scene.put("narration","").put("speaker","รินรดา").put("dialogue","สวัสดี").put("offscreen_characters",JSONArray().put("รินรดา"))
         scene.put("characters",JSONArray().put(scene.getJSONArray("characters").getJSONObject(0)))
+        scene.put("flow_action","กวิน stands quietly")
         val offscreen=SimpleProductionCommands.videoTasks(project,1).first().command
-        assertTrue(offscreen.contains("Off-screen [รินรดา]"))
-        assertTrue(offscreen.contains("Visible characters remain silent with mouths closed"))
+        assertTrue(offscreen.contains("Off-screen speaker"))
+        assertTrue(offscreen.contains("Other visible characters remain silent"))
         assertEquals(1,offscreen.split("สวัสดี").size-1)
     }
     @Test fun imageAndVideoCommandsUseReferenceIdsWithoutAssumingFileType() {
@@ -180,7 +181,7 @@ class AutoDirectorContentTest {
         assertTrue(poster.contains("MASTER ID: GAWIN_MASTER"))
         assertFalse(poster.contains("GAWIN_MASTER.png"))
         val video=SimpleProductionCommands.videoTasks(project,1).first().command
-        assertTrue(video.contains("continuous 8-second shot"))
+        assertTrue(video.contains("continuous 8-second vertical"))
         assertFalse(video.contains("EP01_SC001.png"))
     }
     @Test fun legacyChannelIsUpdatedForOldProjectCoversAndCustomNamesRemain() {
@@ -202,7 +203,7 @@ class AutoDirectorContentTest {
                 .put("outfit","Top: white shirt; Bottom: black trousers; Shoes: black shoes; Accessories: none")
                 .put("screen_position",listOf("left","center","right")[n])) }
             scenes.put(JSONObject().put("scene",i+1).put("duration_seconds",8).put("characters",cast)
-                .put("story_day","DAY01").put("location","ห้องสีขาว").put("action","กวินยื่นซองให้รินรดา").put("start_state","นั่ง").put("end_state","มองซอง")
+                .put("story_day","DAY01").put("location","ห้องสีขาว").put("action","กวินยื่นซองให้รินรดา").put("flow_action","กวิน hands an envelope to รินรดา").put("start_state","นั่ง").put("end_state","มองซอง")
                 .put("image_prompt","Kawin and Rinrada may look at May; MIND_MASTER.png, bright room")
                 .put("flow_prompt","STALE AUDIO THAT MUST NOT BE EXPORTED")
                 .put("speaker",if(i%3==0) "รินรดา" else "").put("dialogue",if(i%3==0) "กวิน บอกว่า A & B < C ใช่ไหม\"" else "")
@@ -247,10 +248,10 @@ class AutoDirectorContentTest {
         assertTrue(videos.first().title.startsWith("ซีน 1 • วิดีโอแนวตั้ง 9:16"))
         val command=videos.first().command
         assertTrue(command.contains("9:16")); assertFalse(command.contains("16:9"))
-        assertTrue(command.contains("<sound_effects>")); assertTrue(command.contains("soft paper rustle")); assertTrue(command.contains("Quieter than the speech"))
+        assertTrue(command.contains("Sound:")); assertTrue(command.contains("soft paper rustle"))
         assertEquals(scenes.getJSONObject(0).getString("dialogue"),DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(command.toByteArray(Charsets.UTF_8))).getElementsByTagName("text").item(0).textContent)
         val xml=AutoDirectorContent.flowXml(p,1)
-        assertTrue(xml.contains("<sound_effects>")); assertTrue(xml.contains("soft paper rustle"))
+        assertTrue(xml.contains("Sound:")); assertTrue(xml.contains("soft paper rustle"))
         assertTrue(SceneCommandCards.join(videos).contains("=== ซีน 24"))
         SoundDesign.validate(scenes.getJSONObject(0))
         scenes.getJSONObject(0).getJSONObject("sound_design").remove("music")
@@ -308,7 +309,7 @@ class AutoDirectorContentTest {
                 }
                 assertFalse(images.contains("=== EP")); assertTrue(images.contains("สารบัญ"))
                 assertTrue(images.contains("แก้ภาพ <รหัส>")); assertTrue(images.contains("PENDING"))
-                assertTrue(videos.contains("<sound_effects>")); assertTrue(videos.contains("กวิน บอกว่า A &amp; B &lt; C ใช่ไหม"))
+                assertTrue(videos.contains("<duration>8</duration>")); assertTrue(videos.contains("กวิน บอกว่า A &amp; B &lt; C ใช่ไหม"))
                 assertFalse(videos.contains("STALE AUDIO"))
                 assertTrue("Image export must remain reasonably compact",images.length<135000)
             }
@@ -429,10 +430,10 @@ class AutoDirectorContentTest {
         assertEquals(24,doc.getElementsByTagName("scene").length)
         assertEquals(24,doc.getElementsByTagName("aspect_ratio").length)
         assertEquals(24,doc.getElementsByTagName("prompt").length)
-        assertEquals(24,doc.getElementsByTagName("lighting").length)
-        assertEquals(24,doc.getElementsByTagName("typography_safe_zone").length)
+        assertEquals(24,doc.getElementsByTagName("duration").length)
+        assertTrue(text.contains("Use the attached first frame"))
         assertTrue(text.contains("กวิน บอกว่า A &amp; B &lt; C ใช่ไหม&quot;"))
-        assertTrue(text.contains("<voiceover>"))
+        assertTrue(text.contains("Off-screen narrator"))
         assertFalse(text.contains("STALE AUDIO"))
     }
     @Test fun exportIncludesGeminiDialogueAndXmlWithOriginalReferenceBytes() {

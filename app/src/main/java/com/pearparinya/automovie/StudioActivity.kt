@@ -1923,7 +1923,7 @@ $context"""
                 if(notes.isEmpty()) original else original.copy(action=original.action+". Prop continuity: "+notes.joinToString("; ")+". Preserve the actual first frame; do not create missing objects.")
             }
             val flowCamera=when(sceneForFlow?.optString("camera_movement")) { "track" -> "Gentle tracking movement."; "locked" -> "Locked camera."; "push_in" -> "Slow push-in."; else -> "Slow gentle pan." }
-            val preview=if(!images && flowSpec!=null && FlowScenePrompt.issues(flowSpec).isEmpty()) task.copy(command=FlowVoiceXml.build(flowSpec,flowCamera)) else task
+            val preview=if(!images && flowSpec!=null && FlowScenePrompt.issues(flowSpec).isEmpty()) task.copy(command=runCatching { ShortFlowPrompt.build(flowSpec,flowCamera) }.getOrElse { "Flow prompt needs review: non-English scene direction." }) else task
             val code=(sceneSummary?.plus("\n\n") ?: "")+SimpleProductionCommands.block(preview,index,images)+"\n\nล่าสุดที่เปิด: ${task.id} | ถัดไป: $next\nสถานะนี้บันทึกการเปิดคำสั่ง ไม่ได้ยืนยันว่าภาพหรือคลิปสร้างสำเร็จแล้ว"
             val problems=ProductionCommandCheck.issues(story)
             val dialog=showFlowCode("${task.id} • ถัดไป $next",code,"${task.id}_${if(images) "IMAGE" else "FLOW"}.txt")
@@ -1939,8 +1939,9 @@ $context"""
             dialog.getButton(-1).setOnClickListener {
                 if(!images) {
                     if(problems.isNotEmpty() || flowSpec==null) { productionCheckMenu(story); return@setOnClickListener }
-                    choiceMenu("เลือกคำสั่ง Flow • ${task.id}",listOf("คัดลอก XML • รูปแบบกระชับ","คัดลอก XML • แบบเดิมพร้อมเสียงประกอบ","คัดลอกแบบเงียบ • ใส่เสียงภายหลัง","คัดลอกบทเสียงแยก")) { mode ->
-                        val value=when(mode) { 0 -> FlowVoiceXml.build(flowSpec,flowCamera); 1 -> FlowScenePrompt.build(flowSpec,task.id,flowCamera)+"\n"+ChannelCatalog.genre(story); 2 -> CompactFlowPrompt.build(flowSpec,flowCamera,true); else -> CompactFlowPrompt.voiceText(flowSpec) }
+                    choiceMenu("เลือกคำสั่ง Flow • ${task.id}",listOf("คัดลอก XML • กระชับพร้อมบทพูด","คัดลอก XML • กระชับพร้อมเสียงฉาก","คัดลอกแบบเงียบ • ใส่เสียงภายหลัง","คัดลอกบทเสียงแยก")) { mode ->
+                        if(mode==3) { copyCommand(ShortFlowPrompt.voiceOnly(flowSpec)); return@choiceMenu }
+                        val value=runCatching { ShortFlowPrompt.build(flowSpec,flowCamera,mode==2) }.getOrElse { notice(it.message ?: "ตรวจคำสั่ง Flow ก่อนคัดลอก"); return@choiceMenu }
                         copyCommand(value)
                     }
                     return@setOnClickListener
@@ -2571,9 +2572,27 @@ $context"""
                 }.setNegativeButton("ยกเลิก",null).showDirector()
             }
             val presenterOutfits=listOf("เลือกชุดตามเนื้อเรื่อง", "สูทกรมท่า เนกไทลายฟ้า", "ชุดช่างสีเขียวเข้ม", "ชุดช่างสีกรมท่าส้ม", "ชุดช่างสีเทาเข้ม", "ชุดช่างสีน้ำเงิน", "เสื้อเชิ้ตสีครีม กางเกงเขียว", "เสื้อเชิ้ตสีฟ้า กางเกงกรมท่า", "เสื้อเชิ้ตสีขาว กางเกงดำ", "เสื้อเชิ้ตสีดำ กางเกงเทา", "เสื้อช่างกรม กางเกงเทา ถุงมือ", "ชุดทำสวนสีครีม หมวกและรองเท้าบูท", "ชุดทำสวนกรมท่า หมวกคลุมต้นคอและรองเท้าบูท")
-            val presenterOutfit=Spinner(this).apply {
-                adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,presenterOutfits)
-                if(chosenChannel=="นายเปีย บ้านคลองขุด") { panel.addView(TextView(this@StudioActivity).apply { text="ชุดตัวละครหลัก • เลือกชุดเริ่มต้น" }); panel.addView(this) }
+            // Keep slot indices compatible with the existing picker and story snapshot.
+            val presenterOutfit=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,presenterOutfits) }
+            if(chosenChannel=="นายเปีย บ้านคลองขุด") {
+                panel.addView(TextView(this).apply { text="ชุดนายเปีย • ติ๊กเลือก 1 ชุด หรือให้ระบบเลือกตามเรื่อง" })
+                val buttons=mutableListOf<android.widget.RadioButton>()
+                val auto=android.widget.RadioButton(this).apply { text="เลือกชุดตามเนื้อเรื่อง"; isChecked=true; panel.addView(this) }
+                buttons.add(auto)
+                auto.setOnClickListener { presenterOutfit.setSelection(0); buttons.forEachIndexed { i,button -> button.isChecked=i==0 } }
+                for(row in 0 until 6) {
+                    val line=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; panel.addView(this) }
+                    for(column in 0 until 2) {
+                        val slot=row*2+column+1
+                        val card=LinearLayout(this).apply { orientation=1; setPadding(dp(3),dp(4),dp(3),dp(4)); layoutParams=LinearLayout.LayoutParams(0,-2,1f); line.addView(this) }
+                        val preview=ImageView(this).apply { val file=presenterOutfitFile(piaActorId,slot); setImageBitmap(castingThumbnail(file)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(135)); contentDescription=presenterOutfits[slot]; card.addView(this) }
+                        val radio=android.widget.RadioButton(this).apply { text=presenterOutfits[slot]; textSize=12f; card.addView(this) }
+                        buttons.add(radio)
+                        val choose={ presenterOutfit.setSelection(slot); buttons.forEachIndexed { i,button -> button.isChecked=i==slot } }
+                        radio.setOnClickListener { choose() }; preview.setOnClickListener { choose() }; card.setOnClickListener { choose() }
+                    }
+                }
+                panel.addView(TextView(this).apply { text="หากเปลี่ยนไฟล์ภาพชุด ให้เปิดหน้าสร้างเรื่องใหม่เพื่อดูภาพล่าสุด"; textSize=12f })
             }
             if(chosenChannel=="นายเปีย บ้านคลองขุด") panel.addView(Button(this).apply {
                 text="เพิ่มหรือเปลี่ยนรูปของชุดที่เลือก"
@@ -3037,7 +3056,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         s.optLong("flow_image_revision",-1L) == image(s).lastModified()
     private fun flowCommand(s: JSONObject): String {
         if (!sceneFrameApproved(s) || FlowScenePrompt.issues(flowSpec(s)).isNotEmpty()) return "ยังไม่พร้อมส่ง Flow • เปิดภาพ ${key(s)} และยืนยันลักษณะ/ตำแหน่งผู้พูดในเมนูกำหนดตัวละครก่อน ไม่เดาตำแหน่งจากข้อความบท"
-        return FlowScenePrompt.build(flowSpec(s))
+        return ShortFlowPrompt.build(flowSpec(s),"Slow gentle pan.")
     }
     private fun landscapeSceneImage(file: File): Boolean {
         val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
@@ -3053,7 +3072,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         }
         if(!image(s).isFile) { notice("สร้างภาพฉากใน Gemini / Flow แล้วนำเข้าภาพก่อน จากนั้นเทียบ MASTER และยืนยันภาพ"); return }
         if(!sceneFrameApproved(s) || FlowScenePrompt.issues(flowSpec(s)).isNotEmpty()) { compareScene(s); return }
-        val code=FlowScenePrompt.build(flowSpec(s),key(s))
+        val code=runCatching { ShortFlowPrompt.build(flowSpec(s),"Slow gentle pan.") }.getOrElse { notice(it.message ?: "ตรวจคำสั่ง Flow"); return }
         if(copy) copyCommand(code) else showFlowCode("วิดีโอจากภาพที่ยืนยันแล้ว",code,"${key(s)}_VIDEO.txt")
     }
     private fun copyFlowCommand(s: JSONObject) { reviewedVideoCommand(s,true) }
