@@ -45,6 +45,16 @@ Use the clear front view for face and hair. If the image-to-name mapping is uncl
             .replace("Use the clear front view for face and hair. If the image-to-name mapping is unclear, ask. A front-view crop can supplement the original MASTER. Scene Outfit overrides MASTER clothing.","Use the clear front view for facial identity. If the image-to-name mapping is unclear, ask. A front-view crop from the same MASTER may supplement it. Scene Outfit overrides MASTER clothing.")
             .replace("their own MASTER controls face, hair and body", "their own MASTER controls facial identity for humans; nonhuman species and anatomy remain consistent")
     }
+    /** Explicit per-character opt-in takes precedence over generic scene wardrobe rules. */
+    fun masterAppearanceLock(people: List<Pair<String,String>>): String {
+        if (people.isEmpty()) return ""
+        val bindings=people.joinToString("\n") { (name,id) -> "Character: $name | attached MASTER ID: $id" }
+        return """
+
+HIGHEST PRIORITY — ORIGINAL MASTER APPEARANCE FOR THE CHARACTERS LISTED BELOW:
+$bindings
+For each listed character, use only their own attached MASTER for their identity, visible body, hairstyle, outfit, armor, headwear and accessories. Reproduce the distinctive colors, silhouette and details shown in that MASTER. If a helmet or mask covers the face, keep it closed: do not remove it, invent a visible face, or substitute an unhelmeted person. A covered face does not need a readable expression. Each three-view image shows ONE character, not multiple people. Never exchange identities or clothing between characters. This per-character instruction overrides generic face-only, scene outfit, wardrobe and expression instructions for the listed characters only. Follow the scene for action and pose without changing those appearances. If the attachment or identity mapping is unclear, ask before generating. Visually compare each character to their own reference; similarity cannot be guaranteed."""
+    }
     private fun cast(people: List<JSONObject>,poster: Boolean=false)=people.mapIndexed { i,p ->
         val position=if(!poster) p.optString("screen_position") else when(people.size) { 1 -> "center"; 2 -> if(i==0) "left" else "right"; else -> listOf("left","center","right")[i] }
         val alias=when(FlowCast.id(p)) { "gawin" -> "Kawin / Gawin"; "rinlada" -> "Rinrada / Rinlada"; "mind" -> "May / Mind"; else -> p.getString("name") }
@@ -74,7 +84,7 @@ CHARACTERS AND OUTFITS:
 ${cast(selected,true)}
 $wardrobeContinuity
 ${FlowReferencePrompt.visibleCastLock(selected)}
-Bright neutral-white editorial light; realistic skin and fabric, readable expressions. Leave the text area clear.
+Bright neutral-white editorial light; realistic materials. Keep any reference helmet or mask closed when instructed. Leave the text area clear.
 EXACT VISIBLE THAI TEXT (three entries, no other lettering):
 ${text.joinToString("\n")}
 ${BodyReferencePolicy.imageIdentityLock}
