@@ -27,6 +27,7 @@ ${FlowVisualDirection.identity}
 ${FlowVisualDirection.color}
 ${AutoDirectorContent.femaleFashion}
 ${AutoDirectorContent.dailyWardrobe}
+${AutoDirectorContent.storyEnergy}
 ${PerformanceDirection.guide}
 ${PerformanceDirection.planning}
 ${SoundDesign.planning}

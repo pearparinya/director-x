@@ -1319,9 +1319,10 @@ class StudioActivity : AppCompatActivity() {
                 }
             })
         }
+        val extraChecks=linkedMapOf<String,android.widget.CheckBox>()
         references.drop(task.references.size).forEach { (id,file) ->
-            panel.addView(TextView(this).apply { text="ภาพสถานที่อ้างอิงที่ตรวจแล้ว • $id (ไม่ใช่ MASTER ตัวละคร)" })
-            panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(180)); setOnClickListener { fullImage(file,"ภาพสถานที่อ้างอิง") } })
+            extraChecks[id]=android.widget.CheckBox(this).apply { text=labels[id] ?: "ภาพอ้างอิงที่ตรวจแล้ว • $id"; isChecked=true; panel.addView(this) }
+            panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(180)); setOnClickListener { fullImage(file,labels[id] ?: "ภาพอ้างอิง") } })
         }
         val propNames=propCatalog
         val propPreference="prop_master_${project.name}_${task.id}"
@@ -1369,7 +1370,12 @@ class StudioActivity : AppCompatActivity() {
                 val coverOwners=if(task.id.contains("_COVER_")) task.references.mapNotNull { person -> characterProp(person.optString("master")).takeIf { it.isNotBlank() && it in chosen }?.let { "${person.optString("name")} is associated with $it; show it only if appropriate to this cover." } }.joinToString("\n") else ""
                 val owners=(0 until (automatic?.length() ?: 0)).mapNotNull { automatic?.optJSONObject(it) }.filter { it.optString("prop_id") in chosen }.joinToString("\n") { "${it.optString("holder").ifBlank { "Holder unspecified" }} is associated with ${it.optString("prop_id")} in this scene. Start-frame prop state: ${it.optString("start_prop_state").ifBlank { "unspecified; follow the story, do not assume it is held" }}. Follow the start state and action." }
                 val propInstruction=if(propRefs.isEmpty()) "" else "\n\nPROP MASTER REFERENCES: Each selected image shows multiple views of ONE object. Match each named object to its own attached MASTER. Preserve its distinctive silhouette, proportions, materials, colors, markings, gems, guard and handle across scenes. Do not invent a replacement or mix different objects. Depict only the selected props appropriate to this scene; follow the planned action and placement. If the mapping is unclear, ask. Similarity is a target and cannot be guaranteed.\n"+propLabels.entries.joinToString("\n") { "${it.value} | MASTER ID: ${it.key}" }
-                shareImageCommand(command+propInstruction+(if(owners.isBlank()) "" else "\n$owners")+(if(coverOwners.isBlank()) "" else "\n$coverOwners"),references+selected.values+propRefs,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
+                val extras=references.drop(task.references.size).filter { extraChecks[it.first]?.isChecked == true }
+                val outfitExtras=extras.filter { it.first.startsWith("OUTFIT_") }
+                val outfitGuide=if(outfitExtras.isEmpty()) "" else "\n\nREVIEWED OUTFIT REFERENCES: For the listed characters only, these checked images override generic instructions against copying clothing. Use each labeled frame as a clothing reference for its named character, while the original character MASTER remains the identity reference. Preserve visible garments; follow the written outfit for parts not visible. Do not copy background, pose or objects. "+outfitExtras.joinToString("; ") { "${it.first} = ${labels[it.first]}" }
+                val payload=references.take(task.references.size)+extras+selected.values+propRefs
+                if(payload.size>9) { notice("มีภาพอ้างอิง ${payload.size} ภาพ ซึ่งเกิน 9 ภาพ • ยกเลิกภาพอ้างอิงบางรายการแล้วลองอีกครั้ง"); return@setPositiveButton }
+                shareImageCommand(command+outfitGuide+propInstruction+(if(owners.isBlank()) "" else "\n$owners")+(if(coverOwners.isBlank()) "" else "\n$coverOwners"),payload,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
             }
             .setNegativeButton("กลับไปตรวจ",null).showDirector()
     }
@@ -1954,7 +1960,21 @@ $context"""
                 val context=previous?.let { prior ->
                     val id=key(prior); labels[id]="ภาพสถานที่ที่ผู้ใช้ตรวจแล้ว • ใช้ดูสถานที่และสิ่งของเท่านั้น"; listOf(id to image(prior))
                 }.orEmpty()
-                previewImageReferences(task,refs+context,labels)
+                // A reviewed single-character frame may serve as a clothing reference only.
+                // Never infer that an arbitrary group frame or unreviewed output matches an outfit.
+                val candidates=all.take(sceneIndex.coerceAtLeast(0)).mapNotNull { prior ->
+                    val people=FlowReferencePrompt.people(prior)
+                    val person=people.singleOrNull() ?: return@mapNotNull null
+                    OutfitReferencePolicy.Candidate(key(prior),referenceId(person.optString("master")),prior.optString("story_day"),person.optString("outfit"),sceneFrameApproved(prior),people.size)
+                }
+                val outfitRefs=if(scene==null) emptyList() else task.references.mapNotNull { person ->
+                    val candidate=OutfitReferencePolicy.choose(candidates,task.id,referenceId(person.optString("master")),scene.optString("story_day"),person.optString("outfit")) ?: return@mapNotNull null
+                    val prior=all.first { key(it)==candidate.sceneId }
+                    val id="OUTFIT_${candidate.sceneId}_${referenceId(person.optString("master"))}"
+                    labels[id]="ภาพชุดที่ตรวจแล้ว • ${person.optString("name")} • ${candidate.sceneId} • ตรวจว่ามองเห็นชุดครบ"
+                    Triple(id,image(prior),person.optString("name"))
+                }
+                previewImageReferences(task,refs+context+outfitRefs.map { it.first to it.second },labels)
             }
             dialog.getButton(-3).text="แก้เฉพาะรายการนี้"
             dialog.getButton(-3).setOnClickListener {

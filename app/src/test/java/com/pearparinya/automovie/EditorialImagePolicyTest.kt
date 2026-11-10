@@ -4,6 +4,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class EditorialImagePolicyTest {
+    @Test fun dramaGuidanceRequiresMeaningfulDialogueAndActionEnsembles() {
+        val guidance=AutoDirectorContent.storyEnergy
+        assertTrue(guidance.contains("most of the eight-second shot"))
+        assertTrue(guidance.contains("two or three brief ordered turns"))
+        assertTrue(guidance.contains("two or three registered relevant characters"))
+        assertTrue(guidance.contains("Do not invent extra people"))
+        assertTrue(AutoDirectorContent.generationRules.contains("DRAMATIC PACING"))
+    }
     @Test fun storyWardrobeGuidanceSupportsRolesWithoutForcingHumanClothes() {
         val guidance=AutoDirectorContent.dailyWardrobe
         listOf("teachers", "doctors", "villagers", "Buddhist monks", "ghosts", "animals and creatures").forEach { assertTrue(guidance.contains(it)) }
