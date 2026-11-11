@@ -395,8 +395,8 @@ class StudioActivity : AppCompatActivity() {
         }
     }
     private fun importCharacterMaster() {
-        val labels=listOf("มนุษย์", "เด็ก", "เทพ / ผู้ใช้พลัง", "อัศวิน", "สัตว์", "อสูร", "อื่น ๆ")
-        val types=listOf("human", "child", "deity", "knight", "animal", "creature", "other")
+        val labels=listOf("มนุษย์", "เด็ก", "เทพ / ผู้ใช้พลัง", "อัศวิน", "สัตว์", "อสูร", "อื่น ๆ", "ปีศาจ", "ผี", "วิญญาณ", "ภูต")
+        val types=listOf("human", "child", "deity", "knight", "animal", "creature", "other", "demon", "ghost", "spirit", "fairy")
         choiceMenu("เลือกประเภทตัวละคร", labels) { index ->
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             val name=EditText(this).apply { hint="ชื่อตัวละคร"; panel.addView(this) }
@@ -412,6 +412,7 @@ class StudioActivity : AppCompatActivity() {
             dialog.getButton(-1).setOnClickListener {
                 val n=name.text.toString().trim(); val years=age.text.toString().toIntOrNull()
                 if(n.isEmpty() || years==null || !CharacterAge.valid(years)) { notice("กรอกชื่อและอายุ 0–1,000 ปี"); return@setOnClickListener }
+                if(types[index] in listOf("human", "child", "deity", "knight") && gender.selectedItemPosition==0) { notice("กรุณาเลือกเพศตัวละคร เพื่อกำหนดผู้พูดให้ถูกต้อง"); return@setOnClickListener }
                 if((0 until actorCatalog().length()).any { actorCatalog().getJSONObject(it).optString("display_name")==n }) { notice("ชื่อนี้มีในคลังแล้ว"); return@setOnClickListener }
                 val id="CHAR_"+(System.currentTimeMillis()%2000000000L).toString()
                 val p=JSONObject().put("id",id).put("display_name",n).put("character_age",years)
@@ -436,8 +437,20 @@ class StudioActivity : AppCompatActivity() {
                 } else {
                     val row=records.getJSONObject(index-4)
                     val file=File(filesDir,"actor_master_v2/"+row.getString("file"))
-                    choiceMenu(row.getString("display_name"),listOf("ดู MASTER","นำออกจากคลังเรื่องใหม่")) { action ->
+                    choiceMenu(row.getString("display_name"),listOf("ดู MASTER","กำหนดประเภทและเพศ","นำออกจากคลังเรื่องใหม่")) { action ->
                         if(action==0) { if(file.isFile) fullImage(file,row.getString("display_name")) else notice("ไม่พบภาพ MASTER") }
+                        else if(action==1) {
+                            val types=listOf("human", "animal", "creature", "demon", "ghost", "spirit", "fairy")
+                            choiceMenu("เลือกประเภทตัวละคร",listOf("มนุษย์", "สัตว์", "อสูร", "ปีศาจ", "ผี", "วิญญาณ", "ภูต")) { selected ->
+                                fun save(gender: String) {
+                                    row.put("character_type",types[selected]).put("character_gender",gender)
+                                    val temp=File(filesDir,"actor_catalog_v2.pending")
+                                    temp.writeText(JSONObject().put("records",records).toString(2))
+                                    if(temp.renameTo(actorCatalogFile)) notice("บันทึกประเภทและเพศแล้ว • ใช้กับเรื่องใหม่") else notice("บันทึกคลังไม่ได้")
+                                }
+                                if(selected==0) choiceMenu("เลือกเพศตัวละคร",listOf("ชาย", "หญิง")) { g -> save(if(g==0) "man" else "woman") } else save("")
+                            }
+                        }
                         else {
                             val rest=JSONArray(); for(i in 0 until records.length()) if(i!=index-4) rest.put(records.getJSONObject(i))
                             val temp=File(filesDir,"actor_catalog_v2.pending")
@@ -505,7 +518,7 @@ class StudioActivity : AppCompatActivity() {
                 require((0 until roster.length()).none { roster.getJSONObject(it).optString("library_id")==entry.id }) { "เลือก MASTER นี้ไว้แล้ว" }
                 val id="support_"+UUID.randomUUID().toString().take(8)
                 val person=JSONObject().put("name",name).put("master","${id.uppercase()}_MASTER.png")
-                    .put("library_id",entry.id).put("visual_description",MasterLibrary.description(entry.id))
+                    .put("library_id",entry.id).put("character_gender",entry.gender).put("character_type",entry.characterType).put("visual_description",MasterLibrary.description(entry.id))
                 roster.put(person)
                 require(FlowCast.issues(JSONObject().put("supporting_characters",roster)).isEmpty()) { "ข้อมูลตัวละครไม่ถูกต้อง" }
                 masterLibrary.assign(entry,File(filesDir,"supporting_masters/$id.master"))

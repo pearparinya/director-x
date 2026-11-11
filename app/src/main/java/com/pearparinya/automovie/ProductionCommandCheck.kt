@@ -12,7 +12,7 @@ internal object ProductionCommandCheck {
         (0 until a.length()).map { i -> a.optJSONObject(i)?.let { FlowDialogueTurn(it.optString("speaker"),it.optString("text")) } ?: FlowDialogueTurn("","") }
     }.orEmpty()
     fun spec(scene: JSONObject) = FlowSceneSpec(people(scene).map {
-        FlowPerson(it.optString("name"),it.optString("visual_description"),it.optString("screen_position"),it.optString("outfit"),PerformanceDirection.text(it),it.optString("english_name"),characterType=it.optString("character_type"),characterGender=it.optString("character_gender"))
+        FlowPerson(it.optString("name"),it.optString("visual_description"),it.optString("screen_position"),it.optString("outfit"),PerformanceDirection.text(it),it.optString("english_name"),characterType=it.optString("character_type"),characterGender=it.optString("character_gender").ifBlank { if(StoryIdentity.matchesMaster(it.optString("name"),it.optString("master"))) when(StoryIdentity.keyFor(it.optString("name"))) { "gawin" -> "man"; "rinlada", "mind" -> "woman"; else -> "" } else "" })
     },speech(scene.optString("speaker")),speech(scene.optString("dialogue")),speech(scene.optString("narration")),scene.optString("flow_action").ifBlank { scene.optString("action") },scene.optString("location"),scene.optString("start_state"),scene.optString("end_state"),8,"9:16",SoundDesign.notes(scene),offscreen(scene),dialogueTurns(scene))
     private fun position(text: String): String? {
         val value=text.trim().lowercase().substringBefore(',').trim()
