@@ -1271,7 +1271,9 @@ class StudioActivity : AppCompatActivity() {
     private fun previewImageReferences(task: SimpleProductionCommands.Task, references: List<Pair<String,File>>, labels: Map<String,String>) {
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
         panel.addView(TextView(this).apply { text="ตรวจภาพ MASTER ชื่อและตำแหน่งก่อนส่ง • แตะภาพเพื่อขยาย\nหลังเปิดแอปปลายทาง ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง" })
-        val faceOnly=android.widget.CheckBox(this).apply { text="ใช้ MASTER เฉพาะใบหน้ามนุษย์ • ชุดและทรงผมตามฉาก"; panel.addView(this) }
+        val piaFaceLock=runCatching { GeminiStoryFiles.read(File(project,"gemini_job/spec.json")).optBoolean("pia_face_lock",false) }.getOrDefault(false) && plan?.optString("channel")=="นายเปีย บ้านคลองขุด"
+        val faceOnly=android.widget.CheckBox(this).apply { text="ใช้ MASTER เฉพาะใบหน้ามนุษย์ • ชุดและทรงผมตามฉาก"; isChecked=piaFaceLock; panel.addView(this) }
+        if(piaFaceLock) panel.addView(TextView(this).apply { text="ล็อกหน้านายเปียด้วย MASTER ต้นฉบับ • เลือกกรอบใบหน้ามุมตรงด้านล่างเพื่อแนบภาพครอปเพิ่ม และตรวจภาพกับชื่อก่อนส่ง" })
         val masterAppearance=linkedMapOf<String,android.widget.CheckBox>()
         val crops=linkedMapOf<String,Pair<String,File>>()
         val cropLabels=linkedMapOf<String,String>()
@@ -1321,7 +1323,7 @@ class StudioActivity : AppCompatActivity() {
         }
         val extraChecks=linkedMapOf<String,android.widget.CheckBox>()
         references.drop(task.references.size).forEach { (id,file) ->
-            extraChecks[id]=android.widget.CheckBox(this).apply { text=labels[id] ?: "ภาพอ้างอิงที่ตรวจแล้ว • $id"; isChecked=true; panel.addView(this) }
+            extraChecks[id]=android.widget.CheckBox(this).apply { text=labels[id] ?: "ภาพอ้างอิงที่ตรวจแล้ว • $id"; isChecked=!id.startsWith("OUTFIT_PIA_SELECTED_") || PiaReferencePolicy.outfitInitiallySelected(task.id); panel.addView(this) }
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(180)); setOnClickListener { fullImage(file,labels[id] ?: "ภาพอ้างอิง") } })
         }
         val propNames=propCatalog
@@ -1975,7 +1977,14 @@ $context"""
                     labels[id]="ภาพชุดที่ตรวจแล้ว • ${person.optString("name")} • ${candidate.sceneId} • ตรวจว่ามองเห็นชุดครบ"
                     Triple(id,image(prior),person.optString("name"))
                 }
-                previewImageReferences(task,refs+context+outfitRefs.map { it.first to it.second },labels)
+                val selectedPiaOutfit=File(project,"presenter_outfit_reference.image")
+                val piaPerson=task.references.firstOrNull { FlowCast.id(it)?.equals("support_%08x".format(1999999999),true)==true }
+                val piaRef=if(piaPerson!=null && selectedPiaOutfit.isFile && plan?.optString("channel")=="นายเปีย บ้านคลองขุด") {
+                    val id="OUTFIT_PIA_SELECTED_${referenceId(piaPerson.getString("master"))}"
+                    labels[id]="ชุดเริ่มต้นที่เลือก • ${piaPerson.optString("name")} • ติ๊กเฉพาะเมื่อชุดตรงกับฉากนี้"
+                    listOf(id to selectedPiaOutfit)
+                } else emptyList()
+                previewImageReferences(task,refs+context+outfitRefs.map { it.first to it.second }+piaRef,labels)
             }
             dialog.getButton(-3).text="แก้เฉพาะรายการนี้"
             dialog.getButton(-3).setOnClickListener {
@@ -2600,6 +2609,8 @@ $context"""
             val presenterOutfits=listOf("เลือกชุดตามเนื้อเรื่อง", "สูทกรมท่า เนกไทลายฟ้า", "ชุดช่างสีเขียวเข้ม", "ชุดช่างสีกรมท่าส้ม", "ชุดช่างสีเทาเข้ม", "ชุดช่างสีน้ำเงิน", "เสื้อเชิ้ตสีครีม กางเกงเขียว", "เสื้อเชิ้ตสีฟ้า กางเกงกรมท่า", "เสื้อเชิ้ตสีขาว กางเกงดำ", "เสื้อเชิ้ตสีดำ กางเกงเทา", "เสื้อช่างกรม กางเกงเทา ถุงมือ", "ชุดทำสวนสีครีม หมวกและรองเท้าบูท", "ชุดทำสวนกรมท่า หมวกคลุมต้นคอและรองเท้าบูท")
             // Keep slot indices compatible with the existing picker and story snapshot.
             val presenterOutfit=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,presenterOutfits) }
+            val piaFaceLock=android.widget.CheckBox(this).apply { text="ล็อกใบหน้านายเปียจาก MASTER ต้นฉบับ • เลือกกรอบใบหน้าเพิ่มได้ก่อนส่งสร้างภาพ"; isChecked=true }
+            if(chosenChannel=="นายเปีย บ้านคลองขุด") panel.addView(piaFaceLock)
             if(chosenChannel=="นายเปีย บ้านคลองขุด") {
                 panel.addView(TextView(this).apply { text="ชุดนายเปีย • ติ๊กเลือก 1 ชุด หรือให้ระบบเลือกตามเรื่อง" })
                 val buttons=mutableListOf<android.widget.RadioButton>()
@@ -2669,13 +2680,11 @@ $context"""
                             val row=catalog.getJSONObject(n); val target=File(folder,"master_candidates/"+row.getString("file")); target.parentFile!!.mkdirs()
                             val original=castingSource(row); require(original.isFile && MasterLibrary.digest(original.readBytes())==row.getString("sha256")) { "ภาพ MASTER ของ ${row.optString("display_name")} สูญหายหรือเปลี่ยนไป" }
                             val outfitImage=if(row.getString("id")==presenterId && presenterOutfit.selectedItemPosition>0) presenterOutfitFile(presenterId,presenterOutfit.selectedItemPosition) else null
-                            val source=outfitImage?.takeIf { it.isFile } ?: original
-                            source.copyTo(target,overwrite=true)
-                            if(source!=original) row.put("sha256",MasterLibrary.digest(source.readBytes()))
+                            PiaReferencePolicy.capture(original,outfitImage,target,File(folder,"presenter_outfit_reference.image"))
                         }
                         val count=if(format=="short") 1 else when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",chosenChannel).put("presenter_library_id",presenterId)
-                            .put("required_cast_ids",JSONArray(selectedActors.toList())).put("presenter_outfit",if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenterOutfit.selectedItemPosition>0) presenterOutfits[presenterOutfit.selectedItemPosition] else "").put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",3).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("story_situation",selectedStoryTopic).put("premise",listOf("สถานการณ์ตั้งต้นที่เลือก: "+selectedStoryTopic,premise.text.toString()).filter { it.isNotBlank() }.joinToString("\n")).put("episodes",count)))
+                            .put("pia_face_lock",chosenChannel=="นายเปีย บ้านคลองขุด" && piaFaceLock.isChecked).put("required_cast_ids",JSONArray(selectedActors.toList())).put("presenter_outfit",if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenterOutfit.selectedItemPosition>0) presenterOutfits[presenterOutfit.selectedItemPosition] else "").put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",3).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("story_situation",selectedStoryTopic).put("premise",listOf("สถานการณ์ตั้งต้นที่เลือก: "+selectedStoryTopic,premise.text.toString()).filter { it.isNotBlank() }.joinToString("\n")).put("episodes",count)))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
                 }.setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
