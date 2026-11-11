@@ -18,6 +18,19 @@ class ShortFlowPromptTest {
         assertEquals("8",doc.getElementsByTagName("duration").item(0).textContent)
         assertEquals("Character 1: หยุดก่อน... ฟังฉัน",ShortFlowPrompt.voiceOnly(scene()))
     }
+    @Test fun mapsEachSpokenLineToPositionAndRecordedShirt() {
+        val base=scene()
+        val cast=listOf(FlowPerson("สมชาย","adult","center front","Top: cream shirt; Bottom: green trousers"),FlowPerson("มานี","adult","left","Top: black shirt; Shoes: boots"),FlowPerson("หญิง","adult","right","Top: blue shirt"))
+        val sample=base.copy(cast=cast,dialogue="",speaker="",action="สมชาย points; มานี rows",turns=listOf(FlowDialogueTurn("สมชาย","เร็ว!"),FlowDialogueTurn("มานี","ตามฉัน!")))
+        val output=ShortFlowPrompt.build(sample,"Slow pan")
+        assertTrue(output.contains("Character 1: center front, wearing cream shirt"))
+        assertTrue(output.contains("Character 2: left, wearing black shirt"))
+        assertTrue(output.contains("Character 3: right, wearing blue shirt"))
+        assertTrue(output.contains("<speaker>Character 1</speaker><text>เร็ว!</text>"))
+        assertTrue(output.contains("<speaker>Character 2</speaker><text>ตามฉัน!</text>"))
+        assertFalse(output.contains("green trousers"))
+        assertTrue(runCatching { ShortFlowPrompt.build(sample.copy(cast=cast.toMutableList().apply { this[0]=this[0].copy(outfit="Top: เสื้อสีครีม") }),"Slow pan") }.isFailure)
+    }
     @Test fun rejectsUntranslatedActionInsteadOfSilentlyDroppingIt() {
         assertTrue(runCatching { ShortFlowPrompt.build(scene().copy(action="สมชาย เดินไปหา มานี"),"Slow pan") }.isFailure)
     }

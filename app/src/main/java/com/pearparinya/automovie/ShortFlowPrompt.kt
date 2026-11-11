@@ -22,9 +22,16 @@ internal object ShortFlowPrompt {
         }
         return result
     }
+    internal fun clothing(p: FlowPerson): String {
+        if (p.flowClothing.isNotBlank()) return p.flowClothing.trim()
+        val outfit=p.outfit.trim()
+        val top=Regex("(?:^|;)\\s*Top\\s*:\\s*([^;]+)",RegexOption.IGNORE_CASE).find(outfit)?.groupValues?.get(1)
+        return (top ?: outfit.takeUnless { Regex("(?:^|;)\\s*(Bottom|Shoes|Accessories)\\s*:",RegexOption.IGNORE_CASE).containsMatchIn(it) }.orEmpty()).trim()
+    }
     fun untranslatedFields(s: FlowSceneSpec,camera: String): List<String> = buildList {
         if(thai.containsMatchIn(aliases(s,s.action))) add("การกระทำสำหรับวิดีโอ")
         if(s.cast.any { thai.containsMatchIn(aliases(s,it.position)) }) add("ตำแหน่งตัวละคร")
+        if(s.cast.any { thai.containsMatchIn(clothing(it)) }) add("เสื้อผ้าตัวละคร")
         if(thai.containsMatchIn(aliases(s,s.sound))) add("เสียงฉาก")
         if(thai.containsMatchIn(camera)) add("กล้อง")
     }
@@ -53,13 +60,14 @@ internal object ShortFlowPrompt {
         require(FlowScenePrompt.issues(s).isEmpty()) { "ตรวจข้อมูลซีนก่อนคัดลอกคำสั่ง" }
         val action=aliases(s,s.action.trim())
         val positions=s.cast.map { aliases(s,it.position.trim()) }
+        val clothes=s.cast.map { clothing(it) }
         val sound=aliases(s,s.sound.trim())
             .replace(Regex("\\b(?:(?:soft|quiet|low|faint|gentle|indoor)\\s+)*murmurs?\\s+of\\s+(?:(?:art|gallery|room|office)\\s+)*(?:patrons|people|crowds?|visitors|guests)\\b",RegexOption.IGNORE_CASE),"quiet room tone")
             .replace(Regex("\\b(?:indoor )?murmurs\\b",RegexOption.IGNORE_CASE),"quiet room tone")
-        require(!thai.containsMatchIn(action) && positions.none { thai.containsMatchIn(it) } && !thai.containsMatchIn(sound) && !thai.containsMatchIn(camera)) {
+        require(!thai.containsMatchIn(action) && positions.none { thai.containsMatchIn(it) } && !thai.containsMatchIn(sound) && !thai.containsMatchIn(camera) && clothes.none { thai.containsMatchIn(it) }) {
             "คำบรรยายการกระทำ ตำแหน่ง หรือเสียงยังมีภาษาไทย • กรุณาแก้เป็นภาษาอังกฤษก่อนคัดลอก โดยคงบทพูดภาษาไทย"
         }
-        val cast=positions.mapIndexed { i,pos -> "Character ${i+1}: $pos" }.joinToString("; ")
+        val cast=positions.mapIndexed { i,pos -> "Character ${i+1}: $pos" + clothes[i].takeIf { it.isNotBlank() }?.let { ", wearing $it" }.orEmpty() }.joinToString("; ")
         val visual=listOf("Use the attached first frame. One continuous 8-second vertical 9:16 shot",cast,action,
             "Keep identities, outfits, objects and location consistent",motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}")
             .filter { it.isNotBlank() }.joinToString(". ")
@@ -69,7 +77,7 @@ internal object ShortFlowPrompt {
             spoken(s.narration).isNotEmpty() -> "<dialogue><speaker>Off-screen narrator</speaker><text>${xml(ThaiSpeechPacing.format(spoken(s.narration)))}</text></dialogue>"
             else -> ""
         }
-        val audio=if(silent) "No speech, narration, music or sound effects; visible mouths remain closed." else if(lines.isEmpty()) "No dialogue or narration; visible mouths remain closed." else "Speak the exact lines in order, naturally in Thai; only the current visible speaker moves their lips if their mouth is visible; keep covered faces covered. Other visible characters remain silent. No extra voices, overlap or subtitles."
+        val audio=if(silent) "No speech, narration, music or sound effects; visible mouths remain closed." else if(lines.isEmpty()) "No dialogue or narration; visible mouths remain closed." else "Match each dialogue speaker to the numbered character, position and clothing above. Speak the exact lines in order, naturally in Thai; only the current visible speaker moves their lips if their mouth is visible; keep covered faces covered. Other visible characters remain silent. No extra voices, overlap or subtitles."
         val ambience=if(silent) "" else sound.takeIf { it.isNotBlank() }?.let { " Sound: $it." }.orEmpty()
         return "<flow><scene><duration>8</duration><aspect_ratio>9:16</aspect_ratio><prompt>${xml(visual+". "+audio+ambience)}</prompt>$lines</scene></flow>"
     }

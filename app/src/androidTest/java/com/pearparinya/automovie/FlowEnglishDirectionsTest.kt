@@ -10,7 +10,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class FlowEnglishDirectionsTest {
     private fun scene()=FlowSceneSpec(listOf(FlowPerson("นายเปีย","adult","กลาง","shirt")),"","","เกิดน้ำท่วมในชุมชน", "นายเปีย ถือถุงเสบียง", "ริมคลอง", "ยืน", "ยืน", 8, "9:16", "ลมพัด")
-    private fun result()=JSONObject().put("action","Character 1 holds a supply bag").put("positions",JSONArray().put("center")).put("sound","wind blows")
+    private fun result()=JSONObject().put("action","Character 1 holds a supply bag").put("positions",JSONArray().put("center")).put("sound","wind blows").put("clothing",JSONArray().put("shirt"))
     @Test fun translationPreservesOriginalNarrationAndDoesNotMutateScene() {
         val original=scene(); val translated=FlowEnglishDirections.apply(original,result())
         assertEquals("เกิดน้ำท่วมในชุมชน",translated.narration)
