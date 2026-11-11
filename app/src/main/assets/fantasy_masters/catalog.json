@@ -23,7 +23,8 @@
       "age_basis": "user_assigned",
       "character_type": "knight",
       "casting_description": "Use the attached original three-view MASTER; preserve unique identity, appearance and nonhuman anatomy where applicable. Age is fictional.",
-      "source_type": "fantasy_bundle"
+      "source_type": "fantasy_bundle",
+      "character_gender": "man"
     },
     {
       "id": "CHAR_1900000003",
@@ -35,7 +36,8 @@
       "age_basis": "user_assigned",
       "character_type": "deity",
       "casting_description": "Use the attached original three-view MASTER; preserve unique identity, appearance and nonhuman anatomy where applicable. Age is fictional.",
-      "source_type": "fantasy_bundle"
+      "source_type": "fantasy_bundle",
+      "character_gender": "man"
     },
     {
       "id": "CHAR_1900000004",
@@ -47,7 +49,8 @@
       "age_basis": "user_assigned",
       "character_type": "creature",
       "casting_description": "Use the attached original three-view MASTER; preserve unique identity, appearance and nonhuman anatomy where applicable. Age is fictional.",
-      "source_type": "fantasy_bundle"
+      "source_type": "fantasy_bundle",
+      "character_gender": "man"
     },
     {
       "id": "CHAR_1900000005",
@@ -59,7 +62,8 @@
       "age_basis": "user_assigned",
       "character_type": "knight",
       "casting_description": "Use the attached original three-view MASTER; preserve unique identity, appearance and nonhuman anatomy where applicable. Age is fictional.",
-      "source_type": "fantasy_bundle"
+      "source_type": "fantasy_bundle",
+      "character_gender": "man"
     },
     {
       "id": "CHAR_1900000006",
@@ -84,7 +88,8 @@
       "age_basis": "user_assigned",
       "character_type": "knight",
       "casting_description": "Use the attached original three-view MASTER; preserve unique identity, appearance and nonhuman anatomy where applicable. Age is fictional.",
-      "source_type": "fantasy_bundle"
+      "source_type": "fantasy_bundle",
+      "character_gender": "man"
     },
     {
       "id": "CHAR_1900000008",
@@ -96,7 +101,8 @@
       "age_basis": "user_assigned",
       "character_type": "creature",
       "casting_description": "Use the attached original three-view MASTER; preserve unique identity, appearance and nonhuman anatomy where applicable. Age is fictional.",
-      "source_type": "fantasy_bundle"
+      "source_type": "fantasy_bundle",
+      "character_gender": "man"
     },
     {
       "id": "CHAR_1900000009",
@@ -212,7 +218,8 @@
       "age_basis": "user_assigned",
       "character_type": "deity",
       "casting_description": "Use the attached original three-view MASTER; preserve unique identity, appearance and nonhuman anatomy where applicable. Age is fictional.",
-      "source_type": "fantasy_bundle"
+      "source_type": "fantasy_bundle",
+      "character_gender": "man"
     },
     {
       "id": "CHAR_1900000018",
@@ -224,7 +231,8 @@
       "age_basis": "user_assigned",
       "character_type": "deity",
       "casting_description": "Use the attached original three-view MASTER; preserve unique identity, appearance and nonhuman anatomy where applicable. Age is fictional.",
-      "source_type": "fantasy_bundle"
+      "source_type": "fantasy_bundle",
+      "character_gender": "man"
     },
     {
       "id": "CHAR_1900000019",
@@ -366,7 +374,8 @@
       "age_basis": "user_assigned",
       "character_type": "animal",
       "casting_description": "Use the attached original three-view MASTER; preserve unique identity, appearance and nonhuman anatomy where applicable. Age is fictional.",
-      "source_type": "fantasy_bundle"
+      "source_type": "fantasy_bundle",
+      "character_gender": "man"
     },
     {
       "id": "CHAR_1900000030",
@@ -378,7 +387,8 @@
       "age_basis": "user_assigned",
       "character_type": "animal",
       "casting_description": "Use the attached original three-view MASTER; preserve unique identity, appearance and nonhuman anatomy where applicable. Age is fictional.",
-      "source_type": "fantasy_bundle"
+      "source_type": "fantasy_bundle",
+      "character_gender": "woman"
     },
     {
       "id": "CHAR_1900000031",
@@ -390,7 +400,8 @@
       "age_basis": "user_assigned",
       "character_type": "animal",
       "casting_description": "Use the attached original three-view MASTER; preserve unique identity, appearance and nonhuman anatomy where applicable. Age is fictional.",
-      "source_type": "fantasy_bundle"
+      "source_type": "fantasy_bundle",
+      "character_gender": "man"
     },
     {
       "id": "CHAR_1900000032",
@@ -402,7 +413,8 @@
       "age_basis": "user_assigned",
       "character_type": "animal",
       "casting_description": "Use the attached original three-view MASTER; preserve unique identity, appearance and nonhuman anatomy where applicable. Age is fictional.",
-      "source_type": "fantasy_bundle"
+      "source_type": "fantasy_bundle",
+      "character_gender": "man"
     },
     {
       "id": "CHAR_1900000033",
@@ -414,7 +426,8 @@
       "age_basis": "user_assigned",
       "character_type": "animal",
       "casting_description": "Use the attached original three-view MASTER; preserve unique identity, appearance and nonhuman anatomy where applicable. Age is fictional.",
-      "source_type": "fantasy_bundle"
+      "source_type": "fantasy_bundle",
+      "character_gender": "man"
     },
     {
       "id": "CHAR_1900000034",
@@ -426,7 +439,8 @@
       "age_basis": "user_assigned",
       "character_type": "animal",
       "casting_description": "Use the attached original three-view MASTER; preserve unique identity, appearance and nonhuman anatomy where applicable. Age is fictional.",
-      "source_type": "fantasy_bundle"
+      "source_type": "fantasy_bundle",
+      "character_gender": "man"
     },
     {
       "id": "CHAR_1900000035",
@@ -438,7 +452,8 @@
       "age_basis": "user_assigned",
       "character_type": "animal",
       "casting_description": "Use the attached original three-view MASTER; preserve unique identity, appearance and nonhuman anatomy where applicable. Age is fictional.",
-      "source_type": "fantasy_bundle"
+      "source_type": "fantasy_bundle",
+      "character_gender": "man"
     },
     {
       "id": "CHAR_1900000036",
@@ -450,7 +465,8 @@
       "age_basis": "user_assigned",
       "character_type": "creature",
       "casting_description": "Use the attached original three-view MASTER; preserve unique identity, appearance and nonhuman anatomy where applicable. Age is fictional.",
-      "source_type": "fantasy_bundle"
+      "source_type": "fantasy_bundle",
+      "character_gender": "man"
     },
     {
       "id": "CHAR_1900000037",
@@ -462,7 +478,8 @@
       "age_basis": "user_assigned",
       "character_type": "creature",
       "casting_description": "Use the attached original three-view MASTER; preserve unique identity, appearance and nonhuman anatomy where applicable. Age is fictional.",
-      "source_type": "fantasy_bundle"
+      "source_type": "fantasy_bundle",
+      "character_gender": "man"
     },
     {
       "id": "CHAR_1900000038",
@@ -500,7 +517,8 @@
       "age_basis": "user_assigned",
       "character_type": "animal",
       "casting_description": "Use the attached original three-view MASTER; preserve unique identity, appearance and nonhuman anatomy where applicable. Age is fictional.",
-      "source_type": "fantasy_bundle"
+      "source_type": "fantasy_bundle",
+      "character_gender": "woman"
     }
   ]
 }
