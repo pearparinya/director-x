@@ -29,5 +29,9 @@ class StoryApiProbeTest {
         assertTrue(StoryApiProbe.error(StoryHttpFailure(402,null,"secret-key")).contains("เครดิต"))
         assertTrue(StoryApiProbe.error(StoryHttpFailure(503,null,"secret-key")).contains("ชั่วคราว"))
         assertFalse(StoryApiProbe.error(StoryHttpFailure(401,null,"secret-key")).contains("secret-key"))
+        assertTrue(StoryApiProbe.error(StoryHttpFailure(429,"120","secret-key"),0).contains("รออย่างน้อย 120 วินาที"))
+        assertTrue(StoryApiProbe.error(StoryHttpFailure(402,null,"secret-key")).contains("HTTP 402"))
+        assertFalse(StoryApiProbe.error(StoryHttpFailure(429,"secret-key","secret-key"),0).contains("secret-key"))
+        assertTrue(StoryApiProbe.error(java.net.SocketTimeoutException()).contains("หมดเวลา"))
     }
 }
