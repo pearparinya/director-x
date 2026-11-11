@@ -10,6 +10,19 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class FaceReferenceStoreTest {
+    @Test fun faceChosenBeforeStoryIsReusedForCopiedIdentityMaster() {
+        val dir=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"pia-crop-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val original=File(dir,"pia-original").apply { writeText("pia identity master") }
+            val outfit=File(dir,"outfit").apply { writeText("different outfit") }
+            val copied=File(dir,"project/master")
+            PiaReferencePolicy.capture(original,outfit,copied,File(dir,"project/outfit"))
+            val store=FaceReferenceStore(File(dir,"crops"))
+            val crop=store.newFile(original).apply { parentFile!!.mkdirs(); writeText("selected face") }
+            assertEquals(crop,store.latest(copied))
+            assertNull(store.latest(outfit))
+        } finally { dir.deleteRecursively() }
+    }
     @Test fun cropsAreSeparatedByOriginalBytesAndNeverOverwritePreviousVersions() {
         val dir=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"face-store-test-${UUID.randomUUID()}").apply { mkdirs() }
         try {
