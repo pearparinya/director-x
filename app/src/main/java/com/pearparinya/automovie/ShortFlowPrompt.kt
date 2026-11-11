@@ -26,7 +26,14 @@ internal object ShortFlowPrompt {
         if (p.flowClothing.isNotBlank()) return p.flowClothing.trim()
         val outfit=p.outfit.trim()
         val top=Regex("(?:^|;)\\s*Top\\s*:\\s*([^;]+)",RegexOption.IGNORE_CASE).find(outfit)?.groupValues?.get(1)
-        return (top ?: outfit.takeUnless { Regex("(?:^|;)\\s*(Bottom|Shoes|Accessories)\\s*:",RegexOption.IGNORE_CASE).containsMatchIn(it) }.orEmpty()).trim()
+        val cue=(top ?: outfit.takeUnless { Regex("(?:^|;)\\s*(Bottom|Shoes|Accessories)\\s*:",RegexOption.IGNORE_CASE).containsMatchIn(it) }.orEmpty()).trim()
+        if (!thai.containsMatchIn(cue)) return cue
+        // A short identifier, not a translation of the complete wardrobe. Never infer a color.
+        val upper=cue.substringBefore("กางเกง").substringBefore("กระโปรง").substringBefore("รองเท้า").substringBefore(";")
+        val colors=listOf("กรมท่า" to "navy", "ฟ้า" to "light blue", "น้ำเงิน" to "blue", "ครีม" to "cream", "ขาว" to "white", "ดำ" to "black", "เทา" to "gray", "เขียว" to "green", "แดง" to "red", "น้ำตาล" to "brown", "เบจ" to "beige", "เหลือง" to "yellow", "ม่วง" to "purple", "ส้ม" to "orange", "ชมพู" to "pink")
+        val color=colors.firstOrNull { upper.contains(it.first) }?.second
+        val type=when { upper.contains("แจ็กเก็ต") || upper.contains("แจ็คเก็ต") -> "jacket"; upper.contains("เสื้อคลุม") -> "coat"; upper.contains("เสื้อเชิ้ต") -> "shirt"; upper.contains("เสื้อยืด") -> "T-shirt"; upper.contains("เสื้อ") -> "top"; upper.contains("ชุดทำงาน") -> "work outfit"; else -> null }
+        return if (color!=null && type!=null) "$color $type" else cue
     }
     fun untranslatedFields(s: FlowSceneSpec,camera: String): List<String> = buildList {
         if(thai.containsMatchIn(aliases(s,s.action))) add("การกระทำสำหรับวิดีโอ")

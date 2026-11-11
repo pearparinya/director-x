@@ -29,7 +29,10 @@ class ShortFlowPromptTest {
         assertTrue(output.contains("<speaker>Character 1</speaker><text>เร็ว!</text>"))
         assertTrue(output.contains("<speaker>Character 2</speaker><text>ตามฉัน!</text>"))
         assertFalse(output.contains("green trousers"))
-        assertTrue(runCatching { ShortFlowPrompt.build(sample.copy(cast=cast.toMutableList().apply { this[0]=this[0].copy(outfit="Top: เสื้อสีครีม") }),"Slow pan") }.isFailure)
+        assertEquals("cream shirt",ShortFlowPrompt.clothing(cast[0].copy(outfit="Top: เสื้อเชิ้ตสีครีม; Bottom: กางเกงสีเขียว")))
+        assertEquals("black jacket",ShortFlowPrompt.clothing(cast[1].copy(outfit="Top: แจ็กเก็ตสีดำ")))
+        assertEquals("white work outfit",ShortFlowPrompt.clothing(cast[2].copy(outfit="ชุดทำงานสีขาว")))
+        assertTrue(runCatching { ShortFlowPrompt.build(sample.copy(cast=cast.toMutableList().apply { this[0]=this[0].copy(outfit="Top: เสื้อไม่มีข้อมูลสี") }),"Slow pan") }.isFailure)
     }
     @Test fun rejectsUntranslatedActionInsteadOfSilentlyDroppingIt() {
         assertTrue(runCatching { ShortFlowPrompt.build(scene().copy(action="สมชาย เดินไปหา มานี"),"Slow pan") }.isFailure)
