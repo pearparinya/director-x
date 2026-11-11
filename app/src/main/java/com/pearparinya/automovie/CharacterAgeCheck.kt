@@ -7,6 +7,7 @@ internal object CharacterAgeCheck {
             val p=rows.getJSONObject(i)
             val master=definitions.firstOrNull { it.optString("name")==p.optString("name") } ?: continue
             if(master.optString("character_type").isNotBlank()) p.put("character_type",master.getString("character_type"))
+            if(master.optString("character_gender").isNotBlank()) p.put("character_gender",master.getString("character_gender"))
             val age=master.optInt("character_age")
             if(age<0 || !master.has("character_age") || (age==0 && master.optString("age_basis")!="user_assigned")) continue
             if(!p.has("character_age")) p.put("character_age",age) // Upgrade legacy scenes from the frozen registry, never guess.

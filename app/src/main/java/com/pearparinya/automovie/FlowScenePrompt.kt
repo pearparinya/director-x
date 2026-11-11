@@ -1,6 +1,6 @@
 package com.pearparinya.automovie
 
-internal data class FlowPerson(val name: String, val appearance: String, val position: String, val outfit: String,val performance: String="", val englishName: String="", val flowClothing: String="") {
+internal data class FlowPerson(val name: String, val appearance: String, val position: String, val outfit: String,val performance: String="", val englishName: String="", val flowClothing: String="", val characterType: String="", val characterGender: String="") {
     override fun toString() = "FlowPerson(name=$name, appearance=$appearance, position=$position, outfit=$outfit, performance=$performance, englishName=$englishName)"
 }
 internal data class FlowDialogueTurn(val speaker: String, val text: String)

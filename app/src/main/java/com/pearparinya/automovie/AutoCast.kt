@@ -143,7 +143,7 @@ internal object AutoCast {
             result.put(JSONObject().put("name",p.getString("name").trim()).put("master","${key.uppercase()}_MASTER.png")
                 .put("english_name",p.optString("english_name").trim()).put("auto_cast",true).put("library_id",id).put("role",p.getString("role"))
                 .put("romance_role",p.optString("romance_role")).put("character_age",row.optInt("character_age",0)).put("age_basis",row.optString("age_basis"))
-                .put("character_type",row.optString("character_type"))
+                .put("character_type",row.optString("character_type")).put("character_gender",row.optString("character_gender"))
                 .put("visual_description",MasterLibrary.description(id)+(if(row.has("character_age") && (row.optInt("character_age")>0 || row.optString("age_basis")=="user_assigned")) " Assigned fictional character age: ${row.getInt("character_age")} years. Keep this age consistent throughout the story." else "")+" Reference appearance: "+row.optString("casting_description")))
         }
         return result
