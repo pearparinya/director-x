@@ -22,6 +22,12 @@ internal object ShortFlowPrompt {
         }
         return result
     }
+    fun untranslatedFields(s: FlowSceneSpec,camera: String): List<String> = buildList {
+        if(thai.containsMatchIn(aliases(s,s.action))) add("การกระทำสำหรับวิดีโอ")
+        if(s.cast.any { thai.containsMatchIn(aliases(s,it.position)) }) add("ตำแหน่งตัวละคร")
+        if(thai.containsMatchIn(aliases(s,s.sound))) add("เสียงฉาก")
+        if(thai.containsMatchIn(camera)) add("กล้อง")
+    }
     internal fun motion(vararg parts: String): String {
         val text=parts.joinToString(" ").lowercase()
         val rules=mutableListOf<String>()

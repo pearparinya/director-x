@@ -1268,6 +1268,40 @@ class StudioActivity : AppCompatActivity() {
         val name = if (useNewMasters) source.nameWithoutExtension else source.nameWithoutExtension + "_MASTER"
         return "${name.uppercase()}.$extension"
     }
+    private fun offerFlowTranslation(story: JSONObject,scene: JSONObject,spec: FlowSceneSpec,camera: String,silent: Boolean) {
+        val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
+        val fields=ShortFlowPrompt.untranslatedFields(spec,camera).joinToString(" / ").ifBlank { "คำกำกับฉาก" }
+        AlertDialog.Builder(this).setTitle("เตรียมคำสั่ง Flow")
+            .setMessage("$fields ยังมีภาษาไทย ต้องแปลเป็นอังกฤษก่อนคัดลอก • บทพูด/บรรยายภาษาไทยคงเดิม\n\nใช้ AI แปลเฉพาะคำกำกับ แล้วตรวจผลก่อนคัดลอก (ใช้โควตา API) หรือเลือกแก้ด้วยตนเอง")
+            .setPositiveButton("ให้ AI แปล") { _,_ ->
+                if(providers.isEmpty()) { notice("ยังไม่มี API ที่เลือกและตั้งคีย์ไว้ กรุณาตั้งค่า API หรือแก้ซีนด้วยตนเอง"); return@setPositiveButton }
+                val projectId=project.name; val snapshot=scene.toString()
+                val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
+                val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
+                val loading=AlertDialog.Builder(this).setMessage("กำลังแปลคำกำกับฉาก • บทพูดคงเดิม").setNegativeButton("หยุด",null).showDirector()
+                loading.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
+                Thread {
+                    var value: Pair<FlowSceneSpec,String>?=null
+                    for(provider in providers) {
+                        if(stopped.get()) break
+                        val answer=runCatching { val client=StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ stopped.get() },automaticRetry=false); active.set(client); if(stopped.get()) throw java.util.concurrent.CancellationException(); client.generate(FlowEnglishDirections.prompt(spec),FlowEnglishDirections.schema()) }.getOrNull() ?: continue
+                        val translated=runCatching { FlowEnglishDirections.apply(spec,answer) }.getOrNull() ?: continue
+                        val command=runCatching { ShortFlowPrompt.build(translated,camera,silent) }.getOrNull() ?: continue
+                        value=translated to command; break
+                    }
+                    val result=value
+                    runOnUiThread {
+                        if(stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
+                        active.set(null); loading.dismiss()
+                        if(project.name!=projectId || plan!==story || scene.toString()!=snapshot) { notice("ซีนเปลี่ยนระหว่างแปล กรุณาลองใหม่"); return@runOnUiThread }
+                        if(result==null) { notice("ยังแปลคำกำกับไม่ได้ • ตรวจ API หรือกดแก้ซีนด้วยตนเอง • ไม่มีการเปลี่ยนบท"); return@runOnUiThread }
+                        val text="ตรวจคำแปลเทียบกับบทก่อนคัดลอก • การแปลนี้ไม่แก้บทที่บันทึก\n\nการกระทำเดิม: ${spec.action}\n\nคำแปล: ${result.first.action}\n\nตำแหน่ง: ${result.first.cast.mapIndexed { i,p -> "Character ${i+1}: ${p.position}" }.joinToString("; ")}\n\nเสียงฉาก: ${result.first.sound.ifBlank { "ไม่มี" }}\n\nบทพูด/บรรยายภาษาไทยคงเดิม\n\n${result.second}"
+                        AlertDialog.Builder(this).setTitle("ตรวจคำแปลก่อนคัดลอก").setView(ScrollView(this).apply { addView(TextView(context).apply { setPadding(dp(18),dp(12),dp(18),dp(12)); this.text=text; setTextIsSelectable(true) }) })
+                            .setPositiveButton("คัดลอกคำสั่ง Flow") { _,_ -> copyCommand(result.second) }.setNegativeButton("ยกเลิก",null).showDirector()
+                    }
+                }.start()
+            }.setNeutralButton("แก้ซีนเอง") { _,_ -> editScene(scene) }.setNegativeButton("ยกเลิก",null).showDirector()
+    }
     private fun previewImageReferences(task: SimpleProductionCommands.Task, references: List<Pair<String,File>>, labels: Map<String,String>) {
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
         panel.addView(TextView(this).apply { text="ตรวจภาพ MASTER ชื่อและตำแหน่งก่อนส่ง • แตะภาพเพื่อขยาย\nหลังเปิดแอปปลายทาง ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง" })
@@ -2009,7 +2043,11 @@ $context"""
                     if(problems.isNotEmpty() || flowSpec==null) { productionCheckMenu(story); return@setOnClickListener }
                     choiceMenu("เลือกคำสั่ง Flow • ${task.id}",listOf("คัดลอก XML • กระชับพร้อมบทพูด","คัดลอก XML • กระชับพร้อมเสียงฉาก","คัดลอกแบบเงียบ • ใส่เสียงภายหลัง","คัดลอกบทเสียงแยก")) { mode ->
                         if(mode==3) { copyCommand(ShortFlowPrompt.voiceOnly(flowSpec)); return@choiceMenu }
-                        val value=runCatching { ShortFlowPrompt.build(flowSpec,flowCamera,mode==2) }.getOrElse { notice(it.message ?: "ตรวจคำสั่ง Flow ก่อนคัดลอก"); return@choiceMenu }
+                        val value=runCatching { ShortFlowPrompt.build(flowSpec,flowCamera,mode==2) }.getOrElse { error ->
+                            if(error.message?.contains("คำบรรยายการกระทำ ตำแหน่ง หรือเสียงยังมีภาษาไทย")==true && sceneForFlow!=null) offerFlowTranslation(story,sceneForFlow,flowSpec,flowCamera,mode==2)
+                            else notice(error.message ?: "ตรวจคำสั่ง Flow ก่อนคัดลอก")
+                            return@choiceMenu
+                        }
                         copyCommand(value)
                     }
                     return@setOnClickListener
