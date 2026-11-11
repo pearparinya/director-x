@@ -40,15 +40,16 @@ internal object ShortFlowPrompt {
                 else -> "Character"
             }
             val number=(counts[category] ?: 0)+1; counts[category]=number
-            "[$category $number]"
+            "$category $number"
         }
     }
     private fun typed(s: FlowSceneSpec,source: String): String {
         val labels=labels(s)
-        return Regex("(?i)\\[?\\bCharacter\\s+([0-9]+)\\b\\]?").replace(source) { m ->
+        val mapped=Regex("(?i)\\[?\\bCharacter\\s+([0-9]+)\\b\\]?").replace(source) { m ->
             val i=(m.groupValues[1].toIntOrNull() ?: 0)-1
             labels.getOrNull(i) ?: m.value
         }
+        return Regex("(?i)\\[((?:The Man|Woman|Animal|Creature|Demon|Ghost|Fairy|Spirit)\\s+[0-9]+)\\]").replace(mapped) { it.groupValues[1] }
     }
     internal fun clothing(p: FlowPerson): String {
         if (p.flowClothing.isNotBlank()) return p.flowClothing.trim()
@@ -81,14 +82,15 @@ internal object ShortFlowPrompt {
         if(Regex("fog|mist|หมอก").containsMatchIn(text)) rules.add("Visible fog moves gently")
         return rules.joinToString(". ")
     }
+    private fun speechText(text: String): String = text.trim().replace(Regex("\\.{3}|…"),",").replace(Regex("[\\r\\n]+")," ")
     private fun speakerLabel(s: FlowSceneSpec, name: String): String {
         val index=s.cast.indexOfFirst { it.name.trim()==name.trim() || StoryIdentity.keyFor(it.name)?.let { key -> key==StoryIdentity.keyFor(name) }==true }
         return if(index>=0) labels(s)[index] else "Off-screen speaker"
     }
     fun voiceOnly(s: FlowSceneSpec): String = when {
-        s.turns.isNotEmpty() -> s.turns.joinToString("\n") { "${speakerLabel(s,it.speaker)}: ${ThaiSpeechPacing.format(it.text)}" }
-        spoken(s.dialogue).isNotEmpty() -> "${speakerLabel(s,s.speaker)}: ${ThaiSpeechPacing.format(spoken(s.dialogue))}"
-        spoken(s.narration).isNotEmpty() -> "Off-screen narrator: ${ThaiSpeechPacing.format(spoken(s.narration))}"
+        s.turns.isNotEmpty() -> s.turns.joinToString("\n") { "${speakerLabel(s,it.speaker)}: ${speechText(it.text)}" }
+        spoken(s.dialogue).isNotEmpty() -> "${speakerLabel(s,s.speaker)}: ${speechText(spoken(s.dialogue))}"
+        spoken(s.narration).isNotEmpty() -> "Off-screen narrator: ${speechText(spoken(s.narration))}"
         else -> "No spoken dialogue."
     }
     fun build(s: FlowSceneSpec, camera: String, silent: Boolean=false): String {
@@ -103,27 +105,38 @@ internal object ShortFlowPrompt {
             "คำบรรยายการกระทำ ตำแหน่ง หรือเสียงยังมีภาษาไทย • กรุณาแก้เป็นภาษาอังกฤษก่อนคัดลอก โดยคงบทพูดภาษาไทย"
         }
         val cast=positions.mapIndexed { i,pos -> "${labels(s)[i]}: $pos" + clothes[i].takeIf { it.isNotBlank() }?.let { ", wearing $it" }.orEmpty() + s.cast[i].appearance.trim().takeIf { it.isNotBlank() && it.length<=160 && !thai.containsMatchIn(it) && !it.contains("MASTER",true) }?.let { ", appearance: $it" }.orEmpty() }.joinToString("; ")
-        val visual=listOf("Use the attached first frame. One continuous 8-second vertical 9:16 shot",cast,action,
-            "Keep identities, outfits, objects and location consistent",ScenePropContinuity.video,motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}")
-            .filter { it.isNotBlank() }.joinToString(". ")
-        fun turn(name: String, text: String): String {
-            val label=speakerLabel(s,name)
-            val index=labels(s).indexOf(label).takeIf { it>=0 }
-            val constraint=if(index!=null && index in s.cast.indices) {
+        val performance=s.cast.mapIndexedNotNull { i,person ->
+            val cues=person.performance.split(';').map { it.trim() }.filter { it.isNotBlank() && !thai.containsMatchIn(it) && it.substringBefore(':').trim() in setOf("emotion", "body_language", "reaction", "voice", "emotional_arc") && !(silent && it.startsWith("voice:")) }
+                .joinToString("; ")
+            cues.takeIf { it.isNotBlank() }?.let { "${labels(s)[i]} performance: ${typed(s,aliases(s,it))}" }
+        }.joinToString(". ")
+        val direction="Perform each character's recorded emotion and reaction naturally in this scene, respecting the prior scene and existing action. Silent listeners may react silently."
+        val spokenTurns=when {
+            silent -> emptyList()
+            s.turns.isNotEmpty() -> s.turns.map { it.speaker to it.text }
+            spoken(s.dialogue).isNotEmpty() -> listOf(s.speaker to spoken(s.dialogue))
+            spoken(s.narration).isNotEmpty() -> listOf("" to spoken(s.narration))
+            else -> emptyList()
+        }
+        val instructions=spokenTurns.mapIndexed { order,turn ->
+            val label=if(turn.first.isBlank()) "Off-screen narrator" else speakerLabel(s,turn.first)
+            val index=labels(s).indexOf(label)
+            if(index>=0) {
                 val cue=listOf(positions[index],clothes[index].takeIf { it.isNotBlank() }?.let { "wearing $it" }.orEmpty()).filter { it.isNotBlank() }.joinToString(", ")
                 val others=positions.indices.filter { it!=index }.joinToString(", ") { labels(s)[it] }
-                "ONLY $label ($cue) speaks this line; move only their lips if visible. " + if(others.isNotEmpty()) "$others remain silent with mouths closed." else "No other voices."
-            } else "Only the off-screen speaker says this line; visible characters stay silent with mouths closed."
-            return "<dialogue><speaker>${xml(label)}</speaker><text>${xml(ThaiSpeechPacing.format(text))}</text><constraint>${xml(constraint)}</constraint></dialogue>"
+                "Turn ${order+1}: ONLY $label ($cue) speaks and moves lips if visible. " + if(others.isNotBlank()) "$others remain silent with mouths closed" else "No other voices"
+            } else "Turn ${order+1}: Only $label speaks; visible characters stay silent with mouths closed"
+        }.joinToString(". ")
+        val visual=listOf("Use the attached first frame. One continuous 8-second vertical 9:16 shot",cast,action,
+            "Keep identities, outfits, objects and location consistent",ScenePropContinuity.video,performance,direction,
+            motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}",instructions)
+            .filter { it.isNotBlank() }.joinToString(". ")
+        val lines=spokenTurns.joinToString("") { (name,text) ->
+            val label=if(name.isBlank()) "Off-screen narrator" else speakerLabel(s,name)
+            "<dialogue><speaker>${xml(label)}</speaker><text>${xml(speechText(text))}</text><language>th-TH</language></dialogue>"
         }
-        val lines=if(silent) "" else when {
-            s.turns.isNotEmpty() -> s.turns.joinToString("") { turn(it.speaker,it.text) }
-            spoken(s.dialogue).isNotEmpty() -> turn(s.speaker,spoken(s.dialogue))
-            spoken(s.narration).isNotEmpty() -> "<dialogue><speaker>Off-screen narrator</speaker><text>${xml(ThaiSpeechPacing.format(spoken(s.narration)))}</text><constraint>Only the narrator speaks; visible characters stay silent with mouths closed.</constraint></dialogue>"
-            else -> ""
-        }
-        val audio=if(silent) "No speech, narration, music or sound effects; visible mouths remain closed." else if(lines.isEmpty()) "No dialogue or narration; visible mouths remain closed." else "Match each dialogue speaker to the numbered character, position and clothing above. Speak the exact lines in order, naturally in Thai; only the current visible speaker moves their lips if their mouth is visible; keep covered faces covered. Other visible characters remain silent. No extra voices, overlap or subtitles."
+        val audio=if(silent) "No speech, narration, music or sound effects; visible mouths remain closed." else if(lines.isEmpty()) "No dialogue or narration; visible mouths remain closed." else "Speak the exact written Thai words in turn, naturally within 8 seconds without rushing. Other visible characters remain silent while the current speaker speaks. No extra voices, overlap or subtitles."
         val ambience=if(silent) "" else sound.takeIf { it.isNotBlank() }?.let { " Sound: $it." }.orEmpty()
-        return "<flow><scene><duration>8</duration><aspect_ratio>9:16</aspect_ratio><prompt>${xml(visual+". "+audio+ambience)}</prompt>$lines</scene></flow>"
+        return "<flow><scene><duration>8</duration><aspect_ratio>9:16</aspect_ratio><lighting>Preserve the lighting of the attached first frame.</lighting><typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone><prompt>${xml(visual+". "+audio+ambience)}</prompt>$lines</scene></flow>"
     }
 }

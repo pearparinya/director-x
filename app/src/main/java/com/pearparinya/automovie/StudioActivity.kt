@@ -1792,13 +1792,19 @@ class StudioActivity : AppCompatActivity() {
         if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
         val eps=story.getJSONArray("episodes")
         val options=(0 until eps.length()).map { "EP.${eps.getJSONObject(it).getInt("ep")} • ${eps.getJSONObject(it).optString("title")}" }+
-            listOf("ตรวจคำสั่ง / แก้เฉพาะจุด", "✨ ให้ AI เสนออุปกรณ์ตามบท • ตรวจและบันทึก", "⚔ อุปกรณ์ประจำตัวละคร • เลือกและบันทึก", "👕 ให้ AI เสนอชุดตามเรื่อง • ตรวจและบันทึก")
+            listOf("ตรวจคำสั่ง / แก้เฉพาะจุด", "⚔ จัดการอุปกรณ์ • เลือกเอง / ให้ AI เสนอ", "👕 ให้ AI เสนอชุดตามเรื่อง • ตรวจและบันทึก")
         choiceMenu("คำสั่งภาพ + Flow • แยกตาม EP",options) { index ->
             when {
                 index==eps.length() -> productionCheckMenu(story)
-                index==eps.length()+1 -> suggestStoryProps(story)
-                index==eps.length()+2 -> characterPropMenu(story)
-                index==eps.length()+3 -> suggestStoryWardrobe(story)
+                index==eps.length()+1 -> {
+                    val people=rows(story).flatMap { FlowReferencePrompt.people(it) }.distinctBy { referenceId(it.optString("master")).lowercase() }.filter { it.optString("master").isNotBlank() }
+                    val linked=people.count { characterProp(it.optString("master")).isNotBlank() }
+                    val saved=if(File(project,"prop_assignments.json").isFile) "มีไฟล์ข้อเสนอที่บันทึก" else "ยังไม่มีไฟล์ข้อเสนอ"
+                    choiceMenu("จัดการอุปกรณ์ • เรื่องนี้",listOf("ผูกอุปกรณ์ประจำตัวละคร • ผูกแล้ว $linked คน", "ให้ AI เสนออุปกรณ์รายซีน • $saved")) { mode ->
+                        if(mode==0) characterPropMenu(story) else suggestStoryProps(story)
+                    }
+                }
+                index==eps.length()+2 -> suggestStoryWardrobe(story)
                 else -> {
                     val number=eps.getJSONObject(index).getInt("ep")
                     choiceMenu("EP.$number • คำสั่งพร้อมใช้",listOf("1. สร้างภาพ ChatGPT / Gemini • แนบ MASTER ให้","2. สร้างวิดีโอใน Flow • ใช้ภาพฉาก","ไฟล์คำสั่ง / แก้ไข / ทำต่อ")) { kind ->

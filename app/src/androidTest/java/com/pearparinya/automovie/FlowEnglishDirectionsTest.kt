@@ -16,7 +16,7 @@ class FlowEnglishDirectionsTest {
         assertEquals("เกิดน้ำท่วมในชุมชน",translated.narration)
         assertEquals("นายเปีย ถือถุงเสบียง",original.action)
         val command=ShortFlowPrompt.build(translated,"Locked camera")
-        assertTrue(command.contains("เกิดน้ำท่วมในชุมชน")); assertTrue(command.contains("[Character 1] holds"))
+        assertTrue(command.contains("เกิดน้ำท่วมในชุมชน")); assertTrue(command.contains("Character 1 holds"))
         assertFalse(FlowEnglishDirections.prompt(original).contains(original.narration))
     }
     @Test fun pointsToActualUntranslatedFields() {
