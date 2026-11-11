@@ -1271,7 +1271,7 @@ class StudioActivity : AppCompatActivity() {
     private fun previewImageReferences(task: SimpleProductionCommands.Task, references: List<Pair<String,File>>, labels: Map<String,String>) {
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
         panel.addView(TextView(this).apply { text="ตรวจภาพ MASTER ชื่อและตำแหน่งก่อนส่ง • แตะภาพเพื่อขยาย\nหลังเปิดแอปปลายทาง ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง" })
-        val wardrobeWarnings=plan?.let { story -> rows(story).firstOrNull { key(it)==task.id } }?.let { WardrobeContext.warnings(it) }.orEmpty()
+        val wardrobeWarnings=plan?.let { story -> if(task.id.contains("_COVER_")) rows(story).flatMap { WardrobeContext.warnings(it) }.distinct() else rows(story).firstOrNull { key(it)==task.id }?.let { WardrobeContext.warnings(it) }.orEmpty() }.orEmpty()
         if(wardrobeWarnings.isNotEmpty()) panel.addView(TextView(this).apply { text="⚠️ ตรวจความเหมาะสมของชุดก่อนส่ง\n"+wardrobeWarnings.joinToString("\n"); setTypeface(null,Typeface.BOLD) })
         val piaFaceLock=runCatching { GeminiStoryFiles.read(File(project,"gemini_job/spec.json")).optBoolean("pia_face_lock",false) }.getOrDefault(false) && plan?.optString("channel")=="นายเปีย บ้านคลองขุด"
         val faceOnly=android.widget.CheckBox(this).apply { text="ใช้ MASTER เฉพาะใบหน้ามนุษย์ • ชุดและทรงผมตามฉาก"; isChecked=piaFaceLock; panel.addView(this) }
@@ -1283,9 +1283,9 @@ class StudioActivity : AppCompatActivity() {
         task.references.forEachIndexed { index, person ->
             val (id,file)=references[index]
             val position=if(task.id.contains("_COVER_")) when(task.references.size) { 1 -> "center"; 2 -> if(index==0) "left" else "right"; else -> listOf("left","center","right")[index] } else person.optString("screen_position")
-            panel.addView(TextView(this).apply { text="${person.optString("name")} • $position\n$id"; setTypeface(null,Typeface.BOLD) })
+            panel.addView(TextView(this).apply { text="${person.optString("name")} • $position\n$id\nชุดที่ระบุในบท: ${person.optString("outfit")}"; setTypeface(null,Typeface.BOLD) })
             masterAppearance[id]=android.widget.CheckBox(this).apply {
-                text="คงชุด เกราะ หมวก และลักษณะตาม MASTER ของตัวละครนี้"
+                text="ใช้ชุดจาก MASTER ทับชุดในบทของตัวละครนี้ (ติ๊กเฉพาะเมื่อต้องการใช้ชุดเดิมจริง ๆ)"
                 isChecked=person.optString("character_type")=="knight"
                 panel.addView(this)
             }
@@ -1745,12 +1745,13 @@ class StudioActivity : AppCompatActivity() {
         if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
         val eps=story.getJSONArray("episodes")
         val options=(0 until eps.length()).map { "EP.${eps.getJSONObject(it).getInt("ep")} • ${eps.getJSONObject(it).optString("title")}" }+
-            listOf("ตรวจคำสั่ง / แก้เฉพาะจุด", "✨ ให้ AI เสนออุปกรณ์ตามบท • ตรวจและบันทึก", "⚔ อุปกรณ์ประจำตัวละคร • เลือกและบันทึก")
+            listOf("ตรวจคำสั่ง / แก้เฉพาะจุด", "✨ ให้ AI เสนออุปกรณ์ตามบท • ตรวจและบันทึก", "⚔ อุปกรณ์ประจำตัวละคร • เลือกและบันทึก", "👕 ให้ AI เสนอชุดตามเรื่อง • ตรวจและบันทึก")
         choiceMenu("คำสั่งภาพ + Flow • แยกตาม EP",options) { index ->
             when {
                 index==eps.length() -> productionCheckMenu(story)
                 index==eps.length()+1 -> suggestStoryProps(story)
                 index==eps.length()+2 -> characterPropMenu(story)
+                index==eps.length()+3 -> suggestStoryWardrobe(story)
                 else -> {
                     val number=eps.getJSONObject(index).getInt("ep")
                     choiceMenu("EP.$number • คำสั่งพร้อมใช้",listOf("1. สร้างภาพ ChatGPT / Gemini • แนบ MASTER ให้","2. สร้างวิดีโอใน Flow • ใช้ภาพฉาก","ไฟล์คำสั่ง / แก้ไข / ทำต่อ")) { kind ->
@@ -1761,6 +1762,69 @@ class StudioActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+    private fun suggestStoryWardrobe(story: JSONObject) {
+        if(GeminiStoryService.running) return notice("กรุณารอหรือหยุดงานเขียนบทก่อนปรับชุด")
+        val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
+        if(providers.isEmpty()) return notice("ตั้งค่า API เขียนบทก่อนให้ AI เสนอชุด")
+        val scenes=rows(story)
+        val projectId=project.name
+        val snapshot=story.toString()
+        val groups=linkedMapOf<Pair<String,String>,JSONObject>()
+        scenes.forEach { scene ->
+            val day=scene.optString("story_day").trim()
+            if(day.isNotBlank()) FlowReferencePrompt.people(scene).forEach { person ->
+                val id=referenceId(person.optString("master")); if(id.isNotBlank()) groups.putIfAbsent(id.lowercase() to day.lowercase(),person)
+            }
+        }
+        if(groups.isEmpty()) return notice("ไม่พบตัวละครหรือ story_day ที่ใช้วางชุด")
+        val summary=JSONArray(scenes.map { scene -> JSONObject().put("id",key(scene)).put("story_day",scene.optString("story_day")).put("location",scene.optString("location")).put("action",scene.optString("action")).put("start_state",scene.optString("start_state")).put("characters",JSONArray(FlowReferencePrompt.people(scene).map { p -> JSONObject().put("name",p.optString("name")).put("master",referenceId(p.optString("master"))).put("role",p.optString("role")).put("outfit",p.optString("outfit")) })) })
+        if(summary.toString().length>100000) return notice("บทมีขนาดใหญ่เกินไป กรุณาแก้ชุดรายซีนก่อน")
+        notice("กำลังให้ AI เสนอชุดตามบท • ตรวจและเลือกก่อนบันทึก • ยังไม่เปลี่ยนบท")
+        Thread {
+            val item=JSONObject().put("type","object").put("properties",JSONObject().put("master",JSONObject().put("type","string")).put("story_day",JSONObject().put("type","string")).put("outfit",JSONObject().put("type","string"))).put("required",JSONArray().put("master").put("story_day").put("outfit"))
+            val schema=JSONObject().put("type","object").put("properties",JSONObject().put("assignments",JSONObject().put("type","array").put("items",item))).put("required",JSONArray().put("assignments"))
+            val prompt="""Review the story and propose outfits for visible characters using their actual role, setting and activity. ${WardrobeContext.planning}
+Return JSON assignments. Each item must contain exact master ID and exact story_day from the input and a complete outfit with Top: ...; Bottom: ...; Shoes: ...; Accessories: ... . Do not add characters, roles, events, or props. Keep one exact outfit for each character and story_day. For Top, Bottom and Shoes include shade=color #RRGGBB, and for Top include sleeves=long-sleeve, short-sleeve, three-quarter-sleeve, cap-sleeve, sleeveless, strapless or one-sleeve. Keep nonhuman anatomy and use none for unneeded clothes. Existing presenter-selected outfit should remain unless the user decides otherwise. Return only items you can match confidently. Story: $summary"""
+            var answer: JSONObject?=null
+            for(provider in providers) {
+                answer=runCatching { StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false).generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("assignments")!=null }
+                if(answer!=null) break
+            }
+            val result=answer
+            runOnUiThread {
+                if(isFinishing || isDestroyed) return@runOnUiThread
+                if(result==null) { notice("AI ยังเสนอชุดไม่ได้ กรุณาตรวจ API แล้วลองใหม่ • ไม่มีการเปลี่ยนบท"); return@runOnUiThread }
+                if(project.name!=projectId || plan!==story || story.toString()!=snapshot) { notice("เรื่องเปลี่ยนระหว่างวิเคราะห์ กรุณาเริ่มใหม่"); return@runOnUiThread }
+                val a=result.optJSONArray("assignments") ?: JSONArray()
+                val proposals=(0 until a.length()).mapNotNull { a.optJSONObject(it) }.filter { row ->
+                    val id=referenceId(row.optString("master")).lowercase() to row.optString("story_day").trim().lowercase()
+                    id in groups && runCatching { AutoDirectorWardrobe.parts(row.optString("outfit")) }.isSuccess
+                }.distinctBy { referenceId(it.optString("master")).lowercase() to it.optString("story_day").trim().lowercase() }
+                if(proposals.isEmpty()) { notice("AI ไม่ได้เสนอชุดที่ตรวจรูปแบบได้ • ไม่มีการเปลี่ยนบท"); return@runOnUiThread }
+                val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
+                panel.addView(TextView(this).apply { text="ตรวจบทบาทและชุดทีละคน • ติ๊กเฉพาะชุดที่ต้องการเปลี่ยน ระบบใช้ชุดเดียวกันทุกซีนของวันนั้น • ภาพเดิมต้องตรวจใหม่ • ชุดนายเปียไม่เลือกให้อัตโนมัติ" })
+                val boxes=mutableListOf<android.widget.CheckBox>(); val inputs=mutableListOf<EditText>()
+                proposals.forEach { row ->
+                    val id=referenceId(row.optString("master")); val day=row.optString("story_day").trim()
+                    val original=groups[id.lowercase() to day.lowercase()]!!
+                    val box=android.widget.CheckBox(this).apply { text="${original.optString("name")} • $day • $id\nชุดเดิม: ${original.optString("outfit")}"; isChecked=!id.equals("SUPPORT_%08X_MASTER".format(1999999999),true); panel.addView(this) }
+                    val input=EditText(this).apply { setText(row.optString("outfit")); minLines=3; panel.addView(this) }
+                    boxes.add(box); inputs.add(input)
+                }
+                val dialog=AlertDialog.Builder(this).setTitle("ตรวจชุดที่ AI เสนอ").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึกชุดที่เลือก",null).setNegativeButton("ยกเลิก",null).showDirector()
+                dialog.getButton(-1).setOnClickListener {
+                    if(project.name!=projectId || plan!==story || story.toString()!=snapshot) { notice("เรื่องเปลี่ยนระหว่างตรวจ กรุณาเริ่มใหม่"); return@setOnClickListener }
+                    runCatching {
+                        val choices=proposals.mapIndexedNotNull { i,row -> if(!boxes[i].isChecked) null else WardrobeRevision.Choice(row.optString("master"),row.optString("story_day"),inputs[i].text.toString().trim()) }
+                        val candidate=WardrobeRevision.apply(story,choices)
+                        plan=candidate
+                        try { saveStory() } catch(e: Exception) { plan=story; throw e }
+                    }.onSuccess { dialog.dismiss(); render(); notice("บันทึกชุดแล้ว • ซีนที่เปลี่ยนต้องตรวจภาพใหม่ • บทก่อนแก้เก็บไว้ในประวัติ") }
+                        .onFailure { notice(it.message ?: "บันทึกชุดไม่ได้") }
+                }
+            }
+        }.start()
     }
     private fun suggestStoryProps(story: JSONObject) {
         val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }

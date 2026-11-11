@@ -8,7 +8,7 @@ internal object WardrobeContext {
     const val image = "CONTEXTUAL WARDROBE: Use each character's written outfit and role, not clothing from their identity MASTER. Check that active participants' clothes and footwear suit the depicted setting and activity; patients, medical staff, visitors, helpers and bystanders may have different needs. If the written wardrobe is inappropriate or unclear, ask for correction instead of silently changing it. Preserve the approved outfit across continuous scenes."
     private val flood=Regex("(?i)flood|floodwater|น้ำท่วม|อุทกภัย")
     private val helping=Regex("(?i)rescu|relief|deliver|carrying|help(?:ing)?|ช่วย|กู้ภัย|แจก|ลำเลียง|ขนของ")
-    private val questionable=Regex("(?i)leather jacket|formal (?:gown|dress)|high heels?|ชุดราตรี|เสื้อหนัง|รองเท้าส้นสูง")
+    private val questionable=Regex("(?i)leather jacket|formal (?:gown|dress)|high heels?|ชุดราตรี|เดรส|เสื้อหนัง|แจ็คเก็ตหนัง|แจ็กเก็ตหนัง|รองเท้าส้นสูง")
     fun warnings(scene: JSONObject): List<String> {
         val text=listOf("location","action","flow_action","start_state").joinToString(" ") { scene.optString(it) }
         if(!flood.containsMatchIn(text) || !helping.containsMatchIn(text)) return emptyList()
