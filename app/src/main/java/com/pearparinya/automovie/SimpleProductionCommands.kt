@@ -83,6 +83,7 @@ ${referenceBindings(selected)}
 CHARACTERS AND OUTFITS:
 ${cast(selected,true)}
 $wardrobeContinuity
+${WardrobeContext.image}
 ${FlowReferencePrompt.visibleCastLock(selected)}
 Bright neutral-white editorial light; realistic materials. Keep any reference helmet or mask closed when instructed. Leave the text area clear.
 EXACT VISIBLE THAI TEXT (three entries, no other lettering):
@@ -104,6 +105,7 @@ ${referenceBindings(visiblePeople)}
 CHARACTERS AND OUTFITS:
 ${cast(visiblePeople)}
 $wardrobeContinuity
+${WardrobeContext.image}
 ${FlowReferencePrompt.visibleCastLock(visiblePeople)}
 Style: ${story.optString("category")} — follow the written action, no new plot.
 Story day: ${scene.getString("story_day")} — exact wardrobe remains locked across locations and EPs.
