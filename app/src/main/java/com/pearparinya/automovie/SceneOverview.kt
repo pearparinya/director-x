@@ -25,13 +25,23 @@ internal object SceneOverview {
             narration.isNotBlank() -> "บรรยาย: ${ThaiSpeechPacing.format(narration)}"
             else -> "ไม่มีบทพูดหรือคำบรรยายที่ระบุ"
         }
+        val castSpec=ProductionCommandCheck.spec(scene)
+        val labels=ShortFlowPrompt.labels(castSpec)
+        val bindings=castSpec.cast.mapIndexed { i,p ->
+            "${labels[i]} = ${p.name} • ${p.position.ifBlank { "ไม่ระบุตำแหน่ง" }} • ${p.outfit.ifBlank { "ไม่ระบุชุด" }}"
+        }.joinToString("\n")
+        val spokenText=if(ProductionCommandCheck.dialogueTurns(scene).isNotEmpty()) ProductionCommandCheck.dialogueTurns(scene).joinToString("") { it.text } else dialogue.ifBlank { narration }
+        val warning=if(spokenText.count { !it.isWhitespace() }>80) "⚠ บทพูดอาจยาวสำหรับ 8 วินาที • ประเมินจากความยาวข้อความเท่านั้น กรุณาฟังเสียงจริงหรือแบ่งซีนก่อนใช้" else ""
         return listOf(
             "สรุปซีน",
             "สถานที่: "+field(scene,"location").ifBlank { "ไม่ได้ระบุ" },
             "ตัวละคร: "+names(scene).ifBlank { "ไม่ได้ระบุ" },
+            if(bindings.isBlank()) "" else "ตรวจตัวละครและชุด:\n$bindings",
             "เหตุการณ์: "+field(scene,"action").ifBlank { "ไม่ได้ระบุ" },
+            "ภาพเริ่มต้น / สิ่งของ: "+field(scene,"start_state").ifBlank { "ไม่ได้ระบุ • ตรวจภาพจริง" },
             "เสียง: "+speech,
+            warning,
             "ภาพซีนสำหรับ Flow: $imageId"
-        ).joinToString("\n")
+        ).filter { it.isNotBlank() }.joinToString("\n")
     }
 }
