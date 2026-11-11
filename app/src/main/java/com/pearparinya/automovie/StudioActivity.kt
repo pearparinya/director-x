@@ -2609,8 +2609,40 @@ $context"""
             val presenterOutfits=listOf("เลือกชุดตามเนื้อเรื่อง", "สูทกรมท่า เนกไทลายฟ้า", "ชุดช่างสีเขียวเข้ม", "ชุดช่างสีกรมท่าส้ม", "ชุดช่างสีเทาเข้ม", "ชุดช่างสีน้ำเงิน", "เสื้อเชิ้ตสีครีม กางเกงเขียว", "เสื้อเชิ้ตสีฟ้า กางเกงกรมท่า", "เสื้อเชิ้ตสีขาว กางเกงดำ", "เสื้อเชิ้ตสีดำ กางเกงเทา", "เสื้อช่างกรม กางเกงเทา ถุงมือ", "ชุดทำสวนสีครีม หมวกและรองเท้าบูท", "ชุดทำสวนกรมท่า หมวกคลุมต้นคอและรองเท้าบูท")
             // Keep slot indices compatible with the existing picker and story snapshot.
             val presenterOutfit=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,presenterOutfits) }
-            val piaFaceLock=android.widget.CheckBox(this).apply { text="ล็อกใบหน้านายเปียจาก MASTER ต้นฉบับ • เลือกกรอบใบหน้าเพิ่มได้ก่อนส่งสร้างภาพ"; isChecked=true }
-            if(chosenChannel=="นายเปีย บ้านคลองขุด") panel.addView(piaFaceLock)
+            val piaFaceLock=android.widget.CheckBox(this).apply { text="ล็อกใบหน้านายเปียจาก MASTER ต้นฉบับ"; isChecked=true }
+            val piaFaceStatus=TextView(this).apply { text="ยังไม่ได้เลือกกรอบใบหน้า • ใช้ภาพ MASTER ต้นฉบับ" }
+            val piaFacePreview=ImageView(this).apply { adjustViewBounds=true; visibility=android.view.View.GONE; layoutParams=LinearLayout.LayoutParams(-1,dp(150)) }
+            fun showPiaFace(target: File) {
+                piaFaceStatus.text="เลือกกรอบใบหน้าแล้ว • ตรวจภาพก่อนสร้าง"
+                piaFacePreview.setImageBitmap(previewBitmap(Uri.fromFile(target)))
+                piaFacePreview.visibility=android.view.View.VISIBLE
+                piaFacePreview.setOnClickListener { fullImage(target,"ใบหน้านายเปียจาก MASTER") }
+            }
+            val choosePiaFace=Button(this).apply { text="✂️ วาดกรอบใบหน้า / ล็อกหน้า" }
+            if(chosenChannel=="นายเปีย บ้านคลองขุด") {
+                panel.addView(piaFaceLock)
+                panel.addView(TextView(this).apply { text="เลือกกรอบใบหน้ามุมตรงจาก MASTER ครั้งเดียว แล้วระบบใช้ซ้ำได้ • ตรวจภาพก่อนส่งสร้าง" })
+                panel.addView(choosePiaFace)
+                panel.addView(piaFaceStatus)
+                panel.addView(piaFacePreview)
+                val faceStore=FaceReferenceStore(File(filesDir,"master_face_references"))
+                runCatching { faceStore.latest(castingSource(piaCatalog().getJSONObject(0))) }.getOrNull()?.let { showPiaFace(it) }
+                choosePiaFace.setOnClickListener {
+                    runCatching {
+                        val master=castingSource(piaCatalog().getJSONObject(0))
+                        val cropView=FaceReferenceCropView(this@StudioActivity,master)
+                        val layout=LinearLayout(this@StudioActivity).apply { orientation=1; addView(TextView(context).apply { text="ลากกรอบรอบใบหน้ามุมตรงของนายเปีย แล้วกดบันทึก" }); addView(cropView,LinearLayout.LayoutParams(-1,dp(520))) }
+                        val dialog=AlertDialog.Builder(this@StudioActivity).setTitle("วาดกรอบใบหน้านายเปีย").setView(layout).setPositiveButton("บันทึกกรอบ",null).setNegativeButton("ยกเลิก",null).showDirector()
+                        dialog.getButton(-1).setOnClickListener {
+                            runCatching {
+                                val target=faceStore.newFile(master); val pending=File(target.parentFile,target.name+".pending")
+                                try { cropView.save(pending); check(pending.renameTo(target)) { "บันทึกภาพครอปไม่ได้" } } finally { pending.delete() }
+                                showPiaFace(target); piaFaceLock.isChecked=true; dialog.dismiss()
+                            }.onFailure { notice(it.message ?: "บันทึกกรอบใบหน้าไม่ได้") }
+                        }
+                    }.onFailure { notice(it.message ?: "เปิด MASTER ไม่ได้") }
+                }
+            }
             if(chosenChannel=="นายเปีย บ้านคลองขุด") {
                 panel.addView(TextView(this).apply { text="ชุดนายเปีย • ติ๊กเลือก 1 ชุด หรือให้ระบบเลือกตามเรื่อง" })
                 val buttons=mutableListOf<android.widget.RadioButton>()
@@ -2642,6 +2674,10 @@ $context"""
                         presenterOutfitPicker.launch(arrayOf("image/*"))
                     }
                 }
+            })
+            if(chosenChannel=="นายเปีย บ้านคลองขุด") panel.addView(Button(this).apply {
+                text="✂️ วาดกรอบใบหน้า / ล็อกหน้า"
+                setOnClickListener { choosePiaFace.performClick() }
             })
             val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("1 EP • จบในตอน","ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); if(format!="short") panel.addView(this) }
             if(format=="short") panel.addView(TextView(this).apply { text="คลิปสั้น • จบในคลิปเดียว" })
