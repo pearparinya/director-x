@@ -2250,7 +2250,7 @@ $context"""
     }
     private fun geminiSettings(afterSave: (() -> Unit)?=null) {
         val providers=StoryProvider.activeProviders
-        val choices=providers.map { it.label+if(it.hasKey(this)) " • บันทึกคีย์แล้ว" else " • ยังไม่มีคีย์" }+
+        val choices=providers.map { it.label+" • "+StoryProvider.lastTest(this,it) }+
             listOf("☑️ เลือก API ที่อนุญาต", "🔍 ตรวจ API ที่เลือก", if(StoryProvider.freeOnly(this)) "🟢 ใช้เฉพาะ OpenRouter ฟรี: เปิด" else "⚪ ใช้เฉพาะ OpenRouter ฟรี: ปิด")
         choiceMenu("ตั้งค่าคีย์ API • ใช้อัตโนมัติ",choices) { index ->
             if(index==providers.size) selectStoryApiProviders(afterSave)
@@ -2318,10 +2318,11 @@ $context"""
         val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
         val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
         val view=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text="กำลังทดสอบ ${provider.label} ด้วยข้อความสั้น • ใช้โควตาของบัญชี • ไม่ส่งบทหรือภาพ"; setTextIsSelectable(true) }
-        val dialog=AlertDialog.Builder(this).setTitle("ทดสอบ ${provider.label}").setView(view).setNegativeButton("ปิด / หยุด",null).showDirector()
+        val dialog=AlertDialog.Builder(this).setTitle("ทดสอบ ${provider.label}").setView(ScrollView(this).apply { addView(view) }).setNegativeButton("ปิด / หยุด",null).showDirector()
         dialog.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
         Thread {
             var passed=false
+                var failureReason=""
             val result=try {
                 val settings=ExtraApiSettings(this,provider)
                 val client=CompatibleStoryClient(provider.service,settings.key(),settings.model(),{ stopped.get() },automaticRetry=false)
@@ -2330,9 +2331,9 @@ $context"""
                 StoryApiProbe.check(client)
                 passed=true
                 "${provider.label}: ผ่าน • ${settings.model()} • รับคำตอบ JSON สำเร็จ\n\nผลนี้ไม่รับประกันโควตาระหว่างเขียนเรื่องยาว"
-            } catch(e: Exception) { "${provider.label}: "+StoryApiProbe.error(e) }
+            } catch(e: Exception) { failureReason=StoryApiProbe.error(e); "${provider.label}: "+failureReason }
             finally { active.set(null) }
-            if(!stopped.get()) runCatching { StoryProvider.recordTest(this,StoryProvider.from(provider.id),passed) }
+            if(!stopped.get()) runCatching { StoryProvider.recordTest(this,StoryProvider.from(provider.id),passed,failureReason) }
             runOnUiThread { if(!stopped.get() && !isFinishing && !isDestroyed) view.text=result }
         }.apply { name="director-extra-api-probe"; start() }
     }
@@ -2343,13 +2344,14 @@ $context"""
         val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
         val view=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text="กำลังตรวจคีย์และโมเดลที่บันทึกไว้…\nส่งคำขอทดสอบสั้นจริงไปแต่ละบริการ ใช้โควตาของบัญชีนั้น ไม่ส่งบทหรือรูป"; setTextIsSelectable(true) }
         val dialog=AlertDialog.Builder(this).setTitle("ทดสอบ API • ไม่สลับบริการแทนผลทดสอบ")
-            .setView(view).setNegativeButton("ปิด / หยุด",null).showDirector()
+            .setView(ScrollView(this).apply { addView(view) }).setNegativeButton("ปิด / หยุด",null).showDirector()
         dialog.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
         Thread {
             val results=mutableListOf<String>()
             for(target in providers) {
                 if(stopped.get()) break
                 var passed=false
+                var failureReason=""
                 val result=try {
                     if(!target.hasKey(this)) "${target.label}: ยังไม่ได้ตั้งคีย์"
                     else {
@@ -2361,10 +2363,11 @@ $context"""
                         passed=true
                         "${target.label}: ผ่าน • $model • รับคำตอบ JSON สำเร็จ"
                     }
-                } catch(e: Exception) { "${target.label}: "+StoryApiProbe.error(e) }
+                } catch(e: Exception) { failureReason=StoryApiProbe.error(e); "${target.label}: "+failureReason }
                 finally { active.set(null) }
-                if(!stopped.get() && target.hasKey(this)) runCatching { StoryProvider.recordTest(this,target,passed) }
-                results.add(result)
+                if(!stopped.get() && target.hasKey(this)) runCatching { StoryProvider.recordTest(this,target,passed,failureReason) }
+                val stamp=java.text.SimpleDateFormat("dd/MM HH:mm:ss",java.util.Locale.getDefault()).format(java.util.Date())
+                results.add("$result\nทดสอบเมื่อ $stamp")
                 val text=results.joinToString("\n\n")+"\n\nผลทดสอบ ณ เวลานี้ ไม่รับประกันโควตาระหว่างเขียนเรื่องยาว"+
                     if(results.size<providers.size) "\nกำลังทดสอบบริการถัดไป…" else ""
                 runOnUiThread { if(!stopped.get() && !isFinishing && !isDestroyed) view.text=text }

@@ -51,11 +51,12 @@ internal enum class StoryProvider(val id: String,val label: String,val defaultMo
             val data=provider.key(context)+"\n"+provider.model(context)
             return java.security.MessageDigest.getInstance("SHA-256").digest(data.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
         }
-        fun recordTest(context: Context,provider: StoryProvider,passed: Boolean) {
+        fun recordTest(context: Context,provider: StoryProvider,passed: Boolean,reason: String="") {
             if(!provider.hasKey(context)) return
             val prefs=context.getSharedPreferences("story_api_test",Context.MODE_PRIVATE)
             prefs.edit().putString(provider.id+"_fingerprint",testFingerprint(context,provider))
                 .putString(provider.id+"_result",if(passed) "ผ่าน" else "ไม่ผ่าน")
+                .putString(provider.id+"_reason",if(passed) "" else reason.take(500))
                 .putLong(provider.id+"_time",System.currentTimeMillis()).apply()
         }
         fun lastTest(context: Context,provider: StoryProvider): String {
@@ -65,7 +66,8 @@ internal enum class StoryProvider(val id: String,val label: String,val defaultMo
             val time=prefs.getLong(provider.id+"_time",0L)
             if(time<=0L) return "ยังไม่ได้ทดสอบคีย์/โมเดลนี้"
             val stamp=java.text.SimpleDateFormat("dd/MM HH:mm",java.util.Locale.getDefault()).format(java.util.Date(time))
-            return "ทดสอบล่าสุด $stamp • ${prefs.getString(provider.id+"_result", "ไม่ทราบ")}" 
+            val reason=prefs.getString(provider.id+"_reason","").orEmpty()
+            return "ทดสอบล่าสุด $stamp • ${prefs.getString(provider.id+"_result", "ไม่ทราบ")}" + if(reason.isNotBlank()) " • $reason" else "" 
         }
         fun configure(context: Context,spec: JSONObject): JSONObject {
             spec.put("provider",GROQ.id).put("model",GROQ.model(context)).put("hybrid",false).put("auto_pipeline",true)
