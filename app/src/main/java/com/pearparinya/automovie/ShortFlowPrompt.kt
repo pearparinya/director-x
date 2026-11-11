@@ -76,12 +76,22 @@ internal object ShortFlowPrompt {
         }
         val cast=positions.mapIndexed { i,pos -> "Character ${i+1}: $pos" + clothes[i].takeIf { it.isNotBlank() }?.let { ", wearing $it" }.orEmpty() }.joinToString("; ")
         val visual=listOf("Use the attached first frame. One continuous 8-second vertical 9:16 shot",cast,action,
-            "Keep identities, outfits, objects and location consistent",motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}")
+            "Keep identities, outfits, objects and location consistent",ScenePropContinuity.video,motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}")
             .filter { it.isNotBlank() }.joinToString(". ")
+        fun turn(name: String, text: String): String {
+            val label=speakerLabel(s,name)
+            val index=label.removePrefix("Character ").toIntOrNull()?.minus(1)
+            val constraint=if(index!=null && index in s.cast.indices) {
+                val cue=listOf(positions[index],clothes[index].takeIf { it.isNotBlank() }?.let { "wearing $it" }.orEmpty()).filter { it.isNotBlank() }.joinToString(", ")
+                val others=positions.indices.filter { it!=index }.joinToString(", ") { "Character ${it+1}" }
+                "ONLY $label ($cue) speaks this line; move only their lips if visible. " + if(others.isNotEmpty()) "$others remain silent with mouths closed." else "No other voices."
+            } else "Only the off-screen speaker says this line; visible characters stay silent with mouths closed."
+            return "<dialogue><speaker>${xml(label)}</speaker><text>${xml(ThaiSpeechPacing.format(text))}</text><constraint>${xml(constraint)}</constraint></dialogue>"
+        }
         val lines=if(silent) "" else when {
-            s.turns.isNotEmpty() -> s.turns.joinToString("") { "<dialogue><speaker>${xml(speakerLabel(s,it.speaker))}</speaker><text>${xml(ThaiSpeechPacing.format(it.text))}</text></dialogue>" }
-            spoken(s.dialogue).isNotEmpty() -> "<dialogue><speaker>${xml(speakerLabel(s,s.speaker))}</speaker><text>${xml(ThaiSpeechPacing.format(spoken(s.dialogue)))}</text></dialogue>"
-            spoken(s.narration).isNotEmpty() -> "<dialogue><speaker>Off-screen narrator</speaker><text>${xml(ThaiSpeechPacing.format(spoken(s.narration)))}</text></dialogue>"
+            s.turns.isNotEmpty() -> s.turns.joinToString("") { turn(it.speaker,it.text) }
+            spoken(s.dialogue).isNotEmpty() -> turn(s.speaker,spoken(s.dialogue))
+            spoken(s.narration).isNotEmpty() -> "<dialogue><speaker>Off-screen narrator</speaker><text>${xml(ThaiSpeechPacing.format(spoken(s.narration)))}</text><constraint>Only the narrator speaks; visible characters stay silent with mouths closed.</constraint></dialogue>"
             else -> ""
         }
         val audio=if(silent) "No speech, narration, music or sound effects; visible mouths remain closed." else if(lines.isEmpty()) "No dialogue or narration; visible mouths remain closed." else "Match each dialogue speaker to the numbered character, position and clothing above. Speak the exact lines in order, naturally in Thai; only the current visible speaker moves their lips if their mouth is visible; keep covered faces covered. Other visible characters remain silent. No extra voices, overlap or subtitles."
