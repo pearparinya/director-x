@@ -96,6 +96,27 @@ class AutoDirectorContentTest {
         assertTrue(solo.command.contains("MASTER ID: "+referenceId(only.getString("master"))))
         assertTrue(SimpleProductionCommands.images(project,1).contains("ChatGPT / Gemini"))
     }
+    @Test fun coverCanBindFiveStoryCharactersIncludingNonhuman() {
+        val project=story()
+        val ep=project.getJSONArray("episodes").getJSONObject(0)
+        val scene=ep.getJSONArray("scenes").getJSONObject(0)
+        val cast=scene.getJSONArray("characters")
+        cast.put(JSONObject().put("name","หมาป่า").put("master","SUPPORT_00000001_MASTER.png").put("outfit","none").put("character_type","animal"))
+        cast.put(JSONObject().put("name","อสูร").put("master","SUPPORT_00000002_MASTER.png").put("outfit","armor").put("character_type","creature"))
+        val cover=SimpleProductionCommands.imageTasks(project,1).first { it.id=="STORY_COVER_9x16" }
+        assertEquals(5,cover.references.size)
+        assertTrue(cover.command.contains("Reference 4: หมาป่า"))
+        assertTrue(cover.command.contains("Reference 5: อสูร"))
+        assertTrue(cover.command.contains("Preserve nonhuman species"))
+    }
+    @Test fun sceneOverviewWarnsOnLongSpeechWithoutChangingIt() {
+        val scene=story().getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
+        val words="คำทดสอบ".repeat(20)
+        scene.put("dialogue",words)
+        val overview=SceneOverview.detail(scene,"EP01_SC001")
+        assertTrue(overview.contains("อาจยาวสำหรับ 8 วินาที"))
+        assertEquals(words,scene.getString("dialogue"))
+    }
     @Test fun imageCommandsKeepFaceGeometryAndSameDayWardrobe() {
         val tasks=SimpleProductionCommands.imageTasks(story(),1)
         val samples=listOf(tasks.first { it.id=="STORY_COVER_9x16" },tasks.first { it.id=="STORY_COVER_16x9" },tasks.first { it.id=="EP01_SC001" })

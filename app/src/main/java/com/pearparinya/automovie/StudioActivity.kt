@@ -427,15 +427,22 @@ class StudioActivity : AppCompatActivity() {
     private fun actorCatalogMenu() {
         runCatching {
             val records=actorCatalog()
-            choiceMenu("คลังตัวละครใหม่", listOf("📥 นำเข้า MASTER ที่มีอยู่","➕ สร้างตัวละครจากแม่แบบ","📚 ดู MASTER คลังเดิม","✨ ดู MASTER แฟนตาซี 40 ตัว")+(0 until records.length()).map { i -> records.getJSONObject(i).let { "${it.getString("display_name")} • อายุ ${it.getInt("character_age")} ปี" } }) { index ->
-                if(index==0) importCharacterMaster() else if(index==1) bodyTemplateMenu() else if(index==2) libraryMenu() else if(index==3) {
+            val channel=ChannelCatalog.currentChannel(plan?.optString("channel").orEmpty())
+            val fantasy=ChannelFeaturePolicy.hasFantasyTools(channel)
+            val pia=channel=="นายเปีย บ้านคลองขุด"
+            val visible=(0 until records.length()).filter { i -> !pia || records.getJSONObject(i).optString("character_type") !in setOf("knight","deity","creature","demon","ghost","spirit","fairy") }
+            val base=if(fantasy) 4 else 3
+            val menus=listOf("📥 นำเข้า MASTER ที่มีอยู่","➕ สร้างตัวละครจากแม่แบบ","📚 ดู MASTER คลังเดิม") + if(fantasy) listOf("✨ ดู MASTER แฟนตาซี 40 ตัว") else emptyList()
+            choiceMenu("คลังตัวละคร • ${channel.ifBlank { "ช่องไม่ระบุ" }}",menus+visible.map { i -> records.getJSONObject(i).let { "${it.getString("display_name")} • อายุ ${it.getInt("character_age")} ปี" } }) { index ->
+                if(index==0) importCharacterMaster() else if(index==1) bodyTemplateMenu() else if(index==2) libraryMenu() else if(fantasy && index==3) {
                     val fantasy=fantasyCatalog()
                     choiceMenu("MASTER แฟนตาซี",(0 until fantasy.length()).map { fantasy.getJSONObject(it).getString("display_name") }) { selected ->
                         val row=fantasy.getJSONObject(selected)
                         runCatching { fullImage(castingSource(row),row.getString("display_name")) }.onFailure { notice(it.message ?: "เปิดภาพไม่ได้") }
                     }
                 } else {
-                    val row=records.getJSONObject(index-4)
+                    val actualIndex=visible[index-base]
+                    val row=records.getJSONObject(actualIndex)
                     val file=File(filesDir,"actor_master_v2/"+row.getString("file"))
                     choiceMenu(row.getString("display_name"),listOf("ดู MASTER","กำหนดประเภทและเพศ","นำออกจากคลังเรื่องใหม่")) { action ->
                         if(action==0) { if(file.isFile) fullImage(file,row.getString("display_name")) else notice("ไม่พบภาพ MASTER") }
@@ -452,7 +459,7 @@ class StudioActivity : AppCompatActivity() {
                             }
                         }
                         else {
-                            val rest=JSONArray(); for(i in 0 until records.length()) if(i!=index-4) rest.put(records.getJSONObject(i))
+                            val rest=JSONArray(); for(i in 0 until records.length()) if(i!=actualIndex) rest.put(records.getJSONObject(i))
                             val temp=File(filesDir,"actor_catalog_v2.pending")
                             temp.writeText(JSONObject().put("records",rest).toString(2))
                             if(temp.renameTo(actorCatalogFile)) notice("นำออกจากคลังแล้ว • เรื่องที่สร้างไว้ยังใช้ภาพเดิม") else notice("บันทึกคลังไม่ได้")
@@ -1329,7 +1336,7 @@ class StudioActivity : AppCompatActivity() {
         val cropStore=FaceReferenceStore(File(filesDir,"master_face_references"))
         task.references.forEachIndexed { index, person ->
             val (id,file)=references[index]
-            val position=if(task.id.contains("_COVER_")) when(task.references.size) { 1 -> "center"; 2 -> if(index==0) "left" else "right"; else -> listOf("left","center","right")[index] } else person.optString("screen_position")
+            val position=if(task.id.contains("_COVER_")) when(task.references.size) { 1 -> "center"; 2 -> if(index==0) "left" else "right"; 3 -> listOf("left","center","right")[index]; else -> "ลำดับ ${index+1}" } else person.optString("screen_position")
             panel.addView(TextView(this).apply { text="${person.optString("name")} • $position\n$id\nชุดที่ระบุในบท: ${person.optString("outfit")}"; setTypeface(null,Typeface.BOLD) })
             masterAppearance[id]=android.widget.CheckBox(this).apply {
                 text="ใช้ชุดจาก MASTER ทับชุดในบทของตัวละครนี้ (ติ๊กเฉพาะเมื่อต้องการใช้ชุดเดิมจริง ๆ)"
@@ -1375,14 +1382,15 @@ class StudioActivity : AppCompatActivity() {
             extraChecks[id]=android.widget.CheckBox(this).apply { text=labels[id] ?: "ภาพอ้างอิงที่ตรวจแล้ว • $id"; isChecked=!id.startsWith("OUTFIT_PIA_SELECTED_") || PiaReferencePolicy.outfitInitiallySelected(task.id); panel.addView(this) }
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(180)); setOnClickListener { fullImage(file,labels[id] ?: "ภาพอ้างอิง") } })
         }
-        val propNames=propCatalog
+        val allowFantasyProps=ChannelFeaturePolicy.hasFantasyTools(plan?.optString("channel").orEmpty())
+        val propNames=if(allowFantasyProps) propCatalog else emptyList()
         val propPreference="prop_master_${project.name}_${task.id}"
         val automatic=runCatching { JSONObject(File(project,"prop_assignments.json").readText()).optJSONArray(task.id) }.getOrNull()
         val autoIds=(0 until (automatic?.length() ?: 0)).mapNotNull { automatic?.optJSONObject(it)?.optString("prop_id") }.toSet()
         val coverIds=if(task.id.contains("_COVER_")) task.references.map { characterProp(it.optString("master")) }.filter { it.isNotBlank() }.toSet() else emptySet()
         val saved=if(prefs.contains(propPreference)) prefs.getStringSet(propPreference, emptySet()).orEmpty() else autoIds+coverIds
         val checks=linkedMapOf<String,android.widget.CheckBox>()
-        panel.addView(TextView(this).apply { text="MASTER อุปกรณ์ • ตรวจเฉพาะชิ้นที่ปรากฏในภาพเริ่มต้น\nหากซีนไม่มีข้อเสนอ ให้เลือกเองหรือวิเคราะห์บทก่อน • ตรวจผู้ถือและสถานะจากบท"; setTypeface(null,Typeface.BOLD) })
+        panel.addView(TextView(this).apply { text=if(allowFantasyProps) "MASTER อุปกรณ์ • ตรวจเฉพาะชิ้นที่ปรากฏในภาพเริ่มต้น\nหากซีนไม่มีข้อเสนอ ให้เลือกเองหรือวิเคราะห์บทก่อน • ตรวจผู้ถือและสถานะจากบท" else "สิ่งของทั่วไปตามบท • ตรวจว่ามีในภาพเริ่มต้นก่อนสร้างวิดีโอ"; setTypeface(null,Typeface.BOLD) })
         propNames.forEachIndexed { index,name ->
             val id="PROP_%02d_MASTER".format(index+1)
             val checkbox=android.widget.CheckBox(this).apply { text="$name • $id"; isChecked=id in saved }
@@ -1416,7 +1424,7 @@ class StudioActivity : AppCompatActivity() {
                     check(file.isFile && file.length()>0) { "ไม่พบภาพ $id" }
                     id to file
                 } }.getOrElse { notice(it.message ?: "เปิด MASTER อุปกรณ์ไม่ได้"); return@setPositiveButton }
-                if (prefs.contains(propPreference) || chosen != saved) prefs.edit().putStringSet(propPreference,chosen.toSet()).apply()
+                if (allowFantasyProps && (prefs.contains(propPreference) || chosen != saved)) prefs.edit().putStringSet(propPreference,chosen.toSet()).apply()
                 val propLabels=propRefs.associate { (id,_) -> id to propNames[id.substring(5,7).toInt()-1] }
                 val coverOwners=if(task.id.contains("_COVER_")) task.references.mapNotNull { person -> characterProp(person.optString("master")).takeIf { it.isNotBlank() && it in chosen }?.let { "${person.optString("name")} is associated with $it; show it only if appropriate to this cover." } }.joinToString("\n") else ""
                 val owners=(0 until (automatic?.length() ?: 0)).mapNotNull { automatic?.optJSONObject(it) }.filter { it.optString("prop_id") in chosen }.joinToString("\n") { "${it.optString("holder").ifBlank { "Holder unspecified" }} is associated with ${it.optString("prop_id")} in this scene. Start-frame prop state: ${it.optString("start_prop_state").ifBlank { "unspecified; follow the story, do not assume it is held" }}. Follow the start state and action." }
@@ -1791,12 +1799,14 @@ class StudioActivity : AppCompatActivity() {
         val story=plan ?: return notice("สร้างหรือนำเข้าบทก่อนครับ")
         if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
         val eps=story.getJSONArray("episodes")
+        val channel=ChannelCatalog.currentChannel(story.optString("channel"))
+        val fantasy=ChannelFeaturePolicy.hasFantasyTools(channel)
         val options=(0 until eps.length()).map { "EP.${eps.getJSONObject(it).getInt("ep")} • ${eps.getJSONObject(it).optString("title")}" }+
-            listOf("ตรวจคำสั่ง / แก้เฉพาะจุด", "⚔ จัดการอุปกรณ์ • เลือกเอง / ให้ AI เสนอ", "👕 ให้ AI เสนอชุดตามเรื่อง • ตรวจและบันทึก")
-        choiceMenu("คำสั่งภาพ + Flow • แยกตาม EP",options) { index ->
+            listOf("ตรวจคำสั่ง / แก้เฉพาะจุด", if(fantasy) "⚔ จัดการอุปกรณ์แฟนตาซี • เลือกเอง / ให้ AI เสนอ" else "🧰 ตรวจสิ่งของทั่วไปตามฉาก • แก้ในบท", "👕 ให้ AI เสนอชุดตามเรื่อง • ตรวจและบันทึก")
+        choiceMenu("คำสั่งภาพ + Flow • ${channel.ifBlank { "ช่องไม่ระบุ" }}",options) { index ->
             when {
                 index==eps.length() -> productionCheckMenu(story)
-                index==eps.length()+1 -> {
+                index==eps.length()+1 && fantasy -> {
                     val people=rows(story).flatMap { FlowReferencePrompt.people(it) }.distinctBy { referenceId(it.optString("master")).lowercase() }.filter { it.optString("master").isNotBlank() }
                     val linked=people.count { characterProp(it.optString("master")).isNotBlank() }
                     val saved=if(File(project,"prop_assignments.json").isFile) "มีไฟล์ข้อเสนอที่บันทึก" else "ยังไม่มีไฟล์ข้อเสนอ"
@@ -1804,13 +1814,17 @@ class StudioActivity : AppCompatActivity() {
                         if(mode==0) characterPropMenu(story) else suggestStoryProps(story)
                     }
                 }
+                index==eps.length()+1 -> {
+                    val scenes=rows(story)
+                    if(scenes.isEmpty()) notice("ยังไม่มีฉากให้ตรวจ")
+                    else choiceMenu("ตรวจสิ่งของจากภาพเริ่มต้นและบท",scenes.map { key(it)+" • "+it.optString("start_state").take(70) }) { selected -> editScene(scenes[selected]) }
+                }
                 index==eps.length()+2 -> suggestStoryWardrobe(story)
                 else -> {
                     val number=eps.getJSONObject(index).getInt("ep")
                     choiceMenu("EP.$number • คำสั่งพร้อมใช้",listOf("1. สร้างภาพ ChatGPT / Gemini • แนบ MASTER ให้","2. สร้างวิดีโอใน Flow • ใช้ภาพฉาก","ไฟล์คำสั่ง / แก้ไข / ทำต่อ")) { kind ->
                         if(kind<2) productionTaskDeck(story,number,kind==0)
                         else productionTaskType(story,number)
-
                     }
                 }
             }
@@ -2036,7 +2050,7 @@ $context"""
             val flowSpec=sceneForFlow?.let { scene ->
                 val original=ProductionCommandCheck.spec(scene)
                 val prefKey="prop_master_${project.name}_${task.id}"
-                val assigned=runCatching { JSONObject(File(project,"prop_assignments.json").readText()).optJSONArray(task.id) }.getOrNull()
+                val assigned=if(ChannelFeaturePolicy.hasFantasyTools(story.optString("channel"))) runCatching { JSONObject(File(project,"prop_assignments.json").readText()).optJSONArray(task.id) }.getOrNull() else null
                 val manual=if(prefs.contains(prefKey)) prefs.getStringSet(prefKey,emptySet()).orEmpty() else null
                 val notes=(0 until (assigned?.length() ?: 0)).mapNotNull { assigned?.optJSONObject(it) }.filter { manual==null || it.optString("prop_id") in manual }.map { row ->
                     "${row.optString("prop_id")} with ${row.optString("holder").ifBlank { "holder unspecified" }}; initial state ${row.optString("start_prop_state").ifBlank { "unspecified; follow first frame" }}"
@@ -2647,6 +2661,24 @@ $context"""
             done(index)
         }
     }
+    private fun chooseTopicWithRandom(channel: String,category: String,topics: List<String>,done: (String)->Unit) {
+        if(topics.isEmpty()) { notice("ไม่มีหมวดย่อยให้เลือก"); return }
+        val prefKey="last_topic_"+java.lang.Integer.toUnsignedString((channel+"|"+category).hashCode(),16)
+        var previous=prefs.getString(prefKey,"").orEmpty()
+        fun accept(value: String) { prefs.edit().putString(prefKey,value).apply(); done(value) }
+        lateinit var pick: ()->Unit
+        pick={
+            val choices=ChannelFeaturePolicy.candidates(topics,previous)
+            val result=choices.random()
+            previous=result
+            choiceMenu("🎲 สุ่มได้ • $result",listOf("✅ ใช้หมวดนี้","🎲 สุ่มอีกครั้ง","↩ เลือกเอง")) { answer ->
+                when(answer) { 0 -> accept(result); 1 -> pick(); else -> chooseTopicWithRandom(channel,category,topics,done) }
+            }
+        }
+        choiceMenu("เลือกหมวดย่อย • $category",listOf("🎲 สุ่มหมวดย่อย")+topics) { choice ->
+            if(choice==0) pick() else accept(topics[choice-1])
+        }
+    }
     private fun chooseChannelTopic(channel: String, done: (Int) -> Unit) {
         if(channel=="นายเปีย บ้านคลองขุด") {
             val ids=listOf("pia_benefits","pia_safety","personal_social_drama","pia_products")
@@ -2660,8 +2692,8 @@ $context"""
             choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",labels) { selected ->
                 val index=ChannelCatalog.allCategories.indexOfFirst { it.id==ids[selected] }
                 require(index>=0) { "ไม่พบหมวดที่เลือก" }
-                choiceMenu("เลือกหมวดย่อย • "+ChannelCatalog.allCategories[index].name,subcategories[selected]) { sub ->
-                    selectedStoryTopic=subcategories[selected][sub]
+                chooseTopicWithRandom(channel,ChannelCatalog.allCategories[index].name,subcategories[selected]) { topic ->
+                    selectedStoryTopic=topic
                     done(index)
                 }
             }
@@ -2671,8 +2703,8 @@ $context"""
         choiceMenu("ขั้นที่ 1 • เลือกหมวดหลัก • ร้อยฉาก",film.map { it.menuLabel }) { selected ->
             val index=ChannelCatalog.allCategories.indexOfFirst { it.id==film[selected].id }
             val topics=ChannelCatalog.shortTopics(film[selected].id)
-            choiceMenu("ขั้นที่ 2 • เลือกแนวย่อย",listOf("🎲 สุ่มแนวย่อย")+topics) { choice ->
-                selectedStoryTopic=if(choice==0) topics.random() else topics[choice-1]
+            chooseTopicWithRandom(channel,film[selected].id,topics) { topic ->
+                selectedStoryTopic=topic
                 done(index)
             }
         }

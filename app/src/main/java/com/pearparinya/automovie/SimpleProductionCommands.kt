@@ -56,7 +56,7 @@ $bindings
 For each listed character, use only their own attached MASTER for their identity, visible body, hairstyle, outfit, armor, headwear and accessories. Reproduce the distinctive colors, silhouette and details shown in that MASTER. If a helmet or mask covers the face, keep it closed: do not remove it, invent a visible face, or substitute an unhelmeted person. A covered face does not need a readable expression. Each three-view image shows ONE character, not multiple people. Never exchange identities or clothing between characters. This per-character instruction overrides generic face-only, scene outfit, wardrobe and expression instructions for the listed characters only. Follow the scene for action and pose without changing those appearances. If the attachment or identity mapping is unclear, ask before generating. Visually compare each character to their own reference; similarity cannot be guaranteed."""
     }
     private fun cast(people: List<JSONObject>,poster: Boolean=false)=people.mapIndexed { i,p ->
-        val position=if(!poster) p.optString("screen_position") else when(people.size) { 1 -> "center"; 2 -> if(i==0) "left" else "right"; else -> listOf("left","center","right")[i] }
+        val position=if(!poster) p.optString("screen_position") else when(people.size) { 1 -> "center"; 2 -> if(i==0) "left" else "right"; 3 -> listOf("left","center","right")[i]; else -> "distinct ensemble position ${i+1}" }
         val alias=when(FlowCast.id(p)) { "gawin" -> "Kawin / Gawin"; "rinlada" -> "Rinrada / Rinlada"; "mind" -> "May / Mind"; else -> p.getString("name") }
         "${p.getString("name")} ($alias) | MASTER ID: ${referenceId(p.getString("master"))} | position: $position\nOutfit: ${p.getString("outfit")}"
     }.joinToString("\n")
@@ -73,7 +73,10 @@ For each listed character, use only their own attached MASTER for their identity
             val scope=if(overall) "STORY" else "EP%02d".format(number)
             val id="${scope}_COVER_${ratio.replace(':','x')}"
             val label=if(overall) (if(single) "ปกเรื่อง" else "ปกรวมทั้งเรื่อง") else "ปก EP.$number"
-            val selected=if(overall) (0 until story.getJSONArray("episodes").length()).flatMap { people(story.getJSONArray("episodes").getJSONObject(it)) }.distinctBy { it.getString("name") }.take(3) else people(ep).take(3)
+            val candidates=if(overall) (0 until story.getJSONArray("episodes").length()).flatMap { people(story.getJSONArray("episodes").getJSONObject(it)) }.distinctBy { it.getString("name") } else people(ep)
+            val selected=candidates.take(9)
+            val posterContext=(if(overall) (0 until story.getJSONArray("episodes").length()).map { story.getJSONArray("episodes").getJSONObject(it) } else listOf(ep))
+                .map { listOf(it.optString("synopsis"),it.optString("cover_incident")).filter(String::isNotBlank).joinToString(" • ") }.filter(String::isNotBlank).joinToString(" | ").take(1500)
             val text=listOf(ChannelCatalog.currentChannel(story.getString("channel")),story.getString("title"),if(overall) story.getString("tagline") else "ตอนที่ $number ${ep.getString("title")}")
             val size=if(ratio=="9:16") "1080 x 1920" else "1920 x 1080"
             val note=(if(overall) story else ep).optString("production_note_$id")
@@ -84,7 +87,9 @@ CHARACTERS AND OUTFITS:
 ${cast(selected,true)}
 $wardrobeContinuity
 ${WardrobeContext.image}
-${FlowReferencePrompt.visibleCastLock(selected)}
+Show every listed named character with their own MASTER; do not replace, merge, duplicate or invent named characters. Preserve nonhuman species, anatomy and markings. Include anonymous background crowds only when the story context explicitly describes them; do not invent unrelated groups or events.
+STORY CONTEXT FOR COMPOSITION ONLY — do not print this as visible text: $posterContext
+${if(candidates.size>selected.size) "Only the first ${selected.size} reference characters are included; review the cast before use." else ""}
 Bright neutral-white editorial light; realistic materials. Keep any reference helmet or mask closed when instructed. Leave the text area clear.
 EXACT VISIBLE THAI TEXT (three entries, no other lettering):
 ${text.joinToString("\n")}
