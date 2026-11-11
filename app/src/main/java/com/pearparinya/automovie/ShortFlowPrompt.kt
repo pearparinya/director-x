@@ -135,7 +135,7 @@ internal object ShortFlowPrompt {
             val label=if(name.isBlank()) "Off-screen narrator" else speakerLabel(s,name)
             "<dialogue><speaker>${xml(label)}</speaker><text>${xml(speechText(text))}</text><language>th-TH</language></dialogue>"
         }
-        val audio=if(silent) "No speech, narration, music or sound effects; visible mouths remain closed." else if(lines.isEmpty()) "No dialogue or narration; visible mouths remain closed." else "Speak the exact written Thai words in turn, without rushing. No extra voices, overlap or subtitles."
+        val audio=if(silent) "No speech, narration, music or sound effects; visible mouths remain closed." else if(lines.isEmpty()) "No dialogue or narration; visible mouths remain closed." else "Speak the exact written Thai words in turn, naturally within 8 seconds without rushing. Other visible characters remain silent while the current speaker speaks. No extra voices, overlap or subtitles."
         val ambience=if(silent) "" else sound.takeIf { it.isNotBlank() }?.let { " Sound: $it." }.orEmpty()
         return "<flow><scene><duration>8</duration><aspect_ratio>9:16</aspect_ratio><lighting>Preserve the lighting of the attached first frame.</lighting><typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone><prompt>${xml(visual+". "+audio+ambience)}</prompt>$lines</scene></flow>"
     }
