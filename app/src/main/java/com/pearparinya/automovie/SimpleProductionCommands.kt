@@ -87,7 +87,7 @@ CHARACTERS AND OUTFITS:
 ${cast(selected,true)}
 $wardrobeContinuity
 ${WardrobeContext.image}
-Show every listed named character with their own MASTER; do not replace, merge, duplicate or invent named characters. Preserve nonhuman species, anatomy and markings. Include anonymous background crowds only when the story context explicitly describes them; do not invent unrelated groups or events.
+Show exactly ${selected.size} ${if(selected.size==1 && selected.first().optString("character_type").let { it.isBlank() || it=="human" }) "person" else "named characters"} from the listed references, each with their own MASTER; do not replace, merge, duplicate or invent named characters. Preserve nonhuman species, anatomy and markings. Include anonymous background crowds only when the story context explicitly describes them; do not invent unrelated groups or events.
 STORY CONTEXT FOR COMPOSITION ONLY — do not print this as visible text: $posterContext
 ${if(candidates.size>selected.size) "Only the first ${selected.size} reference characters are included; review the cast before use." else ""}
 Bright neutral-white editorial light; realistic materials. Keep any reference helmet or mask closed when instructed. Leave the text area clear.
