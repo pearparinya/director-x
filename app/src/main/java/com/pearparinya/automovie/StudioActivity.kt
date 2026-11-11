@@ -1271,6 +1271,8 @@ class StudioActivity : AppCompatActivity() {
     private fun previewImageReferences(task: SimpleProductionCommands.Task, references: List<Pair<String,File>>, labels: Map<String,String>) {
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
         panel.addView(TextView(this).apply { text="ตรวจภาพ MASTER ชื่อและตำแหน่งก่อนส่ง • แตะภาพเพื่อขยาย\nหลังเปิดแอปปลายทาง ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง" })
+        val wardrobeWarnings=plan?.let { story -> rows(story).firstOrNull { key(it)==task.id } }?.let { WardrobeContext.warnings(it) }.orEmpty()
+        if(wardrobeWarnings.isNotEmpty()) panel.addView(TextView(this).apply { text="⚠️ ตรวจความเหมาะสมของชุดก่อนส่ง\n"+wardrobeWarnings.joinToString("\n"); setTypeface(null,Typeface.BOLD) })
         val piaFaceLock=runCatching { GeminiStoryFiles.read(File(project,"gemini_job/spec.json")).optBoolean("pia_face_lock",false) }.getOrDefault(false) && plan?.optString("channel")=="นายเปีย บ้านคลองขุด"
         val faceOnly=android.widget.CheckBox(this).apply { text="ใช้ MASTER เฉพาะใบหน้ามนุษย์ • ชุดและทรงผมตามฉาก"; isChecked=piaFaceLock; panel.addView(this) }
         if(piaFaceLock) panel.addView(TextView(this).apply { text="ล็อกหน้านายเปียด้วย MASTER ต้นฉบับ • เลือกกรอบใบหน้ามุมตรงด้านล่างเพื่อแนบภาพครอปเพิ่ม และตรวจภาพกับชื่อก่อนส่ง" })
@@ -2124,7 +2126,12 @@ $context"""
     private fun readGeminiStatus(): JSONObject? = runCatching { GeminiStoryFiles.read(File(project,"gemini_job/status.json")) }.getOrNull()
     private fun geminiStatusText(status: JSONObject?,details: Boolean=false): String {
         if(status==null) return "${StoryProvider.label(this)} • ยังไม่เริ่มงาน"
-        return StoryStatusText.format(status,GeminiStoryService.running && GeminiStoryService.projectId==project.name,details=details)
+        val spec=runCatching { GeminiStoryFiles.read(File(project,"gemini_job/spec.json")) }.getOrNull()
+        val outline=runCatching { GeminiStoryFiles.read(File(project,"gemini_job/outline.json")) }.getOrNull()
+        val saved=runCatching { GeminiStoryFiles.read(File(project,"story.json")) }.getOrNull()
+        val channel=spec?.optString("channel")?.takeIf { it.isNotBlank() } ?: saved?.optString("channel")?.takeIf { it.isNotBlank() } ?: "ยังไม่ระบุ"
+        val title=outline?.optString("title")?.takeIf { it.isNotBlank() } ?: saved?.optString("title")?.takeIf { it.isNotBlank() } ?: "กำลังตั้งชื่อเรื่อง"
+        return "ช่อง: $channel\nเรื่อง: $title\n"+StoryStatusText.format(status,GeminiStoryService.running && GeminiStoryService.projectId==project.name,details=details)
     }
     private fun geminiSettings(afterSave: (() -> Unit)?=null) {
         val providers=StoryProvider.activeProviders

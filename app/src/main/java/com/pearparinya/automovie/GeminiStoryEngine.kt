@@ -121,6 +121,7 @@ ${FlowVisualDirection.identity}
 ${FlowVisualDirection.color}
 ${AutoDirectorContent.femaleFashion}
 ${AutoDirectorContent.dailyWardrobe}
+${WardrobeContext.planning}
 ${AutoDirectorContent.storyEnergy}
 THREE-VIEW MASTER: Each attached master is one character shown from three angles. The same face, hair, assigned age and natural body proportions must remain recognizable in front, angled and rear views. The daily story outfit is independent from the reference clothing; its details stay fixed throughout each story day.
 ${BodyReferencePolicy.preciseIdentity}
