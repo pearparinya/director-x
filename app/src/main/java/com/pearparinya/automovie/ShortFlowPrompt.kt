@@ -22,6 +22,34 @@ internal object ShortFlowPrompt {
         }
         return result
     }
+    internal fun labels(s: FlowSceneSpec): List<String> {
+        val counts=mutableMapOf<String,Int>()
+        return s.cast.map { p ->
+            val kind=p.characterType.trim().lowercase()
+            val desc=p.appearance.lowercase()
+            fun has(pattern: String)=Regex(pattern,RegexOption.IGNORE_CASE).containsMatchIn(desc)
+            val category=when {
+                kind=="animal" -> "Animal"
+                kind=="demon" || has("\\b(demon|devil)\\b|ปีศาจ") -> "Demon"
+                kind=="ghost" || has("\\bghost\\b|ผี") -> "Ghost"
+                kind=="fairy" || has("\\bfairy\\b|ภูต") -> "Fairy"
+                kind=="spirit" || has("\\bspirit\\b|วิญญาณ") -> "Spirit"
+                kind=="creature" -> "Creature"
+                p.characterGender.equals("man",true) || (p.characterGender.isBlank() && has("\\b(man|male)\\b")) -> "The Man"
+                p.characterGender.equals("woman",true) || (p.characterGender.isBlank() && has("\\b(woman|female)\\b")) -> "Woman"
+                else -> "Character"
+            }
+            val number=(counts[category] ?: 0)+1; counts[category]=number
+            "[$category $number]"
+        }
+    }
+    private fun typed(s: FlowSceneSpec,source: String): String {
+        val labels=labels(s)
+        return Regex("(?i)\\[?\\bCharacter\\s+([0-9]+)\\b\\]?").replace(source) { m ->
+            val i=(m.groupValues[1].toIntOrNull() ?: 0)-1
+            labels.getOrNull(i) ?: m.value
+        }
+    }
     internal fun clothing(p: FlowPerson): String {
         if (p.flowClothing.isNotBlank()) return p.flowClothing.trim()
         val outfit=p.outfit.trim()
@@ -55,7 +83,7 @@ internal object ShortFlowPrompt {
     }
     private fun speakerLabel(s: FlowSceneSpec, name: String): String {
         val index=s.cast.indexOfFirst { it.name.trim()==name.trim() || StoryIdentity.keyFor(it.name)?.let { key -> key==StoryIdentity.keyFor(name) }==true }
-        return if(index>=0) "Character ${index+1}" else "Off-screen speaker"
+        return if(index>=0) labels(s)[index] else "Off-screen speaker"
     }
     fun voiceOnly(s: FlowSceneSpec): String = when {
         s.turns.isNotEmpty() -> s.turns.joinToString("\n") { "${speakerLabel(s,it.speaker)}: ${ThaiSpeechPacing.format(it.text)}" }
@@ -65,25 +93,25 @@ internal object ShortFlowPrompt {
     }
     fun build(s: FlowSceneSpec, camera: String, silent: Boolean=false): String {
         require(FlowScenePrompt.issues(s).isEmpty()) { "ตรวจข้อมูลซีนก่อนคัดลอกคำสั่ง" }
-        val action=aliases(s,s.action.trim())
-        val positions=s.cast.map { aliases(s,it.position.trim()) }
-        val clothes=s.cast.map { clothing(it) }
-        val sound=aliases(s,s.sound.trim())
+        val action=typed(s,aliases(s,s.action.trim()))
+        val positions=s.cast.map { typed(s,aliases(s,it.position.trim())) }
+        val clothes=s.cast.map { clothing(it).takeUnless { value -> value.equals("none",true) } .orEmpty() }
+        val sound=typed(s,aliases(s,s.sound.trim()))
             .replace(Regex("\\b(?:(?:soft|quiet|low|faint|gentle|indoor)\\s+)*murmurs?\\s+of\\s+(?:(?:art|gallery|room|office)\\s+)*(?:patrons|people|crowds?|visitors|guests)\\b",RegexOption.IGNORE_CASE),"quiet room tone")
             .replace(Regex("\\b(?:indoor )?murmurs\\b",RegexOption.IGNORE_CASE),"quiet room tone")
         require(!thai.containsMatchIn(action) && positions.none { thai.containsMatchIn(it) } && !thai.containsMatchIn(sound) && !thai.containsMatchIn(camera) && clothes.none { thai.containsMatchIn(it) }) {
             "คำบรรยายการกระทำ ตำแหน่ง หรือเสียงยังมีภาษาไทย • กรุณาแก้เป็นภาษาอังกฤษก่อนคัดลอก โดยคงบทพูดภาษาไทย"
         }
-        val cast=positions.mapIndexed { i,pos -> "Character ${i+1}: $pos" + clothes[i].takeIf { it.isNotBlank() }?.let { ", wearing $it" }.orEmpty() }.joinToString("; ")
+        val cast=positions.mapIndexed { i,pos -> "${labels(s)[i]}: $pos" + clothes[i].takeIf { it.isNotBlank() }?.let { ", wearing $it" }.orEmpty() + s.cast[i].appearance.trim().takeIf { it.isNotBlank() && it.length<=160 && !thai.containsMatchIn(it) && !it.contains("MASTER",true) }?.let { ", appearance: $it" }.orEmpty() }.joinToString("; ")
         val visual=listOf("Use the attached first frame. One continuous 8-second vertical 9:16 shot",cast,action,
             "Keep identities, outfits, objects and location consistent",ScenePropContinuity.video,motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}")
             .filter { it.isNotBlank() }.joinToString(". ")
         fun turn(name: String, text: String): String {
             val label=speakerLabel(s,name)
-            val index=label.removePrefix("Character ").toIntOrNull()?.minus(1)
+            val index=labels(s).indexOf(label).takeIf { it>=0 }
             val constraint=if(index!=null && index in s.cast.indices) {
                 val cue=listOf(positions[index],clothes[index].takeIf { it.isNotBlank() }?.let { "wearing $it" }.orEmpty()).filter { it.isNotBlank() }.joinToString(", ")
-                val others=positions.indices.filter { it!=index }.joinToString(", ") { "Character ${it+1}" }
+                val others=positions.indices.filter { it!=index }.joinToString(", ") { labels(s)[it] }
                 "ONLY $label ($cue) speaks this line; move only their lips if visible. " + if(others.isNotEmpty()) "$others remain silent with mouths closed." else "No other voices."
             } else "Only the off-screen speaker says this line; visible characters stay silent with mouths closed."
             return "<dialogue><speaker>${xml(label)}</speaker><text>${xml(ThaiSpeechPacing.format(text))}</text><constraint>${xml(constraint)}</constraint></dialogue>"

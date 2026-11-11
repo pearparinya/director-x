@@ -135,7 +135,7 @@ class AutoDirectorContentTest {
         fun command()=SimpleProductionCommands.videoTasks(project,1).first().command
         assertTrue(command().contains("Slow, gentle pan"))
         assertTrue(command().contains("Keep identities, outfits, objects and location consistent"))
-        assertTrue(command().contains("<speaker>Character 2</speaker>"))
+        assertTrue(command().contains("<speaker>[Character 2]</speaker>"))
         scene.put("camera_movement","pan")
         assertTrue(command().contains("Slow, gentle pan"))
         scene.put("camera_movement","track")
@@ -152,7 +152,7 @@ class AutoDirectorContentTest {
         val prompt=SimpleProductionCommands.videoTasks(project,1).first().command
         val parsed=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(prompt.toByteArray(Charsets.UTF_8)))
         assertEquals(scene.getString("dialogue"),parsed.getElementsByTagName("text").item(0).textContent)
-        assertTrue(prompt.contains("<speaker>Character 2</speaker>"))
+        assertTrue(prompt.contains("<speaker>[Character 2]</speaker>"))
         assertTrue(prompt.contains("quiet room tone"))
         assertFalse(prompt.contains("indoor murmurs"))
         assertFalse(prompt.contains("MASTER ID:"))
