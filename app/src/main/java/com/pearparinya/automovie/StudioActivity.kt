@@ -1295,7 +1295,7 @@ class StudioActivity : AppCompatActivity() {
                         active.set(null); loading.dismiss()
                         if(project.name!=projectId || plan!==story || scene.toString()!=snapshot) { notice("ซีนเปลี่ยนระหว่างแปล กรุณาลองใหม่"); return@runOnUiThread }
                         if(result==null) { notice("ยังแปลคำกำกับไม่ได้ • ตรวจ API หรือกดแก้ซีนด้วยตนเอง • ไม่มีการเปลี่ยนบท"); return@runOnUiThread }
-                        val text="ตรวจคำแปลเทียบกับบทก่อนคัดลอก • การแปลนี้ไม่แก้บทที่บันทึก\n\nการกระทำเดิม: ${spec.action}\n\nคำแปล: ${result.first.action}\n\nตำแหน่ง: ${result.first.cast.mapIndexed { i,p -> "Character ${i+1}: ${p.position}" }.joinToString("; ")}\n\nเสียงฉาก: ${result.first.sound.ifBlank { "ไม่มี" }}\n\nบทพูด/บรรยายภาษาไทยคงเดิม\n\n${result.second}"
+                        val text="ตรวจคำแปลเทียบกับบทก่อนคัดลอก • การแปลนี้ไม่แก้บทที่บันทึก\n\nการกระทำเดิม: ${spec.action}\n\nคำแปล: ${result.first.action}\n\nตำแหน่งและเสื้อผ้า (ตรวจให้ตรงกับภาพ): ${result.first.cast.mapIndexed { i,p -> "Character ${i+1}: ${p.position}, ${ShortFlowPrompt.clothing(p).ifBlank { "ไม่ระบุเสื้อ" }} (เดิม: ${ShortFlowPrompt.clothing(spec.cast[i]).ifBlank { "ไม่ระบุ" }})" }.joinToString("; ")}\n\nเสียงฉาก: ${result.first.sound.ifBlank { "ไม่มี" }}\n\nบทพูด/บรรยายภาษาไทยคงเดิม\n\n${result.second}"
                         AlertDialog.Builder(this).setTitle("ตรวจคำแปลก่อนคัดลอก").setView(ScrollView(this).apply { addView(TextView(context).apply { setPadding(dp(18),dp(12),dp(18),dp(12)); this.text=text; setTextIsSelectable(true) }) })
                             .setPositiveButton("คัดลอกคำสั่ง Flow") { _,_ -> copyCommand(result.second) }.setNegativeButton("ยกเลิก",null).showDirector()
                     }

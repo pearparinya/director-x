@@ -10,18 +10,21 @@ internal object FlowEnglishDirections {
         val string=JSONObject().put("type","string")
         return JSONObject().put("type","object").put("properties",JSONObject()
             .put("action",string).put("positions",JSONObject().put("type","array").put("items",JSONObject().put("type","string")))
-            .put("sound",JSONObject().put("type","string")))
-            .put("required",JSONArray().put("action").put("positions").put("sound"))
+            .put("sound",JSONObject().put("type","string"))
+            .put("clothing",JSONObject().put("type","array").put("items",JSONObject().put("type","string"))))
+            .put("required",JSONArray().put("action").put("positions").put("sound").put("clothing"))
     }
     fun prompt(s: FlowSceneSpec): String {
         val mapping=JSONArray(s.cast.mapIndexed { i,p -> JSONObject().put("label","Character ${i+1}").put("name",p.name).put("english_name",p.englishName) })
-        val data=JSONObject().put("action",s.action).put("positions",JSONArray(s.cast.map { it.position })).put("sound",s.sound).put("characters",mapping)
-        return """Translate the supplied action, each ordered position and sound direction to concise English for an 8-second video. Replace character names with their exact Character N labels using the supplied mapping. Preserve every event, position and sound; do not invent, omit, reinterpret or add props, people, dialogue or effects. Preserve the number and order of positions. If sound is empty, return an empty string. Return exactly the requested JSON. Do not translate or add spoken dialogue. Input: $data"""
+        val data=JSONObject().put("action",s.action).put("positions",JSONArray(s.cast.map { it.position })).put("sound",s.sound).put("clothing",JSONArray(s.cast.map { ShortFlowPrompt.clothing(it) })).put("characters",mapping)
+        return """Translate the supplied action, each ordered position and sound direction to concise English for an 8-second video. Replace character names with their exact Character N labels using the supplied mapping. Preserve every event, position and sound; do not invent, omit, reinterpret or add props, people, dialogue or effects. Translate each clothing item in order; preserve its exact meaning and color, never infer or add details. Return an empty clothing item if its input is empty. Preserve the number and order of positions and clothing items. If sound is empty, return an empty string. Return exactly the requested JSON. Do not translate or add spoken dialogue. Input: $data"""
     }
     fun apply(s: FlowSceneSpec,result: JSONObject): FlowSceneSpec {
         require(result.opt("action") is String && result.opt("sound") is String) { "คำแปลไม่ครบ" }
         val action=result.getString("action").trim(); val sound=result.getString("sound").trim()
         val positions=result.optJSONArray("positions") ?: error("คำแปลตำแหน่งไม่ครบ")
+        val clothing=result.optJSONArray("clothing") ?: error("คำแปลเสื้อผ้าไม่ครบ")
+        require(clothing.length()==s.cast.size) { "คำแปลเสื้อผ้าไม่ครบ" }
         require(action.isNotEmpty() && positions.length()==s.cast.size) { "คำแปลการกระทำหรือตำแหน่งไม่ครบ" }
         require(s.sound.isBlank()==sound.isBlank()) { "คำแปลเสียงไม่ตรงกับบทต้นฉบับ" }
         val mentioned=Regex("(?i)\\bCharacter\\s+([0-9]+)\\b").findAll(action+" "+sound).mapNotNull { it.groupValues[1].toIntOrNull() }.toList()
@@ -31,7 +34,10 @@ internal object FlowEnglishDirections {
             require(positions.opt(i) is String) { "คำแปลตำแหน่งไม่ถูกต้อง" }
             val position=positions.getString(i).trim()
             require(position.isNotEmpty() && !thai.containsMatchIn(position)) { "คำแปลตำแหน่งไม่ครบหรือยังมีภาษาไทย" }
-            p.copy(position=position)
+            require(clothing.opt(i) is String) { "คำแปลเสื้อผ้าไม่ถูกต้อง" }
+            val garment=clothing.getString(i).trim()
+            require(ShortFlowPrompt.clothing(p).isBlank()==garment.isBlank() && !thai.containsMatchIn(garment)) { "คำแปลเสื้อผ้าไม่ครบหรือยังมีภาษาไทย" }
+            p.copy(position=position,flowClothing=garment)
         }
         return s.copy(action=action,cast=cast,sound=sound)
     }
