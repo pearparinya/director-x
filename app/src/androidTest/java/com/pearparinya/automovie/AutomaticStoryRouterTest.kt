@@ -12,6 +12,34 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class AutomaticStoryRouterTest {
+    @Test fun completeWriterActionsSkipFormatterAndPreserveDialogue() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-direct-${UUID.randomUUID()}")
+        try {
+            var formats=0
+            val source=draft()
+            source.getJSONArray("scenes").getJSONObject(0)
+                .put("flow_action","นายเปีย opens the door.")
+                .put("characters",JSONArray().put(JSONObject().put("name","นายเปีย")))
+                .put("dialogue","สวัสดี & <ทุกคน>")
+            val writer=client { _,_ -> JSONObject(source.toString()) }
+            val formatter=client { _,_ -> formats++; throw AssertionError("formatter should not be called") }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to writer,StoryProvider.GEMINI to formatter),{false},{_,_->})
+            val row=router.generate("brief",schema()).getJSONArray("scenes").getJSONObject(0)
+            assertEquals("นายเปีย opens the door.",row.getString("flow_action"))
+            assertEquals("สวัสดี & <ทุกคน>",row.getString("dialogue"))
+            assertEquals(0,formats)
+        } finally { folder.deleteRecursively() }
+    }
+    @Test fun missingOrThaiActionStillRequiresFormatter() {
+        val value=draft()
+        val row=value.getJSONArray("scenes").getJSONObject(0)
+        row.put("characters",JSONArray().put(JSONObject().put("name","นายเปีย")))
+        assertFalse(SceneXml.hasUsableActions(value))
+        row.put("flow_action","นายเปีย เปิดประตู")
+        assertFalse(SceneXml.hasUsableActions(value))
+        row.put("flow_action","นายเปีย opens the door")
+        assertTrue(SceneXml.hasUsableActions(value))
+    }
     @Test fun allowedProvidersRestrictRoutingAndFreeOnlyStillWins() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val before=StoryProvider.allowedIds(context); val free=StoryProvider.freeOnly(context)

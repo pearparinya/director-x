@@ -83,8 +83,13 @@ internal class AutomaticStoryRouter(
             // The preferred formatter may be unavailable; another configured provider
             // can still format the writer's draft without losing completed work.
             if(writer !in clients || writer in unavailable || (cooldown[writer] ?: 0L)>android.os.SystemClock.elapsedRealtime()) continue
+            // Do not issue a fresh writer request when no formatter is available;
+            // an already saved complete draft can still be used directly.
             if(sceneBatch && formatter!=null && listOf(formatter,StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER,StoryProvider.COHERE,StoryProvider.MISTRAL,StoryProvider.SAMBANOVA,StoryProvider.CEREBRAS)
-                .none { it!=writer && it in clients && it !in unavailable && (cooldown[it] ?: 0L)<=android.os.SystemClock.elapsedRealtime() }) continue
+                .none { it!=writer && it in clients && it !in unavailable && (cooldown[it] ?: 0L)<=android.os.SystemClock.elapsedRealtime() }) {
+                val saved=draftFile(writer,prompt,schema)
+                if(!saved.isFile || !runCatching { SceneXml.hasUsableActions(GeminiStoryFiles.read(saved)) }.getOrDefault(false)) continue
+            }
             var current=writer
             try {
                 val cache=draftFile(writer,prompt,schema)
@@ -93,7 +98,7 @@ internal class AutomaticStoryRouter(
                     generateChecked(writer,prompt,schema).also { GeminiStoryFiles.write(cache,it) }
                 }
                 if(cancelled()) throw CancellationException()
-                val result=if(sceneBatch && formatter!=null) {
+                val result=if(sceneBatch && formatter!=null && !SceneXml.hasUsableActions(draft)) {
                     val request="""Create a well-formed XML document with root <flow>. For every input scene include exactly one <scene id="NUMBER"><prompt>ENGLISH ACTION</prompt><dialogue>EXACT THAI DIALOGUE</dialogue></scene>. The scene id and dialogue must exactly match the input; use empty dialogue for silent or narrated scenes. Escape XML special characters. The prompt must be an English visible action using only the same people and events; preserve their names and do not add speech. No other scene or tag. Return JSON with one field named xml containing the XML. Input scenes: ${draft.getJSONArray("scenes")}"""
                     val xmlSchema=JSONObject().put("type","object").put("properties",JSONObject().put("xml",JSONObject().put("type","string"))).put("required",JSONArray().put("xml"))
                     fun formatWith(provider: StoryProvider): JSONObject {
@@ -190,6 +195,27 @@ internal class InvalidSceneXml(cause: Exception): IllegalArgumentException("XML 
 
 /** Reject DTDs, missing/duplicate IDs and changed dialogue before merging formatted actions. */
 internal object SceneXml {
+    /** Reuse the writer's own complete English directions; downstream scene validation still runs. */
+    fun hasUsableActions(draft: JSONObject): Boolean {
+        val rows=draft.optJSONArray("scenes") ?: return false
+        if(rows.length()==0) return false
+        val ids=mutableSetOf<Int>()
+        for(i in 0 until rows.length()) {
+            val row=rows.optJSONObject(i) ?: return false
+            val id=row.optInt("scene",-1)
+            if(id<1 || !ids.add(id)) return false
+            var action=row.optString("flow_action").trim()
+            if(action.isEmpty()) return false
+            val cast=row.optJSONArray("characters") ?: return false
+            for(j in 0 until cast.length()) {
+                val name=cast.optJSONObject(j)?.optString("name").orEmpty()
+                if(name.isNotBlank()) action=action.replace(name,"")
+            }
+            if(Regex("[\\u0E00-\\u0E7F]").containsMatchIn(action)) return false
+            if(!Regex("[A-Za-z]").containsMatchIn(action)) return false
+        }
+        return true
+    }
     fun apply(draft: JSONObject,xml: String): JSONObject {
         require(xml.length in 1..500_000 && !Regex("<!",RegexOption.IGNORE_CASE).containsMatchIn(xml)) { "XML ไม่ปลอดภัยหรือมีขนาดไม่ถูกต้อง" }
         val rows=draft.getJSONArray("scenes")
