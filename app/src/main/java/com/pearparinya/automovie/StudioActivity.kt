@@ -2092,7 +2092,15 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
         val reviewed=runCatching { GeminiStoryFiles.read(File(project,"gemini_job/spec.json")).optJSONArray("selected_prop_masters") }.getOrNull()
         val reviewedIds=(0 until (reviewed?.length() ?: 0)).mapNotNull { reviewed?.optJSONObject(it)?.optString("prop_id")?.takeIf(String::isNotBlank) }.toSet()
         if(reviewed!=null && reviewedIds.isEmpty()) { notice("เรื่องนี้ไม่ได้เลือก MASTER อุปกรณ์ก่อนสร้างบท • เลือกอุปกรณ์ด้วยตนเองในซีนได้"); return }
-        val characterBindings=scenes.flatMap { FlowReferencePrompt.people(it) }.distinctBy { it.optString("master") }.mapNotNull { person -> characterProp(person.optString("master")).takeIf { it.isNotBlank() }?.let { "${person.optString("name")} = $it" } }.joinToString("\n")
+        val manualBindings=scenes.flatMap { FlowReferencePrompt.people(it) }.distinctBy { it.optString("master") }.mapNotNull { person -> characterProp(person.optString("master")).takeIf { it.isNotBlank() }?.let { "${person.optString("name")} = $it" } }
+        val registered=FlowCast.definitions(story)
+        val reviewedBindings=(0 until (reviewed?.length() ?: 0)).mapNotNull { i ->
+            val row=reviewed?.optJSONObject(i) ?: return@mapNotNull null
+            val owner=row.optString("owner_library_id"); val id=row.optString("prop_id")
+            val name=registered.singleOrNull { it.optString("library_id")==owner && owner.isNotBlank() }?.optString("name").orEmpty()
+            if(name.isBlank() || id !in reviewedIds) null else "$name = $id"
+        }
+        val characterBindings=(manualBindings+reviewedBindings).distinct().joinToString("\n")
         val catalogText=catalog.mapIndexedNotNull { i,n -> val id=propId(i); if(reviewed!=null && id !in reviewedIds) null else "$id = $n" }.joinToString("\n")
         notice("กำลังให้ AI เสนออุปกรณ์ • ตรวจรายการก่อนบันทึก • บทเดิมไม่เปลี่ยน")
         Thread {
@@ -2198,8 +2206,19 @@ $context"""
         return true
     }
     private fun productionTaskDeck(story: JSONObject,number: Int,images: Boolean,queueIds: Set<String>?=null) {
-        val allTasks=runCatching { if(images) SimpleProductionCommands.imageTasks(story,number) else SimpleProductionCommands.videoTasks(story,number) }.getOrElse {
-            notice(it.message ?: "ข้อมูลคำสั่งไม่ครบ"); productionCheckMenu(story); return
+        val coverSelection=listOf("STORY","EP%02d".format(number)).mapNotNull { scope ->
+            val key="cover_cast_${project.name}_$scope"
+            if(prefs.contains(key)) scope to prefs.getStringSet(key,emptySet()).orEmpty().toSet() else null
+        }.toMap()
+        val allTasks=runCatching { if(images) SimpleProductionCommands.imageTasks(story,number,coverSelection) else SimpleProductionCommands.videoTasks(story,number) }.getOrElse {
+            if(images && coverSelection.isNotEmpty()) {
+                AlertDialog.Builder(this).setTitle("ตรวจรายการปก").setMessage((it.message ?: "ข้อมูลคำสั่งไม่ครบ")+"\nหากตัวละครในบทเปลี่ยน สามารถล้างรายการปกที่เคยเลือก แล้วเลือกใหม่ได้")
+                    .setPositiveButton("ล้างรายการปกและเลือกใหม่") { _,_ ->
+                        val editor=prefs.edit(); coverSelection.keys.forEach { scope -> editor.remove("cover_cast_${project.name}_$scope") }; editor.apply()
+                        productionTaskDeck(story,number,images,queueIds)
+                    }.setNegativeButton("ยกเลิก",null).showDirector()
+            } else { notice(it.message ?: "ข้อมูลคำสั่งไม่ครบ"); productionCheckMenu(story) }
+            return
         }
         if(queueIds==null) {
             val covers=if(images) allTasks.filter { it.id.contains("_COVER_") } else emptyList()
@@ -2278,7 +2297,9 @@ $context"""
                 }
                 if(problems.isNotEmpty()) { productionCheckMenu(story); return@setOnClickListener }
                 val refs=task.references.map { person -> referenceId(person.getString("master")) to masterFor(person) }
-                if(refs.isEmpty() || refs.any { !it.second.isFile }) { notice("ขาด MASTER ของตัวละครในรายการนี้"); return@setOnClickListener }
+                if(refs.isEmpty()) { notice("ไม่มีตัวละครหรือ MASTER ที่ระบุในรายการนี้"); return@setOnClickListener }
+                val missing=task.references.zip(refs).filter { !it.second.second.isFile }.map { (person,ref) -> "${person.optString("name")} • ${ref.first}" }
+                if(missing.isNotEmpty()) { notice("ไม่พบ MASTER ของตัวละครต่อไปนี้ กรุณาตรวจหรือเพิ่มภาพก่อนสร้าง:\n"+missing.joinToString("\n")); return@setOnClickListener }
                 if(refs.map { it.first.lowercase() }.distinct().size != refs.size) { notice("รหัส MASTER ซ้ำกัน กรุณาตรวจตัวละครก่อนสร้างภาพ"); return@setOnClickListener }
                 val hashes=runCatching { refs.map { MasterLibrary.digest(it.second.readBytes()) } }.getOrElse { notice("อ่าน MASTER ไม่ได้ กรุณาตรวจไฟล์ภาพ"); return@setOnClickListener }
                 if(hashes.distinct().size != hashes.size) { notice("MASTER ของตัวละครต่างคนเป็นไฟล์ภาพเดียวกัน กรุณาตรวจและเปลี่ยนภาพก่อนสร้าง"); return@setOnClickListener }
@@ -2318,8 +2339,28 @@ $context"""
             dialog.getButton(-3).setOnClickListener {
                 dialog.dismiss()
                 val scene=rows(story).firstOrNull { key(it)==task.id }
-                choiceMenu("แก้ ${task.id}",if(scene==null) listOf("แก้การจัดภาพปก","แก้ข้อความบนปก") else if(images) listOf("แก้ทิศทางภาพเฉพาะจุด","แก้บท / การกระทำ / ชุด / ตำแหน่ง / เสียง","เสนอขยายบทสั้น") else listOf("แก้ทิศทางวิดีโอเฉพาะจุด","แก้บท / การกระทำ / ชุด / ตำแหน่ง / เสียง","เลือกการเคลื่อนกล้อง","เสนอขยายบทสั้น")) { action ->
-                    if(scene!=null && (images && action==2 || !images && action==3)) suggestLongerSpeech(scene)
+                choiceMenu("แก้ ${task.id}",if(scene==null) listOf("เลือกตัวละครบนปก","แก้การจัดภาพปก","แก้ข้อความบนปก") else if(images) listOf("แก้ทิศทางภาพเฉพาะจุด","แก้บท / การกระทำ / ชุด / ตำแหน่ง / เสียง","เสนอขยายบทสั้น") else listOf("แก้ทิศทางวิดีโอเฉพาะจุด","แก้บท / การกระทำ / ชุด / ตำแหน่ง / เสียง","เลือกการเคลื่อนกล้อง","เสนอขยายบทสั้น")) { action ->
+                    if(scene==null && action==0) {
+                        val overall=task.id.startsWith("STORY_"); val scope=if(overall) "STORY" else "EP%02d".format(number)
+                        val candidates=SimpleProductionCommands.coverCandidates(story,number,overall)
+                        val chosen=task.references.map { referenceId(it.getString("master")) }.toMutableSet()
+                        val list=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
+                        list.addView(TextView(this).apply { text="เลือกตัวละครสำคัญจาก${if(overall) "ทั้งเรื่อง" else "ทุกฉากในตอน"} • สูงสุด 9 ภาพ MASTER • แตะภาพเพื่อขยาย" })
+                        candidates.forEach { person ->
+                            val id=referenceId(person.getString("master")); val file=masterFor(person)
+                            val box=android.widget.CheckBox(this).apply { text="${person.optString("name")} • $id"+(if(file.isFile) "" else " • ไม่พบ MASTER"); isChecked=id in chosen; isEnabled=file.isFile; list.addView(this) }
+                            if(file.isFile) list.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(file)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(140)); setOnClickListener { fullImage(file,box.text.toString()) } })
+                            box.setOnCheckedChangeListener { _,checked -> if(checked) chosen.add(id) else chosen.remove(id) }
+                        }
+                        val picker=AlertDialog.Builder(this).setTitle("เลือกตัวละครบนปก").setView(ScrollView(this).apply { addView(list) }).setPositiveButton("บันทึก",null).setNegativeButton("ยกเลิก",null).showDirector()
+                        picker.getButton(-1).setOnClickListener {
+                            if(chosen.isEmpty() || chosen.size>9) notice("กรุณาเลือกภาพ MASTER 1–9 ตัว")
+                            else if(candidates.filter { referenceId(it.getString("master")) in chosen }.any { !masterFor(it).isFile }) notice("ภาพ MASTER บางตัวหาย กรุณาเลือกใหม่")
+                            else { prefs.edit().putStringSet("cover_cast_${project.name}_$scope",chosen.toSet()).apply(); picker.dismiss(); notice("บันทึกรายการปกแล้ว • เปิดปกอีกครั้งเพื่อตรวจและส่ง") }
+                        }
+                    }
+                    else if(scene==null && action==2) editProductionCover(story)
+                    else if(scene!=null && (images && action==2 || !images && action==3)) suggestLongerSpeech(scene)
                     else if(action==2 && scene!=null && !images) {
                         val modes=listOf("อัตโนมัติตามซีน","ซูมเข้าอย่างช้า ๆ","แพนกล้อง","เคลื่อนตามการกระทำ","กล้องนิ่ง")
                         val keys=listOf("","push_in","pan","track","locked")
@@ -2327,7 +2368,7 @@ $context"""
                             scene.put("camera_movement",keys[selected]); saveStory(); render()
                             notice("บันทึกการเคลื่อนกล้องแล้ว • เปิดซีนเดิมเพื่อคัดลอกคำสั่งใหม่")
                         }
-                    } else if(action==1) { if(scene==null) editProductionCover(story) else editScene(scene) }
+                    } else if(action==1 && scene!=null) { editScene(scene) }
                     else {
                         val target=scene ?: if(task.id.startsWith("STORY_")) story else story.getJSONArray("episodes").let { eps -> (0 until eps.length()).map { eps.getJSONObject(it) }.first { it.getInt("ep")==number } }
                         val field=if(scene==null) "production_note_${task.id}" else if(images) "production_image_note" else "production_video_note"
@@ -3949,7 +3990,9 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             return if(exact.exists()) exact else File(project,"masters").listFiles()?.firstOrNull { it.nameWithoutExtension.equals(requested.substringBeforeLast('.'),true) } ?: exact
         }
         val id = FlowCast.id(person) ?: return File(project,"missing.master")
-        return File(project,"original_masters/$id.master").takeIf { it.exists() } ?: File(filesDir,"character_masters/$id.master")
+        val snapshot=File(project,"original_masters/$id.master")
+        val frozen=FlowCast.supporting(plan).any { it.optBoolean("auto_cast") && FlowCast.id(it)==id }
+        return if(frozen || snapshot.isFile) snapshot else File(filesDir,"character_masters/$id.master")
     }
     private fun repairSceneCharacter(s: JSONObject) {
         if (!image(s).isFile) return notice("นำเข้าภาพฉากก่อนแก้ตัวละคร")
