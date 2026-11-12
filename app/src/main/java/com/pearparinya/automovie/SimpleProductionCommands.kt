@@ -66,15 +66,22 @@ For each listed character, use only their own attached MASTER for their identity
         }
     }.joinToString("\n")
     private const val light = "Bright neutral-white 5500K, soft shadows; no dark or yellow cast. Keep night scenes bright with neutral artificial light."
-    fun imageTasks(story: JSONObject,number: Int): List<Task> = buildList {
+    fun coverCandidates(story: JSONObject,number: Int,overall: Boolean): List<JSONObject> {
+        val eps=story.getJSONArray("episodes")
+        val selected=if(overall) (0 until eps.length()).map { eps.getJSONObject(it) } else listOf(episode(story,number))
+        return selected.flatMap { people(it) }.distinctBy { referenceId(it.getString("master")).lowercase() }
+    }
+    fun imageTasks(story: JSONObject,number: Int,coverSelection: Map<String,Set<String>> = emptyMap()): List<Task> = buildList {
         LandscapeProduction.requirePlan(story)
         val ep=episode(story,number); val rows=ep.getJSONArray("scenes"); val single=story.getJSONArray("episodes").length()==1
         fun poster(overall: Boolean,ratio: String) {
             val scope=if(overall) "STORY" else "EP%02d".format(number)
             val id="${scope}_COVER_${ratio.replace(':','x')}"
             val label=if(overall) (if(single) "ปกเรื่อง" else "ปกรวมทั้งเรื่อง") else "ปก EP.$number"
-            val candidates=if(overall) (0 until story.getJSONArray("episodes").length()).flatMap { people(story.getJSONArray("episodes").getJSONObject(it)) }.distinctBy { it.getString("name") } else people(ep)
-            val selected=candidates.take(9)
+            val candidates=coverCandidates(story,number,overall)
+            val chosen=coverSelection[scope]
+            val selected=if(chosen==null) candidates.take(9) else candidates.filter { referenceId(it.getString("master")) in chosen }
+            if(chosen!=null) require(selected.isNotEmpty() && selected.size<=9 && selected.size==chosen.size) { "ตัวละครปกเปลี่ยนหรือเกิน 9 ภาพ กรุณาเลือกรายการปกใหม่" }
             val posterContext=(if(overall) (0 until story.getJSONArray("episodes").length()).map { story.getJSONArray("episodes").getJSONObject(it) } else listOf(ep))
                 .map { listOf(it.optString("synopsis"),it.optString("cover_incident")).filter(String::isNotBlank).joinToString(" • ") }.filter(String::isNotBlank).joinToString(" | ").take(1500)
             val text=listOf(ChannelCatalog.currentChannel(story.getString("channel")),story.getString("title"),if(overall) story.getString("tagline") else "ตอนที่ $number ${ep.getString("title")}")
@@ -89,7 +96,7 @@ $wardrobeContinuity
 ${WardrobeContext.image}
 Show exactly ${selected.size} ${if(selected.size==1 && selected.first().optString("character_type").let { it.isBlank() || it=="human" }) "person" else "named characters"} from the listed references, each with their own MASTER; do not replace, merge, duplicate or invent named characters. Preserve nonhuman species, anatomy and markings. Include anonymous background crowds only when the story context explicitly describes them; do not invent unrelated groups or events.
 STORY CONTEXT FOR COMPOSITION ONLY — do not print this as visible text: $posterContext
-${if(candidates.size>selected.size) "Only the first ${selected.size} reference characters are included; review the cast before use." else ""}
+${if(candidates.size>selected.size) "Only the ${selected.size} selected reference characters are included; review the cast before use." else ""}
 Bright neutral-white editorial light; realistic materials. Keep any reference helmet or mask closed when instructed. Leave the text area clear.
 EXACT VISIBLE THAI TEXT (three entries, no other lettering):
 ${text.joinToString("\n")}

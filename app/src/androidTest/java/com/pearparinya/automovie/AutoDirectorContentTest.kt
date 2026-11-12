@@ -109,6 +109,21 @@ class AutoDirectorContentTest {
         assertTrue(cover.command.contains("Reference 5: อสูร"))
         assertTrue(cover.command.contains("Preserve nonhuman species"))
     }
+    @Test fun coverSelectionCanChooseLaterCharacterWithoutChangingStoryOrScenes() {
+        val project=story(); val scenes=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes")
+        val wolf=JSONObject().put("name","หมาป่า").put("master","SUPPORT_00000001_MASTER.png").put("outfit","none").put("character_type","animal")
+        scenes.getJSONObject(23).getJSONArray("characters").put(wolf)
+        val first=scenes.getJSONObject(0).getJSONArray("characters").getJSONObject(0)
+        val selected=setOf(referenceId(first.getString("master")),referenceId(wolf.getString("master")))
+        val before=project.toString()
+        val tasks=SimpleProductionCommands.imageTasks(project,1,mapOf("STORY" to selected))
+        val cover=tasks.first { it.id=="STORY_COVER_9x16" }
+        assertEquals(selected,cover.references.map { referenceId(it.getString("master")) }.toSet())
+        assertTrue(cover.command.contains("หมาป่า")); assertTrue(cover.command.contains("SUPPORT_00000001_MASTER"))
+        assertFalse(tasks.first { it.id=="EP01_SC001" }.references.any { it.optString("name")=="หมาป่า" })
+        assertEquals(before,project.toString())
+        assertTrue(runCatching { SimpleProductionCommands.imageTasks(project,1,mapOf("STORY" to setOf("MISSING_MASTER"))) }.isFailure)
+    }
     @Test fun sceneOverviewWarnsOnLongSpeechWithoutChangingIt() {
         val scene=story().getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
         val words="คำทดสอบ".repeat(20)
