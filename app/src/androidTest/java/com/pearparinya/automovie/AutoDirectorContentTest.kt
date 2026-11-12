@@ -225,6 +225,22 @@ class AutoDirectorContentTest {
         assertTrue(overview.contains("สิ่งของและผู้ใช้จากบท: กวิน: จอบ"))
         assertTrue(overview.contains("ตรวจสิ่งของกับภาพเริ่มต้นจริง"))
     }
+    @Test fun propSuggestionsRequireEvidenceAndPreserveExistingNotes() {
+        val scene=JSONObject().put("action","กวินถือจอบขุดดิน").put("start_state","กวินถือจอบ").put("props","นายเปีย: ถุง")
+            .put("characters",JSONArray().put(JSONObject().put("name","กวิน")))
+        val valid=JSONObject().put("scene_id","EP01_SC001").put("item","จอบ").put("holder","กวิน").put("details","").put("continuity_id","tool1").put("evidence","ถือจอบ")
+        val hallucination=JSONObject(valid.toString()).put("item","ดาบ").put("evidence","ถือดาบ")
+        val stranger=JSONObject(valid.toString()).put("holder","บุคคลอื่น")
+        val answer=JSONObject().put("items",JSONArray().put(valid).put(hallucination).put(stranger))
+        val accepted=PropSuggestionReview.valid(answer,mapOf("EP01_SC001" to scene))
+        assertEquals(1,accepted.size)
+        PropSuggestionReview.apply(scene,accepted)
+        assertTrue(scene.getString("props").contains("นายเปีย: ถุง"))
+        assertTrue(scene.getString("props").contains("กวิน: จอบ"))
+        assertEquals("tool1",scene.getJSONArray("prop_links").getJSONObject(0).getString("continuity_id"))
+        PropSuggestionReview.apply(scene,accepted)
+        assertEquals(1,scene.getJSONArray("prop_links").length())
+    }
     private fun story(): JSONObject {
         val scenes=JSONArray()
         repeat(24) { i ->
