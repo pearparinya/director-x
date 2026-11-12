@@ -1847,7 +1847,9 @@ $context"""
                     setPadding(0,0,0,dp(12))
                 })
                 val boxes=proposals.map { row ->
-                    val label="${row.optString("scene_id")} • ${row.optString("item")}\nผู้ใช้: ${row.optString("holder").ifBlank { "ยังไม่ระบุ" }}\nรายละเอียด: ${row.optString("details").ifBlank { "ยังไม่ระบุ" }}\nกลุ่มต่อเนื่อง: ${row.optString("continuity_id").ifBlank { "ยังไม่ระบุ • ตรวจเอง" }}\nหลักฐานในบท: ${row.optString("evidence")}"
+                    val matched=allowed[row.optString("scene_id")]?.let { scene -> FlowReferencePrompt.people(scene).firstOrNull { it.optString("name")==row.optString("holder") } }
+                    val linkedMaster=if(fantasy && matched!=null) characterProp(matched.optString("master")) else ""
+                    val label="${row.optString("scene_id")} • ${row.optString("item")}\nผู้ใช้: ${row.optString("holder").ifBlank { "ยังไม่ระบุ" }}\nรายละเอียด: ${row.optString("details").ifBlank { "ยังไม่ระบุ" }}\nกลุ่มต่อเนื่อง: ${row.optString("continuity_id").ifBlank { "ยังไม่ระบุ • ตรวจเอง" }}\nหลักฐานในบท: ${row.optString("evidence")}"+(if(linkedMaster.isBlank()) "" else "\nMASTER ที่ผูกกับตัวละคร: $linkedMaster • ตรวจว่าตรงกับสิ่งของนี้")
                     android.widget.CheckBox(this).apply { text=label; isChecked=false; textSize=15f; setTextColor(navy); setPadding(dp(12),dp(12),dp(12),dp(12)); background=backdrop(Color.rgb(248,246,239),Color.rgb(226,234,243),Color.rgb(173,187,204)); layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) }; panel.addView(this) }
                 }
                 val dialog=AlertDialog.Builder(this).setTitle("✨ ตรวจสิ่งของที่ AI เสนอ • ${proposals.size} รายการ")
