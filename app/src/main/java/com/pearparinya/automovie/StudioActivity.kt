@@ -1352,6 +1352,10 @@ class StudioActivity : AppCompatActivity() {
     private fun previewImageReferences(task: SimpleProductionCommands.Task, references: List<Pair<String,File>>, labels: Map<String,String>) {
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
         panel.addView(TextView(this).apply { text="ตรวจภาพ MASTER ชื่อและตำแหน่งก่อนส่ง • แตะภาพเพื่อขยาย\nหลังเปิดแอปปลายทาง ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง" })
+        if(task.id.contains("_COVER_") && task.references.size==1) panel.addView(TextView(this).apply {
+            text="⚠️ ปกนี้มีตัวละครพร้อมใช้เพียง 1 ตัว • ตรวจบทและรายการ MASTER ก่อนเลือกแอปสร้างภาพ"
+            setTypeface(null,Typeface.BOLD)
+        })
         val wardrobeWarnings=plan?.let { story -> if(task.id.contains("_COVER_")) rows(story).flatMap { WardrobeContext.warnings(it) }.distinct() else rows(story).firstOrNull { key(it)==task.id }?.let { WardrobeContext.warnings(it) }.orEmpty() }.orEmpty()
         if(wardrobeWarnings.isNotEmpty()) panel.addView(TextView(this).apply { text="⚠️ ตรวจความเหมาะสมของชุดก่อนส่ง\n"+wardrobeWarnings.joinToString("\n"); setTypeface(null,Typeface.BOLD) })
         val piaFaceLock=runCatching { GeminiStoryFiles.read(File(project,"gemini_job/spec.json")).optBoolean("pia_face_lock",false) }.getOrDefault(false) && plan?.optString("channel")=="นายเปีย บ้านคลองขุด"
