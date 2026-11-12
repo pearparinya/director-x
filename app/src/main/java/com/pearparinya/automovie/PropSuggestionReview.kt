@@ -19,6 +19,18 @@ internal object PropSuggestionReview {
                 sources.contains(evidence,ignoreCase=true) && (holder.isBlank() || holder in known)
         }.distinctBy { listOf(it.optString("scene_id"),it.optString("item"),it.optString("holder")).joinToString("|").lowercase() }
     }
+    /** Only auto-select literal evidence; inferred identity, details, or continuity require review. */
+    fun directlySupported(row: JSONObject, scene: JSONObject?): Boolean {
+        val evidence=row.optString("evidence").trim()
+        val item=row.optString("item").trim()
+        val holder=row.optString("holder").trim()
+        val details=row.optString("details").trim()
+        return scene!=null && evidence.isNotBlank() && scene.optString("start_state").contains(evidence,ignoreCase=true) &&
+            item.isNotBlank() && holder.isNotBlank() &&
+            evidence.contains(item,ignoreCase=true) && evidence.contains(holder,ignoreCase=true) &&
+            (details.isBlank() || evidence.contains(details,ignoreCase=true)) &&
+            row.optString("continuity_id").isBlank()
+    }
     fun apply(scene: JSONObject, approved: List<JSONObject>) {
         if(approved.isEmpty()) return
         val old=scene.optString("props").trim()

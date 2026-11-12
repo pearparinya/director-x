@@ -1832,6 +1832,12 @@ class StudioActivity : AppCompatActivity() {
         }
         return when { saved.isBlank() -> "ยังไม่ได้ตรวจ"; saved==current -> "ผู้ใช้ตรวจบทแล้ว"; else -> "บทเปลี่ยน • ตรวจอีกครั้ง" }
     }
+    private fun sameOpenStory(snapshot: String): Boolean {
+        val current=plan ?: return false
+        // rows adds episode numbers for display; normalize both snapshots before comparison.
+        rows(current)
+        return StorySnapshot.same(snapshot,current)
+    }
     private fun suggestSceneObjects(story: JSONObject) {
         if(GeminiStoryService.running) return notice("กรุณารอหรือหยุดงานเขียนบทก่อนวิเคราะห์สิ่งของ")
         val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
@@ -1866,33 +1872,52 @@ $context"""
             runOnUiThread {
                 if(isFinishing || isDestroyed) return@runOnUiThread
                 if(result==null) { notice("AI วิเคราะห์ไม่ได้ กรุณาตรวจ API แล้วลองใหม่ • บทเดิมไม่เปลี่ยน"); return@runOnUiThread }
-                if(project.name!=projectId || plan!==story || story.toString()!=snapshot) { notice("เรื่องเปลี่ยนระหว่างวิเคราะห์ กรุณาเริ่มใหม่"); return@runOnUiThread }
+                if(project.name!=projectId || !sameOpenStory(snapshot)) { notice("เรื่องเปลี่ยนระหว่างวิเคราะห์ กรุณาเริ่มใหม่"); return@runOnUiThread }
                 val allowed=scenes.associateBy { key(it) }
                 val proposals=PropSuggestionReview.valid(result,allowed)
                 if(proposals.isEmpty()) { notice("ไม่พบข้อเสนอที่มีหลักฐานตรงกับบท • ตรวจหรือเพิ่มเองรายฉากได้"); return@runOnUiThread }
+                // Only apply automatically if every proposal has literal supporting evidence.
+                // Ambiguous suggestions stay on screen for the user to decide.
+                if(proposals.all { PropSuggestionReview.directlySupported(it,allowed[it.optString("scene_id")]) }) {
+                    val previous=plan ?: return@runOnUiThread
+                    runCatching {
+                        val candidate=JSONObject(previous.toString())
+                        val targets=rows(candidate).associateBy { key(it) }
+                        proposals.groupBy { it.optString("scene_id") }.forEach { (id,items) ->
+                            PropSuggestionReview.apply(targets.getValue(id),items)
+                        }
+                        plan=candidate
+                        try { saveStory() } catch(e: Exception) { plan=previous; throw e }
+                    }.onSuccess {
+                        render()
+                        showPropsNext("บันทึกสิ่งของที่มีหลักฐานตรงบทอัตโนมัติ ${proposals.size} รายการ • ตรวจภาพจริงก่อนใช้")
+                    }.onFailure { notice(it.message ?: "บันทึกไม่ได้ • บทเดิมไม่เปลี่ยน") }
+                    return@runOnUiThread
+                }
                 val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
                 panel.addView(TextView(this).apply {
-                    text="ตรวจหลักฐาน ผู้ใช้ และกลุ่มสิ่งของทีละรายการ • ติ๊กเฉพาะที่ถูกต้อง\nกลุ่มเดียวกันเป็นข้อเสนอให้ตรวจ ไม่ยืนยันว่าเป็นชิ้นเดียวกัน • ยังไม่ได้ตรวจภาพจริง\nรายการเดิมและ MASTER อาวุธจะไม่ถูกลบ"
+                    text="รายการที่มีหลักฐานชัดเจนถูกเลือกไว้ให้ • ตรวจและปรับได้ก่อนบันทึก\nรายการที่ไม่ชัดเจนยังไม่ถูกเลือก • กลุ่มต่อเนื่องต้องตรวจเอง\nยังไม่ได้ตรวจภาพจริง • รายการเดิมและ MASTER ไม่ถูกลบ"
                     setPadding(0,0,0,dp(12))
                 })
                 val boxes=proposals.map { row ->
                     val matched=allowed[row.optString("scene_id")]?.let { scene -> FlowReferencePrompt.people(scene).firstOrNull { it.optString("name")==row.optString("holder") } }
                     val linkedMaster=if(fantasy && matched!=null) characterProp(matched.optString("master")) else ""
                     val label="${row.optString("scene_id")} • ${row.optString("item")}\nผู้ใช้: ${row.optString("holder").ifBlank { "ยังไม่ระบุ" }}\nรายละเอียด: ${row.optString("details").ifBlank { "ยังไม่ระบุ" }}\nกลุ่มต่อเนื่อง: ${row.optString("continuity_id").ifBlank { "ยังไม่ระบุ • ตรวจเอง" }}\nหลักฐานในบท: ${row.optString("evidence")}"+(if(linkedMaster.isBlank()) "" else "\nMASTER ที่ผูกกับตัวละคร: $linkedMaster • ตรวจว่าตรงกับสิ่งของนี้")
-                    android.widget.CheckBox(this).apply { text=label; isChecked=false; textSize=15f; setTextColor(navy); setPadding(dp(12),dp(12),dp(12),dp(12)); background=backdrop(Color.rgb(248,246,239),Color.rgb(226,234,243),Color.rgb(173,187,204)); layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) }; panel.addView(this) }
+                    android.widget.CheckBox(this).apply { text=label; isChecked=PropSuggestionReview.directlySupported(row,allowed[row.optString("scene_id")]); textSize=15f; setTextColor(navy); setPadding(dp(12),dp(12),dp(12),dp(12)); background=backdrop(Color.rgb(248,246,239),Color.rgb(226,234,243),Color.rgb(173,187,204)); layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) }; panel.addView(this) }
                 }
                 val dialog=AlertDialog.Builder(this).setTitle("✨ ตรวจสิ่งของที่ AI เสนอ • ${proposals.size} รายการ")
                     .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึกรายการที่เลือก",null).setNegativeButton("ยกเลิก",null).showDirector()
                 dialog.getButton(-1).setOnClickListener {
-                    if(project.name!=projectId || plan!==story || story.toString()!=snapshot) { notice("เรื่องเปลี่ยนระหว่างตรวจ กรุณาเริ่มใหม่"); return@setOnClickListener }
+                    if(project.name!=projectId || !sameOpenStory(snapshot)) { notice("เรื่องเปลี่ยนระหว่างตรวจ กรุณาเริ่มใหม่"); return@setOnClickListener }
                     val selected=proposals.filterIndexed { i,_ -> boxes[i].isChecked }
                     if(selected.isEmpty()) { notice("ยังไม่ได้เลือกรายการ • บทเดิมไม่เปลี่ยน"); return@setOnClickListener }
                     runCatching {
-                        val candidate=JSONObject(story.toString())
+                        val previous=plan ?: error("ไม่พบเรื่อง")
+                        val candidate=JSONObject(previous.toString())
                         val targets=rows(candidate).associateBy { key(it) }
                         selected.groupBy { it.optString("scene_id") }.forEach { (id,items) -> PropSuggestionReview.apply(targets.getValue(id),items) }
                         plan=candidate
-                        try { saveStory() } catch(e: Exception) { plan=story; throw e }
+                        try { saveStory() } catch(e: Exception) { plan=previous; throw e }
                     }.onSuccess {
                         dialog.dismiss(); render(); showPropsNext("บันทึกข้อเสนอที่เลือกแล้ว • ยังต้องตรวจและยืนยันแต่ละฉาก หากมีภาพเดิมให้ตรวจภาพและคำสั่ง Flow อีกครั้ง")
                     }.onFailure { notice(it.message ?: "บันทึกไม่ได้ • บทเดิมไม่เปลี่ยน") }
@@ -1987,7 +2012,7 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
             runOnUiThread {
                 if(isFinishing || isDestroyed) return@runOnUiThread
                 if(result==null) { notice("AI ยังเสนอชุดไม่ได้ กรุณาตรวจ API แล้วลองใหม่ • ไม่มีการเปลี่ยนบท"); return@runOnUiThread }
-                if(project.name!=projectId || plan!==story || story.toString()!=snapshot) { notice("เรื่องเปลี่ยนระหว่างวิเคราะห์ กรุณาเริ่มใหม่"); return@runOnUiThread }
+                if(project.name!=projectId || !sameOpenStory(snapshot)) { notice("เรื่องเปลี่ยนระหว่างวิเคราะห์ กรุณาเริ่มใหม่"); return@runOnUiThread }
                 val a=result.optJSONArray("assignments") ?: JSONArray()
                 val proposals=(0 until a.length()).mapNotNull { a.optJSONObject(it) }.filter { row ->
                     val id=referenceId(row.optString("master")).lowercase() to row.optString("story_day").trim().lowercase()
@@ -2007,7 +2032,7 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
                 }
                 val dialog=AlertDialog.Builder(this).setTitle("ตรวจชุดที่ AI เสนอ").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึกชุดที่เลือก",null).setNegativeButton("ยกเลิก",null).showDirector()
                 dialog.getButton(-1).setOnClickListener {
-                    if(project.name!=projectId || plan!==story || story.toString()!=snapshot) { notice("เรื่องเปลี่ยนระหว่างตรวจ กรุณาเริ่มใหม่"); return@setOnClickListener }
+                    if(project.name!=projectId || !sameOpenStory(snapshot)) { notice("เรื่องเปลี่ยนระหว่างตรวจ กรุณาเริ่มใหม่"); return@setOnClickListener }
                     runCatching {
                         val wasConfirmed=wardrobeReviewStatus(story)==HomeReviewState.WARDROBE_CONFIRMED
                         val choices=proposals.mapIndexedNotNull { i,row -> if(!boxes[i].isChecked) null else WardrobeRevision.Choice(row.optString("master"),row.optString("story_day"),inputs[i].text.toString().trim()) }
@@ -2066,7 +2091,7 @@ $context"""
             runOnUiThread {
                 if(isFinishing || isDestroyed) return@runOnUiThread
                 if(answer==null) { notice("AI ยังเสนอรายการไม่ได้ กรุณาตรวจ API แล้วลองใหม่ • ไม่มีการเปลี่ยนบท"); return@runOnUiThread }
-                if(project.name!=projectId || plan!==story || story.toString()!=storySnapshot) { notice("เรื่องเปลี่ยนระหว่างวิเคราะห์ กรุณาเริ่มใหม่"); return@runOnUiThread }
+                if(project.name!=projectId || !sameOpenStory(storySnapshot)) { notice("เรื่องเปลี่ยนระหว่างวิเคราะห์ กรุณาเริ่มใหม่"); return@runOnUiThread }
                 val allowed=scenes.associateBy { key(it) }
                 val a=answer.optJSONArray("assignments") ?: JSONArray()
                 val proposals=(0 until a.length()).mapNotNull { a.optJSONObject(it) }.filter { row ->
@@ -2100,7 +2125,7 @@ $context"""
                 AlertDialog.Builder(this).setTitle("ตรวจข้อเสนอ AI • ${proposals.size} รายการ").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึกรายการที่เลือก") { _,_ ->
                     runCatching {
                         val file=File(project,"prop_assignments.json")
-                        check(project.name==projectId && plan===story && story.toString()==storySnapshot) { "เรื่องเปลี่ยนระหว่างตรวจ กรุณาเริ่มใหม่" }
+                        check(project.name==projectId && sameOpenStory(storySnapshot)) { "เรื่องเปลี่ยนระหว่างตรวจ กรุณาเริ่มใหม่" }
                         val data=JSONObject()
                         val approved=proposals.mapIndexedNotNull { index,row ->
                             if (!boxes[index].isChecked) null else JSONObject(row.toString()).put("holder", if(holders[index].selectedItemPosition==0) "" else holders[index].selectedItem.toString()).put("start_prop_state",stateValues[propStates[index].selectedItemPosition.coerceIn(0,stateValues.lastIndex)])
