@@ -118,7 +118,12 @@ Images are generated externally in Gemini; video is generated externally in Flow
         for(i in 0 until eps.length()) {
             val ep=eps.getJSONObject(i); val epNumber=ep.getInt("ep")
             if(number!=null && epNumber!=number) continue
-            val scenes=ep.getJSONArray("scenes"); val cast=FlowReferencePrompt.people(scenes.getJSONObject(0)).take(2)
+            val scenes=ep.getJSONArray("scenes")
+            // An important character may first appear later in the episode. Keep
+            // the first appearance of every referenced character in story order.
+            val cast=(0 until scenes.length()).flatMap { scene ->
+                FlowReferencePrompt.people(scenes.getJSONObject(scene))
+            }.distinctBy { person -> FlowCast.id(person) ?: person.optString("name") }
             for(ratio in listOf("9:16","16:9")) add(ImageTask("EP%02d_COVER_%s".format(epNumber,ratio.replace(":","x")),ratio,cast,poster(story,cast,ratio,epNumber)))
             for(j in 0 until scenes.length()) {
                 val scene=scenes.getJSONObject(j)
