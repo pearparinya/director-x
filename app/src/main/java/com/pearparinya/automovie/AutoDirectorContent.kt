@@ -88,7 +88,7 @@ Images are generated externally in Gemini; video is generated externally in Flow
             FlowVisualDirection.layout(ratio.replace(":","x"))+"\n"+typography+"\n"+ending(ratio)
     }
     private fun storyCoverPeople(story: JSONObject): List<JSONObject> =
-        FlowCast.definitions(story).take(3).map { p ->
+        FlowCast.definitions(story).map { p ->
             val copy=JSONObject(p.toString())
             val eps=story.getJSONArray("episodes")
             var found: JSONObject?=null
