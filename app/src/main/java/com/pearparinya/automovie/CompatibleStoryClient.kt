@@ -8,7 +8,7 @@ import java.util.concurrent.CancellationException
 
 /** Fixed endpoints; provider errors and credentials are never copied into job files or UI. */
 internal enum class CompatibleService(val label: String, val url: String, val defaultModel: String) {
-    CEREBRAS("Cerebras", "https://api.cerebras.ai/v1/chat/completions", "llama3.1-8b"),
+    CEREBRAS("Cerebras", "https://api.cerebras.ai/v1/chat/completions", "gpt-oss-120b"),
     DEEPSEEK("DeepSeek", "https://api.deepseek.com/chat/completions", "deepseek-flash"),
     OPENROUTER("OpenRouter", "https://openrouter.ai/api/v1/chat/completions", "openrouter/free"),
     SAMBANOVA("SambaNova", "https://api.sambanova.ai/v1/chat/completions", "Meta-Llama-3.3-70B-Instruct"),

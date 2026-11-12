@@ -25,9 +25,23 @@ class AutomaticStoryRouterTest {
             assertTrue(runCatching { StoryProvider.setAllowed(context,emptySet()) }.isFailure)
             StoryProvider.setFreeOnly(context,true)
             assertTrue(StoryProvider.eligible(context).isEmpty())
-            StoryProvider.setAllowed(context,setOf("openrouter","groq"))
+            StoryProvider.setAllowed(context,setOf("openrouter","groq","cerebras"))
             assertEquals(listOf(StoryProvider.OPENROUTER),StoryProvider.eligible(context))
         } finally { StoryProvider.setAllowed(context,before); StoryProvider.setFreeOnly(context,free) }
+    }
+    @Test fun cerebrasCanWriteAloneAndTakeOverAfterQuotaFailure() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"cerebras-route-${UUID.randomUUID()}")
+        try {
+            assertTrue(StoryProvider.viable(listOf(StoryProvider.CEREBRAS)))
+            var calls=0
+            val cb=client { _,_ -> calls++; draft() }
+            val alone=AutomaticStoryRouter(folder,mapOf(StoryProvider.CEREBRAS to cb),{false},{_,_->})
+            assertEquals("สวัสดี",alone.generate("one",schema()).getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
+            val open=client { _,_ -> throw StoryHttpFailure(429,"1","quota") }
+            val fallback=AutomaticStoryRouter(folder,mapOf(StoryProvider.OPENROUTER to open,StoryProvider.CEREBRAS to cb),{false},{_,_->})
+            assertEquals("สวัสดี",fallback.generate("two",schema()).getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
+            assertEquals(2,calls)
+        } finally { folder.deleteRecursively() }
     }
     @Test fun verifiedFallbackSkipsThrottledProviderUntilCooldown() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"verified-fallback-${UUID.randomUUID()}")

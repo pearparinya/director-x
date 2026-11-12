@@ -16,6 +16,12 @@ class CompatibleStoryClientTest {
         assertTrue(runCatching { CompatibleStoryClient.buildRequest(CompatibleService.OPENROUTER,"paid/model","test",schema) }.isFailure)
         assertFalse(req.toString().contains("fake-api-key"))
     }
+    @Test fun cerebrasUsesDocumentedSharedModelAndJsonMode() {
+        val req=CompatibleStoryClient.buildRequest(CompatibleService.CEREBRAS,CompatibleService.CEREBRAS.defaultModel,"write Thai dialogue",JSONObject().put("type","object"))
+        assertEquals("https://api.cerebras.ai/v1/chat/completions",CompatibleService.CEREBRAS.url)
+        assertEquals("gpt-oss-120b",req.getString("model"))
+        assertEquals("json_object",req.getJSONObject("response_format").getString("type"))
+    }
     @Test fun sambaNovaRequestUsesJsonMode() {
         val req=CompatibleStoryClient.buildRequest(CompatibleService.SAMBANOVA,CompatibleService.SAMBANOVA.defaultModel,"write a scene",JSONObject().put("type","object"))
         assertEquals("https://api.sambanova.ai/v1/chat/completions",CompatibleService.SAMBANOVA.url)

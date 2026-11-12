@@ -19,7 +19,7 @@ internal class AutomaticStoryRouter(
     internal var verifyBeforeUse: Boolean = false
     internal var requestTimeoutMillis: Long = 45_000L
     var onFailure: (StoryProvider,String)->Unit = { _,_ -> }
-    private val routes=listOf(StoryProvider.GROQ to StoryProvider.GEMINI,StoryProvider.GEMINI to StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER to null,StoryProvider.MISTRAL to null,StoryProvider.SAMBANOVA to null,StoryProvider.COHERE to null)
+    private val routes=listOf(StoryProvider.GROQ to StoryProvider.GEMINI,StoryProvider.GEMINI to StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER to null,StoryProvider.MISTRAL to null,StoryProvider.SAMBANOVA to null,StoryProvider.CEREBRAS to null,StoryProvider.COHERE to null)
     private val verified=mutableSetOf<StoryProvider>()
     private val cooldown=mutableMapOf<StoryProvider,Long>()
     private val unavailable=mutableMapOf<StoryProvider,StoryHttpFailure>()
@@ -83,7 +83,7 @@ internal class AutomaticStoryRouter(
             // The preferred formatter may be unavailable; another configured provider
             // can still format the writer's draft without losing completed work.
             if(writer !in clients || writer in unavailable || (cooldown[writer] ?: 0L)>android.os.SystemClock.elapsedRealtime()) continue
-            if(sceneBatch && formatter!=null && listOf(formatter,StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER,StoryProvider.COHERE,StoryProvider.MISTRAL,StoryProvider.SAMBANOVA)
+            if(sceneBatch && formatter!=null && listOf(formatter,StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER,StoryProvider.COHERE,StoryProvider.MISTRAL,StoryProvider.SAMBANOVA,StoryProvider.CEREBRAS)
                 .none { it!=writer && it in clients && it !in unavailable && (cooldown[it] ?: 0L)<=android.os.SystemClock.elapsedRealtime() }) continue
             var current=writer
             try {
@@ -105,7 +105,7 @@ internal class AutomaticStoryRouter(
                     }
                     // Pass the same completed draft to available formatters; never
                     // rewrite the writer's scenes merely because formatting failed.
-                    val formatters=(listOf(formatter,StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER,StoryProvider.COHERE,StoryProvider.MISTRAL,StoryProvider.SAMBANOVA))
+                    val formatters=(listOf(formatter,StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER,StoryProvider.COHERE,StoryProvider.MISTRAL,StoryProvider.SAMBANOVA,StoryProvider.CEREBRAS))
                         .distinct().filter { it!=writer && it in clients && it !in unavailable && (cooldown[it] ?: 0L)<=android.os.SystemClock.elapsedRealtime() }
                         .sortedBy { clients.getValue(it).availableDelayMillis() }
                     var formatted: JSONObject?=null
@@ -148,7 +148,7 @@ internal class AutomaticStoryRouter(
         val next=cooldown.filterKeys { it in clients }.values.filter { it>android.os.SystemClock.elapsedRealtime() }.minOrNull()
         if(next!=null) throw StoryHttpFailure(429,(((next-android.os.SystemClock.elapsedRealtime())+999)/1000).toString(),"รอ API คืนโควตา")
         if(sceneBatch && oversized) throw StoryBatchTooLarge()
-        throw last ?: unavailable.values.firstOrNull() ?: IllegalStateException("ตั้งค่า Groq + Gemini หรือ Gemini + DeepSeek หรือ OpenRouter หรือ Cohere หรือ Mistral หรือ SambaNova ก่อนเริ่ม")
+        throw last ?: unavailable.values.firstOrNull() ?: IllegalStateException("ตั้งค่า Groq + Gemini หรือ Gemini + DeepSeek หรือ OpenRouter หรือ Cohere หรือ Mistral หรือ SambaNova หรือ Cerebras ก่อนเริ่ม")
     }
     private fun coolDown(provider: StoryProvider,e: Exception) {
         if(verifyBeforeUse && e is StoryHttpFailure && e.status==429) {
