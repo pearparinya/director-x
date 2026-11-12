@@ -2073,8 +2073,10 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
         val storySnapshot=story.toString()
         val context=JSONArray(scenes.map { scene -> JSONObject().put("id",key(scene)).put("action",scene.optString("action")).put("start_state",scene.optString("start_state")).put("end_state",scene.optString("end_state")).put("dialogue",scene.optString("dialogue")).put("characters",JSONArray(FlowReferencePrompt.people(scene).map { it.optString("name") })) })
         val catalog=propCatalog
+        val reviewed=runCatching { GeminiStoryFiles.read(File(project,"gemini_job/spec.json")).optJSONArray("selected_prop_masters") }.getOrNull()
+        val reviewedIds=(0 until (reviewed?.length() ?: 0)).mapNotNull { reviewed?.optJSONObject(it)?.optString("prop_id")?.takeIf(String::isNotBlank) }.toSet()
         val characterBindings=scenes.flatMap { FlowReferencePrompt.people(it) }.distinctBy { it.optString("master") }.mapNotNull { person -> characterProp(person.optString("master")).takeIf { it.isNotBlank() }?.let { "${person.optString("name")} = $it" } }.joinToString("\n")
-        val catalogText=catalog.mapIndexed { i,n -> "PROP_%02d_MASTER = %s".format(i+1,n) }.joinToString("\n")
+        val catalogText=catalog.mapIndexedNotNull { i,n -> val id=propId(i); if(reviewedIds.isNotEmpty() && id !in reviewedIds) null else "$id = $n" }.joinToString("\n")
         notice("กำลังให้ AI เสนออุปกรณ์ • ตรวจรายการก่อนบันทึก • บทเดิมไม่เปลี่ยน")
         Thread {
             val item=JSONObject().put("type","object").put("properties",JSONObject().put("scene_id",JSONObject().put("type","string")).put("prop_id",JSONObject().put("type","string")).put("holder",JSONObject().put("type","string"))).put("required",JSONArray().put("scene_id").put("prop_id").put("holder"))
@@ -2102,7 +2104,7 @@ $context"""
                     val scene=allowed[row.optString("scene_id")]
                     val id=row.optString("prop_id")
                     val holder=row.optString("holder")
-                    scene!=null && Regex("PROP_(0[1-9]|1[0-9]|20)_MASTER").matches(id) && (holder.isBlank() || FlowReferencePrompt.people(scene).any { it.optString("name")==holder })
+                    scene!=null && Regex("PROP_(0[1-9]|1[0-9]|20)_MASTER").matches(id) && (reviewedIds.isEmpty() || id in reviewedIds) && (holder.isBlank() || FlowReferencePrompt.people(scene).any { it.optString("name")==holder })
                 }.distinctBy { it.optString("scene_id")+"|"+it.optString("prop_id") }
                 if(proposals.isEmpty()) { notice("AI ไม่พบรายการที่ยืนยันได้ • เลือกอุปกรณ์ด้วยตนเองในซีน หรือปรับบทแล้วลองใหม่"); return@runOnUiThread }
                 val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
@@ -3071,16 +3073,64 @@ $context"""
                 }.setNegativeButton("ยกเลิก",null).showDirector()
             }
             val selectedProps=linkedMapOf<String,String>()
+            val proposedProps=linkedMapOf<String,String>()
             val propSummary=TextView(this).apply { text="ยังไม่ได้เลือกอาวุธหรืออุปกรณ์ • เลือกเฉพาะเมื่อเรื่องต้องใช้" }
             if(ChannelFeaturePolicy.hasFantasyTools(chosenChannel)) {
                 val chooseProps=Button(this).apply { text="⚔️ เลือกภาพ MASTER อาวุธและอุปกรณ์"; panel.addView(this) }
                 panel.addView(propSummary)
+                panel.addView(Button(this).apply {
+                    text="✨ วิเคราะห์เรื่องและเสนออุปกรณ์"
+                    setOnClickListener {
+                        val providers=StoryProvider.eligible(this@StudioActivity).filter { it.hasKey(this@StudioActivity) }
+                        if(providers.isEmpty()) { notice("ยังไม่มี API สำหรับวิเคราะห์ • เลือกอุปกรณ์เองได้"); return@setOnClickListener }
+                        val all=runCatching { castingCatalog() }.getOrElse { notice("เปิดคลังตัวละครไม่ได้"); return@setOnClickListener }
+                        val actors=(0 until all.length()).map { all.getJSONObject(it) }.filter { it.optString("id") in selectedActors }
+                        val available=propCatalog.mapIndexedNotNull { n,name -> val id=propId(n); if(runCatching { assets.open("prop_masters/$id.png").use { it.read()>=0 } }.getOrDefault(false)) id to name else null }
+                        if(available.isEmpty()) { notice("ไม่พบภาพ MASTER อุปกรณ์ • กรุณาตรวจคลัง"); return@setOnClickListener }
+                        val topic=selectedStoryTopic; val details=premise.text.toString(); val category=categories[index]
+                        val actorSnapshot=selectedActors.toSet()
+                        val actorText=actors.joinToString("\n") { "${it.optString("id")} = ${it.optString("display_name")}" }
+                        val catalogText=available.joinToString("\n") { "${it.first} = ${it.second}" }
+                        val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
+                        val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
+                        val loading=AlertDialog.Builder(this@StudioActivity).setMessage("กำลังเสนออุปกรณ์จากภาพ MASTER ที่มี").setNegativeButton("ยกเลิก",null).showDirector()
+                        loading.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
+                        Thread {
+                            val item=JSONObject().put("type","object").put("properties",JSONObject().put("prop_id",JSONObject().put("type","string")).put("owner_library_id",JSONObject().put("type","string"))).put("required",JSONArray().put("prop_id").put("owner_library_id"))
+                            val schema=JSONObject().put("type","object").put("properties",JSONObject().put("assignments",JSONObject().put("type","array").put("items",item))).put("required",JSONArray().put("assignments"))
+                            val prompt="Suggest only story-relevant equipment from the real catalog below for human review. Return assignments with prop_id and owner_library_id. Use an exact listed character ID only when the story clearly supports an owner, otherwise use an empty string. Do not assign equipment to everyone. Return an empty array when no equipment is appropriate. Category: $category; situation: $topic; details: $details\nCHARACTERS:\n$actorText\nEQUIPMENT:\n$catalogText"
+                            var answer: JSONObject?=null
+                            for(provider in providers) {
+                                if(stopped.get()) break
+                                answer=runCatching { val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false); active.set(client); client.generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("assignments")!=null }
+                                if(answer!=null) break
+                            }
+                            val result=answer
+                            runOnUiThread {
+                                if(stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
+                                active.set(null); loading.dismiss()
+                                if(actorSnapshot!=selectedActors.toSet() || topic!=selectedStoryTopic || details!=premise.text.toString()) { notice("ข้อมูลเปลี่ยนระหว่างวิเคราะห์ • กรุณาวิเคราะห์อีกครั้ง"); return@runOnUiThread }
+                                if(result==null) { notice("ยังเสนออุปกรณ์ไม่ได้ • เลือกจากคลังเองได้"); return@runOnUiThread }
+                                proposedProps.clear()
+                                val assignments=result.optJSONArray("assignments") ?: JSONArray()
+                                val allowed=available.map { it.first }.toSet()
+                                for(i in 0 until assignments.length()) assignments.optJSONObject(i)?.let { row ->
+                                    val id=row.optString("prop_id"); val owner=row.optString("owner_library_id")
+                                    if(id in allowed && (owner.isBlank() || owner in actorSnapshot)) proposedProps[id]=owner
+                                }
+                                if(proposedProps.isEmpty()) { notice("ไม่พบอุปกรณ์ที่เหมาะสมจากข้อเสนอ • เลือกเองหรือไม่ใช้อุปกรณ์ได้"); return@runOnUiThread }
+                                propSummary.text="ระบบเสนอ ${proposedProps.size} ชิ้น • ตรวจภาพและยืนยันรายการ"
+                                chooseProps.performClick()
+                            }
+                        }.start()
+                    }
+                })
                 chooseProps.setOnClickListener {
                     val choices=runCatching { castingCatalog() }.getOrElse { notice("เปิดคลังตัวละครไม่ได้"); return@setOnClickListener }
                     val actors=(0 until choices.length()).map { choices.getJSONObject(it) }.filter { it.optString("id") in selectedActors }
                     val actorIds=listOf("")+actors.map { it.optString("id") }
                     val actorNames=listOf("ยังไม่ระบุผู้ใช้")+actors.map { it.optString("display_name").ifBlank { it.optString("id") }+" • "+it.optString("id") }
-                    val draft=selectedProps.toMutableMap()
+                    val draft=proposedProps.toMutableMap().apply { putAll(selectedProps) }
                     val grid=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
                     grid.addView(TextView(this).apply { text="ตรวจภาพและเลือกเฉพาะอุปกรณ์ที่เกี่ยวข้อง • ผู้ใช้กำหนดภายหลังได้ • แตะภาพเพื่อขยาย" })
                     propCatalog.forEachIndexed { index,name ->
@@ -3234,7 +3284,10 @@ $context"""
                             PiaReferencePolicy.capture(original,outfitImage,target,File(folder,"presenter_outfit_reference.image"))
                         }
                         val count=if(format=="short") 1 else when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
-                        val reviewedPropRecords=JSONArray().apply { selectedProps.forEach { (id,owner) -> put(JSONObject().put("prop_id",id).put("owner_library_id",owner)) } }
+                        val reviewedPropRecords=JSONArray().apply { selectedProps.forEach { (id,owner) ->
+                            val n=propCatalog.indices.first { propId(it)==id }
+                            put(JSONObject().put("prop_id",id).put("name",propCatalog[n]).put("owner_library_id",owner))
+                        } }
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",chosenChannel).put("presenter_library_id",presenterId)
                             .put("pia_face_lock",chosenChannel=="นายเปีย บ้านคลองขุด" && piaFaceLock.isChecked).put("required_cast_ids",JSONArray(selectedActors.toList())).put("selected_prop_masters",reviewedPropRecords).put("presenter_outfit",if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenterOutfit.selectedItemPosition>0) presenterOutfits[presenterOutfit.selectedItemPosition] else "").put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",3).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("story_situation",selectedStoryTopic).put("premise",storyPremise).put("episodes",count)))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
