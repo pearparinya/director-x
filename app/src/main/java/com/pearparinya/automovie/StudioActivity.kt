@@ -3070,6 +3070,48 @@ $context"""
                     castSummary.text=if(names.isEmpty()) "ยังไม่ได้เลือกภาพ • ระบบจะเลือกจากคลังเมื่อสร้างบท" else "ตัวละครที่เลือก ${names.size} ตัว:\n"+names.joinToString("\n")
                 }.setNegativeButton("ยกเลิก",null).showDirector()
             }
+            val selectedProps=linkedMapOf<String,String>()
+            val propSummary=TextView(this).apply { text="ยังไม่ได้เลือกอาวุธหรืออุปกรณ์ • เลือกเฉพาะเมื่อเรื่องต้องใช้" }
+            if(ChannelFeaturePolicy.hasFantasyTools(chosenChannel)) {
+                val chooseProps=Button(this).apply { text="⚔️ เลือกภาพ MASTER อาวุธและอุปกรณ์"; panel.addView(this) }
+                panel.addView(propSummary)
+                chooseProps.setOnClickListener {
+                    val choices=runCatching { castingCatalog() }.getOrElse { notice("เปิดคลังตัวละครไม่ได้"); return@setOnClickListener }
+                    val actors=(0 until choices.length()).map { choices.getJSONObject(it) }.filter { it.optString("id") in selectedActors }
+                    val actorIds=listOf("")+actors.map { it.optString("id") }
+                    val actorNames=listOf("ยังไม่ระบุผู้ใช้")+actors.map { it.optString("display_name").ifBlank { it.optString("id") }+" • "+it.optString("id") }
+                    val draft=selectedProps.toMutableMap()
+                    val grid=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
+                    grid.addView(TextView(this).apply { text="ตรวจภาพและเลือกเฉพาะอุปกรณ์ที่เกี่ยวข้อง • ผู้ใช้กำหนดภายหลังได้ • แตะภาพเพื่อขยาย" })
+                    propCatalog.forEachIndexed { index,name ->
+                        val id=propId(index)
+                        val available=runCatching { assets.open("prop_masters/$id.png").use { it.read()>=0 } }.getOrDefault(false)
+                        val box=android.widget.CheckBox(this).apply { text="$name • $id"+if(available) "" else " • ไม่พบภาพ MASTER"; isChecked=id in draft; isEnabled=available; grid.addView(this) }
+                        val owner=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,actorNames); setSelection(actorIds.indexOf(draft[id]).coerceAtLeast(0)); grid.addView(this) }
+                        val image=ImageView(this).apply { adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(150)); visibility=if(box.isChecked) android.view.View.VISIBLE else android.view.View.GONE; grid.addView(this) }
+                        fun showImage() { runCatching {
+                            val file=File(cacheDir,"prop_masters/$id.png"); file.parentFile!!.mkdirs()
+                            if(!file.isFile) assets.open("prop_masters/$id.png").use { input -> file.outputStream().use { input.copyTo(it) } }
+                            image.setImageBitmap(castingThumbnail(file)); image.setOnClickListener { fullImage(file,name) }
+                        }.onFailure { notice("เปิดภาพ $name ไม่ได้") } }
+                        if(box.isChecked) showImage()
+                        owner.onItemSelectedListener=object: android.widget.AdapterView.OnItemSelectedListener {
+                            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+                            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, rowId: Long) { if(box.isChecked) draft[id]=actorIds[position] }
+                        }
+                        box.setOnCheckedChangeListener { _,checked ->
+                            image.visibility=if(checked) android.view.View.VISIBLE else android.view.View.GONE
+                            if(checked) { draft[id]=actorIds[owner.selectedItemPosition.coerceAtLeast(0)]; showImage() } else draft.remove(id)
+                        }
+                    }
+                    AlertDialog.Builder(this).setTitle("เลือก MASTER อุปกรณ์").setView(ScrollView(this).apply { addView(grid) })
+                        .setPositiveButton("ยืนยันรายการ") { _,_ ->
+                            selectedProps.clear(); selectedProps.putAll(draft)
+                            val names=selectedProps.map { (id,owner) -> val i=propCatalog.indices.first { propId(it)==id }; "${propCatalog[i]} • $id • "+(actors.firstOrNull { it.optString("id")==owner }?.optString("display_name") ?: "ยังไม่ระบุผู้ใช้") }
+                            propSummary.text=if(names.isEmpty()) "ไม่ได้เลือกอาวุธหรืออุปกรณ์" else "อุปกรณ์ที่เลือก ${names.size} ชิ้น:\n"+names.joinToString("\n")
+                        }.setNegativeButton("ยกเลิก",null).showDirector()
+                }
+            }
             val presenterOutfits=listOf("เลือกชุดตามเนื้อเรื่อง", "สูทกรมท่า เนกไทลายฟ้า", "ชุดช่างสีเขียวเข้ม", "ชุดช่างสีกรมท่าส้ม", "ชุดช่างสีเทาเข้ม", "ชุดช่างสีน้ำเงิน", "เสื้อเชิ้ตสีครีม กางเกงเขียว", "เสื้อเชิ้ตสีฟ้า กางเกงกรมท่า", "เสื้อเชิ้ตสีขาว กางเกงดำ", "เสื้อเชิ้ตสีดำ กางเกงเทา", "เสื้อช่างกรม กางเกงเทา ถุงมือ", "ชุดทำสวนสีครีม หมวกและรองเท้าบูท", "ชุดทำสวนกรมท่า หมวกคลุมต้นคอและรองเท้าบูท")
             // Keep slot indices compatible with the existing picker and story snapshot.
             val presenterOutfit=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,presenterOutfits) }
@@ -3157,8 +3199,15 @@ $context"""
                             presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id")
                         } else if(presenter.selectedItemPosition>0) presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id") else ""
                         require(presenterId.isBlank() || selectedActors.isEmpty() || presenterId in selectedActors) { "ตัวละครหลักที่เลือกไม่อยู่ในภาพที่ติ๊ก กรุณาติ๊กเพิ่มหรือเลือกตัวละครหลักใหม่" }
+                        require(selectedProps.values.all { it.isBlank() || it in selectedActors }) { "ผู้ใช้อุปกรณ์ไม่อยู่ในตัวละครที่เลือก กรุณาตรวจรายการอุปกรณ์อีกครั้ง" }
+                        selectedProps.keys.forEach { id -> require(runCatching { assets.open("prop_masters/$id.png").use { it.read()>=0 } }.getOrDefault(false)) { "ไม่พบภาพ MASTER อุปกรณ์ $id" } }
+                        val reviewedProps=selectedProps.map { (id,owner) ->
+                            val n=propCatalog.indices.first { propId(it)==id }
+                            val who=(0 until allCatalog.length()).map { allCatalog.getJSONObject(it) }.firstOrNull { it.optString("id")==owner }?.optString("display_name").orEmpty()
+                            "${propCatalog[n]} ($id)"+(if(who.isBlank()) " • ไม่ระบุผู้ใช้" else " • ผู้ใช้ที่เลือก: $who ($owner)")
+                        }
                         val reviewedRoles=selectedActors.mapNotNull { id -> suggestedRoles[id]?.let { "$id: $it" } }
-                        val storyPremise=listOf("สถานการณ์ตั้งต้นที่เลือก: "+selectedStoryTopic,premise.text.toString(),if(reviewedRoles.isEmpty()) "" else "บทบาทที่ผู้ใช้เลือกจากข้อเสนอ (ตรวจความสอดคล้องกับเรื่อง): "+reviewedRoles.joinToString("; ")).filter { it.isNotBlank() }.joinToString("\n")
+                        val storyPremise=listOf("สถานการณ์ตั้งต้นที่เลือก: "+selectedStoryTopic,premise.text.toString(),if(reviewedRoles.isEmpty()) "" else "บทบาทที่ผู้ใช้เลือกจากข้อเสนอ (ตรวจความสอดคล้องกับเรื่อง): "+reviewedRoles.joinToString("; "),if(reviewedProps.isEmpty()) "" else "อุปกรณ์ MASTER ที่ผู้ใช้เลือก: "+reviewedProps.joinToString("; ")+". ใช้ตามเหตุการณ์ ระบุฉาก ผู้ถือ และความต่อเนื่อง ห้ามเดาผู้ใช้ที่ยังไม่ระบุ").filter { it.isNotBlank() }.joinToString("\n")
                         if(presenterId.isNotBlank() && presenterOutfit.selectedItemPosition>0) require(presenterOutfitFile(presenterId,presenterOutfit.selectedItemPosition).isFile) { "กรุณาเพิ่มรูปของชุดที่เลือก หรือเลือกชุดตามเนื้อเรื่อง" }
                         require(catalog.length()>0) { "คลัง MASTER ว่าง กรุณาเพิ่มตัวละครก่อน" }
                         if(ChannelCatalog.allCategories[index].id=="younger_man_older_woman") {
@@ -3185,8 +3234,9 @@ $context"""
                             PiaReferencePolicy.capture(original,outfitImage,target,File(folder,"presenter_outfit_reference.image"))
                         }
                         val count=if(format=="short") 1 else when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
+                        val reviewedPropRecords=JSONArray().apply { selectedProps.forEach { (id,owner) -> put(JSONObject().put("prop_id",id).put("owner_library_id",owner)) } }
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",chosenChannel).put("presenter_library_id",presenterId)
-                            .put("pia_face_lock",chosenChannel=="นายเปีย บ้านคลองขุด" && piaFaceLock.isChecked).put("required_cast_ids",JSONArray(selectedActors.toList())).put("presenter_outfit",if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenterOutfit.selectedItemPosition>0) presenterOutfits[presenterOutfit.selectedItemPosition] else "").put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",3).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("story_situation",selectedStoryTopic).put("premise",storyPremise).put("episodes",count)))
+                            .put("pia_face_lock",chosenChannel=="นายเปีย บ้านคลองขุด" && piaFaceLock.isChecked).put("required_cast_ids",JSONArray(selectedActors.toList())).put("selected_prop_masters",reviewedPropRecords).put("presenter_outfit",if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenterOutfit.selectedItemPosition>0) presenterOutfits[presenterOutfit.selectedItemPosition] else "").put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",3).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("story_situation",selectedStoryTopic).put("premise",storyPremise).put("episodes",count)))
                         prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
                 }.setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
