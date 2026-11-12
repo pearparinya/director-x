@@ -215,6 +215,16 @@ class AutoDirectorContentTest {
         assertEquals(ChannelCatalog.channel,ChannelCatalog.updateLegacyChannel(project).getString("channel"))
         assertEquals("ช่องของฉัน",ChannelCatalog.currentChannel("ช่องของฉัน"))
     }
+    @Test fun scenePropNotesReachImagePromptAndOverview() {
+        val p=story()
+        val scene=p.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
+        scene.put("props","กวิน: จอบ")
+        val image=SimpleProductionCommands.imageTasks(p,1).first { it.id=="EP01_SC001" }
+        assertTrue(image.command.contains("Objects and holders specified in the story: กวิน: จอบ"))
+        val overview=SceneOverview.detail(scene,"EP01_SC001")
+        assertTrue(overview.contains("สิ่งของและผู้ใช้จากบท: กวิน: จอบ"))
+        assertTrue(overview.contains("ตรวจสิ่งของกับภาพเริ่มต้นจริง"))
+    }
     private fun story(): JSONObject {
         val scenes=JSONArray()
         repeat(24) { i ->

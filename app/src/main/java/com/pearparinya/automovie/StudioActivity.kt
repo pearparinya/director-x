@@ -1795,38 +1795,80 @@ class StudioActivity : AppCompatActivity() {
             editor.apply(); notice("บันทึกอุปกรณ์ประจำตัวละครแล้ว • ตรวจซีนด้วยเมนู AI ก่อนสร้างภาพ")
         }.setNegativeButton("ยกเลิก",null).showDirector()
     }
+    private fun propReviewStamp(scene: JSONObject): String {
+        val text=listOf("start_state","action","props","location","story_day","characters").joinToString("|") { scene.optString(it) }
+        return java.security.MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it.toInt() and 255) }
+    }
+    private fun propReviewStatus(scene: JSONObject): String {
+        val saved=prefs.getString("props_review_${project.name}_${key(scene)}","").orEmpty()
+        return when { saved.isBlank() -> "ยังไม่ได้ตรวจ"; saved==propReviewStamp(scene) -> "ผู้ใช้ตรวจบทแล้ว"; else -> "บทเปลี่ยน • ตรวจอีกครั้ง" }
+    }
+    private fun reviewSceneProps(story: JSONObject) {
+        val scenes=rows(story)
+        if(scenes.isEmpty()) return notice("ยังไม่มีฉากให้ตรวจ")
+        val options=scenes.map { scene ->
+            val props=scene.optString("props").trim().ifBlank { "ยังไม่ระบุสิ่งของในบท" }
+            "${key(scene)} • ${propReviewStatus(scene)}\nสิ่งของ: ${props.take(100)}"
+        }
+        choiceMenu("🧰 สิ่งของในบท • เลือกฉาก",options) { selected ->
+            val scene=scenes[selected]
+            val cast=FlowReferencePrompt.people(scene).joinToString("、") { it.optString("name") }.ifBlank { "ยังไม่ระบุตัวละคร" }
+            val start=scene.optString("start_state").ifBlank { "ยังไม่ระบุ" }
+            val editor=EditText(this).apply {
+                hint="ระบุสิ่งของและผู้ใช้ เช่น กวิน: จอบ; เพ็ญศรี: ถังน้ำ"
+                setText(scene.optString("props")); minLines=3
+            }
+            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
+            panel.addView(TextView(this).apply { text="ตัวละคร: $cast\nต้นฉากจากบท: $start\n\nระบุชื่อสิ่งของและผู้ใช้ตามบท หากไม่ชัดเจนให้ระบุว่ายังไม่ทราบ\n\n📷 ยังไม่ได้ตรวจภาพจริง • ตรวจว่าสิ่งของอยู่ในภาพเริ่มต้นด้วยตนเอง\nข้อมูลนี้ใช้ประกอบคำสั่งภาพ ไม่เปลี่ยนภาพที่สร้างไว้แล้ว • หากเปลี่ยนการกระทำ ให้แก้รายละเอียดฉากและคำสั่ง Flow ด้วย" })
+            panel.addView(editor)
+            val dialog=AlertDialog.Builder(this).setTitle("${key(scene)} • ตรวจสิ่งของในบท").setView(ScrollView(this).apply { addView(panel) })
+                .setPositiveButton("บันทึกและยืนยันตรวจบท",null).setNeutralButton("แก้รายละเอียดฉาก",null).setNegativeButton("กลับ",null).showDirector()
+            dialog.getButton(-3).setOnClickListener { dialog.dismiss(); editScene(scene) }
+            dialog.getButton(-1).setOnClickListener {
+                if(plan!==story) { notice("เรื่องเปลี่ยนแล้ว กรุณาเปิดตรวจใหม่"); return@setOnClickListener }
+                val old=scene.optString("props")
+                scene.put("props",editor.text.toString().trim())
+                runCatching { saveStory() }.onSuccess {
+                    prefs.edit().putString("props_review_${project.name}_${key(scene)}",propReviewStamp(scene)).apply()
+                    dialog.dismiss(); notice("บันทึกและยืนยันตรวจบทแล้ว • ยังต้องตรวจภาพจริง"); reviewSceneProps(story)
+                }.onFailure { scene.put("props",old); notice(it.message ?: "บันทึกไม่ได้") }
+            }
+        }
+    }
     private fun commandCardsMenu() {
         val story=plan ?: return notice("สร้างหรือนำเข้าบทก่อนครับ")
         if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
         val eps=story.getJSONArray("episodes")
         val channel=ChannelCatalog.currentChannel(story.optString("channel"))
         val fantasy=ChannelFeaturePolicy.hasFantasyTools(channel)
-        val options=(0 until eps.length()).map { "EP.${eps.getJSONObject(it).getInt("ep")} • ${eps.getJSONObject(it).optString("title")}" }+
-            listOf("ตรวจคำสั่ง / แก้เฉพาะจุด", if(fantasy) "⚔ จัดการอุปกรณ์แฟนตาซี • เลือกเอง / ให้ AI เสนอ" else "🧰 ตรวจสิ่งของทั่วไปตามฉาก • แก้ในบท", "👕 ให้ AI เสนอชุดตามเรื่อง • ตรวจและบันทึก")
-        choiceMenu("คำสั่งภาพ + Flow • ${channel.ifBlank { "ช่องไม่ระบุ" }}",options) { index ->
+        val scenes=rows(story)
+        val reviewed=scenes.count { propReviewStatus(it)=="ผู้ใช้ตรวจบทแล้ว" }
+        val options=listOf(
+            "👕 ตรวจและเลือกชุดตัวละคร • ให้ AI เสนอ",
+            "🧰 ตรวจสิ่งของในบท • ตรวจแล้ว $reviewed/${scenes.size} ฉาก",
+            if(fantasy) "⚔ อุปกรณ์แฟนตาซี • ผูกหรือให้ AI เสนอ" else "✏️ ตรวจคำสั่ง / แก้เฉพาะจุด"
+        )+(0 until eps.length()).map { "🎬 เปิด EP.${eps.getJSONObject(it).getInt("ep")} • ${eps.getJSONObject(it).optString("title")}" }+
+            if(fantasy) listOf("✏️ ตรวจคำสั่ง / แก้เฉพาะจุด") else emptyList()
+        choiceMenu("คำสั่งภาพ + Flow • ${channel.ifBlank { "ช่องไม่ระบุ" }}\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}",options) { index ->
             when {
-                index==eps.length() -> productionCheckMenu(story)
-                index==eps.length()+1 && fantasy -> {
+                index==0 -> suggestStoryWardrobe(story)
+                index==1 -> reviewSceneProps(story)
+                index==2 && fantasy -> {
                     val people=rows(story).flatMap { FlowReferencePrompt.people(it) }.distinctBy { referenceId(it.optString("master")).lowercase() }.filter { it.optString("master").isNotBlank() }
                     val linked=people.count { characterProp(it.optString("master")).isNotBlank() }
                     val saved=if(File(project,"prop_assignments.json").isFile) "มีไฟล์ข้อเสนอที่บันทึก" else "ยังไม่มีไฟล์ข้อเสนอ"
-                    choiceMenu("จัดการอุปกรณ์ • เรื่องนี้",listOf("ผูกอุปกรณ์ประจำตัวละคร • ผูกแล้ว $linked คน", "ให้ AI เสนออุปกรณ์รายซีน • $saved")) { mode ->
+                    choiceMenu("จัดการอุปกรณ์แฟนตาซี",listOf("ผูกอุปกรณ์ประจำตัวละคร • ผูกแล้ว $linked คน","ให้ AI เสนออุปกรณ์รายซีน • $saved")) { mode ->
                         if(mode==0) characterPropMenu(story) else suggestStoryProps(story)
                     }
                 }
-                index==eps.length()+1 -> {
-                    val scenes=rows(story)
-                    if(scenes.isEmpty()) notice("ยังไม่มีฉากให้ตรวจ")
-                    else choiceMenu("ตรวจสิ่งของจากภาพเริ่มต้นและบท",scenes.map { key(it)+" • "+it.optString("start_state").take(70) }) { selected -> editScene(scenes[selected]) }
-                }
-                index==eps.length()+2 -> suggestStoryWardrobe(story)
-                else -> {
-                    val number=eps.getJSONObject(index).getInt("ep")
+                index==2 -> productionCheckMenu(story)
+                index>=3 && index<3+eps.length() -> {
+                    val number=eps.getJSONObject(index-3).getInt("ep")
                     choiceMenu("EP.$number • คำสั่งพร้อมใช้",listOf("1. สร้างภาพ ChatGPT / Gemini • แนบ MASTER ให้","2. สร้างวิดีโอใน Flow • ใช้ภาพฉาก","ไฟล์คำสั่ง / แก้ไข / ทำต่อ")) { kind ->
-                        if(kind<2) productionTaskDeck(story,number,kind==0)
-                        else productionTaskType(story,number)
+                        if(kind<2) productionTaskDeck(story,number,kind==0) else productionTaskType(story,number)
                     }
                 }
+                else -> productionCheckMenu(story)
             }
         }
     }
@@ -1875,7 +1917,8 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
                 proposals.forEach { row ->
                     val id=referenceId(row.optString("master")); val day=row.optString("story_day").trim()
                     val original=groups[id.lowercase() to day.lowercase()]!!
-                    val box=android.widget.CheckBox(this).apply { text="${original.optString("name")} • $day • $id\nชุดเดิม: ${original.optString("outfit")}"; isChecked=!id.equals("SUPPORT_%08X_MASTER".format(1999999999),true); panel.addView(this) }
+                    val affected=scenes.filter { it.optString("story_day").trim().equals(day,true) && FlowReferencePrompt.people(it).any { p -> referenceId(p.optString("master")).equals(id,true) } }.map { key(it) }
+                    val box=android.widget.CheckBox(this).apply { text="${original.optString("name")} • $day • $id\nชุดเดิม: ${original.optString("outfit")}\nหากเลือก จะเปลี่ยน ${affected.size} ฉาก: ${affected.joinToString(", ")}"; isChecked=false; panel.addView(this) }
                     val input=EditText(this).apply { setText(row.optString("outfit")); minLines=3; panel.addView(this) }
                     boxes.add(box); inputs.add(input)
                 }
