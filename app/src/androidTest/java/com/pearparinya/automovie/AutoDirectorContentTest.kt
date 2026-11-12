@@ -241,6 +241,14 @@ class AutoDirectorContentTest {
         PropSuggestionReview.apply(scene,accepted)
         assertEquals(1,scene.getJSONArray("prop_links").length())
     }
+    @Test fun homeReviewStateRequiresActualConfirmationAndWarnsForStaleData() {
+        assertEquals("ยังไม่ได้ยืนยัน",HomeReviewState.wardrobe("","abc"))
+        assertEquals(HomeReviewState.WARDROBE_CONFIRMED,HomeReviewState.wardrobe("abc","abc"))
+        assertEquals("บทเปลี่ยน • ตรวจชุดอีกครั้ง",HomeReviewState.wardrobe("abc","changed"))
+        assertTrue(HomeReviewState.shouldWarn("ยังไม่ได้ยืนยัน",0))
+        assertTrue(HomeReviewState.shouldWarn(HomeReviewState.WARDROBE_CONFIRMED,1))
+        assertFalse(HomeReviewState.shouldWarn(HomeReviewState.WARDROBE_CONFIRMED,0))
+    }
     private fun story(): JSONObject {
         val scenes=JSONArray()
         repeat(24) { i ->

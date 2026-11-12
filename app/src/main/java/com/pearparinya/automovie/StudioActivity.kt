@@ -874,7 +874,8 @@ class StudioActivity : AppCompatActivity() {
             isAppearanceLightStatusBars = false
             isAppearanceLightNavigationBars = false
         }
-        val scroll = ScrollView(this).apply { background = backdrop(Color.rgb(9,18,36),Color.rgb(35,18,55)); isFillViewport = true; clipToPadding = false }
+        val isFantasyHome=plan?.let { ChannelFeaturePolicy.hasFantasyTools(it.optString("channel")) } == true
+        val scroll = ScrollView(this).apply { background = backdrop(Color.rgb(9,18,36),if(isFantasyHome) Color.rgb(45,19,69) else Color.rgb(15,28,50)); isFillViewport = true; clipToPadding = false }
         root = LinearLayout(this).apply { orientation = 1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
         scroll.addView(root)
         val host = LinearLayout(this).apply { orientation = 1; setBackgroundColor(navy) }
@@ -928,7 +929,7 @@ class StudioActivity : AppCompatActivity() {
             })
         }
         brandLine("DIRECTOR X ${packageManager.getPackageInfo(packageName, 0).versionName}", 20, 14, gold, true, 1)
-        brandLine("ผู้กำกับอัจฉริยะ", 16, 12, ice, true, 0)
+        brandLine("✦ ผู้กำกับอัจฉริยะ ✦", 16, 12, ice, true, 0)
         header.addView(heading)
         root.addView(header)
         
@@ -1129,7 +1130,7 @@ class StudioActivity : AppCompatActivity() {
                 val x = width / 2f; val y = height / 2f; val radius = dp(14).toFloat()
                 paint.strokeWidth = dp(if (number <= currentStep) 4 else 2).toFloat()
                 if (number > 1) { paint.color=if(number<=currentStep) electricBlue else Color.rgb(74,87,108); canvas.drawLine(x,0f,x,y-radius,paint) }
-                if (number < 4) { paint.color=if(number<currentStep) electricBlue else Color.rgb(74,87,108); canvas.drawLine(x,y+radius,x,height.toFloat(),paint) }
+                if (number < 3) { paint.color=if(number<currentStep) electricBlue else Color.rgb(74,87,108); canvas.drawLine(x,y+radius,x,height.toFloat(),paint) }
                 if (active) { paint.color=Color.argb(70,42,220,255); canvas.drawCircle(x,y,dp(18).toFloat(),paint) }
                 paint.color = if (completed || active) electricBlue else Color.rgb(85,102,125)
                 canvas.drawCircle(x,y,radius,paint)
@@ -1899,7 +1900,7 @@ $context"""
                 scene.put("props",editor.text.toString().trim())
                 runCatching { saveStory() }.onSuccess {
                     prefs.edit().putString("props_review_${project.name}_${key(scene)}",propReviewStamp(scene)).apply()
-                    dialog.dismiss(); notice("บันทึกและยืนยันตรวจบทแล้ว • ยังต้องตรวจภาพจริง"); reviewSceneProps(story)
+                    dialog.dismiss(); notice("บันทึกและยืนยันตรวจบทแล้ว • หากมีภาพเดิมให้ตรวจซ้ำ และตรวจภาพเริ่มต้นจริง"); reviewSceneProps(story)
                 }.onFailure { scene.put("props",old); notice(it.message ?: "บันทึกไม่ได้") }
             }
         }
@@ -1910,34 +1911,17 @@ $context"""
         val eps=story.getJSONArray("episodes")
         val channel=ChannelCatalog.currentChannel(story.optString("channel"))
         val fantasy=ChannelFeaturePolicy.hasFantasyTools(channel)
-        val scenes=rows(story)
-        val reviewed=scenes.count { propReviewStatus(it)=="ผู้ใช้ตรวจบทแล้ว" }
-        val options=listOf(
-            "👕 ตรวจและเลือกชุดตัวละคร • ให้ AI เสนอ",
-            "🧰 ตรวจสิ่งของในบท • ตรวจแล้ว $reviewed/${scenes.size} ฉาก",
-            if(fantasy) "⚔ อุปกรณ์แฟนตาซี • ผูกหรือให้ AI เสนอ" else "✏️ ตรวจคำสั่ง / แก้เฉพาะจุด"
-        )+(0 until eps.length()).map { "🎬 เปิด EP.${eps.getJSONObject(it).getInt("ep")} • ${eps.getJSONObject(it).optString("title")}" }+
-            if(fantasy) listOf("✏️ ตรวจคำสั่ง / แก้เฉพาะจุด") else emptyList()
-        choiceMenu("คำสั่งภาพ + Flow • ${channel.ifBlank { "ช่องไม่ระบุ" }}\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}",options) { index ->
-            when {
-                index==0 -> suggestStoryWardrobe(story)
-                index==1 -> reviewSceneProps(story)
-                index==2 && fantasy -> {
-                    val people=rows(story).flatMap { FlowReferencePrompt.people(it) }.distinctBy { referenceId(it.optString("master")).lowercase() }.filter { it.optString("master").isNotBlank() }
-                    val linked=people.count { characterProp(it.optString("master")).isNotBlank() }
-                    val saved=if(File(project,"prop_assignments.json").isFile) "มีไฟล์ข้อเสนอที่บันทึก" else "ยังไม่มีไฟล์ข้อเสนอ"
-                    choiceMenu("จัดการอุปกรณ์แฟนตาซี",listOf("ผูกอุปกรณ์ประจำตัวละคร • ผูกแล้ว $linked คน","ให้ AI เสนออุปกรณ์รายซีน • $saved")) { mode ->
-                        if(mode==0) characterPropMenu(story) else suggestStoryProps(story)
-                    }
+        val options=(0 until eps.length()).map { "🎬 EP.${eps.getJSONObject(it).getInt("ep")} • ${eps.getJSONObject(it).optString("title")}" }+
+            if(fantasy) listOf("⚔ อุปกรณ์แฟนตาซี • ผูกหรือให้ AI เสนอ") else emptyList()
+        choiceMenu("ขั้นตอน 3 • เลือก EP\nช่อง: ${channel.ifBlank { "ช่องไม่ระบุ" }}\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}",options) { index ->
+            if(index<eps.length()) confirmEpisode(story,eps.getJSONObject(index).getInt("ep"))
+            else if(fantasy) {
+                val people=rows(story).flatMap { FlowReferencePrompt.people(it) }.distinctBy { referenceId(it.optString("master")).lowercase() }.filter { it.optString("master").isNotBlank() }
+                val linked=people.count { characterProp(it.optString("master")).isNotBlank() }
+                val saved=if(File(project,"prop_assignments.json").isFile) "มีไฟล์ข้อเสนอที่บันทึก" else "ยังไม่มีไฟล์ข้อเสนอ"
+                choiceMenu("จัดการอุปกรณ์แฟนตาซี",listOf("ผูกอุปกรณ์ประจำตัวละคร • ผูกแล้ว $linked คน","ให้ AI เสนออุปกรณ์รายซีน • $saved")) { mode ->
+                    if(mode==0) characterPropMenu(story) else suggestStoryProps(story)
                 }
-                index==2 -> productionCheckMenu(story)
-                index>=3 && index<3+eps.length() -> {
-                    val number=eps.getJSONObject(index-3).getInt("ep")
-                    choiceMenu("EP.$number • คำสั่งพร้อมใช้",listOf("1. สร้างภาพ ChatGPT / Gemini • แนบ MASTER ให้","2. สร้างวิดีโอใน Flow • ใช้ภาพฉาก","ไฟล์คำสั่ง / แก้ไข / ทำต่อ")) { kind ->
-                        if(kind<2) productionTaskDeck(story,number,kind==0) else productionTaskType(story,number)
-                    }
-                }
-                else -> productionCheckMenu(story)
             }
         }
     }
@@ -1996,10 +1980,11 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
                     if(project.name!=projectId || plan!==story || story.toString()!=snapshot) { notice("เรื่องเปลี่ยนระหว่างตรวจ กรุณาเริ่มใหม่"); return@setOnClickListener }
                     runCatching {
                         val choices=proposals.mapIndexedNotNull { i,row -> if(!boxes[i].isChecked) null else WardrobeRevision.Choice(row.optString("master"),row.optString("story_day"),inputs[i].text.toString().trim()) }
+                        require(choices.isNotEmpty()) { "ยังไม่ได้เลือกชุด • บทเดิมไม่เปลี่ยน" }
                         val candidate=WardrobeRevision.apply(story,choices)
                         plan=candidate
                         try { saveStory() } catch(e: Exception) { plan=story; throw e }
-                    }.onSuccess { dialog.dismiss(); render(); notice("บันทึกชุดแล้ว • ซีนที่เปลี่ยนต้องตรวจภาพใหม่ • บทก่อนแก้เก็บไว้ในประวัติ") }
+                    }.onSuccess { prefs.edit().putBoolean("wardrobe_changed_${project.name}",true).apply(); dialog.dismiss(); render(); notice("บันทึกชุดแล้ว • ซีนที่เปลี่ยนต้องตรวจภาพใหม่ • บทก่อนแก้เก็บไว้ในประวัติ") }
                         .onFailure { notice(it.message ?: "บันทึกชุดไม่ได้") }
                 }
             }
@@ -2308,53 +2293,103 @@ $context"""
         frame.requestLayout()
         return dialog
     }
+    private fun wardrobeReviewStamp(story: JSONObject): String {
+        val text=rows(story).joinToString("|") { it.optString("story_day")+":"+it.optString("characters") }
+        return java.security.MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it.toInt() and 255) }
+    }
+    private fun wardrobeReviewStatus(story: JSONObject): String {
+        val saved=prefs.getString("wardrobe_review_${project.name}","").orEmpty()
+        val status=HomeReviewState.wardrobe(saved,wardrobeReviewStamp(story))
+        return if(saved.isBlank() && prefs.getBoolean("wardrobe_changed_${project.name}",false)) "บันทึกชุดแล้ว • ตรวจชุดทั้งหมด" else status
+    }
+    private fun wardrobeMenu(story: JSONObject) {
+        val groups=rows(story).flatMap { scene -> FlowReferencePrompt.people(scene).map { p -> Triple(p.optString("name"),scene.optString("story_day"),p.optString("outfit")) } }.distinct()
+        if(groups.isEmpty()) return notice("ยังไม่มีตัวละครในบทให้ตรวจชุด")
+        val summary=groups.joinToString("\n\n") { "${it.first} • ${it.second.ifBlank { "ไม่ระบุวัน" }}\nชุด: ${it.third.ifBlank { "ยังไม่ระบุ" }}" }
+        choiceMenu("👕 ชุดตัวละคร • ${wardrobeReviewStatus(story)}",listOf("ดูและยืนยันใช้ชุดในบท","ให้ AI เสนอชุด • ตรวจและเลือกก่อนบันทึก","แก้เฉพาะฉาก")) { selected ->
+            when(selected) {
+                0 -> {
+                    val before=wardrobeReviewStamp(story)
+                    AlertDialog.Builder(this).setTitle("ตรวจชุดในบท").setMessage((summary.ifBlank { "ยังไม่มีข้อมูลชุด" })+"\n\nการยืนยันหมายถึงคุณตรวจชุดในบท ไม่ได้ตรวจภาพจริง")
+                        .setPositiveButton("ยืนยันชุดในบท") { _,_ ->
+                            if(plan!==story || wardrobeReviewStamp(story)!=before) notice("บทเปลี่ยนแล้ว กรุณาตรวจใหม่")
+                            else { prefs.edit().putString("wardrobe_review_${project.name}",before).putBoolean("wardrobe_changed_${project.name}",false).apply(); render(); notice("ยืนยันชุดในบทแล้ว • กลับมาแก้ได้") }
+                        }.setNegativeButton("กลับ",null).showDirector()
+                }
+                1 -> suggestStoryWardrobe(story)
+                else -> productionCheckMenu(story)
+            }
+        }
+    }
+    private fun confirmEpisode(story: JSONObject,number: Int) {
+        val pending=rows(story).filter { it.optInt("ep")==number && propReviewStatus(it)!="ผู้ใช้ตรวจบทแล้ว" }.size
+        val wardrobe=wardrobeReviewStatus(story)
+        fun open() {
+            choiceMenu("EP.$number • คำสั่งพร้อมใช้",listOf("🖼 สร้างภาพ • แนบ MASTER","🎬 คำสั่งวิดีโอ Flow • ใช้ภาพฉาก","✏️ ตรวจคำสั่ง / แก้เฉพาะจุด","📂 ไฟล์คำสั่ง / ทำต่อ")) { kind ->
+                when(kind) { 0 -> productionTaskDeck(story,number,true); 1 -> productionTaskDeck(story,number,false); 2 -> productionCheckMenu(story); else -> productionTaskType(story,number) }
+            }
+        }
+        if(HomeReviewState.shouldWarn(wardrobe,pending)) {
+            AlertDialog.Builder(this).setTitle("ตรวจข้อมูลก่อนสร้างภาพและ Flow")
+                .setMessage("ชุด: $wardrobe\nสิ่งของใน EP.$number ที่ยังไม่ได้ยืนยันหรือควรตรวจอีกครั้ง: $pending ฉาก\n\nคุณสามารถดำเนินการต่อได้ • ตรวจสิ่งของกับภาพเริ่มต้นจริงก่อนใช้ Flow")
+                .setPositiveButton("ดำเนินการต่อ") { _,_ -> open() }.setNegativeButton("กลับไปตรวจ",null).showDirector()
+        } else open()
+    }
+    private fun extraToolsMenu(current: JSONObject?) {
+        val options=mutableListOf("📥 นำเข้าบทที่มีอยู่","⚙️ AutoDirector • ภาพและวิดีโอ","🧪 ทดสอบสร้างวิดีโอ","🎭 แม่แบบและคลังตัวละคร")
+        if(current!=null) options.add("📋 ข้อมูลโพสต์ Facebook / TikTok")
+        if(current!=null && current.optString("clip_format")=="short") options.add("💬 ชื่อเรื่อง เรื่องย่อ และแคปชั่น")
+        if(current!=null && prefs.getInt("last_image_deck_${project.name}",0)>0) options.add("↩ กลับรายการรูป / ซีนล่าสุด")
+        if(File(project,"last_image_payload.json").isFile) options.add("🔁 ส่งคำสั่งและรูปอีกครั้ง")
+        if(current!=null && current.optString("aspect_ratio","16:9")!="9:16") options.add("↔ สร้างสำเนาแนวตั้ง 9:16")
+        choiceMenu("🧰 เครื่องมือเพิ่มเติม",options) { index ->
+            when(options[index]) {
+                "📥 นำเข้าบทที่มีอยู่" -> packagePicker.launch(arrayOf("*/*"))
+                "⚙️ AutoDirector • ภาพและวิดีโอ" -> autoDirectorMenu()
+                "🧪 ทดสอบสร้างวิดีโอ" -> flowTestMenu()
+                "🎭 แม่แบบและคลังตัวละคร" -> choiceMenu("ตัวละคร",listOf("สร้างตัวละครจากแม่แบบ","คลังตัวละครใหม่","ตัวละครของเรื่องที่เปิด")) { when(it) { 0 -> bodyTemplateMenu(); 1 -> actorCatalogMenu(); else -> castMenu() } }
+                "📋 ข้อมูลโพสต์ Facebook / TikTok" -> if(current!=null) postDetails(current)
+                "💬 ชื่อเรื่อง เรื่องย่อ และแคปชั่น" -> if(current!=null) AlertDialog.Builder(this).setTitle("ข้อมูลและแคปชั่นคลิปสั้น").setMessage(ShortStoryDetails.text(current)).setPositiveButton("คัดลอกทั้งหมด") { _,_ -> copyCommand(ShortStoryDetails.text(current)) }.setNegativeButton("ปิด",null).showDirector()
+                "↩ กลับรายการรูป / ซีนล่าสุด" -> if(!returnToImageList()) notice("ไม่พบ EP ที่เคยเปิดในเรื่องนี้")
+                "🔁 ส่งคำสั่งและรูปอีกครั้ง" -> retryLastImage()
+                "↔ สร้างสำเนาแนวตั้ง 9:16" -> landscapeCopyMenu()
+            }
+        }
+    }
     private fun flowHome() {
-        label("เลือกคลิปสั้น / คลิปยาว • เลือกเวลาต่อ EP • ซีนละ 8 วินาที • 9:16",13)
         val current=plan
-        val storyFile=File(project,"story.json")
-        val issues=current?.let { FlowProductionPack.issues(it) }.orEmpty()
-        val prepared=current!=null || File(project,"flow_story_command.txt").isFile
-        val exported=current!=null && storyFile.isFile && File(project,"flow_pack_exported.sha256").takeIf { it.isFile }?.readText()==EpisodeMedia.digest(storyFile)
-        val episodes=current?.getJSONArray("episodes")
-        val active=if(current==null) 1 else 2
-        val labelText = if (current==null) "สร้างบทในแอป • ดูสถานะงานเขียนด้านล่าง"
-            else if (current.optString("clip_format")=="short") "${current.optString("title")} • คลิปสั้น"
-            else "${current.optString("title")} • ${episodes!!.length()} EP"
-        label(labelText,14,true)
+        val fantasy=current?.let { ChannelFeaturePolicy.hasFantasyTools(it.optString("channel")) } == true
+        val channel=current?.optString("channel")?.takeIf { it.isNotBlank() } ?: "ยังไม่ระบุ"
+        val title=current?.optString("title")?.takeIf { it.isNotBlank() } ?: "ยังไม่มีเรื่องที่เปิด"
+        val episodes=current?.optJSONArray("episodes")?.length() ?: 0
+        val scenes=current?.let { rows(it) }.orEmpty()
+        val reviewed=scenes.count { propReviewStatus(it)=="ผู้ใช้ตรวจบทแล้ว" }
+        val wardrobe=current?.let { wardrobeReviewStatus(it) } ?: "รอสร้างบท"
+        val card=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL; setPadding(dp(16),dp(14),dp(16),dp(14))
+            background=backdrop(if(fantasy) Color.rgb(35,24,68) else Color.rgb(17,34,55),Color.rgb(13,20,39),Color.rgb(155,113,55))
+            layoutParams=LinearLayout.LayoutParams(-1,-2).apply { topMargin=dp(10); bottomMargin=dp(8) }
+        }
+        card.addView(TextView(this).apply { text="✦ งานปัจจุบัน ✦"; textSize=13f; setTextColor(gold); setTypeface(null,Typeface.BOLD) })
+        card.addView(TextView(this).apply { text="ช่อง: $channel\nเรื่อง: $title"; textSize=16f; setTextColor(ice); setTypeface(null,Typeface.BOLD); setPadding(0,dp(8),0,dp(6)) })
+        card.addView(TextView(this).apply { text=if(current==null) "สร้างบทใหม่ หรือเปิดเรื่องที่บันทึกไว้" else "$episodes EP • ${scenes.size} ฉาก • ${current.optString("aspect_ratio","9:16")}"; textSize=12f; setTextColor(muted) })
+        root.addView(card)
         if(File(project,"gemini_job/spec.json").isFile) {
             geminiStatusView=TextView(this).apply { text=geminiStatusText(readGeminiStatus()); setTextColor(ice); textSize=14f; setPadding(dp(8),dp(8),dp(8),dp(8)) }
             root.addView(geminiStatusView)
             geminiProgressView=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply {
                 max=100; progress=readGeminiStatus()?.optInt("percent")?.coerceIn(0,100) ?: 0
-                progressTintList=ColorStateList.valueOf(Color.rgb(0,210,240))
-                contentDescription="ความคืบหน้าบทที่บันทึกแล้ว"
+                progressTintList=ColorStateList.valueOf(Color.rgb(0,210,240)); contentDescription="ความคืบหน้าบทที่บันทึกแล้ว"
             }
             root.addView(geminiProgressView,LinearLayout.LayoutParams(-1,dp(10)).apply { setMargins(dp(8),0,dp(8),dp(8)) })
             button("🤖 งานเขียนบท • ดูสถานะ / ทำต่อ",false) { geminiJobMenu() }
         } else { geminiStatusView=null; geminiProgressView=null }
-        if(current!=null) button("📋 คัดลอกข้อมูลโพสต์ Facebook / TikTok",false) { postDetails(current) }
-        if(current!=null && current.optString("clip_format")=="short") {
-            button("💬 ชื่อเรื่อง เรื่องย่อ และแคปชั่น",false) {
-                val details=ShortStoryDetails.text(current)
-                AlertDialog.Builder(this).setTitle("ข้อมูลและแคปชั่นคลิปสั้น").setMessage(details)
-                    .setPositiveButton("คัดลอกทั้งหมด") { _,_ -> copyCommand(details) }.setNegativeButton("ปิด",null).showDirector()
-            }
-        }
-        if(current!=null && prefs.getInt("last_image_deck_${project.name}",0)>0) button("📋 กลับรายการรูป/ซีนล่าสุด",false) { if(!returnToImageList()) notice("ไม่พบ EP ที่เคยเปิดในเรื่องนี้") }
-        if(File(project,"last_image_payload.json").isFile) button("🔁 ส่งคำสั่งและรูปอีกครั้ง",false) { retryLastImage() }
-        stepCard(1,"📝","สร้างบทในแอป","เลือกแนวเรื่องและระยะเวลา → AI เขียนบทและบันทึกในแอป",
-            completed=current!=null,currentStep=active,statusText=if(current!=null) "มีบทพร้อมใช้งาน" else if(File(project,"gemini_job/spec.json").isFile) "ตรวจสถานะงานเขียนบทด้านบน" else "พร้อมเริ่มสร้างบท") { flowPlanning() }
-        stepCard(2,"🎬","คำสั่งสร้างภาพและวิดีโอ",if(current==null) "รอบทเขียนเสร็จ แล้วเลือกตอนและซีนเพื่อใช้คำสั่ง" else if(issues.isNotEmpty()) "บทต้องตรวจแก้ ${issues.size} จุดก่อนใช้คำสั่ง" else "เลือก EP → สร้างภาพด้วย ChatGPT / Gemini → ใช้ภาพและคำสั่งสร้างคลิปใน Flow",
-            enabled=current!=null,completed=exported,currentStep=active,statusText=when { current==null -> "รอบทเขียนเสร็จ"; issues.isNotEmpty() -> "ต้องตรวจแก้บท"; exported -> "เคยส่งออกบทนี้แล้ว"; else -> "พร้อมใช้คำสั่ง" }) {
-            if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else commandCardsMenu()
-        }
-        label("นำคลิปที่สร้างใน Flow ไปตัดต่อด้วยโปรแกรมภายนอก",13)
-        if(current!=null && current.optString("aspect_ratio","16:9")!="9:16") button("↔ สร้างสำเนาเรื่องแนวตั้ง 9:16",false) { landscapeCopyMenu() }
-        label("เครื่องมือเสริม",15,true)
-        button("📥 นำเข้าบทที่มีอยู่",false) { packagePicker.launch(arrayOf("*/*")) }
-        button("⚙️ AutoDirector v45 • ภาพ Gemini / วิดีโอ Flow",false) { autoDirectorMenu() }
-        button("🧪 ทดสอบสร้างวิดีโอ • เลือกตัวละคร",false) { flowTestMenu() }
-        button("🎭 แม่แบบรูปร่างและคลังตัวละคร",false) { choiceMenu("ตัวละคร",listOf("สร้างตัวละครจากแม่แบบ","คลังตัวละครใหม่","ตัวละครของเรื่องที่เปิด")) { when(it) { 0 -> bodyTemplateMenu(); 1 -> actorCatalogMenu(); else -> castMenu() } } }
+        button(if(current==null) "✦ สร้างบทในแอป" else "✦ สร้างเรื่องใหม่ / เลือกแนวเรื่อง",false) { flowPlanning() }
+        val active=if(current==null || wardrobe!="ยืนยันชุดในบทแล้ว") 1 else if(reviewed<scenes.size) 2 else 3
+        stepCard(1,"👕","ตรวจชุดตัวละคร","ดูชุดในบท หรือให้ AI เสนอ • ยืนยันแล้วกลับมาแก้ได้",enabled=current!=null,completed=current!=null && wardrobe=="ยืนยันชุดในบทแล้ว",currentStep=active,statusText=wardrobe) { current?.let { wardrobeMenu(it) } }
+        stepCard(2,"🧰","ตรวจสิ่งของในบท","ดูผู้ใช้และสิ่งของ • ตรวจหรือให้ AI เสนอ",enabled=current!=null,completed=current!=null && scenes.isNotEmpty() && reviewed==scenes.size,currentStep=active,statusText=if(current==null) "รอสร้างบท" else "ตรวจบทแล้ว $reviewed/${scenes.size} ฉาก") { current?.let { reviewSceneProps(it) } }
+        stepCard(3,"🎬","สร้างภาพ + Flow","เลือก EP และซีน • ตรวจภาพจริงก่อนใช้ Flow",enabled=current!=null,currentStep=active,statusText=if(current==null) "รอสร้างบท" else "เปิดใช้งานได้ • ตรวจข้อมูลก่อนใช้") { commandCardsMenu() }
+        button("🧰 เครื่องมือเพิ่มเติม",false) { extraToolsMenu(current) }
         splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
     }
     private fun flowSettings() {
