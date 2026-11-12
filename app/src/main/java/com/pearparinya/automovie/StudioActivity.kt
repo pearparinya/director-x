@@ -2996,6 +2996,7 @@ $context"""
             }
             val selectedActors=linkedSetOf<String>()
             val castButton=Button(this).apply { text=if(chosenChannel=="นายเปีย บ้านคลองขุด") "🎭 เลือกตัวละครเสริมจากภาพ MASTER • นายเปียเป็นตัวหลัก" else "🎭 เลือกตัวละครจากภาพ MASTER • ไม่เลือก = ให้ AI เลือกจากคลัง"; panel.addView(this) }
+            val castSummary=TextView(this).apply { text="ยังไม่ได้เลือกภาพ • ระบบจะเลือกจากคลังเมื่อสร้างบท"; panel.addView(this) }
             castButton.setOnClickListener {
                 val choices=runCatching { if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog() else castingCatalog() }.getOrElse { notice("เปิดคลังตัวละครไม่ได้"); return@setOnClickListener }
                 val draft=selectedActors.toMutableSet()
@@ -3014,6 +3015,9 @@ $context"""
                     if(draft.size>8) { notice("เลือกตัวละครได้สูงสุด 8 คน กรุณาเลือกใหม่"); return@setPositiveButton }
                     selectedActors.clear(); selectedActors.addAll(draft)
                     castButton.text=if(selectedActors.isEmpty()) "🎭 ให้ AI เลือกจากคลังทั้งหมด" else "🎭 เลือกตัวละครแล้ว ${selectedActors.size} คน • แตะเพื่อแก้"
+                    val names=(0 until choices.length()).map { choices.getJSONObject(it) }.filter { it.optString("id") in selectedActors }
+                        .map { "${it.optString("display_name").ifBlank { it.optString("id") }} • ${it.optString("id")}" }
+                    castSummary.text=if(names.isEmpty()) "ยังไม่ได้เลือกภาพ • ระบบจะเลือกจากคลังเมื่อสร้างบท" else "ตัวละครที่เลือก ${names.size} ตัว:\n"+names.joinToString("\n")
                 }.setNegativeButton("ยกเลิก",null).showDirector()
             }
             val presenterOutfits=listOf("เลือกชุดตามเนื้อเรื่อง", "สูทกรมท่า เนกไทลายฟ้า", "ชุดช่างสีเขียวเข้ม", "ชุดช่างสีกรมท่าส้ม", "ชุดช่างสีเทาเข้ม", "ชุดช่างสีน้ำเงิน", "เสื้อเชิ้ตสีครีม กางเกงเขียว", "เสื้อเชิ้ตสีฟ้า กางเกงกรมท่า", "เสื้อเชิ้ตสีขาว กางเกงดำ", "เสื้อเชิ้ตสีดำ กางเกงเทา", "เสื้อช่างกรม กางเกงเทา ถุงมือ", "ชุดทำสวนสีครีม หมวกและรองเท้าบูท", "ชุดทำสวนกรมท่า หมวกคลุมต้นคอและรองเท้าบูท")
