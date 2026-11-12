@@ -116,6 +116,7 @@ Style: ${story.optString("category")} — follow the written action, no new plot
 Story day: ${scene.getString("story_day")} — exact wardrobe remains locked across locations and EPs.
 Location: ${scene.getString("location")}
 Start frame: ${scene.getString("start_state")}
+${scene.optString("props").trim().takeIf { it.isNotBlank() }?.let { "Objects and holders specified in the story: $it. Include only those intended to be visible at the start; do not invent missing details." }.orEmpty()}
 If start-frame names conflict with visible cast, stop and ask; never invent or replace people.
 Action planned next (not a montage): ${scene.optString("flow_action").ifBlank { scene.getString("action") }}
 Framing: ${scene.optString("framing").ifBlank { "Show all listed people, relevant hands and props with natural perspective." }}

@@ -38,7 +38,9 @@ internal object SceneOverview {
             "ตัวละคร: "+names(scene).ifBlank { "ไม่ได้ระบุ" },
             if(bindings.isBlank()) "" else "ตรวจตัวละครและชุด:\n$bindings",
             "เหตุการณ์: "+field(scene,"action").ifBlank { "ไม่ได้ระบุ" },
-            "ภาพเริ่มต้น / สิ่งของ: "+field(scene,"start_state").ifBlank { "ไม่ได้ระบุ • ตรวจภาพจริง" },
+            "ต้นฉากจากบท: "+field(scene,"start_state").ifBlank { "ไม่ได้ระบุ" },
+            "สิ่งของและผู้ใช้จากบท: "+field(scene,"props").ifBlank { "ยังไม่ระบุ • ตรวจรายละเอียดฉาก" },
+            "📷 ตรวจสิ่งของกับภาพเริ่มต้นจริงก่อนใช้ Flow",
             "เสียง: "+speech,
             warning,
             "ภาพซีนสำหรับ Flow: $imageId"
