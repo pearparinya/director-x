@@ -169,26 +169,52 @@ class StudioActivity : AppCompatActivity() {
             background = backdrop(Color.rgb(24,24,27),navy,Color.rgb(74,61,39))
         }
         panel.addView(TextView(this).apply {
-            text = title; textSize = 20f; setTextColor(gold); setTypeface(null,Typeface.BOLD)
+            val start=title.indexOf("สถานะ:")
+            val decorated=android.text.SpannableString(title)
+            if(start>=0) decorated.setSpan(
+                android.text.style.ForegroundColorSpan(if(title.contains("สถานะ: ยืนยันชุดในบทแล้ว")) Color.rgb(129,225,167) else Color.rgb(255,196,104)),
+                start,title.length,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            text = decorated; textSize = 20f; setTextColor(gold); setTypeface(null,Typeface.BOLD)
             setPadding(0,0,0,dp(14))
+        })
+        if(choices.size>1) panel.addView(TextView(this).apply {
+            text = "เลือกหนึ่งรายการ • หมายเลขใช้ระบุตัวเลือก"
+            textSize = 12f; setTextColor(Color.rgb(187,200,221)); setPadding(0,0,0,dp(10))
         })
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val scroll = ScrollView(this).apply { addView(list) }
         panel.addView(scroll,LinearLayout.LayoutParams(-1,-2))
         val dialog = AlertDialog.Builder(this).setView(panel).setCancelable(cancelable).create()
         choices.forEachIndexed { index, value ->
-            list.addView(TextView(this).apply {
-                text = value; textSize = 16f; setTextColor(navy); setTypeface(null,Typeface.BOLD)
-                gravity = Gravity.CENTER_VERTICAL; minHeight = dp(60)
-                setPadding(dp(14),dp(14),dp(14),dp(14))
-                background = backdrop(Color.rgb(248,246,239),Color.rgb(226,234,243),Color.rgb(173,187,204))
-                layoutParams = LinearLayout.LayoutParams(-1,-2).apply { bottomMargin = dp(10) }
-                isClickable = true; isFocusable = true
-                val attr = android.util.TypedValue()
+            val palette=when(MenuChoiceStyle.role(value)) {
+                MenuChoiceStyle.AI -> intArrayOf(Color.rgb(70,41,112),Color.rgb(40,27,74),Color.rgb(176,137,225))
+                MenuChoiceStyle.EDIT -> intArrayOf(Color.rgb(98,67,35),Color.rgb(61,42,31),Color.rgb(222,174,94))
+                else -> intArrayOf(Color.rgb(25,66,103),Color.rgb(18,40,72),Color.rgb(91,175,220))
+            }
+            val row=LinearLayout(this).apply {
+                orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL
+                minimumHeight=dp(68); setPadding(dp(12),dp(10),dp(12),dp(10))
+                background=backdrop(palette[0],palette[1],palette[2])
+                layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) }
+                isClickable=true; isFocusable=true
+                contentDescription="ตัวเลือก ${index+1}: $value"
+                val attr=android.util.TypedValue()
                 theme.resolveAttribute(android.R.attr.selectableItemBackground,attr,true)
-                foreground = getDrawable(attr.resourceId)
+                foreground=getDrawable(attr.resourceId)
                 setOnClickListener { dialog.dismiss(); action(index) }
-            })
+            }
+            row.addView(TextView(this).apply {
+                text=(index+1).toString(); textSize=18f; setTextColor(Color.WHITE)
+                setTypeface(null,Typeface.BOLD); gravity=Gravity.CENTER
+                background=backdrop(palette[2],palette[0])
+                importantForAccessibility=android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            },LinearLayout.LayoutParams(dp(38),dp(38)).apply { marginEnd=dp(12) })
+            row.addView(TextView(this).apply {
+                text=value; textSize=16f; setTextColor(Color.WHITE); setTypeface(null,Typeface.BOLD)
+                gravity=Gravity.CENTER_VERTICAL
+                importantForAccessibility=android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            },LinearLayout.LayoutParams(0,-2,1f))
+            list.addView(row)
         }
         if (choices.isEmpty()) list.addView(TextView(this).apply {
             text = "📭 ยังไม่มีรายการ"; textSize = 16f; setTextColor(ice); setPadding(0,dp(12),0,dp(12))
@@ -1137,7 +1163,7 @@ class StudioActivity : AppCompatActivity() {
                 paint.color = if (active || completed) Color.WHITE else muted
                 paint.textSize = dp(12).toFloat(); paint.textAlign = android.graphics.Paint.Align.CENTER
                 paint.typeface = Typeface.create(Typeface.DEFAULT,Typeface.BOLD)
-                canvas.drawText(if (completed) "✓" else number.toString(),x,y-(paint.ascent()+paint.descent())/2,paint)
+                canvas.drawText(number.toString(),x,y-(paint.ascent()+paint.descent())/2,paint)
             }
         }, LinearLayout.LayoutParams(dp(34),-1).apply { marginEnd = dp(10) })
         val card = LinearLayout(this).apply {
@@ -1879,7 +1905,7 @@ $context"""
             val props=scene.optString("props").trim().ifBlank { "ยังไม่ระบุสิ่งของในบท" }
             "${key(scene)} • ${propReviewStatus(scene)}\nสิ่งของ: ${props.take(100)}"
         }
-        choiceMenu("🧰 สิ่งของในบท • เลือกฉาก",listOf("✨ ให้ AI เสนอสิ่งของและความต่อเนื่อง • ตรวจและเลือก")+options) { selected ->
+        choiceMenu("ขั้นตอน 2 • ตรวจสิ่งของในบท\nเลือกฉากหรือตัวช่วย AI",listOf("✨ ให้ AI เสนอสิ่งของและความต่อเนื่อง • ตรวจและเลือก")+options) { selected ->
             if(selected==0) { suggestSceneObjects(story); return@choiceMenu }
             val scene=scenes[selected-1]
             val cast=FlowReferencePrompt.people(scene).joinToString("、") { it.optString("name") }.ifBlank { "ยังไม่ระบุตัวละคร" }
@@ -2306,7 +2332,7 @@ $context"""
         val groups=rows(story).flatMap { scene -> FlowReferencePrompt.people(scene).map { p -> Triple(p.optString("name"),scene.optString("story_day"),p.optString("outfit")) } }.distinct()
         if(groups.isEmpty()) return notice("ยังไม่มีตัวละครในบทให้ตรวจชุด")
         val summary=groups.joinToString("\n\n") { "${it.first} • ${it.second.ifBlank { "ไม่ระบุวัน" }}\nชุด: ${it.third.ifBlank { "ยังไม่ระบุ" }}" }
-        choiceMenu("👕 ชุดตัวละคร • ${wardrobeReviewStatus(story)}",listOf("ดูและยืนยันใช้ชุดในบท","ให้ AI เสนอชุด • ตรวจและเลือกก่อนบันทึก","แก้เฉพาะฉาก")) { selected ->
+        choiceMenu("ขั้นตอน 1 • ตรวจชุดตัวละคร\nสถานะ: ${wardrobeReviewStatus(story)}",listOf("ดูและยืนยันชุดในบท\nตรวจชุดเดิมและยืนยันเมื่อถูกต้อง","ให้ AI เสนอชุดใหม่\nเลือกเฉพาะชุดที่ต้องการก่อนบันทึก","แก้ชุดเฉพาะฉาก\nปรับรายละเอียดในฉากที่ต้องการ")) { selected ->
             when(selected) {
                 0 -> {
                     val before=wardrobeReviewStamp(story)
@@ -2325,7 +2351,7 @@ $context"""
         val pending=rows(story).filter { it.optInt("ep")==number && propReviewStatus(it)!="ผู้ใช้ตรวจบทแล้ว" }.size
         val wardrobe=wardrobeReviewStatus(story)
         fun open() {
-            choiceMenu("EP.$number • คำสั่งพร้อมใช้",listOf("🖼 สร้างภาพ • แนบ MASTER","🎬 คำสั่งวิดีโอ Flow • ใช้ภาพฉาก","✏️ ตรวจคำสั่ง / แก้เฉพาะจุด","📂 ไฟล์คำสั่ง / ทำต่อ")) { kind ->
+            choiceMenu("ขั้นตอน 3 • EP.$number\nเลือกคำสั่งที่ต้องการ",listOf("🖼 สร้างภาพ • แนบ MASTER","🎬 คำสั่งวิดีโอ Flow • ใช้ภาพฉาก","✏️ ตรวจคำสั่ง / แก้เฉพาะจุด","📂 ไฟล์คำสั่ง / ทำต่อ")) { kind ->
                 when(kind) { 0 -> productionTaskDeck(story,number,true); 1 -> productionTaskDeck(story,number,false); 2 -> productionCheckMenu(story); else -> productionTaskType(story,number) }
             }
         }

@@ -249,6 +249,13 @@ class AutoDirectorContentTest {
         assertTrue(HomeReviewState.shouldWarn(HomeReviewState.WARDROBE_CONFIRMED,1))
         assertFalse(HomeReviewState.shouldWarn(HomeReviewState.WARDROBE_CONFIRMED,0))
     }
+    @Test fun menuColorsFollowActionMeaningRatherThanOptionPosition() {
+        assertEquals(MenuChoiceStyle.STANDARD,MenuChoiceStyle.role("ดูและยืนยันชุดในบท"))
+        assertEquals(MenuChoiceStyle.AI,MenuChoiceStyle.role("ให้ AI เสนอชุดใหม่"))
+        assertEquals(MenuChoiceStyle.EDIT,MenuChoiceStyle.role("แก้ชุดเฉพาะฉาก"))
+        assertEquals(MenuChoiceStyle.STANDARD,MenuChoiceStyle.role("EP01_SC001"))
+        assertEquals(MenuChoiceStyle.AI,MenuChoiceStyle.role("ให้ ai เสนอสิ่งของ"))
+    }
     private fun story(): JSONObject {
         val scenes=JSONArray()
         repeat(24) { i ->
