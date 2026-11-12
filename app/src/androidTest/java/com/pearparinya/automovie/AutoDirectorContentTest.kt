@@ -561,6 +561,10 @@ class AutoDirectorContentTest {
         assertEquals(54,tasks.size); assertEquals(tasks.size,tasks.map { it.id }.distinct().size)
         assertEquals(listOf("STORY_COVER_9x16","STORY_COVER_16x9","EP01_COVER_9x16","EP01_COVER_16x9","EP01_SC001"),tasks.take(5).map { it.id })
         assertEquals("EP01_SC024",tasks[27].id); assertEquals("EP02_COVER_9x16",tasks[28].id)
+        val episodeCover=tasks.first { it.id=="EP02_COVER_9x16" }
+        assertTrue(episodeCover.people.any { it.optString("name")=="หมอณัฐ" && it.optString("master")=="SUPPORT_AB12CD34_MASTER.png" })
+        assertTrue(tasks.first { it.id=="STORY_COVER_9x16" }.people.any { it.optString("name")=="หมอณัฐ" && it.optString("master")=="SUPPORT_AB12CD34_MASTER.png" })
+        assertTrue(tasks.first { it.id=="EP02_SC001" }.people.none { it.optString("name")=="หมอณัฐ" })
         assertEquals("EP02_SC024",tasks.last().id)
         assertTrue(tasks.filterNot { it.id.contains("COVER") }.all { it.ratio=="9:16" }); assertEquals(6,tasks.count { it.id.contains("COVER") })
         val single=AutoDirectorContent.imageTasks(p,2)

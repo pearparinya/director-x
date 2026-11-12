@@ -280,10 +280,22 @@ class StudioActivity : AppCompatActivity() {
         return result
     }
     private val piaActorId = "CHAR_1999999999"
+    private val piaIdentityFile get() = File(filesDir,"pia_identity_master.image")
+    private val piaIdentityPicker=registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if(uri!=null) runCatching {
+            val bytes=contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("เปิดภาพไม่ได้")
+            val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
+            android.graphics.BitmapFactory.decodeByteArray(bytes,0,bytes.size,bounds)
+            require(bounds.outWidth>0 && bounds.outHeight>0) { "ไฟล์ไม่ใช่ภาพที่อ่านได้" }
+            val pending=File(filesDir,"pia_identity_master.pending")
+            try { pending.writeBytes(bytes); check(pending.renameTo(piaIdentityFile)) { "บันทึก MASTER ไม่สำเร็จ" } } finally { pending.delete() }
+            notice("บันทึก MASTER นายเปียแล้ว • เปิดหน้าสร้างเรื่องใหม่เพื่อตรวจภาพและเลือกกรอบใบหน้าอีกครั้ง")
+        }.onFailure { notice("บันทึก MASTER ไม่สำเร็จ: ${it.message}") }
+    }
     private fun piaCatalog(): JSONArray {
         val catalog=castingCatalog()
         require((0 until catalog.length()).none { catalog.getJSONObject(it).optString("id")==piaActorId }) { "รหัสตัวละครนายเปียซ้ำ" }
-        val bytes=assets.open("pia_outfits/01.png").use { it.readBytes() }
+        val bytes=if(piaIdentityFile.isFile) piaIdentityFile.readBytes() else assets.open("pia_outfits/01.png").use { it.readBytes() }
         val row=JSONObject().put("id",piaActorId).put("display_name","นายเปีย บ้านคลองขุด")
             .put("file","PIA_PRESENTER.png").put("sha256",MasterLibrary.digest(bytes))
             .put("character_age",35).put("age_basis","fictional_casting_placeholder_not_real_age")
@@ -320,6 +332,10 @@ class StudioActivity : AppCompatActivity() {
             return target
         }
         if(row.getString("id")==piaActorId) {
+            if(piaIdentityFile.isFile) {
+                require(MasterLibrary.digest(piaIdentityFile.readBytes())==row.getString("sha256")) { "MASTER นายเปียเปลี่ยนระหว่างเลือก กรุณาเปิดหน้าสร้างเรื่องใหม่" }
+                return piaIdentityFile
+            }
             val bytes=assets.open("pia_outfits/01.png").use { it.readBytes() }
             val target=File(filesDir,"pia_presenter_master.png")
             if(!target.isFile || MasterLibrary.digest(target.readBytes())!=MasterLibrary.digest(bytes)) target.writeBytes(bytes)
@@ -1352,6 +1368,10 @@ class StudioActivity : AppCompatActivity() {
     private fun previewImageReferences(task: SimpleProductionCommands.Task, references: List<Pair<String,File>>, labels: Map<String,String>) {
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
         panel.addView(TextView(this).apply { text="ตรวจภาพ MASTER ชื่อและตำแหน่งก่อนส่ง • แตะภาพเพื่อขยาย\nหลังเปิดแอปปลายทาง ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง" })
+        if(task.id.contains("_COVER_") && task.references.size==1) panel.addView(TextView(this).apply {
+            text="⚠️ ปกนี้มีตัวละครพร้อมใช้เพียง 1 ตัว • ตรวจบทและรายการ MASTER ก่อนเลือกแอปสร้างภาพ"
+            setTypeface(null,Typeface.BOLD)
+        })
         val wardrobeWarnings=plan?.let { story -> if(task.id.contains("_COVER_")) rows(story).flatMap { WardrobeContext.warnings(it) }.distinct() else rows(story).firstOrNull { key(it)==task.id }?.let { WardrobeContext.warnings(it) }.orEmpty() }.orEmpty()
         if(wardrobeWarnings.isNotEmpty()) panel.addView(TextView(this).apply { text="⚠️ ตรวจความเหมาะสมของชุดก่อนส่ง\n"+wardrobeWarnings.joinToString("\n"); setTypeface(null,Typeface.BOLD) })
         val piaFaceLock=runCatching { GeminiStoryFiles.read(File(project,"gemini_job/spec.json")).optBoolean("pia_face_lock",false) }.getOrDefault(false) && plan?.optString("channel")=="นายเปีย บ้านคลองขุด"
@@ -2069,8 +2089,11 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
         val storySnapshot=story.toString()
         val context=JSONArray(scenes.map { scene -> JSONObject().put("id",key(scene)).put("action",scene.optString("action")).put("start_state",scene.optString("start_state")).put("end_state",scene.optString("end_state")).put("dialogue",scene.optString("dialogue")).put("characters",JSONArray(FlowReferencePrompt.people(scene).map { it.optString("name") })) })
         val catalog=propCatalog
+        val reviewed=runCatching { GeminiStoryFiles.read(File(project,"gemini_job/spec.json")).optJSONArray("selected_prop_masters") }.getOrNull()
+        val reviewedIds=(0 until (reviewed?.length() ?: 0)).mapNotNull { reviewed?.optJSONObject(it)?.optString("prop_id")?.takeIf(String::isNotBlank) }.toSet()
+        if(reviewed!=null && reviewedIds.isEmpty()) { notice("เรื่องนี้ไม่ได้เลือก MASTER อุปกรณ์ก่อนสร้างบท • เลือกอุปกรณ์ด้วยตนเองในซีนได้"); return }
         val characterBindings=scenes.flatMap { FlowReferencePrompt.people(it) }.distinctBy { it.optString("master") }.mapNotNull { person -> characterProp(person.optString("master")).takeIf { it.isNotBlank() }?.let { "${person.optString("name")} = $it" } }.joinToString("\n")
-        val catalogText=catalog.mapIndexed { i,n -> "PROP_%02d_MASTER = %s".format(i+1,n) }.joinToString("\n")
+        val catalogText=catalog.mapIndexedNotNull { i,n -> val id=propId(i); if(reviewed!=null && id !in reviewedIds) null else "$id = $n" }.joinToString("\n")
         notice("กำลังให้ AI เสนออุปกรณ์ • ตรวจรายการก่อนบันทึก • บทเดิมไม่เปลี่ยน")
         Thread {
             val item=JSONObject().put("type","object").put("properties",JSONObject().put("scene_id",JSONObject().put("type","string")).put("prop_id",JSONObject().put("type","string")).put("holder",JSONObject().put("type","string"))).put("required",JSONArray().put("scene_id").put("prop_id").put("holder"))
@@ -2098,7 +2121,7 @@ $context"""
                     val scene=allowed[row.optString("scene_id")]
                     val id=row.optString("prop_id")
                     val holder=row.optString("holder")
-                    scene!=null && Regex("PROP_(0[1-9]|1[0-9]|20)_MASTER").matches(id) && (holder.isBlank() || FlowReferencePrompt.people(scene).any { it.optString("name")==holder })
+                    scene!=null && Regex("PROP_(0[1-9]|1[0-9]|20)_MASTER").matches(id) && (reviewed==null || id in reviewedIds) && (holder.isBlank() || FlowReferencePrompt.people(scene).any { it.optString("name")==holder })
                 }.distinctBy { it.optString("scene_id")+"|"+it.optString("prop_id") }
                 if(proposals.isEmpty()) { notice("AI ไม่พบรายการที่ยืนยันได้ • เลือกอุปกรณ์ด้วยตนเองในซีน หรือปรับบทแล้วลองใหม่"); return@runOnUiThread }
                 val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
@@ -2991,17 +3014,71 @@ $context"""
                 if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenters.length()>0 && presenters.getJSONObject(0).optString("id")==piaActorId) setSelection(1)
             }
             val selectedActors=linkedSetOf<String>()
-            val castButton=Button(this).apply { text=if(chosenChannel=="นายเปีย บ้านคลองขุด") "🎭 เลือกตัวละครเสริมจากภาพ MASTER • นายเปียเป็นตัวหลัก" else "🎭 เลือกตัวละครจากภาพ MASTER • ไม่เลือก = ให้ AI เลือกจากคลัง"; panel.addView(this) }
+            val castButton=Button(this).apply { text=if(chosenChannel=="นายเปีย บ้านคลองขุด") "🎭 เลือกตัวละครเสริมจากภาพ MASTER • นายเปียเป็นตัวหลัก" else "🎭 ตรวจและเลือกตัวละครจากภาพ MASTER"; panel.addView(this) }
+            val castSummary=TextView(this).apply { text="ยังไม่ได้เลือกภาพ • กรุณาตรวจและยืนยันก่อนสร้างบท"; panel.addView(this) }
+            val suggestedRoles=linkedMapOf<String,String>()
+            var castProposalPending=false
+            panel.addView(Button(this).apply {
+                text="✨ วิเคราะห์เรื่องและเสนอตัวละครจาก MASTER"
+                setOnClickListener {
+                    val catalog=runCatching {
+                        val all=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog() else castingCatalog()
+                        JSONArray().apply {
+                            for(i in 0 until all.length()) {
+                                val row=all.getJSONObject(i)
+                                val file=runCatching { castingSource(row) }.getOrNull()
+                                if(file?.isFile==true && runCatching { MasterLibrary.digest(file.readBytes())==row.getString("sha256") }.getOrDefault(false)) put(row)
+                            }
+                        }
+                    }.getOrElse { notice("ตรวจคลัง MASTER ไม่ได้: ${it.message}"); return@setOnClickListener }
+                    if(catalog.length()==0 || (chosenChannel=="นายเปีย บ้านคลองขุด" && (0 until catalog.length()).none { catalog.getJSONObject(it).optString("id")==piaActorId })) {
+                        notice("ไม่พบภาพ MASTER ที่ตรวจสอบได้ กรุณาเพิ่มหรือตรวจคลังตัวละคร"); return@setOnClickListener
+                    }
+                    val providers=StoryProvider.eligible(this@StudioActivity).filter { it.hasKey(this@StudioActivity) }
+                    if(providers.isEmpty()) { notice("ยังไม่มี API สำหรับวิเคราะห์ กรุณาตั้งค่า API หรือเลือก MASTER เอง"); return@setOnClickListener }
+                    val channel=chosenChannel; val situation=selectedStoryTopic; val detail=premise.text.toString(); val category=categories[index]
+                    val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
+                    val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
+                    val loading=AlertDialog.Builder(this@StudioActivity).setMessage("กำลังเสนอตัวละครจาก MASTER ที่ตรวจพบ").setNegativeButton("ยกเลิก",null).showDirector()
+                    loading.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
+                    Thread {
+                        var result: JSONObject?=null
+                        for(provider in providers) {
+                            if(stopped.get()) break
+                            val answer=runCatching {
+                                val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false)
+                                active.set(client)
+                                val prompt="Suggest a cast for this Thai story. Channel: $channel; category: $category; situation: $situation; details: $detail. Use ONLY the provided library IDs. Suggest only characters suitable for the story, with a short proposed role in Thai. Do not infer occupation or identity from a face; roles are fictional suggestions for user review. Use as many as needed, from 1 to 8. "+(if(channel=="นายเปีย บ้านคลองขุด") "Include $piaActorId as central protagonist and suitable supporting roles. " else "")+"Catalog: "+AutoCast.promptCatalog(catalog).toString()
+                                client.generate(prompt,AutoCast.schema()).also { AutoCast.validate(it,catalog); if(channel=="นายเปีย บ้านคลองขุด") AutoCast.requirePresenter(it,piaActorId) }
+                            }.getOrNull()
+                            if(answer!=null) { result=answer; break }
+                        }
+                        val proposal=result
+                        runOnUiThread {
+                            if(stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
+                            active.set(null); loading.dismiss()
+                            if(proposal==null) { notice("ยังวิเคราะห์ตัวละครไม่ได้ • กรุณาเลือกจากคลัง MASTER เอง"); return@runOnUiThread }
+                            if(situation!=selectedStoryTopic || detail!=premise.text.toString()) { notice("ข้อมูลเรื่องเปลี่ยนระหว่างวิเคราะห์ • กรุณาวิเคราะห์อีกครั้ง"); return@runOnUiThread }
+                            suggestedRoles.clear()
+                            val cast=proposal.getJSONArray("cast")
+                            for(i in 0 until cast.length()) cast.getJSONObject(i).let { suggestedRoles[it.getString("library_id")]=it.getString("role") }
+                            castProposalPending=true
+                            castSummary.text="ระบบเสนอ ${suggestedRoles.size} ตัว • แตะเลือกตัวละครเพื่อตรวจภาพและยืนยันบทบาท"
+                            castButton.performClick()
+                        }
+                    }.start()
+                }
+            })
             castButton.setOnClickListener {
                 val choices=runCatching { if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog() else castingCatalog() }.getOrElse { notice("เปิดคลังตัวละครไม่ได้"); return@setOnClickListener }
-                val draft=selectedActors.toMutableSet()
+                val draft=selectedActors.toMutableSet().apply { if(castProposalPending) addAll(suggestedRoles.keys) }
                 if(chosenChannel=="นายเปีย บ้านคลองขุด") draft.add(piaActorId)
                 val grid=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-                grid.addView(TextView(this).apply { text="ติ๊กตัวละครที่ต้องการใช้ในเรื่อง สูงสุด 8 คน • ไม่ติ๊กเลย = ให้ AI เลือกจากคลังทั้งหมด" })
+                grid.addView(TextView(this).apply { text="ติ๊กตัวละครที่ต้องการใช้ในเรื่อง สูงสุด 8 ตัว • ตรวจภาพและบทบาทก่อนยืนยัน" })
                 for(n in 0 until choices.length()) {
                     val actor=choices.getJSONObject(n); val id=actor.getString("id")
                     val source=runCatching { castingSource(actor) }.getOrNull()
-                    val box=android.widget.CheckBox(this).apply { text=(actor.optString("display_name").ifBlank { id })+" • "+id+(if(source?.isFile==true) "" else " • ไม่พบภาพ MASTER"); isChecked=id in draft; isEnabled=source?.isFile==true && !(chosenChannel=="นายเปีย บ้านคลองขุด" && id==piaActorId) }
+                    val box=android.widget.CheckBox(this).apply { text=(actor.optString("display_name").ifBlank { id })+" • "+id+(suggestedRoles[id]?.let { "\nบทบาทที่เสนอ: $it" } ?: "")+(if(source?.isFile==true) "" else " • ไม่พบภาพ MASTER"); isChecked=id in draft; isEnabled=source?.isFile==true && !(chosenChannel=="นายเปีย บ้านคลองขุด" && id==piaActorId) }
                     grid.addView(box)
                     if(source?.isFile==true) grid.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(source)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(150)); setOnClickListener { fullImage(source,box.text.toString()) } })
                     box.setOnCheckedChangeListener { _,checked -> if(checked) draft.add(id) else draft.remove(id) }
@@ -3009,8 +3086,103 @@ $context"""
                 AlertDialog.Builder(this).setTitle("เลือกภาพ MASTER ตัวละคร").setView(ScrollView(this).apply { addView(grid) }).setPositiveButton("ใช้รายการที่เลือก") { _,_ ->
                     if(draft.size>8) { notice("เลือกตัวละครได้สูงสุด 8 คน กรุณาเลือกใหม่"); return@setPositiveButton }
                     selectedActors.clear(); selectedActors.addAll(draft)
-                    castButton.text=if(selectedActors.isEmpty()) "🎭 ให้ AI เลือกจากคลังทั้งหมด" else "🎭 เลือกตัวละครแล้ว ${selectedActors.size} คน • แตะเพื่อแก้"
+                    castProposalPending=false
+                    castButton.text=if(selectedActors.isEmpty()) "🎭 ตรวจและเลือกตัวละครจากภาพ MASTER" else "🎭 เลือกตัวละครแล้ว ${selectedActors.size} ตัว • แตะเพื่อแก้"
+                    val names=(0 until choices.length()).map { choices.getJSONObject(it) }.filter { it.optString("id") in selectedActors }
+                        .map { "${it.optString("display_name").ifBlank { it.optString("id") }} • ${it.optString("id")}" }
+                    castSummary.text=if(names.isEmpty()) "ยังไม่ได้เลือกภาพ • กรุณาตรวจและยืนยันก่อนสร้างบท" else "ตัวละครที่เลือก ${names.size} ตัว:\n"+names.joinToString("\n")
                 }.setNegativeButton("ยกเลิก",null).showDirector()
+            }
+            val selectedProps=linkedMapOf<String,String>()
+            val proposedProps=linkedMapOf<String,String>()
+            val propSummary=TextView(this).apply { text="ยังไม่ได้เลือกอาวุธหรืออุปกรณ์ • เลือกเฉพาะเมื่อเรื่องต้องใช้" }
+            if(ChannelFeaturePolicy.hasFantasyTools(chosenChannel)) {
+                val chooseProps=Button(this).apply { text="⚔️ เลือกภาพ MASTER อาวุธและอุปกรณ์"; panel.addView(this) }
+                panel.addView(propSummary)
+                panel.addView(Button(this).apply {
+                    text="✨ วิเคราะห์เรื่องและเสนออุปกรณ์"
+                    setOnClickListener {
+                        val providers=StoryProvider.eligible(this@StudioActivity).filter { it.hasKey(this@StudioActivity) }
+                        if(providers.isEmpty()) { notice("ยังไม่มี API สำหรับวิเคราะห์ • เลือกอุปกรณ์เองได้"); return@setOnClickListener }
+                        val all=runCatching { castingCatalog() }.getOrElse { notice("เปิดคลังตัวละครไม่ได้"); return@setOnClickListener }
+                        val actors=(0 until all.length()).map { all.getJSONObject(it) }.filter { it.optString("id") in selectedActors }
+                        val available=propCatalog.mapIndexedNotNull { n,name -> val id=propId(n); if(runCatching { assets.open("prop_masters/$id.png").use { it.read()>=0 } }.getOrDefault(false)) id to name else null }
+                        if(available.isEmpty()) { notice("ไม่พบภาพ MASTER อุปกรณ์ • กรุณาตรวจคลัง"); return@setOnClickListener }
+                        val topic=selectedStoryTopic; val details=premise.text.toString(); val category=categories[index]
+                        val actorSnapshot=selectedActors.toSet()
+                        val actorText=actors.joinToString("\n") { "${it.optString("id")} = ${it.optString("display_name")}" }
+                        val catalogText=available.joinToString("\n") { "${it.first} = ${it.second}" }
+                        val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
+                        val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
+                        val loading=AlertDialog.Builder(this@StudioActivity).setMessage("กำลังเสนออุปกรณ์จากภาพ MASTER ที่มี").setNegativeButton("ยกเลิก",null).showDirector()
+                        loading.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
+                        Thread {
+                            val item=JSONObject().put("type","object").put("properties",JSONObject().put("prop_id",JSONObject().put("type","string")).put("owner_library_id",JSONObject().put("type","string"))).put("required",JSONArray().put("prop_id").put("owner_library_id"))
+                            val schema=JSONObject().put("type","object").put("properties",JSONObject().put("assignments",JSONObject().put("type","array").put("items",item))).put("required",JSONArray().put("assignments"))
+                            val prompt="Suggest only story-relevant equipment from the real catalog below for human review. Return assignments with prop_id and owner_library_id. Use an exact listed character ID only when the story clearly supports an owner, otherwise use an empty string. Do not assign equipment to everyone. Return an empty array when no equipment is appropriate. Category: $category; situation: $topic; details: $details\nCHARACTERS:\n$actorText\nEQUIPMENT:\n$catalogText"
+                            var answer: JSONObject?=null
+                            for(provider in providers) {
+                                if(stopped.get()) break
+                                answer=runCatching { val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false); active.set(client); client.generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("assignments")!=null }
+                                if(answer!=null) break
+                            }
+                            val result=answer
+                            runOnUiThread {
+                                if(stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
+                                active.set(null); loading.dismiss()
+                                if(actorSnapshot!=selectedActors.toSet() || topic!=selectedStoryTopic || details!=premise.text.toString()) { notice("ข้อมูลเปลี่ยนระหว่างวิเคราะห์ • กรุณาวิเคราะห์อีกครั้ง"); return@runOnUiThread }
+                                if(result==null) { notice("ยังเสนออุปกรณ์ไม่ได้ • เลือกจากคลังเองได้"); return@runOnUiThread }
+                                proposedProps.clear()
+                                val assignments=result.optJSONArray("assignments") ?: JSONArray()
+                                val allowed=available.map { it.first }.toSet()
+                                for(i in 0 until assignments.length()) assignments.optJSONObject(i)?.let { row ->
+                                    val id=row.optString("prop_id"); val owner=row.optString("owner_library_id")
+                                    if(id in allowed && (owner.isBlank() || owner in actorSnapshot)) proposedProps[id]=owner
+                                }
+                                if(proposedProps.isEmpty()) { notice("ไม่พบอุปกรณ์ที่เหมาะสมจากข้อเสนอ • เลือกเองหรือไม่ใช้อุปกรณ์ได้"); return@runOnUiThread }
+                                propSummary.text="ระบบเสนอ ${proposedProps.size} ชิ้น • ตรวจภาพและยืนยันรายการ"
+                                chooseProps.performClick()
+                            }
+                        }.start()
+                    }
+                })
+                chooseProps.setOnClickListener {
+                    val choices=runCatching { castingCatalog() }.getOrElse { notice("เปิดคลังตัวละครไม่ได้"); return@setOnClickListener }
+                    val actors=(0 until choices.length()).map { choices.getJSONObject(it) }.filter { it.optString("id") in selectedActors }
+                    val actorIds=listOf("")+actors.map { it.optString("id") }
+                    val actorNames=listOf("ยังไม่ระบุผู้ใช้")+actors.map { it.optString("display_name").ifBlank { it.optString("id") }+" • "+it.optString("id") }
+                    val draft=proposedProps.toMutableMap().apply { putAll(selectedProps) }
+                    val grid=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
+                    grid.addView(TextView(this).apply { text="ตรวจภาพและเลือกเฉพาะอุปกรณ์ที่เกี่ยวข้อง • ผู้ใช้กำหนดภายหลังได้ • แตะภาพเพื่อขยาย" })
+                    propCatalog.forEachIndexed { index,name ->
+                        val id=propId(index)
+                        val available=runCatching { assets.open("prop_masters/$id.png").use { it.read()>=0 } }.getOrDefault(false)
+                        val box=android.widget.CheckBox(this).apply { text="$name • $id"+if(available) "" else " • ไม่พบภาพ MASTER"; isChecked=id in draft; isEnabled=available; grid.addView(this) }
+                        val owner=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,actorNames); setSelection(actorIds.indexOf(draft[id]).coerceAtLeast(0)); grid.addView(this) }
+                        val image=ImageView(this).apply { adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(150)); visibility=if(box.isChecked) android.view.View.VISIBLE else android.view.View.GONE; grid.addView(this) }
+                        fun showImage() { runCatching {
+                            val file=File(cacheDir,"prop_masters/$id.png"); file.parentFile!!.mkdirs()
+                            if(!file.isFile) assets.open("prop_masters/$id.png").use { input -> file.outputStream().use { input.copyTo(it) } }
+                            image.setImageBitmap(castingThumbnail(file)); image.setOnClickListener { fullImage(file,name) }
+                        }.onFailure { notice("เปิดภาพ $name ไม่ได้") } }
+                        if(box.isChecked) showImage()
+                        owner.onItemSelectedListener=object: android.widget.AdapterView.OnItemSelectedListener {
+                            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+                            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, rowId: Long) { if(box.isChecked) draft[id]=actorIds[position] }
+                        }
+                        box.setOnCheckedChangeListener { _,checked ->
+                            image.visibility=if(checked) android.view.View.VISIBLE else android.view.View.GONE
+                            if(checked) { draft[id]=actorIds[owner.selectedItemPosition.coerceAtLeast(0)]; showImage() } else draft.remove(id)
+                        }
+                    }
+                    AlertDialog.Builder(this).setTitle("เลือก MASTER อุปกรณ์").setView(ScrollView(this).apply { addView(grid) })
+                        .setPositiveButton("ยืนยันรายการ") { _,_ ->
+                            selectedProps.clear(); selectedProps.putAll(draft)
+                            proposedProps.clear()
+                            val names=selectedProps.map { (id,owner) -> val i=propCatalog.indices.first { propId(it)==id }; "${propCatalog[i]} • $id • "+(actors.firstOrNull { it.optString("id")==owner }?.optString("display_name") ?: "ยังไม่ระบุผู้ใช้") }
+                            propSummary.text=if(names.isEmpty()) "ไม่ได้เลือกอาวุธหรืออุปกรณ์" else "อุปกรณ์ที่เลือก ${names.size} ชิ้น:\n"+names.joinToString("\n")
+                        }.setNegativeButton("ยกเลิก",null).showDirector()
+                }
             }
             val presenterOutfits=listOf("เลือกชุดตามเนื้อเรื่อง", "สูทกรมท่า เนกไทลายฟ้า", "ชุดช่างสีเขียวเข้ม", "ชุดช่างสีกรมท่าส้ม", "ชุดช่างสีเทาเข้ม", "ชุดช่างสีน้ำเงิน", "เสื้อเชิ้ตสีครีม กางเกงเขียว", "เสื้อเชิ้ตสีฟ้า กางเกงกรมท่า", "เสื้อเชิ้ตสีขาว กางเกงดำ", "เสื้อเชิ้ตสีดำ กางเกงเทา", "เสื้อช่างกรม กางเกงเทา ถุงมือ", "ชุดทำสวนสีครีม หมวกและรองเท้าบูท", "ชุดทำสวนกรมท่า หมวกคลุมต้นคอและรองเท้าบูท")
             // Keep slot indices compatible with the existing picker and story snapshot.
@@ -3026,6 +3198,11 @@ $context"""
             }
             val choosePiaFace=Button(this).apply { text="✂️ วาดกรอบใบหน้า / ล็อกหน้า" }
             if(chosenChannel=="นายเปีย บ้านคลองขุด") {
+                panel.addView(TextView(this).apply { text=if(piaIdentityFile.isFile) "ใช้ MASTER นายเปียที่เลือกเอง • แตะภาพเพื่อตรวจ" else "ใช้ภาพนายเปียที่มาพร้อมแอป • เลือก MASTER ต้นฉบับของคุณได้" })
+                runCatching { castingSource(piaCatalog().getJSONObject(0)) }.getOrNull()?.takeIf { it.isFile }?.let { master ->
+                    panel.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(master)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(150)); setOnClickListener { fullImage(master,"MASTER นายเปียที่ใช้สร้างเรื่องใหม่") } })
+                }
+                panel.addView(Button(this).apply { text="เลือกภาพ MASTER ต้นฉบับนายเปีย"; setOnClickListener { piaIdentityPicker.launch(arrayOf("image/*")) } })
                 panel.addView(piaFaceLock)
                 panel.addView(TextView(this).apply { text="เลือกกรอบใบหน้ามุมตรงจาก MASTER ครั้งเดียว แล้วระบบใช้ซ้ำได้ • ตรวจภาพก่อนส่งสร้าง" })
                 panel.addView(choosePiaFace)
@@ -3088,10 +3265,13 @@ $context"""
             val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("1 EP • จบในตอน","ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); if(format!="short") panel.addView(this) }
             if(format=="short") panel.addView(TextView(this).apply { text="คลิปสั้น • จบในคลิปเดียว" })
             panel.addView(TextView(this).apply { text="${if(format=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(seconds)}${if(format=="short") "" else " ต่อ EP"} • ไม่รวมปกเปิด 3 วินาที • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้\n\nทั้งสองช่องใช้ API เขียนบทชุดเดียวกันที่ตั้งค่าไว้ • ระบบเลือกค่ายอัตโนมัติจากคีย์ที่พร้อม • เนื้อหาอาจถูกส่งไปยังค่ายที่รับช่วง • โควตาและค่าบริการขึ้นอยู่กับแต่ละบัญชี • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ภายหลัง" })
-            AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
-                .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
+            val createDialog=AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
+                .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป",null)
+                .setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
+            createDialog.getButton(-1).setOnClickListener {
                     runCatching {
                         if(ChannelCatalog.allCategories[index].id in setOf("pia_benefits","pia_safety","pia_products")) require(premise.text.toString().trim().isNotEmpty()) { "กรุณาระบุข้อมูลที่ตรวจสอบแล้วหรือรายละเอียดสินค้าก่อนสร้างบท" }
+                        require(selectedActors.isNotEmpty()) { "กรุณาตรวจภาพและยืนยันตัวละครก่อนสร้างบท" }
                         val allCatalog=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog() else castingCatalog()
                         val catalog=CastingSelection.filter(allCatalog,selectedActors)
                         val presenterId=if(chosenChannel=="นายเปีย บ้านคลองขุด") {
@@ -3099,6 +3279,15 @@ $context"""
                             presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id")
                         } else if(presenter.selectedItemPosition>0) presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id") else ""
                         require(presenterId.isBlank() || selectedActors.isEmpty() || presenterId in selectedActors) { "ตัวละครหลักที่เลือกไม่อยู่ในภาพที่ติ๊ก กรุณาติ๊กเพิ่มหรือเลือกตัวละครหลักใหม่" }
+                        require(selectedProps.values.all { it.isBlank() || it in selectedActors }) { "ผู้ใช้อุปกรณ์ไม่อยู่ในตัวละครที่เลือก กรุณาตรวจรายการอุปกรณ์อีกครั้ง" }
+                        selectedProps.keys.forEach { id -> require(runCatching { assets.open("prop_masters/$id.png").use { it.read()>=0 } }.getOrDefault(false)) { "ไม่พบภาพ MASTER อุปกรณ์ $id" } }
+                        val reviewedProps=selectedProps.map { (id,owner) ->
+                            val n=propCatalog.indices.first { propId(it)==id }
+                            val who=(0 until allCatalog.length()).map { allCatalog.getJSONObject(it) }.firstOrNull { it.optString("id")==owner }?.optString("display_name").orEmpty()
+                            "${propCatalog[n]} ($id)"+(if(who.isBlank()) " • ไม่ระบุผู้ใช้" else " • ผู้ใช้ที่เลือก: $who ($owner)")
+                        }
+                        val reviewedRoles=selectedActors.mapNotNull { id -> suggestedRoles[id]?.let { "$id: $it" } }
+                        val storyPremise=listOf("สถานการณ์ตั้งต้นที่เลือก: "+selectedStoryTopic,premise.text.toString(),if(reviewedRoles.isEmpty()) "" else "บทบาทที่ผู้ใช้เลือกจากข้อเสนอ (ตรวจความสอดคล้องกับเรื่อง): "+reviewedRoles.joinToString("; "),if(reviewedProps.isEmpty()) "" else "อุปกรณ์ MASTER ที่ผู้ใช้เลือก: "+reviewedProps.joinToString("; ")+". ใช้ตามเหตุการณ์ ระบุฉาก ผู้ถือ และความต่อเนื่อง ห้ามเดาผู้ใช้ที่ยังไม่ระบุ").filter { it.isNotBlank() }.joinToString("\n")
                         if(presenterId.isNotBlank() && presenterOutfit.selectedItemPosition>0) require(presenterOutfitFile(presenterId,presenterOutfit.selectedItemPosition).isFile) { "กรุณาเพิ่มรูปของชุดที่เลือก หรือเลือกชุดตามเนื้อเรื่อง" }
                         require(catalog.length()>0) { "คลัง MASTER ว่าง กรุณาเพิ่มตัวละครก่อน" }
                         if(ChannelCatalog.allCategories[index].id=="younger_man_older_woman") {
@@ -3125,11 +3314,15 @@ $context"""
                             PiaReferencePolicy.capture(original,outfitImage,target,File(folder,"presenter_outfit_reference.image"))
                         }
                         val count=if(format=="short") 1 else when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
+                        val reviewedPropRecords=JSONArray().apply { selectedProps.forEach { (id,owner) ->
+                            val n=propCatalog.indices.first { propId(it)==id }
+                            put(JSONObject().put("prop_id",id).put("name",propCatalog[n]).put("owner_library_id",owner))
+                        } }
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",chosenChannel).put("presenter_library_id",presenterId)
-                            .put("pia_face_lock",chosenChannel=="นายเปีย บ้านคลองขุด" && piaFaceLock.isChecked).put("required_cast_ids",JSONArray(selectedActors.toList())).put("presenter_outfit",if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenterOutfit.selectedItemPosition>0) presenterOutfits[presenterOutfit.selectedItemPosition] else "").put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",3).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("story_situation",selectedStoryTopic).put("premise",listOf("สถานการณ์ตั้งต้นที่เลือก: "+selectedStoryTopic,premise.text.toString()).filter { it.isNotBlank() }.joinToString("\n")).put("episodes",count)))
-                        prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
+                            .put("pia_face_lock",chosenChannel=="นายเปีย บ้านคลองขุด" && piaFaceLock.isChecked).put("required_cast_ids",JSONArray(selectedActors.toList())).put("selected_prop_masters",reviewedPropRecords).put("presenter_outfit",if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenterOutfit.selectedItemPosition>0) presenterOutfits[presenterOutfit.selectedItemPosition] else "").put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",3).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("story_situation",selectedStoryTopic).put("premise",storyPremise).put("episodes",count)))
+                        prefs.edit().putString("project",folder.name).apply(); createDialog.dismiss(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
-                }.setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
+                }
         }
         }
         chooseStoryChannel { channel -> chosenChannel=channel; chooseChannelTopic(channel,configure) }
