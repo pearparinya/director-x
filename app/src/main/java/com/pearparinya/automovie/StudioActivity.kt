@@ -1822,13 +1822,15 @@ class StudioActivity : AppCompatActivity() {
             editor.apply(); notice("บันทึกอุปกรณ์ประจำตัวละครแล้ว • ตรวจซีนด้วยเมนู AI ก่อนสร้างภาพ")
         }.setNegativeButton("ยกเลิก",null).showDirector()
     }
-    private fun propReviewStamp(scene: JSONObject): String {
-        val text=listOf("start_state","action","props","location","story_day","characters").joinToString("|") { scene.optString(it) }
-        return java.security.MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it.toInt() and 255) }
-    }
+    private fun propReviewStamp(scene: JSONObject): String = ReviewFingerprints.props(scene)
     private fun propReviewStatus(scene: JSONObject): String {
-        val saved=prefs.getString("props_review_${project.name}_${key(scene)}","").orEmpty()
-        return when { saved.isBlank() -> "ยังไม่ได้ตรวจ"; saved==propReviewStamp(scene) -> "ผู้ใช้ตรวจบทแล้ว"; else -> "บทเปลี่ยน • ตรวจอีกครั้ง" }
+        val pref="props_review_${project.name}_${key(scene)}"
+        var saved=prefs.getString(pref,"").orEmpty()
+        val current=propReviewStamp(scene)
+        if(saved.isNotBlank() && saved==ReviewFingerprints.legacyProps(scene)) {
+            prefs.edit().putString(pref,current).apply(); saved=current
+        }
+        return when { saved.isBlank() -> "ยังไม่ได้ตรวจ"; saved==current -> "ผู้ใช้ตรวจบทแล้ว"; else -> "บทเปลี่ยน • ตรวจอีกครั้ง" }
     }
     private fun suggestSceneObjects(story: JSONObject) {
         if(GeminiStoryService.running) return notice("กรุณารอหรือหยุดงานเขียนบทก่อนวิเคราะห์สิ่งของ")
@@ -1892,7 +1894,7 @@ $context"""
                         plan=candidate
                         try { saveStory() } catch(e: Exception) { plan=story; throw e }
                     }.onSuccess {
-                        dialog.dismiss(); render(); notice("บันทึกข้อเสนอที่เลือกแล้ว • ตรวจภาพเดิมและคำสั่ง Flow อีกครั้ง")
+                        dialog.dismiss(); render(); showPropsNext("บันทึกข้อเสนอที่เลือกแล้ว • ยังต้องตรวจและยืนยันแต่ละฉาก หากมีภาพเดิมให้ตรวจภาพและคำสั่ง Flow อีกครั้ง")
                     }.onFailure { notice(it.message ?: "บันทึกไม่ได้ • บทเดิมไม่เปลี่ยน") }
                 }
             }
@@ -1925,8 +1927,10 @@ $context"""
                 val old=scene.optString("props")
                 scene.put("props",editor.text.toString().trim())
                 runCatching { saveStory() }.onSuccess {
-                    prefs.edit().putString("props_review_${project.name}_${key(scene)}",propReviewStamp(scene)).apply()
-                    dialog.dismiss(); render(); notice("บันทึกและยืนยันตรวจบทแล้ว • หากมีภาพเดิมให้ตรวจซ้ำ และตรวจภาพเริ่มต้นจริง"); plan?.let { reviewSceneProps(it) }
+                    val statusSaved=prefs.edit().putString("props_review_${project.name}_${key(scene)}",propReviewStamp(scene)).commit()
+                    val imageNote=if(image(scene).isFile) "ฉาก ${key(scene)} มีภาพบันทึกไว้ • ตรวจภาพเดิมและคำสั่ง Flow อีกครั้ง" else "ฉาก ${key(scene)} ยังไม่พบภาพที่บันทึกในแอป"
+                    dialog.dismiss(); render()
+                    showPropsNext(if(statusSaved) "บันทึกและยืนยันตรวจบท ${key(scene)} แล้ว\n$imageNote" else "บันทึกบทแล้ว แต่บันทึกสถานะตรวจไม่สำเร็จ กรุณาตรวจอีกครั้ง")
                 }.onFailure { scene.put("props",old); notice(it.message ?: "บันทึกไม่ได้") }
             }
         }
@@ -2005,12 +2009,28 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
                 dialog.getButton(-1).setOnClickListener {
                     if(project.name!=projectId || plan!==story || story.toString()!=snapshot) { notice("เรื่องเปลี่ยนระหว่างตรวจ กรุณาเริ่มใหม่"); return@setOnClickListener }
                     runCatching {
+                        val wasConfirmed=wardrobeReviewStatus(story)==HomeReviewState.WARDROBE_CONFIRMED
                         val choices=proposals.mapIndexedNotNull { i,row -> if(!boxes[i].isChecked) null else WardrobeRevision.Choice(row.optString("master"),row.optString("story_day"),inputs[i].text.toString().trim()) }
                         require(choices.isNotEmpty()) { "ยังไม่ได้เลือกชุด • บทเดิมไม่เปลี่ยน" }
+                        val chosen=choices.map { referenceId(it.master).lowercase() to it.day.trim().lowercase() }.toSet()
+                        val affected=scenes.filter { scene ->
+                            val day=scene.optString("story_day").trim().lowercase()
+                            FlowReferencePrompt.people(scene).any { person -> (referenceId(person.optString("master")).lowercase() to day) in chosen }
+                        }
+                        val selectedNames=chosen.mapNotNull { groups[it]?.optString("name") }.distinct()
+                        val unchanged=groups.filterKeys { it !in chosen }.values.map { it.optString("name") }.distinct()
+                        val withImage=affected.filter { image(it).isFile }.map { key(it) }
                         val candidate=WardrobeRevision.apply(story,choices)
                         plan=candidate
                         try { saveStory() } catch(e: Exception) { plan=story; throw e }
-                    }.onSuccess { prefs.edit().putBoolean("wardrobe_changed_${project.name}",true).apply(); dialog.dismiss(); render(); notice("บันทึกชุดแล้ว • ซีนที่เปลี่ยนต้องตรวจภาพใหม่ • บทก่อนแก้เก็บไว้ในประวัติ") }
+                        val stamp=wardrobeReviewStamp(candidate)
+                        val editor=prefs.edit().putString("wardrobe_selected_stamp_${project.name}",stamp).putBoolean("wardrobe_changed_${project.name}",!wasConfirmed)
+                        if(wasConfirmed) editor.putString("wardrobe_review_${project.name}",stamp)
+                        val statusSaved=editor.commit()
+                        val details="บันทึกชุดที่เลือกแล้ว: ${selectedNames.joinToString(", ").ifBlank { "ตามรายการที่เลือก" }}\nฉากที่เกี่ยวข้อง: ${affected.map { key(it) }.joinToString(", ")}\nตัวละครหรือวันที่ไม่ได้เลือกยังใช้ชุดเดิม: ${unchanged.joinToString(", ").ifBlank { "ไม่มี" }}\nภาพที่มีอยู่และควรตรวจใหม่: ${withImage.joinToString(", ").ifBlank { "ไม่พบภาพที่บันทึกในแอป" }}"
+                        val state=if(!statusSaved) "บันทึกบทสำเร็จ แต่บันทึกสถานะตรวจไม่สำเร็จ กรุณาตรวจชุดอีกครั้ง" else if(wasConfirmed) "ชุดอื่นคงเดิมตามที่ยืนยันไว้" else "บันทึกเฉพาะชุดที่เลือกแล้ว • ยังไม่ยืนยันชุดทั้งหมด"
+                        details+"\n\n"+state
+                    }.onSuccess { message -> dialog.dismiss(); render(); showWardrobeNext(message) }
                         .onFailure { notice(it.message ?: "บันทึกชุดไม่ได้") }
                 }
             }
@@ -2319,32 +2339,53 @@ $context"""
         frame.requestLayout()
         return dialog
     }
-    private fun wardrobeReviewStamp(story: JSONObject): String {
-        val text=rows(story).joinToString("|") { it.optString("story_day")+":"+it.optString("characters") }
-        return java.security.MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it.toInt() and 255) }
-    }
+    private fun wardrobeReviewStamp(story: JSONObject): String = ReviewFingerprints.wardrobe(rows(story))
     private fun wardrobeReviewStatus(story: JSONObject): String {
-        val saved=prefs.getString("wardrobe_review_${project.name}","").orEmpty()
-        val status=HomeReviewState.wardrobe(saved,wardrobeReviewStamp(story))
-        return if(saved.isBlank() && prefs.getBoolean("wardrobe_changed_${project.name}",false)) "บันทึกชุดแล้ว • ตรวจชุดทั้งหมด" else status
+        val all=rows(story)
+        val current=ReviewFingerprints.wardrobe(all)
+        var saved=prefs.getString("wardrobe_review_${project.name}","").orEmpty()
+        if(saved.isNotBlank() && saved==ReviewFingerprints.legacyWardrobe(all)) {
+            prefs.edit().putString("wardrobe_review_${project.name}",current).apply()
+            saved=current
+        }
+        val partial=prefs.getString("wardrobe_selected_stamp_${project.name}","").orEmpty()
+        return HomeReviewState.wardrobeProgress(saved,partial,current,prefs.getBoolean("wardrobe_changed_${project.name}",false))
     }
-    private fun wardrobeMenu(story: JSONObject) {
+    private fun confirmAllWardrobe(story: JSONObject) {
         val groups=rows(story).flatMap { scene -> FlowReferencePrompt.people(scene).map { p -> Triple(p.optString("name"),scene.optString("story_day"),p.optString("outfit")) } }.distinct()
         if(groups.isEmpty()) return notice("ยังไม่มีตัวละครในบทให้ตรวจชุด")
         val summary=groups.joinToString("\n\n") { "${it.first} • ${it.second.ifBlank { "ไม่ระบุวัน" }}\nชุด: ${it.third.ifBlank { "ยังไม่ระบุ" }}" }
-        choiceMenu("ขั้นตอน 1 • ตรวจชุดตัวละคร\nสถานะ: ${wardrobeReviewStatus(story)}",listOf("ดูและยืนยันชุดในบท\nตรวจชุดเดิมและยืนยันเมื่อถูกต้อง","ให้ AI เสนอชุดใหม่\nเลือกเฉพาะชุดที่ต้องการก่อนบันทึก","แก้ชุดเฉพาะฉาก\nปรับรายละเอียดในฉากที่ต้องการ")) { selected ->
-            when(selected) {
-                0 -> {
-                    val before=wardrobeReviewStamp(story)
-                    AlertDialog.Builder(this).setTitle("ตรวจชุดในบท").setMessage((summary.ifBlank { "ยังไม่มีข้อมูลชุด" })+"\n\nการยืนยันหมายถึงคุณตรวจชุดในบท ไม่ได้ตรวจภาพจริง")
-                        .setPositiveButton("ยืนยันชุดในบท") { _,_ ->
-                            if(plan!==story || wardrobeReviewStamp(story)!=before) notice("บทเปลี่ยนแล้ว กรุณาตรวจใหม่")
-                            else { prefs.edit().putString("wardrobe_review_${project.name}",before).putBoolean("wardrobe_changed_${project.name}",false).apply(); render(); notice("ยืนยันชุดในบทแล้ว • กลับมาแก้ได้") }
-                        }.setNegativeButton("กลับ",null).showDirector()
+        val before=wardrobeReviewStamp(story)
+        AlertDialog.Builder(this).setTitle("ตรวจและยืนยันชุดทั้งหมดในบท")
+            .setMessage(summary+"\n\nการยืนยันหมายถึงคุณตรวจชุดในบท ไม่ได้ตรวจภาพจริง")
+            .setPositiveButton("ยืนยันชุดทั้งหมด") { _,_ ->
+                if(plan!==story || wardrobeReviewStamp(story)!=before) notice("บทเปลี่ยนแล้ว กรุณาตรวจใหม่")
+                else {
+                    val ok=prefs.edit().putString("wardrobe_review_${project.name}",before).putString("wardrobe_selected_stamp_${project.name}",before).putBoolean("wardrobe_changed_${project.name}",false).commit()
+                    render()
+                    if(ok) showWardrobeNext("ยืนยันชุดทั้งหมดในบทแล้ว • กลับมาแก้ได้") else notice("ยืนยันสถานะไม่สำเร็จ กรุณาลองใหม่")
                 }
-                1 -> suggestStoryWardrobe(story)
-                else -> productionCheckMenu(story)
-            }
+            }.setNegativeButton("กลับ",null).showDirector()
+    }
+    private fun showWardrobeNext(message: String) {
+        AlertDialog.Builder(this).setTitle("👕 ขั้นตอน 1 • ชุดตัวละคร").setMessage(message)
+            .setPositiveButton("ไปตรวจสิ่งของ →") { _,_ -> plan?.let { reviewSceneProps(it) } ?: notice("ไม่พบเรื่อง") }
+            .setNeutralButton("ตรวจและยืนยันชุดทั้งหมด") { _,_ -> plan?.let { confirmAllWardrobe(it) } ?: notice("ไม่พบเรื่อง") }
+            .setNegativeButton("กลับหน้าแรก",null).showDirector()
+    }
+    private fun showPropsNext(message: String) {
+        val current=plan ?: return notice("ไม่พบเรื่อง")
+        val scenes=rows(current)
+        val reviewed=scenes.count { propReviewStatus(it)=="ผู้ใช้ตรวจบทแล้ว" }
+        AlertDialog.Builder(this).setTitle("🧰 ขั้นตอน 2 • สิ่งของในบท")
+            .setMessage(message+"\n\nตรวจบทแล้ว $reviewed/${scenes.size} ฉาก • การตรวจบทยังไม่ได้ตรวจภาพจริง")
+            .setPositiveButton("ไปสร้างภาพ + Flow →") { _,_ -> commandCardsMenu() }
+            .setNeutralButton("ตรวจฉากอื่น") { _,_ -> plan?.let { reviewSceneProps(it) } ?: notice("ไม่พบเรื่อง") }
+            .setNegativeButton("กลับหน้าแรก",null).showDirector()
+    }
+    private fun wardrobeMenu(story: JSONObject) {
+        choiceMenu("ขั้นตอน 1 • ตรวจชุดตัวละคร\nสถานะ: ${wardrobeReviewStatus(story)}",listOf("ดูและยืนยันชุดในบท\nตรวจชุดเดิมและยืนยันเมื่อถูกต้อง","ให้ AI เสนอชุดใหม่\nเลือกเฉพาะชุดที่ต้องการก่อนบันทึก","แก้ชุดเฉพาะฉาก\nปรับรายละเอียดในฉากที่ต้องการ")) { selected ->
+            when(selected) { 0 -> confirmAllWardrobe(story); 1 -> suggestStoryWardrobe(story); else -> productionCheckMenu(story) }
         }
     }
     private fun confirmEpisode(story: JSONObject,number: Int) {
