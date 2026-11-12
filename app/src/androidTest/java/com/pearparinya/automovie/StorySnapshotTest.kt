@@ -19,12 +19,13 @@ class StorySnapshotTest {
     @Test fun onlyLiteralCompleteEvidenceCanBeSelectedAutomatically() {
         val row=JSONObject().put("item","เก้าอี้ไม้เก่า").put("holder","ลุงสมบัติ")
             .put("evidence","ลุงสมบัตินั่งบนเก้าอี้ไม้เก่า").put("details","").put("continuity_id","")
-        assertTrue(PropSuggestionReview.directlySupported(row))
+        val scene=JSONObject().put("start_state","ลุงสมบัตินั่งบนเก้าอี้ไม้เก่า")
+        assertTrue(PropSuggestionReview.directlySupported(row,scene))
         row.put("continuity_id","chair1")
-        assertFalse(PropSuggestionReview.directlySupported(row))
+        assertFalse(PropSuggestionReview.directlySupported(row,scene))
         row.put("continuity_id","").put("details","สีน้ำตาล")
-        assertFalse(PropSuggestionReview.directlySupported(row))
+        assertFalse(PropSuggestionReview.directlySupported(row,scene))
         row.put("details","").put("holder","เพ็ญศรี")
-        assertFalse(PropSuggestionReview.directlySupported(row))
+        assertFalse(PropSuggestionReview.directlySupported(row,scene))
     }
 }

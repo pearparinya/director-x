@@ -1878,7 +1878,7 @@ $context"""
                 if(proposals.isEmpty()) { notice("ไม่พบข้อเสนอที่มีหลักฐานตรงกับบท • ตรวจหรือเพิ่มเองรายฉากได้"); return@runOnUiThread }
                 // Only apply automatically if every proposal has literal supporting evidence.
                 // Ambiguous suggestions stay on screen for the user to decide.
-                if(proposals.all { PropSuggestionReview.directlySupported(it) }) {
+                if(proposals.all { PropSuggestionReview.directlySupported(it,allowed[it.optString("scene_id")]) }) {
                     val previous=plan ?: return@runOnUiThread
                     runCatching {
                         val candidate=JSONObject(previous.toString())
@@ -1903,7 +1903,7 @@ $context"""
                     val matched=allowed[row.optString("scene_id")]?.let { scene -> FlowReferencePrompt.people(scene).firstOrNull { it.optString("name")==row.optString("holder") } }
                     val linkedMaster=if(fantasy && matched!=null) characterProp(matched.optString("master")) else ""
                     val label="${row.optString("scene_id")} • ${row.optString("item")}\nผู้ใช้: ${row.optString("holder").ifBlank { "ยังไม่ระบุ" }}\nรายละเอียด: ${row.optString("details").ifBlank { "ยังไม่ระบุ" }}\nกลุ่มต่อเนื่อง: ${row.optString("continuity_id").ifBlank { "ยังไม่ระบุ • ตรวจเอง" }}\nหลักฐานในบท: ${row.optString("evidence")}"+(if(linkedMaster.isBlank()) "" else "\nMASTER ที่ผูกกับตัวละคร: $linkedMaster • ตรวจว่าตรงกับสิ่งของนี้")
-                    android.widget.CheckBox(this).apply { text=label; isChecked=PropSuggestionReview.directlySupported(row); textSize=15f; setTextColor(navy); setPadding(dp(12),dp(12),dp(12),dp(12)); background=backdrop(Color.rgb(248,246,239),Color.rgb(226,234,243),Color.rgb(173,187,204)); layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) }; panel.addView(this) }
+                    android.widget.CheckBox(this).apply { text=label; isChecked=PropSuggestionReview.directlySupported(row,allowed[row.optString("scene_id")]); textSize=15f; setTextColor(navy); setPadding(dp(12),dp(12),dp(12),dp(12)); background=backdrop(Color.rgb(248,246,239),Color.rgb(226,234,243),Color.rgb(173,187,204)); layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) }; panel.addView(this) }
                 }
                 val dialog=AlertDialog.Builder(this).setTitle("✨ ตรวจสิ่งของที่ AI เสนอ • ${proposals.size} รายการ")
                     .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึกรายการที่เลือก",null).setNegativeButton("ยกเลิก",null).showDirector()
@@ -1912,7 +1912,8 @@ $context"""
                     val selected=proposals.filterIndexed { i,_ -> boxes[i].isChecked }
                     if(selected.isEmpty()) { notice("ยังไม่ได้เลือกรายการ • บทเดิมไม่เปลี่ยน"); return@setOnClickListener }
                     runCatching {
-                        val previous=plan ?: error("ไม่พบเรื่อง")\n                        val candidate=JSONObject(previous.toString())
+                        val previous=plan ?: error("ไม่พบเรื่อง")
+                        val candidate=JSONObject(previous.toString())
                         val targets=rows(candidate).associateBy { key(it) }
                         selected.groupBy { it.optString("scene_id") }.forEach { (id,items) -> PropSuggestionReview.apply(targets.getValue(id),items) }
                         plan=candidate
