@@ -2362,6 +2362,8 @@ $context"""
         val channel=current?.optString("channel")?.takeIf { it.isNotBlank() } ?: "ยังไม่ระบุ"
         val title=current?.optString("title")?.takeIf { it.isNotBlank() } ?: "ยังไม่มีเรื่องที่เปิด"
         val episodes=current?.optJSONArray("episodes")?.length() ?: 0
+        val storyFile=File(project,"story.json")
+        val exported=current!=null && storyFile.isFile && File(project,"flow_pack_exported.sha256").takeIf { it.isFile }?.readText()==EpisodeMedia.digest(storyFile)
         val scenes=current?.let { rows(it) }.orEmpty()
         val reviewed=scenes.count { propReviewStatus(it)=="ผู้ใช้ตรวจบทแล้ว" }
         val wardrobe=current?.let { wardrobeReviewStatus(it) } ?: "รอสร้างบท"
@@ -2372,7 +2374,7 @@ $context"""
         }
         card.addView(TextView(this).apply { text="✦ งานปัจจุบัน ✦"; textSize=13f; setTextColor(gold); setTypeface(null,Typeface.BOLD) })
         card.addView(TextView(this).apply { text="ช่อง: $channel\nเรื่อง: $title"; textSize=16f; setTextColor(ice); setTypeface(null,Typeface.BOLD); setPadding(0,dp(8),0,dp(6)) })
-        card.addView(TextView(this).apply { text=if(current==null) "สร้างบทใหม่ หรือเปิดเรื่องที่บันทึกไว้" else "$episodes EP • ${scenes.size} ฉาก • ${current.optString("aspect_ratio","9:16")}"; textSize=12f; setTextColor(muted) })
+        card.addView(TextView(this).apply { text=if(current==null) "สร้างบทใหม่ หรือเปิดเรื่องที่บันทึกไว้" else "$episodes EP • ${scenes.size} ฉาก • ${current.optString("aspect_ratio","9:16")}"+(if(exported) " • เคยส่งออกบทนี้แล้ว" else ""); textSize=12f; setTextColor(muted) })
         root.addView(card)
         if(File(project,"gemini_job/spec.json").isFile) {
             geminiStatusView=TextView(this).apply { text=geminiStatusText(readGeminiStatus()); setTextColor(ice); textSize=14f; setPadding(dp(8),dp(8),dp(8),dp(8)) }
