@@ -2991,16 +2991,17 @@ $context"""
                 if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenters.length()>0 && presenters.getJSONObject(0).optString("id")==piaActorId) setSelection(1)
             }
             val selectedActors=linkedSetOf<String>()
-            val castButton=Button(this).apply { text="🎭 เลือกตัวละครจากภาพ MASTER • ไม่เลือก = ให้ AI เลือกจากคลัง"; if(chosenChannel!="นายเปีย บ้านคลองขุด") panel.addView(this) }
+            val castButton=Button(this).apply { text=if(chosenChannel=="นายเปีย บ้านคลองขุด") "🎭 เลือกตัวละครเสริมจากภาพ MASTER • นายเปียเป็นตัวหลัก" else "🎭 เลือกตัวละครจากภาพ MASTER • ไม่เลือก = ให้ AI เลือกจากคลัง"; panel.addView(this) }
             castButton.setOnClickListener {
                 val choices=runCatching { if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog() else castingCatalog() }.getOrElse { notice("เปิดคลังตัวละครไม่ได้"); return@setOnClickListener }
                 val draft=selectedActors.toMutableSet()
+                if(chosenChannel=="นายเปีย บ้านคลองขุด") draft.add(piaActorId)
                 val grid=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
                 grid.addView(TextView(this).apply { text="ติ๊กตัวละครที่ต้องการใช้ในเรื่อง สูงสุด 8 คน • ไม่ติ๊กเลย = ให้ AI เลือกจากคลังทั้งหมด" })
                 for(n in 0 until choices.length()) {
                     val actor=choices.getJSONObject(n); val id=actor.getString("id")
-                    val box=android.widget.CheckBox(this).apply { text=actor.optString("display_name").ifBlank { id }+" • "+id; isChecked=id in draft }
                     val source=runCatching { castingSource(actor) }.getOrNull()
+                    val box=android.widget.CheckBox(this).apply { text=(actor.optString("display_name").ifBlank { id })+" • "+id+(if(source?.isFile==true) "" else " • ไม่พบภาพ MASTER"); isChecked=id in draft; isEnabled=source?.isFile==true && !(chosenChannel=="นายเปีย บ้านคลองขุด" && id==piaActorId) }
                     grid.addView(box)
                     if(source?.isFile==true) grid.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(source)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(150)); setOnClickListener { fullImage(source,box.text.toString()) } })
                     box.setOnCheckedChangeListener { _,checked -> if(checked) draft.add(id) else draft.remove(id) }
