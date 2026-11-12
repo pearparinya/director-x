@@ -2997,9 +2997,10 @@ $context"""
                 if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenters.length()>0 && presenters.getJSONObject(0).optString("id")==piaActorId) setSelection(1)
             }
             val selectedActors=linkedSetOf<String>()
-            val castButton=Button(this).apply { text=if(chosenChannel=="นายเปีย บ้านคลองขุด") "🎭 เลือกตัวละครเสริมจากภาพ MASTER • นายเปียเป็นตัวหลัก" else "🎭 เลือกตัวละครจากภาพ MASTER • ไม่เลือก = ให้ AI เลือกจากคลัง"; panel.addView(this) }
-            val castSummary=TextView(this).apply { text="ยังไม่ได้เลือกภาพ • ระบบจะเลือกจากคลังเมื่อสร้างบท"; panel.addView(this) }
+            val castButton=Button(this).apply { text=if(chosenChannel=="นายเปีย บ้านคลองขุด") "🎭 เลือกตัวละครเสริมจากภาพ MASTER • นายเปียเป็นตัวหลัก" else "🎭 ตรวจและเลือกตัวละครจากภาพ MASTER"; panel.addView(this) }
+            val castSummary=TextView(this).apply { text="ยังไม่ได้เลือกภาพ • กรุณาตรวจและยืนยันก่อนสร้างบท"; panel.addView(this) }
             val suggestedRoles=linkedMapOf<String,String>()
+            var castProposalPending=false
             panel.addView(Button(this).apply {
                 text="✨ วิเคราะห์เรื่องและเสนอตัวละครจาก MASTER"
                 setOnClickListener {
@@ -3040,9 +3041,11 @@ $context"""
                             if(stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
                             active.set(null); loading.dismiss()
                             if(proposal==null) { notice("ยังวิเคราะห์ตัวละครไม่ได้ • กรุณาเลือกจากคลัง MASTER เอง"); return@runOnUiThread }
+                            if(situation!=selectedStoryTopic || detail!=premise.text.toString()) { notice("ข้อมูลเรื่องเปลี่ยนระหว่างวิเคราะห์ • กรุณาวิเคราะห์อีกครั้ง"); return@runOnUiThread }
                             suggestedRoles.clear()
                             val cast=proposal.getJSONArray("cast")
                             for(i in 0 until cast.length()) cast.getJSONObject(i).let { suggestedRoles[it.getString("library_id")]=it.getString("role") }
+                            castProposalPending=true
                             castSummary.text="ระบบเสนอ ${suggestedRoles.size} ตัว • แตะเลือกตัวละครเพื่อตรวจภาพและยืนยันบทบาท"
                             castButton.performClick()
                         }
@@ -3051,10 +3054,10 @@ $context"""
             })
             castButton.setOnClickListener {
                 val choices=runCatching { if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog() else castingCatalog() }.getOrElse { notice("เปิดคลังตัวละครไม่ได้"); return@setOnClickListener }
-                val draft=(if(selectedActors.isEmpty()) suggestedRoles.keys else selectedActors).toMutableSet()
+                val draft=selectedActors.toMutableSet().apply { if(castProposalPending) addAll(suggestedRoles.keys) }
                 if(chosenChannel=="นายเปีย บ้านคลองขุด") draft.add(piaActorId)
                 val grid=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-                grid.addView(TextView(this).apply { text="ติ๊กตัวละครที่ต้องการใช้ในเรื่อง สูงสุด 8 คน • ไม่ติ๊กเลย = ให้ AI เลือกจากคลังทั้งหมด" })
+                grid.addView(TextView(this).apply { text="ติ๊กตัวละครที่ต้องการใช้ในเรื่อง สูงสุด 8 ตัว • ตรวจภาพและบทบาทก่อนยืนยัน" })
                 for(n in 0 until choices.length()) {
                     val actor=choices.getJSONObject(n); val id=actor.getString("id")
                     val source=runCatching { castingSource(actor) }.getOrNull()
@@ -3066,10 +3069,11 @@ $context"""
                 AlertDialog.Builder(this).setTitle("เลือกภาพ MASTER ตัวละคร").setView(ScrollView(this).apply { addView(grid) }).setPositiveButton("ใช้รายการที่เลือก") { _,_ ->
                     if(draft.size>8) { notice("เลือกตัวละครได้สูงสุด 8 คน กรุณาเลือกใหม่"); return@setPositiveButton }
                     selectedActors.clear(); selectedActors.addAll(draft)
-                    castButton.text=if(selectedActors.isEmpty()) "🎭 ให้ AI เลือกจากคลังทั้งหมด" else "🎭 เลือกตัวละครแล้ว ${selectedActors.size} คน • แตะเพื่อแก้"
+                    castProposalPending=false
+                    castButton.text=if(selectedActors.isEmpty()) "🎭 ตรวจและเลือกตัวละครจากภาพ MASTER" else "🎭 เลือกตัวละครแล้ว ${selectedActors.size} ตัว • แตะเพื่อแก้"
                     val names=(0 until choices.length()).map { choices.getJSONObject(it) }.filter { it.optString("id") in selectedActors }
                         .map { "${it.optString("display_name").ifBlank { it.optString("id") }} • ${it.optString("id")}" }
-                    castSummary.text=if(names.isEmpty()) "ยังไม่ได้เลือกภาพ • ระบบจะเลือกจากคลังเมื่อสร้างบท" else "ตัวละครที่เลือก ${names.size} ตัว:\n"+names.joinToString("\n")
+                    castSummary.text=if(names.isEmpty()) "ยังไม่ได้เลือกภาพ • กรุณาตรวจและยืนยันก่อนสร้างบท" else "ตัวละครที่เลือก ${names.size} ตัว:\n"+names.joinToString("\n")
                 }.setNegativeButton("ยกเลิก",null).showDirector()
             }
             val selectedProps=linkedMapOf<String,String>()
@@ -3157,6 +3161,7 @@ $context"""
                     AlertDialog.Builder(this).setTitle("เลือก MASTER อุปกรณ์").setView(ScrollView(this).apply { addView(grid) })
                         .setPositiveButton("ยืนยันรายการ") { _,_ ->
                             selectedProps.clear(); selectedProps.putAll(draft)
+                            proposedProps.clear()
                             val names=selectedProps.map { (id,owner) -> val i=propCatalog.indices.first { propId(it)==id }; "${propCatalog[i]} • $id • "+(actors.firstOrNull { it.optString("id")==owner }?.optString("display_name") ?: "ยังไม่ระบุผู้ใช้") }
                             propSummary.text=if(names.isEmpty()) "ไม่ได้เลือกอาวุธหรืออุปกรณ์" else "อุปกรณ์ที่เลือก ${names.size} ชิ้น:\n"+names.joinToString("\n")
                         }.setNegativeButton("ยกเลิก",null).showDirector()
@@ -3238,10 +3243,13 @@ $context"""
             val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("1 EP • จบในตอน","ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); if(format!="short") panel.addView(this) }
             if(format=="short") panel.addView(TextView(this).apply { text="คลิปสั้น • จบในคลิปเดียว" })
             panel.addView(TextView(this).apply { text="${if(format=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(seconds)}${if(format=="short") "" else " ต่อ EP"} • ไม่รวมปกเปิด 3 วินาที • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้\n\nทั้งสองช่องใช้ API เขียนบทชุดเดียวกันที่ตั้งค่าไว้ • ระบบเลือกค่ายอัตโนมัติจากคีย์ที่พร้อม • เนื้อหาอาจถูกส่งไปยังค่ายที่รับช่วง • โควตาและค่าบริการขึ้นอยู่กับแต่ละบัญชี • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ภายหลัง" })
-            AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
-                .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป") { _,_ ->
+            val createDialog=AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
+                .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป",null)
+                .setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
+            createDialog.getButton(-1).setOnClickListener {
                     runCatching {
                         if(ChannelCatalog.allCategories[index].id in setOf("pia_benefits","pia_safety","pia_products")) require(premise.text.toString().trim().isNotEmpty()) { "กรุณาระบุข้อมูลที่ตรวจสอบแล้วหรือรายละเอียดสินค้าก่อนสร้างบท" }
+                        require(selectedActors.isNotEmpty()) { "กรุณาตรวจภาพและยืนยันตัวละครก่อนสร้างบท" }
                         val allCatalog=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog() else castingCatalog()
                         val catalog=CastingSelection.filter(allCatalog,selectedActors)
                         val presenterId=if(chosenChannel=="นายเปีย บ้านคลองขุด") {
@@ -3290,9 +3298,9 @@ $context"""
                         } }
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",chosenChannel).put("presenter_library_id",presenterId)
                             .put("pia_face_lock",chosenChannel=="นายเปีย บ้านคลองขุด" && piaFaceLock.isChecked).put("required_cast_ids",JSONArray(selectedActors.toList())).put("selected_prop_masters",reviewedPropRecords).put("presenter_outfit",if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenterOutfit.selectedItemPosition>0) presenterOutfits[presenterOutfit.selectedItemPosition] else "").put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",3).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("story_situation",selectedStoryTopic).put("premise",storyPremise).put("episodes",count)))
-                        prefs.edit().putString("project",folder.name).apply(); render(); startGeminiJob(folder)
+                        prefs.edit().putString("project",folder.name).apply(); createDialog.dismiss(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
-                }.setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
+                }
         }
         }
         chooseStoryChannel { channel -> chosenChannel=channel; chooseChannelTopic(channel,configure) }
