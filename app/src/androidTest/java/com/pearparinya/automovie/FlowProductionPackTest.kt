@@ -23,33 +23,22 @@ class FlowProductionPackTest {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val prefs=context.getSharedPreferences("studio",0)
         val previousProject=prefs.getString("project",null)
-        val previousLegacy=prefs.getBoolean("legacy_image_workflow",false)
-        prefs.edit().putString("project",UUID.randomUUID().toString()).putBoolean("legacy_image_workflow",true).commit()
+        prefs.edit().putString("project",UUID.randomUUID().toString()).commit()
         try {
             ActivityScenario.launch(StudioActivity::class.java).use { scenario -> scenario.onActivity { activity ->
                 fun text(view: View): String = (if(view is TextView) view.text.toString() else "") +
                     (if(view is ViewGroup) (0 until view.childCount).joinToString("\n") { text(view.getChildAt(it)) } else "")
                 val home=text(activity.window.decorView)
                 assertTrue(home.contains("DIRECTOR X"))
-                assertFalse(home.contains("FLOW STUDIO"))
-                assertFalse(home.contains("พร้อมใช้ใน Flow"))
-                assertTrue(home.contains("เลือกคลิปสั้น / คลิปยาว"))
-                assertTrue(home.contains("เลือกเวลาต่อ EP"))
-                assertTrue(home.contains("คำสั่งสร้างภาพและวิดีโอ"))
-                assertFalse(home.contains("ตอนละอย่างน้อย 3 นาที"))
-                assertFalse(home.contains("นำเข้าบท / ZIP"))
-                assertFalse(home.contains("ChatGPT"))
-                                val stages=listOf("สร้างบทในแอป","คำสั่งสร้างภาพและวิดีโอ","นำเข้าบทที่มีอยู่")
-                stages.forEach { assertTrue(home.contains(it)) }
-                assertTrue(home.contains("รอบทเขียนเสร็จ"))
+                assertTrue(home.contains("สร้างบทในแอป"))
+                assertTrue(home.contains("ตรวจชุดตัวละคร"))
+                assertTrue(home.contains("ตรวจสิ่งของในบท"))
+                assertTrue(home.contains("สร้างภาพ + Flow"))
+                assertTrue(home.contains("เครื่องมือเพิ่มเติม"))
+                assertTrue(home.contains("รอสร้างบท"))
                 assertFalse(home.contains("รับ MP4 / รวม EP / ดาวน์โหลด"))
-                assertTrue(home.contains("นำคลิปที่สร้างใน Flow ไปตัดต่อด้วยโปรแกรมภายนอก"))
-                assertFalse(home.contains("เครื่องมือภาพเดิม"))
-                assertTrue(home.contains("ทดสอบสร้างวิดีโอ"))
             } }
-        } finally {
-            prefs.edit().putString("project",previousProject).putBoolean("legacy_image_workflow",previousLegacy).commit()
-        }
+        } finally { prefs.edit().putString("project",previousProject).commit() }
     }
     @Test fun productionStagesUnlockAfterImportAndExportStatusExpiresWhenStoryChanges() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
@@ -67,11 +56,11 @@ class FlowProductionPackTest {
                     return text(activity.window.decorView)
                 }
                 scenario.onActivity { a ->
-                    assertTrue(home(a).contains("มีบทพร้อมใช้งาน"))
-                    assertTrue(home(a).contains("พร้อมใช้คำสั่ง"))
-                    assertFalse(home(a).contains("รับ MP4 / รวม EP / ดาวน์โหลด"))
-                    assertTrue(home(a).contains("นำคลิปที่สร้างใน Flow ไปตัดต่อด้วยโปรแกรมภายนอก"))
-                    assertFalse(home(a).contains("รอนำเข้าบท"))
+                    assertTrue(home(a).contains("ตรวจชุดตัวละคร"))
+                    assertTrue(home(a).contains("ตรวจสิ่งของในบท"))
+                    assertTrue(home(a).contains("เปิดใช้งานได้"))
+                    assertTrue(home(a).contains("ตรวจบทแล้ว 0/"))
+                    assertFalse(home(a).contains("เคยส่งออกบทนี้แล้ว"))
                 }
                 File(folder,"flow_pack_exported.sha256").writeText(EpisodeMedia.digest(story))
                 scenario.recreate()
@@ -80,8 +69,14 @@ class FlowProductionPackTest {
                 scenario.recreate()
                 scenario.onActivity {
                     assertFalse(home(it).contains("เคยส่งออกบทนี้แล้ว"))
-                    assertTrue(home(it).contains("พร้อมใช้คำสั่ง"))
-                    assertTrue(home(it).contains("ทดสอบสร้างวิดีโอ"))
+                    assertTrue(home(it).contains("ชื่อเรื่องแก้ไขแล้ว"))
+                    assertTrue(home(it).contains("เครื่องมือเพิ่มเติม"))
+                }
+                for(channel in listOf("นายเปีย บ้านคลองขุด","ร้อยฉาก")) {
+                    story.writeText(JSONObject(story.readText()).put("channel",channel).toString())
+                    scenario.recreate()
+                    scenario.onActivity { assertTrue(home(it).contains(channel)) }
+                    assertEquals(channel,JSONObject(story.readText()).getString("channel"))
                 }
             }
         } finally { prefs.edit().putString("project",previous).commit(); folder.deleteRecursively() }
