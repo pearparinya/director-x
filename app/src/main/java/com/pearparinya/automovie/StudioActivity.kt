@@ -1803,6 +1803,74 @@ class StudioActivity : AppCompatActivity() {
         val saved=prefs.getString("props_review_${project.name}_${key(scene)}","").orEmpty()
         return when { saved.isBlank() -> "ยังไม่ได้ตรวจ"; saved==propReviewStamp(scene) -> "ผู้ใช้ตรวจบทแล้ว"; else -> "บทเปลี่ยน • ตรวจอีกครั้ง" }
     }
+    private fun suggestSceneObjects(story: JSONObject) {
+        if(GeminiStoryService.running) return notice("กรุณารอหรือหยุดงานเขียนบทก่อนวิเคราะห์สิ่งของ")
+        val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
+        if(providers.isEmpty()) return notice("กรุณาตั้งค่า API เขียนบทก่อนใช้ AI")
+        val scenes=rows(story)
+        if(scenes.isEmpty()) return notice("ยังไม่มีฉากให้วิเคราะห์")
+        val projectId=project.name
+        val snapshot=story.toString()
+        val fantasy=ChannelFeaturePolicy.hasFantasyTools(story.optString("channel"))
+        val bindings=if(fantasy) scenes.flatMap { FlowReferencePrompt.people(it) }.distinctBy { it.optString("master") }.mapNotNull { person ->
+            characterProp(person.optString("master")).takeIf { it.isNotBlank() }?.let { "${person.optString("name")}: $it" }
+        }.joinToString("\n") else ""
+        val context=JSONArray(scenes.map { scene -> JSONObject().put("scene_id",key(scene)).put("action",scene.optString("action")).put("start_state",scene.optString("start_state")).put("end_state",scene.optString("end_state")).put("props",scene.optString("props")).put("characters",JSONArray(FlowReferencePrompt.people(scene).map { it.optString("name") })) })
+        if(context.toString().length>100000) return notice("บทมีขนาดใหญ่เกินไปสำหรับวิเคราะห์ครั้งเดียว • ตรวจทีละฉากได้")
+        notice("กำลังวิเคราะห์สิ่งของจากบท • ไม่มีการเปลี่ยนบทจนกว่าจะเลือกและบันทึก")
+        Thread {
+            val properties=JSONObject()
+            listOf("scene_id","item","holder","details","continuity_id","evidence").forEach { properties.put(it,JSONObject().put("type","string")) }
+            val item=JSONObject().put("type","object").put("properties",properties).put("required",JSONArray(listOf("scene_id","item","holder","details","continuity_id","evidence")))
+            val schema=JSONObject().put("type","object").put("properties",JSONObject().put("items",JSONObject().put("type","array").put("items",item))).put("required",JSONArray().put("items"))
+            val prompt="""Extract objects explicitly present in the supplied scene descriptions. Return items with scene_id, item (Thai when possible), holder (exact visible character name or empty), details (only explicit properties), continuity_id (short stable ID only when the same object is supported by story; otherwise empty), evidence (exact verbatim substring of action, start_state, end_state or props). Distinguish initial objects from later actions; do not claim any image has been checked. If a generic tool is unspecified, call it เครื่องมือไม่ระบุชนิด and do not invent a type. Do not invent props, holders, colors, links or events. Fantasy character bindings are hints, not evidence of appearance. Return JSON only.
+FANTASY CHARACTER BINDINGS:
+$bindings
+SCENES:
+$context"""
+            var answer: JSONObject?=null
+            for(provider in providers) {
+                answer=runCatching { StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false).generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("items")!=null }
+                if(answer!=null) break
+            }
+            val result=answer
+            runOnUiThread {
+                if(isFinishing || isDestroyed) return@runOnUiThread
+                if(result==null) { notice("AI วิเคราะห์ไม่ได้ กรุณาตรวจ API แล้วลองใหม่ • บทเดิมไม่เปลี่ยน"); return@runOnUiThread }
+                if(project.name!=projectId || plan!==story || story.toString()!=snapshot) { notice("เรื่องเปลี่ยนระหว่างวิเคราะห์ กรุณาเริ่มใหม่"); return@runOnUiThread }
+                val allowed=scenes.associateBy { key(it) }
+                val proposals=PropSuggestionReview.valid(result,allowed)
+                if(proposals.isEmpty()) { notice("ไม่พบข้อเสนอที่มีหลักฐานตรงกับบท • ตรวจหรือเพิ่มเองรายฉากได้"); return@runOnUiThread }
+                val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
+                panel.addView(TextView(this).apply {
+                    text="ตรวจหลักฐาน ผู้ใช้ และกลุ่มสิ่งของทีละรายการ • ติ๊กเฉพาะที่ถูกต้อง\nกลุ่มเดียวกันเป็นข้อเสนอให้ตรวจ ไม่ยืนยันว่าเป็นชิ้นเดียวกัน • ยังไม่ได้ตรวจภาพจริง\nรายการเดิมและ MASTER อาวุธจะไม่ถูกลบ"
+                    setPadding(0,0,0,dp(12))
+                })
+                val boxes=proposals.map { row ->
+                    val matched=allowed[row.optString("scene_id")]?.let { scene -> FlowReferencePrompt.people(scene).firstOrNull { it.optString("name")==row.optString("holder") } }
+                    val linkedMaster=if(fantasy && matched!=null) characterProp(matched.optString("master")) else ""
+                    val label="${row.optString("scene_id")} • ${row.optString("item")}\nผู้ใช้: ${row.optString("holder").ifBlank { "ยังไม่ระบุ" }}\nรายละเอียด: ${row.optString("details").ifBlank { "ยังไม่ระบุ" }}\nกลุ่มต่อเนื่อง: ${row.optString("continuity_id").ifBlank { "ยังไม่ระบุ • ตรวจเอง" }}\nหลักฐานในบท: ${row.optString("evidence")}"+(if(linkedMaster.isBlank()) "" else "\nMASTER ที่ผูกกับตัวละคร: $linkedMaster • ตรวจว่าตรงกับสิ่งของนี้")
+                    android.widget.CheckBox(this).apply { text=label; isChecked=false; textSize=15f; setTextColor(navy); setPadding(dp(12),dp(12),dp(12),dp(12)); background=backdrop(Color.rgb(248,246,239),Color.rgb(226,234,243),Color.rgb(173,187,204)); layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) }; panel.addView(this) }
+                }
+                val dialog=AlertDialog.Builder(this).setTitle("✨ ตรวจสิ่งของที่ AI เสนอ • ${proposals.size} รายการ")
+                    .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึกรายการที่เลือก",null).setNegativeButton("ยกเลิก",null).showDirector()
+                dialog.getButton(-1).setOnClickListener {
+                    if(project.name!=projectId || plan!==story || story.toString()!=snapshot) { notice("เรื่องเปลี่ยนระหว่างตรวจ กรุณาเริ่มใหม่"); return@setOnClickListener }
+                    val selected=proposals.filterIndexed { i,_ -> boxes[i].isChecked }
+                    if(selected.isEmpty()) { notice("ยังไม่ได้เลือกรายการ • บทเดิมไม่เปลี่ยน"); return@setOnClickListener }
+                    runCatching {
+                        val candidate=JSONObject(story.toString())
+                        val targets=rows(candidate).associateBy { key(it) }
+                        selected.groupBy { it.optString("scene_id") }.forEach { (id,items) -> PropSuggestionReview.apply(targets.getValue(id),items) }
+                        plan=candidate
+                        try { saveStory() } catch(e: Exception) { plan=story; throw e }
+                    }.onSuccess {
+                        dialog.dismiss(); render(); notice("บันทึกข้อเสนอที่เลือกแล้ว • ตรวจภาพเดิมและคำสั่ง Flow อีกครั้ง")
+                    }.onFailure { notice(it.message ?: "บันทึกไม่ได้ • บทเดิมไม่เปลี่ยน") }
+                }
+            }
+        }.start()
+    }
     private fun reviewSceneProps(story: JSONObject) {
         val scenes=rows(story)
         if(scenes.isEmpty()) return notice("ยังไม่มีฉากให้ตรวจ")
@@ -1810,8 +1878,9 @@ class StudioActivity : AppCompatActivity() {
             val props=scene.optString("props").trim().ifBlank { "ยังไม่ระบุสิ่งของในบท" }
             "${key(scene)} • ${propReviewStatus(scene)}\nสิ่งของ: ${props.take(100)}"
         }
-        choiceMenu("🧰 สิ่งของในบท • เลือกฉาก",options) { selected ->
-            val scene=scenes[selected]
+        choiceMenu("🧰 สิ่งของในบท • เลือกฉาก",listOf("✨ ให้ AI เสนอสิ่งของและความต่อเนื่อง • ตรวจและเลือก")+options) { selected ->
+            if(selected==0) { suggestSceneObjects(story); return@choiceMenu }
+            val scene=scenes[selected-1]
             val cast=FlowReferencePrompt.people(scene).joinToString("、") { it.optString("name") }.ifBlank { "ยังไม่ระบุตัวละคร" }
             val start=scene.optString("start_state").ifBlank { "ยังไม่ระบุ" }
             val editor=EditText(this).apply {
