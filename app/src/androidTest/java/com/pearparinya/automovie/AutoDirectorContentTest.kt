@@ -256,6 +256,31 @@ class AutoDirectorContentTest {
         assertEquals(MenuChoiceStyle.STANDARD,MenuChoiceStyle.role("EP01_SC001"))
         assertEquals(MenuChoiceStyle.AI,MenuChoiceStyle.role("ให้ ai เสนอสิ่งของ"))
     }
+    @Test fun wardrobeProgressDistinguishesSavedFromConfirmedAcrossReloads() {
+        assertEquals("ยังไม่ได้ยืนยัน",HomeReviewState.wardrobeProgress("","","v1",false))
+        assertEquals("บันทึกชุดที่เลือกแล้ว • ยังไม่ยืนยันทั้งหมด",HomeReviewState.wardrobeProgress("old","v1","v1",true))
+        assertEquals(HomeReviewState.WARDROBE_CONFIRMED,HomeReviewState.wardrobeProgress("v1","v1","v1",false))
+        assertEquals("ข้อมูลชุดเปลี่ยน • ตรวจอีกครั้ง",HomeReviewState.wardrobeProgress("v1","v1","v2",false))
+        assertTrue(HomeReviewState.shouldWarn(HomeReviewState.wardrobeProgress("old","v1","v1",true),0))
+    }
+    @Test fun reviewFingerprintsInvalidateOnlyRelevantFields() {
+        val p=JSONObject().put("name","กวิน").put("master","GAWIN_MASTER").put("outfit","shirt").put("screen_position","left")
+        val s=JSONObject().put("ep",1).put("scene",1).put("story_day","DAY01").put("action","กวินถือจอบ")
+            .put("start_state","ถือจอบ").put("props","จอบ").put("location","สวน").put("characters",JSONArray().put(p))
+        val wardrobe=ReviewFingerprints.wardrobe(listOf(s))
+        val props=ReviewFingerprints.props(s)
+        p.put("screen_position","right")
+        assertEquals(wardrobe,ReviewFingerprints.wardrobe(listOf(s)))
+        assertEquals(props,ReviewFingerprints.props(s))
+        p.put("outfit","coat")
+        assertNotEquals(wardrobe,ReviewFingerprints.wardrobe(listOf(s)))
+        assertEquals(props,ReviewFingerprints.props(s))
+        s.put("props","เสียม")
+        assertNotEquals(props,ReviewFingerprints.props(s))
+        val changedWardrobe=ReviewFingerprints.wardrobe(listOf(s))
+        s.put("action","กวินวางเสียม")
+        assertEquals(changedWardrobe,ReviewFingerprints.wardrobe(listOf(s)))
+    }
     private fun story(): JSONObject {
         val scenes=JSONArray()
         repeat(24) { i ->
