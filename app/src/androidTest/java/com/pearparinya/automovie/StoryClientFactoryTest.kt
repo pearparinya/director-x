@@ -10,11 +10,10 @@ class StoryClientFactoryTest {
     @Test fun routesAllFiveProvidersAndKeepsLegacyHybridRestricted() {
         assertTrue(StoryClientFactory.create(StoryProvider.GROQ,"fake-key",StoryProvider.GROQ.defaultModel,{false}) is GroqClient)
         assertTrue(StoryClientFactory.create(StoryProvider.GEMINI,"fake-key",StoryProvider.GEMINI.defaultModel,{false}) is GeminiClient)
-        for(provider in listOf(StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER,StoryProvider.COHERE,StoryProvider.MISTRAL,StoryProvider.SAMBANOVA)) {
+        for(provider in listOf(StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER,StoryProvider.COHERE,StoryProvider.MISTRAL,StoryProvider.SAMBANOVA,StoryProvider.CEREBRAS)) {
             assertTrue(StoryClientFactory.create(provider,"fake-key",provider.defaultModel,{false}) is CompatibleStoryClient)
             assertEquals(provider.id,provider.extra()!!.id)
         }
-        assertTrue(runCatching { StoryClientFactory.create(StoryProvider.CEREBRAS,"fake-key",StoryProvider.CEREBRAS.defaultModel,{false}) }.isFailure)
         assertEquals(listOf(StoryProvider.GROQ,StoryProvider.GEMINI),StoryProvider.hybridProviders)
     }
 }

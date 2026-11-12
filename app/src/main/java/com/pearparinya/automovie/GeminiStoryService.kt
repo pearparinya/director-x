@@ -58,12 +58,6 @@ class GeminiStoryService : Service() {
                     val lock=channel.tryLock() ?: error("งานนี้กำลังทำงานอยู่")
                     try {
                         val spec=GeminiStoryFiles.read(File(folder,"spec.json"))
-                        // Migrate old single-provider jobs without changing validated story files.
-                        if(spec.optString("provider").equals("cerebras",ignoreCase=true)) {
-                            require(StoryProvider.ready(this)) { "ตั้งค่า Groq + Gemini หรือ Gemini + DeepSeek หรือ OpenRouter หรือ Cohere หรือ Mistral หรือ SambaNova ก่อนทำต่อ" }
-                            StoryProvider.configure(this,spec)
-                            GeminiStoryFiles.write(File(folder,"spec.json"),spec)
-                        }
                         provider=StoryProvider.from(spec.optString("provider","gemini"))
                         hybrid=spec.optBoolean("hybrid")
                         val automatic=spec.optBoolean("auto_pipeline")

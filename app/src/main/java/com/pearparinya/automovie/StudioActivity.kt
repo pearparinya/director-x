@@ -2513,7 +2513,7 @@ $context"""
         }
     }
     private fun extraApiSettingsMenu() {
-        val providers=ExtraApiProvider.entries.filter { it != ExtraApiProvider.CEREBRAS }
+        val providers=ExtraApiProvider.entries
         val choices=providers.map { provider ->
             provider.label + if(ExtraApiSettings(this,provider).hasKey()) " • มีคีย์แล้ว" else " • ยังไม่มีคีย์"
         }
@@ -2529,6 +2529,7 @@ $context"""
             setSingleLine(true)
             panel.addView(this)
         }
+        if(provider==ExtraApiProvider.CEREBRAS) panel.addView(TextView(this).apply { text="Cerebras • ตรวจโควตาและค่าใช้จ่ายตามบัญชี • เลือกโมเดลที่รองรับ JSON • โหมด OpenRouter ฟรีจะไม่เรียก Cerebras" })
         if(provider==ExtraApiProvider.SAMBANOVA) panel.addView(TextView(this).apply { text="เลือก Model ID ที่บัญชี SambaNova ใช้งานได้ และรองรับ JSON • หากทดสอบไม่ผ่านให้ตรวจชื่อโมเดลและสิทธิ์บัญชี" })
         val model=EditText(this).apply { hint="ชื่อโมเดล"; setSingleLine(true); setText(settings.model()); panel.addView(this) }
         panel.addView(Button(this).apply { text="บันทึกและทดสอบ ${provider.label}"; setOnClickListener {
