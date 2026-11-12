@@ -81,6 +81,38 @@ class FlowProductionPackTest {
             }
         } finally { prefs.edit().putString("project",previous).commit(); folder.deleteRecursively() }
     }
+    @Test fun savedWardrobeProgressSurvivesReopenAndInvalidatesOnOutfitChange() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val prefs=context.getSharedPreferences("studio",0)
+        val previous=prefs.getString("project",null)
+        val id=UUID.randomUUID().toString()
+        val folder=File(context.filesDir,"studio/$id").apply { mkdirs() }
+        val data=plan(1,23)
+        val ep=data.getJSONArray("episodes").getJSONObject(0)
+        val arr=ep.getJSONArray("scenes")
+        val scenes=(0 until arr.length()).map { arr.getJSONObject(it).put("ep",ep.getInt("ep")) }
+        val file=File(folder,"story.json").apply { writeText(data.toString()) }
+        val stamp=ReviewFingerprints.wardrobe(scenes)
+        prefs.edit().putString("project",id).putString("wardrobe_selected_stamp_$id",stamp).commit()
+        try {
+            ActivityScenario.launch(StudioActivity::class.java).use { scenario ->
+                fun home(activity: StudioActivity): String {
+                    fun text(view: View): String = (if(view is TextView) view.text.toString() else "") +
+                        (if(view is ViewGroup) (0 until view.childCount).joinToString("\n") { text(view.getChildAt(it)) } else "")
+                    return text(activity.window.decorView)
+                }
+                scenario.onActivity { assertTrue(home(it).contains("บันทึกชุดที่เลือกแล้ว")) }
+                scenario.recreate()
+                scenario.onActivity { assertTrue(home(it).contains("บันทึกชุดที่เลือกแล้ว")) }
+                val changed=JSONObject(file.readText())
+                changed.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
+                    .getJSONArray("characters").getJSONObject(0).put("outfit","changed outfit")
+                file.writeText(changed.toString())
+                scenario.recreate()
+                scenario.onActivity { assertTrue(home(it).contains("ข้อมูลชุดเปลี่ยน")) }
+            }
+        } finally { prefs.edit().putString("project",previous).remove("wardrobe_selected_stamp_$id").commit(); folder.deleteRecursively() }
+    }
     @Test fun referenceLabelsLeadCommandsWithoutImageFilenames() {
         val single=FlowTestPrompt.build(listOf("mind"),"home","ห้องครัว","ถือแก้วน้ำ","")
         assertTrue(single.contains(FlowVisualDirection.referencePriority))
