@@ -83,6 +83,13 @@ internal class AutomaticStoryRouter(
             // The preferred formatter may be unavailable; another configured provider
             // can still format the writer's draft without losing completed work.
             if(writer !in clients || writer in unavailable || (cooldown[writer] ?: 0L)>android.os.SystemClock.elapsedRealtime()) continue
+            // Do not issue a fresh writer request when no formatter is available;
+            // an already saved complete draft can still be used directly.
+            if(sceneBatch && formatter!=null && listOf(formatter,StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER,StoryProvider.COHERE,StoryProvider.MISTRAL,StoryProvider.SAMBANOVA,StoryProvider.CEREBRAS)
+                .none { it!=writer && it in clients && it !in unavailable && (cooldown[it] ?: 0L)<=android.os.SystemClock.elapsedRealtime() }) {
+                val saved=draftFile(writer,prompt,schema)
+                if(!saved.isFile || !runCatching { SceneXml.hasUsableActions(GeminiStoryFiles.read(saved)) }.getOrDefault(false)) continue
+            }
             var current=writer
             try {
                 val cache=draftFile(writer,prompt,schema)

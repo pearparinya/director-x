@@ -113,7 +113,7 @@ class GeminiStoryTest {
             assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_ -> error("must reuse checkpoints") }).run(selected).toString())
         } finally { folder.deleteRecursively() }
     }
-    @Test fun automaticPipelineCreatesThirtyEightScenesWithXmlHandoff() {
+    @Test fun automaticPipelineCreatesThirtyEightScenesWithoutUnneededXmlHandoff() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-38-${UUID.randomUUID()}").apply { mkdirs() }
         try {
             val selected=ClipPlan.apply(spec().put("episodes",1).put("auto_pipeline",true).put("channel",ChannelCatalog.channel)
@@ -141,7 +141,7 @@ class GeminiStoryTest {
             }
             val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to writer,StoryProvider.GEMINI to formatter),{false},{_,_->})
             val story=GeminiStoryEngine(folder,{ prompt,schema -> router.generate(prompt,schema) }).run(selected)
-            assertEquals(38,story.getInt("scene_count")); assertEquals(19,formatterCalls); assertEquals(20,writerCalls)
+            assertEquals(38,story.getInt("scene_count")); assertEquals(0,formatterCalls); assertEquals(20,writerCalls)
             assertTrue(FlowProductionPack.issues(story).toString(),FlowProductionPack.issues(story).isEmpty())
             assertTrue(AutoDirectorContent.flowXml(story,1).contains("<scene"))
             assertEquals(story.toString(),GeminiStoryEngine(folder,{ _,_ -> error("checkpoint was not reused") }).run(selected).toString())
