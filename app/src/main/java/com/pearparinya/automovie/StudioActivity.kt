@@ -1900,7 +1900,7 @@ $context"""
                 scene.put("props",editor.text.toString().trim())
                 runCatching { saveStory() }.onSuccess {
                     prefs.edit().putString("props_review_${project.name}_${key(scene)}",propReviewStamp(scene)).apply()
-                    dialog.dismiss(); notice("บันทึกและยืนยันตรวจบทแล้ว • หากมีภาพเดิมให้ตรวจซ้ำ และตรวจภาพเริ่มต้นจริง"); reviewSceneProps(story)
+                    dialog.dismiss(); render(); notice("บันทึกและยืนยันตรวจบทแล้ว • หากมีภาพเดิมให้ตรวจซ้ำ และตรวจภาพเริ่มต้นจริง"); plan?.let { reviewSceneProps(it) }
                 }.onFailure { scene.put("props",old); notice(it.message ?: "บันทึกไม่ได้") }
             }
         }
