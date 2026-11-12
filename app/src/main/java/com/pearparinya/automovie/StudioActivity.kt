@@ -280,10 +280,22 @@ class StudioActivity : AppCompatActivity() {
         return result
     }
     private val piaActorId = "CHAR_1999999999"
+    private val piaIdentityFile get() = File(filesDir,"pia_identity_master.image")
+    private val piaIdentityPicker=registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if(uri!=null) runCatching {
+            val bytes=contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("เปิดภาพไม่ได้")
+            val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
+            android.graphics.BitmapFactory.decodeByteArray(bytes,0,bytes.size,bounds)
+            require(bounds.outWidth>0 && bounds.outHeight>0) { "ไฟล์ไม่ใช่ภาพที่อ่านได้" }
+            val pending=File(filesDir,"pia_identity_master.pending")
+            try { pending.writeBytes(bytes); check(pending.renameTo(piaIdentityFile)) { "บันทึก MASTER ไม่สำเร็จ" } } finally { pending.delete() }
+            notice("บันทึก MASTER นายเปียแล้ว • เปิดหน้าสร้างเรื่องใหม่เพื่อตรวจภาพและเลือกกรอบใบหน้าอีกครั้ง")
+        }.onFailure { notice("บันทึก MASTER ไม่สำเร็จ: ${it.message}") }
+    }
     private fun piaCatalog(): JSONArray {
         val catalog=castingCatalog()
         require((0 until catalog.length()).none { catalog.getJSONObject(it).optString("id")==piaActorId }) { "รหัสตัวละครนายเปียซ้ำ" }
-        val bytes=assets.open("pia_outfits/01.png").use { it.readBytes() }
+        val bytes=if(piaIdentityFile.isFile) piaIdentityFile.readBytes() else assets.open("pia_outfits/01.png").use { it.readBytes() }
         val row=JSONObject().put("id",piaActorId).put("display_name","นายเปีย บ้านคลองขุด")
             .put("file","PIA_PRESENTER.png").put("sha256",MasterLibrary.digest(bytes))
             .put("character_age",35).put("age_basis","fictional_casting_placeholder_not_real_age")
@@ -320,6 +332,10 @@ class StudioActivity : AppCompatActivity() {
             return target
         }
         if(row.getString("id")==piaActorId) {
+            if(piaIdentityFile.isFile) {
+                require(MasterLibrary.digest(piaIdentityFile.readBytes())==row.getString("sha256")) { "MASTER นายเปียเปลี่ยนระหว่างเลือก กรุณาเปิดหน้าสร้างเรื่องใหม่" }
+                return piaIdentityFile
+            }
             val bytes=assets.open("pia_outfits/01.png").use { it.readBytes() }
             val target=File(filesDir,"pia_presenter_master.png")
             if(!target.isFile || MasterLibrary.digest(target.readBytes())!=MasterLibrary.digest(bytes)) target.writeBytes(bytes)
@@ -2075,8 +2091,9 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
         val catalog=propCatalog
         val reviewed=runCatching { GeminiStoryFiles.read(File(project,"gemini_job/spec.json")).optJSONArray("selected_prop_masters") }.getOrNull()
         val reviewedIds=(0 until (reviewed?.length() ?: 0)).mapNotNull { reviewed?.optJSONObject(it)?.optString("prop_id")?.takeIf(String::isNotBlank) }.toSet()
+        if(reviewed!=null && reviewedIds.isEmpty()) { notice("เรื่องนี้ไม่ได้เลือก MASTER อุปกรณ์ก่อนสร้างบท • เลือกอุปกรณ์ด้วยตนเองในซีนได้"); return }
         val characterBindings=scenes.flatMap { FlowReferencePrompt.people(it) }.distinctBy { it.optString("master") }.mapNotNull { person -> characterProp(person.optString("master")).takeIf { it.isNotBlank() }?.let { "${person.optString("name")} = $it" } }.joinToString("\n")
-        val catalogText=catalog.mapIndexedNotNull { i,n -> val id=propId(i); if(reviewedIds.isNotEmpty() && id !in reviewedIds) null else "$id = $n" }.joinToString("\n")
+        val catalogText=catalog.mapIndexedNotNull { i,n -> val id=propId(i); if(reviewed!=null && id !in reviewedIds) null else "$id = $n" }.joinToString("\n")
         notice("กำลังให้ AI เสนออุปกรณ์ • ตรวจรายการก่อนบันทึก • บทเดิมไม่เปลี่ยน")
         Thread {
             val item=JSONObject().put("type","object").put("properties",JSONObject().put("scene_id",JSONObject().put("type","string")).put("prop_id",JSONObject().put("type","string")).put("holder",JSONObject().put("type","string"))).put("required",JSONArray().put("scene_id").put("prop_id").put("holder"))
@@ -2104,7 +2121,7 @@ $context"""
                     val scene=allowed[row.optString("scene_id")]
                     val id=row.optString("prop_id")
                     val holder=row.optString("holder")
-                    scene!=null && Regex("PROP_(0[1-9]|1[0-9]|20)_MASTER").matches(id) && (reviewedIds.isEmpty() || id in reviewedIds) && (holder.isBlank() || FlowReferencePrompt.people(scene).any { it.optString("name")==holder })
+                    scene!=null && Regex("PROP_(0[1-9]|1[0-9]|20)_MASTER").matches(id) && (reviewed==null || id in reviewedIds) && (holder.isBlank() || FlowReferencePrompt.people(scene).any { it.optString("name")==holder })
                 }.distinctBy { it.optString("scene_id")+"|"+it.optString("prop_id") }
                 if(proposals.isEmpty()) { notice("AI ไม่พบรายการที่ยืนยันได้ • เลือกอุปกรณ์ด้วยตนเองในซีน หรือปรับบทแล้วลองใหม่"); return@runOnUiThread }
                 val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
@@ -3181,6 +3198,11 @@ $context"""
             }
             val choosePiaFace=Button(this).apply { text="✂️ วาดกรอบใบหน้า / ล็อกหน้า" }
             if(chosenChannel=="นายเปีย บ้านคลองขุด") {
+                panel.addView(TextView(this).apply { text=if(piaIdentityFile.isFile) "ใช้ MASTER นายเปียที่เลือกเอง • แตะภาพเพื่อตรวจ" else "ใช้ภาพนายเปียที่มาพร้อมแอป • เลือก MASTER ต้นฉบับของคุณได้" })
+                runCatching { castingSource(piaCatalog().getJSONObject(0)) }.getOrNull()?.takeIf { it.isFile }?.let { master ->
+                    panel.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(master)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(150)); setOnClickListener { fullImage(master,"MASTER นายเปียที่ใช้สร้างเรื่องใหม่") } })
+                }
+                panel.addView(Button(this).apply { text="เลือกภาพ MASTER ต้นฉบับนายเปีย"; setOnClickListener { piaIdentityPicker.launch(arrayOf("image/*")) } })
                 panel.addView(piaFaceLock)
                 panel.addView(TextView(this).apply { text="เลือกกรอบใบหน้ามุมตรงจาก MASTER ครั้งเดียว แล้วระบบใช้ซ้ำได้ • ตรวจภาพก่อนส่งสร้าง" })
                 panel.addView(choosePiaFace)
