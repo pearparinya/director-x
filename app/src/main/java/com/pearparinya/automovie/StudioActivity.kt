@@ -2039,11 +2039,16 @@ $context"""
             }
         }
     }
-    private fun suggestStoryWardrobe(story: JSONObject, useVision: Boolean) {
+    private fun suggestStoryWardrobe(story: JSONObject, mode: Int) {
+        val useVision=mode!=2
+        val useOpenAi=mode==1
+        val visionName=if(useOpenAi) "OpenAI" else "Gemini"
         if(GeminiStoryService.running) return notice("กรุณารอหรือหยุดงานเขียนบทก่อนปรับชุด")
         val eligible=StoryProvider.eligible(this).filter { it.hasKey(this) }
         val providers=if(useVision) eligible.filter { it==StoryProvider.GEMINI } else eligible
-        if(providers.isEmpty()) return notice(if(useVision) "ต้องเปิดใช้ Gemini และตั้งค่า API Key ก่อนวิเคราะห์ภาพ MASTER • ไม่มีการส่งภาพ" else "ตั้งค่า API เขียนบทก่อนให้ AI เสนอชุด")
+        if(useOpenAi && StoryProvider.freeOnly(this)) return notice("โหมดฟรีเปิดอยู่ • ปิดโหมดฟรีก่อนใช้ OpenAI API ซึ่งอาจมีค่าบริการ")
+        if(useOpenAi && !ExtraApiSettings(this,ExtraApiProvider.OPENAI).hasKey()) return notice("ตั้งค่า OpenAI API Key ในเมนู API เพิ่มเติมก่อน • ChatGPT Plus ไม่ใช่ API Key")
+        if(!useOpenAi && providers.isEmpty()) return notice(if(useVision) "ต้องเปิดใช้ Gemini และตั้งค่า API Key ก่อนวิเคราะห์ภาพ MASTER • ไม่มีการส่งภาพ" else "ตั้งค่า API เขียนบทก่อนให้ AI เสนอชุด")
         val scenes=rows(story)
         val projectId=project.name
         val snapshot=story.toString()
@@ -2061,7 +2066,7 @@ $context"""
         if(useVision && (references.size>8 || references.any { it.second?.isFile!=true })) return notice("ต้องมี MASTER จริงครบทุกตัวและไม่เกิน 8 ภาพ • กรุณาตรวจคลังหรือเลือกวิเคราะห์จากข้อความ")
         val summary=JSONArray(scenes.map { scene -> JSONObject().put("id",key(scene)).put("story_day",scene.optString("story_day")).put("location",scene.optString("location")).put("action",scene.optString("action")).put("start_state",scene.optString("start_state")).put("characters",JSONArray(FlowReferencePrompt.people(scene).map { p -> JSONObject().put("name",p.optString("name")).put("master",referenceId(p.optString("master"))).put("role",p.optString("role")).put("character_type",p.optString("character_type")).put("outfit",p.optString("outfit")) })) })
         if(summary.toString().length>100000) return notice("บทมีขนาดใหญ่เกินไป กรุณาแก้ชุดรายซีนก่อน")
-        notice(if(useVision) "กำลังส่งภาพ MASTER ไป Gemini เพื่อช่วยเสนอชุด • ตรวจผลก่อนบันทึก" else "กำลังให้ AI เสนอชุดจากข้อความบท • ไม่มีการส่งภาพ MASTER")
+        notice(if(useVision) "กำลังส่งภาพ MASTER ไป $visionName เพื่อช่วยเสนอชุด • ตรวจผลก่อนบันทึก" else "กำลังให้ AI เสนอชุดจากข้อความบท • ไม่มีการส่งภาพ MASTER")
         Thread {
             val item=JSONObject().put("type","object").put("properties",JSONObject().put("master",JSONObject().put("type","string")).put("story_day",JSONObject().put("type","string")).put("outfit",JSONObject().put("type","string")).put("summary_th",JSONObject().put("type","string"))).put("required",JSONArray().put("master").put("story_day").put("outfit"))
             val schema=JSONObject().put("type","object").put("properties",JSONObject().put("assignments",JSONObject().put("type","array").put("items",item))).put("required",JSONArray().put("assignments"))
@@ -2069,7 +2074,12 @@ $context"""
 Return JSON assignments. Each item must contain exact master ID and exact story_day from the input and a complete outfit with Top: ...; Bottom: ...; Shoes: ...; Accessories: ... . Do not add characters, roles, events, or props. Keep one exact outfit for each character and story_day. For Top, Bottom and Shoes include shade=color #RRGGBB, and for Top include sleeves=long-sleeve, short-sleeve, three-quarter-sleeve, cap-sleeve, sleeveless, strapless or one-sleeve. ${if(useVision) "Each attached image is labeled by MASTER ID; use only the matching image to describe visible armor, clothing and anatomy. Image observations are suggestions requiring human review; the story can specify a different outfit." else "The input describes the story in text only; you cannot see the MASTER image."} Never infer whether clothing, armor or accessories are absent from character type, and never assume an unknown all-none outfit means a deliberate choice. Do not erase known armor. If the story does not supply enough detail to propose an outfit, omit that assignment for user review. Preserve nonhuman anatomy and explicitly described equipment. Existing presenter-selected outfit should remain unless the user decides otherwise. Also provide summary_th, a short faithful Thai description of the proposed outfit, with no invented details; say no clothing where appropriate. Return only items you can match confidently. Story: $summary"""
             var answer: JSONObject?=null
             var failure=""
-            for(provider in providers) {
+            if(useOpenAi) {
+                val config=ExtraApiSettings(this,ExtraApiProvider.OPENAI)
+                answer=runCatching { OpenAiVisionClient(config.key(),config.model()).generate(prompt,schema,references.map { it.first to requireNotNull(it.second) }) }
+                    .onFailure { failure=it.message.orEmpty() }.getOrNull()?.takeIf { it.optJSONArray("assignments")!=null }
+            }
+            for(provider in if(useOpenAi) emptyList() else providers) {
                 answer=runCatching {
                     if(useVision) GeminiClient(provider.key(this),provider.model(this),{ false },automaticRetry=false)
                         .generateWithImages(prompt,schema,references.map { it.first to requireNotNull(it.second) })
@@ -2080,7 +2090,7 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
             val result=answer
             runOnUiThread {
                 if(isFinishing || isDestroyed) return@runOnUiThread
-                if(result==null) { notice((if(useVision) "Gemini วิเคราะห์ภาพ MASTER ไม่สำเร็จ" else "AI ยังเสนอชุดไม่ได้")+" • "+failure.ifBlank { "ตรวจ API แล้วลองใหม่" }+" • ไม่มีการเปลี่ยนบท"); return@runOnUiThread }
+                if(result==null) { notice((if(useVision) "$visionName วิเคราะห์ภาพ MASTER ไม่สำเร็จ" else "AI ยังเสนอชุดไม่ได้")+" • "+failure.ifBlank { "ตรวจ API แล้วลองใหม่" }+" • ไม่มีการเปลี่ยนบท"); return@runOnUiThread }
                 if(project.name!=projectId || !sameOpenStory(snapshot)) { notice("เรื่องเปลี่ยนระหว่างวิเคราะห์ กรุณาเริ่มใหม่"); return@runOnUiThread }
                 val a=result.optJSONArray("assignments") ?: JSONArray()
                 val proposals=(0 until a.length()).mapNotNull { a.optJSONObject(it) }.filter { row ->
@@ -2093,7 +2103,7 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
                 val proposedKeys=proposals.map { referenceId(it.optString("master")).lowercase() to it.optString("story_day").trim().lowercase() }.toSet()
                 val missing=groups.filterKeys { it !in proposedKeys }.values.map { it.optString("name").ifBlank { "ไม่ระบุชื่อ" } }.distinct()
                 if(missing.isNotEmpty()) panel.addView(TextView(this).apply { text="⚠️ AI ยังไม่ได้เสนอชุดที่ตรวจได้สำหรับ: "+missing.joinToString(", ")+" • โปรดตรวจด้วยตนเอง" })
-                panel.addView(TextView(this).apply { text=(if(useVision) "Gemini ได้รับภาพ MASTER เพื่อช่วยเสนอชุด • ตรวจผลจริงก่อนใช้" else "AI เสนอจากข้อความบทเท่านั้น • ไม่ได้ดูภาพ MASTER")+"\nภาพ MASTER ใช้ยืนยันตัวละคร ไม่ใช่ภาพชุดที่เสนอ\nเลือกใช้ชุดที่เสนอหรือคงชุดเดิมแต่ละรายการก่อนบันทึก • ภาพฉากเดิมที่ได้รับผลต้องตรวจใหม่" })
+                panel.addView(TextView(this).apply { text=(if(useVision) "$visionName ได้รับภาพ MASTER เพื่อช่วยเสนอชุด • ตรวจผลจริงก่อนใช้" else "AI เสนอจากข้อความบทเท่านั้น • ไม่ได้ดูภาพ MASTER")+"\nภาพ MASTER ใช้ยืนยันตัวละคร ไม่ใช่ภาพชุดที่เสนอ\nเลือกใช้ชุดที่เสนอหรือคงชุดเดิมแต่ละรายการก่อนบันทึก • ภาพฉากเดิมที่ได้รับผลต้องตรวจใหม่" })
                 val decisions=MutableList<Int?>(proposals.size) { null }
                 val inputs=mutableListOf<EditText>()
                 val confirmations=mutableListOf<android.widget.CheckBox>()
@@ -2629,7 +2639,7 @@ $context"""
     }
     private fun wardrobeMenu(story: JSONObject) {
         choiceMenu("ขั้นตอน 1 • ตรวจชุดตัวละคร\nสถานะ: ${wardrobeReviewStatus(story)}",listOf("ดูและยืนยันชุดในบท\nตรวจชุดเดิมและยืนยันเมื่อถูกต้อง","ให้ AI เสนอชุดใหม่\nเลือกเฉพาะชุดที่ต้องการก่อนบันทึก","แก้ชุดเฉพาะฉาก\nปรับรายละเอียดในฉากที่ต้องการ")) { selected ->
-            when(selected) { 0 -> confirmAllWardrobe(story); 1 -> choiceMenu("เลือกวิธีวิเคราะห์ชุด",listOf("วิเคราะห์พร้อมภาพ MASTER ด้วย Gemini • ส่งภาพไปยัง Google","วิเคราะห์จากข้อความบทเท่านั้น • ไม่ส่งภาพ")) { mode -> suggestStoryWardrobe(story,mode==0) }; else -> productionCheckMenu(story) }
+            when(selected) { 0 -> confirmAllWardrobe(story); 1 -> choiceMenu("เลือกวิธีวิเคราะห์ชุด",listOf("วิเคราะห์ภาพ MASTER ด้วย Gemini • ส่งภาพไป Google","วิเคราะห์ภาพ MASTER ด้วย OpenAI API • อาจมีค่าบริการ","วิเคราะห์จากข้อความบทเท่านั้น • ไม่ส่งภาพ")) { mode -> suggestStoryWardrobe(story,mode) }; else -> productionCheckMenu(story) }
         }
     }
     private fun confirmEpisode(story: JSONObject,number: Int) {
@@ -2773,6 +2783,7 @@ $context"""
             setSingleLine(true)
             panel.addView(this)
         }
+        if(provider==ExtraApiProvider.OPENAI) panel.addView(TextView(this).apply { text="OpenAI API แยกจาก ChatGPT Plus • อาจมีค่าบริการ • ภาพ MASTER จะถูกส่งเมื่อคุณเลือกวิเคราะห์ด้วย OpenAI" })
         if(provider==ExtraApiProvider.CEREBRAS) panel.addView(TextView(this).apply { text="Cerebras • ตรวจโควตาและค่าใช้จ่ายตามบัญชี • เลือกโมเดลที่รองรับ JSON • โหมด OpenRouter ฟรีจะไม่เรียก Cerebras" })
         if(provider==ExtraApiProvider.SAMBANOVA) panel.addView(TextView(this).apply { text="เลือก Model ID ที่บัญชี SambaNova ใช้งานได้ และรองรับ JSON • หากทดสอบไม่ผ่านให้ตรวจชื่อโมเดลและสิทธิ์บัญชี" })
         val model=EditText(this).apply { hint="ชื่อโมเดล"; setSingleLine(true); setText(settings.model()); panel.addView(this) }
