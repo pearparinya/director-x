@@ -63,6 +63,24 @@ class ShortFlowPromptTest {
     @Test fun rejectsUntranslatedActionInsteadOfSilentlyDroppingIt() {
         assertTrue(runCatching { ShortFlowPrompt.build(scene().copy(action="สมชาย เดินไปหา มานี"),"Slow pan") }.isFailure)
     }
+    @Test fun preservesExactDialogueAndSeparatesSoundForNonhumanSpeaker() {
+        val animal=FlowPerson("หมาป่า", "gray wolf", "center", "", characterType="animal")
+        val original="ฉันจะไม่ยอมแพ้... แม้ต้องสู้กับ A & B!"
+        val spec=scene().copy(cast=listOf(animal),speaker="หมาป่า",dialogue=original,action="หมาป่า looks forward",sound="Wind in the trees")
+        val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(InputSource(StringReader(ShortFlowPrompt.build(spec,"Locked camera"))))
+        assertEquals("Animal 1",doc.getElementsByTagName("speaker").item(0).textContent)
+        assertEquals(original,doc.getElementsByTagName("text").item(0).textContent)
+        assertEquals(1,doc.getElementsByTagName("sound_effects").length)
+        assertTrue(doc.getElementsByTagName("ambient").item(0).textContent.contains("Wind in the trees"))
+        assertTrue(doc.getElementsByTagName("music").item(0).textContent.contains("quieter than dialogue"))
+        assertEquals("Deity 1", ShortFlowPrompt.labels(spec.copy(cast=listOf(animal.copy(characterType="deity")))).first())
+    }
+    @Test fun offscreenSpeechDoesNotMoveVisibleMouths() {
+        val spec=scene().copy(speaker="ผู้บรรยาย",offscreen=listOf("ผู้บรรยาย"))
+        val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(InputSource(StringReader(ShortFlowPrompt.build(spec,"Locked camera"))))
+        assertEquals("true",doc.getElementsByTagName("dialogue").item(0).attributes.getNamedItem("off_screen").nodeValue)
+        assertTrue(doc.getElementsByTagName("prompt").item(0).textContent.contains("visible characters stay silent"))
+    }
     @Test fun effectsOnlyFollowRelevantSceneAndSilentHasNoSpeech() {
         assertEquals("",ShortFlowPrompt.motion("a quiet room"))
         assertTrue(ShortFlowPrompt.motion("smoke and wind").contains("smoke drifts"))

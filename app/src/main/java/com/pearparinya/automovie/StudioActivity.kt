@@ -318,7 +318,7 @@ class StudioActivity : AppCompatActivity() {
         return result
     }
     private fun installPiaDefaults() {
-        for(slot in 1..12) {
+        for(slot in 1..13) {
             val target=presenterOutfitFile(piaActorId,slot)
             if(!target.exists()) {
                 target.parentFile!!.mkdirs()
@@ -396,7 +396,7 @@ class StudioActivity : AppCompatActivity() {
     }
     // One private outfit image per person and outfit slot. Existing stories keep their own snapshot.
     private fun presenterOutfitFile(actorId: String, slot: Int): File {
-        require(actorId.matches(Regex("[A-Za-z0-9_]+")) && slot in 1..12)
+        require(actorId.matches(Regex("[A-Za-z0-9_]+")) && slot in 1..13)
         return File(filesDir,"presenter_outfits/$actorId/$slot.image")
     }
     private val presenterOutfitPicker=registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -629,6 +629,9 @@ class StudioActivity : AppCompatActivity() {
                 val file=File(filesDir,"character_masters/$id.master")
                 all.add(UnifiedMasterItem(name,id.uppercase()+"_MASTER","มนุษย์",file,{ presetMaster(id,name) }))
             }
+            installPiaDefaults()
+            val blackOutfit=presenterOutfitFile(piaActorId,13)
+            all.add(UnifiedMasterItem("นายเปีย • ชุดดำ 3 มุมมอง",piaActorId+"_OUTFIT_13","มนุษย์",blackOutfit,{ fullImage(blackOutfit,"นายเปีย • ชุดดำ 3 มุมมอง") }))
             val records=piaCatalog()
             val oldEntries=masterLibrary.entries().associateBy { it.id }
             for(i in 0 until records.length()) {
@@ -2768,7 +2771,8 @@ $context"""
             layoutParams=LinearLayout.LayoutParams(-1,-2).apply { topMargin=dp(10); bottomMargin=dp(8) }
         }
         card.addView(TextView(this).apply { text="✦ เรื่องที่เปิดอยู่ ✦"; textSize=13f; setTextColor(gold); setTypeface(null,Typeface.BOLD) })
-        card.addView(TextView(this).apply { text="ช่อง: $channel\nเรื่อง: $title"; textSize=16f; setTextColor(ice); setTypeface(null,Typeface.BOLD); setPadding(0,dp(8),0,dp(6)) })
+        val category=current?.optString("category")?.takeIf { it.isNotBlank() } ?: "ยังไม่ระบุ"
+        card.addView(TextView(this).apply { text="ช่อง: $channel\nหมวดเรื่อง: $category\nเรื่อง: $title"; textSize=16f; setTextColor(ice); setTypeface(null,Typeface.BOLD); setPadding(0,dp(8),0,dp(6)) })
         card.addView(TextView(this).apply { text=if(current==null) "สร้างบทใหม่ หรือเปิดเรื่องที่บันทึกไว้" else "$episodes EP • ${scenes.size} ฉาก • ${current.optString("aspect_ratio","9:16")}"+(if(exported) " • เคยส่งออกบทนี้แล้ว" else ""); textSize=12f; setTextColor(muted) })
         root.addView(card)
         if(File(project,"gemini_job/spec.json").isFile) {
@@ -2800,14 +2804,16 @@ $context"""
                     contentDescription=null
                 },LinearLayout.LayoutParams(-1,dp(104)))
                 tile.addView(TextView(this).apply {
-                    text=item.second.first; textSize=16f; setTextColor(ice)
+                    text=item.second.first; textSize=16f; setTextColor(ice); maxLines=2
+                    setAutoSizeTextTypeUniformWithConfiguration(11,16,1,android.util.TypedValue.COMPLEX_UNIT_SP)
                     setTypeface(null,Typeface.BOLD); setPadding(dp(5),dp(5),dp(5),0)
                 })
                 tile.addView(TextView(this).apply {
-                    text=item.second.second; textSize=12f; setTextColor(ice)
+                    text=item.second.second; textSize=12f; setTextColor(ice); maxLines=2
+                    setAutoSizeTextTypeUniformWithConfiguration(9,12,1,android.util.TypedValue.COMPLEX_UNIT_SP)
                     setPadding(dp(5),dp(3),dp(5),0)
                 })
-                row.addView(tile,LinearLayout.LayoutParams(0,-2,1f).apply { if(index==0) marginEnd=dp(5) else marginStart=dp(5) })
+                row.addView(tile,LinearLayout.LayoutParams(0,dp(190),1f).apply { if(index==0) marginEnd=dp(5) else marginStart=dp(5) })
             }
             root.addView(row,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) })
         }
@@ -3779,7 +3785,7 @@ $context"""
                         }.setNegativeButton("ยกเลิก",null).showDirector()
                 }
             }
-            val presenterOutfits=listOf("เลือกชุดตามเนื้อเรื่อง", "สูทกรมท่า เนกไทลายฟ้า", "ชุดช่างสีเขียวเข้ม", "ชุดช่างสีกรมท่าส้ม", "ชุดช่างสีเทาเข้ม", "ชุดช่างสีน้ำเงิน", "เสื้อเชิ้ตสีครีม กางเกงเขียว", "เสื้อเชิ้ตสีฟ้า กางเกงกรมท่า", "เสื้อเชิ้ตสีขาว กางเกงดำ", "เสื้อเชิ้ตสีดำ กางเกงเทา", "เสื้อช่างกรม กางเกงเทา ถุงมือ", "ชุดทำสวนสีครีม หมวกและรองเท้าบูท", "ชุดทำสวนกรมท่า หมวกคลุมต้นคอและรองเท้าบูท")
+            val presenterOutfits=listOf("เลือกชุดตามเนื้อเรื่อง", "สูทกรมท่า เนกไทลายฟ้า", "ชุดช่างสีเขียวเข้ม", "ชุดช่างสีกรมท่าส้ม", "ชุดช่างสีเทาเข้ม", "ชุดช่างสีน้ำเงิน", "เสื้อเชิ้ตสีครีม กางเกงเขียว", "เสื้อเชิ้ตสีฟ้า กางเกงกรมท่า", "เสื้อเชิ้ตสีขาว กางเกงดำ", "เสื้อเชิ้ตสีดำ กางเกงเทา", "เสื้อช่างกรม กางเกงเทา ถุงมือ", "ชุดทำสวนสีครีม หมวกและรองเท้าบูท", "ชุดทำสวนกรมท่า หมวกคลุมต้นคอและรองเท้าบูท", "ชุดดำ 3 มุมมอง")
             // Keep slot indices compatible with the existing picker and story snapshot.
             val presenterOutfit=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,presenterOutfits) }
             val piaFaceLock=android.widget.CheckBox(this).apply { text="ล็อกใบหน้านายเปียจาก MASTER ต้นฉบับ"; isChecked=true }
@@ -3827,10 +3833,11 @@ $context"""
                 val auto=android.widget.RadioButton(this).apply { text="เลือกชุดตามเนื้อเรื่อง"; isChecked=true; panel.addView(this) }
                 buttons.add(auto)
                 auto.setOnClickListener { presenterOutfit.setSelection(0); buttons.forEachIndexed { i,button -> button.isChecked=i==0 } }
-                for(row in 0 until 6) {
+                for(row in 0 until 7) {
                     val line=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; panel.addView(this) }
                     for(column in 0 until 2) {
                         val slot=row*2+column+1
+                        if(slot >= presenterOutfits.size) continue
                         val card=LinearLayout(this).apply { orientation=1; setPadding(dp(3),dp(4),dp(3),dp(4)); layoutParams=LinearLayout.LayoutParams(0,-2,1f); line.addView(this) }
                         val preview=ImageView(this).apply { val file=presenterOutfitFile(piaActorId,slot); setImageBitmap(castingThumbnail(file)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(135)); contentDescription=presenterOutfits[slot]; card.addView(this) }
                         val radio=android.widget.RadioButton(this).apply { text=presenterOutfits[slot]; textSize=12f; card.addView(this) }
