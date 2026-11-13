@@ -3255,7 +3255,7 @@ $context"""
                 return dialog to current
             }
             val selectedActors=linkedSetOf<String>()
-            val castButton=Button(this).apply { text=if(chosenChannel=="นายเปีย บ้านคลองขุด") "ตรวจและเลือกตัวละคร • นายเปียเป็นตัวหลัก" else "ตรวจและเลือกตัวละครจาก MASTER" }
+            val castButton=Button(this).apply { text=if(chosenChannel=="นายเปีย บ้านคลองขุด") "②.2 ตรวจและเลือกตัวละคร • นายเปียเป็นตัวหลัก" else "②.2 ตรวจและเลือกตัวละครจาก MASTER" }
             val castSummary=TextView(this).apply { text="ยังไม่ได้ยืนยันตัวละคร"; setPadding(dp(8),dp(8),dp(8),dp(8)); setTextColor(Color.WHITE); setBackgroundColor(Color.rgb(105,73,27)) }
             panel.addView(TextView(this).apply { text="② ตัวละคร • วิเคราะห์ แล้วตรวจและยืนยัน"; setTypeface(null,Typeface.BOLD); setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(28,62,95)); setTextColor(Color.WHITE) })
             val suggestedRoles=linkedMapOf<String,String>()
@@ -3341,13 +3341,14 @@ $context"""
                     if(draft.size>8) { notice("เลือกตัวละครได้สูงสุด 8 คน กรุณาเลือกใหม่"); return@setPositiveButton }
                     selectedActors.clear(); selectedActors.addAll(draft)
                     castProposalPending=false
-                    castButton.text=if(selectedActors.isEmpty()) "🎭 ตรวจและเลือกตัวละครจากภาพ MASTER" else "🎭 เลือกตัวละครแล้ว ${selectedActors.size} ตัว • แตะเพื่อแก้"
+                    castButton.text=if(selectedActors.isEmpty()) "②.2 ตรวจและเลือกตัวละครจาก MASTER" else "②.2 เลือกแล้ว ${selectedActors.size} ตัว • แตะเพื่อแก้"
                     val names=(0 until choices.length()).map { choices.getJSONObject(it) }.filter { it.optString("id") in selectedActors }
                         .map { "${it.optString("display_name").ifBlank { it.optString("id") }} • ${it.optString("id")}" }
                     castSummary.text=if(names.isEmpty()) "ยังไม่ได้ยืนยันตัวละคร" else "✓ ยืนยันแล้ว ${names.size} ตัว:\n"+names.joinToString("\n")
                     castSummary.setBackgroundColor(if(names.isEmpty()) Color.rgb(105,73,27) else Color.rgb(24,90,59))
                 }.setNegativeButton("ยกเลิก",null).showDirector()
             }
+            if(!ChannelFeaturePolicy.hasFantasyTools(chosenChannel)) panel.addView(TextView(this).apply { text="③ อุปกรณ์ • ช่องนี้ยังไม่มีตัวเลือกอุปกรณ์ในขั้นตอนนี้"; setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(28,62,95)); setTextColor(Color.WHITE) })
             val selectedProps=linkedMapOf<String,String>()
             val proposedProps=linkedMapOf<String,String>()
             val propSummary=TextView(this).apply { text="ไม่บังคับ • ข้ามได้หากเรื่องไม่ใช้อุปกรณ์"; setPadding(dp(8),dp(8),dp(8),dp(8)); setTextColor(Color.WHITE); setBackgroundColor(Color.rgb(28,62,95)) }
