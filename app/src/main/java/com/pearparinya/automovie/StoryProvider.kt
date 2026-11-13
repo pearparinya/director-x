@@ -21,8 +21,8 @@ internal enum class StoryProvider(val id: String,val label: String,val defaultMo
         COHERE -> ExtraApiProvider.COHERE
         else -> null
     }
-    fun key(context: Context): String = extra()?.let { ExtraApiSettings(context,it).key() } ?: GeminiSettings(context,this).key()
-    fun model(context: Context): String = extra()?.let { ExtraApiSettings(context,it).model() } ?: GeminiSettings(context,this).model()
+    fun key(context: Context): String = if(this==GEMINI) GeminiSettings.configured(context).firstOrNull()?.second.orEmpty() else extra()?.let { ExtraApiSettings(context,it).key() } ?: GeminiSettings(context,this).key()
+    fun model(context: Context): String = if(this==GEMINI) GeminiSettings.firstModel(context) else extra()?.let { ExtraApiSettings(context,it).model() } ?: GeminiSettings(context,this).model()
     fun hasKey(context: Context): Boolean = runCatching { key(context).isNotBlank() }.getOrDefault(false)
     companion object {
         fun from(id: String)=entries.firstOrNull { it.id==id } ?: throw IllegalArgumentException("ไม่รู้จักผู้ให้บริการ API")

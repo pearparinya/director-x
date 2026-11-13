@@ -1358,7 +1358,7 @@ class StudioActivity : AppCompatActivity() {
                     var value: Pair<FlowSceneSpec,String>?=null
                     for(provider in providers) {
                         if(stopped.get()) break
-                        val answer=runCatching { val client=StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ stopped.get() },automaticRetry=false); active.set(client); if(stopped.get()) throw java.util.concurrent.CancellationException(); client.generate(FlowEnglishDirections.prompt(spec),FlowEnglishDirections.schema()) }.getOrNull() ?: continue
+                        val answer=runCatching { val client=StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ stopped.get() },automaticRetry=false,context=this@StudioActivity); active.set(client); if(stopped.get()) throw java.util.concurrent.CancellationException(); client.generate(FlowEnglishDirections.prompt(spec),FlowEnglishDirections.schema()) }.getOrNull() ?: continue
                         val translated=runCatching { FlowEnglishDirections.apply(spec,answer) }.getOrNull() ?: continue
                         val command=runCatching { ShortFlowPrompt.build(translated,camera,silent) }.getOrNull() ?: continue
                         value=translated to command; break
@@ -1924,7 +1924,7 @@ SCENES:
 $context"""
             var answer: JSONObject?=null
             for(provider in providers) {
-                answer=runCatching { StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false).generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("items")!=null }
+                answer=runCatching { StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false,context=this@StudioActivity).generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("items")!=null }
                 if(answer!=null) break
             }
             val result=answer
@@ -2081,9 +2081,13 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
             }
             for(provider in if(useOpenAi) emptyList() else providers) {
                 answer=runCatching {
-                    if(useVision) GeminiClient(provider.key(this),provider.model(this),{ false },automaticRetry=false)
-                        .generateWithImages(prompt,schema,references.map { it.first to requireNotNull(it.second) })
-                    else StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false).generate(prompt,schema)
+                    if(useVision) {
+                        val slot=GeminiKeyPool.next(this)
+                        runOnUiThread { Toast.makeText(this,"วิเคราะห์ภาพด้วย Gemini คีย์ช่อง ${slot.first}",Toast.LENGTH_SHORT).show() }
+                        GeminiClient(slot.second,provider.model(this),{ false },automaticRetry=false)
+                            .generateWithImages(prompt,schema,references.map { it.first to requireNotNull(it.second) })
+                    }
+                    else StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false,context=this@StudioActivity).generate(prompt,schema)
                 }.onFailure { failure=it.message.orEmpty() }.getOrNull()?.takeIf { it.optJSONArray("assignments")!=null }
                 if(answer!=null) break
             }
@@ -2275,7 +2279,7 @@ SCENES:
 $context"""
             var result: JSONObject?=null
             for(provider in providers) {
-                result=runCatching { StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false).generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("assignments")!=null }
+                result=runCatching { StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false,context=this@StudioActivity).generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("assignments")!=null }
                 if(result!=null) break
             }
             val answer=result
@@ -2848,7 +2852,7 @@ $context"""
                     if(!target.hasKey(this)) "${target.label}: ยังไม่ได้ตั้งคีย์"
                     else {
                         val model=target.model(this)
-                        val client=StoryClientFactory.create(target,target.key(this),model,{ stopped.get() },automaticRetry=false)
+                        val client=StoryClientFactory.create(target,target.key(this),model,{ stopped.get() },automaticRetry=false,context=this@StudioActivity)
                         active.set(client)
                         if(stopped.get()) throw java.util.concurrent.CancellationException()
                         StoryApiProbe.check(client)
@@ -2866,7 +2870,79 @@ $context"""
             }
         }.apply { name="director-api-probe"; start() }
     }
+    private fun geminiMultiKeyDialog(afterSave: (() -> Unit)?=null) {
+        val panel=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+        panel.addView(TextView(this).apply {
+            text="Gemini สูงสุด 5 คีย์ • ช่อง 1 คือคีย์เดิม\nคีย์เก็บเข้ารหัสบนเครื่อง • ไม่แสดงคีย์เดิม\nระบบเลือกคีย์ตามงานใหม่ และใช้คีย์เดิมตลอดงานนั้น เมื่อโควตาเต็มจะรอ/แจ้ง ไม่สลับทันที\nคีย์ในโปรเจกต์เดียวกันใช้โควตาร่วมกัน • ค่าใช้จ่ายขึ้นอยู่กับแต่ละโปรเจกต์"
+        })
+        val model=EditText(this).apply { hint="ชื่อโมเดล Gemini ที่ใช้ร่วมกัน"; setSingleLine(true); setText(runCatching { GeminiSettings.firstModel(this@StudioActivity) }.getOrDefault(GeminiSettings.DEFAULT_MODEL)); panel.addView(this) }
+        panel.addView(Button(this).apply { text="บันทึกชื่อโมเดลร่วม"; setOnClickListener {
+            val name=model.text.toString().trim()
+            if(!Regex("gemini-[a-zA-Z0-9.-]+").matches(name)) { notice("ชื่อโมเดล Gemini ไม่ถูกต้อง"); return@setOnClickListener }
+            getSharedPreferences("gemini_key_pool",android.content.Context.MODE_PRIVATE).edit().putString("model",name).apply()
+            notice("บันทึกโมเดลร่วมแล้ว • มีผลกับงานถัดไป")
+        } })
+        val statusViews=mutableListOf<TextView>()
+        for(index in 0 until 5) {
+            val settings=GeminiSettings(this,StoryProvider.GEMINI,index)
+            val heading=TextView(this).apply { text="คีย์ช่องที่ ${index+1}"+if(index==0) " • คีย์เดิม" else ""; textSize=18f; setTypeface(null,Typeface.BOLD); panel.addView(this) }
+            val status=TextView(this).apply {
+                text=if(!settings.hasSaved()) "ยังไม่มีคีย์" else if(settings.hasKey()) "มีคีย์เข้ารหัสแล้ว • ว่างเพื่อคงคีย์เดิม" else "อ่านคีย์ไม่ได้ • กรุณาตรวจ"
+                panel.addView(this)
+            }
+            statusViews.add(status)
+            val input=EditText(this).apply {
+                hint=if(settings.hasSaved()) "มีคีย์แล้ว • กรอกเฉพาะเมื่อต้องการเปลี่ยน" else "วาง Gemini API Key ช่อง ${index+1}"
+                inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                setSingleLine(true); panel.addView(this)
+            }
+            panel.addView(Button(this).apply { text="บันทึกคีย์ช่อง ${index+1}"; setOnClickListener {
+                runCatching {
+                    val value=input.text.toString().trim().ifBlank { settings.key() }
+                    require(value.isNotBlank()) { "กรุณากรอกคีย์ช่อง ${index+1}" }
+                    val other=(0 until 5).filter { it!=index }.map { GeminiSettings(this@StudioActivity,StoryProvider.GEMINI,it) }.filter { it.hasSaved() }.map { it.key() }
+                    require(other.none { it==value }) { "คีย์นี้ซ้ำกับช่องอื่น • กรุณาตรวจ" }
+                    val modelName=model.text.toString().trim()
+                    settings.save(value,modelName)
+                    getSharedPreferences("gemini_key_pool",android.content.Context.MODE_PRIVATE).edit().putString("model",modelName).apply()
+                }.onSuccess {
+                    input.setText(""); input.hint="มีคีย์แล้ว • กรอกเฉพาะเมื่อต้องการเปลี่ยน"
+                    status.text="บันทึกคีย์ช่อง ${index+1} แล้ว • ยังไม่ได้ทดสอบ"
+                }.onFailure { notice(it.message ?: "บันทึกคีย์ไม่ได้") }
+            } })
+            panel.addView(Button(this).apply { text="ทดสอบคีย์ช่อง ${index+1}"; setOnClickListener {
+                if(input.text.toString().isNotBlank()) { notice("กรุณาบันทึกคีย์ช่อง ${index+1} ก่อนทดสอบ"); return@setOnClickListener }
+                val key=runCatching { settings.key() }.getOrNull().orEmpty()
+                val selectedModel=model.text.toString().trim()
+                if(key.isBlank()) { notice("ยังไม่มีคีย์ในช่อง ${index+1}"); return@setOnClickListener }
+                isEnabled=false; status.text="กำลังทดสอบคีย์ช่อง ${index+1} • รอผล"
+                val button=this
+                Thread {
+                    val passed=runCatching { StoryApiProbe.check(GeminiClient(key,selectedModel,{ false },automaticRetry=false)) }.isSuccess
+                    runOnUiThread {
+                        if(isFinishing || isDestroyed) return@runOnUiThread
+                        button.isEnabled=true
+                        status.text=if(passed) "คีย์ช่อง ${index+1} • ทดสอบผ่าน" else "คีย์ช่อง ${index+1} • ทดสอบไม่ผ่าน ตรวจคีย์ โมเดล สิทธิ์ และโควตา"
+                    }
+                }.start()
+            } })
+            panel.addView(Button(this).apply { text="ลบคีย์ช่อง ${index+1}"; setOnClickListener {
+                AlertDialog.Builder(this@StudioActivity).setTitle("ลบคีย์ Gemini ช่อง ${index+1}?")
+                    .setMessage("ลบเฉพาะคีย์ช่องนี้จากเครื่อง • คีย์ช่องอื่นไม่เปลี่ยน")
+                    .setPositiveButton("ลบ") { _,_ -> settings.clear(); input.setText(""); status.text="ลบคีย์ช่อง ${index+1} แล้ว"; input.hint="วาง Gemini API Key ช่อง ${index+1}" }
+                    .setNegativeButton("ยกเลิก",null).showDirector()
+            } })
+        }
+        panel.addView(Button(this).apply { text="เปิด Google AI Studio เพื่อสร้างคีย์"; setOnClickListener {
+            runCatching { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(StoryProvider.GEMINI.keyUrl))) }.onFailure { notice("เปิด Google AI Studio ไม่ได้") }
+        } })
+        AlertDialog.Builder(this).setTitle("Gemini • คีย์ 1–5")
+            .setView(ScrollView(this).apply { addView(panel) })
+            .setPositiveButton("เสร็จสิ้น") { _,_ -> afterSave?.invoke() }
+            .setNegativeButton("ปิด",null).showDirector()
+    }
     private fun storyProviderSettings(provider: StoryProvider,afterSave: (() -> Unit)?=null) {
+        if(provider==StoryProvider.GEMINI) { geminiMultiKeyDialog(afterSave); return }
         val settings=GeminiSettings(this,provider)
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
         panel.addView(TextView(this).apply { text="${provider.label} • คีย์เก็บแยกและเข้ารหัสบนเครื่อง ไม่ส่งออกในสำรองข้อมูล • ระบบเลือกและส่งต่อระหว่างค่ายอัตโนมัติ • ส่งเฉพาะข้อความบท/ลักษณะตัวละคร ไม่ส่งรูป MASTER • โควตาและค่าบริการขึ้นกับบัญชีแต่ละค่าย" })
@@ -3340,7 +3416,7 @@ $context"""
                             providerNumber.set(providerIndex+1)
                             if(stopped.get()) break
                             val answer=runCatching {
-                                val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false)
+                                val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false,context=this@StudioActivity)
                                 active.set(client)
                                 val prompt="Suggest a cast for this Thai story. Channel: $channel; category: $category; situation: $situation; details: $detail. Use ONLY the provided library IDs. Suggest only characters suitable for the story, with a short proposed role in Thai. Do not infer occupation or identity from a face; roles are fictional suggestions for user review. Use as many as needed, from 1 to 8. "+(if(channel=="นายเปีย บ้านคลองขุด") "Include $piaActorId as central protagonist and suitable supporting roles. " else "")+"Catalog: "+AutoCast.promptCatalog(catalog).toString()
                                 client.generate(prompt,AutoCast.schema()).also { AutoCast.validate(it,catalog); if(channel=="นายเปีย บ้านคลองขุด") AutoCast.requirePresenter(it,piaActorId) }
@@ -3465,7 +3541,7 @@ $context"""
                             for((providerIndex,provider) in providers.withIndex()) {
                                 providerNumber.set(providerIndex+1)
                                 if(stopped.get()) break
-                                answer=runCatching { val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false); active.set(client); client.generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("assignments")!=null }
+                                answer=runCatching { val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false,context=this@StudioActivity); active.set(client); client.generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("assignments")!=null }
                                 if(answer!=null) break
                             }
                             val result=answer
@@ -3801,7 +3877,7 @@ $context"""
             val prompt="""Suggest a natural Thai ${if(field=="dialogue") "dialogue line" else "narration"} for an eight-second scene based only on the supplied scene. Expand the original only where the meaning and events support it; do not add facts, characters, plot events or stage directions. Keep it naturally speakable without rushing. Return JSON with a single text field. The user must review it before saving. Scene: $sceneContext"""
             var result: String?=null
             for(provider in providers) {
-                result=runCatching { StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false).generate(prompt,schema).optString("text").trim() }.getOrNull()?.takeIf { it.isNotBlank() }
+                result=runCatching { StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false,context=this@StudioActivity).generate(prompt,schema).optString("text").trim() }.getOrNull()?.takeIf { it.isNotBlank() }
                 if(result!=null) break
             }
             val proposal=result

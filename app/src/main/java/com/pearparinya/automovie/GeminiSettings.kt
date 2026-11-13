@@ -14,10 +14,11 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /** Personal BYOK: key is entered on-device, encrypted by Android Keystore, excluded from backups. */
-internal class GeminiSettings(context: Context,private val provider: StoryProvider=StoryProvider.GEMINI) {
+internal class GeminiSettings(context: Context,private val provider: StoryProvider=StoryProvider.GEMINI, private val slot: Int=0) {
+    init { require(slot in 0..4 && (provider==StoryProvider.GEMINI || slot==0)) { "ช่องคีย์ไม่ถูกต้อง" } }
     private val keyAlias="director_${provider.id}"
     private val folder=File(context.noBackupFilesDir,provider.id).apply { mkdirs() }
-    private val file=File(folder,"settings.json")
+    private val file=File(folder,if(slot==0) "settings.json" else "settings_${slot+1}.json")
     private fun secret(): SecretKey {
         val store=KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         return (store.getKey(keyAlias,null) as? SecretKey) ?: KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES,"AndroidKeyStore").apply {
@@ -32,6 +33,7 @@ internal class GeminiSettings(context: Context,private val provider: StoryProvid
         cipher.init(Cipher.DECRYPT_MODE,secret(),GCMParameterSpec(128,Base64.decode(obj.getString("iv"),Base64.NO_WRAP)))
         return String(cipher.doFinal(Base64.decode(obj.getString("key"),Base64.NO_WRAP)),Charsets.UTF_8)
     }
+    fun hasSaved(): Boolean = file.exists()
     fun hasKey(): Boolean = runCatching { key().isNotBlank() }.getOrDefault(false)
     fun save(key: String,model: String) {
         require(key.trim().length>=20 && key.none { it.isWhitespace() }) { "ตรวจ API Key อีกครั้ง" }
@@ -42,7 +44,23 @@ internal class GeminiSettings(context: Context,private val provider: StoryProvid
         GeminiStoryFiles.write(file,obj)
     }
     fun clear() { AtomicFile(file).delete() }
-    companion object { const val DEFAULT_MODEL="gemini-3.5-flash-lite" }
+    companion object {
+        const val DEFAULT_MODEL="gemini-3.5-flash-lite"
+        fun configured(context: Context): List<Pair<Int,String>> = (0..4).mapNotNull { i ->
+            val entry=GeminiSettings(context,StoryProvider.GEMINI,i)
+            if(!entry.hasSaved()) null else {
+                val value=runCatching { entry.key() }.getOrElse { throw IllegalStateException("อ่านคีย์ Gemini ช่อง ${i+1} ไม่ได้ • กรุณาตรวจบนเครื่อง") }
+                require(value.isNotBlank()) { "คีย์ Gemini ช่อง ${i+1} ว่าง • กรุณาตรวจบนเครื่อง" }
+                i+1 to value
+            }
+        }
+        fun firstModel(context: Context): String {
+            val saved=context.getSharedPreferences("gemini_key_pool",Context.MODE_PRIVATE).getString("model",null)
+            if(!saved.isNullOrBlank()) return saved
+            val index=configured(context).firstOrNull()?.first?.minus(1) ?: 0
+            return GeminiSettings(context,StoryProvider.GEMINI,index).model()
+        }
+    }
 }
 
 internal object GeminiStoryFiles {
