@@ -2960,6 +2960,41 @@ $context"""
             val results=mutableListOf<String>()
             for(target in providers) {
                 if(stopped.get()) break
+                if(target==StoryProvider.GEMINI) {
+                    var blocked=false
+                    var passed=0
+                    var tested=0
+                    var lastFailure=""
+                    val model=target.model(this)
+                    for(index in 0 until 5) {
+                        if(stopped.get()) break
+                        val settings=GeminiSettings(this,StoryProvider.GEMINI,index)
+                        var reason=""
+                        val result=try {
+                            if(!settings.hasSaved()) "Gemini คีย์ ${index+1}: ยังไม่ได้ตั้งค่า"
+                            else if(blocked) "Gemini คีย์ ${index+1}: ยังไม่ได้ทดสอบ • พักตามโควตา"
+                            else {
+                                val key=settings.key()
+                                require(key.isNotBlank()) { "อ่านคีย์ไม่ได้" }
+                                val client=GeminiClient(key,model,{ stopped.get() },automaticRetry=false)
+                                active.set(client)
+                                tested++
+                                StoryApiProbe.check(client)
+                                passed++
+                                "Gemini คีย์ ${index+1}: ผ่าน • $model"
+                            }
+                        } catch(e: Exception) {
+                            if(e is StoryHttpFailure && e.status==429) blocked=true
+                            reason=StoryApiProbe.error(e); lastFailure=reason
+                            "Gemini คีย์ ${index+1}: $reason"
+                        } finally { active.set(null) }
+                        results.add(result)
+                        val text=results.joinToString("\n\n")+"\n\nทดสอบทีละคีย์ • หากโควตาเต็มจะพักและไม่ยิงคีย์ถัดไป"
+                        runOnUiThread { if(!stopped.get() && !isFinishing && !isDestroyed) view.text=text }
+                    }
+                    if(!stopped.get() && tested>0) runCatching { StoryProvider.recordTest(this,target,passed==tested && !blocked,lastFailure) }
+                    continue
+                }
                 var passed=false
                 var failureReason=""
                 val result=try {
@@ -2987,7 +3022,7 @@ $context"""
     private fun geminiMultiKeyDialog(afterSave: (() -> Unit)?=null) {
         val panel=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(16),dp(8),dp(16),dp(8)) }
         panel.addView(TextView(this).apply {
-            text="Gemini สูงสุด 5 คีย์ • ช่อง 1 คือคีย์เดิม\nคีย์เก็บเข้ารหัสบนเครื่อง • ไม่แสดงคีย์เดิม\nระบบเลือกคีย์ตามงานใหม่ และใช้คีย์เดิมตลอดงานนั้น เมื่อโควตาเต็มจะรอ/แจ้ง ไม่สลับทันที\nคีย์ในโปรเจกต์เดียวกันใช้โควตาร่วมกัน • ค่าใช้จ่ายขึ้นอยู่กับแต่ละโปรเจกต์"
+            text="Gemini สูงสุด 5 คีย์ • ช่อง 1 คือคีย์เดิม\nคีย์เก็บเข้ารหัสบนเครื่อง • ไม่แสดงคีย์เดิม\nระบบเลือกคีย์ตามงานใหม่ ใช้ทีละคำขอ เว้นอย่างน้อย 3 วินาที เมื่อโควตาเต็มจะพักทุกคีย์ Gemini และใช้บริการอื่นที่ตั้งค่าไว้หากพร้อม\nคีย์ในโปรเจกต์เดียวกันใช้โควตาร่วมกัน • ค่าใช้จ่ายขึ้นอยู่กับแต่ละโปรเจกต์"
         })
         val model=EditText(this).apply { hint="ชื่อโมเดล Gemini ที่ใช้ร่วมกัน"; setSingleLine(true); setText(runCatching { GeminiSettings.firstModel(this@StudioActivity) }.getOrDefault(GeminiSettings.DEFAULT_MODEL)); panel.addView(this) }
         panel.addView(Button(this).apply { text="บันทึกชื่อโมเดลร่วม"; setOnClickListener {
@@ -2996,6 +3031,7 @@ $context"""
             getSharedPreferences("gemini_key_pool",android.content.Context.MODE_PRIVATE).edit().putString("model",name).apply()
             notice("บันทึกโมเดลร่วมแล้ว • มีผลกับงานถัดไป")
         } })
+        panel.addView(Button(this).apply { text="ทดสอบ Gemini ทั้ง 5 คีย์ทีละช่อง"; setOnClickListener { testStoryApis(listOf(StoryProvider.GEMINI)) } })
         val statusViews=mutableListOf<TextView>()
         for(index in 0 until 5) {
             val settings=GeminiSettings(this,StoryProvider.GEMINI,index)
