@@ -623,7 +623,7 @@ class StudioActivity : AppCompatActivity() {
                 val file=File(filesDir,"character_masters/$id.master")
                 all.add(UnifiedMasterItem(name,id.uppercase()+"_MASTER","มนุษย์",file,{ presetMaster(id,name) }))
             }
-            val records=castingCatalog()
+            val records=piaCatalog()
             val oldEntries=masterLibrary.entries().associateBy { it.id }
             for(i in 0 until records.length()) {
                 val item=records.getJSONObject(i)
