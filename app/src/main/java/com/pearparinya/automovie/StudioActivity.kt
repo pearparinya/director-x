@@ -3082,7 +3082,7 @@ $context"""
                 panel.addView(this)
                 if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenters.length()>0 && presenters.getJSONObject(0).optString("id")==piaActorId) setSelection(1)
             }
-            fun proposalProgress(label: String, stopped: java.util.concurrent.atomic.AtomicBoolean, active: java.util.concurrent.atomic.AtomicReference<StoryTextClient?>): Pair<android.app.AlertDialog, java.util.concurrent.atomic.AtomicInteger> {
+            fun proposalProgress(label: String, stopped: java.util.concurrent.atomic.AtomicBoolean, active: java.util.concurrent.atomic.AtomicReference<StoryTextClient?>): Pair<androidx.appcompat.app.AlertDialog, java.util.concurrent.atomic.AtomicInteger> {
                 val current=java.util.concurrent.atomic.AtomicInteger(1)
                 val start=android.os.SystemClock.elapsedRealtime()
                 val handler=android.os.Handler(android.os.Looper.getMainLooper())
