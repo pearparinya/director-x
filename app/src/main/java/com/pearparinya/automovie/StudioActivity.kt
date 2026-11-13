@@ -318,13 +318,13 @@ class StudioActivity : AppCompatActivity() {
         return result
     }
     private fun installPiaDefaults() {
-        for(slot in 1..12) {
+        for(slot in 1..13) {
             val target=presenterOutfitFile(piaActorId,slot)
             if(!target.exists()) {
                 target.parentFile!!.mkdirs()
                 val tmp=File(target.parentFile,"$slot.default.pending")
                 try {
-                    assets.open("pia_outfits/%02d.png".format(slot)).use { input -> tmp.outputStream().use { output -> input.copyTo(output) } }
+                    assets.open(if(slot==13) "pia_outfits/13.webp" else "pia_outfits/%02d.png".format(slot)).use { input -> tmp.outputStream().use { output -> input.copyTo(output) } }
                     check(tmp.renameTo(target)) { "ติดตั้งภาพชุดนายเปียไม่สำเร็จ" }
                 } finally { tmp.delete() }
             }
@@ -396,7 +396,7 @@ class StudioActivity : AppCompatActivity() {
     }
     // One private outfit image per person and outfit slot. Existing stories keep their own snapshot.
     private fun presenterOutfitFile(actorId: String, slot: Int): File {
-        require(actorId.matches(Regex("[A-Za-z0-9_]+")) && slot in 1..12)
+        require(actorId.matches(Regex("[A-Za-z0-9_]+")) && slot in 1..13)
         return File(filesDir,"presenter_outfits/$actorId/$slot.image")
     }
     private val presenterOutfitPicker=registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -652,6 +652,11 @@ class StudioActivity : AppCompatActivity() {
                     else notice("ไม่พบภาพ MASTER ของ $name • $id")
                 }))
             }
+            installPiaDefaults()
+            val blackReference=presenterOutfitFile(piaActorId,13)
+            all.add(UnifiedMasterItem("นายเปีย • ชุดดำ 3 มุมมอง", "PIA_BLACK_OUTFIT", "มนุษย์", blackReference, {
+                if(blackReference.isFile) fullImage(blackReference,"นายเปีย • ชุดดำ 3 มุมมอง") else notice("ไม่พบภาพอ้างอิงชุดดำ")
+            }))
             propCatalog.forEachIndexed { index,name ->
                 val id=propId(index)
                 val file=runCatching {
@@ -1051,6 +1056,11 @@ class StudioActivity : AppCompatActivity() {
             contentDescription="DIRECTOR X • ภาพผู้กำกับในโรงภาพยนตร์"
         }
         root.addView(hero,LinearLayout.LayoutParams(-1,-2))
+        val portrait=assets.open("pia_home_portrait.webp").use { android.graphics.BitmapFactory.decodeStream(it) }
+        root.addView(ImageView(this).apply {
+            setImageBitmap(portrait); scaleType=ImageView.ScaleType.FIT_CENTER
+            contentDescription="นายเปีย บ้านคลองขุด"
+        },LinearLayout.LayoutParams(-1,dp(160)).apply { topMargin=dp(4) })
         root.addView(TextView(this).apply {
             text="DIRECTOR X "+packageManager.getPackageInfo(packageName,0).versionName
             textSize=12f; gravity=Gravity.END; setTextColor(gold)
@@ -2768,7 +2778,7 @@ $context"""
             layoutParams=LinearLayout.LayoutParams(-1,-2).apply { topMargin=dp(10); bottomMargin=dp(8) }
         }
         card.addView(TextView(this).apply { text="✦ เรื่องที่เปิดอยู่ ✦"; textSize=13f; setTextColor(gold); setTypeface(null,Typeface.BOLD) })
-        card.addView(TextView(this).apply { text="ช่อง: $channel\nเรื่อง: $title"; textSize=16f; setTextColor(ice); setTypeface(null,Typeface.BOLD); setPadding(0,dp(8),0,dp(6)) })
+        card.addView(TextView(this).apply { text="ช่อง: $channel\nหมวด: ${current?.optString("category")?.takeIf { it.isNotBlank() } ?: "ยังไม่ระบุ"}\nเรื่อง: $title"; textSize=16f; setTextColor(ice); setTypeface(null,Typeface.BOLD); setPadding(0,dp(8),0,dp(6)) })
         card.addView(TextView(this).apply { text=if(current==null) "สร้างบทใหม่ หรือเปิดเรื่องที่บันทึกไว้" else "$episodes EP • ${scenes.size} ฉาก • ${current.optString("aspect_ratio","9:16")}"+(if(exported) " • เคยส่งออกบทนี้แล้ว" else ""); textSize=12f; setTextColor(muted) })
         root.addView(card)
         if(File(project,"gemini_job/spec.json").isFile) {
@@ -2789,6 +2799,7 @@ $context"""
             items.forEachIndexed { index,item ->
                 val tile=LinearLayout(this).apply {
                     orientation=LinearLayout.VERTICAL
+                    minimumHeight=dp(208)
                     background=backdrop(Color.rgb(32,27,20),Color.rgb(11,11,13),Color.rgb(176,129,49))
                     setPadding(dp(5),dp(5),dp(5),dp(8))
                     isClickable=true; isFocusable=true
@@ -2807,13 +2818,13 @@ $context"""
                     text=item.second.second; textSize=12f; setTextColor(ice)
                     setPadding(dp(5),dp(3),dp(5),0)
                 })
-                row.addView(tile,LinearLayout.LayoutParams(0,-2,1f).apply { if(index==0) marginEnd=dp(5) else marginStart=dp(5) })
+                row.addView(tile,LinearLayout.LayoutParams(0,-1,1f).apply { if(index==0) marginEnd=dp(5) else marginStart=dp(5) })
             }
             root.addView(row,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) })
         }
         menuRow(listOf(
-            Triple(R.drawable.menu_cast,"ตัวละคร" to "ดูและจัดการตัวละคร MASTER",{ unifiedMasterMenu() }),
-            Triple(R.drawable.menu_script,"บทภาพยนตร์" to "ตรวจบทและรายละเอียดฉาก",{ current?.let { productionCheckMenu(it) } ?: notice("เปิดเรื่องที่มีบทก่อน") })
+            Triple(R.drawable.menu_cast,"ตัวละคร" to "จัดการตัวละคร MASTER",{ unifiedMasterMenu() }),
+            Triple(R.drawable.menu_script,"บทภาพยนตร์" to "ตรวจบทและฉาก",{ current?.let { productionCheckMenu(it) } ?: notice("เปิดเรื่องที่มีบทก่อน") })
         ))
         menuRow(listOf(
             Triple(R.drawable.menu_cover,"ภาพปก" to "คำสั่งปก 9:16 และ 16:9",{ current?.let { story ->
@@ -2823,7 +2834,7 @@ $context"""
                     productionTaskDeck(story,eps.getJSONObject(i).optInt("ep"),true)
                 }
             } ?: notice("เปิดเรื่องที่มีบทก่อน") }),
-            Triple(R.drawable.menu_scene,"ภาพฉาก + Flow" to "สร้างภาพ ตรวจฉาก และดูคำสั่ง",{ commandCardsMenu() })
+            Triple(R.drawable.menu_scene,"ภาพฉาก + Flow" to "สร้างภาพและคำสั่ง Flow",{ commandCardsMenu() })
         ))
         root.addView(TextView(this).apply { text="ขั้นตอนการทำงาน"; textSize=18f; setTextColor(gold); setTypeface(null,Typeface.BOLD); setPadding(0,dp(6),0,dp(4)) })
         val active=if(current==null || wardrobe!="ยืนยันชุดในบทแล้ว") 1 else if(reviewed<scenes.size) 2 else 3
@@ -2834,7 +2845,7 @@ $context"""
         splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
     }
     private fun flowSettings() {
-        choiceMenu("ตั้งค่า DIRECTOR X",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","API • ตั้งค่าการเขียนบทอัตโนมัติ")) { i -> when(i) {
+        choiceMenu("ตั้งค่า DIRECTOR X",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","ตั้งค่า API เขียนบท")) { i -> when(i) {
             0 -> updater.check()
             1 -> { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
             2 -> if(plan==null) notice("ยังไม่มีเรื่องให้สำรอง") else { backupMode=true; zipPicker.launch(StoryFiles.zipName(plan!!.optString("title")+"_สำรอง")) }
@@ -2854,11 +2865,12 @@ $context"""
         val saved=runCatching { GeminiStoryFiles.read(File(project,"story.json")) }.getOrNull()
         val channel=spec?.optString("channel")?.takeIf { it.isNotBlank() } ?: saved?.optString("channel")?.takeIf { it.isNotBlank() } ?: "ยังไม่ระบุ"
         val title=outline?.optString("title")?.takeIf { it.isNotBlank() } ?: saved?.optString("title")?.takeIf { it.isNotBlank() } ?: "กำลังตั้งชื่อเรื่อง"
-        return "ช่อง: $channel\nเรื่อง: $title\n"+StoryStatusText.format(status,GeminiStoryService.running && GeminiStoryService.projectId==project.name,details=details)
+        val category=spec?.optString("category")?.takeIf { it.isNotBlank() } ?: saved?.optString("category")?.takeIf { it.isNotBlank() } ?: "ยังไม่ระบุ"
+        return "ช่อง: $channel\nหมวด: $category\nเรื่อง: $title\n"+StoryStatusText.format(status,GeminiStoryService.running && GeminiStoryService.projectId==project.name,details=details)
     }
     private fun geminiSettings(afterSave: (() -> Unit)?=null) {
         val providers=StoryProvider.activeProviders
-        val choices=providers.map { it.label+" • "+StoryProvider.lastTest(this,it) }+
+        val choices=providers.map { it.label+"\n"+StoryProvider.lastTest(this,it) }+
             listOf("☑️ เลือก API ที่อนุญาต", "🔍 ตรวจ API ที่เลือก", if(StoryProvider.freeOnly(this)) "🟢 ใช้เฉพาะ OpenRouter ฟรี: เปิด" else "⚪ ใช้เฉพาะ OpenRouter ฟรี: ปิด")
         choiceMenu("ตั้งค่าคีย์ API • ใช้อัตโนมัติ",choices) { index ->
             if(index==providers.size) selectStoryApiProviders(afterSave)
@@ -3779,7 +3791,7 @@ $context"""
                         }.setNegativeButton("ยกเลิก",null).showDirector()
                 }
             }
-            val presenterOutfits=listOf("เลือกชุดตามเนื้อเรื่อง", "สูทกรมท่า เนกไทลายฟ้า", "ชุดช่างสีเขียวเข้ม", "ชุดช่างสีกรมท่าส้ม", "ชุดช่างสีเทาเข้ม", "ชุดช่างสีน้ำเงิน", "เสื้อเชิ้ตสีครีม กางเกงเขียว", "เสื้อเชิ้ตสีฟ้า กางเกงกรมท่า", "เสื้อเชิ้ตสีขาว กางเกงดำ", "เสื้อเชิ้ตสีดำ กางเกงเทา", "เสื้อช่างกรม กางเกงเทา ถุงมือ", "ชุดทำสวนสีครีม หมวกและรองเท้าบูท", "ชุดทำสวนกรมท่า หมวกคลุมต้นคอและรองเท้าบูท")
+            val presenterOutfits=listOf("เลือกชุดตามเนื้อเรื่อง", "สูทกรมท่า เนกไทลายฟ้า", "ชุดช่างสีเขียวเข้ม", "ชุดช่างสีกรมท่าส้ม", "ชุดช่างสีเทาเข้ม", "ชุดช่างสีน้ำเงิน", "เสื้อเชิ้ตสีครีม กางเกงเขียว", "เสื้อเชิ้ตสีฟ้า กางเกงกรมท่า", "เสื้อเชิ้ตสีขาว กางเกงดำ", "เสื้อเชิ้ตสีดำ กางเกงเทา", "เสื้อช่างกรม กางเกงเทา ถุงมือ", "ชุดทำสวนสีครีม หมวกและรองเท้าบูท", "ชุดทำสวนกรมท่า หมวกคลุมต้นคอและรองเท้าบูท", "ชุดดำลำลอง • 3 มุมมอง")
             // Keep slot indices compatible with the existing picker and story snapshot.
             val presenterOutfit=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,presenterOutfits) }
             val piaFaceLock=android.widget.CheckBox(this).apply { text="ล็อกใบหน้านายเปียจาก MASTER ต้นฉบับ"; isChecked=true }
@@ -3827,10 +3839,11 @@ $context"""
                 val auto=android.widget.RadioButton(this).apply { text="เลือกชุดตามเนื้อเรื่อง"; isChecked=true; panel.addView(this) }
                 buttons.add(auto)
                 auto.setOnClickListener { presenterOutfit.setSelection(0); buttons.forEachIndexed { i,button -> button.isChecked=i==0 } }
-                for(row in 0 until 6) {
+                for(row in 0 until 7) {
                     val line=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; panel.addView(this) }
                     for(column in 0 until 2) {
                         val slot=row*2+column+1
+                        if(slot>13) continue
                         val card=LinearLayout(this).apply { orientation=1; setPadding(dp(3),dp(4),dp(3),dp(4)); layoutParams=LinearLayout.LayoutParams(0,-2,1f); line.addView(this) }
                         val preview=ImageView(this).apply { val file=presenterOutfitFile(piaActorId,slot); setImageBitmap(castingThumbnail(file)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(135)); contentDescription=presenterOutfits[slot]; card.addView(this) }
                         val radio=android.widget.RadioButton(this).apply { text=presenterOutfits[slot]; textSize=12f; card.addView(this) }

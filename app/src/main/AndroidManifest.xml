@@ -16,8 +16,8 @@
     <application
         android:theme="@style/Theme.AutoMovie"
         android:label="DIRECTOR X"
-        android:icon="@drawable/director_icon"
-        android:roundIcon="@drawable/director_icon"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:allowBackup="true"
         android:supportsRtl="true">
 
