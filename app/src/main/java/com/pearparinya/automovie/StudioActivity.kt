@@ -522,11 +522,15 @@ class StudioActivity : AppCompatActivity() {
             panel.addView(ScrollView(this).apply { addView(list) },LinearLayout.LayoutParams(-1,dp(420)))
             fun show(query: String) {
                 list.removeAllViews()
-                entries.filter { (it.id+" "+it.displayName+" "+it.original).contains(query,ignoreCase=true) }.forEach { entry ->
-                    list.addView(android.widget.Button(this).apply {
-                        text="${entry.id} • ${entry.displayName} • อายุสมมติ ${entry.characterAge} ปี • ${entry.original}"
-                        setOnClickListener { libraryEntry(entry) }
-                    })
+                var row: LinearLayout?=null
+                entries.filter { (it.id+" "+it.displayName+" "+it.original).contains(query,ignoreCase=true) }.forEachIndexed { index, entry ->
+                    if(index%2==0) { row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; list.addView(row) }
+                    val file=runCatching { masterLibrary.source(entry) }.getOrNull()
+                    val card=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(4),dp(6),dp(4),dp(6)); layoutParams=LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f) }
+                    row?.addView(card)
+                    val label="${entry.displayName}\n${entry.id}"+(if(file?.isFile==true) "" else "\nไม่พบ MASTER")
+                    if(file?.isFile==true) card.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(file)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(140)); contentDescription=label; setOnClickListener { libraryEntry(entry) } })
+                    card.addView(Button(this).apply { text=label; setOnClickListener { libraryEntry(entry) } })
                 }
             }
             search.addTextChangedListener(object: android.text.TextWatcher {
@@ -4365,7 +4369,7 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
     private fun castMenu() {
         val p=plan ?: return characterMasters()
         val people=rows(p).flatMap { scene -> scene.optJSONArray("characters")?.let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.orEmpty() }.distinctBy { it.optString("name") }
-        choiceMenu("🎭 ตัวละครเรื่องนี้",people.map { "${it.optString("name")} • ${FlowCast.supporting(p).firstOrNull { c -> c.optString("name")==it.optString("name") }?.optString("library_id").orEmpty()} • ${if(masterFor(it).exists()) "มี MASTER" else "ขาด MASTER"}" }) { i ->
+        chooseStoryCharacterGrid("🎭 ตัวละครเรื่องนี้",people) { i ->
             val person=people[i]; val name=person.optString("name")
             choiceMenu(name,listOf("🖼️ ดู MASTER", "📷 เปลี่ยน MASTER รายเรื่อง", "✏️ บทบาทตัวละคร", "🧠 ข้อมูลใบหน้า ผม และรูปร่าง", "เตรียม MASTER มาตรฐาน", "ตรวจภาพ MASTER")) { action -> when(action) {
                 0 -> { val file=masterFor(person); if(file.exists()) fullImage(file,name) else notice("ยังไม่มี MASTER") }
