@@ -35,7 +35,7 @@ internal class CompatibleStoryClient(
 
     private fun request(prompt: String, schema: JSONObject): JSONObject {
         if (cancelled()) throw CancellationException()
-        require(service !in setOf(CompatibleService.DEEPSEEK, CompatibleService.MISTRAL, CompatibleService.SAMBANOVA)) { "API นี้ไม่เปิดใช้งานแล้ว" }
+        require(service !in setOf(CompatibleService.DEEPSEEK, CompatibleService.MISTRAL, CompatibleService.SAMBANOVA, CompatibleService.CEREBRAS)) { "API นี้ไม่เปิดใช้งานแล้ว" }
         require(apiKey.isNotBlank()) { "ตั้งค่า ${service.label} API Key ก่อนเริ่ม" }
         val body = buildRequest(service, model, prompt, schema)
         val conn = URL(service.url).openConnection() as HttpURLConnection

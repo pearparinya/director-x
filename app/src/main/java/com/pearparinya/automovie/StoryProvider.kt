@@ -31,7 +31,7 @@ internal enum class StoryProvider(val id: String,val label: String,val defaultMo
         fun enableHybrid(context: Context) { context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).edit().putBoolean("hybrid",true).apply() }
         fun label(context: Context)="API อัตโนมัติ"
         val hybridProviders=listOf(GROQ,GEMINI)
-        val activeProviders=listOf(GROQ,GEMINI,OPENROUTER,COHERE,CEREBRAS)
+        val activeProviders=listOf(GROQ,GEMINI,OPENROUTER,COHERE)
         fun freeOnly(context: Context)=context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).getBoolean("free_only",false)
         fun setFreeOnly(context: Context,enabled: Boolean) { context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).edit().putBoolean("free_only",enabled).apply() }
         fun allowedIds(context: Context): Set<String> = context.getSharedPreferences("story_provider",Context.MODE_PRIVATE)
@@ -43,7 +43,7 @@ internal enum class StoryProvider(val id: String,val label: String,val defaultMo
         fun eligible(context: Context)=activeProviders.filter { it.id in allowedIds(context) && (!freeOnly(context) || it==OPENROUTER) }
         fun viable(providers: Collection<StoryProvider>): Boolean {
             val available=providers.filter { it in activeProviders }.toSet()
-            return available.any { it in setOf(OPENROUTER,COHERE,CEREBRAS) } ||
+            return available.any { it in setOf(OPENROUTER,COHERE) } ||
                 (available.size>=2 && (GROQ in available || GEMINI in available))
         }
         fun ready(context: Context)=viable(eligible(context).filter { it.hasKey(context) })
