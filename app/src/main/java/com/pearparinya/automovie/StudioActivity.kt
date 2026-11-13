@@ -2879,7 +2879,7 @@ $context"""
         panel.addView(Button(this).apply { text="บันทึกชื่อโมเดลร่วม"; setOnClickListener {
             val name=model.text.toString().trim()
             if(!Regex("gemini-[a-zA-Z0-9.-]+").matches(name)) { notice("ชื่อโมเดล Gemini ไม่ถูกต้อง"); return@setOnClickListener }
-            getSharedPreferences("gemini_key_pool",Context.MODE_PRIVATE).edit().putString("model",name).apply()
+            getSharedPreferences("gemini_key_pool",android.content.Context.MODE_PRIVATE).edit().putString("model",name).apply()
             notice("บันทึกโมเดลร่วมแล้ว • มีผลกับงานถัดไป")
         } })
         val statusViews=mutableListOf<TextView>()
@@ -2904,7 +2904,7 @@ $context"""
                     require(other.none { it.second==value }) { "คีย์นี้ซ้ำกับช่องอื่น • กรุณาตรวจ" }
                     val modelName=model.text.toString().trim()
                     settings.save(value,modelName)
-                    getSharedPreferences("gemini_key_pool",Context.MODE_PRIVATE).edit().putString("model",modelName).apply()
+                    getSharedPreferences("gemini_key_pool",android.content.Context.MODE_PRIVATE).edit().putString("model",modelName).apply()
                 }.onSuccess {
                     input.setText(""); input.hint="มีคีย์แล้ว • กรอกเฉพาะเมื่อต้องการเปลี่ยน"
                     status.text="บันทึกคีย์ช่อง ${index+1} แล้ว • ยังไม่ได้ทดสอบ"
