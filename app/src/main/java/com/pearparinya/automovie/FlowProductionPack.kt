@@ -64,7 +64,7 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
             if(scenes==null || scenes.length()==0) { add("EP ${i+1} ไม่มีซีน"); continue }
             if(plan.optString("content_profile")==AutoDirectorContent.profile) {
                 val expected=runCatching { ClipPlan.count(plan) }.getOrDefault(24)
-                if(scenes.length()!=expected) add("AutoDirector EP ${i+1} ต้องมี $expected ฉาก")
+                if(scenes.length()!=expected) add("DIRECTOR X EP ${i+1} ต้องมี $expected ฉาก")
                 runCatching { AutoDirectorContent.validateWardrobes(ep,plan.optInt("autodirector_version")>=AutoDirectorContent.version) }.exceptionOrNull()?.let { add(it.message ?: "ชุดต้องครบ 4 ส่วน") }
             }
             var total=0
@@ -141,7 +141,7 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
                         put("AUTODIRECTOR/EP%02d_FLOW.xml".format(number),AutoDirectorContent.flowXml(plan,number))
                     }
                     start.append("\nGemini NEXT: เปิด AUTODIRECTOR/ALL_GEMINI_NEXT.txt เพื่อคัดลอกทั้งเรื่อง หรือ EPxx_GEMINI_NEXT.txt เฉพาะตอน แนบ MASTER ตามรายการ วางคำสั่งครั้งเดียว สร้างทีละภาพแล้วพิมพ์ next; ไม่สร้างวิดีโอใน Gemini ถ้าข้อความยาวเกินช่องแชตให้แนบไฟล์ TXT พร้อม MASTER แล้วสั่งอ่านไฟล์และเริ่มคิว\n")
-                    start.append("\nAutoDirector v45: ใช้ไฟล์ใน AUTODIRECTOR ตามลำดับ โครงเรื่อง → ปกรวม Gemini → ภาพ Gemini ราย EP → บทพูด → XML สำหรับคัดลอกไป Flow ภาพอ้างอิงอยู่ใน MASTERS โดย The Man=GAWIN, Woman 1=RINLADA, Woman 2=MIND; ตัวเสริม Supporting ตามรหัสไฟล์ XML เป็นเอกสารจัดบท ไม่ใช่ไฟล์รัน Flow และยังต้องตรวจภาพจริงก่อนใช้\n")
+                    start.append("\nDIRECTOR X: ใช้ไฟล์ใน AUTODIRECTOR ตามลำดับ โครงเรื่อง → ปกรวม Gemini → ภาพ Gemini ราย EP → บทพูด → XML สำหรับคัดลอกไป Flow ภาพอ้างอิงอยู่ใน MASTERS โดย The Man=GAWIN, Woman 1=RINLADA, Woman 2=MIND; ตัวเสริม Supporting ตามรหัสไฟล์ XML เป็นเอกสารจัดบท ไม่ใช่ไฟล์รัน Flow และยังต้องตรวจภาพจริงก่อนใช้\n")
                 }
                 val leads=definitions.map { definition ->
                     val id=FlowCast.id(definition)!!; val name=definition.getString("name")
