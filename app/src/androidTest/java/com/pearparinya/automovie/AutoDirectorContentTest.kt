@@ -203,7 +203,7 @@ class AutoDirectorContentTest {
         val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
         fun command()=SimpleProductionCommands.videoTasks(project,1).first().command
         assertTrue(command().contains("Slow, gentle pan"))
-        assertTrue(command().contains("Keep identities, outfits, objects and location consistent"))
+        assertTrue(command().contains("Preserve each character&#39;s identity") || command().contains("Preserve each character&apos;s identity"))
         assertTrue(command().contains("<speaker>Woman 1</speaker>"))
         scene.put("camera_movement","pan")
         assertTrue(command().contains("Slow, gentle pan"))
@@ -383,10 +383,10 @@ class AutoDirectorContentTest {
         assertTrue(videos.first().title.startsWith("ซีน 1 • วิดีโอแนวตั้ง 9:16"))
         val command=videos.first().command
         assertTrue(command.contains("9:16")); assertFalse(command.contains("16:9"))
-        assertTrue(command.contains("Sound:")); assertTrue(command.contains("soft paper rustle"))
+        assertTrue(command.contains("<sound_effects>")); assertTrue(command.contains("soft paper rustle"))
         assertEquals(scenes.getJSONObject(0).getString("dialogue"),DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(command.toByteArray(Charsets.UTF_8))).getElementsByTagName("text").item(0).textContent)
         val xml=AutoDirectorContent.flowXml(p,1)
-        assertTrue(xml.contains("Sound:")); assertTrue(xml.contains("soft paper rustle"))
+        assertTrue(xml.contains("<sound_effects>")); assertTrue(xml.contains("soft paper rustle"))
         assertTrue(SceneCommandCards.join(videos).contains("=== ซีน 24"))
         SoundDesign.validate(scenes.getJSONObject(0))
         scenes.getJSONObject(0).getJSONObject("sound_design").remove("music")
