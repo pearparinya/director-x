@@ -69,7 +69,7 @@ class GeminiStoryService : Service() {
                         val connections=active.associateWith { target ->
                             val key=target.key(this); require(key.isNotBlank()) { "ตั้งค่า ${target.label} API Key ก่อนเริ่ม" }
                             val model=if(automatic || hybrid) spec.optString("${target.id}_model").ifBlank { target.model(this) } else spec.getString("model")
-                            StoryClientFactory.create(target,key,model,{ cancelled },{ seconds -> status("running",lastPercent,if(seconds>0) "Groq • พัก $seconds วินาที • ครบเวลาแล้วทำต่ออัตโนมัติ • กดหยุดได้" else "Groq • กำลังส่งคำขอ / รอคำตอบบท",if(seconds>0) "waiting" else "requesting") },retryStatus,!hybrid && !automatic)
+                            StoryClientFactory.create(target,key,model,{ cancelled },{ seconds -> status("running",lastPercent,if(seconds>0) "Groq • พัก $seconds วินาที • ครบเวลาแล้วทำต่ออัตโนมัติ • กดหยุดได้" else "Groq • กำลังส่งคำขอ / รอคำตอบบท",if(seconds>0) "waiting" else "requesting") },retryStatus,!hybrid && !automatic,context=this)
                         }
                         clients=connections.values.toList()
                         val autoRouter=AutomaticStoryRouter(folder,connections,{cancelled}) { target,message ->
