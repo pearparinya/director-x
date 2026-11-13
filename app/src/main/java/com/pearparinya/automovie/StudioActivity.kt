@@ -3205,6 +3205,7 @@ $context"""
             chooseClip { format, seconds ->
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             panel.addView(TextView(this).apply { text="หมวด: ${categories[index]}\nสถานการณ์ตั้งต้น: $selectedStoryTopic\n${if(chosenChannel=="นายเปีย บ้านคลองขุด") "เลือกนายเปียเป็นผู้ดำเนินเรื่องและเลือกชุดเริ่มต้น" else "AI เลือกนักแสดงจากคลัง MASTER และตั้งชื่ออัตโนมัติตามบท"} ${if(format=="short") "สร้างเรื่องจบในคลิปเดียว" else "แล้วเขียนเรื่องต่อครบทุก EP"}"; textSize=14f })
+            panel.addView(TextView(this).apply { text="① แนวคิดเรื่อง • ใส่เพิ่มได้ หรือเว้นว่าง"; setTypeface(null,Typeface.BOLD); setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(28,62,95)); setTextColor(Color.WHITE) })
             val premise=EditText(this).apply { hint=if(chosenChannel=="นายเปีย บ้านคลองขุด") "รายละเอียดที่ตรวจสอบแล้ว / ข้อมูลสินค้า" else "แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
             if(ChannelCatalog.allCategories[index].id in setOf("pia_benefits","pia_safety","pia_products")) panel.addView(TextView(this).apply { text="ระบุข้อเท็จจริงและแหล่งอ้างอิงที่ตรวจสอบแล้ว • แอปไม่ได้ตรวจข่าวหรือยืนยันข้อมูลสินค้าอัตโนมัติ" })
             if(ChannelCatalog.allCategories[index].id=="pia_products") {
@@ -3222,7 +3223,7 @@ $context"""
             }
             presenter.visibility=android.view.View.GONE
             panel.addView(Button(this).apply {
-                fun updateLabel() { text="🎭 ตัวละครหลัก: "+presenter.selectedItem.toString() }
+                fun updateLabel() { text=(if(chosenChannel=="นายเปีย บ้านคลองขุด") "ตัวละครหลัก (ต้องเลือก): " else "ตัวละครหลัก (ไม่บังคับ): ")+presenter.selectedItem.toString() }
                 updateLabel()
                 setOnClickListener {
                     val items=(0 until presenter.count).map { i ->
@@ -3254,12 +3255,13 @@ $context"""
                 return dialog to current
             }
             val selectedActors=linkedSetOf<String>()
-            val castButton=Button(this).apply { text=if(chosenChannel=="นายเปีย บ้านคลองขุด") "🎭 เลือกตัวละครเสริมจากภาพ MASTER • นายเปียเป็นตัวหลัก" else "🎭 ตรวจและเลือกตัวละครจากภาพ MASTER"; panel.addView(this) }
-            val castSummary=TextView(this).apply { text="ยังไม่ได้เลือกภาพ • กรุณาตรวจและยืนยันก่อนสร้างบท"; panel.addView(this) }
+            val castButton=Button(this).apply { text=if(chosenChannel=="นายเปีย บ้านคลองขุด") "②.2 ตรวจและเลือกตัวละคร • นายเปียเป็นตัวหลัก" else "②.2 ตรวจและเลือกตัวละครจาก MASTER" }
+            val castSummary=TextView(this).apply { text="ยังไม่ได้ยืนยันตัวละคร"; setPadding(dp(8),dp(8),dp(8),dp(8)); setTextColor(Color.WHITE); setBackgroundColor(Color.rgb(105,73,27)) }
+            panel.addView(TextView(this).apply { text="② ตัวละคร • วิเคราะห์ แล้วตรวจและยืนยัน"; setTypeface(null,Typeface.BOLD); setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(28,62,95)); setTextColor(Color.WHITE) })
             val suggestedRoles=linkedMapOf<String,String>()
             var castProposalPending=false
             panel.addView(Button(this).apply {
-                text="✨ วิเคราะห์เรื่องและเสนอตัวละครจาก MASTER"
+                text="②.1 ✨ วิเคราะห์และเสนอตัวละคร"
                 setOnClickListener {
                     val catalog=runCatching {
                         val all=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog() else castingCatalog()
@@ -3303,12 +3305,15 @@ $context"""
                             val cast=proposal.getJSONArray("cast")
                             for(i in 0 until cast.length()) cast.getJSONObject(i).let { suggestedRoles[it.getString("library_id")]=it.getString("role") }
                             castProposalPending=true
-                            castSummary.text="ระบบเสนอ ${suggestedRoles.size} ตัว • แตะเลือกตัวละครเพื่อตรวจภาพและยืนยันบทบาท"
+                            castSummary.text="ระบบเสนอ ${suggestedRoles.size} ตัว • รอตรวจภาพและยืนยัน"
+                            castSummary.setBackgroundColor(Color.rgb(105,73,27))
                             castButton.performClick()
                         }
                     }.start()
                 }
             })
+            panel.addView(castButton)
+            panel.addView(castSummary)
             castButton.setOnClickListener {
                 val choices=runCatching { if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog() else castingCatalog() }.getOrElse { notice("เปิดคลังตัวละครไม่ได้"); return@setOnClickListener }
                 val draft=selectedActors.toMutableSet().apply { if(castProposalPending) addAll(suggestedRoles.keys) }
@@ -3336,20 +3341,22 @@ $context"""
                     if(draft.size>8) { notice("เลือกตัวละครได้สูงสุด 8 คน กรุณาเลือกใหม่"); return@setPositiveButton }
                     selectedActors.clear(); selectedActors.addAll(draft)
                     castProposalPending=false
-                    castButton.text=if(selectedActors.isEmpty()) "🎭 ตรวจและเลือกตัวละครจากภาพ MASTER" else "🎭 เลือกตัวละครแล้ว ${selectedActors.size} ตัว • แตะเพื่อแก้"
+                    castButton.text=if(selectedActors.isEmpty()) "②.2 ตรวจและเลือกตัวละครจาก MASTER" else "②.2 เลือกแล้ว ${selectedActors.size} ตัว • แตะเพื่อแก้"
                     val names=(0 until choices.length()).map { choices.getJSONObject(it) }.filter { it.optString("id") in selectedActors }
                         .map { "${it.optString("display_name").ifBlank { it.optString("id") }} • ${it.optString("id")}" }
-                    castSummary.text=if(names.isEmpty()) "ยังไม่ได้เลือกภาพ • กรุณาตรวจและยืนยันก่อนสร้างบท" else "ตัวละครที่เลือก ${names.size} ตัว:\n"+names.joinToString("\n")
+                    castSummary.text=if(names.isEmpty()) "ยังไม่ได้ยืนยันตัวละคร" else "✓ ยืนยันแล้ว ${names.size} ตัว:\n"+names.joinToString("\n")
+                    castSummary.setBackgroundColor(if(names.isEmpty()) Color.rgb(105,73,27) else Color.rgb(24,90,59))
                 }.setNegativeButton("ยกเลิก",null).showDirector()
             }
+            if(!ChannelFeaturePolicy.hasFantasyTools(chosenChannel)) panel.addView(TextView(this).apply { text="③ อุปกรณ์ • ช่องนี้ยังไม่มีตัวเลือกอุปกรณ์ในขั้นตอนนี้"; setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(28,62,95)); setTextColor(Color.WHITE) })
             val selectedProps=linkedMapOf<String,String>()
             val proposedProps=linkedMapOf<String,String>()
-            val propSummary=TextView(this).apply { text="ยังไม่ได้เลือกอาวุธหรืออุปกรณ์ • เลือกเฉพาะเมื่อเรื่องต้องใช้" }
+            val propSummary=TextView(this).apply { text="ไม่บังคับ • ข้ามได้หากเรื่องไม่ใช้อุปกรณ์"; setPadding(dp(8),dp(8),dp(8),dp(8)); setTextColor(Color.WHITE); setBackgroundColor(Color.rgb(28,62,95)) }
             if(ChannelFeaturePolicy.hasFantasyTools(chosenChannel)) {
-                val chooseProps=Button(this).apply { text="⚔️ เลือกภาพ MASTER อาวุธและอุปกรณ์"; panel.addView(this) }
-                panel.addView(propSummary)
+                panel.addView(TextView(this).apply { text="③ อาวุธและอุปกรณ์ • ไม่บังคับ"; setTypeface(null,Typeface.BOLD); setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(28,62,95)); setTextColor(Color.WHITE) })
+                val chooseProps=Button(this).apply { text="③.2 ตรวจและเลือกอุปกรณ์จาก MASTER" }
                 panel.addView(Button(this).apply {
-                    text="✨ วิเคราะห์เรื่องและเสนออุปกรณ์"
+                    text="③.1 ✨ วิเคราะห์และเสนออุปกรณ์"
                     setOnClickListener {
                         val providers=StoryProvider.eligible(this@StudioActivity).filter { it.hasKey(this@StudioActivity) }
                         if(providers.isEmpty()) { notice("ยังไม่มี API สำหรับวิเคราะห์ • เลือกอุปกรณ์เองได้"); return@setOnClickListener }
@@ -3395,6 +3402,8 @@ $context"""
                         }.start()
                     }
                 })
+                panel.addView(chooseProps)
+                panel.addView(propSummary)
                 chooseProps.setOnClickListener {
                     val choices=runCatching { castingCatalog() }.getOrElse { notice("เปิดคลังตัวละครไม่ได้"); return@setOnClickListener }
                     val actors=(0 until choices.length()).map { choices.getJSONObject(it) }.filter { it.optString("id") in selectedActors }
@@ -3429,7 +3438,8 @@ $context"""
                             selectedProps.clear(); selectedProps.putAll(draft)
                             proposedProps.clear()
                             val names=selectedProps.map { (id,owner) -> val i=propCatalog.indices.first { propId(it)==id }; "${propCatalog[i]} • $id • "+(actors.firstOrNull { it.optString("id")==owner }?.optString("display_name") ?: "ยังไม่ระบุผู้ใช้") }
-                            propSummary.text=if(names.isEmpty()) "ไม่ได้เลือกอาวุธหรืออุปกรณ์" else "อุปกรณ์ที่เลือก ${names.size} ชิ้น:\n"+names.joinToString("\n")
+                            propSummary.text=if(names.isEmpty()) "ไม่ได้เลือกอุปกรณ์ • ข้ามได้" else "✓ อุปกรณ์ที่เลือก ${names.size} ชิ้น:\n"+names.joinToString("\n")
+                            propSummary.setBackgroundColor(if(names.isEmpty()) Color.rgb(28,62,95) else Color.rgb(24,90,59))
                         }.setNegativeButton("ยกเลิก",null).showDirector()
                 }
             }
@@ -3514,6 +3524,7 @@ $context"""
             val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("1 EP • จบในตอน","ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); if(format!="short") panel.addView(this) }
             if(format=="short") panel.addView(TextView(this).apply { text="คลิปสั้น • จบในคลิปเดียว" })
             panel.addView(TextView(this).apply { text="${if(format=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(seconds)}${if(format=="short") "" else " ต่อ EP"} • ไม่รวมปกเปิด 3 วินาที • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้\n\nทั้งสองช่องใช้ API เขียนบทชุดเดียวกันที่ตั้งค่าไว้ • ระบบเลือกค่ายอัตโนมัติจากคีย์ที่พร้อม • เนื้อหาอาจถูกส่งไปยังค่ายที่รับช่วง • โควตาและค่าบริการขึ้นอยู่กับแต่ละบัญชี • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ภายหลัง" })
+            panel.addView(TextView(this).apply { text="④ ตรวจรายการตัวละครและอุปกรณ์ด้านบน แล้วกดสร้างบท"; setTypeface(null,Typeface.BOLD); setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(28,62,95)); setTextColor(Color.WHITE) })
             val createDialog=AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป",null)
                 .setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
