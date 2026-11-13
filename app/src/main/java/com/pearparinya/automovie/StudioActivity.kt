@@ -300,6 +300,12 @@ class StudioActivity : AppCompatActivity() {
         }.onFailure { notice("บันทึก MASTER ไม่สำเร็จ: ${it.message}") }
     }
     private fun piaCatalog(): JSONArray {
+        val migrationPrefs=getSharedPreferences("pia_master_updates", MODE_PRIVATE)
+        if(!migrationPrefs.getBoolean("identity_431",false)) {
+            val bytes=assets.open("pia_identity_431.png").use { it.readBytes() }
+            PiaMasterUpdate.install(piaIdentityFile,bytes)
+            check(migrationPrefs.edit().putBoolean("identity_431",true).commit()) { "บันทึกสถานะ MASTER ไม่สำเร็จ" }
+        }
         val catalog=castingCatalog()
         require((0 until catalog.length()).none { catalog.getJSONObject(it).optString("id")==piaActorId }) { "รหัสตัวละครนายเปียซ้ำ" }
         val bytes=if(piaIdentityFile.isFile) piaIdentityFile.readBytes() else assets.open("pia_outfits/01.png").use { it.readBytes() }
@@ -619,7 +625,7 @@ class StudioActivity : AppCompatActivity() {
     private fun unifiedMasterMenu() {
         runCatching {
             val all=mutableListOf<UnifiedMasterItem>()
-            listOf("gawin" to "กวิน","rinlada" to "รินรดา","mind" to "เมย์").forEach { (id,name) ->
+            listOf("rinlada" to "รินรดา","mind" to "เมย์").forEach { (id,name) ->
                 val file=File(filesDir,"character_masters/$id.master")
                 all.add(UnifiedMasterItem(name,id.uppercase()+"_MASTER","มนุษย์",file,{ presetMaster(id,name) }))
             }
