@@ -1002,7 +1002,7 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun testImageMenu() {
         choiceMenu("🖼️ ทดลองสร้างรูป 1 ภาพ", listOf("🎭 ตัวละครเดิม • เลือกคนที่ต้องการ", "✨ ตัวละครสมมุติ • ใช้รูปผมหรือสร้างคนใหม่")) { choice ->
-            if (choice == 0) choiceMenu("🎭 เลือกตัวละครในภาพ", listOf("👨 กวิน • คนเดียว", "👩 รินรดา • คนเดียว", "👩 เมย์ • คนเดียว", "👥 ทั้ง 3 คนในภาพเดียว")) { index ->
+            if (choice == 0) chooseNamedCharacterGrid("🎭 เลือกตัวละครในภาพ", listOf("👨 กวิน • คนเดียว" to File(filesDir,"character_masters/gawin.master"), "👩 รินรดา • คนเดียว" to File(filesDir,"character_masters/rinlada.master"), "👩 เมย์ • คนเดียว" to File(filesDir,"character_masters/mind.master"), "👥 ทั้ง 3 คนในภาพเดียว" to null)) { index ->
                 val keys = listOf("gawin", "rinlada", "mind")
                 val selected = if (index == 3) keys else listOf(keys[index])
                 choiceMenu("🖼️ เลือกวิธีทดสอบ", listOf("🎯 คงตัวละครและชุดเดิม • สถานที่อัตโนมัติ", "👗 เปลี่ยนชุดและฉาก") + if (selected.size == 1) listOf("🧵 เปลี่ยนชุดอย่างเดียว • คงท่าและฉาก") else emptyList()) { mode ->
