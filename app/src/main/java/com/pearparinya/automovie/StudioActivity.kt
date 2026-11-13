@@ -2079,6 +2079,10 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
                 }.distinctBy { referenceId(it.optString("master")).lowercase() to it.optString("story_day").trim().lowercase() }
                 if(proposals.isEmpty()) { notice("AI ไม่ได้เสนอชุดที่ตรวจรูปแบบได้ • ไม่มีการเปลี่ยนบท"); return@runOnUiThread }
                 val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
+                val reviewScroll=ScrollView(this).apply { addView(panel) }
+                val proposedKeys=proposals.map { referenceId(it.optString("master")).lowercase() to it.optString("story_day").trim().lowercase() }.toSet()
+                val missing=groups.filterKeys { it !in proposedKeys }.values.map { it.optString("name").ifBlank { "ไม่ระบุชื่อ" } }.distinct()
+                if(missing.isNotEmpty()) panel.addView(TextView(this).apply { text="⚠️ AI ยังไม่ได้เสนอชุดที่ตรวจได้สำหรับ: "+missing.joinToString(", ")+" • โปรดตรวจด้วยตนเอง" })
                 panel.addView(TextView(this).apply { text="ตรวจชุดทีละตัวละคร • ภาพ MASTER ใช้ยืนยันตัวละคร ไม่ใช่ภาพชุดที่เสนอ\nเลือกใช้ชุดที่เสนอหรือคงชุดเดิมแต่ละรายการก่อนบันทึก • ภาพฉากเดิมที่ได้รับผลต้องตรวจใหม่" })
                 val decisions=MutableList<Int?>(proposals.size) { null }
                 val inputs=mutableListOf<EditText>()
@@ -2172,12 +2176,13 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
                     previous.isEnabled=currentCard>0
                     next.isEnabled=currentCard<cards.lastIndex
                     updateProgress()
+                    reviewScroll.post { reviewScroll.scrollTo(0,0) }
                 }
                 previous.setOnClickListener { navigateTo(currentCard-1) }
                 next.setOnClickListener { navigateTo(currentCard+1) }
                 navigateTo(0)
                 updateProgress()
-                val dialog=AlertDialog.Builder(this).setTitle("ตรวจชุดที่ AI เสนอ").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึกชุดที่เลือก",null).setNegativeButton("ยกเลิก",null).showDirector()
+                val dialog=AlertDialog.Builder(this).setTitle("ตรวจชุดที่ AI เสนอ").setView(reviewScroll).setPositiveButton("บันทึกชุดที่เลือก",null).setNegativeButton("ยกเลิก",null).showDirector()
                 dialog.getButton(-1).setOnClickListener {
                     if(project.name!=projectId || !sameOpenStory(snapshot)) { notice("เรื่องเปลี่ยนระหว่างตรวจ กรุณาเริ่มใหม่"); return@setOnClickListener }
                     if(decisions.all { it==0 }) { dialog.dismiss(); notice("คงชุดเดิมทุกรายการ • ไม่ได้เปลี่ยนบท"); return@setOnClickListener }
