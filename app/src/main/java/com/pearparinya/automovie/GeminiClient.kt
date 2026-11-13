@@ -9,6 +9,7 @@ import java.util.concurrent.CancellationException
 internal class GeminiClient(private val apiKey: String, private val model: String, private val cancelled: () -> Boolean,private val onRetry: (String)->Unit={},private val automaticRetry: Boolean=true): StoryTextClient {
     @Volatile private var connection: HttpURLConnection?=null
     override fun cancel() { connection?.disconnect() }
+    override fun availableDelayMillis(): Long = GeminiPacing.delayMillis()
     override fun generate(prompt: String,schema: JSONObject): JSONObject = if(automaticRetry) StoryRequestRetry().execute(cancelled,onRetry) { generateOnce(prompt,schema) } else generateOnce(prompt,schema)
     fun generateWithImages(prompt: String, schema: JSONObject, images: List<Pair<String,java.io.File>>): JSONObject {
         require(images.isNotEmpty() && images.size<=8) { "ต้องมีภาพ MASTER ที่ตรวจได้ 1–8 ภาพ" }
@@ -37,19 +38,22 @@ internal class GeminiClient(private val apiKey: String, private val model: Strin
         val body=JSONObject().put("contents",JSONArray().put(JSONObject().put("role","user").put("parts",parts)))
             .put("generationConfig",JSONObject().put("responseMimeType","application/json").put("responseJsonSchema",schema)
                 .put("maxOutputTokens",16384))
-        val conn=URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent").openConnection() as HttpURLConnection
-        connection=conn
+        GeminiPacing.acquire(cancelled)
+        var conn: HttpURLConnection?=null
         try {
+            conn=URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent").openConnection() as HttpURLConnection
+            connection=conn
             conn.requestMethod="POST"; conn.connectTimeout=20000; conn.readTimeout=180000; conn.instanceFollowRedirects=false
             conn.setRequestProperty("x-goog-api-key",apiKey); conn.setRequestProperty("Content-Type","application/json; charset=utf-8")
             conn.doOutput=true
             conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val status=conn.responseCode
+            if(status==429) GeminiPacing.on429(conn.getHeaderField("Retry-After"))
             if(status !in 200..299) throw StoryHttpFailure(status,conn.getHeaderField("Retry-After"),errorFor(status))
             val bytes=conn.inputStream.use { it.readBytesBounded(2_000_000) }
             if(cancelled()) throw CancellationException()
             return parseResponse(JSONObject(String(bytes,Charsets.UTF_8)))
-        } finally { conn.disconnect(); connection=null }
+        } finally { conn?.disconnect(); connection=null; GeminiPacing.release() }
     }
     private fun java.io.InputStream.readBytesBounded(limit: Int): ByteArray {
         val output=java.io.ByteArrayOutputStream(); val buffer=ByteArray(8192)
