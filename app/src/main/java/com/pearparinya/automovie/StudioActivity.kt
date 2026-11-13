@@ -151,7 +151,7 @@ class StudioActivity : AppCompatActivity() {
         set(value) { prefs.edit().putBoolean("backup_mode",value).apply() }
     private val updater = StudioUpdater(this)
     private lateinit var root: LinearLayout
-    private val navy = Color.rgb(18,29,49)
+    private val navy = Color.rgb(12,12,15)
     private val gold = Color.rgb(232,180,82)
     private val electricBlue = Color.rgb(30,156,255)
     private val cyan = Color.rgb(42,220,255)
@@ -928,7 +928,7 @@ class StudioActivity : AppCompatActivity() {
             isAppearanceLightNavigationBars = false
         }
         val isFantasyHome=plan?.let { ChannelFeaturePolicy.hasFantasyTools(it.optString("channel")) } == true
-        val scroll = ScrollView(this).apply { background = backdrop(Color.rgb(9,18,36),if(isFantasyHome) Color.rgb(45,19,69) else Color.rgb(15,28,50)); isFillViewport = true; clipToPadding = false }
+        val scroll = ScrollView(this).apply { background = backdrop(Color.rgb(8,8,10),if(isFantasyHome) Color.rgb(40,25,25) else Color.rgb(31,24,17)); isFillViewport = true; clipToPadding = false }
         root = LinearLayout(this).apply { orientation = 1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
         scroll.addView(root)
         val host = LinearLayout(this).apply { orientation = 1; setBackgroundColor(navy) }
@@ -950,10 +950,10 @@ class StudioActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(8), dp(6), dp(8), dp(6))
-            background = backdrop(Color.rgb(12,24,45), Color.rgb(31,18,45), Color.rgb(139,99,43)); elevation = dp(6).toFloat()
+            background = backdrop(Color.rgb(36,27,16), Color.rgb(10,10,12), Color.rgb(202,153,67)); elevation = dp(6).toFloat()
         }
         header.addView(ImageView(this).apply {
-            setImageResource(R.drawable.director_mark)
+            setImageResource(R.drawable.director_portrait)
             scaleType = ImageView.ScaleType.CENTER_CROP
             layoutParams = LinearLayout.LayoutParams(dp(88), dp(88)).apply { marginEnd = dp(12) }
             foreground = GradientDrawable().apply { setColor(Color.TRANSPARENT); setStroke(dp(2),gold); cornerRadius=dp(18).toFloat() }
@@ -982,7 +982,7 @@ class StudioActivity : AppCompatActivity() {
             })
         }
         brandLine("DIRECTOR X ${packageManager.getPackageInfo(packageName, 0).versionName}", 20, 14, gold, true, 1)
-        brandLine("✦ ผู้กำกับอัจฉริยะ ✦", 16, 12, ice, true, 0)
+        brandLine("✦ สตูดิโอสร้างภาพยนตร์ AI ✦", 16, 11, ice, true, 0)
         header.addView(heading)
         root.addView(header)
         
@@ -2711,7 +2711,7 @@ $context"""
             root.addView(geminiProgressView,LinearLayout.LayoutParams(-1,dp(10)).apply { setMargins(dp(8),0,dp(8),dp(8)) })
             button("🤖 งานเขียนบท • ดูสถานะ / ทำต่อ",false) { geminiJobMenu() }
         } else { geminiStatusView=null; geminiProgressView=null }
-        button(if(current==null) "✦ สร้างบทในแอป" else "✦ สร้างเรื่องใหม่ / เลือกแนวเรื่อง",false) { flowPlanning() }
+        button("🎬 สร้างเรื่องใหม่",true) { flowPlanning() }
         val active=if(current==null || wardrobe!="ยืนยันชุดในบทแล้ว") 1 else if(reviewed<scenes.size) 2 else 3
         stepCard(1,"👕","ตรวจชุดตัวละคร","ดูชุดในบท หรือให้ AI เสนอ • ยืนยันแล้วกลับมาแก้ได้",enabled=current!=null,completed=current!=null && wardrobe=="ยืนยันชุดในบทแล้ว",currentStep=active,statusText=wardrobe) { current?.let { wardrobeMenu(it) } }
         stepCard(2,"🧰","ตรวจสิ่งของในบท","ดูผู้ใช้และสิ่งของ • ตรวจหรือให้ AI เสนอ",enabled=current!=null,completed=current!=null && scenes.isNotEmpty() && reviewed==scenes.size,currentStep=active,statusText=if(current==null) "รอสร้างบท" else "ตรวจบทแล้ว $reviewed/${scenes.size} ฉาก") { current?.let { reviewSceneProps(it) } }
@@ -2771,7 +2771,7 @@ $context"""
         }
     }
     private fun extraApiSettingsMenu() {
-        val providers=ExtraApiProvider.entries
+        val providers=ExtraApiProvider.entries.filter { it !in setOf(ExtraApiProvider.DEEPSEEK, ExtraApiProvider.MISTRAL, ExtraApiProvider.SAMBANOVA) }
         val choices=providers.map { provider ->
             provider.label + if(ExtraApiSettings(this,provider).hasKey()) " • มีคีย์แล้ว" else " • ยังไม่มีคีย์"
         }
