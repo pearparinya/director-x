@@ -3205,15 +3205,48 @@ $context"""
             chooseClip { format, seconds ->
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             panel.addView(TextView(this).apply { text="หมวด: ${categories[index]}\nสถานการณ์ตั้งต้น: $selectedStoryTopic\n${if(chosenChannel=="นายเปีย บ้านคลองขุด") "เลือกนายเปียเป็นผู้ดำเนินเรื่องและเลือกชุดเริ่มต้น" else "AI เลือกนักแสดงจากคลัง MASTER และตั้งชื่ออัตโนมัติตามบท"} ${if(format=="short") "สร้างเรื่องจบในคลิปเดียว" else "แล้วเขียนเรื่องต่อครบทุก EP"}"; textSize=14f })
-            panel.addView(TextView(this).apply { text="① แนวคิดเรื่อง • ใส่เพิ่มได้ หรือเว้นว่าง"; setTypeface(null,Typeface.BOLD); setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(28,62,95)); setTextColor(Color.WHITE) })
-            val premise=EditText(this).apply { hint=if(chosenChannel=="นายเปีย บ้านคลองขุด") "รายละเอียดที่ตรวจสอบแล้ว / ข้อมูลสินค้า" else "แนวคิดเรื่อง (ว่าง = คิดเรื่องใหม่)"; maxLines=4; panel.addView(this) }
-            if(ChannelCatalog.allCategories[index].id in setOf("pia_benefits","pia_safety","pia_products")) panel.addView(TextView(this).apply { text="ระบุข้อเท็จจริงและแหล่งอ้างอิงที่ตรวจสอบแล้ว • แอปไม่ได้ตรวจข่าวหรือยืนยันข้อมูลสินค้าอัตโนมัติ" })
+            fun stepHeader(number: String, label: String, color: Int) {
+                val row=LinearLayout(this).apply {
+                    orientation=LinearLayout.HORIZONTAL
+                    gravity=Gravity.CENTER_VERTICAL
+                    setPadding(dp(12),dp(8),dp(12),dp(8))
+                    background=GradientDrawable().apply { setColor(color); cornerRadius=dp(12).toFloat() }
+                }
+                row.addView(TextView(this).apply { text=number; textSize=30f; setTypeface(null,Typeface.BOLD); setTextColor(Color.WHITE); setPadding(0,0,dp(12),0) })
+                row.addView(TextView(this).apply { text=label; textSize=17f; setTypeface(null,Typeface.BOLD); setTextColor(Color.WHITE) },LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f))
+                panel.addView(row,LinearLayout.LayoutParams(-1,LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin=dp(10); bottomMargin=dp(6) })
+            }
+            fun colorAction(button: Button, color: Int, darkText: Boolean=false) {
+                button.backgroundTintList=ColorStateList.valueOf(color)
+                button.setTextColor(if(darkText) Color.rgb(25,31,36) else Color.WHITE)
+                button.textSize=16f
+                button.setTypeface(null,Typeface.BOLD)
+                button.minHeight=dp(52)
+            }
+            stepHeader("1","AI คิดเรื่องจากแนวที่เลือก",Color.rgb(34,105,160))
+            panel.addView(TextView(this).apply { text="ล็อกแนวคิดเรื่องแล้ว • AI จะคิดเรื่องจากหมวดและสถานการณ์ที่เลือก"; setTextColor(Color.WHITE); setPadding(dp(12),dp(8),dp(12),dp(8)) })
+            val needsFacts=ChannelCatalog.allCategories[index].id in setOf("pia_benefits","pia_safety","pia_products")
+            val premise=EditText(this).apply {
+                hint="ข้อมูลจริงและแหล่งอ้างอิงที่ตรวจสอบแล้ว"
+                maxLines=4
+                if(needsFacts) panel.addView(this)
+            }
+            if(needsFacts) panel.addView(TextView(this).apply { text="หมวดนี้ต้องระบุข้อมูลจริงที่ตรวจสอบแล้ว • AI จะใช้สร้างบท ไม่แต่งข้อมูลสินค้า ความปลอดภัย หรือสิทธิประโยชน์เอง"; setTextColor(Color.WHITE); setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(149,54,40)) })
             if(ChannelCatalog.allCategories[index].id=="pia_products") {
-                panel.addView(TextView(this).apply { text="ดูตัวอย่างโฆษณาสินค้าจาก TikTok Creative Center แล้วกรอกรายละเอียดสินค้าที่ตรวจสอบเอง • ตัวอย่างโฆษณาไม่ใช่อันดับยอดขาย • ระบบยังไม่เชื่อมข้อมูล TikTok Shop อัตโนมัติ" })
-                panel.addView(Button(this).apply { text="ดูตัวอย่างโฆษณาสินค้า TikTok"; setOnClickListener {
+                panel.addView(Button(this).apply { text="ดูตัวอย่างโฆษณาสินค้า TikTok"; colorAction(this,Color.rgb(225,161,35),true); setOnClickListener {
                     runCatching { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://ads.tiktok.com/business/creativecenter/inspiration/topads/pc/en?region=TH"))) }.onFailure { notice("เปิด TikTok Creative Center ไม่ได้") }
                 } })
             }
+            val advancedControls=mutableListOf<android.view.View>()
+            panel.addView(Button(this).apply {
+                text="⚙ ตัวเลือกเพิ่มเติม • แตะเพื่อเปิด"
+                colorAction(this,Color.rgb(245,245,245),true)
+                setOnClickListener {
+                    val show=advancedControls.any { it.visibility!=android.view.View.VISIBLE }
+                    advancedControls.forEach { it.visibility=if(show) android.view.View.VISIBLE else android.view.View.GONE }
+                    text=if(show) "⚙ ซ่อนตัวเลือกเพิ่มเติม" else "⚙ ตัวเลือกเพิ่มเติม • แตะเพื่อเปิด"
+                }
+            })
             val presenters=runCatching { if(chosenChannel=="นายเปีย บ้านคลองขุด") { installPiaDefaults(); JSONArray().put(piaCatalog().getJSONObject(0)) } else castingCatalog() }.getOrDefault(JSONArray())
             val presenter=Spinner(this).apply {
                 val labels=listOf(if(chosenChannel=="นายเปีย บ้านคลองขุด") "เลือก MASTER ผู้ดำเนินเรื่อง" else "ให้ AI เลือกตัวละครหลัก")+(0 until presenters.length()).map { presenters.getJSONObject(it).optString("display_name").ifBlank { presenters.getJSONObject(it).optString("id") } }
@@ -3222,7 +3255,7 @@ $context"""
                 if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenters.length()>0 && presenters.getJSONObject(0).optString("id")==piaActorId) setSelection(1)
             }
             presenter.visibility=android.view.View.GONE
-            panel.addView(Button(this).apply {
+            val presenterButton=Button(this).apply {
                 fun updateLabel() { text=(if(chosenChannel=="นายเปีย บ้านคลองขุด") "ตัวละครหลัก (ต้องเลือก): " else "ตัวละครหลัก (ไม่บังคับ): ")+presenter.selectedItem.toString() }
                 updateLabel()
                 setOnClickListener {
@@ -3231,7 +3264,10 @@ $context"""
                     }
                     chooseNamedCharacterGrid("เลือกตัวละครหลัก",items) { i -> presenter.setSelection(i); updateLabel() }
                 }
-            })
+            }
+            presenterButton.visibility=android.view.View.GONE
+            colorAction(presenterButton,Color.rgb(62,86,110))
+            advancedControls.add(presenterButton); panel.addView(presenterButton)
             fun proposalProgress(label: String, stopped: java.util.concurrent.atomic.AtomicBoolean, active: java.util.concurrent.atomic.AtomicReference<StoryTextClient?>): Pair<androidx.appcompat.app.AlertDialog, java.util.concurrent.atomic.AtomicInteger> {
                 val current=java.util.concurrent.atomic.AtomicInteger(1)
                 val start=android.os.SystemClock.elapsedRealtime()
@@ -3263,8 +3299,8 @@ $context"""
             var automaticPropsStart: (() -> Unit)?=null
             var automaticCastPending=false
             val castButton=Button(this).apply { text=if(chosenChannel=="นายเปีย บ้านคลองขุด") "②.2 ตรวจและเลือกตัวละคร • นายเปียเป็นตัวหลัก" else "②.2 ตรวจและเลือกตัวละครจาก MASTER" }
-            val castSummary=TextView(this).apply { text="ยังไม่ได้ยืนยันตัวละคร"; setPadding(dp(8),dp(8),dp(8),dp(8)); setTextColor(Color.WHITE); setBackgroundColor(Color.rgb(105,73,27)) }
-            panel.addView(TextView(this).apply { text="② ตัวละคร • วิเคราะห์ แล้วตรวจและยืนยัน"; setTypeface(null,Typeface.BOLD); setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(28,62,95)); setTextColor(Color.WHITE) })
+            val castSummary=TextView(this).apply { text="ยังไม่ได้ยืนยันตัวละคร"; setPadding(dp(8),dp(8),dp(8),dp(8)); setTextColor(Color.WHITE); setBackgroundColor(Color.rgb(146,57,38)) }
+            stepHeader("2","AI เลือกตัวละครจาก MASTER",Color.rgb(19,116,80))
             val suggestedRoles=linkedMapOf<String,String>()
             var castProposalPending=false
             val analyzeCast=Button(this).apply {
@@ -3323,13 +3359,13 @@ $context"""
                                     .map { "${it.optString("display_name").ifBlank { it.optString("id") }} • ${it.optString("id")} • ${suggestedRoles[it.optString("id")].orEmpty()}" }
                                 castButton.text="②.2 AI เลือกแล้ว ${selectedActors.size} ตัว • แตะเพื่อแก้"
                                 castSummary.text="✓ AI เลือกอัตโนมัติ ${names.size} ตัว:\n"+names.joinToString("\n")
-                                castSummary.setBackgroundColor(Color.rgb(24,90,59))
+                                castSummary.setBackgroundColor(Color.rgb(19,112,72))
                                 if(ChannelFeaturePolicy.hasFantasyTools(channel)) automaticPropsStart?.invoke()
                                 else notice("AI เลือกตัวละครแล้ว • กดสร้างบทได้ หรือตรวจและแก้รายการก่อน")
                             } else {
                                 castProposalPending=true
                                 castSummary.text="ระบบเสนอ ${suggestedRoles.size} ตัว • รอตรวจภาพและยืนยัน"
-                                castSummary.setBackgroundColor(Color.rgb(105,73,27))
+                                castSummary.setBackgroundColor(Color.rgb(146,57,38))
                                 castButton.performClick()
                             }
                         }
@@ -3337,9 +3373,14 @@ $context"""
                 }
             }
             panel.addView(Button(this).apply {
-                text="✨ AI เลือกตัวละครและอุปกรณ์อัตโนมัติ"
+                text="✨ ให้ AI เลือกตัวละครและอุปกรณ์"
+                colorAction(this,Color.rgb(18,139,89))
                 setOnClickListener { automaticCastPending=true; analyzeCast.performClick() }
             })
+            colorAction(analyzeCast,Color.rgb(224,143,30),true)
+            colorAction(castButton,Color.rgb(244,192,57),true)
+            analyzeCast.visibility=android.view.View.GONE; castButton.visibility=android.view.View.GONE
+            advancedControls.add(analyzeCast); advancedControls.add(castButton)
             panel.addView(analyzeCast)
             panel.addView(castButton)
             panel.addView(castSummary)
@@ -3374,12 +3415,14 @@ $context"""
                     val names=(0 until choices.length()).map { choices.getJSONObject(it) }.filter { it.optString("id") in selectedActors }
                         .map { "${it.optString("display_name").ifBlank { it.optString("id") }} • ${it.optString("id")}" }
                     castSummary.text=if(names.isEmpty()) "ยังไม่ได้ยืนยันตัวละคร" else "✓ ยืนยันแล้ว ${names.size} ตัว:\n"+names.joinToString("\n")
-                    castSummary.setBackgroundColor(if(names.isEmpty()) Color.rgb(105,73,27) else Color.rgb(24,90,59))
+                    castSummary.setBackgroundColor(if(names.isEmpty()) Color.rgb(146,57,38) else Color.rgb(19,112,72))
                 }.setNegativeButton("ยกเลิก",null).showDirector()
             }
-            if(!ChannelFeaturePolicy.hasFantasyTools(chosenChannel)) panel.addView(TextView(this).apply { text="③ อุปกรณ์ • ช่องนี้ยังไม่มีตัวเลือกอุปกรณ์ในขั้นตอนนี้"; setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(28,62,95)); setTextColor(Color.WHITE) })
+            if(!ChannelFeaturePolicy.hasFantasyTools(chosenChannel)) {
+                stepHeader("3","อุปกรณ์ • ยังไม่มีตัวเลือกในช่องนี้",Color.rgb(181,99,30))
+            }
             if(ChannelFeaturePolicy.hasFantasyTools(chosenChannel)) {
-                panel.addView(TextView(this).apply { text="③ อาวุธและอุปกรณ์ • ไม่บังคับ"; setTypeface(null,Typeface.BOLD); setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(28,62,95)); setTextColor(Color.WHITE) })
+                stepHeader("3","อุปกรณ์ • AI เลือกให้เมื่อจำเป็น",Color.rgb(181,99,30))
                 val chooseProps=Button(this).apply { text="③.2 ตรวจและเลือกอุปกรณ์จาก MASTER" }
                 val analyzeProps=Button(this).apply {
                     text="③.1 ✨ วิเคราะห์และเสนออุปกรณ์"
@@ -3440,7 +3483,7 @@ $context"""
                                         "${propCatalog[n]} • $id • "+actor.ifBlank { "ยังไม่ระบุผู้ใช้" }
                                     }
                                     propSummary.text="✓ AI เลือกอุปกรณ์ ${names.size} ชิ้น:\n"+names.joinToString("\n")
-                                    propSummary.setBackgroundColor(Color.rgb(24,90,59))
+                                    propSummary.setBackgroundColor(Color.rgb(19,112,72))
                                     notice("AI เลือกตัวละครและอุปกรณ์แล้ว • กดสร้างบทได้ หรือตรวจและแก้รายการก่อน")
                                 } else {
                                     propSummary.text="ระบบเสนอ ${proposedProps.size} ชิ้น • ตรวจภาพและยืนยันรายการ"
@@ -3451,6 +3494,10 @@ $context"""
                     }
                 }
                 automaticPropsStart={ automaticPropsPending=true; analyzeProps.performClick() }
+                colorAction(analyzeProps,Color.rgb(224,143,30),true)
+                colorAction(chooseProps,Color.rgb(244,192,57),true)
+                analyzeProps.visibility=android.view.View.GONE; chooseProps.visibility=android.view.View.GONE
+                advancedControls.add(analyzeProps); advancedControls.add(chooseProps)
                 panel.addView(analyzeProps)
                 panel.addView(chooseProps)
                 panel.addView(propSummary)
@@ -3490,7 +3537,7 @@ $context"""
                             proposedProps.clear()
                             val names=selectedProps.map { (id,owner) -> val i=propCatalog.indices.first { propId(it)==id }; "${propCatalog[i]} • $id • "+(actors.firstOrNull { it.optString("id")==owner }?.optString("display_name") ?: "ยังไม่ระบุผู้ใช้") }
                             propSummary.text=if(names.isEmpty()) "ไม่ได้เลือกอุปกรณ์ • ข้ามได้" else "✓ อุปกรณ์ที่เลือก ${names.size} ชิ้น:\n"+names.joinToString("\n")
-                            propSummary.setBackgroundColor(if(names.isEmpty()) Color.rgb(28,62,95) else Color.rgb(24,90,59))
+                            propSummary.setBackgroundColor(if(names.isEmpty()) Color.rgb(28,62,95) else Color.rgb(19,112,72))
                         }.setNegativeButton("ยกเลิก",null).showDirector()
                 }
             }
@@ -3575,7 +3622,7 @@ $context"""
             val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("1 EP • จบในตอน","ให้ AI เลือก 4–7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); if(format!="short") panel.addView(this) }
             if(format=="short") panel.addView(TextView(this).apply { text="คลิปสั้น • จบในคลิปเดียว" })
             panel.addView(TextView(this).apply { text="${if(format=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(seconds)}${if(format=="short") "" else " ต่อ EP"} • ไม่รวมปกเปิด 3 วินาที • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้\n\nทั้งสองช่องใช้ API เขียนบทชุดเดียวกันที่ตั้งค่าไว้ • ระบบเลือกค่ายอัตโนมัติจากคีย์ที่พร้อม • เนื้อหาอาจถูกส่งไปยังค่ายที่รับช่วง • โควตาและค่าบริการขึ้นอยู่กับแต่ละบัญชี • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ภายหลัง" })
-            panel.addView(TextView(this).apply { text="④ ตรวจรายการตัวละครและอุปกรณ์ด้านบน แล้วกดสร้างบท"; setTypeface(null,Typeface.BOLD); setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(28,62,95)); setTextColor(Color.WHITE) })
+            stepHeader("4","พร้อมแล้วกดสร้างบท",Color.rgb(157,101,26))
             val createDialog=AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป",null)
                 .setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
