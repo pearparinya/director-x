@@ -2054,14 +2054,14 @@ $context"""
             }
         }
         if(groups.isEmpty()) return notice("ไม่พบตัวละครหรือ story_day ที่ใช้วางชุด")
-        val summary=JSONArray(scenes.map { scene -> JSONObject().put("id",key(scene)).put("story_day",scene.optString("story_day")).put("location",scene.optString("location")).put("action",scene.optString("action")).put("start_state",scene.optString("start_state")).put("characters",JSONArray(FlowReferencePrompt.people(scene).map { p -> JSONObject().put("name",p.optString("name")).put("master",referenceId(p.optString("master"))).put("role",p.optString("role")).put("outfit",p.optString("outfit")) })) })
+        val summary=JSONArray(scenes.map { scene -> JSONObject().put("id",key(scene)).put("story_day",scene.optString("story_day")).put("location",scene.optString("location")).put("action",scene.optString("action")).put("start_state",scene.optString("start_state")).put("characters",JSONArray(FlowReferencePrompt.people(scene).map { p -> JSONObject().put("name",p.optString("name")).put("master",referenceId(p.optString("master"))).put("role",p.optString("role")).put("character_type",p.optString("character_type")).put("outfit",p.optString("outfit")) })) })
         if(summary.toString().length>100000) return notice("บทมีขนาดใหญ่เกินไป กรุณาแก้ชุดรายซีนก่อน")
         notice("กำลังให้ AI เสนอชุดตามบท • ตรวจและเลือกก่อนบันทึก • ยังไม่เปลี่ยนบท")
         Thread {
             val item=JSONObject().put("type","object").put("properties",JSONObject().put("master",JSONObject().put("type","string")).put("story_day",JSONObject().put("type","string")).put("outfit",JSONObject().put("type","string")).put("summary_th",JSONObject().put("type","string"))).put("required",JSONArray().put("master").put("story_day").put("outfit"))
             val schema=JSONObject().put("type","object").put("properties",JSONObject().put("assignments",JSONObject().put("type","array").put("items",item))).put("required",JSONArray().put("assignments"))
             val prompt="""Review the story and propose outfits for visible characters using their actual role, setting and activity. ${WardrobeContext.planning}
-Return JSON assignments. Each item must contain exact master ID and exact story_day from the input and a complete outfit with Top: ...; Bottom: ...; Shoes: ...; Accessories: ... . Do not add characters, roles, events, or props. Keep one exact outfit for each character and story_day. For Top, Bottom and Shoes include shade=color #RRGGBB, and for Top include sleeves=long-sleeve, short-sleeve, three-quarter-sleeve, cap-sleeve, sleeveless, strapless or one-sleeve. Keep nonhuman anatomy and use none for unneeded clothes. Existing presenter-selected outfit should remain unless the user decides otherwise. Also provide summary_th, a short faithful Thai description of the proposed outfit, with no invented details; say no clothing where appropriate. Return only items you can match confidently. Story: $summary"""
+Return JSON assignments. Each item must contain exact master ID and exact story_day from the input and a complete outfit with Top: ...; Bottom: ...; Shoes: ...; Accessories: ... . Do not add characters, roles, events, or props. Keep one exact outfit for each character and story_day. For Top, Bottom and Shoes include shade=color #RRGGBB, and for Top include sleeves=long-sleeve, short-sleeve, three-quarter-sleeve, cap-sleeve, sleeveless, strapless or one-sleeve. The input describes the story in text only; you cannot see the MASTER image. Never infer whether clothing, armor or accessories are absent from character type, and never assume an unknown all-none outfit means a deliberate choice. Do not erase known armor. If the story does not supply enough detail to propose an outfit, omit that assignment for user review. Preserve nonhuman anatomy and explicitly described equipment. Existing presenter-selected outfit should remain unless the user decides otherwise. Also provide summary_th, a short faithful Thai description of the proposed outfit, with no invented details; say no clothing where appropriate. Return only items you can match confidently. Story: $summary"""
             var answer: JSONObject?=null
             for(provider in providers) {
                 answer=runCatching { StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false).generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("assignments")!=null }
@@ -2082,30 +2082,51 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
                 panel.addView(TextView(this).apply { text="ตรวจชุดทีละตัวละคร • ภาพ MASTER ใช้ยืนยันตัวละคร ไม่ใช่ภาพชุดที่เสนอ\nเลือกใช้ชุดที่เสนอหรือคงชุดเดิมแต่ละรายการก่อนบันทึก • ภาพฉากเดิมที่ได้รับผลต้องตรวจใหม่" })
                 val decisions=MutableList<Int?>(proposals.size) { null }
                 val inputs=mutableListOf<EditText>()
+                val confirmations=mutableListOf<android.widget.CheckBox>()
+                val cards=mutableListOf<LinearLayout>()
+                val host=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
+                var currentCard=0
                 val progress=TextView(this)
                 panel.addView(progress)
-                fun updateProgress() { progress.text="ตรวจแล้ว ${decisions.count { it!=null }} / ${decisions.size} รายการ • ยังไม่บันทึก" }
+                fun updateProgress() { progress.text="ตัวละคร ${currentCard+1} / ${decisions.size} • ตรวจแล้ว ${decisions.count { it!=null }} / ${decisions.size} • ยังไม่บันทึก" }
+                panel.addView(host)
                 proposals.forEachIndexed { index,row ->
+                    val card=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(8),dp(8),dp(8),dp(8)); visibility=if(index==0) android.view.View.VISIBLE else android.view.View.GONE }
+                    cards.add(card); host.addView(card)
                     val id=referenceId(row.optString("master")); val day=row.optString("story_day").trim()
                     val original=groups[id.lowercase() to day.lowercase()]!!
                     val name=original.optString("name").ifBlank { id }
                     val affected=scenes.filter { it.optString("story_day").trim().equals(day,true) && FlowReferencePrompt.people(it).any { p -> referenceId(p.optString("master")).equals(id,true) } }.map { key(it) }
                     val originalOutfit=original.optString("outfit").trim()
-                    val noDetails=originalOutfit.isBlank() || runCatching { AutoDirectorWardrobe.parts(originalOutfit).values.all { it.trim().equals("none",true) } }.getOrDefault(false)
-                    panel.addView(TextView(this).apply { text="ตัวละคร: $name\nวันในเรื่อง: $day • MASTER: $id"; setTypeface(null,Typeface.BOLD); textSize=18f })
+                    val noDetails=WardrobeEvidence.isUnknownOrAllNone(originalOutfit)
+                    card.addView(TextView(this).apply { text="ตัวละคร: $name\nวันในเรื่อง: $day • MASTER: $id"; setTypeface(null,Typeface.BOLD); textSize=18f })
                     val master=runCatching { masterFor(original) }.getOrNull()
                     if(master?.isFile==true) {
-                        panel.addView(TextView(this).apply { text="ภาพ MASTER ตัวละคร • แตะเพื่อขยาย" })
-                        panel.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(master)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(180)); contentDescription="MASTER $name"; setOnClickListener { fullImage(master,"MASTER $name") } })
-                    } else panel.addView(TextView(this).apply { text="⚠️ ไม่พบไฟล์ MASTER ของ $name • ตรวจไฟล์ก่อนสร้างภาพ" })
-                    panel.addView(TextView(this).apply { text=if(noDetails) "ชุดปัจจุบัน: ไม่มีรายละเอียดชุดในบท (อาจตั้งใจไม่สวมชุด)" else "ชุดปัจจุบันในบท: $originalOutfit" })
+                        card.addView(TextView(this).apply { text="ภาพ MASTER ตัวละคร • แตะเพื่อขยาย" })
+                        card.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(master)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(180)); contentDescription="MASTER $name"; setOnClickListener { fullImage(master,"MASTER $name") } })
+                    } else card.addView(TextView(this).apply { text="⚠️ ไม่พบไฟล์ MASTER ของ $name • ตรวจไฟล์ก่อนสร้างภาพ" })
+                    card.addView(TextView(this).apply { text=if(noDetails) "ชุดปัจจุบัน: ข้อมูลยังไม่ชัดเจน • ค่า none อาจหมายถึงไม่ระบุหรือตั้งใจไม่มีชุดและเกราะ กรุณาตรวจ MASTER" else "ชุดปัจจุบันในบท: $originalOutfit" })
                     val summary=row.optString("summary_th").trim()
-                    panel.addView(TextView(this).apply { text=if(summary.isBlank()) "ชุดที่ AI เสนอ: ไม่มีคำสรุปภาษาไทย • ตรวจรายละเอียดด้านล่าง" else "ชุดที่ AI เสนอ (ตรวจความตรงกับรายละเอียด): $summary" })
-                    panel.addView(TextView(this).apply { text="ยังไม่มีภาพตัวอย่างชุดในแอป • ภาพ MASTER ด้านบนไม่ใช่ภาพชุดที่เสนอ" })
-                    val input=EditText(this).apply { setText(row.optString("outfit")); minLines=3; textSize=16f; hint="รายละเอียดชุดที่เสนอ"; panel.addView(this) }
+                    card.addView(TextView(this).apply { text=if(summary.isBlank()) "ชุดที่ AI เสนอ: ไม่มีคำสรุปภาษาไทย • ตรวจรายละเอียดด้านล่าง" else "ชุดที่ AI เสนอ (ตรวจความตรงกับรายละเอียด): $summary" })
+                    card.addView(TextView(this).apply { text="ยังไม่มีภาพตัวอย่างชุดในแอป • ภาพ MASTER ด้านบนไม่ใช่ภาพชุดที่เสนอ" })
+                    val input=EditText(this).apply { setText(row.optString("outfit")); minLines=3; textSize=16f; hint="รายละเอียดชุดที่เสนอ"; card.addView(this) }
                     inputs.add(input)
+                    val warning=TextView(this).apply { text="⚠️ ข้อเสนอระบุว่าไม่มีเสื้อผ้า/เกราะ/อุปกรณ์ทั้งหมด • ระบบไม่ได้อ่านภาพ MASTER อัตโนมัติ กรุณาตรวจด้วยตนเอง" }
+                    val confirm=android.widget.CheckBox(this).apply { text="ฉันตรวจแล้วและยืนยันว่าตั้งใจไม่ใช้เสื้อผ้า เกราะ และเครื่องประดับสำหรับ $name ใน $day" }
+                    card.addView(warning); card.addView(confirm); confirmations.add(confirm)
+                    fun refreshWarning() {
+                        val ambiguous=WardrobeEvidence.isAllNone(input.text.toString())
+                        warning.visibility=if(ambiguous) android.view.View.VISIBLE else android.view.View.GONE
+                        confirm.visibility=if(ambiguous) android.view.View.VISIBLE else android.view.View.GONE
+                    }
+                    input.addTextChangedListener(object: android.text.TextWatcher {
+                        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { confirm.isChecked=false; refreshWarning() }
+                        override fun afterTextChanged(s: android.text.Editable?) {}
+                    })
+                    refreshWarning()
                     val showScenes=Button(this).apply { text="ดู ${affected.size} ฉากที่จะใช้ชุดนี้"; setOnClickListener { AlertDialog.Builder(this@StudioActivity).setTitle("ฉากของ $name • $day").setMessage(affected.joinToString("\n").ifBlank { "ไม่พบฉาก" }).setPositiveButton("ปิด",null).showDirector() } }
-                    panel.addView(showScenes)
+                    card.addView(showScenes)
                     val preview=Button(this).apply { text="สร้างภาพตัวอย่างชุดในแอปภาพ"; isEnabled=master?.isFile==true; setOnClickListener {
                         val description=input.text.toString().trim()
                         if(description.isBlank()) { notice("ยังไม่มีรายละเอียดชุด"); return@setOnClickListener }
@@ -2113,11 +2134,11 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
                         val command="Create one wardrobe preview image of $name using the attached MASTER $id only for this character's identity. Outfit: $description. Preserve species and anatomy. Show the complete outfit clearly. This is a suggested visual preview, not a final scene. Compare the result with the MASTER and outfit; similarity is not guaranteed."
                         shareImageCommand(command,listOf(id to master),mapOf(id to name))
                     } }
-                    panel.addView(preview)
+                    card.addView(preview)
                     val previewLabel=TextView(this).apply { text="ยังไม่มีภาพตัวอย่างชุดที่เลือก" }
                     val previewImage=ImageView(this).apply { adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(240)); visibility=android.view.View.GONE }
-                    panel.addView(previewLabel); panel.addView(previewImage)
-                    panel.addView(Button(this).apply { text="เลือกภาพตัวอย่างชุดที่สร้างแล้ว"; setOnClickListener {
+                    card.addView(previewLabel); card.addView(previewImage)
+                    card.addView(Button(this).apply { text="เลือกภาพตัวอย่างชุดที่สร้างแล้ว"; setOnClickListener {
                         wardrobePreviewResult={ uri ->
                             runCatching { previewBitmap(uri) }.onSuccess { bitmap ->
                                 previewImage.setImageBitmap(bitmap); previewImage.visibility=android.view.View.VISIBLE
@@ -2127,16 +2148,34 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
                         }
                         wardrobePreviewPicker.launch(arrayOf("image/*"))
                     } })
-                    panel.addView(TextView(this).apply { text="สร้างภาพในแอปภาพภายนอกแล้วเลือกภาพกลับมาตรวจได้ • ภาพตัวอย่างไม่ถูกบันทึกในเรื่องอัตโนมัติ" })
+                    card.addView(TextView(this).apply { text="สร้างภาพในแอปภาพภายนอกแล้วเลือกภาพกลับมาตรวจได้ • ภาพตัวอย่างไม่ถูกบันทึกในเรื่องอัตโนมัติ" })
                     val choice=RadioGroup(this).apply { orientation=RadioGroup.VERTICAL }
-                    val use=RadioButton(this).apply { text="ใช้ชุดที่ AI เสนอใน ${affected.size} ฉาก" }
-                    val keep=RadioButton(this).apply { text="คงชุดเดิม • ไม่เปลี่ยนบท" }
+                    val use=RadioButton(this).apply { text="ใช้ชุดที่เสนอให้ $name • ${affected.size} ฉาก" }
+                    val keep=RadioButton(this).apply { text="คงชุดเดิมของ $name • ไม่เปลี่ยนบท" }
                     use.id=android.view.View.generateViewId(); keep.id=android.view.View.generateViewId()
                     choice.addView(use); choice.addView(keep)
                     choice.setOnCheckedChangeListener { _,checked -> decisions[index]=if(checked==use.id) 1 else 0; updateProgress() }
-                    panel.addView(choice)
-                    panel.addView(Space(this).apply { layoutParams=LinearLayout.LayoutParams(1,dp(16)) })
+                    card.addView(choice)
+                    card.addView(Space(this).apply { layoutParams=LinearLayout.LayoutParams(1,dp(16)) })
                 }
+                val navigation=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
+                val previous=Button(this).apply { text="◀ ตัวก่อนหน้า" }
+                val next=Button(this).apply { text="ตัวถัดไป ▶" }
+                navigation.addView(previous,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f))
+                navigation.addView(next,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f))
+                panel.addView(navigation)
+                fun navigateTo(index: Int) {
+                    if(index !in cards.indices) return
+                    cards[currentCard].visibility=android.view.View.GONE
+                    currentCard=index
+                    cards[currentCard].visibility=android.view.View.VISIBLE
+                    previous.isEnabled=currentCard>0
+                    next.isEnabled=currentCard<cards.lastIndex
+                    updateProgress()
+                }
+                previous.setOnClickListener { navigateTo(currentCard-1) }
+                next.setOnClickListener { navigateTo(currentCard+1) }
+                navigateTo(0)
                 updateProgress()
                 val dialog=AlertDialog.Builder(this).setTitle("ตรวจชุดที่ AI เสนอ").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึกชุดที่เลือก",null).setNegativeButton("ยกเลิก",null).showDirector()
                 dialog.getButton(-1).setOnClickListener {
@@ -2145,6 +2184,12 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
                     runCatching {
                         val wasConfirmed=wardrobeReviewStatus(story)==HomeReviewState.WARDROBE_CONFIRMED
                         require(decisions.all { it!=null }) { "กรุณาเลือกใช้ชุดหรือคงชุดเดิมให้ครบทุกรายการ" }
+                        proposals.forEachIndexed { i,row ->
+                            if(decisions[i]==1 && WardrobeEvidence.isAllNone(inputs[i].text.toString()) && !confirmations[i].isChecked) {
+                                navigateTo(i)
+                                throw IllegalArgumentException("กรุณาตรวจ MASTER และยืนยันด้วยตนเอง หากตั้งใจไม่ใช้ชุด เกราะ และเครื่องประดับ")
+                            }
+                        }
                         val choices=proposals.mapIndexedNotNull { i,row -> if(decisions[i]!=1) null else WardrobeRevision.Choice(row.optString("master"),row.optString("story_day"),inputs[i].text.toString().trim()) }
                         require(choices.isNotEmpty()) { "เลือกคงชุดเดิมทุกรายการ • บทเดิมไม่เปลี่ยน กดยกเลิกเพื่อปิด" }
                         val chosen=choices.map { referenceId(it.master).lowercase() to it.day.trim().lowercase() }.toSet()
