@@ -8,6 +8,7 @@ import java.util.concurrent.CancellationException
 
 /** Fixed endpoints; provider errors and credentials are never copied into job files or UI. */
 internal enum class CompatibleService(val label: String, val url: String, val defaultModel: String) {
+    OPENAI("OpenAI", "https://api.openai.com/v1/chat/completions", "gpt-4.1-mini"),
     CEREBRAS("Cerebras", "https://api.cerebras.ai/v1/chat/completions", "gpt-oss-120b"),
     DEEPSEEK("DeepSeek", "https://api.deepseek.com/chat/completions", "deepseek-flash"),
     OPENROUTER("OpenRouter", "https://openrouter.ai/api/v1/chat/completions", "openrouter/free"),

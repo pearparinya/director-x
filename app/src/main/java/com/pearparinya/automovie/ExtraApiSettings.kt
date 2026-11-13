@@ -14,6 +14,7 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 internal enum class ExtraApiProvider(val id: String, val label: String) {
+    OPENAI("openai", "OpenAI • วิเคราะห์ภาพ"),
     CEREBRAS("cerebras", "Cerebras"),
     DEEPSEEK("deepseek", "DeepSeek"),
     OPENROUTER("openrouter", "OpenRouter"),
@@ -21,6 +22,7 @@ internal enum class ExtraApiProvider(val id: String, val label: String) {
     MISTRAL("mistral", "Mistral"),
     COHERE("cohere", "Cohere");
     val service: CompatibleService get() = when(this) {
+        OPENAI -> CompatibleService.OPENAI
         CEREBRAS -> CompatibleService.CEREBRAS
         DEEPSEEK -> CompatibleService.DEEPSEEK
         OPENROUTER -> CompatibleService.OPENROUTER
