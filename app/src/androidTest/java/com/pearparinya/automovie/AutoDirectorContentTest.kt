@@ -109,6 +109,24 @@ class AutoDirectorContentTest {
         assertTrue(cover.command.contains("Reference 5: อสูร"))
         assertTrue(cover.command.contains("Preserve nonhuman species"))
     }
+    @Test fun bothChannelsKeepVisibleCastPositionsAndStoryPropsInSceneCommand() {
+        for(channel in listOf("นายเปีย บ้านคลองขุด","ร้อยฉาก")) {
+            val project=story().put("channel",channel)
+            val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
+            val people=scene.getJSONArray("characters"); val first=people.getJSONObject(0); val second=people.getJSONObject(1)
+            scene.put("characters",JSONArray().put(first).put(second)).put("props","ซองเอกสารอยู่บนโต๊ะ")
+            val before=project.toString()
+            val task=SimpleProductionCommands.imageTasks(project,1).first { it.id=="EP01_SC001" }
+            assertEquals(2,task.references.size)
+            for(person in listOf(first,second)) {
+                val id=referenceId(person.getString("master"))
+                assertTrue(task.command.contains(person.getString("name")+" | MASTER ID: "+id))
+                assertTrue(task.command.contains("position: "+person.getString("screen_position")))
+            }
+            assertTrue(task.command.contains("ซองเอกสารอยู่บนโต๊ะ"))
+            assertEquals(before,project.toString())
+        }
+    }
     @Test fun coverSelectionCanChooseLaterCharacterWithoutChangingStoryOrScenes() {
         val project=story(); val scenes=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes")
         val wolf=JSONObject().put("name","หมาป่า").put("master","SUPPORT_00000001_MASTER.png").put("outfit","none").put("character_type","animal")
