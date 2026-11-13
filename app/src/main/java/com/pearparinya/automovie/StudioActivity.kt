@@ -2374,10 +2374,15 @@ $context"""
                         val chosen=task.references.map { referenceId(it.getString("master")) }.toMutableSet()
                         val list=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
                         list.addView(TextView(this).apply { text="เลือกตัวละครสำคัญจาก${if(overall) "ทั้งเรื่อง" else "ทุกฉากในตอน"} • สูงสุด 9 ภาพ MASTER • แตะภาพเพื่อขยาย" })
-                        candidates.forEach { person ->
+                        var coverRow: LinearLayout?=null
+                        candidates.forEachIndexed { index, person ->
+                            if(index%2==0) { coverRow=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; list.addView(coverRow) }
                             val id=referenceId(person.getString("master")); val file=masterFor(person)
-                            val box=android.widget.CheckBox(this).apply { text="${person.optString("name")} • $id"+(if(file.isFile) "" else " • ไม่พบ MASTER"); isChecked=id in chosen; isEnabled=file.isFile; list.addView(this) }
-                            if(file.isFile) list.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(file)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(140)); setOnClickListener { fullImage(file,box.text.toString()) } })
+                            val card=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(4),dp(6),dp(4),dp(6)); layoutParams=LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f) }
+                            coverRow?.addView(card)
+                            val box=android.widget.CheckBox(this).apply { text="${person.optString("name")}\n$id"+(if(file.isFile) "" else "\nไม่พบ MASTER"); isChecked=id in chosen; isEnabled=file.isFile }
+                            if(file.isFile) card.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(file)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(140)); contentDescription=box.text; setOnClickListener { fullImage(file,box.text.toString()) } })
+                            card.addView(box)
                             box.setOnCheckedChangeListener { _,checked -> if(checked) chosen.add(id) else chosen.remove(id) }
                         }
                         val picker=AlertDialog.Builder(this).setTitle("เลือกตัวละครบนปก").setView(ScrollView(this).apply { addView(list) }).setPositiveButton("บันทึก",null).setNegativeButton("ยกเลิก",null).showDirector()
@@ -2800,7 +2805,7 @@ $context"""
             AlertDialog.Builder(this).setTitle("ตรวจ ${issue.alias} • ซีน ${issue.scene}")
                 .setMessage("การกระทำในซีน:\n${issue.action}\n\nเลือกเฉพาะเมื่อแน่ใจว่าเป็นคนเดียวกัน")
                 .setPositiveButton("เลือกรายชื่อ") { _,_ ->
-                    choiceMenu("เลือกตัวละครที่ตรงกับ ${issue.alias}",people.map { it.optString("name")+" • "+it.optString("master") }) { selected ->
+                    chooseStoryCharacterGrid("เลือกตัวละครที่ตรงกับ ${issue.alias}",people) { selected ->
                         val person=people[selected]
                         val chosen=person.getString("name")
                         val master=person.getString("master")
@@ -3450,8 +3455,18 @@ $context"""
     }
     private fun flowTestMenu() {
         val ids=FlowProductionPack.names.keys.toList(); val checked=BooleanArray(ids.size)
+        val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
+        var row: LinearLayout?=null
+        ids.forEachIndexed { i,id ->
+            if(i%2==0) { row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; grid.addView(row) }
+            val file=File(filesDir,"character_masters/$id.master")
+            val card=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(4),dp(6),dp(4),dp(6)); layoutParams=LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f) }
+            row?.addView(card)
+            if(file.isFile) card.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(file)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(140)); contentDescription=FlowProductionPack.names.getValue(id); setOnClickListener { fullImage(file,FlowProductionPack.names.getValue(id)) } })
+            card.addView(android.widget.CheckBox(this).apply { text=FlowProductionPack.names.getValue(id)+(if(file.isFile) "" else "\nไม่พบ MASTER"); isEnabled=file.isFile; setOnCheckedChangeListener { _,value -> checked[i]=value } })
+        }
         val dialog=AlertDialog.Builder(this).setTitle("เลือกตัวละครทดสอบวิดีโอ")
-            .setMultiChoiceItems(ids.map { FlowProductionPack.names.getValue(it) }.toTypedArray(),checked) { _,i,value -> checked[i]=value }
+            .setView(ScrollView(this).apply { addView(grid) })
             .setPositiveButton("ตั้งค่าฉาก",null).setNegativeButton("ยกเลิก",null).create()
         dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             val selected=ids.filterIndexed { i,_ -> checked[i] }
@@ -4053,13 +4068,28 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         val frozen=FlowCast.supporting(plan).any { it.optBoolean("auto_cast") && FlowCast.id(it)==id }
         return if(frozen || snapshot.isFile) snapshot else File(filesDir,"character_masters/$id.master")
     }
+    private fun chooseStoryCharacterGrid(title: String, people: List<JSONObject>, onSelect: (Int) -> Unit) {
+        val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
+        val dialog=AlertDialog.Builder(this).setTitle(title).setView(ScrollView(this).apply { addView(grid) }).setNegativeButton("ยกเลิก",null).create()
+        var row: LinearLayout?=null
+        people.forEachIndexed { index, person ->
+            if(index%2==0) { row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; grid.addView(row) }
+            val file=runCatching { masterFor(person) }.getOrNull()
+            val label=person.optString("name")+"\n"+person.optString("master")+(if(file?.isFile==true) "" else "\nไม่พบ MASTER")
+            val card=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(4),dp(6),dp(4),dp(6)); layoutParams=LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f) }
+            row?.addView(card)
+            if(file?.isFile==true) card.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(file)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(140)); contentDescription=label })
+            card.addView(Button(this).apply { text=label; setOnClickListener { dialog.dismiss(); onSelect(index) } })
+        }
+        dialog.show()
+    }
     private fun repairSceneCharacter(s: JSONObject) {
         if (!image(s).isFile) return notice("นำเข้าภาพฉากก่อนแก้ตัวละคร")
         val people=FlowReferencePrompt.people(s)
         if(people.isEmpty()) return notice("ฉากนี้ไม่มีตัวละคร")
-        choiceMenu("เลือกตัวละครที่ต้องการแก้",people.map { it.optString("name") }) { index ->
+        chooseStoryCharacterGrid("เลือกตัวละครที่ต้องการแก้",people) { index ->
             val person=people[index]; val master=masterFor(person); val name=person.optString("name")
-            if(!master.isFile) { notice("ขาด MASTER ของ $name"); return@choiceMenu }
+            if(!master.isFile) { notice("ขาด MASTER ของ $name"); return@chooseStoryCharacterGrid }
             val input=EditText(this).apply { hint="เช่น ปรับทรงผมให้ตรง MASTER" }
             AlertDialog.Builder(this).setTitle("แก้เฉพาะ $name • ${key(s)}").setView(input)
                 .setPositiveButton("เลือกแอปและส่ง") { _,_ ->
