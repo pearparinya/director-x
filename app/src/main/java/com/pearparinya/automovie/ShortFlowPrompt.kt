@@ -30,6 +30,7 @@ internal object ShortFlowPrompt {
             fun has(pattern: String)=Regex(pattern,RegexOption.IGNORE_CASE).containsMatchIn(desc)
             val category=when {
                 kind=="animal" -> "Animal"
+                kind in setOf("god", "goddess", "deity") || has("\\b(god|goddess|deity)\\b|เทพ") -> "Deity"
                 kind=="demon" || has("\\b(demon|devil)\\b|ปีศาจ") -> "Demon"
                 kind=="ghost" || has("\\bghost\\b|ผี") -> "Ghost"
                 kind=="fairy" || has("\\bfairy\\b|ภูต") -> "Fairy"
@@ -49,7 +50,7 @@ internal object ShortFlowPrompt {
             val i=(m.groupValues[1].toIntOrNull() ?: 0)-1
             labels.getOrNull(i) ?: m.value
         }
-        return Regex("(?i)\\[((?:The Man|Woman|Animal|Creature|Demon|Ghost|Fairy|Spirit)\\s+[0-9]+)\\]").replace(mapped) { it.groupValues[1] }
+        return Regex("(?i)\\[((?:The Man|Woman|Animal|Creature|Demon|Ghost|Fairy|Spirit|Deity)\\s+[0-9]+)\\]").replace(mapped) { it.groupValues[1] }
     }
     internal fun clothing(p: FlowPerson): String {
         if (p.flowClothing.isNotBlank()) return p.flowClothing.trim()
@@ -82,7 +83,7 @@ internal object ShortFlowPrompt {
         if(Regex("fog|mist|หมอก").containsMatchIn(text)) rules.add("Visible fog moves gently")
         return rules.joinToString(". ")
     }
-    private fun speechText(text: String): String = text.trim().replace(Regex("\\.{3}|…"),",").replace(Regex("[\\r\\n]+")," ")
+    private fun speechText(text: String): String = text.trim()
     private fun speakerLabel(s: FlowSceneSpec, name: String): String {
         val index=s.cast.indexOfFirst { it.name.trim()==name.trim() || StoryIdentity.keyFor(it.name)?.let { key -> key==StoryIdentity.keyFor(name) }==true }
         return if(index>=0) labels(s)[index] else "Off-screen speaker"
@@ -124,19 +125,20 @@ internal object ShortFlowPrompt {
             if(index>=0) {
                 val cue=listOf(positions[index],clothes[index].takeIf { it.isNotBlank() }?.let { "wearing $it" }.orEmpty()).filter { it.isNotBlank() }.joinToString(", ")
                 val others=positions.indices.filter { it!=index }.joinToString(", ") { labels(s)[it] }
-                "Turn ${order+1}: ONLY $label ($cue) speaks and moves lips if visible. " + if(others.isNotBlank()) "$others remain silent with mouths closed" else "No other voices"
-            } else "Turn ${order+1}: Only $label speaks; visible characters stay silent with mouths closed"
+                "Turn ${order+1}: ONLY $label ($cue) speaks; animate the mouth only if visible and anatomically appropriate. " + if(others.isNotBlank()) "$others remain silent; do not invent mouths" else "No other voices"
+            } else "Turn ${order+1}: Only $label speaks; visible characters stay silent; do not invent mouths"
         }.joinToString(". ")
-        val visual=listOf("Use the attached first frame. One continuous 8-second vertical 9:16 shot",cast,action,
-            "Keep identities, outfits, objects and location consistent",ScenePropContinuity.video,performance,direction,
+        val visual=listOf("Use the attached first frame as the starting point. One continuous 8-second vertical 9:16 shot",cast,action,
+            "Preserve each character's identity, face or species-specific features, hair or fur, body proportions, position, clothing and props from the first frame. Keep the location and lighting consistent throughout",ScenePropContinuity.video,performance,direction,
             motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}",instructions)
             .filter { it.isNotBlank() }.joinToString(". ")
         val lines=spokenTurns.joinToString("") { (name,text) ->
             val label=if(name.isBlank()) "Off-screen narrator" else speakerLabel(s,name)
-            "<dialogue><speaker>${xml(label)}</speaker><text>${xml(speechText(text))}</text><language>th-TH</language></dialogue>"
+            val offscreen=name.isBlank() || s.offscreen.any { it.trim()==name.trim() }
+            "<dialogue${if(offscreen) " off_screen=\"true\"" else ""}><speaker>${xml(label)}</speaker><text>${xml(speechText(text))}</text><language>th-TH</language></dialogue>"
         }
-        val audio=if(silent) "No speech, narration, music or sound effects; visible mouths remain closed." else if(lines.isEmpty()) "No dialogue or narration; visible mouths remain closed." else "Speak the exact written Thai words in turn, naturally within 8 seconds without rushing. Other visible characters remain silent while the current speaker speaks. No extra voices, overlap or subtitles."
-        val ambience=if(silent) "" else sound.takeIf { it.isNotBlank() }?.let { " Sound: $it." }.orEmpty()
-        return "<flow><scene><duration>8</duration><aspect_ratio>9:16</aspect_ratio><lighting>Preserve the lighting of the attached first frame.</lighting><typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone><prompt>${xml(visual+". "+audio+ambience)}</prompt>$lines</scene></flow>"
+        val audio=if(silent) "No speech, narration, music or sound effects; visible characters remain silent." else if(lines.isEmpty()) "No dialogue or narration; visible characters remain silent." else "Speak the exact written Thai words in turn, naturally within 8 seconds without rushing. Other visible characters remain silent while the current speaker speaks. Preserve each character's anatomy. No extra voices, overlap or subtitles."
+        val effects=if(silent) "" else "<sound_effects><ambient>${xml(sound.ifBlank { "Subtle ambience appropriate to the scene." })} No additional voices.</ambient><sfx>Use only subtle sounds appropriate to the visible action.</sfx><music>Instrumental music appropriate to the scene, quieter than dialogue; no vocals.</music></sound_effects>"
+        return "<flow><scene><aspect_ratio>9:16</aspect_ratio><duration>8</duration><lighting>5500K daylight white balance, pure bright studio lighting, no yellow light. Preserve the first frame's lighting direction and scene continuity.</lighting><typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone><prompt>${xml(visual+". "+audio)}</prompt>$lines$effects</scene></flow>"
     }
 }
