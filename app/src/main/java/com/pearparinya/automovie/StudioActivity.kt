@@ -3082,6 +3082,28 @@ $context"""
                 panel.addView(this)
                 if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenters.length()>0 && presenters.getJSONObject(0).optString("id")==piaActorId) setSelection(1)
             }
+            fun proposalProgress(label: String, stopped: java.util.concurrent.atomic.AtomicBoolean, active: java.util.concurrent.atomic.AtomicReference<StoryTextClient?>): Pair<androidx.appcompat.app.AlertDialog, java.util.concurrent.atomic.AtomicInteger> {
+                val current=java.util.concurrent.atomic.AtomicInteger(1)
+                val start=android.os.SystemClock.elapsedRealtime()
+                val handler=android.os.Handler(android.os.Looper.getMainLooper())
+                val content=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(24),dp(16),dp(24),dp(8)) }
+                val status=TextView(this).apply { textSize=18f }
+                content.addView(status)
+                content.addView(ProgressBar(this).apply { isIndeterminate=true })
+                val dialog=AlertDialog.Builder(this).setTitle(label).setView(content).setNegativeButton("ยกเลิก",null).showDirector()
+                val tick=object: Runnable {
+                    override fun run() {
+                        if(!dialog.isShowing) return
+                        val seconds=(android.os.SystemClock.elapsedRealtime()-start)/1000
+                        val waiting=if(seconds>=60) "\nใช้เวลานานกว่าปกติ • รอต่อหรือกดยกเลิกได้" else ""
+                        status.text="กำลังรอผลจากผู้ให้บริการลำดับที่ ${current.get()}\nเวลาที่ผ่านไป %02d:%02d\nแถบแสดงว่ากำลังทำงาน ไม่ใช่เปอร์เซ็นต์ความสำเร็จ%s".format(seconds/60,seconds%60,waiting)
+                        handler.postDelayed(this,1000)
+                    }
+                }
+                dialog.setOnDismissListener { handler.removeCallbacks(tick); stopped.set(true); active.get()?.cancel() }
+                handler.post(tick)
+                return dialog to current
+            }
             val selectedActors=linkedSetOf<String>()
             val castButton=Button(this).apply { text=if(chosenChannel=="นายเปีย บ้านคลองขุด") "🎭 เลือกตัวละครเสริมจากภาพ MASTER • นายเปียเป็นตัวหลัก" else "🎭 ตรวจและเลือกตัวละครจากภาพ MASTER"; panel.addView(this) }
             val castSummary=TextView(this).apply { text="ยังไม่ได้เลือกภาพ • กรุณาตรวจและยืนยันก่อนสร้างบท"; panel.addView(this) }
@@ -3108,11 +3130,11 @@ $context"""
                     val channel=chosenChannel; val situation=selectedStoryTopic; val detail=premise.text.toString(); val category=categories[index]
                     val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
                     val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
-                    val loading=AlertDialog.Builder(this@StudioActivity).setMessage("กำลังเสนอตัวละครจาก MASTER ที่ตรวจพบ").setNegativeButton("ยกเลิก",null).showDirector()
-                    loading.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
+                    val (loading, providerNumber)=proposalProgress("กำลังวิเคราะห์ตัวละครจาก MASTER",stopped,active)
                     Thread {
                         var result: JSONObject?=null
-                        for(provider in providers) {
+                        for((providerIndex,provider) in providers.withIndex()) {
+                            providerNumber.set(providerIndex+1)
                             if(stopped.get()) break
                             val answer=runCatching {
                                 val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false)
@@ -3144,12 +3166,21 @@ $context"""
                 if(chosenChannel=="นายเปีย บ้านคลองขุด") draft.add(piaActorId)
                 val grid=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
                 grid.addView(TextView(this).apply { text="ติ๊กตัวละครที่ต้องการใช้ในเรื่อง สูงสุด 8 ตัว • ตรวจภาพและบทบาทก่อนยืนยัน" })
-                for(n in 0 until choices.length()) {
+                val order=(0 until choices.length()).sortedBy { if(choices.getJSONObject(it).optString("id") in draft) 0 else 1 }
+                var row: LinearLayout?=null
+                for((position,n) in order.withIndex()) {
+                    if(position%2==0) { row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; grid.addView(row) }
                     val actor=choices.getJSONObject(n); val id=actor.getString("id")
                     val source=runCatching { castingSource(actor) }.getOrNull()
-                    val box=android.widget.CheckBox(this).apply { text=(actor.optString("display_name").ifBlank { id })+" • "+id+(suggestedRoles[id]?.let { "\nบทบาทที่เสนอ: $it" } ?: "")+(if(source?.isFile==true) "" else " • ไม่พบภาพ MASTER"); isChecked=id in draft; isEnabled=source?.isFile==true && !(chosenChannel=="นายเปีย บ้านคลองขุด" && id==piaActorId) }
-                    grid.addView(box)
-                    if(source?.isFile==true) grid.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(source)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(150)); setOnClickListener { fullImage(source,box.text.toString()) } })
+                    val card=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(4),dp(6),dp(4),dp(6)); layoutParams=LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f) }
+                    row?.addView(card)
+                    val box=android.widget.CheckBox(this).apply {
+                        text=(actor.optString("display_name").ifBlank { id })+"\n"+id+(suggestedRoles[id]?.let { "\nบทบาทที่เสนอ: $it" } ?: "")+(if(source?.isFile==true) "" else "\nไม่พบภาพ MASTER")
+                        isChecked=id in draft
+                        isEnabled=source?.isFile==true && !(chosenChannel=="นายเปีย บ้านคลองขุด" && id==piaActorId)
+                    }
+                    if(source?.isFile==true) card.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(source)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(150)); contentDescription=box.text; setOnClickListener { fullImage(source,box.text.toString()) } })
+                    card.addView(box)
                     box.setOnCheckedChangeListener { _,checked -> if(checked) draft.add(id) else draft.remove(id) }
                 }
                 AlertDialog.Builder(this).setTitle("เลือกภาพ MASTER ตัวละคร").setView(ScrollView(this).apply { addView(grid) }).setPositiveButton("ใช้รายการที่เลือก") { _,_ ->
@@ -3183,14 +3214,14 @@ $context"""
                         val catalogText=available.joinToString("\n") { "${it.first} = ${it.second}" }
                         val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
                         val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
-                        val loading=AlertDialog.Builder(this@StudioActivity).setMessage("กำลังเสนออุปกรณ์จากภาพ MASTER ที่มี").setNegativeButton("ยกเลิก",null).showDirector()
-                        loading.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
+                        val (loading, providerNumber)=proposalProgress("กำลังวิเคราะห์อุปกรณ์จาก MASTER",stopped,active)
                         Thread {
                             val item=JSONObject().put("type","object").put("properties",JSONObject().put("prop_id",JSONObject().put("type","string")).put("owner_library_id",JSONObject().put("type","string"))).put("required",JSONArray().put("prop_id").put("owner_library_id"))
                             val schema=JSONObject().put("type","object").put("properties",JSONObject().put("assignments",JSONObject().put("type","array").put("items",item))).put("required",JSONArray().put("assignments"))
                             val prompt="Suggest only story-relevant equipment from the real catalog below for human review. Return assignments with prop_id and owner_library_id. Use an exact listed character ID only when the story clearly supports an owner, otherwise use an empty string. Do not assign equipment to everyone. Return an empty array when no equipment is appropriate. Category: $category; situation: $topic; details: $details\nCHARACTERS:\n$actorText\nEQUIPMENT:\n$catalogText"
                             var answer: JSONObject?=null
-                            for(provider in providers) {
+                            for((providerIndex,provider) in providers.withIndex()) {
+                                providerNumber.set(providerIndex+1)
                                 if(stopped.get()) break
                                 answer=runCatching { val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false); active.set(client); client.generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("assignments")!=null }
                                 if(answer!=null) break
