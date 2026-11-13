@@ -99,6 +99,13 @@ internal fun neutralIdentityGuide(source: String, aspect: String): String =
 
 /** Whole-story workspace. Legacy preferences and character masters stay untouched. */
 class StudioActivity : AppCompatActivity() {
+    private var wardrobePreviewResult: ((Uri) -> Unit)?=null
+    private val wardrobePreviewPicker=registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val callback=wardrobePreviewResult
+        wardrobePreviewResult=null
+        if(uri!=null) callback?.invoke(uri)
+    }
+
     private val storyUiHandler=android.os.Handler(android.os.Looper.getMainLooper())
     private var geminiStatusView: TextView?=null
     private var geminiProgressView: ProgressBar?=null
@@ -2107,7 +2114,20 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
                         shareImageCommand(command,listOf(id to master),mapOf(id to name))
                     } }
                     panel.addView(preview)
-                    panel.addView(TextView(this).apply { text="ภาพตัวอย่างต้องสร้างและตรวจในแอปภาพภายนอก • ยังไม่ถูกบันทึกในเรื่องอัตโนมัติ" })
+                    val previewLabel=TextView(this).apply { text="ยังไม่มีภาพตัวอย่างชุดที่เลือก" }
+                    val previewImage=ImageView(this).apply { adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(240)); visibility=android.view.View.GONE }
+                    panel.addView(previewLabel); panel.addView(previewImage)
+                    panel.addView(Button(this).apply { text="เลือกภาพตัวอย่างชุดที่สร้างแล้ว"; setOnClickListener {
+                        wardrobePreviewResult={ uri ->
+                            runCatching { previewBitmap(uri) }.onSuccess { bitmap ->
+                                previewImage.setImageBitmap(bitmap); previewImage.visibility=android.view.View.VISIBLE
+                                previewLabel.text="ภาพตัวอย่างที่คุณเลือก • ตรวจว่าเป็น $name และตรงกับชุดที่เสนอก่อนยืนยัน"
+                                previewImage.setOnClickListener { AlertDialog.Builder(this@StudioActivity).setTitle("ภาพตัวอย่างชุด • $name").setView(ImageView(this@StudioActivity).apply { setImageBitmap(bitmap); adjustViewBounds=true }).setPositiveButton("ปิด",null).showDirector() }
+                            }.onFailure { notice("เปิดภาพตัวอย่างไม่ได้ • กรุณาเลือกใหม่") }
+                        }
+                        wardrobePreviewPicker.launch(arrayOf("image/*"))
+                    } })
+                    panel.addView(TextView(this).apply { text="สร้างภาพในแอปภาพภายนอกแล้วเลือกภาพกลับมาตรวจได้ • ภาพตัวอย่างไม่ถูกบันทึกในเรื่องอัตโนมัติ" })
                     val choice=RadioGroup(this).apply { orientation=RadioGroup.VERTICAL }
                     val use=RadioButton(this).apply { text="ใช้ชุดที่ AI เสนอใน ${affected.size} ฉาก" }
                     val keep=RadioButton(this).apply { text="คงชุดเดิม • ไม่เปลี่ยนบท" }
