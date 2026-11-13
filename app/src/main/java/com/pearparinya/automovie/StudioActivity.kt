@@ -481,7 +481,7 @@ class StudioActivity : AppCompatActivity() {
             val pia=channel=="นายเปีย บ้านคลองขุด"
             val visible=(0 until records.length()).filter { i -> !pia || records.getJSONObject(i).optString("character_type") !in setOf("knight","deity","creature","demon","ghost","spirit","fairy") }
             val base=if(fantasy) 4 else 3
-            val menus=listOf("📥 นำเข้า MASTER ที่มีอยู่","➕ สร้างตัวละครจากแม่แบบ","📚 ดู MASTER คลังเดิม") + if(fantasy) listOf("✨ ดู MASTER แฟนตาซี 40 ตัว") else emptyList()
+            val menus=listOf("📥 นำเข้า MASTER ที่มีอยู่","➕ สร้างตัวละครจากแม่แบบ","📚 ดู MASTER คลังเดิม") + if(fantasy) listOf("✨ ดู MASTER แฟนตาซีและภูตผี") else emptyList()
             chooseNamedCharacterGrid("คลังตัวละคร • ${channel.ifBlank { "ช่องไม่ระบุ" }}",menus.map { it to null }+visible.map { i -> records.getJSONObject(i).let { ("${it.getString("display_name")} • อายุ ${it.getInt("character_age")} ปี") to File(filesDir,"actor_master_v2/"+it.getString("file")) } }) { index ->
                 if(index==0) importCharacterMaster() else if(index==1) bodyTemplateMenu() else if(index==2) libraryMenu() else if(fantasy && index==3) {
                     val fantasy=fantasyCatalog()

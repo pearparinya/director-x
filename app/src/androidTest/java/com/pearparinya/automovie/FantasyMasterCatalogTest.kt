@@ -12,7 +12,7 @@ class FantasyMasterCatalogTest {
     @Test fun everyMasterHasUniqueIdAndUnchangedImageBytes() {
         val assets=InstrumentationRegistry.getInstrumentation().targetContext.assets
         val rows=JSONObject(assets.open("fantasy_masters/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records")
-        assertEquals(40,rows.length())
+        assertEquals(59,rows.length())
         val ids=mutableSetOf<String>()
         for(i in 0 until rows.length()) {
             val row=rows.getJSONObject(i)
