@@ -139,6 +139,6 @@ internal object ShortFlowPrompt {
         }
         val audio=if(silent) "No speech, narration, music or sound effects; visible mouths remain closed." else if(lines.isEmpty()) "No dialogue or narration; visible mouths remain closed." else "Speak the exact written Thai words in turn, naturally within 8 seconds without rushing. Other visible characters remain silent while the current speaker speaks. No extra voices, overlap or subtitles."
         val effects=if(silent) "" else "<sound_effects><ambient>${xml(sound.ifBlank { "Subtle ambience appropriate to the scene." })} No additional voices.</ambient><sfx>Use only subtle sounds appropriate to the visible action.</sfx><music>Instrumental music appropriate to the scene, quieter than dialogue; no vocals.</music></sound_effects>"
-        return "<flow><scene><aspect_ratio>9:16</aspect_ratio><duration>8</duration><lighting>Preserve the lighting and colors of the attached first frame.</lighting><typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone><prompt>${xml(visual+". "+audio)}</prompt>$lines$effects</scene></flow>"
+        return "<flow><scene><aspect_ratio>9:16</aspect_ratio><duration>8</duration><lighting>5500K daylight white balance, pure bright studio lighting, no yellow light. Preserve the first frame's lighting direction and scene continuity.</lighting><typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone><prompt>${xml(visual+". "+audio)}</prompt>$lines$effects</scene></flow>"
     }
 }
