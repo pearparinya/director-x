@@ -1366,6 +1366,8 @@ class StudioActivity : AppCompatActivity() {
             }.setNeutralButton("แก้ซีนเอง") { _,_ -> editScene(scene) }.setNegativeButton("ยกเลิก",null).showDirector()
     }
     private fun previewImageReferences(task: SimpleProductionCommands.Task, references: List<Pair<String,File>>, labels: Map<String,String>) {
+        val masterDigests=runCatching { references.take(task.references.size).associate { (id,file) -> id to MasterLibrary.digest(file.readBytes()) } }
+            .getOrElse { notice("อ่าน MASTER ไม่ได้ กรุณาตรวจไฟล์ก่อนส่ง"); return }
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
         panel.addView(TextView(this).apply { text="ตรวจภาพ MASTER ชื่อและตำแหน่งก่อนส่ง • แตะภาพเพื่อขยาย\nหลังเปิดแอปปลายทาง ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง" })
         if(task.id.contains("_COVER_") && task.references.size==1) panel.addView(TextView(this).apply {
@@ -1432,7 +1434,13 @@ class StudioActivity : AppCompatActivity() {
         val allowFantasyProps=ChannelFeaturePolicy.hasFantasyTools(plan?.optString("channel").orEmpty())
         val propNames=if(allowFantasyProps) propCatalog else emptyList()
         val propPreference="prop_master_${project.name}_${task.id}"
-        val automatic=runCatching { JSONObject(File(project,"prop_assignments.json").readText()).optJSONArray(task.id) }.getOrNull()
+        val scene=plan?.let { story -> rows(story).firstOrNull { key(it)==task.id } }
+        val rawAssignments=runCatching { JSONObject(File(project,"prop_assignments.json").readText()).optJSONArray(task.id) }.getOrNull()
+        val automatic=if(scene==null) null else ScenePropBinding.valid(scene,rawAssignments)
+        if(rawAssignments!=null && (automatic?.length() ?: 0)<rawAssignments.length()) panel.addView(TextView(this).apply {
+            text="⚠️ ข้อเสนออุปกรณ์บางรายการยังไม่ผูกกับบทปัจจุบันหรือบทถูกแก้ไข • วิเคราะห์และตรวจรายการใหม่ก่อนใช้"
+            setTypeface(null,Typeface.BOLD)
+        })
         val autoIds=(0 until (automatic?.length() ?: 0)).mapNotNull { automatic?.optJSONObject(it)?.optString("prop_id") }.toSet()
         val coverIds=if(task.id.contains("_COVER_")) task.references.map { characterProp(it.optString("master")) }.filter { it.isNotBlank() }.toSet() else emptySet()
         val saved=if(prefs.contains(propPreference)) prefs.getStringSet(propPreference, emptySet()).orEmpty() else autoIds+coverIds
@@ -1456,7 +1464,10 @@ class StudioActivity : AppCompatActivity() {
         }
         AlertDialog.Builder(this).setTitle("ตรวจ MASTER • ${task.id}").setView(ScrollView(this).apply { addView(panel) })
             .setPositiveButton("เลือกแอปและส่ง") { _,_ ->
+                val stable=runCatching { references.take(task.references.size).all { (id,file) -> file.isFile && MasterLibrary.digest(file.readBytes())==masterDigests[id] } }.getOrDefault(false)
+                if(!stable) { notice("ภาพ MASTER เปลี่ยนหรือหายระหว่างตรวจ กรุณาเปิดรายการและตรวจภาพอีกครั้ง"); return@setPositiveButton }
                 val selected=if(faceOnly.isChecked) crops else emptyMap()
+                if(selected.values.any { !it.second.isFile }) { notice("ภาพครอปใบหน้าหาย กรุณาเลือกจาก MASTER อีกครั้ง"); return@setPositiveButton }
                 val bindings=selected.entries.joinToString("\n") { (id,crop) -> "CHARACTER ${labels[id].orEmpty()} — FACE CROP ${crop.first} is cropped from MASTER ${referenceId(id)}; both show the same character. Use the crop for facial identity and the original MASTER for verification. Never use this crop for another character." }
                 val baseCommand=if(faceOnly.isChecked) SimpleProductionCommands.faceOnly(task.command)+if(bindings.isBlank()) "" else "\n\n$bindings" else task.command
                 val locked=task.references.mapIndexedNotNull { index,person ->
@@ -1769,6 +1780,14 @@ class StudioActivity : AppCompatActivity() {
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
     private var starterFlowPack = false
+    private fun savedCoverSelection(story: JSONObject,folder: File): Map<String,Set<String>> {
+        val eps=story.optJSONArray("episodes") ?: JSONArray()
+        val scopes=listOf("STORY")+(0 until eps.length()).map { "EP%02d".format(eps.getJSONObject(it).getInt("ep")) }
+        return scopes.distinct().mapNotNull { scope ->
+            val key="cover_cast_${folder.name}_$scope"
+            if(prefs.contains(key)) scope to prefs.getStringSet(key,emptySet()).orEmpty().toSet() else null
+        }.toMap()
+    }
     private val flowPackPicker = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if(uri!=null) {
             val current=if(starterFlowPack) null else plan?.let { JSONObject(it.toString()) }
@@ -1779,12 +1798,13 @@ class StudioActivity : AppCompatActivity() {
                 else File(project,"original_masters/$id.master").takeIf { it.exists() } ?: File(filesDir,"character_masters/$id.master")
             }
             val destination=project
+            val coverSelection=if(current!=null) savedCoverSelection(current,destination) else emptyMap()
             val storyRevision=if(current!=null) File(destination,"story.json").takeIf { it.isFile }?.let { EpisodeMedia.digest(it) } else null
             val memory=JSONObject()
             sources.forEach { (id,file) -> memory.put(id,characterMemory.read(id,file)) }
             background {
                 contentResolver.openOutputStream(uri)!!.use { output ->
-                    if(current!=null) SimpleProductionCommands.write(output,current)
+                    if(current!=null) SimpleProductionCommands.write(output,current,coverSelection)
                     else FlowProductionPack.write(output,null,sources,memory,categories.first(),originalChannel)
                 }
                 if(storyRevision!=null) File(destination,"flow_pack_exported.sha256").writeText(storyRevision)
@@ -2159,7 +2179,7 @@ $context"""
                         check(project.name==projectId && sameOpenStory(storySnapshot)) { "เรื่องเปลี่ยนระหว่างตรวจ กรุณาเริ่มใหม่" }
                         val data=JSONObject()
                         val approved=proposals.mapIndexedNotNull { index,row ->
-                            if (!boxes[index].isChecked) null else JSONObject(row.toString()).put("holder", if(holders[index].selectedItemPosition==0) "" else holders[index].selectedItem.toString()).put("start_prop_state",stateValues[propStates[index].selectedItemPosition.coerceIn(0,stateValues.lastIndex)])
+                            if (!boxes[index].isChecked) null else JSONObject(row.toString()).put("holder", if(holders[index].selectedItemPosition==0) "" else holders[index].selectedItem.toString()).put("start_prop_state",stateValues[propStates[index].selectedItemPosition.coerceIn(0,stateValues.lastIndex)]).put("source_scene_digest",ScenePropBinding.signature(allowed.getValue(row.getString("scene_id"))))
                         }.groupBy { it.getString("scene_id") }
                         approved.forEach { (sceneId,items) -> data.put(sceneId,JSONArray(items)) }
                         val pending=File(project,"prop_assignments.json.pending"); pending.writeText(data.toString(2)); check(pending.renameTo(file)) { "บันทึกไม่สำเร็จ" }
@@ -2260,7 +2280,7 @@ $context"""
             val flowSpec=sceneForFlow?.let { scene ->
                 val original=ProductionCommandCheck.spec(scene)
                 val prefKey="prop_master_${project.name}_${task.id}"
-                val assigned=if(ChannelFeaturePolicy.hasFantasyTools(story.optString("channel"))) runCatching { JSONObject(File(project,"prop_assignments.json").readText()).optJSONArray(task.id) }.getOrNull() else null
+                val assigned=if(ChannelFeaturePolicy.hasFantasyTools(story.optString("channel"))) ScenePropBinding.valid(scene,runCatching { JSONObject(File(project,"prop_assignments.json").readText()).optJSONArray(task.id) }.getOrNull()) else null
                 val manual=if(prefs.contains(prefKey)) prefs.getStringSet(prefKey,emptySet()).orEmpty() else null
                 val notes=(0 until (assigned?.length() ?: 0)).mapNotNull { assigned?.optJSONObject(it) }.filter { manual==null || it.optString("prop_id") in manual }.map { row ->
                     "${row.optString("prop_id")} with ${row.optString("holder").ifBlank { "holder unspecified" }}; initial state ${row.optString("start_prop_state").ifBlank { "unspecified; follow first frame" }}"

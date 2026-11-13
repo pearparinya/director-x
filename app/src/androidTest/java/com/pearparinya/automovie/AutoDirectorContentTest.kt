@@ -124,6 +124,21 @@ class AutoDirectorContentTest {
         assertEquals(before,project.toString())
         assertTrue(runCatching { SimpleProductionCommands.imageTasks(project,1,mapOf("STORY" to setOf("MISSING_MASTER"))) }.isFailure)
     }
+    @Test fun exportedCoverUsesTheSameSelectionAsTheScreen() {
+        val project=story(); val people=SimpleProductionCommands.coverCandidates(project,1,true)
+        val selected=people.take(2).map { referenceId(it.getString("master")) }.toSet()
+        val selection=mapOf("STORY" to selected); val before=project.toString()
+        val bytes=ByteArrayOutputStream(); SimpleProductionCommands.write(bytes,project,selection)
+        var images=""
+        ZipInputStream(ByteArrayInputStream(bytes.toByteArray())).use { zip ->
+            while(true) { val entry=zip.nextEntry ?: break; if(entry.name=="EP01_IMAGES.txt") images=String(zip.readBytes(),Charsets.UTF_8) }
+        }
+        val cover=images.substringAfter("รหัส: STORY_COVER_9x16").substringBefore("รหัส: STORY_COVER_16x9")
+        val screen=SimpleProductionCommands.imageTasks(project,1,selection).first { it.id=="STORY_COVER_9x16" }
+        selected.forEach { assertTrue(cover.contains(it)); assertTrue(screen.command.contains(it)) }
+        assertFalse(cover.contains(referenceId(people[2].getString("master"))))
+        assertEquals(before,project.toString())
+    }
     @Test fun sceneOverviewWarnsOnLongSpeechWithoutChangingIt() {
         val scene=story().getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
         val words="คำทดสอบ".repeat(20)
