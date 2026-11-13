@@ -138,7 +138,11 @@ internal object ShortFlowPrompt {
             "<dialogue${if(offscreen) " off_screen=\"true\"" else ""}><speaker>${xml(label)}</speaker><text>${xml(speechText(text))}</text><language>th-TH</language></dialogue>"
         }
         val audio=if(silent) "No speech, narration, music or sound effects; visible characters remain silent." else if(lines.isEmpty()) "No dialogue or narration; visible characters remain silent." else "Speak the exact written Thai words in turn, naturally within 8 seconds without rushing. Other visible characters remain silent while the current speaker speaks. Preserve each character's anatomy. No extra voices, overlap or subtitles."
-        val effects=if(silent) "" else "<sound_effects><ambient>${xml(sound.ifBlank { "Subtle ambience appropriate to the scene." })} No additional voices.</ambient><sfx>Use only subtle sounds appropriate to the visible action.</sfx><music>Instrumental music appropriate to the scene, quieter than dialogue; no vocals.</music></sound_effects>"
+        val soundParts=Regex("(?is)^Ambience: (.*?); SFX: (.*?); Music: (.*?)[.]?$").matchEntire(sound)
+        val ambient=soundParts?.groupValues?.get(1) ?: sound.ifBlank { "none specified" }
+        val sfx=soundParts?.groupValues?.get(2) ?: "none specified"
+        val music=soundParts?.groupValues?.get(3) ?: "none specified"
+        val effects=if(silent) "" else "<sound_effects><ambient>${xml(ambient)}</ambient><sfx>${xml(sfx)}</sfx><music>${xml(music)}</music><mix>Keep sound below dialogue; no additional voices.</mix></sound_effects>"
         return "<flow><scene><aspect_ratio>9:16</aspect_ratio><duration>8</duration><lighting>5500K daylight white balance, pure bright studio lighting, no yellow light. Preserve the first frame's lighting direction and scene continuity.</lighting><typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone><prompt>${xml(visual+". "+audio)}</prompt>$lines$effects</scene></flow>"
     }
 }
