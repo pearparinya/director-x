@@ -10,6 +10,9 @@ internal object StoryClientFactory {
                 if(selected!=null) onRetry("กำลังทำต่อด้วย Gemini คีย์ช่องที่ ${selected.first}")
                 GeminiClient(selected?.second ?: key,model,cancelled,onRetry,automaticRetry)
             }
-            else -> CompatibleStoryClient(provider.extra()!!.service,key,model,cancelled,onRetry,automaticRetry)
+            else -> {
+                require(provider in StoryProvider.activeProviders) { "API นี้ไม่เปิดใช้งานแล้ว • เลือก API อื่นในการตั้งค่า" }
+                CompatibleStoryClient(provider.extra()!!.service,key,model,cancelled,onRetry,automaticRetry)
+            }
         }
 }

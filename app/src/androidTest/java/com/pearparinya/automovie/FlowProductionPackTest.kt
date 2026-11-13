@@ -30,7 +30,7 @@ class FlowProductionPackTest {
                     (if(view is ViewGroup) (0 until view.childCount).joinToString("\n") { text(view.getChildAt(it)) } else "")
                 val home=text(activity.window.decorView)
                 assertTrue(home.contains("DIRECTOR X"))
-                assertTrue(home.contains("สร้างบทในแอป"))
+                assertTrue(home.contains("สร้างเรื่องใหม่"))
                 assertTrue(home.contains("ตรวจชุดตัวละคร"))
                 assertTrue(home.contains("ตรวจสิ่งของในบท"))
                 assertTrue(home.contains("สร้างภาพ + Flow"))
