@@ -73,7 +73,11 @@ class ShortFlowPromptTest {
         assertEquals(original,doc.getElementsByTagName("text").item(0).textContent)
         assertEquals(1,doc.getElementsByTagName("sound_effects").length)
         assertTrue(doc.getElementsByTagName("ambient").item(0).textContent.contains("Wind in the trees"))
-        assertTrue(doc.getElementsByTagName("music").item(0).textContent.contains("quieter than dialogue"))
+        assertTrue(doc.getElementsByTagName("mix").item(0).textContent.contains("below dialogue"))
+        val planned=ShortFlowPrompt.build(spec.copy(sound="Ambience: quiet room; SFX: paper rustle; Music: none."),"Locked")
+        val plannedDoc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(InputSource(StringReader(planned)))
+        assertEquals("paper rustle",plannedDoc.getElementsByTagName("sfx").item(0).textContent)
+        assertEquals("none",plannedDoc.getElementsByTagName("music").item(0).textContent)
         assertEquals("Deity 1", ShortFlowPrompt.labels(spec.copy(cast=listOf(animal.copy(characterType="deity")))).first())
     }
     @Test fun offscreenSpeechDoesNotMoveVisibleMouths() {
