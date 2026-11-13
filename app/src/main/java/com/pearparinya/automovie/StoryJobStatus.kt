@@ -76,7 +76,7 @@ internal object StoryStatusText {
         val provider=if(status.optBoolean("hybrid")) "Groq + Gemini (ขณะนี้ $visibleProvider)" else visibleProvider
         val time=duration(status.optLong("elapsed_ms"))
         val phase=if(running && !stale) " • ช่วงนี้ ${duration(status.optLong("phase_elapsed_ms"))}" else ""
-        val update=if(heartbeat>0) java.text.SimpleDateFormat("HH:mm:ss",java.util.Locale.ROOT).format(java.util.Date(heartbeat)) else "—"
+        val update=if(heartbeat>0) java.text.SimpleDateFormat("dd MMM yyyy เวลา HH.mm น.",java.util.Locale("th","TH")).format(java.util.Date(heartbeat)) else "—"
         val failures=status.optJSONArray("failures")
         val rows=if(failures==null) emptyList() else (0 until failures.length()).mapNotNull { i ->
             failures.optJSONObject(i)?.takeUnless { it.optString("provider").equals("cerebras",ignoreCase=true) }
@@ -85,6 +85,6 @@ internal object StoryStatusText {
         val history=if(!details || rows.isEmpty()) "" else "\nการลองล่าสุด:\n"+rows.joinToString("\n")
         val task=status.optString("task").takeIf { it.isNotBlank() }?.let { "\nขั้นตอน: $it" }.orEmpty()
         val message=if(status.optString("message").contains("cerebras",ignoreCase=true)) "กดทำต่อเพื่อใช้ API ที่ตั้งค่าปัจจุบัน" else status.optString("message")
-        return "$provider • ซีนที่ผ่านตรวจ ${status.optInt("percent").coerceIn(0,100)}%\n$label\nใช้เวลา $time$phase$task\n${if(state=="awaiting_outline") "เปิดงานเขียนบท แล้วกดทำต่อ • ใช้โครงเรื่องเดิม ไม่ต้องยืนยันอีก" else message}$history\nแอปอัปเดตสถานะล่าสุด $update"
+        return "$provider • ซีนที่ผ่านตรวจ ${status.optInt("percent").coerceIn(0,100)}%\nสถานะ: $label\nใช้เวลา $time$phase$task\n${if(state=="awaiting_outline") "เปิดงานเขียนบท แล้วกดทำต่อ • ใช้โครงเรื่องเดิม ไม่ต้องยืนยันอีก" else message}$history\nอัปเดตล่าสุด: $update"
     }
 }
