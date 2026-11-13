@@ -603,20 +603,97 @@ class StudioActivity : AppCompatActivity() {
         return selected
     }
 
-    private fun characterMasters() {
-        val names=listOf("gawin" to "กวิน", "rinlada" to "รินรดา", "mind" to "เมย์")
-        choiceMenu("🎭 MASTER และความจำตัวละคร",names.map { (id,name) -> val file=File(filesDir,"character_masters/$id.master"); "$name • ${if(characterMemory.read(id,file).optLong("reference_reviewed_at")>0) "ตรวจภาพแล้ว" else "ยังไม่ได้ตรวจภาพ"}" } + listOf("🎭 คลัง MASTER")) { i ->
-            if (i == names.size) { libraryMenu() } else {
-                val (id,name)=names[i]; val file=File(filesDir,"character_masters/$id.master")
-                choiceMenu(name,listOf("ดู MASTER","เปลี่ยนภาพ MASTER","ข้อมูลใบหน้า ผม และรูปร่าง","เตรียม MASTER มาตรฐาน","ตรวจภาพ MASTER")) { action -> when(action) {
-                    0 -> if(file.exists()) fullImage(file,name) else notice("ยังไม่มี MASTER")
-                    1 -> { masterSlot=id; masterPicker.launch(arrayOf("image/*")) }
-                    2 -> editCharacterMemory(id,name,file)
-                    3 -> sendProductionMaster(id,name,file)
-                    4 -> reviewMaster(id,name,file)
-                } }
+    private fun characterMasters() { unifiedMasterMenu() }
+
+    private fun presetMaster(id: String,name: String) {
+        val file=File(filesDir,"character_masters/$id.master")
+        choiceMenu(name,listOf("ดู MASTER","เปลี่ยนภาพ MASTER","ข้อมูลใบหน้า ผม และรูปร่าง","เตรียม MASTER มาตรฐาน","ตรวจภาพ MASTER")) { action -> when(action) {
+            0 -> if(file.exists()) fullImage(file,name) else notice("ยังไม่มี MASTER")
+            1 -> { masterSlot=id; masterPicker.launch(arrayOf("image/*")) }
+            2 -> editCharacterMemory(id,name,file)
+            3 -> sendProductionMaster(id,name,file)
+            4 -> reviewMaster(id,name,file)
+        } }
+    }
+    private data class UnifiedMasterItem(val name: String,val id: String,val category: String,val file: File?,val open: ()->Unit)
+    private fun unifiedMasterMenu() {
+        runCatching {
+            val all=mutableListOf<UnifiedMasterItem>()
+            listOf("gawin" to "กวิน","rinlada" to "รินรดา","mind" to "เมย์").forEach { (id,name) ->
+                val file=File(filesDir,"character_masters/$id.master")
+                all.add(UnifiedMasterItem(name,id.uppercase()+"_MASTER","มนุษย์",file,{ presetMaster(id,name) }))
             }
-        }
+            val records=piaCatalog()
+            val oldEntries=masterLibrary.entries().associateBy { it.id }
+            for(i in 0 until records.length()) {
+                val item=records.getJSONObject(i)
+                val id=item.getString("id")
+                val name=item.optString("display_name",id)
+                val type=item.optString("character_type").lowercase()
+                val category=when(type) {
+                    "human" -> "มนุษย์"
+                    "animal" -> "สัตว์"
+                    "creature","demon" -> "อสูรและสัตว์ประหลาด"
+                    "deity","knight" -> "เทพและผู้พิทักษ์"
+                    "ghost","spirit","fairy" -> "ผี วิญญาณ และภูต"
+                    else -> if(item.optString("character_gender").isNotBlank() && type.isBlank()) "มนุษย์" else "ยังไม่ระบุประเภท"
+                }
+                val file=runCatching { castingSource(item) }.getOrNull()
+                val old=oldEntries[id]
+                all.add(UnifiedMasterItem(name,id,category,file,{
+                    if(old!=null) libraryEntry(old)
+                    else if(file?.isFile==true) fullImage(file,name+" • "+id)
+                    else notice("ไม่พบภาพ MASTER ของ $name • $id")
+                }))
+            }
+            propCatalog.forEachIndexed { index,name ->
+                val id=propId(index)
+                val file=runCatching {
+                    val target=File(cacheDir,"prop_masters/$id.png")
+                    if(!target.isFile) { target.parentFile!!.mkdirs(); assets.open("prop_masters/$id.png").use { input -> target.outputStream().use { input.copyTo(it) } } }
+                    target
+                }.getOrNull()
+                all.add(UnifiedMasterItem(name,id,"อาวุธและอุปกรณ์",file,{
+                    if(file?.isFile==true) fullImage(file,name+" • "+id) else notice("ไม่พบภาพ MASTER ของ $name • $id")
+                }))
+            }
+            val categories=listOf("ทั้งหมด","มนุษย์","สัตว์","อสูรและสัตว์ประหลาด","เทพและผู้พิทักษ์","ผี วิญญาณ และภูต","อาวุธและอุปกรณ์","ยังไม่ระบุประเภท")
+            choiceMenu("คลัง MASTER • เลือกหมวด",categories+listOf("➕ เพิ่มตัวละคร","🎭 ตัวละครของเรื่องที่เปิด")) { selected ->
+                if(selected==categories.size) { actorCatalogMenu(); return@choiceMenu }
+                if(selected==categories.size+1) { if(plan!=null) castMenu() else notice("เปิดเรื่องที่มีบทก่อน"); return@choiceMenu }
+                val category=categories[selected]
+                val panel=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
+                val search=EditText(this).apply { hint="ค้นหาชื่อหรือรหัส MASTER"; isSingleLine=true }
+                val count=TextView(this)
+                val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
+                panel.addView(search); panel.addView(count)
+                panel.addView(ScrollView(this).apply { addView(grid) },LinearLayout.LayoutParams(-1,dp(420)))
+                val dialog=AlertDialog.Builder(this).setTitle("คลัง MASTER • $category").setView(panel).setNegativeButton("ปิด",null).create()
+                fun show(query: String) {
+                    grid.removeAllViews()
+                    val found=all.filter { (category=="ทั้งหมด" || it.category==category) && (it.name+" "+it.id).contains(query,ignoreCase=true) }
+                    count.text=if(found.isEmpty()) "ไม่พบรายการ • เพิ่มหรือเลือกหมวดอื่นได้" else "พบ ${found.size} รายการ • แตะเพื่อดู"
+                    var row: LinearLayout?=null
+                    found.forEachIndexed { index,entry ->
+                        if(index%2==0) { row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; grid.addView(row) }
+                        val cell=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(4),dp(6),dp(4),dp(6)) }
+                        row?.addView(cell,LinearLayout.LayoutParams(0,-2,1f))
+                        val label=entry.name+"\n"+entry.id+(if(entry.file?.isFile==true) "" else "\nไม่พบ MASTER")
+                        if(entry.file?.isFile==true) cell.addView(ImageView(this).apply {
+                            setImageBitmap(castingThumbnail(entry.file)); adjustViewBounds=true
+                            contentDescription=label; setOnClickListener { dialog.dismiss(); entry.open() }
+                        },LinearLayout.LayoutParams(-1,dp(140)))
+                        cell.addView(Button(this).apply { text=label; setOnClickListener { dialog.dismiss(); entry.open() } })
+                    }
+                }
+                search.addTextChangedListener(object: android.text.TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?,start: Int,count: Int,after: Int) {}
+                    override fun onTextChanged(s: CharSequence?,start: Int,before: Int,count: Int) { show(s?.toString().orEmpty()) }
+                    override fun afterTextChanged(s: android.text.Editable?) {}
+                })
+                show(""); dialog.show()
+            }
+        }.onFailure { notice("เปิดคลังไม่ได้: ${it.message}") }
     }
     private fun sendProductionMaster(id: String, name: String, file: File) {
         if(!file.exists()) { notice("เพิ่ม MASTER ก่อน"); return }
@@ -2714,7 +2791,7 @@ $context"""
             root.addView(row,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) })
         }
         menuRow(listOf(
-            Triple(R.drawable.menu_cast,"ตัวละคร" to "ดูและจัดการตัวละคร MASTER",{ castMenu() }),
+            Triple(R.drawable.menu_cast,"ตัวละคร" to "ดูและจัดการตัวละคร MASTER",{ unifiedMasterMenu() }),
             Triple(R.drawable.menu_script,"บทภาพยนตร์" to "ตรวจบทและรายละเอียดฉาก",{ current?.let { productionCheckMenu(it) } ?: notice("เปิดเรื่องที่มีบทก่อน") })
         ))
         menuRow(listOf(
