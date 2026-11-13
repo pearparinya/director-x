@@ -12,7 +12,7 @@ internal object AutoCast {
         val fields=listOf("id","display_name","character_age","character_gender","character_type","age_basis","casting_description")
         for(i in 0 until catalog.length()) {
             val source=catalog.getJSONObject(i); val compact=JSONObject()
-            fields.forEach { field -> if(source.has(field)) compact.put(field,source.get(field)) }
+            fields.forEach { field -> if(source.has(field) && !(field=="character_age" && source.optString("age_basis")=="unspecified")) compact.put(field,source.get(field)) }
             put(compact)
         }
     }
