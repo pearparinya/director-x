@@ -2768,7 +2768,8 @@ $context"""
             layoutParams=LinearLayout.LayoutParams(-1,-2).apply { topMargin=dp(10); bottomMargin=dp(8) }
         }
         card.addView(TextView(this).apply { text="✦ เรื่องที่เปิดอยู่ ✦"; textSize=13f; setTextColor(gold); setTypeface(null,Typeface.BOLD) })
-        card.addView(TextView(this).apply { text="ช่อง: $channel\nเรื่อง: $title"; textSize=16f; setTextColor(ice); setTypeface(null,Typeface.BOLD); setPadding(0,dp(8),0,dp(6)) })
+        val category=current?.optString("category")?.takeIf { it.isNotBlank() } ?: "ยังไม่ระบุ"
+        card.addView(TextView(this).apply { text="ช่อง: $channel\nหมวดเรื่อง: $category\nเรื่อง: $title"; textSize=16f; setTextColor(ice); setTypeface(null,Typeface.BOLD); setPadding(0,dp(8),0,dp(6)) })
         card.addView(TextView(this).apply { text=if(current==null) "สร้างบทใหม่ หรือเปิดเรื่องที่บันทึกไว้" else "$episodes EP • ${scenes.size} ฉาก • ${current.optString("aspect_ratio","9:16")}"+(if(exported) " • เคยส่งออกบทนี้แล้ว" else ""); textSize=12f; setTextColor(muted) })
         root.addView(card)
         if(File(project,"gemini_job/spec.json").isFile) {
@@ -2800,14 +2801,16 @@ $context"""
                     contentDescription=null
                 },LinearLayout.LayoutParams(-1,dp(104)))
                 tile.addView(TextView(this).apply {
-                    text=item.second.first; textSize=16f; setTextColor(ice)
+                    text=item.second.first; textSize=16f; setTextColor(ice); maxLines=2
+                    setAutoSizeTextTypeUniformWithConfiguration(11,16,1,android.util.TypedValue.COMPLEX_UNIT_SP)
                     setTypeface(null,Typeface.BOLD); setPadding(dp(5),dp(5),dp(5),0)
                 })
                 tile.addView(TextView(this).apply {
-                    text=item.second.second; textSize=12f; setTextColor(ice)
+                    text=item.second.second; textSize=12f; setTextColor(ice); maxLines=2
+                    setAutoSizeTextTypeUniformWithConfiguration(9,12,1,android.util.TypedValue.COMPLEX_UNIT_SP)
                     setPadding(dp(5),dp(3),dp(5),0)
                 })
-                row.addView(tile,LinearLayout.LayoutParams(0,-2,1f).apply { if(index==0) marginEnd=dp(5) else marginStart=dp(5) })
+                row.addView(tile,LinearLayout.LayoutParams(0,dp(190),1f).apply { if(index==0) marginEnd=dp(5) else marginStart=dp(5) })
             }
             root.addView(row,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) })
         }
