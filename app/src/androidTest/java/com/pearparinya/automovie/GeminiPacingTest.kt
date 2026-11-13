@@ -10,13 +10,18 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 @RunWith(AndroidJUnit4::class)
 class GeminiPacingTest {
+    @Test fun cooldownIsLimitedToAffectedProjectKey() {
+        GeminiPacing.on429("cooldown-project-A", "120")
+        assertTrue(GeminiPacing.delayMillis("cooldown-project-A") >= 100_000L)
+        assertTrue(GeminiPacing.delayMillis("other-project-B") < 10_000L)
+    }
     @Test fun concurrentRequestsAreSerializedAndWaitingCanBeCancelled() {
         val acquired=CountDownLatch(1)
         val cancel=AtomicBoolean(false)
         val stopped=CountDownLatch(1)
-        GeminiPacing.acquire { false }
+        GeminiPacing.acquire("test-key-1") { false }
         val thread=Thread {
-            try { GeminiPacing.acquire { cancel.get() }; acquired.countDown(); GeminiPacing.release() }
+            try { GeminiPacing.acquire("test-key-2") { cancel.get() }; acquired.countDown(); GeminiPacing.release() }
             catch(_: java.util.concurrent.CancellationException) { stopped.countDown() }
         }
         try {
