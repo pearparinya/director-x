@@ -2141,6 +2141,7 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
                 val dialog=AlertDialog.Builder(this).setTitle("ตรวจชุดที่ AI เสนอ").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึกชุดที่เลือก",null).setNegativeButton("ยกเลิก",null).showDirector()
                 dialog.getButton(-1).setOnClickListener {
                     if(project.name!=projectId || !sameOpenStory(snapshot)) { notice("เรื่องเปลี่ยนระหว่างตรวจ กรุณาเริ่มใหม่"); return@setOnClickListener }
+                    if(decisions.all { it==0 }) { dialog.dismiss(); notice("คงชุดเดิมทุกรายการ • ไม่ได้เปลี่ยนบท"); return@setOnClickListener }
                     runCatching {
                         val wasConfirmed=wardrobeReviewStatus(story)==HomeReviewState.WARDROBE_CONFIRMED
                         require(decisions.all { it!=null }) { "กรุณาเลือกใช้ชุดหรือคงชุดเดิมให้ครบทุกรายการ" }
