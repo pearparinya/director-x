@@ -475,10 +475,10 @@ class StudioActivity : AppCompatActivity() {
             val visible=(0 until records.length()).filter { i -> !pia || records.getJSONObject(i).optString("character_type") !in setOf("knight","deity","creature","demon","ghost","spirit","fairy") }
             val base=if(fantasy) 4 else 3
             val menus=listOf("📥 นำเข้า MASTER ที่มีอยู่","➕ สร้างตัวละครจากแม่แบบ","📚 ดู MASTER คลังเดิม") + if(fantasy) listOf("✨ ดู MASTER แฟนตาซี 40 ตัว") else emptyList()
-            choiceMenu("คลังตัวละคร • ${channel.ifBlank { "ช่องไม่ระบุ" }}",menus+visible.map { i -> records.getJSONObject(i).let { "${it.getString("display_name")} • อายุ ${it.getInt("character_age")} ปี" } }) { index ->
+            chooseNamedCharacterGrid("คลังตัวละคร • ${channel.ifBlank { "ช่องไม่ระบุ" }}",menus.map { it to null }+visible.map { i -> records.getJSONObject(i).let { ("${it.getString("display_name")} • อายุ ${it.getInt("character_age")} ปี") to File(filesDir,"actor_master_v2/"+it.getString("file")) } }) { index ->
                 if(index==0) importCharacterMaster() else if(index==1) bodyTemplateMenu() else if(index==2) libraryMenu() else if(fantasy && index==3) {
                     val fantasy=fantasyCatalog()
-                    choiceMenu("MASTER แฟนตาซี",(0 until fantasy.length()).map { fantasy.getJSONObject(it).getString("display_name") }) { selected ->
+                    chooseNamedCharacterGrid("MASTER แฟนตาซี",(0 until fantasy.length()).map { i -> val entry=fantasy.getJSONObject(i); entry.getString("display_name") to runCatching { castingSource(entry) }.getOrNull() }) { selected ->
                         val row=fantasy.getJSONObject(selected)
                         runCatching { fullImage(castingSource(row),row.getString("display_name")) }.onFailure { notice(it.message ?: "เปิดภาพไม่ได้") }
                     }
@@ -3091,6 +3091,17 @@ $context"""
                 panel.addView(this)
                 if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenters.length()>0 && presenters.getJSONObject(0).optString("id")==piaActorId) setSelection(1)
             }
+            presenter.visibility=android.view.View.GONE
+            panel.addView(Button(this).apply {
+                fun updateLabel() { text="🎭 ตัวละครหลัก: "+presenter.selectedItem.toString() }
+                updateLabel()
+                setOnClickListener {
+                    val items=(0 until presenter.count).map { i ->
+                        presenter.getItemAtPosition(i).toString() to if(i==0) null else runCatching { castingSource(presenters.getJSONObject(i-1)) }.getOrNull()
+                    }
+                    chooseNamedCharacterGrid("เลือกตัวละครหลัก",items) { i -> presenter.setSelection(i); updateLabel() }
+                }
+            })
             fun proposalProgress(label: String, stopped: java.util.concurrent.atomic.AtomicBoolean, active: java.util.concurrent.atomic.AtomicReference<StoryTextClient?>): Pair<androidx.appcompat.app.AlertDialog, java.util.concurrent.atomic.AtomicInteger> {
                 val current=java.util.concurrent.atomic.AtomicInteger(1)
                 val start=android.os.SystemClock.elapsedRealtime()
@@ -4071,6 +4082,19 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         val snapshot=File(project,"original_masters/$id.master")
         val frozen=FlowCast.supporting(plan).any { it.optBoolean("auto_cast") && FlowCast.id(it)==id }
         return if(frozen || snapshot.isFile) snapshot else File(filesDir,"character_masters/$id.master")
+    }
+    private fun chooseNamedCharacterGrid(title: String, items: List<Pair<String,File?>>, onSelect: (Int) -> Unit) {
+        val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
+        val dialog=AlertDialog.Builder(this).setTitle(title).setView(ScrollView(this).apply { addView(grid) }).setNegativeButton("ยกเลิก",null).create()
+        var row: LinearLayout?=null
+        items.forEachIndexed { index, (name,file) ->
+            if(index%2==0) { row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; grid.addView(row) }
+            val card=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(4),dp(6),dp(4),dp(6)); layoutParams=LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f) }
+            row?.addView(card)
+            if(file?.isFile==true) card.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(file)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(140)); contentDescription=name; setOnClickListener { fullImage(file,name) } })
+            card.addView(Button(this).apply { text=name+(if(file!=null && !file.isFile) "\nไม่พบ MASTER" else ""); setOnClickListener { dialog.dismiss(); onSelect(index) } })
+        }
+        dialog.show()
     }
     private fun chooseStoryCharacterGrid(title: String, people: List<JSONObject>, onSelect: (Int) -> Unit) {
         val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
