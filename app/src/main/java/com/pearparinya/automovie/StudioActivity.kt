@@ -2900,8 +2900,8 @@ $context"""
                 runCatching {
                     val value=input.text.toString().trim().ifBlank { settings.key() }
                     require(value.isNotBlank()) { "กรุณากรอกคีย์ช่อง ${index+1}" }
-                    val other=GeminiSettings.configured(this@StudioActivity).filter { it.first!=index+1 }
-                    require(other.none { it.second==value }) { "คีย์นี้ซ้ำกับช่องอื่น • กรุณาตรวจ" }
+                    val other=(0 until 5).filter { it!=index }.map { GeminiSettings(this@StudioActivity,StoryProvider.GEMINI,it) }.filter { it.hasSaved() }.map { it.key() }
+                    require(other.none { it==value }) { "คีย์นี้ซ้ำกับช่องอื่น • กรุณาตรวจ" }
                     val modelName=model.text.toString().trim()
                     settings.save(value,modelName)
                     getSharedPreferences("gemini_key_pool",android.content.Context.MODE_PRIVATE).edit().putString("model",modelName).apply()
