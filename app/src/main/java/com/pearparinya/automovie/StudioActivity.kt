@@ -1381,6 +1381,7 @@ class StudioActivity : AppCompatActivity() {
         if(piaFaceLock) panel.addView(TextView(this).apply { text="ล็อกหน้านายเปียด้วย MASTER ต้นฉบับ • เลือกกรอบใบหน้ามุมตรงด้านล่างเพื่อแนบภาพครอปเพิ่ม และตรวจภาพกับชื่อก่อนส่ง" })
         val masterAppearance=linkedMapOf<String,android.widget.CheckBox>()
         val crops=linkedMapOf<String,Pair<String,File>>()
+        val cropDigests=linkedMapOf<String,String>()
         val cropLabels=linkedMapOf<String,String>()
         val cropStore=FaceReferenceStore(File(filesDir,"master_face_references"))
         task.references.forEachIndexed { index, person ->
@@ -1398,13 +1399,14 @@ class StudioActivity : AppCompatActivity() {
             fun showCrop(target: File) {
                 val cropId="${referenceId(id)}_FACE_CROP"
                 crops[id]=cropId to target
+                cropDigests[id]=MasterLibrary.digest(target.readBytes())
                 cropLabels[cropId]="ภาพครอปใบหน้า ${person.optString("name")} จาก MASTER $id"
                 status.text="ภาพครอป • ${person.optString("name")} • ตรวจให้ตรง MASTER"
                 cropPreview.setImageBitmap(previewBitmap(Uri.fromFile(target)))
                 cropPreview.visibility=android.view.View.VISIBLE
                 cropPreview.setOnClickListener { fullImage(target,"ตรวจภาพครอป • ${person.optString("name")}") }
             }
-            runCatching { cropStore.latest(file) }.getOrNull()?.let { showCrop(it) }
+            runCatching { cropStore.latest(file)?.let { showCrop(it) } }
             panel.addView(Button(this).apply {
                 text="เลือกกรอบใบหน้าจาก MASTER"
                 setOnClickListener {
@@ -1467,7 +1469,8 @@ class StudioActivity : AppCompatActivity() {
                 val stable=runCatching { references.take(task.references.size).all { (id,file) -> file.isFile && MasterLibrary.digest(file.readBytes())==masterDigests[id] } }.getOrDefault(false)
                 if(!stable) { notice("ภาพ MASTER เปลี่ยนหรือหายระหว่างตรวจ กรุณาเปิดรายการและตรวจภาพอีกครั้ง"); return@setPositiveButton }
                 val selected=if(faceOnly.isChecked) crops else emptyMap()
-                if(selected.values.any { !it.second.isFile }) { notice("ภาพครอปใบหน้าหาย กรุณาเลือกจาก MASTER อีกครั้ง"); return@setPositiveButton }
+                val cropsStable=runCatching { selected.all { (id,crop) -> crop.second.isFile && MasterLibrary.digest(crop.second.readBytes())==cropDigests[id] } }.getOrDefault(false)
+                if(!cropsStable) { notice("ภาพครอปใบหน้าเปลี่ยนหรือหาย กรุณาเลือกจาก MASTER อีกครั้ง"); return@setPositiveButton }
                 val bindings=selected.entries.joinToString("\n") { (id,crop) -> "CHARACTER ${labels[id].orEmpty()} — FACE CROP ${crop.first} is cropped from MASTER ${referenceId(id)}; both show the same character. Use the crop for facial identity and the original MASTER for verification. Never use this crop for another character." }
                 val baseCommand=if(faceOnly.isChecked) SimpleProductionCommands.faceOnly(task.command)+if(bindings.isBlank()) "" else "\n\n$bindings" else task.command
                 val locked=task.references.mapIndexedNotNull { index,person ->
@@ -1497,6 +1500,7 @@ class StudioActivity : AppCompatActivity() {
             .setNegativeButton("กลับไปตรวจ",null).showDirector()
     }
     private fun shareImageCommand(command: String, references: List<Pair<String,File>>, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false) {
+        val referenceDigests=runCatching { ReferenceSnapshot.capture(references) }.getOrElse { notice(it.message ?: "ตรวจภาพอ้างอิงไม่ได้"); return }
         val preferred=prefs.getString("image_provider","ChatGPT") ?: "ChatGPT"
         val providers=imageProviderOptions(preferred)
         val choices=providers.mapIndexed { i,name -> name+if(i==0) " • ตัวเลือกที่จำไว้" else "" } + "คัดลอกคำสั่ง • แนบ MASTER เอง"
@@ -1507,11 +1511,11 @@ class StudioActivity : AppCompatActivity() {
             } else {
                 val provider=providers[selected]
                 prefs.edit().putString("image_provider",provider).apply()
-                shareText(command,includeMasters=false,referenceImages=references,destinationLabel=provider,imagePackage=true,referenceLabels=referenceLabels,twoCovers=twoCovers,bodyOnly=bodyOnly)
+                shareText(command,includeMasters=false,referenceImages=references,destinationLabel=provider,imagePackage=true,referenceLabels=referenceLabels,twoCovers=twoCovers,bodyOnly=bodyOnly,referenceDigests=referenceDigests)
             }
         }
     }
-    private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT", imagePackage: Boolean = false, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false) {
+    private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT", imagePackage: Boolean = false, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false, referenceDigests: Map<String,String> = emptyMap()) {
         var text = if (lockCreation && !inputText.contains("ค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง)")) inputText + "\nค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง): EP=${prefs.getString("plan_episodes", "").orEmpty().ifBlank { "AI ประเมิน" }} ฉาก/EP=${prefs.getString("plan_scenes", "").orEmpty().ifBlank { "AI ประเมิน" }} เวลา=${prefs.getString("plan_duration", "8")} วินาที สัดส่วน=${"9:16"} กำหนด duration_seconds และ aspect_ratio ใน story.json และคำสั่งทุกฉากตามนี้" else inputText
         if (imagePackage && !bodyOnly && !text.contains(SimpleProductionCommands.faceOnlyMarker) && !text.contains(BodyReferencePolicy.imageIdentityLock)) text += "\n\n" + BodyReferencePolicy.imageIdentityLock
         if (imagePackage && !bodyOnly && !text.contains(ImagePromptPolicy.skinTone)) text += "\n\n" + ImagePromptPolicy.skinTone
@@ -1545,7 +1549,11 @@ class StudioActivity : AppCompatActivity() {
             if (options.outWidth <= 0) { notice("อ่านภาพอ้างอิง $name ไม่ได้"); return }
             val extension = when (options.outMimeType) { "image/jpeg" -> "jpg"; "image/webp" -> "webp"; else -> "png" }
             val out = File(cacheDir, "scene_reference_exports/$transferId/$name.$extension")
-            out.parentFile!!.mkdirs(); source.copyTo(out, overwrite = true)
+            out.parentFile!!.mkdirs()
+            val expected=referenceDigests[name]
+            if(expected!=null) {
+                if(runCatching { ReferenceSnapshot.copyVerified(source,out,expected) }.isFailure) { notice("ภาพอ้างอิง $name เปลี่ยนหรือหายระหว่างเตรียมส่ง กรุณาตรวจใหม่"); return }
+            } else source.copyTo(out, overwrite = true)
             attachments.put(JSONObject().put("name",out.name).put("sha256",java.security.MessageDigest.getInstance("SHA-256").digest(out.readBytes()).joinToString("") { "%02x".format(it) }).put("bytes",out.length()))
                 uris.add(FileProvider.getUriForFile(this,"$packageName.fileprovider",out))
         }

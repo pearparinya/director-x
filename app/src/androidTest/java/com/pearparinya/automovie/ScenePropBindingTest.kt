@@ -30,4 +30,15 @@ class ScenePropBindingTest {
         assertEquals(0,ScenePropBinding.valid(scene,JSONArray().put(old).put(wrong)).length())
         assertFalse(old.has("source_scene_digest"))
     }
+    @Test fun transferRequiresSeparateReviewForEachSceneAndEmptySceneHasNoAssignment() {
+        fun scene(holder: String)=JSONObject().put("story_day","DAY01").put("action","$holder ถือดาบ")
+            .put("characters",JSONArray().put(JSONObject().put("name",holder)))
+        val before=scene("อัศวิน"); val after=scene("ผู้พิทักษ์")
+        val first=JSONObject().put("prop_id","PROP_01_MASTER").put("holder","อัศวิน").put("source_scene_digest",ScenePropBinding.signature(before))
+        val transferred=JSONObject().put("prop_id","PROP_01_MASTER").put("holder","ผู้พิทักษ์").put("source_scene_digest",ScenePropBinding.signature(after))
+        assertEquals(1,ScenePropBinding.valid(before,JSONArray().put(first)).length())
+        assertEquals(0,ScenePropBinding.valid(after,JSONArray().put(first)).length())
+        assertEquals("ผู้พิทักษ์",ScenePropBinding.valid(after,JSONArray().put(transferred)).getJSONObject(0).getString("holder"))
+        assertEquals(0,ScenePropBinding.valid(after,JSONArray()).length())
+    }
 }
