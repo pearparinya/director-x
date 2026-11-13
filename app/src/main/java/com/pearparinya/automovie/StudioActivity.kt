@@ -896,6 +896,21 @@ class StudioActivity : AppCompatActivity() {
         super.onNewIntent(incoming); setIntent(incoming); adoptGeminiProject(incoming); render()
     }
     private fun installCharacterMasters() {
+        // Install explicitly supplied defaults only when no user image exists.
+        val characterDir=File(filesDir,"character_masters").apply { mkdirs() }
+        listOf("rinlada","mind").forEach { id ->
+            val target=File(characterDir,"$id.master")
+            if(!target.exists()) {
+                val temp=File(characterDir,"$id.default.pending")
+                try {
+                    assets.open("character_defaults/$id.jpg").use { input -> temp.outputStream().use { output -> input.copyTo(output) } }
+                    val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
+                    android.graphics.BitmapFactory.decodeFile(temp.path,bounds)
+                    require(bounds.outWidth>0 && bounds.outHeight>0) { "ภาพ MASTER ของ $id อ่านไม่ได้" }
+                    if(!target.exists()) check(temp.renameTo(target)) { "บันทึก MASTER ไม่สำเร็จ" }
+                } finally { temp.delete() }
+            }
+        }
         // Preserve existing character libraries and project snapshots during upgrades.
         // Refresh an existing cached copy of Krit's reference after the bundled image changes.
         if(File(filesDir,"master_library/CHAR_141__1000030680.jpg").isFile) {
