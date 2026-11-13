@@ -10,11 +10,31 @@ internal class GeminiClient(private val apiKey: String, private val model: Strin
     @Volatile private var connection: HttpURLConnection?=null
     override fun cancel() { connection?.disconnect() }
     override fun generate(prompt: String,schema: JSONObject): JSONObject = if(automaticRetry) StoryRequestRetry().execute(cancelled,onRetry) { generateOnce(prompt,schema) } else generateOnce(prompt,schema)
-    private fun generateOnce(prompt: String,schema: JSONObject): JSONObject {
+    fun generateWithImages(prompt: String, schema: JSONObject, images: List<Pair<String,java.io.File>>): JSONObject {
+        require(images.isNotEmpty() && images.size<=8) { "ต้องมีภาพ MASTER ที่ตรวจได้ 1–8 ภาพ" }
+        require(images.map { it.first.lowercase() }.distinct().size==images.size) { "รหัส MASTER ซ้ำกัน" }
+        return generateOnce(prompt,schema,images)
+    }
+    private fun generateOnce(prompt: String,schema: JSONObject,images: List<Pair<String,java.io.File>> = emptyList()): JSONObject {
         if(cancelled()) throw CancellationException()
         require(Regex("gemini-[a-zA-Z0-9.-]+").matches(model))
-        val body=JSONObject().put("contents",JSONArray().put(JSONObject().put("role","user")
-            .put("parts",JSONArray().put(JSONObject().put("text",prompt)))))
+        val parts=JSONArray().put(JSONObject().put("text",prompt))
+        val digests=if(images.isEmpty()) emptyMap() else ReferenceSnapshot.capture(images)
+        var total=0L
+        for((id,file) in images) {
+            require(file.isFile && file.length() in 1..5_000_000L) { "ไม่พบ MASTER หรือภาพใหญ่เกิน 5 MB: $id" }
+            total+=file.length()
+            require(total<=15_000_000L) { "ภาพ MASTER รวมเกิน 15 MB กรุณาลดขนาดไฟล์" }
+            val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
+            android.graphics.BitmapFactory.decodeFile(file.path,bounds)
+            val mime=bounds.outMimeType
+            require(bounds.outWidth>0 && bounds.outHeight>0 && mime in listOf("image/jpeg","image/png","image/webp")) { "เปิดภาพ MASTER ไม่ได้หรือชนิดภาพไม่รองรับ: $id" }
+            val bytes=file.readBytes()
+            require(MasterLibrary.digest(bytes)==digests[id]) { "ไฟล์ MASTER เปลี่ยนระหว่างเตรียมส่ง: $id" }
+            parts.put(JSONObject().put("text","MASTER ID: $id. The following image belongs only to this character."))
+            parts.put(JSONObject().put("inlineData",JSONObject().put("mimeType",mime).put("data",android.util.Base64.encodeToString(bytes,android.util.Base64.NO_WRAP))))
+        }
+        val body=JSONObject().put("contents",JSONArray().put(JSONObject().put("role","user").put("parts",parts)))
             .put("generationConfig",JSONObject().put("responseMimeType","application/json").put("responseJsonSchema",schema)
                 .put("maxOutputTokens",16384))
         val conn=URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent").openConnection() as HttpURLConnection

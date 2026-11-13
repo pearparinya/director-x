@@ -34,4 +34,20 @@ class WardrobeRevisionTest {
         assertTrue(runCatching { WardrobeRevision.apply(original,listOf(WardrobeRevision.Choice("SUPPORT_00000082_MASTER","DAY01","same as before"))) }.isFailure)
         assertEquals(before,original.toString())
     }
+    @Test fun changingOneDayPreservesOtherDaysAndUnrelatedScenes() {
+        val original=story()
+        val scenes=original.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes")
+        scenes.put(JSONObject().put("scene",3).put("story_day","DAY02").put("user_review","approved").put("flow_image_revision",7).put("characters",JSONArray().put(person("A","SUPPORT_00000082_MASTER.png"))))
+        scenes.put(JSONObject().put("scene",4).put("story_day","DAY01").put("user_review","approved").put("flow_image_revision",8).put("characters",JSONArray().put(person("B","SUPPORT_00000094_MASTER.png"))))
+        val before=original.toString()
+        val updated=WardrobeRevision.apply(original,listOf(WardrobeRevision.Choice("SUPPORT_00000082_MASTER","DAY01",fresh)))
+        val result=updated.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes")
+        assertEquals(before,original.toString())
+        assertEquals(old,result.getJSONObject(2).getJSONArray("characters").getJSONObject(0).getString("outfit"))
+        assertEquals("approved",result.getJSONObject(2).getString("user_review"))
+        assertEquals(7,result.getJSONObject(2).getInt("flow_image_revision"))
+        assertEquals(old,result.getJSONObject(3).getJSONArray("characters").getJSONObject(0).getString("outfit"))
+        assertEquals(8,result.getJSONObject(3).getInt("flow_image_revision"))
+    }
+
 }
