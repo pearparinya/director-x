@@ -3255,14 +3255,23 @@ $context"""
                 return dialog to current
             }
             val selectedActors=linkedSetOf<String>()
+            val selectedProps=linkedMapOf<String,String>()
+            val proposedProps=linkedMapOf<String,String>()
+            var automaticEquipmentUnresolved=false
+            val propSummary=TextView(this).apply { text="ไม่บังคับ • ข้ามได้หากเรื่องไม่ใช้อุปกรณ์"; setPadding(dp(8),dp(8),dp(8),dp(8)); setTextColor(Color.WHITE); setBackgroundColor(Color.rgb(28,62,95)) }
+            var automaticPropsPending=false
+            var automaticPropsStart: (() -> Unit)?=null
+            var automaticCastPending=false
             val castButton=Button(this).apply { text=if(chosenChannel=="นายเปีย บ้านคลองขุด") "②.2 ตรวจและเลือกตัวละคร • นายเปียเป็นตัวหลัก" else "②.2 ตรวจและเลือกตัวละครจาก MASTER" }
             val castSummary=TextView(this).apply { text="ยังไม่ได้ยืนยันตัวละคร"; setPadding(dp(8),dp(8),dp(8),dp(8)); setTextColor(Color.WHITE); setBackgroundColor(Color.rgb(105,73,27)) }
             panel.addView(TextView(this).apply { text="② ตัวละคร • วิเคราะห์ แล้วตรวจและยืนยัน"; setTypeface(null,Typeface.BOLD); setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(28,62,95)); setTextColor(Color.WHITE) })
             val suggestedRoles=linkedMapOf<String,String>()
             var castProposalPending=false
-            panel.addView(Button(this).apply {
+            val analyzeCast=Button(this).apply {
                 text="②.1 ✨ วิเคราะห์และเสนอตัวละคร"
                 setOnClickListener {
+                    val automatic=automaticCastPending
+                    automaticCastPending=false
                     val catalog=runCatching {
                         val all=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog() else castingCatalog()
                         JSONArray().apply {
@@ -3304,14 +3313,34 @@ $context"""
                             suggestedRoles.clear()
                             val cast=proposal.getJSONArray("cast")
                             for(i in 0 until cast.length()) cast.getJSONObject(i).let { suggestedRoles[it.getString("library_id")]=it.getString("role") }
-                            castProposalPending=true
-                            castSummary.text="ระบบเสนอ ${suggestedRoles.size} ตัว • รอตรวจภาพและยืนยัน"
-                            castSummary.setBackgroundColor(Color.rgb(105,73,27))
-                            castButton.performClick()
+                            if(automatic) {
+                                selectedActors.clear(); selectedActors.addAll(suggestedRoles.keys)
+                                selectedProps.clear(); proposedProps.clear()
+                                automaticEquipmentUnresolved=ChannelFeaturePolicy.hasFantasyTools(channel)
+                                if(automaticEquipmentUnresolved) propSummary.text="กำลังวิเคราะห์อุปกรณ์ • รอผลก่อนสร้างบท"
+                                castProposalPending=false
+                                val names=(0 until catalog.length()).map { catalog.getJSONObject(it) }.filter { it.optString("id") in selectedActors }
+                                    .map { "${it.optString("display_name").ifBlank { it.optString("id") }} • ${it.optString("id")} • ${suggestedRoles[it.optString("id")].orEmpty()}" }
+                                castButton.text="②.2 AI เลือกแล้ว ${selectedActors.size} ตัว • แตะเพื่อแก้"
+                                castSummary.text="✓ AI เลือกอัตโนมัติ ${names.size} ตัว:\n"+names.joinToString("\n")
+                                castSummary.setBackgroundColor(Color.rgb(24,90,59))
+                                if(ChannelFeaturePolicy.hasFantasyTools(channel)) automaticPropsStart?.invoke()
+                                else notice("AI เลือกตัวละครแล้ว • กดสร้างบทได้ หรือตรวจและแก้รายการก่อน")
+                            } else {
+                                castProposalPending=true
+                                castSummary.text="ระบบเสนอ ${suggestedRoles.size} ตัว • รอตรวจภาพและยืนยัน"
+                                castSummary.setBackgroundColor(Color.rgb(105,73,27))
+                                castButton.performClick()
+                            }
                         }
                     }.start()
                 }
+            }
+            panel.addView(Button(this).apply {
+                text="✨ AI เลือกตัวละครและอุปกรณ์อัตโนมัติ"
+                setOnClickListener { automaticCastPending=true; analyzeCast.performClick() }
             })
+            panel.addView(analyzeCast)
             panel.addView(castButton)
             panel.addView(castSummary)
             castButton.setOnClickListener {
@@ -3349,21 +3378,20 @@ $context"""
                 }.setNegativeButton("ยกเลิก",null).showDirector()
             }
             if(!ChannelFeaturePolicy.hasFantasyTools(chosenChannel)) panel.addView(TextView(this).apply { text="③ อุปกรณ์ • ช่องนี้ยังไม่มีตัวเลือกอุปกรณ์ในขั้นตอนนี้"; setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(28,62,95)); setTextColor(Color.WHITE) })
-            val selectedProps=linkedMapOf<String,String>()
-            val proposedProps=linkedMapOf<String,String>()
-            val propSummary=TextView(this).apply { text="ไม่บังคับ • ข้ามได้หากเรื่องไม่ใช้อุปกรณ์"; setPadding(dp(8),dp(8),dp(8),dp(8)); setTextColor(Color.WHITE); setBackgroundColor(Color.rgb(28,62,95)) }
             if(ChannelFeaturePolicy.hasFantasyTools(chosenChannel)) {
                 panel.addView(TextView(this).apply { text="③ อาวุธและอุปกรณ์ • ไม่บังคับ"; setTypeface(null,Typeface.BOLD); setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(28,62,95)); setTextColor(Color.WHITE) })
                 val chooseProps=Button(this).apply { text="③.2 ตรวจและเลือกอุปกรณ์จาก MASTER" }
-                panel.addView(Button(this).apply {
+                val analyzeProps=Button(this).apply {
                     text="③.1 ✨ วิเคราะห์และเสนออุปกรณ์"
                     setOnClickListener {
+                        val automatic=automaticPropsPending
+                        automaticPropsPending=false
                         val providers=StoryProvider.eligible(this@StudioActivity).filter { it.hasKey(this@StudioActivity) }
-                        if(providers.isEmpty()) { notice("ยังไม่มี API สำหรับวิเคราะห์ • เลือกอุปกรณ์เองได้"); return@setOnClickListener }
+                        if(providers.isEmpty()) { if(automatic) propSummary.text="วิเคราะห์อุปกรณ์ไม่ได้ • เลือกเองหรือกดวิเคราะห์ใหม่"; notice("ยังไม่มี API สำหรับวิเคราะห์ • เลือกอุปกรณ์เองได้"); return@setOnClickListener }
                         val all=runCatching { castingCatalog() }.getOrElse { notice("เปิดคลังตัวละครไม่ได้"); return@setOnClickListener }
                         val actors=(0 until all.length()).map { all.getJSONObject(it) }.filter { it.optString("id") in selectedActors }
                         val available=propCatalog.mapIndexedNotNull { n,name -> val id=propId(n); if(runCatching { assets.open("prop_masters/$id.png").use { it.read()>=0 } }.getOrDefault(false)) id to name else null }
-                        if(available.isEmpty()) { notice("ไม่พบภาพ MASTER อุปกรณ์ • กรุณาตรวจคลัง"); return@setOnClickListener }
+                        if(available.isEmpty()) { if(automatic) propSummary.text="ไม่พบ MASTER อุปกรณ์ • กรุณาตรวจหรือเลือกเอง"; notice("ไม่พบภาพ MASTER อุปกรณ์ • กรุณาตรวจคลัง"); return@setOnClickListener }
                         val topic=selectedStoryTopic; val details=premise.text.toString(); val category=categories[index]
                         val actorSnapshot=selectedActors.toSet()
                         val actorText=actors.joinToString("\n") { "${it.optString("id")} = ${it.optString("display_name")}" }
@@ -3387,7 +3415,7 @@ $context"""
                                 if(stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
                                 active.set(null); loading.dismiss()
                                 if(actorSnapshot!=selectedActors.toSet() || topic!=selectedStoryTopic || details!=premise.text.toString()) { notice("ข้อมูลเปลี่ยนระหว่างวิเคราะห์ • กรุณาวิเคราะห์อีกครั้ง"); return@runOnUiThread }
-                                if(result==null) { notice("ยังเสนออุปกรณ์ไม่ได้ • เลือกจากคลังเองได้"); return@runOnUiThread }
+                                if(result==null) { if(automatic) propSummary.text="วิเคราะห์อุปกรณ์ไม่สำเร็จ • เลือกเองหรือกดวิเคราะห์ใหม่"; notice("ยังเสนออุปกรณ์ไม่ได้ • เลือกจากคลังเองได้"); return@runOnUiThread }
                                 proposedProps.clear()
                                 val assignments=result.optJSONArray("assignments") ?: JSONArray()
                                 val allowed=available.map { it.first }.toSet()
@@ -3395,13 +3423,35 @@ $context"""
                                     val id=row.optString("prop_id"); val owner=row.optString("owner_library_id")
                                     if(id in allowed && (owner.isBlank() || owner in actorSnapshot)) proposedProps[id]=owner
                                 }
-                                if(proposedProps.isEmpty()) { notice("ไม่พบอุปกรณ์ที่เหมาะสมจากข้อเสนอ • เลือกเองหรือไม่ใช้อุปกรณ์ได้"); return@runOnUiThread }
-                                propSummary.text="ระบบเสนอ ${proposedProps.size} ชิ้น • ตรวจภาพและยืนยันรายการ"
-                                chooseProps.performClick()
+                                if(proposedProps.isEmpty()) {
+                                    if(assignments.length()>0) { if(automatic) propSummary.text="จับคู่อุปกรณ์ไม่ได้ • กรุณาตรวจเอง"; notice("AI เสนออุปกรณ์ที่จับคู่ MASTER หรือผู้ใช้ไม่ได้ • กรุณาตรวจเอง"); return@runOnUiThread }
+                                    if(automatic) { selectedProps.clear(); automaticEquipmentUnresolved=false; propSummary.text="AI ไม่เสนออุปกรณ์สำหรับเรื่องนี้ • กดสร้างบทได้"; propSummary.setBackgroundColor(Color.rgb(28,62,95)) }
+                                    else notice("AI ไม่เสนออุปกรณ์ • เลือกเองหรือไม่ใช้อุปกรณ์ได้")
+                                    return@runOnUiThread
+                                }
+                                if(automatic) {
+                                    if(proposedProps.size!=assignments.length()) { notice("ข้อเสนออุปกรณ์บางรายการจับคู่ไม่ได้ • กรุณาตรวจเอง"); return@runOnUiThread }
+                                    selectedProps.clear(); selectedProps.putAll(proposedProps)
+                                    automaticEquipmentUnresolved=false
+                                    proposedProps.clear()
+                                    val names=selectedProps.map { (id,owner) ->
+                                        val n=propCatalog.indices.first { propId(it)==id }
+                                        val actor=actors.firstOrNull { it.optString("id")==owner }?.optString("display_name").orEmpty()
+                                        "${propCatalog[n]} • $id • "+actor.ifBlank { "ยังไม่ระบุผู้ใช้" }
+                                    }
+                                    propSummary.text="✓ AI เลือกอุปกรณ์ ${names.size} ชิ้น:\n"+names.joinToString("\n")
+                                    propSummary.setBackgroundColor(Color.rgb(24,90,59))
+                                    notice("AI เลือกตัวละครและอุปกรณ์แล้ว • กดสร้างบทได้ หรือตรวจและแก้รายการก่อน")
+                                } else {
+                                    propSummary.text="ระบบเสนอ ${proposedProps.size} ชิ้น • ตรวจภาพและยืนยันรายการ"
+                                    chooseProps.performClick()
+                                }
                             }
                         }.start()
                     }
-                })
+                }
+                automaticPropsStart={ automaticPropsPending=true; analyzeProps.performClick() }
+                panel.addView(analyzeProps)
                 panel.addView(chooseProps)
                 panel.addView(propSummary)
                 chooseProps.setOnClickListener {
@@ -3436,6 +3486,7 @@ $context"""
                     AlertDialog.Builder(this).setTitle("เลือก MASTER อุปกรณ์").setView(ScrollView(this).apply { addView(grid) })
                         .setPositiveButton("ยืนยันรายการ") { _,_ ->
                             selectedProps.clear(); selectedProps.putAll(draft)
+                            automaticEquipmentUnresolved=false
                             proposedProps.clear()
                             val names=selectedProps.map { (id,owner) -> val i=propCatalog.indices.first { propId(it)==id }; "${propCatalog[i]} • $id • "+(actors.firstOrNull { it.optString("id")==owner }?.optString("display_name") ?: "ยังไม่ระบุผู้ใช้") }
                             propSummary.text=if(names.isEmpty()) "ไม่ได้เลือกอุปกรณ์ • ข้ามได้" else "✓ อุปกรณ์ที่เลือก ${names.size} ชิ้น:\n"+names.joinToString("\n")
@@ -3531,7 +3582,8 @@ $context"""
             createDialog.getButton(-1).setOnClickListener {
                     runCatching {
                         if(ChannelCatalog.allCategories[index].id in setOf("pia_benefits","pia_safety","pia_products")) require(premise.text.toString().trim().isNotEmpty()) { "กรุณาระบุข้อมูลที่ตรวจสอบแล้วหรือรายละเอียดสินค้าก่อนสร้างบท" }
-                        require(selectedActors.isNotEmpty()) { "กรุณาตรวจภาพและยืนยันตัวละครก่อนสร้างบท" }
+                        require(selectedActors.isNotEmpty()) { "กรุณาเลือกตัวละครด้วย AI หรือเลือกจาก MASTER ก่อนสร้างบท" }
+                        require(!automaticEquipmentUnresolved) { "การเลือกอุปกรณ์อัตโนมัติยังไม่เสร็จหรือจับคู่ไม่ได้ • ลองใหม่หรือเลือกอุปกรณ์ด้วยตนเอง" }
                         val allCatalog=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog() else castingCatalog()
                         val catalog=CastingSelection.filter(allCatalog,selectedActors)
                         val presenterId=if(chosenChannel=="นายเปีย บ้านคลองขุด") {
@@ -3547,7 +3599,7 @@ $context"""
                             "${propCatalog[n]} ($id)"+(if(who.isBlank()) " • ไม่ระบุผู้ใช้" else " • ผู้ใช้ที่เลือก: $who ($owner)")
                         }
                         val reviewedRoles=selectedActors.mapNotNull { id -> suggestedRoles[id]?.let { "$id: $it" } }
-                        val storyPremise=listOf("สถานการณ์ตั้งต้นที่เลือก: "+selectedStoryTopic,premise.text.toString(),if(reviewedRoles.isEmpty()) "" else "บทบาทที่ผู้ใช้เลือกจากข้อเสนอ (ตรวจความสอดคล้องกับเรื่อง): "+reviewedRoles.joinToString("; "),if(reviewedProps.isEmpty()) "" else "อุปกรณ์ MASTER ที่ผู้ใช้เลือก: "+reviewedProps.joinToString("; ")+". ใช้ตามเหตุการณ์ ระบุฉาก ผู้ถือ และความต่อเนื่อง ห้ามเดาผู้ใช้ที่ยังไม่ระบุ").filter { it.isNotBlank() }.joinToString("\n")
+                        val storyPremise=listOf("สถานการณ์ตั้งต้นที่เลือก: "+selectedStoryTopic,premise.text.toString(),if(reviewedRoles.isEmpty()) "" else "บทบาทที่เลือกจากข้อเสนอ (ตรวจความสอดคล้องกับเรื่อง): "+reviewedRoles.joinToString("; "),if(reviewedProps.isEmpty()) "" else "อุปกรณ์ MASTER ที่เลือก: "+reviewedProps.joinToString("; ")+". ใช้ตามเหตุการณ์ ระบุฉาก ผู้ถือ และความต่อเนื่อง ห้ามเดาผู้ใช้ที่ยังไม่ระบุ").filter { it.isNotBlank() }.joinToString("\n")
                         if(presenterId.isNotBlank() && presenterOutfit.selectedItemPosition>0) require(presenterOutfitFile(presenterId,presenterOutfit.selectedItemPosition).isFile) { "กรุณาเพิ่มรูปของชุดที่เลือก หรือเลือกชุดตามเนื้อเรื่อง" }
                         require(catalog.length()>0) { "คลัง MASTER ว่าง กรุณาเพิ่มตัวละครก่อน" }
                         if(ChannelCatalog.allCategories[index].id=="younger_man_older_woman") {
