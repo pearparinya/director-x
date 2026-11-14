@@ -22,7 +22,7 @@ internal object SimpleProductionCommands {
         for(i in 0 until rows.length()) FlowReferencePrompt.people(rows.getJSONObject(i)).forEach { all.putIfAbsent(it.getString("name"),it) }
         return all.values.toList()
     }
-    private const val identity="REFERENCE ROLE MAPPING: filenames or upload order alone may not reliably identify an image. If unclear, ask. Every character has equal identity priority: preserve their own MASTER face, eyes, nose, jaw, skin tone and hairstyle, with no face swapping or blending. Use each character’s specified wardrobe source."
+    private const val identity="REFERENCE ROLE MAPPING: Ignore filenames. Match the first character reference images to the listed characters in attachment order. Generate directly. Every character has equal identity priority: preserve their own MASTER face, eyes, nose, jaw, skin tone and hairstyle, with no face swapping or blending. Use each character’s specified wardrobe source."
     /** The MASTER remains authoritative: stored descriptions are only hints, not verified facts. */
     internal fun referenceBindings(people: List<JSONObject>): String {
         if (people.isEmpty()) return "REFERENCE BINDING: No visible characters."
@@ -33,16 +33,16 @@ internal object SimpleProductionCommands {
         }.joinToString("\n")
         return """REFERENCE BINDING — match each named person to their own original attached MASTER:
 $rows
-Use the clear front view for face and hair. If the image-to-name mapping is unclear, ask. A front-view crop can supplement the original MASTER. Scene Outfit overrides MASTER clothing."""
+Use the clear front view for face and hair. Use the specified attachment order. A front-view crop can supplement the original MASTER. Scene Outfit overrides MASTER clothing."""
     }
     private const val wardrobeContinuity="WARDROBE CONTINUITY: Use each approved Scene Outfit, not MASTER clothing. Same day: identical outfit, including neckline, collar, sleeves, closures, shoes and accessories. Shoes: none means barefoot. Follow the specified wardrobe without asking for confirmation. A new story day can use the outfit planned for that day. The three views in each MASTER represent ONE person; their own MASTER controls face, hair and body. Never mix characters. Review results."
     const val faceOnlyMarker = "FACE-ONLY MASTER REFERENCE"
     /** Apply only to explicit user-selected face references; keep the original scene and wardrobe. */
     fun faceOnly(command: String): String {
-        val instruction="""$faceOnlyMarker — For each human character, use only that person's own attached MASTER as the reference for facial identity and natural skin tone. The three views show one person; use the large clear front view for facial details. Preserve recognizable face shape, eyes, eyebrows, nose, lips and jaw. Do not invent a different face or blend identities. Preserve each character’s hairstyle and recognizable physical features from their own MASTER. The scene controls clothing, pose and setting; do not copy MASTER clothing. For a nonhuman, preserve the MASTER's species, distinctive face, markings and anatomy. If the reference is missing or ambiguous, ask. Compare the generated result with the MASTER; similarity is a target, not a guarantee."""
+        val instruction="""$faceOnlyMarker — For each human character, use only that person's own attached MASTER as the reference for facial identity and natural skin tone. The three views show one person; use the large clear front view for facial details. Preserve recognizable face shape, eyes, eyebrows, nose, lips and jaw. Do not invent a different face or blend identities. Preserve each character’s hairstyle and recognizable physical features from their own MASTER. The scene controls clothing, pose and setting; do not copy MASTER clothing. For a nonhuman, preserve the MASTER's species, distinctive face, markings and anatomy. Follow the supplied image order and generate directly. Compare the generated result with the MASTER; similarity is a target, not a guarantee."""
         return command.replace(identity,instruction)
             .replace(BodyReferencePolicy.imageIdentityLock,"")
-            .replace("Use the clear front view for face and hair. If the image-to-name mapping is unclear, ask. A front-view crop can supplement the original MASTER. Scene Outfit overrides MASTER clothing.","Use the clear front view for facial identity. If the image-to-name mapping is unclear, ask. A front-view crop from the same MASTER may supplement it. Scene Outfit overrides MASTER clothing.")
+            .replace("Use the clear front view for face and hair. Use the specified attachment order. A front-view crop can supplement the original MASTER. Scene Outfit overrides MASTER clothing.","Use the clear front view for facial identity. Use the specified attachment order. A front-view crop from the same MASTER may supplement it. Scene Outfit overrides MASTER clothing.")
             .replace("their own MASTER controls face, hair and body", "their own MASTER controls facial identity, hairstyle and recognizable features; nonhuman species and anatomy remain consistent")
     }
     /** Explicit per-character opt-in takes precedence over generic scene wardrobe rules. */
@@ -53,7 +53,7 @@ Use the clear front view for face and hair. If the image-to-name mapping is uncl
 
 HIGHEST PRIORITY — ORIGINAL MASTER APPEARANCE FOR THE CHARACTERS LISTED BELOW:
 $bindings
-For each listed character, use only their own attached MASTER for their identity, visible body, hairstyle, outfit, armor, headwear and accessories. Reproduce the distinctive colors, silhouette and details shown in that MASTER. If a helmet or mask covers the face, keep it closed: do not remove it, invent a visible face, or substitute an unhelmeted person. A covered face does not need a readable expression. Each three-view image shows ONE character, not multiple people. Never exchange identities or clothing between characters. This per-character instruction overrides generic face-only, scene outfit, wardrobe and expression instructions for the listed characters only. Follow the scene for action and pose without changing those appearances. If the attachment or identity mapping is unclear, ask before generating. Visually compare each character to their own reference; similarity cannot be guaranteed."""
+For each listed character, use only their own attached MASTER for their identity, visible body, hairstyle, outfit, armor, headwear and accessories. Reproduce the distinctive colors, silhouette and details shown in that MASTER. If a helmet or mask covers the face, keep it closed: do not remove it, invent a visible face, or substitute an unhelmeted person. A covered face does not need a readable expression. Each three-view image shows ONE character, not multiple people. Never exchange identities or clothing between characters. This per-character instruction overrides generic face-only, scene outfit, wardrobe and expression instructions for the listed characters only. Follow the scene for action and pose without changing those appearances. Follow the supplied image order and generate directly. Visually compare each character to their own reference; similarity cannot be guaranteed."""
     }
     /** Resolve each character to one wardrobe source without changing the stored story. */
     fun withWardrobeSources(command: String, people: List<JSONObject>, masterIds: Set<String>): String {
@@ -79,7 +79,7 @@ For each listed character, use only their own attached MASTER for their identity
     }
     private fun cast(people: List<JSONObject>,poster: Boolean=false)=people.mapIndexed { i,p ->
         val position=if(!poster) p.optString("screen_position") else when(people.size) { 1 -> "center"; 2 -> if(i==0) "left" else "right"; 3 -> listOf("left","center","right")[i]; else -> "distinct ensemble position ${i+1}" }
-        val alias=when(FlowCast.id(p)) { "gawin" -> "Kawin / Gawin"; "rinlada" -> "Rinrada / Rinlada"; "mind" -> "May / Mind"; else -> p.getString("name") }
+        val alias=p.getString("name")
         "${p.getString("name")} ($alias) | MASTER ID: ${referenceId(p.getString("master"))} | position: $position\nOutfit: ${p.getString("outfit")}"
     }.joinToString("\n")
     private fun acting(scene: JSONObject)=FlowReferencePrompt.people(scene).mapNotNull { person ->
@@ -116,7 +116,7 @@ CHARACTERS AND OUTFITS:
 ${cast(selected,true)}
 $wardrobeContinuity
 ${WardrobeContext.image}
-Compose with every named face large enough, unobscured and clearly recognizable; keep all named faces in comparable focus even when depth differs. Preserve identity for each character equally. Show exactly ${selected.size} ${if(selected.size==1 && selected.first().optString("character_type").let { it.isBlank() || it=="human" }) "person" else "named characters"} from the listed references, each with their own MASTER; do not replace, merge, duplicate or invent named characters. Preserve nonhuman species, anatomy and markings. Include anonymous background crowds only when the story context explicitly describes them; do not invent unrelated groups or events.
+Compose with every named face large enough, unobscured and clearly recognizable; keep all named faces in comparable focus even when depth differs. Preserve identity for each character equally. Show exactly ${selected.size} ${if(selected.size==1 && selected.first().optString("character_type").let { it.isBlank() || it=="human" }) "person" else "named characters"} from the listed references, each with their own MASTER; do not replace, merge, duplicate or invent named characters. Preserve nonhuman species, anatomy and markings. Never show extra people beyond the named cast, including crowds; other participants remain unseen off-camera.
 STORY CONTEXT FOR COMPOSITION ONLY — do not print this as visible text: $posterContext
 ${if(candidates.size>selected.size) "Only the ${selected.size} selected reference characters are included; review the cast before use." else ""}
 Bright neutral-white editorial light; realistic materials. Keep any reference helmet or mask closed when instructed. Leave the text area clear.
@@ -146,7 +146,7 @@ Story day: ${scene.getString("story_day")} — exact wardrobe remains locked acr
 Location: ${scene.getString("location")}
 Start frame: ${scene.getString("start_state")}
 ${scene.optString("props").trim().takeIf { it.isNotBlank() }?.let { "Objects and holders specified in the story: $it. Include only those intended to be visible at the start; do not invent missing details." }.orEmpty()}
-If start-frame names conflict with visible cast, stop and ask; never invent or replace people.
+Use only the listed visible cast. Other participants stay unseen off-camera; never invent extra people.
 Action planned next (not a montage): ${scene.optString("flow_action").ifBlank { scene.getString("action") }}
 Framing: ${scene.optString("framing").ifBlank { "Show all listed people, relevant hands and props with natural perspective." }}
 Lighting: $light
@@ -191,6 +191,15 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
             Task(id,"EP.$number | ซีน %03d | วิดีโอ 9:16 | 8 วินาที".format(n),"9:16",command)
         }
     }
+    /** Render image references by attachment position; stored IDs are not sent as matching rules. */
+    fun orderedReferenceCommand(command: String, references: List<String>): String {
+        var result=command
+        references.mapIndexed { i,id -> referenceId(id) to "attached image ${i+1}" }
+            .sortedByDescending { it.first.length }.forEach { (id, position) ->
+                if(id.isNotBlank()) result=result.replace(id,position,true)
+            }
+        return result.replace("MASTER ID: attached image", "reference image")
+    }
     fun groupScenes(tasks: List<Task>): List<List<Task>> = tasks.filter { it.id.contains("_SC") }.chunked(5)
     fun flowGroupPath(ep: Int, index: Int) = "Flow_EP%02d/EP%02d_FLOW_%02d.txt".format(ep,ep,index+1)
     fun flowGroupDocument(tasks: List<Task>): String = "คำสั่ง Flow ชุดนี้: แนบภาพรหัสเดียวกับซีนเป็น Start frame แล้วคัดลอกคำสั่งทีละซีน\n" + tasks.mapIndexed { i,task -> block(task,i,false) }.joinToString("\n\n")
@@ -198,7 +207,7 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
     fun document(story: JSONObject,number: Int,images: Boolean,coverSelection: Map<String,Set<String>> = emptyMap(), wardrobeMasterIds: Map<String,Set<String>> = emptyMap()): String {
         val tasks=if(images) imageTasks(story,number,coverSelection).map { task ->
             val selected=task.references.map { referenceId(it.optString("master")) }.filter { it in wardrobeMasterIds[task.id].orEmpty() }.toSet()
-            if(selected.isEmpty()) task else task.copy(command=withWardrobeSources(task.command,task.references,selected))
+            task.copy(command=orderedReferenceCommand(if(selected.isEmpty()) task.command else withWardrobeSources(task.command,task.references,selected),task.references.map { it.optString("master") }))
         } else videoTasks(story,number)
         val coverCount=tasks.count { it.id.contains("_COVER_") }
         return buildString {
