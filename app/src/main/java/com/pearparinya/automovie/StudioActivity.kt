@@ -2149,12 +2149,11 @@ $context"""
         if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
         val eps=story.getJSONArray("episodes")
         val channel=ChannelCatalog.currentChannel(story.optString("channel"))
-        val fantasy=ChannelFeaturePolicy.hasFantasyTools(channel)
         val options=(0 until eps.length()).map { "🎬 EP.${eps.getJSONObject(it).getInt("ep")} • ${eps.getJSONObject(it).optString("title")}" }+
-            if(fantasy) listOf("⚔ อุปกรณ์แฟนตาซี • ผูกหรือให้ AI เสนอ") else emptyList()
+            listOf("⚔ อุปกรณ์ MASTER • ผูกหรือให้ AI เสนอ")
         choiceMenu("ขั้นตอน 3 • เลือก EP\nช่อง: ${channel.ifBlank { "ช่องไม่ระบุ" }}\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}",options) { index ->
             if(index<eps.length()) confirmEpisode(story,eps.getJSONObject(index).getInt("ep"))
-            else if(fantasy) {
+            else {
                 val people=rows(story).flatMap { FlowReferencePrompt.people(it) }.distinctBy { referenceId(it.optString("master")).lowercase() }.filter { it.optString("master").isNotBlank() }
                 val linked=people.count { characterProp(it.optString("master")).isNotBlank() }
                 val saved=if(File(project,"prop_assignments.json").isFile) "มีไฟล์ข้อเสนอที่บันทึก" else "ยังไม่มีไฟล์ข้อเสนอ"
@@ -2557,7 +2556,7 @@ $context"""
             val flowSpec=sceneForFlow?.let { scene ->
                 val original=ProductionCommandCheck.spec(scene)
                 val prefKey="prop_master_${project.name}_${task.id}"
-                val assigned=if(ChannelFeaturePolicy.hasFantasyTools(story.optString("channel"))) ScenePropBinding.valid(scene,runCatching { JSONObject(File(project,"prop_assignments.json").readText()).optJSONArray(task.id) }.getOrNull()) else null
+                val assigned=ScenePropBinding.valid(scene,runCatching { JSONObject(File(project,"prop_assignments.json").readText()).optJSONArray(task.id) }.getOrNull())
                 val manual=if(prefs.contains(prefKey)) prefs.getStringSet(prefKey,emptySet()).orEmpty() else null
                 val notes=(0 until (assigned?.length() ?: 0)).mapNotNull { assigned?.optJSONObject(it) }.filter { manual==null || it.optString("prop_id") in manual }.map { row ->
                     "${row.optString("prop_id")} with ${row.optString("holder").ifBlank { "holder unspecified" }}; initial state ${row.optString("start_prop_state").ifBlank { "unspecified; follow first frame" }}"
