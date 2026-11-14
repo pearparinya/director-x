@@ -195,8 +195,11 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
     fun flowGroupPath(ep: Int, index: Int) = "Flow_EP%02d/EP%02d_FLOW_%02d.txt".format(ep,ep,index+1)
     fun flowGroupDocument(tasks: List<Task>): String = "คำสั่ง Flow ชุดนี้: แนบภาพรหัสเดียวกับซีนเป็น Start frame แล้วคัดลอกคำสั่งทีละซีน\n" + tasks.mapIndexed { i,task -> block(task,i,false) }.joinToString("\n\n")
     fun block(task: Task,index: Int,images: Boolean)="[${if(images) "รูปที่ %02d".format(index+1) else "วิดีโอ"} | ${task.title}]\nรหัส: ${task.id}\n${if(images) "ชื่อไฟล์ภาพ" else "ชื่อไฟล์วิดีโอ"}: ${task.id}.${if(images) "png" else "mp4"}\n${if(images) "" else "ภาพซีนที่ต้องแนบเป็นเฟรมแรก: ${task.id} (ใช้ไฟล์ภาพซีนรหัสนี้ เช่น ${task.id}.png)\n"}${task.command}"
-    fun document(story: JSONObject,number: Int,images: Boolean,coverSelection: Map<String,Set<String>> = emptyMap()): String {
-        val tasks=if(images) imageTasks(story,number,coverSelection) else videoTasks(story,number)
+    fun document(story: JSONObject,number: Int,images: Boolean,coverSelection: Map<String,Set<String>> = emptyMap(), wardrobeMasterIds: Set<String> = emptySet()): String {
+        val tasks=if(images) imageTasks(story,number,coverSelection).map { task ->
+            val selected=task.references.map { referenceId(it.optString("master")) }.filter { it in wardrobeMasterIds }.toSet()
+            if(selected.isEmpty()) task else task.copy(command=withWardrobeSources(task.command,task.references,selected))
+        } else videoTasks(story,number)
         val coverCount=tasks.count { it.id.contains("_COVER_") }
         return buildString {
             append("${if(images) "คำสั่งสร้างรูป ChatGPT / Gemini" else "คำสั่งวิดีโอ Flow"} | EP.$number | ${story.getString("title")}\n")
@@ -208,9 +211,9 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
             tasks.forEachIndexed { i,t -> append("\n\n${block(t,i,images)}") }
         }
     }
-    fun images(story: JSONObject,number: Int=firstEpisode(story),coverSelection: Map<String,Set<String>> = emptyMap())=document(story,number,true,coverSelection)
+    fun images(story: JSONObject,number: Int=firstEpisode(story),coverSelection: Map<String,Set<String>> = emptyMap(),wardrobeMasterIds: Set<String> = emptySet())=document(story,number,true,coverSelection,wardrobeMasterIds)
     fun videos(story: JSONObject,number: Int=firstEpisode(story))=document(story,number,false)
-    fun write(output: OutputStream,story: JSONObject,coverSelection: Map<String,Set<String>> = emptyMap()) {
+    fun write(output: OutputStream,story: JSONObject,coverSelection: Map<String,Set<String>> = emptyMap(),wardrobeMasterIds: Set<String> = emptySet()) {
         val problems=ProductionCommandCheck.issues(story)
         require(problems.isEmpty()) { problems.take(20).joinToString("\n") }
         val eps=story.getJSONArray("episodes")
@@ -218,7 +221,7 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
         val docs=(0 until eps.length()).flatMap { i ->
             val n=eps.getJSONObject(i).getInt("ep")
             val groups=groupScenes(videoTasks(story,n))
-            listOf(imageName(n) to images(story,n,coverSelection),flowName(n) to videos(story,n)) +
+            listOf(imageName(n) to images(story,n,coverSelection,wardrobeMasterIds),flowName(n) to videos(story,n)) +
                 groups.mapIndexed { index,group -> flowGroupPath(n,index) to flowGroupDocument(group) }
         }
         ZipOutputStream(output).use { zip -> docs.forEach { (name,text) -> zip.putNextEntry(ZipEntry(name)); zip.write(text.toByteArray(Charsets.UTF_8)); zip.closeEntry() } }
