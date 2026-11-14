@@ -18,7 +18,7 @@ internal object DisplayText {
         val date=Date(time)
         val day=SimpleDateFormat("d MMM",locale).apply { timeZone=zone }.format(date)
         val clock=SimpleDateFormat("HH.mm",Locale.ROOT).apply { timeZone=zone }.format(date)
-        val year=GregorianCalendar(zone,Locale.ROOT).apply { this.time=time }.get(java.util.Calendar.YEAR)+543
+        val year=GregorianCalendar(zone,Locale.ROOT).apply { this.time=date }.get(java.util.Calendar.YEAR)+543
         return "$day $year เวลา $clock น."
     }
 }
