@@ -176,7 +176,7 @@ class AutoDirectorContentTest {
         val cover=images.substringAfter("รหัส: STORY_COVER_9x16").substringBefore("รหัส: STORY_COVER_16x9")
         val screen=SimpleProductionCommands.imageTasks(project,1,selection).first { it.id=="STORY_COVER_9x16" }
         selected.forEach { assertFalse(cover.contains(it)); assertTrue(screen.command.contains(it)) }
-        assertTrue(cover.contains("attached image 1"))
+        assertTrue(cover.contains("reference image 1"))
         assertFalse(cover.contains(referenceId(people[2].getString("master"))))
         assertEquals(before,project.toString())
     }
