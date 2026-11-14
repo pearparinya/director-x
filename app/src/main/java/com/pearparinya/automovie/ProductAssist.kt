@@ -4,6 +4,11 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.text.Html
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.widget.ArrayAdapter
+import android.widget.Spinner
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -31,6 +36,18 @@ internal object ProductAssist {
         label("Shopee: ลิงก์ Affiliate ใหม่มักขึ้นต้น s.shopee.co.th ส่วน shope.ee และ th.shp.ee อาจเป็นลิงก์ทั่วไป โปรดสร้างและตรวจในโปรแกรม Affiliate")
         label("ข้อมูลที่บันทึกไว้อาจเป็นสินค้าเดิม โปรดตรวจและแก้ให้ตรงก่อนยืนยัน")
         val query = field("ค้นหาสินค้า", topic)
+        label("เลือกแพลตฟอร์มสำหรับค้นหาด้วย AI")
+        val platform = Spinner(activity).apply {
+            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, listOf("TikTok Shop", "Shopee", "Lazada"))
+            panel.addView(this)
+        }
+        val searchButton = Button(activity).apply {
+            text = "✦ ให้ AI ค้นหาสินค้า 5 รายการ"
+            setTextColor(Color.WHITE); textSize = 16f; setTypeface(null, Typeface.BOLD)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(0, 106, 155))
+            panel.addView(this)
+        }
+        label("ค้นด้วย OpenRouter • อาจมีค่าใช้จ่าย • ผลลัพธ์ขึ้นอยู่กับข้อมูลสาธารณะ")
         listOf("TikTok Shop" to "https://www.tiktok.com/search?q=", "Shopee" to "https://shopee.co.th/search?keyword=", "Lazada" to "https://www.lazada.co.th/catalog/?q=").forEach { (name, url) ->
             panel.addView(Button(activity).apply { text = "ค้นหาใน $name"; setOnClickListener {
                 val encoded = URLEncoder.encode(query.text.toString().trim(), "UTF-8")
@@ -48,6 +65,52 @@ internal object ProductAssist {
         val facts = field("คุณสมบัติ วิธีใช้ และข้อสังเกตที่ตรวจแล้ว", prefs.getString("facts", "").orEmpty())
         val rating = field("คะแนนและจำนวนรีวิว (ถ้ามี พร้อมแหล่งที่มา)", prefs.getString("rating", "").orEmpty())
         val experience = field("ประสบการณ์ใช้จริงของคุณ (ถ้ามี)", prefs.getString("experience", "").orEmpty())
+        searchButton.setOnClickListener {
+            val searchText = query.text.toString().trim(); val selectedPlatform = platform.selectedItemPosition
+            if (searchText.isBlank()) {
+                AlertDialog.Builder(activity).setMessage("กรุณาระบุคำค้นสินค้า").setPositiveButton("ตกลง", null).show()
+                return@setOnClickListener
+            }
+            searchButton.isEnabled = false
+            val progress = AlertDialog.Builder(activity).setTitle("กำลังค้นหาสินค้า")
+                .setMessage("ค้นข้อมูลสาธารณะด้วย OpenRouter • อาจใช้เวลาสักครู่")
+                .setNegativeButton("ปิดหน้าต่าง") { _, _ -> }.show()
+            Thread {
+                val result = runCatching { ProductSearch.search(activity.applicationContext, searchText, selectedPlatform) }
+                activity.runOnUiThread {
+                    searchButton.isEnabled = true
+                    if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
+                    progress.dismiss()
+                    result.onFailure { error ->
+                        AlertDialog.Builder(activity).setTitle("ค้นหาสินค้าไม่สำเร็จ").setMessage(error.message ?: "กรุณาลองใหม่หรือค้นจากร้านโดยตรง").setPositiveButton("ตกลง", null).show()
+                    }.onSuccess { products ->
+                        if (products.isEmpty()) {
+                            AlertDialog.Builder(activity).setTitle("ยังไม่พบสินค้าที่ตรวจแหล่งได้").setMessage("ลองเปลี่ยนคำค้น หรือค้นจากร้านโดยตรง") .setPositiveButton("ตกลง", null).show()
+                        } else {
+                            val cards = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; setPadding(20, 12, 20, 12) }
+                            cards.addView(TextView(activity).apply { text = "พบ ${products.size} รายการ • แตะเลือก 1 รายการ แล้วตรวจข้อมูลกับร้านอีกครั้ง"; setPadding(8, 8, 8, 16) })
+                            val resultsDialog = AlertDialog.Builder(activity).setTitle("✦ สินค้าที่ค้นพบ").setView(ScrollView(activity).apply { addView(cards) }).setNegativeButton("กลับไปค้นใหม่", null).create()
+                            products.forEachIndexed { index, product ->
+                                cards.addView(Button(activity).apply {
+                                    text = "${index + 1}  ${product.name}\n${product.detail.ifBlank { "ดูรายละเอียดจากร้าน" }}\nเปิดตรวจจากลิงก์ต้นทางได้หลังเลือก"
+                                    isAllCaps = false; textSize = 15f; setTextColor(Color.WHITE)
+                                    backgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(4, 67, 108))
+                                    minHeight = 105
+                                    setOnClickListener {
+                                        name.setText(product.name); facts.setText(product.detail)
+                                        rating.setText(""); experience.setText(""); links.forEach { it.setText("") }
+                                        links[selectedPlatform].setText(product.url)
+                                        resultsDialog.dismiss()
+                                        AlertDialog.Builder(activity).setTitle("เลือกสินค้าแล้ว").setMessage("ตรวจชื่อและคุณสมบัติกับร้านก่อนยืนยัน • ลิงก์ที่พบเป็นลิงก์สินค้า กรุณาเปลี่ยนเป็นลิงก์ Affiliate ของคุณหากต้องการค่าคอมมิชชัน") .setPositiveButton("ตกลง", null).show()
+                                    }
+                                }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 12 })
+                            }
+                            resultsDialog.show()
+                        }
+                    }
+                }
+            }.start()
+        }
         label("รายการสินค้าที่เลือกไว้สูงสุด 5 รายการ • ค้นหาและเลือกรายการจากร้านก่อน แล้วบันทึกไว้เปรียบเทียบได้ที่นี่")
         val candidates = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; panel.addView(this) }
         fun currentProduct(): JSONObject = JSONObject().put("name", name.text.toString().trim())
