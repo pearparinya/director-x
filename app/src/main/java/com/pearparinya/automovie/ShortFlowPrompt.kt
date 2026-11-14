@@ -111,7 +111,7 @@ internal object ShortFlowPrompt {
         }
         val cast=positions.mapIndexed { i,pos -> "${labels(s)[i]}: $pos" + clothes[i].takeIf { it.isNotBlank() }?.let { ", wearing $it" }.orEmpty() + s.cast[i].appearance.trim().takeIf { it.isNotBlank() && it.length<=160 && !thai.containsMatchIn(it) && !it.contains("MASTER",true) }?.let { ", appearance: $it" }.orEmpty() }.joinToString("; ")
         val performance=s.cast.mapIndexedNotNull { i,person ->
-            val cues=person.performance.split(';').map { it.trim() }.filter { it.isNotBlank() && !thai.containsMatchIn(it) && it.substringBefore(':').trim() in setOf("emotion", "body_language", "reaction", "voice", "emotional_arc") && !(silent && it.startsWith("voice:")) }
+            val cues=person.performance.split(';').map { it.trim() }.filter { it.isNotBlank() && !thai.containsMatchIn(it) && it.substringBefore(':').trim() in setOf("emotion", "objective", "subtext", "gaze", "body_language", "breath", "reaction", "voice", "emotional_arc") && !(silent && it.startsWith("voice:")) }
                 .joinToString("; ")
             cues.takeIf { it.isNotBlank() }?.let { "${labels(s)[i]} performance: ${typed(s,aliases(s,it))}" }
         }.joinToString(". ")
@@ -133,7 +133,8 @@ internal object ShortFlowPrompt {
                 "Turn ${order+1}: ONLY $label ($cue) speaks; animate the mouth only if visible and anatomically appropriate. " + if(others.isNotBlank()) "$others remain silent; do not invent mouths" else "No other voices"
             } else "Turn ${order+1}: Only $label speaks; visible characters stay silent; do not invent mouths"
         }.joinToString(". ")
-        val visual=listOf("Use the attached first frame as the starting point. One continuous 8-second vertical 9:16 shot",cast,action,
+        val location=typed(s,aliases(s,s.location.trim())).takeIf { it.isNotBlank() && !thai.containsMatchIn(it) }.orEmpty()
+        val visual=listOf("Use the attached first frame as the starting point. One continuous 8-second vertical 9:16 shot",cast,location.takeIf { it.isNotBlank() }?.let { "Environment: $it" }.orEmpty(),action,
             "Preserve each character's identity, face or species-specific features, hair or fur, body proportions, position, clothing and props from the first frame. Keep the location and lighting consistent throughout",ScenePropContinuity.video,performance,direction,
             motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}",instructions)
             .filter { it.isNotBlank() }.joinToString(". ")

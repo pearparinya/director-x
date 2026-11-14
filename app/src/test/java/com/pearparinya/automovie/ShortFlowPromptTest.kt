@@ -60,6 +60,17 @@ class ShortFlowPromptTest {
         assertTrue(output.contains("<language>th-TH</language>"))
         assertTrue(output.contains("Animal 1, Demon 1 remain silent"))
     }
+    @Test fun includesSceneLocationAndRecordedActingInXml() {
+        val base=scene()
+        val spec=base.copy(cast=base.cast.mapIndexed { i, p -> if(i==0) p.copy(performance="emotion: anxious; objective: reassure; gaze: listener; body_language: still; reaction: relieved") else p })
+        val xml=ShortFlowPrompt.build(spec,"Locked camera")
+        val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(InputSource(StringReader(xml)))
+        val direction=doc.getElementsByTagName("prompt").item(0).textContent
+        assertTrue(direction.contains("Environment: street"))
+        assertTrue(direction.contains("objective: reassure"))
+        assertTrue(direction.contains("gaze: listener"))
+        assertEquals("หยุดก่อน, ฟังฉัน",doc.getElementsByTagName("text").item(0).textContent)
+    }
     @Test fun rejectsUntranslatedActionInsteadOfSilentlyDroppingIt() {
         assertTrue(runCatching { ShortFlowPrompt.build(scene().copy(action="สมชาย เดินไปหา มานี"),"Slow pan") }.isFailure)
     }
