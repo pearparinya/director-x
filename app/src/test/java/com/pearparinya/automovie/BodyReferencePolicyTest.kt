@@ -21,8 +21,8 @@ class BodyReferencePolicyTest {
     @Test fun documentDirectionOnlyAppliesToRelevantScenes() {
         val prompt = ReadingPropPolicy.forScene("เธออ่านเอกสาร", "")
         assertTrue(prompt.contains("written side faces the reader"))
-        assertTrue(prompt.contains("blank reverse to camera"))
-        assertTrue(prompt.contains("no readable or mirrored text"))
+        assertTrue(prompt.contains("if presenting, the written side faces the intended audience"))
+        assertTrue(ReadingPropPolicy.forScene("ตรวจแบบแปลน").contains("written side faces the reader"))
         assertEquals("", ReadingPropPolicy.forScene("เดินเข้าห้อง", "she smiles"))
     }
     @Test fun changingSceneMasterOrClothesInvalidatesHumanReview() {
