@@ -24,7 +24,7 @@ class ChatSharePayloadTest {
         val request=intent.getStringExtra(Intent.EXTRA_TEXT)!!
         assertTrue(request.contains("สร้างและแสดงภาพจริง 1 ภาพ"))
         assertFalse(request.contains("READ_FIRST_IMAGE_COMMAND.txt"))
-        assertTrue(request.contains("MASTER"))
+        assertTrue(request.contains("ตามลำดับ"))
         assertEquals(request,intent.clipData!!.getItemAt(0).text.toString())
         assertTrue(geminiImageMessage("รายละเอียดภาพทดสอบ").contains("รายละเอียดภาพทดสอบ"))
         assertEquals("SUPPORT_0000006E_MASTER",referenceId("SUPPORT_0000006E_MASTER.JPG"))

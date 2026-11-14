@@ -69,7 +69,7 @@ class AutoDirectorContentTest {
         val command = tasks.first { it.id == "EP01_SC001" }.command
         assertTrue(command.contains(first.getString("name") + " | MASTER ID: " + referenceId(first.getString("master")) + " | Identity only."))
         assertTrue(command.contains(second.getString("name") + " | MASTER ID: " + referenceId(second.getString("master")) + " | Identity only."))
-        assertTrue(command.contains("If the image-to-name mapping is unclear, ask"))
+        assertTrue(command.contains("Use the specified attachment order"))
         assertTrue(command.contains("Scene Outfit overrides MASTER clothing."))
         assertFalse(tasks.first { it.id == "STORY_COVER_9x16" }.command.contains("unique braid cue"))
         second.remove("visual_description")
@@ -108,7 +108,7 @@ class AutoDirectorContentTest {
             assertTrue(task.command.contains("เรื่องทดสอบ & ความลับ"))
             assertTrue(task.command.contains("ข้อความทดสอบ"))
             assertTrue(task.command.contains("REFERENCE ROLE MAPPING"))
-            assertTrue(task.command.contains("filenames or upload order alone may not reliably identify"))
+            assertTrue(task.command.contains("Ignore filenames"))
             assertTrue(task.command.contains("WARDROBE CONTINUITY"))
             assertTrue(task.command.contains("Show exactly"))
         }
@@ -175,7 +175,8 @@ class AutoDirectorContentTest {
         }
         val cover=images.substringAfter("รหัส: STORY_COVER_9x16").substringBefore("รหัส: STORY_COVER_16x9")
         val screen=SimpleProductionCommands.imageTasks(project,1,selection).first { it.id=="STORY_COVER_9x16" }
-        selected.forEach { assertTrue(cover.contains(it)); assertTrue(screen.command.contains(it)) }
+        selected.forEach { assertFalse(cover.contains(it)); assertTrue(screen.command.contains(it)) }
+        assertTrue(cover.contains("reference image 1"))
         assertFalse(cover.contains(referenceId(people[2].getString("master"))))
         assertEquals(before,project.toString())
     }
