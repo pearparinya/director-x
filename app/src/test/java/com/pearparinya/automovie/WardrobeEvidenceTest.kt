@@ -14,4 +14,10 @@ class WardrobeEvidenceTest {
         assertFalse(WardrobeEvidence.isAllNone("Top: none; Bottom: none; Shoes: none; Accessories: amulet"))
         assertFalse(WardrobeEvidence.isAllNone("unparseable"))
     }
+    @Test fun masterOnlyWhenOutfitExplicitlyRequestsIt() {
+        assertTrue(WardrobeEvidence.useMasterOutfit("use MASTER outfit"))
+        assertTrue(WardrobeEvidence.useMasterOutfit("ใช้ชุด MASTER"))
+        assertFalse(WardrobeEvidence.useMasterOutfit("Top: silver dress; Bottom: none"))
+        assertFalse(WardrobeEvidence.useMasterOutfit("do not use MASTER outfit"))
+    }
 }
