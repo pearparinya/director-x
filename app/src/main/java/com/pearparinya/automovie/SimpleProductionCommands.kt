@@ -22,7 +22,7 @@ internal object SimpleProductionCommands {
         for(i in 0 until rows.length()) FlowReferencePrompt.people(rows.getJSONObject(i)).forEach { all.putIfAbsent(it.getString("name"),it) }
         return all.values.toList()
     }
-    private const val identity="REFERENCE ROLE MAPPING: filenames or upload order alone may not reliably identify an image. If unclear, ask. Preserve each person's face and exact hairstyle from their own MASTER; use the planned outfit."
+    private const val identity="REFERENCE ROLE MAPPING: filenames or upload order alone may not reliably identify an image. If unclear, ask. Every character has equal identity priority: preserve their own MASTER face, eyes, nose, jaw, skin tone and hairstyle, with no face swapping or blending. Use each character’s specified wardrobe source."
     /** The MASTER remains authoritative: stored descriptions are only hints, not verified facts. */
     internal fun referenceBindings(people: List<JSONObject>): String {
         if (people.isEmpty()) return "REFERENCE BINDING: No visible characters."
@@ -116,7 +116,7 @@ CHARACTERS AND OUTFITS:
 ${cast(selected,true)}
 $wardrobeContinuity
 ${WardrobeContext.image}
-Show exactly ${selected.size} ${if(selected.size==1 && selected.first().optString("character_type").let { it.isBlank() || it=="human" }) "person" else "named characters"} from the listed references, each with their own MASTER; do not replace, merge, duplicate or invent named characters. Preserve nonhuman species, anatomy and markings. Include anonymous background crowds only when the story context explicitly describes them; do not invent unrelated groups or events.
+Compose with every named face large enough, unobscured and clearly recognizable; keep all named faces in comparable focus even when depth differs. Preserve identity for each character equally. Show exactly ${selected.size} ${if(selected.size==1 && selected.first().optString("character_type").let { it.isBlank() || it=="human" }) "person" else "named characters"} from the listed references, each with their own MASTER; do not replace, merge, duplicate or invent named characters. Preserve nonhuman species, anatomy and markings. Include anonymous background crowds only when the story context explicitly describes them; do not invent unrelated groups or events.
 STORY CONTEXT FOR COMPOSITION ONLY — do not print this as visible text: $posterContext
 ${if(candidates.size>selected.size) "Only the ${selected.size} selected reference characters are included; review the cast before use." else ""}
 Bright neutral-white editorial light; realistic materials. Keep any reference helmet or mask closed when instructed. Leave the text area clear.

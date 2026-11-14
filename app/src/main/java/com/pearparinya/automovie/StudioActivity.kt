@@ -1468,7 +1468,7 @@ class StudioActivity : AppCompatActivity() {
         val masterDigests=runCatching { references.take(task.references.size).associate { (id,file) -> id to MasterLibrary.digest(file.readBytes()) } }
             .getOrElse { notice("อ่าน MASTER ไม่ได้ กรุณาตรวจไฟล์ก่อนส่ง"); return }
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
-        panel.addView(TextView(this).apply { text="ตรวจภาพ MASTER ชื่อและตำแหน่งก่อนส่ง • แตะภาพเพื่อขยาย\nหลังเปิดแอปปลายทาง ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง" })
+        panel.addView(TextView(this).apply { text="ตรวจชื่อ MASTER ของทุกตัวละครและชุดที่เลือก • แตะภาพเพื่อขยาย\nหลังเปิดแอปปลายทาง ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง" })
         if(task.id.contains("_COVER_") && task.references.size==1) panel.addView(TextView(this).apply {
             text="⚠️ ปกนี้มีตัวละครพร้อมใช้เพียง 1 ตัว • ตรวจบทและรายการ MASTER ก่อนเลือกแอปสร้างภาพ"
             setTypeface(null,Typeface.BOLD)
@@ -1482,6 +1482,7 @@ class StudioActivity : AppCompatActivity() {
         val crops=linkedMapOf<String,Pair<String,File>>()
         val cropDigests=linkedMapOf<String,String>()
         val cropLabels=linkedMapOf<String,String>()
+        panel.addView(TextView(this).apply { text="ตรวจชื่อกับภาพ MASTER รายคน • ภาพครอปที่บันทึกไว้จะแนบอัตโนมัติพร้อม MASTER เดิม หากยังไม่มี ให้เลือกกรอบหน้าตรง" })
         val cropStore=FaceReferenceStore(File(filesDir,"master_face_references"))
         task.references.forEachIndexed { index, person ->
             val (id,file)=references[index]
@@ -1522,7 +1523,6 @@ class StudioActivity : AppCompatActivity() {
                                 val pending=File(target.parentFile,target.name+".pending")
                                 try { cropView.save(pending); check(pending.renameTo(target)) { "บันทึกภาพครอปไม่ได้" } } finally { pending.delete() }
                                 showCrop(target)
-                                faceOnly.isChecked=true
                                 dialog.dismiss()
                             }.onFailure { notice(it.message ?: "บันทึกภาพครอปไม่ได้") }
                         }
@@ -1584,11 +1584,11 @@ class StudioActivity : AppCompatActivity() {
             .setPositiveButton("เลือกแอปและส่ง") { _,_ ->
                 val stable=runCatching { references.take(task.references.size).all { (id,file) -> file.isFile && MasterLibrary.digest(file.readBytes())==masterDigests[id] } }.getOrDefault(false)
                 if(!stable) { notice("ภาพ MASTER เปลี่ยนหรือหายระหว่างตรวจ กรุณาเปิดรายการและตรวจภาพอีกครั้ง"); return@setPositiveButton }
-                val selected=if(faceOnly.isChecked) crops else emptyMap()
+                val selected=crops.toMap()
                 val cropsStable=runCatching { selected.all { (id,crop) -> crop.second.isFile && MasterLibrary.digest(crop.second.readBytes())==cropDigests[id] } }.getOrDefault(false)
                 if(!cropsStable) { notice("ภาพครอปใบหน้าเปลี่ยนหรือหาย กรุณาเลือกจาก MASTER อีกครั้ง"); return@setPositiveButton }
                 val bindings=selected.entries.joinToString("\n") { (id,crop) -> "CHARACTER ${labels[id].orEmpty()} — FACE CROP ${crop.first} is cropped from MASTER ${referenceId(id)}; both show the same character. Use the crop for facial identity and the original MASTER for verification. Never use this crop for another character." }
-                val baseCommand=if(faceOnly.isChecked) SimpleProductionCommands.faceOnly(task.command)+if(bindings.isBlank()) "" else "\n\n$bindings" else task.command
+                val baseCommand=(if(faceOnly.isChecked) SimpleProductionCommands.faceOnly(task.command) else task.command)+(if(bindings.isBlank()) "" else "\n\n$bindings")
                 val locked=task.references.mapIndexedNotNull { index,person ->
                     val id=references[index].first
                     if(masterAppearance[id]?.isChecked==true) person.optString("name") to referenceId(id) else null
