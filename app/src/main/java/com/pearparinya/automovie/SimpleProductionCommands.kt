@@ -35,15 +35,15 @@ internal object SimpleProductionCommands {
 $rows
 Use the clear front view for face and hair. If the image-to-name mapping is unclear, ask. A front-view crop can supplement the original MASTER. Scene Outfit overrides MASTER clothing."""
     }
-    private const val wardrobeContinuity="WARDROBE CONTINUITY: Use each approved Scene Outfit, not MASTER clothing. Same day: identical outfit, including neckline, collar, sleeves, closures, shoes and accessories. Shoes: none means barefoot; confirm intent. Ask if details or the spirit's outfit source are unclear. A new story day can use the outfit planned for that day. The three views in each MASTER represent ONE person; their own MASTER controls face, hair and body. Never mix characters. Review results."
+    private const val wardrobeContinuity="WARDROBE CONTINUITY: Use each approved Scene Outfit, not MASTER clothing. Same day: identical outfit, including neckline, collar, sleeves, closures, shoes and accessories. Shoes: none means barefoot. Follow the specified wardrobe without asking for confirmation. A new story day can use the outfit planned for that day. The three views in each MASTER represent ONE person; their own MASTER controls face, hair and body. Never mix characters. Review results."
     const val faceOnlyMarker = "FACE-ONLY MASTER REFERENCE"
     /** Apply only to explicit user-selected face references; keep the original scene and wardrobe. */
     fun faceOnly(command: String): String {
-        val instruction="""$faceOnlyMarker — For each human character, use only that person's own attached MASTER as the reference for facial identity and natural skin tone. The three views show one person; use the large clear front view for facial details. Preserve recognizable face shape, eyes, eyebrows, nose, lips and jaw. Do not invent a different face or blend identities. The scene controls clothes, hairstyle, body, pose and setting; do not copy MASTER clothing. For a nonhuman, preserve the MASTER's species, distinctive face, markings and anatomy. If the reference is missing or ambiguous, ask. Compare the generated result with the MASTER; similarity is a target, not a guarantee."""
+        val instruction="""$faceOnlyMarker — For each human character, use only that person's own attached MASTER as the reference for facial identity and natural skin tone. The three views show one person; use the large clear front view for facial details. Preserve recognizable face shape, eyes, eyebrows, nose, lips and jaw. Do not invent a different face or blend identities. Preserve each character’s hairstyle and recognizable physical features from their own MASTER. The scene controls clothing, pose and setting; do not copy MASTER clothing. For a nonhuman, preserve the MASTER's species, distinctive face, markings and anatomy. If the reference is missing or ambiguous, ask. Compare the generated result with the MASTER; similarity is a target, not a guarantee."""
         return command.replace(identity,instruction)
             .replace(BodyReferencePolicy.imageIdentityLock,"")
             .replace("Use the clear front view for face and hair. If the image-to-name mapping is unclear, ask. A front-view crop can supplement the original MASTER. Scene Outfit overrides MASTER clothing.","Use the clear front view for facial identity. If the image-to-name mapping is unclear, ask. A front-view crop from the same MASTER may supplement it. Scene Outfit overrides MASTER clothing.")
-            .replace("their own MASTER controls face, hair and body", "their own MASTER controls facial identity for humans; nonhuman species and anatomy remain consistent")
+            .replace("their own MASTER controls face, hair and body", "their own MASTER controls facial identity, hairstyle and recognizable features; nonhuman species and anatomy remain consistent")
     }
     /** Explicit per-character opt-in takes precedence over generic scene wardrobe rules. */
     fun masterAppearanceLock(people: List<Pair<String,String>>): String {
@@ -59,7 +59,7 @@ For each listed character, use only their own attached MASTER for their identity
     fun withWardrobeSources(command: String, people: List<JSONObject>, masterIds: Set<String>): String {
         if(masterIds.isEmpty()) return command
         var output=command.replace("Scene Outfit overrides MASTER clothing.","Use the per-character wardrobe source specified below.")
-            .replace("The scene controls clothes, hairstyle, body, pose and setting; do not copy MASTER clothing.","The selected wardrobe source controls clothing; the scene controls pose and setting.")
+            .replace("Preserve each character’s hairstyle and recognizable physical features from their own MASTER. The scene controls clothing, pose and setting; do not copy MASTER clothing.","Preserve each character’s hairstyle and recognizable physical features from their own MASTER. The selected wardrobe source controls clothing; the scene controls pose and setting.")
             .replace("Use each approved Scene Outfit, not MASTER clothing.","Use the wardrobe source specified for each character below.")
             .replace(WardrobeContext.image,"CONTEXTUAL WARDROBE: Follow each character's selected wardrobe source. Flag unclear or unsuitable clothes and footwear for review; never silently change them.")
         val locked=mutableListOf<Pair<String,String>>()
