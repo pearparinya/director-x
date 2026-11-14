@@ -87,7 +87,7 @@ For each listed character, use only their own attached MASTER for their identity
             val text=listOf(ChannelCatalog.currentChannel(story.getString("channel")),story.getString("title"),if(overall) story.getString("tagline") else "ตอนที่ $number ${ep.getString("title")}")
             val size=if(ratio=="9:16") "1080 x 1920" else "1920 x 1080"
             val note=(if(overall) story else ep).optString("production_note_$id")
-            val command="""Generate ONE $ratio ${if(ratio=="9:16") "vertical" else "horizontal"} movie poster, $size. Prestige theatrical key art with genre-specific world, cinematic depth, dramatic motivated light, premium production design and a clear focal character. Preserve identities and the planned outfit; expressions and visual effects must fit ${story.optString("category")} and the actual story. Recompose independently for this ratio; no stretching or collage.
+            val command="""Generate ONE $ratio ${if(ratio=="9:16") "vertical" else "horizontal"} movie poster, $size. Prestige theatrical key art with genre-specific world, cinematic depth, dramatic motivated light, premium production design and a clear focal character. Preserve identities and the planned outfit; expressions and visual effects must fit ${DisplayText.category(story.optString("category"))} and the actual story. Recompose independently for this ratio; no stretching or collage.
 $identity
 ${referenceBindings(selected)}
 CHARACTERS AND OUTFITS:
@@ -119,7 +119,7 @@ ${cast(visiblePeople)}
 $wardrobeContinuity
 ${WardrobeContext.image}
 ${FlowReferencePrompt.visibleCastLock(visiblePeople)}
-Style: ${story.optString("category")} — follow the written action, no new plot.
+Style: ${DisplayText.category(story.optString("category"))} — follow the written action, no new plot.
 Story day: ${scene.getString("story_day")} — exact wardrobe remains locked across locations and EPs.
 Location: ${scene.getString("location")}
 Start frame: ${scene.getString("start_state")}

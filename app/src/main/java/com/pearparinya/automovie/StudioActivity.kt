@@ -2492,8 +2492,10 @@ $context"""
         val tasks=if(queueIds==null) allTasks else allTasks.filter { it.id in queueIds }
         if(tasks.isEmpty()) { if(images) prefs.edit().remove("last_image_group_${project.name}_$number").apply(); notice("ไม่พบรายการภาพ กรุณาเลือกชุดใหม่"); return }
         if(images) prefs.edit().putInt("last_image_deck_${project.name}",number).putStringSet("last_image_group_${project.name}_$number",tasks.map { it.id }.toSet()).apply()
-        val preference="production_cursor_${project.name}_${number}_$images"
-        val previous=prefs.getString(preference,"")
+        val legacyPreference="production_cursor_${project.name}_${number}_$images"
+        val groupDigest=java.security.MessageDigest.getInstance("SHA-256").digest(tasks.map { it.id }.sorted().joinToString("|").toByteArray(Charsets.UTF_8)).take(8).joinToString("") { "%02x".format(it) }
+        val preference="${legacyPreference}_$groupDigest"
+        val previous=prefs.getString(preference,null) ?: prefs.getString(legacyPreference,"")
         val start=tasks.indexOfFirst { it.id==previous }.coerceAtLeast(0)
         val options=listOf("ทำต่อจากล่าสุดที่เปิด • ${tasks[start].id}")+tasks.map { task ->
             val scene=rows(story).firstOrNull { key(it)==task.id }
@@ -2507,7 +2509,7 @@ $context"""
         }
         choiceMenu("EP.$number • เลือก${if(images) "รูป" else "คำสั่ง Flow"} ในชุด",options) { selected ->
             val index=if(selected==0) start else selected-1; val task=tasks[index]
-            prefs.edit().putString(preference,task.id).apply()
+            prefs.edit().putString(preference,task.id).putString(legacyPreference,task.id).apply()
             val next=tasks.getOrNull(index+1)?.id ?: "จบชุดนี้ • เลือกชุดถัดไป"
             val sceneSummary=rows(story).firstOrNull { key(it)==task.id }?.let { SceneOverview.detail(it,task.id) }
             val sceneForFlow=if(images) null else rows(story).firstOrNull { key(it)==task.id }
@@ -2715,8 +2717,10 @@ $context"""
         if(groups.isEmpty()) return notice("ยังไม่มีตัวละครในบทให้ตรวจชุด")
         val summary=groups.joinToString("\n\n") { "${it.first} • ${it.second.ifBlank { "ไม่ระบุวัน" }}\nชุด: ${it.third.ifBlank { "ยังไม่ระบุ" }}" }
         val before=wardrobeReviewStamp(story)
+        val warnings=WardrobeReviewAudit.warnings(rows(story))
+        val review=if(warnings.isEmpty()) "" else "\n\nจุดที่ควรตรวจ:\n"+warnings.take(20).joinToString("\n")
         AlertDialog.Builder(this).setTitle("ตรวจและยืนยันชุดทั้งหมดในบท")
-            .setMessage(summary+"\n\nการยืนยันหมายถึงคุณตรวจชุดในบท ไม่ได้ตรวจภาพจริง")
+            .setMessage(summary+review+"\n\nการยืนยันหมายถึงคุณตรวจชุดในบท ไม่ได้ตรวจภาพจริง")
             .setPositiveButton("ยืนยันชุดทั้งหมด") { _,_ ->
                 if(plan!==story || wardrobeReviewStamp(story)!=before) notice("บทเปลี่ยนแล้ว กรุณาตรวจใหม่")
                 else {
