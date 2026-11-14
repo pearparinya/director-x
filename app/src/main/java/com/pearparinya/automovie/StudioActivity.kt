@@ -1460,6 +1460,10 @@ class StudioActivity : AppCompatActivity() {
                 }.start()
             }.setNeutralButton("แก้ซีนเอง") { _,_ -> editScene(scene) }.setNegativeButton("ยกเลิก",null).showDirector()
     }
+    private fun wardrobeSourceKey(projectName: String, id: String, digest: String, person: JSONObject): String {
+        val outfitDigest=MasterLibrary.digest(person.optString("outfit").trim().toByteArray(Charsets.UTF_8))
+        return "wardrobe_source_v2_${projectName}_${referenceId(id)}_${digest}_${outfitDigest}"
+    }
     private fun previewImageReferences(task: SimpleProductionCommands.Task, references: List<Pair<String,File>>, labels: Map<String,String>) {
         val masterDigests=runCatching { references.take(task.references.size).associate { (id,file) -> id to MasterLibrary.digest(file.readBytes()) } }
             .getOrElse { notice("อ่าน MASTER ไม่ได้ กรุณาตรวจไฟล์ก่อนส่ง"); return }
@@ -1483,7 +1487,7 @@ class StudioActivity : AppCompatActivity() {
             val (id,file)=references[index]
             val position=if(task.id.contains("_COVER_")) when(task.references.size) { 1 -> "center"; 2 -> if(index==0) "left" else "right"; 3 -> listOf("left","center","right")[index]; else -> "ลำดับ ${index+1}" } else person.optString("screen_position")
             panel.addView(TextView(this).apply { text="${person.optString("name")} • $position\n$id\nชุดที่ระบุในบท: ${person.optString("outfit")}"; setTypeface(null,Typeface.BOLD) })
-            val sourceKey="wardrobe_source_${project.name}_${referenceId(id)}_${masterDigests[id]}"
+            val sourceKey=wardrobeSourceKey(project.name,id,masterDigests[id].orEmpty(),person)
             masterAppearance[id]=android.widget.CheckBox(this).apply {
                 isChecked=prefs.getBoolean(sourceKey,WardrobeEvidence.useMasterOutfit(person.optString("outfit")))
                 fun refreshSourceLabel() { text=if(isChecked) "แหล่งชุด: MASTER ของตัวละครนี้ ✓\nแตะเพื่อเปลี่ยนเป็นชุดตามบท" else "แหล่งชุด: ตามบท ✓\nแตะเพื่อใช้ชุดจาก MASTER" }
@@ -1532,7 +1536,7 @@ class StudioActivity : AppCompatActivity() {
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(180)); setOnClickListener { fullImage(file,labels[id] ?: "ภาพอ้างอิง") } })
         }
         val allowFantasyProps=ChannelFeaturePolicy.hasFantasyTools(plan?.optString("channel").orEmpty())
-        val propNames=if(allowFantasyProps) propCatalog else emptyList()
+        val propNames=propCatalog
         val propPreference="prop_master_${project.name}_${task.id}"
         val scene=plan?.let { story -> rows(story).firstOrNull { key(it)==task.id } }
         val rawAssignments=runCatching { JSONObject(File(project,"prop_assignments.json").readText()).optJSONArray(task.id) }.getOrNull()
@@ -1542,12 +1546,18 @@ class StudioActivity : AppCompatActivity() {
             setTypeface(null,Typeface.BOLD)
         })
         val autoIds=(0 until (automatic?.length() ?: 0)).mapNotNull { automatic?.optJSONObject(it)?.optString("prop_id") }.toSet()
-        val coverIds=emptySet<String>() // Character associations alone do not prove an item appears on the cover.
+        // Only an explicit cover incident naming the exact catalog item is evidence for the cover.
+        val coverEvidence=if(task.id.contains("_COVER_")) plan?.optJSONArray("episodes")?.let { episodes ->
+            (0 until episodes.length()).mapNotNull { episodes.optJSONObject(it) }.filter { episode ->
+                task.id.startsWith("STORY_") || task.id.startsWith("EP%02d_".format(episode.optInt("ep")))
+            }.joinToString(" ") { it.optString("cover_incident") }
+        }.orEmpty() else ""
+        val coverIds=propCatalog.mapIndexedNotNull { index,name -> if(coverEvidence.contains(name,true)) propId(index) else null }.toSet()
         val saved=if(prefs.contains(propPreference)) prefs.getStringSet(propPreference, emptySet()).orEmpty() else autoIds+coverIds
         val checks=linkedMapOf<String,android.widget.CheckBox>()
         val explicitProps=scene?.optString("props")?.trim().orEmpty()
         val noProps=explicitProps.isBlank() || explicitProps.equals("none",true) || explicitProps=="ไม่มี"
-        val visiblePropIds=autoIds
+        val visiblePropIds=autoIds+coverIds
         if(!noProps && visiblePropIds.isEmpty()) panel.addView(TextView(this).apply {
             text="⚠️ บทระบุสิ่งของ: $explicitProps • ยังไม่พบ MASTER ที่ผูกกับฉาก ตรวจสิ่งของตามบทก่อนส่ง"
             setTypeface(null,Typeface.BOLD)
@@ -1587,9 +1597,9 @@ class StudioActivity : AppCompatActivity() {
                     notice(it.message ?: "ตรวจแหล่งชุดไม่สำเร็จ"); return@setPositiveButton
                 }
                 val sourcePrefs=prefs.edit()
-                task.references.forEachIndexed { index,_ ->
+                task.references.forEachIndexed { index,person ->
                     val id=references[index].first
-                    sourcePrefs.putBoolean("wardrobe_source_${project.name}_${referenceId(id)}_${masterDigests[id]}",masterAppearance[id]?.isChecked==true)
+                    sourcePrefs.putBoolean(wardrobeSourceKey(project.name,id,masterDigests[id].orEmpty(),person),masterAppearance[id]?.isChecked==true)
                 }
                 sourcePrefs.apply()
                 val chosen=checks.filterValues { it.isChecked }.keys
@@ -1599,7 +1609,7 @@ class StudioActivity : AppCompatActivity() {
                     check(file.isFile && file.length()>0) { "ไม่พบภาพ $id" }
                     id to file
                 } }.getOrElse { notice(it.message ?: "เปิด MASTER อุปกรณ์ไม่ได้"); return@setPositiveButton }
-                if (allowFantasyProps && (prefs.contains(propPreference) || chosen != saved)) prefs.edit().putStringSet(propPreference,chosen.toSet()).apply()
+                if (prefs.contains(propPreference) || chosen != saved) prefs.edit().putStringSet(propPreference,chosen.toSet()).apply()
                 val propLabels=propRefs.associate { (id,_) -> id to propNames[id.substring(5,7).toInt()-1] }
                 val coverOwners=if(task.id.contains("_COVER_")) task.references.mapNotNull { person -> characterProp(person.optString("master")).takeIf { it.isNotBlank() && it in chosen }?.let { "${person.optString("name")} is associated with $it; show it only if appropriate to this cover." } }.joinToString("\n") else ""
                 val owners=(0 until (automatic?.length() ?: 0)).mapNotNull { automatic?.optJSONObject(it) }.filter { it.optString("prop_id") in chosen }.joinToString("\n") { "${it.optString("holder").ifBlank { "Holder unspecified" }} is associated with ${it.optString("prop_id")} in this scene. Start-frame prop state: ${it.optString("start_prop_state").ifBlank { "unspecified; follow the story, do not assume it is held" }}. Follow the start state and action." }
@@ -1921,12 +1931,18 @@ class StudioActivity : AppCompatActivity() {
             }
             val destination=project
             val coverSelection=if(current!=null) savedCoverSelection(current,destination) else emptyMap()
-            val wardrobeMasterIds=if(current!=null) rows(current).flatMap { FlowReferencePrompt.people(it) }.mapNotNull { person ->
-                val id=referenceId(person.optString("master"))
-                val file=runCatching { masterFor(person) }.getOrNull() ?: return@mapNotNull null
-                val digest=runCatching { MasterLibrary.digest(file.readBytes()) }.getOrNull() ?: return@mapNotNull null
-                if(prefs.getBoolean("wardrobe_source_${destination.name}_${id}_${digest}",WardrobeEvidence.useMasterOutfit(person.optString("outfit")))) id else null
-            }.toSet() else emptySet()
+            val wardrobeMasterIds=if(current!=null) {
+                val eps=current.getJSONArray("episodes")
+                (0 until eps.length()).flatMap { i ->
+                    val number=eps.getJSONObject(i).getInt("ep")
+                    SimpleProductionCommands.imageTasks(current,number,coverSelection)
+                }.associate { task -> task.id to task.references.mapNotNull { person ->
+                    val id=referenceId(person.optString("master"))
+                    val file=runCatching { masterFor(person) }.getOrNull() ?: return@mapNotNull null
+                    val digest=runCatching { MasterLibrary.digest(file.readBytes()) }.getOrNull() ?: return@mapNotNull null
+                    if(prefs.getBoolean(wardrobeSourceKey(destination.name,id,digest,person),WardrobeEvidence.useMasterOutfit(person.optString("outfit")))) id else null
+                }.toSet() }
+            } else emptyMap()
             val storyRevision=if(current!=null) File(destination,"story.json").takeIf { it.isFile }?.let { EpisodeMedia.digest(it) } else null
             val memory=JSONObject()
             sources.forEach { (id,file) -> memory.put(id,characterMemory.read(id,file)) }
@@ -4411,7 +4427,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             val id=referenceId(person.optString("master"))
             val master=runCatching { masterFor(person) }.getOrNull() ?: return@mapNotNull null
             val digest=runCatching { MasterLibrary.digest(master.readBytes()) }.getOrNull() ?: return@mapNotNull null
-            val key="wardrobe_source_${project.name}_${id}_${digest}"
+            val key=wardrobeSourceKey(project.name,id,digest,person)
             if(prefs.getBoolean(key,WardrobeEvidence.useMasterOutfit(person.optString("outfit")))) id else null
         }.sorted()
         return if(selected.isEmpty()) base else base+"|wardrobe_master="+selected.joinToString(",")
@@ -4442,7 +4458,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             val master=runCatching { masterFor(person) }.getOrNull()
             val sourceId=referenceId(person.optString("master"))
             val digest=master?.takeIf { it.isFile }?.let { runCatching { MasterLibrary.digest(it.readBytes()) }.getOrNull() }
-            val sourceKey="wardrobe_source_${project.name}_${sourceId}_${digest}"
+            val sourceKey=wardrobeSourceKey(project.name,sourceId,digest.orEmpty(),person)
             val fromMaster=digest!=null && prefs.getBoolean(sourceKey,WardrobeEvidence.useMasterOutfit(person.optString("outfit")))
             panel.addView(TextView(this).apply { text="${person.optString("name")} • แหล่งชุด: ${if(fromMaster) "MASTER" else "ตามบท"}\n${if(fromMaster) "เทียบชุดกับภาพ MASTER ด้านล่าง" else "ชุดในบท: ${person.optString("outfit")}"}"; setTypeface(null,Typeface.BOLD) })
             if(master?.isFile==true) panel.addView(ImageView(this).apply {
