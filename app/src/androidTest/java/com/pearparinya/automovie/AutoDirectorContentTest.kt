@@ -26,6 +26,13 @@ class AutoDirectorContentTest {
         assertEquals("",SimpleProductionCommands.masterAppearanceLock(emptyList()))
     }
 
+    @Test fun imageReferencesAreBoundToAttachmentPositionsWithoutFileIds() {
+        val prompt="A_MASTER A_MASTER_FACE_CROP B_MASTER B_MASTER_FACE_CROP"
+        val refs=listOf("A_MASTER","B_MASTER","A_MASTER_FACE_CROP","B_MASTER_FACE_CROP")
+        val result=SimpleProductionCommands.orderedReferenceCommand(prompt,refs)
+        assertEquals("attached image 1 attached image 3 attached image 2 attached image 4",result)
+        assertFalse(result.contains("MASTER"))
+    }
     @Test fun masterWardrobeOverridesOnlySelectedPersonWithoutConflictingOutfit() {
         val task=SimpleProductionCommands.imageTasks(story(),1).first { it.id=="EP01_SC001" }
         val selected=task.references.first()

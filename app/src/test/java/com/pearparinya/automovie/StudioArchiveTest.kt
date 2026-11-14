@@ -38,4 +38,14 @@ class StudioArchiveTest {
             assertFalse(target.exists())
         } finally { root.deleteRecursively() }
     }
+    @Test fun backupIncludesGlobalCatalogAliases() {
+        val root=Files.createTempDirectory("archive-ids").toFile()
+        try {
+            val source=File(root,"source").apply { mkdirs() }; File(source,"story.json").writeText("{}")
+            val registry=File(root,"registry.json"); registry.writeText("{\"legacy\":\"H001\"}")
+            val bytes=ByteArrayOutputStream(); StudioArchive.write(source,bytes,registry)
+            val restored=File(root,"restored"); StudioArchive.read(bytes.toByteArray().inputStream(),restored)
+            assertEquals(registry.readText(),File(restored,"__director_meta/short_catalog_ids.json").readText())
+        } finally { root.deleteRecursively() }
+    }
 }
