@@ -1542,7 +1542,7 @@ class StudioActivity : AppCompatActivity() {
             refreshCards={
                 previousRefresh()
                 val mode=referenceMode.selectedItemPosition
-                val offset=(0 until index).sumOf { previous -> if(mode==0 && crops.containsKey(references[previous].first)) 2 else 1 }
+                val offset=index + (0 until index).count { previous -> mode==0 && crops.containsKey(references[previous].first) }
                 val hasCrop=crops.containsKey(id)
                 val cropFirst=imageOrder.selectedItemPosition==1
                 status.text=if(!hasCrop) "ครอปใบหน้า • ยังไม่ได้เลือก" else if(mode==0) "ครอปใบหน้า • ส่ง ${offset+if(cropFirst) 1 else 2}" else if(mode==1) "ครอปใบหน้า • ส่ง ${offset+1}" else "ครอปใบหน้า • ไม่ได้ส่ง"
