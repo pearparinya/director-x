@@ -55,6 +55,28 @@ HIGHEST PRIORITY — ORIGINAL MASTER APPEARANCE FOR THE CHARACTERS LISTED BELOW:
 $bindings
 For each listed character, use only their own attached MASTER for their identity, visible body, hairstyle, outfit, armor, headwear and accessories. Reproduce the distinctive colors, silhouette and details shown in that MASTER. If a helmet or mask covers the face, keep it closed: do not remove it, invent a visible face, or substitute an unhelmeted person. A covered face does not need a readable expression. Each three-view image shows ONE character, not multiple people. Never exchange identities or clothing between characters. This per-character instruction overrides generic face-only, scene outfit, wardrobe and expression instructions for the listed characters only. Follow the scene for action and pose without changing those appearances. If the attachment or identity mapping is unclear, ask before generating. Visually compare each character to their own reference; similarity cannot be guaranteed."""
     }
+    /** Resolve each character to one wardrobe source without changing the stored story. */
+    fun withWardrobeSources(command: String, people: List<JSONObject>, masterIds: Set<String>): String {
+        if(masterIds.isEmpty()) return command
+        var output=command.replace("Scene Outfit overrides MASTER clothing.","Use the per-character wardrobe source specified below.")
+            .replace("The scene controls clothes, hairstyle, body, pose and setting; do not copy MASTER clothing.","The selected wardrobe source controls clothing; the scene controls pose and setting.")
+            .replace("Use each approved Scene Outfit, not MASTER clothing.","Use the wardrobe source specified for each character below.")
+            .replace(WardrobeContext.image,"CONTEXTUAL WARDROBE: Follow each character's selected wardrobe source. Flag unclear or unsuitable clothes and footwear for review; never silently change them.")
+        val locked=mutableListOf<Pair<String,String>>()
+        for(person in people) {
+            val name=person.getString("name")
+            val id=referenceId(person.getString("master"))
+            if(masterIds.none { it.equals(id,true) }) continue
+            val pattern=Regex("(?m)^(${Regex.escape(name)} \\([^\\n]*\\) \\| MASTER ID: ${Regex.escape(id)} \\| position: [^\\n]*\\n)Outfit: [^\\n]*",RegexOption.IGNORE_CASE)
+            require(pattern.containsMatchIn(output)) { "ตรวจแหล่งชุดของ $name ไม่สำเร็จ กรุณากลับไปตรวจ MASTER" }
+            output=pattern.replace(output) { it.groupValues[1]+"Outfit: Use this character's own attached MASTER outfit; do not use the scene outfit for this character." }
+            val reference=Regex("(?m)^(Reference [0-9]+: ${Regex.escape(name)} \\| MASTER ID: ${Regex.escape(id)} \\| )Identity only[.]$",RegexOption.IGNORE_CASE)
+            output=reference.replace(output) { it.groupValues[1]+"Identity and clothing reference." }
+            locked.add(name to id)
+        }
+        require(locked.size==masterIds.size) { "แหล่งชุดไม่ตรงกับตัวละครที่เลือก กรุณาตรวจใหม่" }
+        return output+masterAppearanceLock(locked)
+    }
     private fun cast(people: List<JSONObject>,poster: Boolean=false)=people.mapIndexed { i,p ->
         val position=if(!poster) p.optString("screen_position") else when(people.size) { 1 -> "center"; 2 -> if(i==0) "left" else "right"; 3 -> listOf("left","center","right")[i]; else -> "distinct ensemble position ${i+1}" }
         val alias=when(FlowCast.id(p)) { "gawin" -> "Kawin / Gawin"; "rinlada" -> "Rinrada / Rinlada"; "mind" -> "May / Mind"; else -> p.getString("name") }

@@ -26,6 +26,26 @@ class AutoDirectorContentTest {
         assertEquals("",SimpleProductionCommands.masterAppearanceLock(emptyList()))
     }
 
+    @Test fun masterWardrobeOverridesOnlySelectedPersonWithoutConflictingOutfit() {
+        val task=SimpleProductionCommands.imageTasks(story(),1).first { it.id=="EP01_SC001" }
+        val selected=task.references.first()
+        val name=selected.getString("name")
+        val id=referenceId(selected.getString("master"))
+        val original=selected.getString("outfit")
+        val command=SimpleProductionCommands.withWardrobeSources(task.command,task.references,setOf(id))
+        assertTrue(command.contains("Character: $name | attached MASTER ID: $id"))
+        assertTrue(command.contains("Outfit: Use this character's own attached MASTER outfit"))
+        assertEquals(task.references.count { it.getString("outfit")==original }-1,Regex(Regex.escape("Outfit: $original")).findAll(command).count())
+        assertFalse(command.contains("Scene Outfit overrides MASTER clothing."))
+        assertFalse(command.contains("Use each approved Scene Outfit, not MASTER clothing."))
+        if(task.references.size>1) assertTrue(command.contains("Outfit: "+task.references[1].getString("outfit")))
+        val faceCommand=SimpleProductionCommands.withWardrobeSources(SimpleProductionCommands.faceOnly(task.command),task.references,setOf(id))
+        assertFalse(faceCommand.contains("The scene controls clothes, hairstyle, body, pose and setting; do not copy MASTER clothing."))
+        assertFalse(faceCommand.contains("Use each approved Scene Outfit, not MASTER clothing."))
+        assertEquals(task.command,SimpleProductionCommands.withWardrobeSources(task.command,task.references,emptySet()))
+        assertTrue(runCatching { SimpleProductionCommands.withWardrobeSources(task.command,task.references,setOf("UNKNOWN")) }.isFailure)
+    }
+
     @Test fun faceOnlyModeKeepsSceneAndOutfitWithoutAddingBodyLock() {
         val task=SimpleProductionCommands.imageTasks(story(),1).first { it.id=="EP01_SC001" }
         val changed=SimpleProductionCommands.faceOnly(task.command)
