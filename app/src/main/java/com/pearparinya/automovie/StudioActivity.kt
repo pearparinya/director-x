@@ -3404,7 +3404,7 @@ $context"""
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
     private fun autoDirectorMenu() {
-        choiceMenu("DIRECTOR X",listOf("สร้างเรื่องใหม่ • เลือกหมวดหลัก / AI คิดพล็อต","Phase 1 • ดูโครงเรื่องที่เปิด","Phase 2–4 • ทำงานทีละ EP","ส่งออก ZIP • ตอนละ 2 ไฟล์","คำสั่งภาพ / Flow • เลือก EP")) { action ->
+        choiceMenu("DIRECTOR X",listOf("สร้างเรื่องใหม่ • เลือกหมวดหลัก / AI คิดพล็อต","Phase 1 • ดูโครงเรื่องที่เปิด","Phase 2–4 • ทำงานทีละ EP","ส่งออก ZIP • ตอนละ 2 ไฟล์","คำสั่งภาพ / Flow • เลือก EP","ตรวจจุดที่ควรทบทวน")) { action ->
             if(action==0) { flowPlanning(true); return@choiceMenu }
             val story=plan
             if(story==null) { if(File(project,"gemini_job/spec.json").isFile) geminiJobMenu() else notice("ยังไม่มีบท กรุณาสร้างเรื่องใหม่หรือนำเข้าบทก่อน"); return@choiceMenu }
@@ -3413,7 +3413,7 @@ $context"""
             }
             if(story.optString("aspect_ratio","16:9")!="9:16") { landscapeCopyMenu(); return@choiceMenu }
             val wardrobeIssues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(story))
-            if(action>=2 && wardrobeIssues.isNotEmpty()) { notice(wardrobeIssues.take(12).joinToString("\n")); return@choiceMenu }
+            if(action in 2..4 && wardrobeIssues.isNotEmpty()) { notice(wardrobeIssues.take(12).joinToString("\n")); return@choiceMenu }
             val revision=EpisodeMedia.digest(File(project,"story.json"))
             val phaseKey="autodirector_${project.name}_$revision"
             when(action) {
@@ -3443,6 +3443,7 @@ $context"""
                     }
                 }
                 4 -> commandCardsMenu()
+                5 -> notice(ContinuityReview.review(story).joinToString("\n").ifBlank { "ไม่พบข้อสังเกตจากข้อมูลที่ตรวจได้ • ยังต้องตรวจเนื้อเรื่องและภาพจริงด้วยตนเอง" })
                 3 -> {
                     val issues=FlowProductionPack.issues(story)
                     if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else { starterFlowPack=false; flowPackPicker.launch(StoryFiles.zipName(story.optString("title"))) }
@@ -3580,6 +3581,7 @@ $context"""
             stepHeader("1","AI คิดเรื่องจากแนวที่เลือก",Color.rgb(34,105,160))
             panel.addView(TextView(this).apply { text="ล็อกแนวคิดเรื่องแล้ว • AI จะคิดเรื่องจากหมวดและสถานการณ์ที่เลือก"; setTextColor(Color.WHITE); setPadding(dp(12),dp(8),dp(12),dp(8)) })
             val needsFacts=ChannelCatalog.allCategories[index].id in setOf("pia_benefits","pia_safety","pia_products")
+            val secondaryGenre = SecondaryGenreControl(this, panel, needsFacts)
             val premise=EditText(this).apply {
                 hint="ข้อมูลจริงและแหล่งอ้างอิงที่ตรวจสอบแล้ว"
                 maxLines=4
@@ -4051,7 +4053,7 @@ $context"""
                             put(JSONObject().put("prop_id",id).put("name",propCatalog[n]).put("owner_library_id",owner))
                         } }
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",chosenChannel).put("presenter_library_id",presenterId)
-                            .put("pia_face_lock",chosenChannel=="นายเปีย บ้านคลองขุด" && piaFaceLock.isChecked).put("required_cast_ids",JSONArray(selectedActors.toList())).put("selected_prop_masters",reviewedPropRecords).put("presenter_outfit",if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenterOutfit.selectedItemPosition>0) presenterOutfits[presenterOutfit.selectedItemPosition] else "").put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",3).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("story_situation",selectedStoryTopic).put("premise",storyPremise).put("episodes",count)))
+                            .put("secondary_genre",secondaryGenre.selectedId).put("pia_face_lock",chosenChannel=="นายเปีย บ้านคลองขุด" && piaFaceLock.isChecked).put("required_cast_ids",JSONArray(selectedActors.toList())).put("selected_prop_masters",reviewedPropRecords).put("presenter_outfit",if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenterOutfit.selectedItemPosition>0) presenterOutfits[presenterOutfit.selectedItemPosition] else "").put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",3).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("story_situation",selectedStoryTopic).put("premise",storyPremise).put("episodes",count)))
                         prefs.edit().putString("project",folder.name).apply(); createDialog.dismiss(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
                 }
