@@ -35,7 +35,7 @@ internal object SimpleProductionCommands {
 $rows
 Use the clear front view for face and hair. If the image-to-name mapping is unclear, ask. A front-view crop can supplement the original MASTER. Scene Outfit overrides MASTER clothing."""
     }
-    private const val wardrobeContinuity="WARDROBE CONTINUITY: Scene Outfit controls garment, color, shoes and accessories; do not copy MASTER clothing. Ask if unclear. Same day: identical outfit, including neckline, collar, sleeves, closures, shoes and accessories. A new story day can use the outfit planned for that day. The three views in each MASTER represent ONE person; their own MASTER controls face, hair and body. Never mix characters. If a location reference is attached, preserve its layout and props across camera angles. Review results."
+    private const val wardrobeContinuity="WARDROBE CONTINUITY: Use each approved Scene Outfit, not MASTER clothing. Same day: identical outfit, including neckline, collar, sleeves, closures, shoes and accessories. Shoes: none means barefoot; confirm intent. Ask if details or the spirit's outfit source are unclear. A new story day can use the outfit planned for that day. The three views in each MASTER represent ONE person; their own MASTER controls face, hair and body. Never mix characters. Review results."
     const val faceOnlyMarker = "FACE-ONLY MASTER REFERENCE"
     /** Apply only to explicit user-selected face references; keep the original scene and wardrobe. */
     fun faceOnly(command: String): String {

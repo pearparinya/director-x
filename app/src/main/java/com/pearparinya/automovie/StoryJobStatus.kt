@@ -76,7 +76,7 @@ internal object StoryStatusText {
         val provider=if(status.optBoolean("hybrid")) "Groq + Gemini (ขณะนี้ $visibleProvider)" else visibleProvider
         val time=duration(status.optLong("elapsed_ms"))
         val phase=if(running && !stale) " • ช่วงนี้ ${duration(status.optLong("phase_elapsed_ms"))}" else ""
-        val update=if(heartbeat>0) java.text.SimpleDateFormat("dd MMM yyyy เวลา HH.mm น.",java.util.Locale("th","TH")).format(java.util.Date(heartbeat)) else "—"
+        val update=if(heartbeat>0) DisplayText.thaiDateTime(heartbeat) else "—"
         val failures=status.optJSONArray("failures")
         val rows=if(failures==null) emptyList() else (0 until failures.length()).mapNotNull { i ->
             failures.optJSONObject(i)?.takeUnless { it.optString("provider").equals("cerebras",ignoreCase=true) }
