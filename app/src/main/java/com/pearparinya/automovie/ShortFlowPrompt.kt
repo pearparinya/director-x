@@ -94,6 +94,10 @@ internal object ShortFlowPrompt {
         spoken(s.narration).isNotEmpty() -> "Off-screen narrator: ${speechText(spoken(s.narration))}"
         else -> "No spoken dialogue."
     }
+    fun plain(s: FlowSceneSpec, camera: String): String {
+        val structured=build(s,camera)
+        return android.text.Html.fromHtml(structured.replace(Regex("<[^>]+>"), "\n"), android.text.Html.FROM_HTML_MODE_LEGACY).toString().lines().map { it.trim() }.filter { it.isNotBlank() }.joinToString("\n")
+    }
     fun build(s: FlowSceneSpec, camera: String, silent: Boolean=false): String {
         require(FlowScenePrompt.issues(s).isEmpty()) { "ตรวจข้อมูลซีนก่อนคัดลอกคำสั่ง" }
         val action=typed(s,aliases(s,s.action.trim()))
@@ -119,7 +123,8 @@ internal object ShortFlowPrompt {
             spoken(s.narration).isNotEmpty() -> listOf("" to spoken(s.narration))
             else -> emptyList()
         }
-        val instructions=spokenTurns.mapIndexed { order,turn ->
+        val allSpokenTurns=if(!silent && spoken(s.narration).isNotEmpty() && spokenTurns.none { it.first.isBlank() }) spokenTurns + listOf("" to spoken(s.narration)) else spokenTurns
+        val instructions=allSpokenTurns.mapIndexed { order,turn ->
             val label=if(turn.first.isBlank()) "Off-screen narrator" else speakerLabel(s,turn.first)
             val index=labels(s).indexOf(label)
             if(index>=0) {
@@ -132,7 +137,7 @@ internal object ShortFlowPrompt {
             "Preserve each character's identity, face or species-specific features, hair or fur, body proportions, position, clothing and props from the first frame. Keep the location and lighting consistent throughout",ScenePropContinuity.video,performance,direction,
             motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}",instructions)
             .filter { it.isNotBlank() }.joinToString(". ")
-        val lines=spokenTurns.joinToString("") { (name,text) ->
+        val lines=allSpokenTurns.joinToString("") { (name,text) ->
             val label=if(name.isBlank()) "Off-screen narrator" else speakerLabel(s,name)
             val offscreen=name.isBlank() || s.offscreen.any { it.trim()==name.trim() }
             "<dialogue${if(offscreen) " off_screen=\"true\"" else ""}><speaker>${xml(label)}</speaker><text>${xml(speechText(text))}</text><language>th-TH</language></dialogue>"

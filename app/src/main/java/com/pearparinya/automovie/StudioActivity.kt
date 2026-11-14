@@ -62,9 +62,9 @@ internal fun buildStoryPackageIntent(text: String, uris: ArrayList<Uri>): Intent
 }
 
 /** Carry the instruction as an actual attachment when Gemini ignores EXTRA_TEXT. */
-internal fun buildGeminiPackageIntent(text: String, command: Uri, images: ArrayList<Uri>): Intent {
+internal fun buildGeminiPackageIntent(text: String, command: Uri, images: ArrayList<Uri>, imagesFirst: Boolean = false): Intent {
     require(images.isNotEmpty() && images.size<=9) { "ต้องมี MASTER 1–9 ภาพพร้อมไฟล์คำสั่ง" }
-    val files=arrayListOf(command).apply { addAll(images) }
+    val files=if(imagesFirst) ArrayList(images).apply { add(command) } else arrayListOf(command).apply { addAll(images) }
     return Intent(Intent.ACTION_SEND_MULTIPLE).apply {
         type="*/*"
         putExtra(Intent.EXTRA_TEXT,text)
@@ -83,13 +83,13 @@ internal fun imageProviderOptions(preferred: String): List<String> = listOf("Cha
     if (preferred in options) listOf(preferred) + options.filter { it != preferred } else options
 }
 
-internal fun buildGeminiImageShareIntent(text: String, images: ArrayList<Uri>): Intent {
+internal fun buildGeminiImageShareIntent(text: String, images: ArrayList<Uri>, imagesFirst: Boolean = false): Intent {
     require(images.isNotEmpty() && images.size<=9) { "ต้องมีภาพอ้างอิง 1–9 ภาพ" }
     return Intent(if(images.size==1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE).apply {
         type="image/*"
         putExtra(Intent.EXTRA_TEXT,text)
         if(images.size==1) putExtra(Intent.EXTRA_STREAM,images[0]) else putParcelableArrayListExtra(Intent.EXTRA_STREAM,images)
-        clipData=ClipData("คำสั่งและภาพอ้างอิง", arrayOf("image/*", "text/plain"), ClipData.Item(text, null, null, images[0])).apply { images.drop(1).forEach { addItem(ClipData.Item(it)) } }
+        clipData=if(imagesFirst) ClipData("ภาพอ้างอิงและคำสั่ง", arrayOf("image/*", "text/plain"), ClipData.Item(images[0])).apply { images.drop(1).forEach { addItem(ClipData.Item(it)) }; addItem(ClipData.Item(text)) } else ClipData("คำสั่งและภาพอ้างอิง", arrayOf("image/*", "text/plain"), ClipData.Item(text, null, null, images[0])).apply { images.drop(1).forEach { addItem(ClipData.Item(it)) } }
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 }
@@ -1475,22 +1475,43 @@ class StudioActivity : AppCompatActivity() {
         val masterDigests=runCatching { references.take(task.references.size).associate { (id,file) -> id to MasterLibrary.digest(file.readBytes()) } }
             .getOrElse { notice("อ่าน MASTER ไม่ได้ กรุณาตรวจไฟล์ก่อนส่ง"); return }
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
-        panel.addView(TextView(this).apply { text="ตรวจชื่อ MASTER ของทุกตัวละครและชุดที่เลือก • แตะภาพเพื่อขยาย\nหลังเปิดแอปปลายทาง ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง" })
-        if(task.id.contains("_COVER_") && task.references.size==1) panel.addView(TextView(this).apply {
-            text="⚠️ ปกนี้มีตัวละครพร้อมใช้เพียง 1 ตัว • ตรวจบทและรายการ MASTER ก่อนเลือกแอปสร้างภาพ"
-            setTypeface(null,Typeface.BOLD)
-        })
-        val wardrobeWarnings=plan?.let { story -> if(task.id.contains("_COVER_")) rows(story).flatMap { WardrobeContext.warnings(it) }.distinct() else rows(story).firstOrNull { key(it)==task.id }?.let { WardrobeContext.warnings(it) }.orEmpty() }.orEmpty()
-        if(wardrobeWarnings.isNotEmpty()) panel.addView(TextView(this).apply { text="⚠️ ตรวจความเหมาะสมของชุดก่อนส่ง\n"+wardrobeWarnings.joinToString("\n"); setTypeface(null,Typeface.BOLD) })
-        val piaFaceLock=runCatching { GeminiStoryFiles.read(File(project,"gemini_job/spec.json")).optBoolean("pia_face_lock",false) }.getOrDefault(false) && plan?.optString("channel")=="นายเปีย บ้านคลองขุด"
-        val faceOnly=android.widget.CheckBox(this).apply { text="ใช้ MASTER เฉพาะใบหน้ามนุษย์ • ชุดตามฉาก"; isChecked=piaFaceLock; panel.addView(this) }
-        if(piaFaceLock) panel.addView(TextView(this).apply { text="ล็อกหน้านายเปียด้วย MASTER ต้นฉบับ • เลือกกรอบใบหน้ามุมตรงด้านล่างเพื่อแนบภาพครอปเพิ่ม และตรวจภาพกับชื่อก่อนส่ง" })
+        fun stepLabel(number: String, title: String) = TextView(this).apply {
+            text="❶❷❸"[number.toInt()-1].toString()+"  "+title
+            textSize=18f; setTextColor(Color.rgb(255,193,69)); setTypeface(null,Typeface.BOLD)
+            setPadding(dp(12),dp(12),dp(12),dp(6))
+        }
         val referenceMode=Spinner(this).apply {
-            adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ภาพสามมุม + ภาพครอปหน้า", "ภาพครอปหน้าอย่างเดียว", "MASTER + ภาพฉากที่ตรวจผ่าน"))
+            adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ภาพครอปใบหน้า + ภาพสามมุมมอง", "ภาพครอปใบหน้าอย่างเดียว", "MASTER + ภาพฉากที่ตรวจผ่าน"))
             setSelection(prefs.getInt("image_reference_mode_${project.name}",0).coerceIn(0,2))
         }
-        panel.addView(TextView(this).apply { text="วิธีใช้ภาพอ้างอิง • ทดลองเทียบผลได้" })
-        panel.addView(referenceMode)
+        val imageOrder=Spinner(this).apply {
+            adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ภาพสามมุม → ภาพครอป", "ภาพครอป → ภาพสามมุม"))
+            setSelection(prefs.getInt("image_attachment_order",0).coerceIn(0,1))
+        }
+        val transferOrder=Spinner(this).apply {
+            adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("คำสั่ง → ภาพ", "ภาพ → คำสั่ง"))
+            setSelection(prefs.getInt("image_transfer_order",0).coerceIn(0,1))
+        }
+        panel.addView(stepLabel("1","เลือกภาพอ้างอิง")); panel.addView(referenceMode)
+        panel.addView(stepLabel("2","เลือกลำดับภาพ")); panel.addView(imageOrder)
+        panel.addView(stepLabel("3","เลือกลำดับส่ง")); panel.addView(transferOrder)
+        val orderSummary=TextView(this).apply { setPadding(dp(12),dp(10),dp(12),dp(10)); setTextColor(Color.CYAN) }
+        panel.addView(orderSummary)
+        var refreshCards: () -> Unit = {}
+        fun refreshOrder() {
+            refreshCards()
+            imageOrder.isEnabled=referenceMode.selectedItemPosition==0
+            val refs=if(referenceMode.selectedItemPosition==1) "ครอปใบหน้า" else if(referenceMode.selectedItemPosition==2) "MASTER + ภาพฉาก" else if(imageOrder.selectedItemPosition==1) "ครอป → สามมุม" else "สามมุม → ครอป"
+            orderSummary.text=if(transferOrder.selectedItemPosition==1) "$refs → คำสั่ง" else "คำสั่ง → $refs"
+        }
+        val orderListener=object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) { refreshOrder() }
+        }
+        referenceMode.onItemSelectedListener=orderListener; imageOrder.onItemSelectedListener=orderListener; transferOrder.onItemSelectedListener=orderListener
+        panel.addView(TextView(this).apply { text="ตรวจภาพและชื่อก่อนส่ง • แอปปลายทางอาจจัดลำดับต่างกัน" })
+        val piaFaceLock=runCatching { GeminiStoryFiles.read(File(project,"gemini_job/spec.json")).optBoolean("pia_face_lock",false) }.getOrDefault(false) && plan?.optString("channel")=="นายเปีย บ้านคลองขุด"
+        val faceOnly=android.widget.CheckBox(this).apply { text="ใช้ใบหน้า MASTER • ชุดตามฉาก"; isChecked=piaFaceLock; panel.addView(this) }
         val masterAppearance=linkedMapOf<String,android.widget.CheckBox>()
         val crops=linkedMapOf<String,Pair<String,File>>()
         val cropDigests=linkedMapOf<String,String>()
@@ -1510,15 +1531,30 @@ class StudioActivity : AppCompatActivity() {
                 setOnCheckedChangeListener { _,_ -> refreshSourceLabel() }
                 panel.addView(this)
             }
-            panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(220)); setOnClickListener { fullImage(file,person.optString("name")) } })
-            val status=TextView(this).apply { text="ยังไม่ได้เลือกกรอบใบหน้า"; panel.addView(this) }
-            val cropPreview=ImageView(this).apply { adjustViewBounds=true; visibility=android.view.View.GONE; layoutParams=LinearLayout.LayoutParams(-1,dp(160)); panel.addView(this) }
+            val imageRow=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
+            val cropColumn=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
+            val masterColumn=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
+            imageRow.addView(cropColumn,LinearLayout.LayoutParams(0,-2,1f)); imageRow.addView(masterColumn,LinearLayout.LayoutParams(0,-2,1f)); panel.addView(imageRow)
+            val status=TextView(this).apply { text="ครอปใบหน้า • ยังไม่ได้เลือก"; cropColumn.addView(this) }
+            val cropPreview=ImageView(this).apply { adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(160)); cropColumn.addView(this) }
+            val masterStatus=TextView(this).apply { text="MASTER • สามมุมมอง"; masterColumn.addView(this) }
+            val previousRefresh=refreshCards
+            refreshCards={
+                previousRefresh()
+                val mode=referenceMode.selectedItemPosition
+                val offset=index + (0 until index).count { previous -> mode==0 && crops.containsKey(references[previous].first) }
+                val hasCrop=crops.containsKey(id)
+                val cropFirst=imageOrder.selectedItemPosition==1
+                status.text=if(!hasCrop) "ครอปใบหน้า • ยังไม่ได้เลือก" else if(mode==0) "ครอปใบหน้า • ส่ง ${offset+if(cropFirst) 1 else 2}" else if(mode==1) "ครอปใบหน้า • ส่ง ${offset+1}" else "ครอปใบหน้า • ไม่ได้ส่ง"
+                masterStatus.text=if(mode==1) "MASTER • ไม่ได้ส่ง" else "MASTER • ส่ง ${offset+if(mode==0 && cropFirst && hasCrop) 2 else 1}"
+            }
+            masterColumn.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(160)); setOnClickListener { fullImage(file,person.optString("name")) } })
             fun showCrop(target: File) {
                 val cropId="${referenceId(id)}_FACE_CROP"
                 crops[id]=cropId to target
                 cropDigests[id]=MasterLibrary.digest(target.readBytes())
                 cropLabels[cropId]="ภาพครอปใบหน้า ${person.optString("name")} จาก MASTER $id"
-                status.text="ภาพครอป • ${person.optString("name")} • ตรวจให้ตรง MASTER"
+                refreshOrder()
                 cropPreview.setImageBitmap(previewBitmap(Uri.fromFile(target)))
                 cropPreview.visibility=android.view.View.VISIBLE
                 cropPreview.setOnClickListener { fullImage(target,"ตรวจภาพครอป • ${person.optString("name")}") }
@@ -1639,8 +1675,12 @@ class StudioActivity : AppCompatActivity() {
                 if(mode==2 && outfitExtras.none { it.first.startsWith("OUTFIT_EP") }) { notice("ยังไม่มีภาพฉากเดี่ยวที่ตรวจผ่านและชุดตรงกัน กรุณาเลือกวิธีอื่น"); return@setPositiveButton }
                 val outfitGuide=if(outfitExtras.isEmpty()) "" else (if(mode==2) "\n\nREVIEWED SCENE REFERENCE: The checked prior single-character scene was reviewed by the user for this same character and outfit. Use it as a supplemental identity and wardrobe reference; the original MASTER remains the source of identity. " else "")+"\n\nREVIEWED OUTFIT REFERENCES: For the listed characters only, these checked images override generic instructions against copying clothing. Use each labeled frame as a clothing reference for its named character, while the original character MASTER remains the identity reference. Preserve visible garments; follow the written outfit for parts not visible. Do not copy background, pose or objects. "+outfitExtras.joinToString("; ") { "${it.first} = ${labels[it.first]}" }
                 val primary=if(mode==1) references.take(task.references.size).map { (id,_) -> id to crops.getValue(id).second } else references.take(task.references.size)
-                val payload=primary+extras.filter { !it.first.startsWith("OUTFIT_") || it in outfitExtras }+selected.values+propRefs
-                prefs.edit().putInt("image_reference_mode_${project.name}",mode).apply()
+                val orderedPeople=if(mode==0) primary.flatMap { master ->
+                    val crop=selected[master.first]
+                    if(crop==null) listOf(master) else if(imageOrder.selectedItemPosition==1) listOf(crop,master) else listOf(master,crop)
+                } else primary
+                val payload=orderedPeople+extras.filter { !it.first.startsWith("OUTFIT_") || it in outfitExtras }+propRefs
+                prefs.edit().putInt("image_reference_mode_${project.name}",mode).putInt("image_attachment_order",imageOrder.selectedItemPosition).putInt("image_transfer_order",transferOrder.selectedItemPosition).apply()
                 if(payload.size>9) { notice("มีภาพอ้างอิง ${payload.size} ภาพ ซึ่งเกิน 9 ภาพ • ยกเลิกภาพอ้างอิงบางรายการแล้วลองอีกครั้ง"); return@setPositiveButton }
                 shareImageCommand(command+outfitGuide+propInstruction+(if(owners.isBlank()) "" else "\n$owners")+(if(coverOwners.isBlank()) "" else "\n$coverOwners"),payload,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
             }
@@ -1710,14 +1750,15 @@ class StudioActivity : AppCompatActivity() {
         // append every granted image URI to that same ClipData payload.
         val geminiImages=destinationLabel=="Gemini" && imagePackage && uris.isNotEmpty()
         val filePackage=!geminiImages && (destinationLabel=="Gemini" || imagePackage) && uris.isNotEmpty()
-        val intent = if(geminiImages) buildGeminiImageShareIntent((if(bodyOnly) "สร้างภาพตัวละครใหม่ตามคำสั่ง ใช้ภาพแนบสำหรับรูปร่างเท่านั้น\n\n"+text else geminiImageMessage(text,twoCovers)),ArrayList(uris)) else if(filePackage) {
+        val intent = if(geminiImages) buildGeminiImageShareIntent((if(bodyOnly) "สร้างภาพตัวละครใหม่ตามคำสั่ง ใช้ภาพแนบสำหรับรูปร่างเท่านั้น\n\n"+text else geminiImageMessage(text,twoCovers)),ArrayList(uris),prefs.getInt("image_transfer_order",0)==1) else if(filePackage) {
             val command=File(cacheDir,"scene_reference_exports/$transferId/READ_FIRST_IMAGE_COMMAND.txt")
             command.parentFile!!.mkdirs()
             command.writeText((if(bodyOnly) "สร้างตัวละครใหม่ตามคำสั่ง ภาพแนบใช้อ้างอิงรูปร่างเท่านั้น" else if(twoCovers) "สร้างปก 2 ภาพแยกไฟล์ตามคำสั่งด้านล่าง ใช้ MASTER ที่แนบให้ตรงตัวละคร" else "สร้างภาพหนึ่งภาพตามคำสั่งด้านล่าง ใช้ MASTER ที่แนบให้ตรงตัวละคร")+" ไม่สรุปคำสั่ง ไม่สร้างวิดีโอ\n\n"+text,Charsets.UTF_8)
             val commandUri=FileProvider.getUriForFile(this,"$packageName.fileprovider",command)
             val shareText=if(destinationLabel=="Gemini" && imagePackage) geminiImageMessage(text,twoCovers) else text
-            val result=buildGeminiPackageIntent(shareText,commandUri,ArrayList(uris))
-            uris.add(0,commandUri)
+            val imagesFirst=imagePackage && prefs.getInt("image_transfer_order",0)==1
+            val result=buildGeminiPackageIntent(shareText,commandUri,ArrayList(uris),imagesFirst)
+            if(imagesFirst) uris.add(commandUri) else uris.add(0,commandUri)
             attachments.put(JSONObject().put("name",command.name).put("bytes",command.length()).put("sha256",MasterLibrary.digest(command.readBytes())))
             result
         } else buildChatShareIntent(text,uris)
@@ -2607,10 +2648,9 @@ $context"""
             dialog.getButton(-1).setOnClickListener {
                 if(!images) {
                     if(problems.isNotEmpty() || flowSpec==null) { productionCheckMenu(story); return@setOnClickListener }
-                    choiceMenu("เลือกคำสั่ง Flow • ${task.id}",listOf("คัดลอก XML • กระชับพร้อมบทพูด","คัดลอก XML • กระชับพร้อมเสียงฉาก","คัดลอกแบบเงียบ • ใส่เสียงภายหลัง","คัดลอกบทเสียงแยก")) { mode ->
-                        if(mode==3) { copyCommand(ShortFlowPrompt.voiceOnly(flowSpec)); return@choiceMenu }
-                        val value=runCatching { ShortFlowPrompt.build(flowSpec,flowCamera,mode==2) }.getOrElse { error ->
-                            if(error.message?.contains("คำบรรยายการกระทำ ตำแหน่ง หรือเสียงยังมีภาษาไทย")==true && sceneForFlow!=null) offerFlowTranslation(story,sceneForFlow,flowSpec,flowCamera,mode==2)
+                    choiceMenu("เลือกคำสั่ง Flow • ${task.id}",listOf("① XML • กระชับ", "② ข้อความปกติ")) { mode ->
+                        val value=runCatching { if(mode==0) ShortFlowPrompt.build(flowSpec,flowCamera) else ShortFlowPrompt.plain(flowSpec,flowCamera) }.getOrElse { error ->
+                            if(error.message?.contains("คำบรรยายการกระทำ ตำแหน่ง หรือเสียงยังมีภาษาไทย")==true && sceneForFlow!=null) offerFlowTranslation(story,sceneForFlow,flowSpec,flowCamera,false)
                             else notice(error.message ?: "ตรวจคำสั่ง Flow ก่อนคัดลอก")
                             return@choiceMenu
                         }

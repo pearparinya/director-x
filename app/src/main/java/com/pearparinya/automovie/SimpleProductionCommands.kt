@@ -22,14 +22,14 @@ internal object SimpleProductionCommands {
         for(i in 0 until rows.length()) FlowReferencePrompt.people(rows.getJSONObject(i)).forEach { all.putIfAbsent(it.getString("name"),it) }
         return all.values.toList()
     }
-    private const val identity="REFERENCE ROLE MAPPING: Ignore filenames. Match the first character reference images to the listed characters in attachment order. Generate directly. Every character has equal identity priority: preserve their own MASTER face, eyes, nose, jaw, skin tone and hairstyle, with no face swapping or blending. Use each character’s specified wardrobe source."
+    private const val identity="REFERENCE ROLE MAPPING: Ignore filenames. Match each character to the explicitly numbered attached images in the reference binding; multiple images may depict the same character. Generate directly. Every character has equal identity priority: preserve their own MASTER face, eyes, nose, jaw, skin tone and hairstyle, with no face swapping or blending. Use each character’s specified wardrobe source."
     /** The MASTER remains authoritative: stored descriptions are only hints, not verified facts. */
     internal fun referenceBindings(people: List<JSONObject>): String {
         if (people.isEmpty()) return "REFERENCE BINDING: No visible characters."
         val rows = people.mapIndexed { i, person ->
             val name = person.getString("name")
             val master = referenceId(person.optString("master").trim())
-            "Reference ${i + 1}: $name | MASTER ID: ${master.ifBlank { "not specified" }} | Identity only."
+            "Character ${i + 1}: $name | MASTER ID: ${master.ifBlank { "not specified" }} | Identity only."
         }.joinToString("\n")
         return """REFERENCE BINDING — match each named person to their own original attached MASTER:
 $rows
