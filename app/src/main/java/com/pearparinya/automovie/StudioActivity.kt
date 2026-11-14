@@ -2648,14 +2648,12 @@ $context"""
             dialog.getButton(-1).setOnClickListener {
                 if(!images) {
                     if(problems.isNotEmpty() || flowSpec==null) { productionCheckMenu(story); return@setOnClickListener }
-                    choiceMenu("เลือกคำสั่ง Flow • ${task.id}",listOf("① XML • กระชับ", "② ข้อความปกติ")) { mode ->
-                        val value=runCatching { if(mode==0) ShortFlowPrompt.build(flowSpec,flowCamera) else ShortFlowPrompt.plain(flowSpec,flowCamera) }.getOrElse { error ->
-                            if(error.message?.contains("คำบรรยายการกระทำ ตำแหน่ง หรือเสียงยังมีภาษาไทย")==true && sceneForFlow!=null) offerFlowTranslation(story,sceneForFlow,flowSpec,flowCamera,false)
-                            else notice(error.message ?: "ตรวจคำสั่ง Flow ก่อนคัดลอก")
-                            return@choiceMenu
-                        }
-                        copyCommand(value)
+                    val value=runCatching { ShortFlowPrompt.build(flowSpec,flowCamera) }.getOrElse { error ->
+                        if(error.message?.contains("คำบรรยายการกระทำ ตำแหน่ง หรือเสียงยังมีภาษาไทย")==true && sceneForFlow!=null) offerFlowTranslation(story,sceneForFlow,flowSpec,flowCamera,false)
+                        else notice(error.message ?: "ตรวจคำสั่ง Flow ก่อนคัดลอก")
+                        return@setOnClickListener
                     }
+                    copyCommand(value)
                     return@setOnClickListener
                 }
                 if(problems.isNotEmpty()) { productionCheckMenu(story); return@setOnClickListener }
