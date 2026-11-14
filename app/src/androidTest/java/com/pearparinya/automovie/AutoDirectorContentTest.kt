@@ -177,6 +177,18 @@ class AutoDirectorContentTest {
         assertFalse(cover.contains(referenceId(people[2].getString("master"))))
         assertEquals(before,project.toString())
     }
+    @Test fun exportedWardrobeSelectionsAreScopedToEachTask() {
+        val project=story()
+        val tasks=SimpleProductionCommands.imageTasks(project,1)
+        val first=tasks.first { it.id=="EP01_SC001" }
+        val second=tasks.first { it.id=="EP01_SC002" }
+        val id=referenceId(first.references.first().getString("master"))
+        val doc=SimpleProductionCommands.images(project,1,wardrobeMasterIds=mapOf(first.id to setOf(id)))
+        val firstBlock=doc.substringAfter("รหัส: ${first.id}").substringBefore("รหัส: ${second.id}")
+        val secondBlock=doc.substringAfter("รหัส: ${second.id}").substringBefore("รหัส: EP01_SC003")
+        assertTrue(firstBlock.contains("This per-character instruction overrides"))
+        assertFalse(secondBlock.contains("This per-character instruction overrides"))
+    }
     @Test fun sceneOverviewWarnsOnLongSpeechWithoutChangingIt() {
         val scene=story().getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
         val words="คำทดสอบ".repeat(20)

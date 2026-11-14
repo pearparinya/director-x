@@ -8,5 +8,13 @@ internal object WardrobeEvidence {
     fun isAllNone(outfit: String): Boolean =
         runCatching { AutoDirectorWardrobe.parts(outfit).values.all(::absent) }.getOrDefault(false)
 
+    /** Only a clear instruction may select the original MASTER outfit. */
+    fun useMasterOutfit(outfit: String): Boolean {
+        val s=outfit.trim().lowercase()
+        if (s.isEmpty()) return false
+        if (Regex("(?i)(do not use|not from|ห้ามใช้|ไม่ใช้|ไม่เอา).{0,25}(?:master|มาสเตอร์)").containsMatchIn(s)) return false
+        return Regex("(?i)(ชุด.{0,20}(?:master|มาสเตอร์)|(?:master|มาสเตอร์).{0,20}(outfit|clothing|clothes|wardrobe|ชุด)|(?:outfit|clothing|clothes|wardrobe).{0,20}master)").containsMatchIn(s)
+    }
+
     fun isUnknownOrAllNone(outfit: String): Boolean = outfit.isBlank() || isAllNone(outfit)
 }
