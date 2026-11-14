@@ -12,6 +12,17 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class ChatSharePayloadTest {
+    @Test fun imagesFirstTransfersKeepOrderedImagesAndCarryCommand() {
+        val images=arrayListOf(Uri.parse("content://director-x/face.png"),Uri.parse("content://director-x/master.jpg"))
+        val command=Uri.parse("content://director-x/command.txt")
+        val packageIntent=buildGeminiPackageIntent("prompt",command,images,true)
+        assertEquals(images+command,packageIntent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM))
+        val imageIntent=buildGeminiImageShareIntent("prompt",images,true)
+        assertEquals(images,imageIntent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM))
+        assertEquals(images[0],imageIntent.clipData!!.getItemAt(0).uri)
+        assertEquals(images[1],imageIntent.clipData!!.getItemAt(1).uri)
+        assertEquals("prompt",imageIntent.clipData!!.getItemAt(2).text.toString())
+    }
     @Test fun imageProviderMenuFallsBackForRemovedProvider() {
         assertEquals(listOf("ChatGPT","Gemini"),imageProviderOptions("unknown"))
         assertEquals(listOf("ChatGPT","Gemini"),imageProviderOptions("Ideogram"))
