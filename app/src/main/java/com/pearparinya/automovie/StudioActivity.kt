@@ -564,13 +564,17 @@ class StudioActivity : AppCompatActivity() {
             AlertDialog.Builder(this).setTitle("🎭 คลัง MASTER").setView(panel).setNegativeButton("ปิด",null).showDirector()
         }.onFailure { notice("เปิดคลังไม่ได้: ${it.message}") }
     }
+    private fun shortCatalogLabel(legacy: String): String? = runCatching {
+        val file=File(filesDir,"short_catalog_ids.json")
+        if(file.isFile) JSONObject(file.readText()).optString(legacy).takeIf { it.isNotBlank() } else null
+    }.getOrNull()
     private fun libraryEntry(entry: MasterLibrary.Entry) {
         runCatching {
             val file=masterLibrary.source(entry)
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(400)); setOnClickListener { fullImage(file,entry.id) } })
-            panel.addView(TextView(this).apply { text="${entry.id} • ${entry.displayName} • อายุสมมติ ${entry.characterAge} ปี • ${entry.original}\nภาพต้นฉบับ 3 มุมมอง แตะภาพเพื่อขยาย" })
-            AlertDialog.Builder(this).setTitle("${entry.id} • ${entry.displayName}").setView(ScrollView(this).apply { addView(panel) })
+            panel.addView(TextView(this).apply { text="${shortCatalogLabel(entry.id) ?: entry.id} • ${entry.displayName} • อายุสมมติ ${entry.characterAge} ปี\nภาพต้นฉบับ 3 มุมมอง แตะภาพเพื่อขยาย" })
+            AlertDialog.Builder(this).setTitle("${shortCatalogLabel(entry.id) ?: entry.id} • ${entry.displayName}").setView(ScrollView(this).apply { addView(panel) })
                 .setPositiveButton("ใช้กับเรื่องใหม่") { _,_ ->
                     choiceMenu("กำหนดภาพ ${entry.id}",listOf("ตัวละครหลัก: กวิน","ตัวละครหลัก: รินรดา","ตัวละครหลัก: เมย์","เพิ่มตัวละครเสริมพร้อมตั้งชื่อ")) { slot ->
                         if(slot==3) addLibrarySupport(entry) else runCatching {
@@ -901,7 +905,7 @@ class StudioActivity : AppCompatActivity() {
         if (uris.isNotEmpty()) importImages(uris)
     }
     private val zipPicker = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
-        if (uri != null) { val backup = backupMode; backupMode = false; background { if (backup) contentResolver.openOutputStream(uri)!!.use { StudioArchive.write(project,it) } else export(uri) } }
+        if (uri != null) { val backup = backupMode; backupMode = false; background { if (backup) contentResolver.openOutputStream(uri)!!.use { StudioArchive.write(project,it,File(filesDir,"short_catalog_ids.json")) } else export(uri) } }
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -1490,7 +1494,8 @@ class StudioActivity : AppCompatActivity() {
         task.references.forEachIndexed { index, person ->
             val (id,file)=references[index]
             val position=if(task.id.contains("_COVER_")) when(task.references.size) { 1 -> "center"; 2 -> if(index==0) "left" else "right"; 3 -> listOf("left","center","right")[index]; else -> "ลำดับ ${index+1}" } else person.optString("screen_position")
-            panel.addView(TextView(this).apply { text="${person.optString("name")} • $position\n$id\nชุดที่ระบุในบท: ${person.optString("outfit")}"; setTypeface(null,Typeface.BOLD) })
+            val shortId=shortCatalogLabel(person.optString("library_id").ifBlank { referenceId(id) })
+            panel.addView(TextView(this).apply { text="${shortId?.let { "$it • " }.orEmpty()}${person.optString("name")} • $position\nชุดที่ระบุในบท: ${person.optString("outfit")}"; setTypeface(null,Typeface.BOLD) })
             val sourceKey=wardrobeSourceKey(project.name,id,masterDigests[id].orEmpty(),person)
             masterAppearance[id]=android.widget.CheckBox(this).apply {
                 isChecked=prefs.getBoolean(sourceKey,WardrobeEvidence.useMasterOutfit(person.optString("outfit")))
@@ -1755,10 +1760,10 @@ class StudioActivity : AppCompatActivity() {
             this.text = if(geminiImages) "$pendingStorySummary\n$imageList\nส่งคำสั่งสร้างภาพพร้อมภาพอ้างอิงไป Gemini และคัดลอกคำสั่งไว้ให้ด้วย\n\n1. ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง\n2. หาก Gemini ไม่แสดงคำสั่ง ให้แตะช่องข้อความค้างแล้วเลือก วาง\n3. หาก Gemini ตอบเป็นข้อความ ให้เปิดโหมดสร้างภาพแล้วลองใหม่" else if(filePackage) "$pendingStorySummary\n$imageList\nแนบไฟล์ READ_FIRST_IMAGE_COMMAND.txt พร้อม MASTER ไปในชุดเดียวกัน ตรวจว่า $destinationLabel แสดงไฟล์คำสั่งและรูปครบก่อนกดส่ง หากช่องข้อความว่างให้ระบุคำสั่งก่อนส่ง" else "$pendingStorySummary\n$imageList\nตรวจภาพและข้อความใน $destinationLabel ก่อนกดส่ง คำสั่งคัดลอกไว้ในคลิปบอร์ดแล้ว"
             textSize = 13f
         })
-        uris.filter { contentResolver.getType(it)?.startsWith("image/")==true }.forEach { uri ->
+        uris.filter { contentResolver.getType(it)?.startsWith("image/")==true }.forEachIndexed { imageIndex,uri ->
             val filename=uri.lastPathSegment?.substringAfterLast('/').orEmpty()
             val label=referenceLabels[referenceId(filename)]
-            preview.addView(TextView(this).apply { this.text = if(label.isNullOrBlank()) filename else "$label • $filename"; textSize=14f })
+            preview.addView(TextView(this).apply { this.text = "ภาพที่ ${imageIndex+1} • " + if(label.isNullOrBlank()) filename else label; textSize=14f })
             preview.addView(ImageView(this).apply {
             setImageBitmap(previewBitmap(uri)); adjustViewBounds = true
             layoutParams = LinearLayout.LayoutParams(-1,dp(120)).apply { bottomMargin = dp(8) }
@@ -4849,6 +4854,7 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
                 try {
                     contentResolver.openInputStream(uri)!!.use { StudioArchive.read(it,staging) }
                     val p=JSONObject(File(staging,"story.json").readText()); validate(p)
+                    ShortCatalogIds(File(filesDir,"short_catalog_ids.json")).mergeBackup(File(staging,"__director_meta/short_catalog_ids.json"))
                     val folder=File(base,UUID.randomUUID().toString()); check(staging.copyRecursively(folder))
                     prefs.edit().putString("project",folder.name).commit()
                 } finally { staging.deleteRecursively() }
