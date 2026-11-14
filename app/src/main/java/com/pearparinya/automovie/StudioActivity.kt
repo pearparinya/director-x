@@ -1545,12 +1545,18 @@ class StudioActivity : AppCompatActivity() {
         val coverIds=emptySet<String>() // Character associations alone do not prove an item appears on the cover.
         val saved=if(prefs.contains(propPreference)) prefs.getStringSet(propPreference, emptySet()).orEmpty() else autoIds+coverIds
         val checks=linkedMapOf<String,android.widget.CheckBox>()
+        val explicitProps=scene?.optString("props")?.trim().orEmpty()
+        val noProps=explicitProps.isBlank() || explicitProps.equals("none",true) || explicitProps=="ไม่มี"
         val visiblePropIds=autoIds
+        if(!noProps && visiblePropIds.isEmpty()) panel.addView(TextView(this).apply {
+            text="⚠️ บทระบุสิ่งของ: $explicitProps • ยังไม่พบ MASTER ที่ผูกกับฉาก ตรวจสิ่งของตามบทก่อนส่ง"
+            setTypeface(null,Typeface.BOLD)
+        })
         if(visiblePropIds.isNotEmpty()) panel.addView(TextView(this).apply { text="MASTER อุปกรณ์ที่ผูกกับบทฉากนี้ • ตรวจว่าปรากฏในภาพเริ่มต้น"; setTypeface(null,Typeface.BOLD) })
         propNames.forEachIndexed { index,name ->
             val id="PROP_%02d_MASTER".format(index+1)
             if(id !in visiblePropIds) return@forEachIndexed
-            val checkbox=android.widget.CheckBox(this).apply { text="$name • $id"; isChecked=id in saved || (!prefs.contains(propPreference) && id in autoIds) }
+            val checkbox=android.widget.CheckBox(this).apply { text="$name • $id"; isChecked=id in saved || (!prefs.contains(propPreference) && id in visiblePropIds) }
             checks[id]=checkbox
             panel.addView(checkbox)
             val image=ImageView(this).apply { adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(180)); visibility=if(checkbox.isChecked) android.view.View.VISIBLE else android.view.View.GONE }
