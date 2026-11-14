@@ -6,9 +6,15 @@ internal object StoryClientFactory {
         when(provider) {
             StoryProvider.GROQ -> GroqClient(key,model,cancelled,onWait,onRetry,automaticRetry)
             StoryProvider.GEMINI -> {
-                val selected=context?.let { GeminiKeyPool.next(it) }
-                if(selected!=null) onRetry("กำลังทำต่อด้วย Gemini คีย์ช่องที่ ${selected.first}")
-                GeminiClient(selected?.second ?: key,model,cancelled,onRetry,automaticRetry)
+                if(context==null) GeminiClient(key,model,cancelled,onRetry,automaticRetry)
+                else {
+                    val configured=GeminiSettings.configured(context)
+                    val slots=configured.map { (number,secret) ->
+                        GeminiPoolClient.Slot(number,GeminiClient(secret,model,cancelled,onRetry,false)) { GeminiPacing.keyCooldownMillis(secret) }
+                    }
+                    GeminiPoolClient(slots,{ GeminiKeyPool.next(context).first },cancelled,
+                        { number -> onRetry("กำลังทำต่อด้วย Gemini คีย์ช่องที่ $number") },automaticRetry,onRetry)
+                }
             }
             else -> {
                 require(provider in StoryProvider.activeProviders) { "API นี้ไม่เปิดใช้งานแล้ว • เลือก API อื่นในการตั้งค่า" }
