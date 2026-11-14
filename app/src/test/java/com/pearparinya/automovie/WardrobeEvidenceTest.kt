@@ -17,6 +17,8 @@ class WardrobeEvidenceTest {
     @Test fun masterOnlyWhenOutfitExplicitlyRequestsIt() {
         assertTrue(WardrobeEvidence.useMasterOutfit("use MASTER outfit"))
         assertTrue(WardrobeEvidence.useMasterOutfit("ใช้ชุด MASTER"))
+        assertTrue(WardrobeEvidence.useMasterOutfit("ใช้ชุดมาสเตอร์"))
+        assertFalse(WardrobeEvidence.useMasterOutfit("ไม่ใช้ชุดมาสเตอร์"))
         assertFalse(WardrobeEvidence.useMasterOutfit("Top: silver dress; Bottom: none"))
         assertFalse(WardrobeEvidence.useMasterOutfit("do not use MASTER outfit"))
     }
