@@ -29,6 +29,9 @@ internal class CompatibleStoryClient(
 ) : StoryTextClient {
     @Volatile private var connection: HttpURLConnection? = null
     override fun cancel() { connection?.disconnect() }
+    private var connectTimeoutMillis=20000
+    private var readTimeoutMillis=180000
+    override fun useProposalTimeouts() { connectTimeoutMillis=10000; readTimeoutMillis=25000 }
     override fun generate(prompt: String, schema: JSONObject): JSONObject =
         if (automaticRetry) StoryRequestRetry().execute(cancelled, onRetry) { request(prompt, schema) }
         else request(prompt, schema)
@@ -41,7 +44,7 @@ internal class CompatibleStoryClient(
         val conn = URL(service.url).openConnection() as HttpURLConnection
         connection = conn
         try {
-            conn.requestMethod = "POST"; conn.connectTimeout = 20000; conn.readTimeout = 180000
+            conn.requestMethod = "POST"; conn.connectTimeout = connectTimeoutMillis; conn.readTimeout = readTimeoutMillis
             conn.instanceFollowRedirects = false; conn.doOutput = true
             conn.setRequestProperty("Authorization", "Bearer $apiKey")
             conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")

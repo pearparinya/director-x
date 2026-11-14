@@ -3506,7 +3506,7 @@ $context"""
             presenterButton.visibility=android.view.View.GONE
             colorAction(presenterButton,Color.rgb(62,86,110))
             advancedControls.add(presenterButton); panel.addView(presenterButton)
-            fun proposalProgress(label: String, stopped: java.util.concurrent.atomic.AtomicBoolean, active: java.util.concurrent.atomic.AtomicReference<StoryTextClient?>): Pair<androidx.appcompat.app.AlertDialog, java.util.concurrent.atomic.AtomicInteger> {
+            fun proposalProgress(label: String, stopped: java.util.concurrent.atomic.AtomicBoolean, active: java.util.concurrent.atomic.AtomicReference<StoryTextClient?>, providers: List<StoryProvider>): Pair<androidx.appcompat.app.AlertDialog, java.util.concurrent.atomic.AtomicInteger> {
                 val current=java.util.concurrent.atomic.AtomicInteger(1)
                 val start=android.os.SystemClock.elapsedRealtime()
                 val handler=android.os.Handler(android.os.Looper.getMainLooper())
@@ -3520,7 +3520,7 @@ $context"""
                         if(!dialog.isShowing) return
                         val seconds=(android.os.SystemClock.elapsedRealtime()-start)/1000
                         val waiting=if(seconds>=60) "\nใช้เวลานานกว่าปกติ • รอต่อหรือกดยกเลิกได้" else ""
-                        status.text="กำลังรอผลจากผู้ให้บริการลำดับที่ ${current.get()}\nเวลาที่ผ่านไป %02d:%02d\nแถบแสดงว่ากำลังทำงาน ไม่ใช่เปอร์เซ็นต์ความสำเร็จ%s".format(seconds/60,seconds%60,waiting)
+                        status.text="กำลังติดต่อ ${providers.getOrNull(current.get()-1)?.label ?: "API"} • ${current.get()}/${providers.size}\nเวลารวม %02d:%02d\nหากไม่ได้รับคำตอบ ระบบจะลอง API ถัดไป%s".format(seconds/60,seconds%60,waiting)
                         handler.postDelayed(this,1000)
                     }
                 }
@@ -3567,7 +3567,7 @@ $context"""
                     val channel=chosenChannel; val situation=selectedStoryTopic; val detail=premise.text.toString(); val category=categories[index]
                     val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
                     val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
-                    val (loading, providerNumber)=proposalProgress("กำลังวิเคราะห์ตัวละครจาก MASTER",stopped,active)
+                    val (loading, providerNumber)=proposalProgress("กำลังวิเคราะห์ตัวละครจาก MASTER",stopped,active,providers)
                     if(automatic) {
                         loading.setOnCancelListener { autoRunning=false }
                         loading.getButton(-2).setOnClickListener { autoRunning=false; loading.dismiss() }
@@ -3579,6 +3579,7 @@ $context"""
                             if(stopped.get()) break
                             val answer=runCatching {
                                 val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false,context=this@StudioActivity)
+                                client.useProposalTimeouts()
                                 active.set(client)
                                 val prompt="Suggest a cast for this Thai story. Channel: $channel; category: $category; situation: $situation; details: $detail. Use ONLY the provided library IDs. Suggest only characters suitable for the story, with a short proposed role in Thai. Do not infer occupation or identity from a face; roles are fictional suggestions for user review. Use as many as needed, from 1 to 8. "+(if(channel=="นายเปีย บ้านคลองขุด") "Include $piaActorId as central protagonist and suitable supporting roles. " else "")+"Catalog: "+AutoCast.promptCatalog(catalog).toString()
                                 client.generate(prompt,AutoCast.schema()).also { AutoCast.validate(it,catalog); if(channel=="นายเปีย บ้านคลองขุด") AutoCast.requirePresenter(it,piaActorId) }
@@ -3690,7 +3691,7 @@ $context"""
                         val catalogText=available.joinToString("\n") { "${it.first} = ${it.second}" }
                         val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
                         val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
-                        val (loading, providerNumber)=proposalProgress("กำลังวิเคราะห์อุปกรณ์จาก MASTER",stopped,active)
+                        val (loading, providerNumber)=proposalProgress("กำลังวิเคราะห์อุปกรณ์จาก MASTER",stopped,active,providers)
                         if(automatic) {
                             loading.setOnCancelListener { autoRunning=false; propSummary.text="ยกเลิกการวิเคราะห์อุปกรณ์ • เลือกเองหรือเริ่มใหม่" }
                             loading.getButton(-2).setOnClickListener { autoRunning=false; propSummary.text="ยกเลิกการวิเคราะห์อุปกรณ์ • เลือกเองหรือเริ่มใหม่"; loading.dismiss() }
@@ -3703,7 +3704,7 @@ $context"""
                             for((providerIndex,provider) in providers.withIndex()) {
                                 providerNumber.set(providerIndex+1)
                                 if(stopped.get()) break
-                                answer=runCatching { val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false,context=this@StudioActivity); active.set(client); client.generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("assignments")!=null }
+                                answer=runCatching { val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false,context=this@StudioActivity); client.useProposalTimeouts(); active.set(client); client.generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("assignments")!=null }
                                 if(answer!=null) break
                             }
                             val result=answer
