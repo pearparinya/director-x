@@ -1,5283 +1,3986 @@
-package com.pearparinya.automovie
+Y™Áäx-ÆÈ‹j◊ù¢Îi∫⁄+äßj[hëÈ‹¢ÈÌ◊Œ˘◊dËµ©h∫⁄n∂XßzÕ\X⁄ÿYŸH€€KúX\ú\ö[ûXKò]]€[›öYBÇö[\‹ù[ôõ⁄Yò€€ù[ùí[ù[ùö[\‹ù[ôõ⁄Yò€€ù[ùê€\]Bö[\‹ù[ôõ⁄Yò€‹ôKò€€ù[ùëö[Tõ›öY\Çö[\‹ù[ôõ⁄Yô‹ò\X‹Àê€€‹Çö[\‹ù[ôõ⁄Yô‹ò\X‹Àï\YòXŸBö[\‹ù[ôõ⁄Yô‹ò\X‹Àôò]ÿXõKë‹òYY[ùò]ÿXõBö[\‹ù[ôõ⁄Yõô]ï\öBö[\‹ù[ôõ⁄Yõ‹Àêù[ôBö[\‹ù[ôõ⁄Yúõ›öY\ãì‹[òXõP€€[[ú¬ö[\‹ù[ôõ⁄Yù⁄YŸ]äÇö[\‹ù[ôõ⁄YùöY]Àë‹ò]ö]Bö[\‹ù[ôõ⁄Yò€€ù[ùúô\Àê€€‹î›]S\›ö[\‹ù[ôõ⁄Yô‹ò\X‹Àî‹ù\ëYôÇö[\‹ù[ôõ⁄Yò€‹ôKùöY]ÀïöY]–€€\]ö[\‹ù[ôõ⁄Yò€‹ôKùöY]Àï⁄[ô›“[úŸ]–€€\]ö[\‹ù[ôõ⁄YòX›]ö]Kúô\›[ò€€ùòX›êX›]ö]Tô\›[€€ùòX›¬ö[\‹ù[ôõ⁄Yò\€€\]ò\ê[\ùX[Ÿ¬ö[\‹ù[ôõ⁄Yò\€€\]ò\ê\€€\]X›]ö]Bö[\‹ù‹ôÀöú€€ãíî””ê\úò^Bö[\‹ù‹ôÀöú€€ãíî””ìÿöôX›ö[\‹ùò]òKö[Àëö[Bö[\‹ùò]òKù][ïURQö[\‹ùò]òKù][ûö\ñö\[ùûBö[\‹ùò]òKù][ûö\ñö\›]]›ôX[BÇö[ù\õò[ù[àùZ[⁄]⁄\ôR[ù[ù
+^à›ö[ôÀ\ö\Œà\úò^S\›\öOäNà[ù[ùBà[ù[ù
+Yà
+\ö\Àú⁄^ôHHJH[ù[ùêP’S”ó‘—Së[ŸH[ù[ùêP’S”ó‘—Së”USTJKò\H¬à\HHYà
+\ö\Àö\—[\J
+JHù^‹Z[àà[ŸH¬àò[^[ú⁄[€ú»H\ö\ÀõX\»]õ\›]ŸY€Y[ùÀú›Xú›ö[ô–Yù\ì\›
+	Àâ OÀõ›Ÿ\òÿ\ŸJ
+HKô\›[ò›
 
-import android.content.Intent
-import android.content.ClipData
-import androidx.core.content.FileProvider
-import android.graphics.Color
-import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
-import android.net.Uri
-import android.os.Bundle
-import android.provider.OpenableColumns
-import android.widget.*
-import android.view.Gravity
-import android.content.res.ColorStateList
-import android.graphics.PorterDuff
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
-import org.json.JSONArray
-import org.json.JSONObject
-import java.io.File
-import java.util.UUID
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
+Bà⁄[à
+^[ú⁄[€úÀú⁄[ô€S‹ìù[
 
-internal fun buildChatShareIntent(text: String, uris: ArrayList<Uri>): Intent =
-    Intent(if (uris.size <= 1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE).apply {
-        type = if (uris.isEmpty()) "text/plain" else {
-            val extensions = uris.map { it.lastPathSegment?.substringAfterLast('.')?.lowercase() }.distinct()
-            when (extensions.singleOrNull()) { "jpg", "jpeg" -> "image/jpeg"; "png" -> "image/png"; "webp" -> "image/webp"; else -> "image/*" }
-        }
-        putExtra(Intent.EXTRA_TEXT,text)
-        putExtra(Intent.EXTRA_SUBJECT,"‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏à‡∏≤‡∏Å DIRECTOR X")
-        putExtra(Intent.EXTRA_TITLE,"DIRECTOR X")
-        clipData = ClipData.newPlainText("‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á DIRECTOR X",text).apply {
-            uris.forEach { addItem(ClipData.Item(it)) }
-        }
-        if (uris.isNotEmpty()) {
-            if (uris.size == 1) putExtra(Intent.EXTRA_STREAM,uris[0])
-            else putParcelableArrayListExtra(Intent.EXTRA_STREAM,uris)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        // Keep ChatGPT in its own Android task. Without NEW_TASK, some Android
-        // launchers place the ChatGPT screen inside DIRECTOR X's Recents card,
-        // so selecting DIRECTOR X only reopens ChatGPT.
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
+JH»öú»ãöúY»àOàö[XYŸK⁄úY»é»úô»àOàö[XYŸK‹ô»é»ùŸXúàOàö[XYŸK›ŸXúé»[ŸHOàö[XYŸK ààBàBà]^òJ[ù[ùëVêW’V^
+Bà]^òJ[ù[ùëVêW‘’PíëP’∏.!8.,¯.*∏.,x.b8.!¯."8.,∏. HTëP’‘àäBà]^òJ[ù[ùëVêW’UKëTëP’‘àäBà€\]HH€\]Kõô]‘Z[ï^
+∏.!8.,¯.*∏.,x.b8.!»TëP’‘àã^
+Kò\H¬à\ö\Àôõ‹ëXX⁄»Y][J€\]Kí][J]
+JHBàBàYà
+\ö\Àö\”õ›[\J
+JH¬àYà
+\ö\Àú⁄^ôHOHJH]^òJ[ù[ùëVêW‘’ëPSK\ö\÷ÃJBà[ŸH]\òŸ[XõP\úò^S\›^òJ[ù[ùëVêW‘’ëPSK\ö\ BàYõY‹ [ù[ùëìQ◊—‘êSï‘ëPQ’TíW‘TìRT‘“S”äBàBàÀ»ŸY\⁄]‘[à]»›€à[ôõ⁄Y\⁄Àà⁄]›]ëU◊’T“À€€YH[ôõ⁄YàÀ»][ò⁄\ú»XŸHH⁄]‘ÿ‹ôY[à[ú⁄YHTëP’‘à	‹»ôXŸ[ù»ÿ\ôàÀ»€»Ÿ[X›[ô»TëP’‘à€õHô[‹[ú»⁄]‘ÇàYõY‹ [ù[ùëìQ◊–P’UíUW”ëU◊’T“ BàBÇã äàZ^Yÿ›[Y[ù[ô[XYŸHò[úŸô\é»HôXŸZ]ö[ô»RH›[€€ùõ€»›XõZ\‹⁄[€à[ô^X›][€ãà
+ã¬ö[ù\õò[ù[àùZ[›‹ûTX⁄ÿYŸR[ù[ù
+^à›ö[ôÀ\ö\Œà\úò^S\›\öOäNà[ù[ù¬àô\]Z\ôJ\ö\Àú⁄^ôHOH
+H»∏.%x.bx.+x.!¯.(x.-x.a8.'¯.)x.c8.!8.,¯.*∏.,x.b8.!¯.`x.)x.,PT’Tà»8.(8.,∏.'ààBàô]\õà[ù[ù
+[ù[ùêP’S”ó‘—Së”USTJKò\H¬à\OHäã àÇà]^òJ[ù[ùëVêW’V^
+Bà]^òJ[ù[ùëVêW‘’PíëP’ëTëP’‘à8†(à8.`8. ∏.-x.(∏.&x.&∏.%¯.`x.)x.,8.*∏.b8.!¯. x.)x.,x.&à›‹ûKöú€€àäBà]\òŸ[XõP\úò^S\›^òJ[ù[ùëVêW‘’ëPSK\ö\ Bà€\]OP€\]Kõô]‘Z[ï^
+∏.!8.,¯.*∏.,x.b8.!¯.)¯.,∏.!¯.&∏.%»ã^
+Kò\H»\ö\Àôõ‹ëXX⁄»Y][J€\]Kí][J]
+JHHBàYõY‹ [ù[ùëìQ◊—‘êSï‘ëPQ’TíW‘TìRT‘“S”à‹à[ù[ùëìQ◊–P’UíUW”ëU◊’T“ BàBüBÇã äàÿ\úûHH[ú›ùX›[€à\»[àX›X[]X⁄Y[ù⁄[àŸ[Z[öHY€õ‹ô\»VêW’Và
+ã¬ö[ù\õò[ù[àùZ[Ÿ[Z[öTX⁄ÿYŸR[ù[ù
+^à›ö[ôÀ€€[X[ôà\öK[XYŸ\Œà\úò^S\›\öOã[XYŸ\—ö\ú›àõ€€X[àHò[ŸJNà[ù[ù¬àô\]Z\ôJ[XYŸ\Àö\”õ›[\J
+H	âà[XYŸ\Àú⁄^ôONJH»∏.%x.bx.+x.!¯.(x.-HPT’Tàx†$ŒH8.(8.,∏.'∏.'∏.(¯.bx.+x.(x.a8.'¯.)x.c8.!8.,¯.*∏.,x.b8.!»àBàò[ö[\œZYä[XYŸ\—ö\ú›
+H\úò^S\›
+[XYŸ\ Kò\H»Y
+€€[X[ô
+HH[ŸH\úò^S\›Ÿä€€[X[ô
+Kò\H»Y[
+[XYŸ\ HBàô]\õà[ù[ù
+[ù[ùêP’S”ó‘—Së”USTJKò\H¬à\OHäã àÇà]^òJ[ù[ùëVêW’V^
+Bà]^òJ[ù[ùëVêW‘’PíëP’∏.*∏.(¯.bx.,∏.!¯.(8.,∏.'∏.%x.,∏.(x.a8.'¯.)x.cëPQ—íTî’“SPQ—W–””SPSëù8.'∏.(¯.bx.+x.(HPT’Tà8.%¯.-x.b8.`x.&x.&àäBà]\òŸ[XõP\úò^S\›^òJ[ù[ùëVêW‘’ëPSKö[\ Bà€\]OP€\]Kõô]‘Z[ï^
+∏.!8.,¯.*∏.,x.b8.!¯.`x.)x.,PT’Tàã^
+Kò\H»ö[\Àôõ‹ëXX⁄»Y][J€\]Kí][J]
+JHHBàYõY‹ [ù[ùëìQ◊—‘êSï‘ëPQ’TíW‘TìRT‘“S”à‹à[ù[ùëìQ◊–P’UíUW”ëU◊’T“ BàBüBÇö[ù\õò[€€ú›ò[—SRSíW“SPQ—W‘ëTUQT’H∏.*∏.(¯.bx.,∏.!¯.`x.)x.,8.`x.*∏.%8.!¯.(8.,∏.'∏."8.(¯.-8.!»H8.(8.,∏.'∏.%x.,∏.(x.(¯.,∏.(∏.)x.,8.`8.+x.-x.(∏.%8.%x.b8.+x.a8.&¯.&x.-x.bH8.`¯."∏.bx.(8.,∏.'∏.%x.,x.)¯.)x.,8.!8.(¯.%¯.-x.b8.`x.&x.&∏.%x.,∏.(x.)x.,¯.%8.,x.&à8."8.,x.&∏.!8..x.b8.(8.,∏.'∏.`x.(¯. x. x.,x.&∏.%x.,x.)¯.)x.,8.!8.(¯.`x.(¯. H8.`∏.%8.(∏.a8.(x.b8.+x.-8.!¯."∏.-¯.b8.+x.a8.'¯.)x.c8.(¯.,x. x.*x.,∏. ∏.bx.+x.!8.)¯.,∏.(x.&∏.&x.&¯. x.%x.,∏.(x.!8.,¯.*∏.,x.b8.!»8.*¯.,∏. x.`8.&¯.a¯.&x.(8.,∏.'∏."x.,∏. x.`¯.*¯.bx.%¯.,¯.%x.,∏.(x. ∏.bx.+x. x.,¯.*¯.&x.%8. ∏.+x.!¯."x.,∏. H8.a8.(x.b8.%x.bx.+x.!¯.*∏.(¯..8.&¯.!8.,¯.*∏.,x.b8.!»8.a8.(x.b8.%x.bx.+x.!¯.`8. ∏.-x.(∏.&x.`∏.!8.bx.%S8.*¯.,∏. x.*∏.(¯.bx.,∏.!¯.(8.,∏.'∏.a8.(x.b8.a8.%8.bx.`¯.*¯.bx.`x."8.bx.!¯.*∏.,∏.`8.*¯.%x..ÇÇö[ù\õò[ù[àŸ[Z[öR[XYŸSY\‹ÿYŸJ€€[X[ôà›ö[ôÀ€–€›ô\úŒàõ€€X[àHò[ŸJNà›ö[ô»H
+Yä€–€›ô\ú H—SRSíW“SPQ—W‘ëTUQT’úô\XŸJåH8.(8.,∏.'àãåà8.(8.,∏.'∏.`x.(∏. x.a8.'¯.)x.cäH[ŸH—SRSíW“SPQ—W‘ëTUQT’
+J»óóàäÿ€€[X[ôÇö[ù\õò[ù[à[XYŸTõ›öY\ì‹[€ú ôYô\úôYà›ö[ô Nà\››ö[ôœàH\›Ÿäê⁄]‘ãëŸ[Z[öHäKõ]»‹[€ú»OÇàYà
+ôYô\úôY[à‹[€ú H\›ŸäôYô\úôY
+H
+»‹[€úÀôö[\à»]OHôYô\úôYH[ŸH‹[€ú¬üBÇö[ù\õò[ù[àùZ[Ÿ[Z[öR[XYŸT⁄\ôR[ù[ù
+^à›ö[ôÀ[XYŸ\Œà\úò^S\›\öOã[XYŸ\—ö\ú›àõ€€X[àHò[ŸJNà[ù[ù¬àô\]Z\ôJ[XYŸ\Àö\”õ›[\J
+H	âà[XYŸ\Àú⁄^ôONJH»∏.%x.bx.+x.!¯.(x.-x.(8.,∏.'∏.+x.bx.,∏.!¯.+x.-8.!»x†$ŒH8.(8.,∏.'ààBàô]\õà[ù[ù
+Yä[XYŸ\Àú⁄^ôOOLJH[ù[ùêP’S”ó‘—Së[ŸH[ù[ùêP’S”ó‘—Së”USTJKò\H¬à\OHö[XYŸK àÇà]^òJ[ù[ùëVêW’V^
+BàYä[XYŸ\Àú⁄^ôOOLJH]^òJ[ù[ùëVêW‘’ëPSK[XYŸ\÷ÃJH[ŸH]\òŸ[XõP\úò^S\›^òJ[ù[ùëVêW‘’ëPSK[XYŸ\ Bà€\]OZYä[XYŸ\—ö\ú›
+H€\]J∏.(8.,∏.'∏.+x.bx.,∏.!¯.+x.-8.!¯.`x.)x.,8.!8.,¯.*∏.,x.b8.!»ã\úò^SŸäö[XYŸK àãù^‹Z[àäK€\]Kí][J[XYŸ\÷ÃJJKò\H»[XYŸ\Àôõ‹
+JKôõ‹ëXX⁄»Y][J€\]Kí][J]
+JHN»Y][J€\]Kí][J^
+JHH[ŸH€\]J∏.!8.,¯.*∏.,x.b8.!¯.`x.)x.,8.(8.,∏.'∏.+x.bx.,∏.!¯.+x.-8.!»ã\úò^SŸäö[XYŸK àãù^‹Z[àäK€\]Kí][J^ù[ù[[XYŸ\÷ÃJJKò\H»[XYŸ\Àôõ‹
+JKôõ‹ëXX⁄»Y][J€\]Kí][J]
+JHHBàYõY‹ [ù[ùëìQ◊—‘êSï‘ëPQ’TíW‘TìRT‘“S”à‹à[ù[ùëìQ◊–P’UíUW”ëU◊’T“ BàBüBÇö[ù\õò[ù[àô]]ò[Y[ù]Q›ZYJ€›\òŸNà›ö[ôÀ\‹X›à›ö[ô Nà›ö[ô»Bà[XYŸTõ€\€XﬁKöY[ù]J€›\òŸJH
+»óàà
+»[XYŸTõ€\€XﬁKú›[J\‹X›
+H
+»à8.a8.(x.b8.(x.-x. ∏.bx.+x.!8.)¯.,∏.(x.*¯.(¯.-¯.+x.)x.,∏.(∏.&x.bx.,»8.*¯.,∏. x.*∏.(¯.bx.,∏.!¯.a8.(x.b8.a8.%8.bx.`¯.*¯.bx.`x."8.bx.!¯.%x.,∏.(x."8.(¯.-8.!»ÇÇã äà⁄€K\›‹ûH€‹ö‹‹XŸKàYÿXﬁHôYô\ô[òŸ\»[ô⁄\òX›\àX\›\ú»›^H[ù›X⁄Yà
+ã¬ò€\‹»›Y[–X›]ö]Hà\€€\]X›]ö]J
+H¬àö]ò]Hò\àÿ\ôõÿôTô]öY]‘ô\›[à
 
-/** Mixed document and image transfer; the receiving AI still controls submission and execution. */
-internal fun buildStoryPackageIntent(text: String, uris: ArrayList<Uri>): Intent {
-    require(uris.size == 4) { "‡∏ï‡πâ‡∏≠‡∏á‡∏°‡∏µ‡πÑ‡∏ü‡∏•‡πå‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÅ‡∏•‡∏∞ MASTER 3 ‡∏†‡∏≤‡∏û" }
-    return Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-        type="*/*"
-        putExtra(Intent.EXTRA_TEXT,text)
-        putExtra(Intent.EXTRA_SUBJECT,"DIRECTOR X ‚Ä¢ ‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó‡πÅ‡∏•‡∏∞‡∏™‡πà‡∏á‡∏Å‡∏•‡∏±‡∏ö story.json")
-        putParcelableArrayListExtra(Intent.EXTRA_STREAM,uris)
-        clipData=ClipData.newPlainText("‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏ß‡∏≤‡∏á‡∏ö‡∏ó",text).apply { uris.forEach { addItem(ClipData.Item(it)) } }
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-}
+\öJHOà[ö]
+Oœ[ù[àö]ò]Hò[ÿ\ôõÿôTô]öY]‘X⁄Ÿ\è\ôY⁄\›\ëõ‹êX›]ö]Tô\›[
+X›]ö]Tô\›[€€ùòX›Àì‹[ëÿ›[Y[ù
 
-/** Carry the instruction as an actual attachment when Gemini ignores EXTRA_TEXT. */
-internal fun buildGeminiPackageIntent(text: String, command: Uri, images: ArrayList<Uri>, imagesFirst: Boolean = false): Intent {
-    require(images.isNotEmpty() && images.size<=9) { "‡∏ï‡πâ‡∏≠‡∏á‡∏°‡∏µ MASTER 1‚Äì9 ‡∏†‡∏≤‡∏û‡∏û‡∏£‡πâ‡∏≠‡∏°‡πÑ‡∏ü‡∏•‡πå‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á" }
-    val files=if(imagesFirst) ArrayList(images).apply { add(command) } else arrayListOf(command).apply { addAll(images) }
-    return Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-        type="*/*"
-        putExtra(Intent.EXTRA_TEXT,text)
-        putExtra(Intent.EXTRA_SUBJECT,"‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡∏ï‡∏≤‡∏°‡πÑ‡∏ü‡∏•‡πå READ_FIRST_IMAGE_COMMAND.txt ‡∏û‡∏£‡πâ‡∏≠‡∏° MASTER ‡∏ó‡∏µ‡πà‡πÅ‡∏ô‡∏ö")
-        putParcelableArrayListExtra(Intent.EXTRA_STREAM,files)
-        clipData=ClipData.newPlainText("‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÅ‡∏•‡∏∞ MASTER",text).apply { files.forEach { addItem(ClipData.Item(it)) } }
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-}
+JH»\öHOÇàò[ÿ[òX⁄œ]ÿ\ôõÿôTô]öY]‘ô\›[àÿ\ôõÿôTô]öY]‘ô\›[[ù[àYä\öHO[ù[
+Hÿ[òX⁄œÀö[ùõ⁄ŸJ\öJBàBÇàö]ò]Hò[›‹ûUZR[ô\èX[ôõ⁄Yõ‹Àí[ô\ä[ôõ⁄Yõ‹Àì€‹\ãôŸ]XZ[ì€‹\ä
+JBàö]ò]Hò\àŸ[Z[öT›]\’öY]Œà^öY]œœ[ù[àö]ò]Hò\àŸ[Z[öTõŸ‹ô\‹’öY]ŒàõŸ‹ô\‹–ò\èœ[ù[àö]ò]Hò\àŸ[Z[öS]ôQX[ŸŒà^öY]œœ[ù[àö]ò]Hò[›‹ûT€[ÿöôX›àù[õòXõH»›ô\úöYHù[àù[ä
+H¬àYäZ\—ö[ö\⁄[ô H¬àò[›]\œ\ôXYŸ[Z[öT›]\ 
+BàŸ[Z[öT›]\’öY]œÀù^YŸ[Z[öT›]\’^
+›]\ BàŸ[Z[öTõŸ‹ô\‹’öY]œÀúõŸ‹ô\‹œ\›]\œÀõ‹[ù
+ú\òŸ[ùäOÀò€Ÿ\òŸR[äL
+HŒààŸ[Z[öS]ôQX[ŸœÀù^YŸ[Z[öT›]\’^
+›]\ÀùYJJ⁄Yä›]\œÀõ‹›ö[ô ú›]HäOOHúù[õö[ô»à	âàŸ[Z[öT›‹ûTŸ\ùöXŸKúù[õö[ô Hóó∏.(¯.,8.&∏.&∏."8.,8.%¯.,¯.%x.b8.+x.`8.+x.!¯.(¯.,8.*¯.)¯.b8.,∏.!¯.(¯.+H8†(à8. x.%8.*¯.(∏..8.%8.`8.(x.-¯.b8.+x.%x.bx.+x.!¯. x.,∏.(¯.'∏.,x. x.!¯.,∏.&Hà[ŸHàÇàYä[èO[ù[	âàö[Jõ⁄ôX›ú›‹ûKöú€€àäKö\—ö[H	âàZ[\‹ù[ô Hô[ô\ä
+Bà›‹ûUZR[ô\ãú‹›[^YY
+\ÀL
+BàBàHBàö]ò]Hò[⁄\òX›\ìY[[‹ûHûH^ûH¬à⁄\òX›\ìY[[‹ûT›‹ôJö[Jö[\—\ãò⁄\òX›\ó€Y[[‹ûHäKî””ìÿöôX›
+\‹Ÿ]Àõ‹[äò⁄\òX›\ó‹õŸö[\Àöú€€àäKòùYôô\ôYôXY\ä
+Kù\ŸH»]úôXY^
 
-internal const val GEMINI_IMAGE_REQUEST = "‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÅ‡∏•‡∏∞‡πÅ‡∏™‡∏î‡∏á‡∏†‡∏≤‡∏û‡∏à‡∏£‡∏¥‡∏á 1 ‡∏†‡∏≤‡∏û‡∏ï‡∏≤‡∏°‡∏£‡∏≤‡∏¢‡∏•‡∏∞‡πÄ‡∏≠‡∏µ‡∏¢‡∏î‡∏ï‡πà‡∏≠‡πÑ‡∏õ‡∏ô‡∏µ‡πâ ‡πÉ‡∏ä‡πâ‡∏†‡∏≤‡∏û‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ó‡∏µ‡πà‡πÅ‡∏ô‡∏ö‡∏ï‡∏≤‡∏°‡∏•‡∏≥‡∏î‡∏±‡∏ö ‡∏à‡∏±‡∏ö‡∏Ñ‡∏π‡πà‡∏†‡∏≤‡∏û‡πÅ‡∏£‡∏Å‡∏Å‡∏±‡∏ö‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÅ‡∏£‡∏Å ‡πÇ‡∏î‡∏¢‡πÑ‡∏°‡πà‡∏≠‡∏¥‡∏á‡∏ä‡∏∑‡πà‡∏≠‡πÑ‡∏ü‡∏•‡πå ‡∏£‡∏±‡∏Å‡∏©‡∏≤‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ö‡∏ô‡∏õ‡∏Å‡∏ï‡∏≤‡∏°‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á ‡∏´‡∏≤‡∏Å‡πÄ‡∏õ‡πá‡∏ô‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡πÉ‡∏´‡πâ‡∏ó‡∏≥‡∏ï‡∏≤‡∏°‡∏Ç‡πâ‡∏≠‡∏Å‡∏≥‡∏´‡∏ô‡∏î‡∏Ç‡∏≠‡∏á‡∏â‡∏≤‡∏Å ‡πÑ‡∏°‡πà‡∏ï‡πâ‡∏≠‡∏á‡∏™‡∏£‡∏∏‡∏õ‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á ‡πÑ‡∏°‡πà‡∏ï‡πâ‡∏≠‡∏á‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡πÇ‡∏Ñ‡πâ‡∏î XML ‡∏´‡∏≤‡∏Å‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡πÉ‡∏´‡πâ‡πÅ‡∏à‡πâ‡∏á‡∏™‡∏≤‡πÄ‡∏´‡∏ï‡∏∏"
+HJJBàBàö]ò]Hò[]Z[Y[XYŸTõŸö[\»Ÿ]
 
-internal fun geminiImageMessage(command: String, twoCovers: Boolean = false): String = (if(twoCovers) GEMINI_IMAGE_REQUEST.replace("1 ‡∏†‡∏≤‡∏û","2 ‡∏†‡∏≤‡∏û‡πÅ‡∏¢‡∏Å‡πÑ‡∏ü‡∏•‡πå") else GEMINI_IMAGE_REQUEST)+"\n\n"+command
+HHôYúÀôŸ]õ€€X[äô]Z[Y⁄[XYŸW‹õŸö[\»ãò[ŸJBàö]ò]Hù[àõ€\õŸö[JYà›ö[ôÀ€›\òŸNàö[JNà›ö[ô»BàYä]Z[Y[XYŸTõŸö[\ H⁄\òX›\ìY[[‹ûKòúöYYäY€›\òŸJH[ŸHàÇàö]ò]Hù[àY[[‹ûRY
+\ú€€éàî””ìÿöôX›
+Nà›ö[ô»Hõ›–ÿ\›öY
+\ú€€äHŒà\ú€€ãõ‹›ö[ô õX\›\àäKöYêõ[ö»»\ú€€ãõ‹›ö[ô õò[YHäHBàö]ò]Hù[àY[[‹ûPúöYYä\ú€€éàî””ìÿöôX›
+Nà›ö[ô»¬àò[õŸö[OX⁄\òX›\ìY[[‹ûKúôXY
+Y[[‹ûRY
+\ú€€äKX\›\ëõ‹ä\ú€€äJBàô]\õà
 
-internal fun imageProviderOptions(preferred: String): List<String> = listOf("ChatGPT", "Gemini").let { options ->
-    if (preferred in options) listOf(preferred) + options.filter { it != preferred } else options
-}
+\›ŸäôòXŸHãöZ\àäH
+»õŸTôYô\ô[òŸT€XﬁKôöY[ÀõX\»]ôö\ú›JKõX\»õŸö[Kõ‹›ö[ô ]
+HH
+¬àYä\ú€€ãö\ òXÿŸ\‹€‹öY\»äJH\ú€€ãõ‹›ö[ô òXÿŸ\‹€‹öY\»äH[ŸHõŸö[Kõ‹›ö[ô òXÿŸ\‹€‹öY\»äJBàôö[\à»]ö\”õ›õ[ö 
+HKöõ⁄[ï‘›ö[ô é»äBàBàö]ò]Hò[ò\ŸHŸ]
 
-internal fun buildGeminiImageShareIntent(text: String, images: ArrayList<Uri>, imagesFirst: Boolean = false): Intent {
-    require(images.isNotEmpty() && images.size<=9) { "‡∏ï‡πâ‡∏≠‡∏á‡∏°‡∏µ‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á 1‚Äì9 ‡∏†‡∏≤‡∏û" }
-    return Intent(if(images.size==1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE).apply {
-        type="image/*"
-        putExtra(Intent.EXTRA_TEXT,text)
-        if(images.size==1) putExtra(Intent.EXTRA_STREAM,images[0]) else putParcelableArrayListExtra(Intent.EXTRA_STREAM,images)
-        clipData=if(imagesFirst) ClipData("‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á‡πÅ‡∏•‡∏∞‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á", arrayOf("image/*", "text/plain"), ClipData.Item(images[0])).apply { images.drop(1).forEach { addItem(ClipData.Item(it)) }; addItem(ClipData.Item(text)) } else ClipData("‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÅ‡∏•‡∏∞‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á", arrayOf("image/*", "text/plain"), ClipData.Item(text, null, null, images[0])).apply { images.drop(1).forEach { addItem(ClipData.Item(it)) } }
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-}
+HHö[Jö[\—\ãú›Y[»äKò\H»ZŸ\ú 
+HBàö]ò]Hò[ôYú»Ÿ]
 
-internal fun neutralIdentityGuide(source: String, aspect: String): String =
-    ImagePromptPolicy.identity(source) + "\n" + ImagePromptPolicy.style(aspect) + " ‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏´‡∏£‡∏∑‡∏≠‡∏•‡∏≤‡∏¢‡∏ô‡πâ‡∏≥ ‡∏´‡∏≤‡∏Å‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡πÉ‡∏´‡πâ‡πÅ‡∏à‡πâ‡∏á‡∏ï‡∏≤‡∏°‡∏à‡∏£‡∏¥‡∏á"
+HHŸ]⁄\ôYôYô\ô[òŸ\ ú›Y[»ãS—W‘íUêUJBàö]ò]Hò[õ⁄ôX›Ÿ]
 
-/** Whole-story workspace. Legacy preferences and character masters stay untouched. */
-class StudioActivity : AppCompatActivity() {
-    private var wardrobePreviewResult: ((Uri) -> Unit)?=null
-    private val wardrobePreviewPicker=registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        val callback=wardrobePreviewResult
-        wardrobePreviewResult=null
-        if(uri!=null) callback?.invoke(uri)
-    }
+HHö[Jò\ŸKôYúÀôŸ]›ö[ô úõ⁄ôX›ãôòYùäHHJKò\H»ZŸ\ú 
+HBàö]ò]Hò[[ô[ô‘ôX€›ô\ûHŸ]
 
-    private val storyUiHandler=android.os.Handler(android.os.Looper.getMainLooper())
-    private var geminiStatusView: TextView?=null
-    private var geminiProgressView: ProgressBar?=null
-    private var geminiLiveDialog: TextView?=null
-    private val storyPoll=object: Runnable { override fun run() {
-        if(!isFinishing) {
-            val status=readGeminiStatus()
-            geminiStatusView?.text=geminiStatusText(status)
-            geminiProgressView?.progress=status?.optInt("percent")?.coerceIn(0,100) ?: 0
-            geminiLiveDialog?.text=geminiStatusText(status,true)+if(status?.optString("state")=="running" && GeminiStoryService.running) "\n\n‡∏£‡∏∞‡∏ö‡∏ö‡∏à‡∏∞‡∏ó‡∏≥‡∏ï‡πà‡∏≠‡πÄ‡∏≠‡∏á‡∏£‡∏∞‡∏´‡∏ß‡πà‡∏≤‡∏á‡∏£‡∏≠ ‚Ä¢ ‡∏Å‡∏î‡∏´‡∏¢‡∏∏‡∏î‡πÄ‡∏°‡∏∑‡πà‡∏≠‡∏ï‡πâ‡∏≠‡∏á‡∏Å‡∏≤‡∏£‡∏û‡∏±‡∏Å‡∏á‡∏≤‡∏ô" else ""
-            if(plan==null && File(project,"story.json").isFile && !importing) render()
-            storyUiHandler.postDelayed(this,1000)
-        }
-    } }
-    private val characterMemory by lazy {
-        CharacterMemoryStore(File(filesDir,"character_memory"), JSONObject(assets.open("character_profiles.json").bufferedReader().use { it.readText() }))
-    }
-    private val detailedImageProfiles get() = prefs.getBoolean("detailed_image_profiles",false)
-    private fun promptProfile(id: String, source: File): String =
-        if(detailedImageProfiles) characterMemory.brief(id,source) else ""
-    private fun memoryId(person: JSONObject): String = FlowCast.id(person) ?: person.optString("master").ifBlank { person.optString("name") }
-    private fun memoryBrief(person: JSONObject): String {
-        val profile=characterMemory.read(memoryId(person),masterFor(person))
-        return ((listOf("face","hair") + BodyReferencePolicy.fields.map { it.first }).map { profile.optString(it) } +
-            if(person.has("accessories")) person.optString("accessories") else profile.optString("accessories"))
-            .filter { it.isNotBlank() }.joinToString("; ")
-    }
-    private val base get() = File(filesDir, "studio").apply { mkdirs() }
-    private val prefs get() = getSharedPreferences("studio", MODE_PRIVATE)
-    private val project get() = File(base, prefs.getString("project", "draft")!!).apply { mkdirs() }
-    private val pendingRecovery get() = File(filesDir, "pending_story_import")
-    private var plan: JSONObject? = null
-    private var importing = false
-    private var activeProductionDialog: AlertDialog? = null
-    private var pendingStoryShare: (() -> Unit)? = null
-    private var pendingStorySummary = ""
-    private var pendingReceipt: (() -> Unit)? = null
-    private var exportEpisode: Int?
-        get() = prefs.getInt("export_episode",0).takeIf { it>0 }
-        set(value) { prefs.edit().putInt("export_episode",value ?: 0).apply() }
-    private var backupMode: Boolean
-        get() = prefs.getBoolean("backup_mode",false)
-        set(value) { prefs.edit().putBoolean("backup_mode",value).apply() }
-    private val updater = StudioUpdater(this)
-    private lateinit var root: LinearLayout
-    private val navy = Color.rgb(12,12,15)
-    private val gold = Color.rgb(232,180,82)
-    private val electricBlue = Color.rgb(30,156,255)
-    private val cyan = Color.rgb(42,220,255)
-    private val ice = Color.rgb(248,246,239)
-    private val muted = Color.rgb(164,164,169)
-    private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
-    private fun backdrop(top: Int, bottom: Int, border: Int? = null) = GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(top,bottom)).apply {
-        cornerRadius = dp(16).toFloat()
-        if (border != null) setStroke(dp(1),border)
-    }
-    private val menuColors = arrayOf(
-        intArrayOf(Color.rgb(255,218,112),Color.rgb(255,177,58)),
-        intArrayOf(Color.rgb(119,232,250),Color.rgb(63,184,235)),
-        intArrayOf(Color.rgb(219,195,255),Color.rgb(176,143,244)),
-        intArrayOf(Color.rgb(128,240,202),Color.rgb(63,200,160)),
-        intArrayOf(Color.rgb(255,185,209),Color.rgb(245,139,175)))
-    private fun menuIcon(index: Int) = listOf("üé≠", "üé®", "üìö", "üé¨", "üí°")[index % 5]
-    private fun choiceMenu(title: String, choices: List<String>, cancel: String = "‚úñÔ∏è ‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",
-        cancelable: Boolean = true, onCancel: (() -> Unit)? = null, action: (Int) -> Unit) {
-        val panel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(dp(16),dp(18),dp(16),dp(12))
-            background = backdrop(Color.rgb(24,24,27),navy,Color.rgb(74,61,39))
-        }
-        panel.addView(TextView(this).apply {
-            val start=title.indexOf("‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞:")
-            val decorated=android.text.SpannableString(title)
-            if(start>=0) decorated.setSpan(
-                android.text.style.ForegroundColorSpan(if(title.contains("‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞: ‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ä‡∏∏‡∏î‡πÉ‡∏ô‡∏ö‡∏ó‡πÅ‡∏•‡πâ‡∏ß")) Color.rgb(129,225,167) else Color.rgb(255,196,104)),
-                start,title.length,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            text = decorated; textSize = 20f; setTextColor(gold); setTypeface(null,Typeface.BOLD)
-            setPadding(0,0,0,dp(14))
-        })
-        if(choices.size>1) panel.addView(TextView(this).apply {
-            text = "‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏´‡∏ô‡∏∂‡πà‡∏á‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£ ‚Ä¢ ‡∏´‡∏°‡∏≤‡∏¢‡πÄ‡∏•‡∏Ç‡πÉ‡∏ä‡πâ‡∏£‡∏∞‡∏ö‡∏∏‡∏ï‡∏±‡∏ß‡πÄ‡∏•‡∏∑‡∏≠‡∏Å"
-            textSize = 12f; setTextColor(Color.rgb(187,200,221)); setPadding(0,0,0,dp(10))
-        })
-        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val scroll = ScrollView(this).apply { addView(list) }
-        panel.addView(scroll,LinearLayout.LayoutParams(-1,-2))
-        val dialog = AlertDialog.Builder(this).setView(panel).setCancelable(cancelable).create()
-        choices.forEachIndexed { index, value ->
-            val palette=when(MenuChoiceStyle.role(value)) {
-                MenuChoiceStyle.AI -> intArrayOf(Color.rgb(70,41,112),Color.rgb(40,27,74),Color.rgb(176,137,225))
-                MenuChoiceStyle.EDIT -> intArrayOf(Color.rgb(98,67,35),Color.rgb(61,42,31),Color.rgb(222,174,94))
-                else -> intArrayOf(Color.rgb(25,66,103),Color.rgb(18,40,72),Color.rgb(91,175,220))
-            }
-            val row=LinearLayout(this).apply {
-                orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL
-                minimumHeight=dp(68); setPadding(dp(12),dp(10),dp(12),dp(10))
-                background=backdrop(palette[0],palette[1],palette[2])
-                layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) }
-                isClickable=true; isFocusable=true
-                contentDescription="‡∏ï‡∏±‡∏ß‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ${index+1}: $value"
-                val attr=android.util.TypedValue()
-                theme.resolveAttribute(android.R.attr.selectableItemBackground,attr,true)
-                foreground=getDrawable(attr.resourceId)
-                setOnClickListener { dialog.dismiss(); action(index) }
-            }
-            row.addView(TextView(this).apply {
-                text=(index+1).toString(); textSize=18f; setTextColor(Color.WHITE)
-                setTypeface(null,Typeface.BOLD); gravity=Gravity.CENTER
-                background=backdrop(palette[2],palette[0])
-                importantForAccessibility=android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            },LinearLayout.LayoutParams(dp(38),dp(38)).apply { marginEnd=dp(12) })
-            if(title=="‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤‡∏Ñ‡∏µ‡∏¢‡πå API ‚Ä¢ ‡πÉ‡∏ä‡πâ‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥" && index<StoryProvider.activeProviders.size) {
-                val parts=value.split("\n", limit=2)
-                val labels=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
-                labels.addView(TextView(this).apply { text=parts[0]; textSize=16f; setTextColor(Color.WHITE); setTypeface(null,Typeface.BOLD) })
-                labels.addView(TextView(this).apply {
-                    text=parts.getOrElse(1) { "" }; setTextColor(Color.WHITE); maxLines=1
-                    androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(this,8,12,1,android.util.TypedValue.COMPLEX_UNIT_SP)
-                },LinearLayout.LayoutParams(-1,-2))
-                row.addView(labels,LinearLayout.LayoutParams(0,-2,1f))
-            } else row.addView(TextView(this).apply {
-                text=value; textSize=16f; setTextColor(Color.WHITE); setTypeface(null,Typeface.BOLD)
-                gravity=Gravity.CENTER_VERTICAL
-                importantForAccessibility=android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            },LinearLayout.LayoutParams(0,-2,1f))
-            list.addView(row)
-        }
-        if (choices.isEmpty()) list.addView(TextView(this).apply {
-            text = "üì≠ ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£"; textSize = 16f; setTextColor(ice); setPadding(0,dp(12),0,dp(12))
-        })
-        panel.addView(TextView(this).apply {
-            text = cancel; textSize = 16f; setTextColor(ice); gravity = Gravity.CENTER
-            minHeight = dp(48); background = backdrop(Color.rgb(36,36,40),Color.rgb(28,28,32))
-            isFocusable = true; setOnClickListener { dialog.dismiss(); onCancel?.invoke() }
-        })
-        dialog.setOnCancelListener { onCancel?.invoke() }
-        dialog.show()
-        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
-        dialog.window?.setLayout(resources.displayMetrics.widthPixels - dp(24),-2)
-        panel.post {
-            val maximum = (resources.displayMetrics.heightPixels * 0.85f).toInt()
-            val available = maximum - (panel.height - scroll.height)
-            if (scroll.height > available) scroll.layoutParams = LinearLayout.LayoutParams(-1,available.coerceAtLeast(dp(80)))
-        }
-    }
-    private val legacyCategories = listOf(
-        "The Broken Vows | ‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏£‡∏≠‡∏¢‡∏£‡πâ‡∏≤‡∏ß‡∏ä‡∏µ‡∏ß‡∏¥‡∏ï‡∏Ñ‡∏π‡πà",
-        "Sweet Revenge | ‡πÄ‡∏Å‡∏°‡∏£‡∏±‡∏Å‡∏ã‡πà‡∏≠‡∏ô‡∏•‡∏ß‡∏á ‡∏ö‡∏ó‡πÄ‡∏£‡∏µ‡∏¢‡∏ô‡∏£‡∏™‡πÅ‡∏ã‡πà‡∏ö",
-        "Family Secrets | ‡∏Ñ‡∏ß‡∏≤‡∏°‡∏•‡∏±‡∏ö‡πÉ‡∏ï‡πâ‡∏ä‡∏≤‡∏¢‡∏Ñ‡∏≤...‡∏ó‡∏µ‡πà‡πÑ‡∏°‡πà‡∏°‡∏µ‡πÉ‡∏Ñ‡∏£‡∏Å‡∏•‡πâ‡∏≤‡∏û‡∏π‡∏î",
-        "Twisted Truth | ‡∏û‡∏•‡πá‡∏≠‡∏ï‡∏´‡∏±‡∏Å‡∏°‡∏∏‡∏°...‡∏Ñ‡∏ß‡∏≤‡∏°‡∏à‡∏£‡∏¥‡∏á‡πÉ‡∏ï‡πâ‡πÄ‡∏ï‡∏µ‡∏¢‡∏á",
-        "Healing Hearts | ‡∏ã‡πà‡∏≠‡∏°‡∏£‡∏±‡∏Å‡∏´‡∏•‡∏±‡∏á‡∏ö‡πâ‡∏≤‡∏ô ‡∏ã‡∏µ‡∏£‡∏µ‡∏™‡πå‡∏Æ‡∏µ‡∏•‡πÉ‡∏à")
-    private val categories = ChannelCatalog.allCategories.map { it.label }
-    private var masterSlot: String?
-        get() = prefs.getString("master_slot", null)
-        set(value) { prefs.edit().putString("master_slot", value).apply() }
-    private val masterPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        val slot = masterSlot
-        if (uri != null && slot in listOf("gawin", "rinlada", "mind")) {
-            try {
-                val folder = File(filesDir, "character_masters").apply { mkdirs() }
-                val temporary = File(folder, "$slot.tmp")
-                contentResolver.openInputStream(uri)!!.use { input -> temporary.outputStream().use { input.copyTo(it) } }
-                val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                android.graphics.BitmapFactory.decodeFile(temporary.path, bounds)
-                require(bounds.outWidth > 0 && bounds.outHeight > 0) { "‡πÑ‡∏ü‡∏•‡πå‡∏ô‡∏µ‡πâ‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πà‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡∏≠‡πà‡∏≤‡∏ô‡πÑ‡∏î‡πâ" }
-                val previous=File(folder,"$slot.master"); if(previous.exists()) previous.copyTo(File(folder,"$slot.previous"),overwrite=true)
-                require(temporary.renameTo(previous)) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" }
-                notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏†‡∏≤‡∏û‡πÅ‡∏•‡πâ‡∏ß ‡πÄ‡∏õ‡∏¥‡∏î‡πÄ‡∏°‡∏ô‡∏π‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û MASTER ‡πÄ‡∏û‡∏∑‡πà‡∏≠‡πÄ‡∏ó‡∏µ‡∏¢‡∏ö‡∏Å‡∏±‡∏ö‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö‡∏Å‡πà‡∏≠‡∏ô‡πÉ‡∏ä‡πâ‡∏á‡∏≤‡∏ô")
-            } catch (e: Exception) { notice("‡∏£‡∏±‡∏ö‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à: ${e.message}") }
-        }
-        masterSlot = null
-    }
-    // Body references are not actor identities. New actors are registered only after image review.
-    private val bodyTemplateFiles=listOf("body_01.png")
-    private val actorCatalogFile get() = File(filesDir,"actor_catalog_v2.json")
-    private fun actorCatalog(): JSONArray = if(!actorCatalogFile.exists()) JSONArray() else JSONObject(actorCatalogFile.readText()).getJSONArray("records")
-    private fun fantasyCatalog(): JSONArray = JSONObject(assets.open("fantasy_masters/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records")
-    // Include the bundled legacy references and user-created actors without changing either catalog.
-    private fun castingCatalog(): JSONArray {
-        val legacy=JSONObject(assets.open("master_library/catalog.json").bufferedReader().use { it.readText() }).getJSONArray("records")
-        val custom=actorCatalog()
-        val result=JSONArray()
-        val ids=mutableSetOf<String>()
-        for (rows in listOf(legacy,custom,fantasyCatalog())) for (i in 0 until rows.length()) {
-            val row=JSONObject(rows.getJSONObject(i).toString())
-            require(ids.add(row.getString("id"))) { "‡∏£‡∏´‡∏±‡∏™ MASTER ‡∏ã‡πâ‡∏≥‡πÉ‡∏ô‡∏Ñ‡∏•‡∏±‡∏á: ${row.getString("id")}" }
-            result.put(row)
-        }
-        return result
-    }
-    private val piaActorId = "CHAR_1999999999"
-    private val piaIdentityFile get() = File(filesDir,"pia_identity_master.image")
-    private val piaIdentityPicker=registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if(uri!=null) runCatching {
-            val bytes=contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("‡πÄ‡∏õ‡∏¥‡∏î‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ")
-            val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
-            android.graphics.BitmapFactory.decodeByteArray(bytes,0,bytes.size,bounds)
-            require(bounds.outWidth>0 && bounds.outHeight>0) { "‡πÑ‡∏ü‡∏•‡πå‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πà‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡∏≠‡πà‡∏≤‡∏ô‡πÑ‡∏î‡πâ" }
-            val pending=File(filesDir,"pia_identity_master.pending")
-            try { pending.writeBytes(bytes); check(pending.renameTo(piaIdentityFile)) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å MASTER ‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à" } } finally { pending.delete() }
-            notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å MASTER ‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡πÄ‡∏õ‡∏¥‡∏î‡∏´‡∏ô‡πâ‡∏≤‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏Å‡∏£‡∏≠‡∏ö‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á")
-        }.onFailure { notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å MASTER ‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à: ${it.message}") }
-    }
-    private fun piaCatalog(): JSONArray {
-        val migrationPrefs=getSharedPreferences("pia_master_updates", MODE_PRIVATE)
-        if(!migrationPrefs.getBoolean("identity_431",false)) {
-            val bytes=assets.open("pia_identity_431.png").use { it.readBytes() }
-            PiaMasterUpdate.install(piaIdentityFile,bytes)
-            check(migrationPrefs.edit().putBoolean("identity_431",true).commit()) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞ MASTER ‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à" }
-        }
-        val catalog=castingCatalog()
-        require((0 until catalog.length()).none { catalog.getJSONObject(it).optString("id")==piaActorId }) { "‡∏£‡∏´‡∏±‡∏™‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢‡∏ã‡πâ‡∏≥" }
-        val bytes=if(piaIdentityFile.isFile) piaIdentityFile.readBytes() else assets.open("pia_outfits/01.png").use { it.readBytes() }
-        val row=JSONObject().put("id",piaActorId).put("display_name","‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î")
-            .put("file","PIA_PRESENTER.png").put("sha256",MasterLibrary.digest(bytes))
-            .put("character_age",35).put("age_basis","fictional_casting_placeholder_not_real_age")
-            .put("character_gender","man").put("casting_description","Use the attached original MASTER for this presenter identity.")
-        val result=JSONArray().put(row)
-        for(i in 0 until catalog.length()) result.put(catalog.getJSONObject(i))
-        return result
-    }
-    private fun installPiaDefaults() {
-        for(slot in 1..13) {
-            val target=presenterOutfitFile(piaActorId,slot)
-            if(!target.exists()) {
-                target.parentFile!!.mkdirs()
-                val tmp=File(target.parentFile,"$slot.default.pending")
-                try {
-                    assets.open(if(slot==13) "pia_outfits/13.webp" else "pia_outfits/%02d.png".format(slot)).use { input -> tmp.outputStream().use { output -> input.copyTo(output) } }
-                    check(tmp.renameTo(target)) { "‡∏ï‡∏¥‡∏î‡∏ï‡∏±‡πâ‡∏á‡∏†‡∏≤‡∏û‡∏ä‡∏∏‡∏î‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à" }
-                } finally { tmp.delete() }
-            }
-        }
-    }
-    private fun castingSource(row: JSONObject): File {
-        if(row.optString("source_type")=="fantasy_bundle") {
-            val filename=row.getString("file")
-            require(filename.matches(Regex("FANTASY_[0-9]{2}[.]png"))) { "‡∏ä‡∏∑‡πà‡∏≠‡πÑ‡∏ü‡∏•‡πå MASTER ‡πÑ‡∏°‡πà‡∏ñ‡∏π‡∏Å‡∏ï‡πâ‡∏≠‡∏á" }
-            val bytes=assets.open("fantasy_masters/$filename").use { it.readBytes() }
-            require(MasterLibrary.digest(bytes)==row.getString("sha256")) { "‡∏†‡∏≤‡∏û MASTER ‡πÑ‡∏°‡πà‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡∏ó‡∏∞‡πÄ‡∏ö‡∏µ‡∏¢‡∏ô" }
-            val target=File(filesDir,"fantasy_masters/$filename")
-            if(!target.isFile || MasterLibrary.digest(target.readBytes())!=row.getString("sha256")) {
-                target.parentFile!!.mkdirs()
-                val temp=File(target.parentFile,target.name+".pending")
-                try { temp.writeBytes(bytes); check(temp.renameTo(target)) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å MASTER ‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à" } } finally { temp.delete() }
-            }
-            return target
-        }
-        if(row.getString("id")==piaActorId) {
-            if(piaIdentityFile.isFile) {
-                require(MasterLibrary.digest(piaIdentityFile.readBytes())==row.getString("sha256")) { "MASTER ‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏£‡∏∞‡∏´‡∏ß‡πà‡∏≤‡∏á‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏õ‡∏¥‡∏î‡∏´‡∏ô‡πâ‡∏≤‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà" }
-                return piaIdentityFile
-            }
-            val bytes=assets.open("pia_outfits/01.png").use { it.readBytes() }
-            val target=File(filesDir,"pia_presenter_master.png")
-            if(!target.isFile || MasterLibrary.digest(target.readBytes())!=MasterLibrary.digest(bytes)) target.writeBytes(bytes)
-            return target
-        }
-        val entry=masterLibrary.entries().firstOrNull { it.id==row.getString("id") }
-        return if(entry!=null) masterLibrary.source(entry) else File(filesDir,"actor_master_v2/"+row.getString("file"))
-    }
-    private fun bodyTemplateFile(index: Int): File {
-        val target=File(cacheDir,"body_template_sources/${bodyTemplateFiles[index]}")
-        target.parentFile!!.mkdirs()
-        assets.open("body_templates/"+bodyTemplateFiles[index]).use { input -> target.outputStream().use { input.copyTo(it) } }
-        return target
-    }
-    private val actorImagePicker=registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        val pending=prefs.getString("new_actor_pending",null)
-        if(uri!=null && pending!=null) runCatching {
-            val person=JSONObject(pending)
-            val input=contentResolver.openInputStream(uri) ?: error("‡πÄ‡∏õ‡∏¥‡∏î‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ")
-            val bytes=input.use { it.readBytes() }
-            val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
-            android.graphics.BitmapFactory.decodeByteArray(bytes,0,bytes.size,bounds)
-            require(bounds.outWidth>0 && bounds.outHeight>0) { "‡πÑ‡∏ü‡∏•‡πå‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πà‡∏†‡∏≤‡∏û" }
-            val extension=when(bounds.outMimeType) { "image/jpeg" -> "jpg"; "image/webp" -> "webp"; "image/png" -> "png"; else -> error("‡∏£‡∏≠‡∏á‡∏£‡∏±‡∏ö‡∏†‡∏≤‡∏û PNG, JPG ‡∏´‡∏£‡∏∑‡∏≠ WebP") }
-            val records=actorCatalog()
-            require((0 until records.length()).none { records.getJSONObject(it).getString("display_name")==person.getString("display_name") }) { "‡∏ä‡∏∑‡πà‡∏≠‡∏ô‡∏µ‡πâ‡∏°‡∏µ‡πÉ‡∏ô‡∏Ñ‡∏•‡∏±‡∏á‡πÅ‡∏•‡πâ‡∏ß" }
-            val fileName=person.getString("id") + "." + extension
-            val dir=File(filesDir,"actor_master_v2").apply { mkdirs() }
-            val target=File(dir,fileName)
-            require(!target.exists()) { "‡∏£‡∏´‡∏±‡∏™‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ã‡πâ‡∏≥ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏£‡∏¥‡πà‡∏°‡πÉ‡∏´‡∏°‡πà" }
-            val temp=File(dir,fileName+".pending")
-            try {
-                temp.writeBytes(bytes)
-                person.put("file",fileName).put("original_filename",fileName).put("sha256",MasterLibrary.digest(bytes)).put("age_basis","user_assigned")
-                records.put(person)
-                check(temp.renameTo(target)) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" }
-                try {
-                    val catalogTemp=File(filesDir,"actor_catalog_v2.pending")
-                    catalogTemp.writeText(JSONObject().put("records",records).toString(2))
-                    check(catalogTemp.renameTo(actorCatalogFile)) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏ó‡∏∞‡πÄ‡∏ö‡∏µ‡∏¢‡∏ô‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" }
-                } catch(e: Exception) { target.delete(); throw e }
-            } finally { temp.delete() }
-            prefs.edit().remove("new_actor_pending").apply()
-        }.onSuccess { notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å MASTER ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÉ‡∏´‡∏°‡πà‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡πÉ‡∏ô‡∏Ñ‡∏•‡∏±‡∏á‡πÑ‡∏î‡πâ") }.onFailure { notice(it.message ?: "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-    }
-    // One private outfit image per person and outfit slot. Existing stories keep their own snapshot.
-    private fun presenterOutfitFile(actorId: String, slot: Int): File {
-        require(actorId.matches(Regex("[A-Za-z0-9_]+")) && slot in 1..13)
-        return File(filesDir,"presenter_outfits/$actorId/$slot.image")
-    }
-    private val presenterOutfitPicker=registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        val actor=prefs.getString("presenter_outfit_actor", "").orEmpty()
-        val slot=prefs.getInt("presenter_outfit_slot",0)
-        if(uri!=null) runCatching {
-            val input=contentResolver.openInputStream(uri) ?: error("‡πÄ‡∏õ‡∏¥‡∏î‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ")
-            val bytes=input.use { it.readBytes() }
-            require(bytes.size in 1..20_000_000) { "‡∏†‡∏≤‡∏û‡∏ï‡πâ‡∏≠‡∏á‡∏°‡∏µ‡∏Ç‡∏ô‡∏≤‡∏î‡πÑ‡∏°‡πà‡πÄ‡∏Å‡∏¥‡∏ô 20 MB" }
-            val info=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
-            android.graphics.BitmapFactory.decodeByteArray(bytes,0,bytes.size,info)
-            require(info.outWidth>0 && info.outHeight>0 && info.outMimeType in listOf("image/jpeg","image/png","image/webp")) { "‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏†‡∏≤‡∏û PNG, JPG ‡∏´‡∏£‡∏∑‡∏≠ WebP" }
-            val target=presenterOutfitFile(actor,slot); target.parentFile!!.mkdirs()
-            val tmp=File(target.parentFile,"$slot.pending")
-            try { tmp.writeBytes(bytes); check(tmp.renameTo(target)) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏†‡∏≤‡∏û‡∏ä‡∏∏‡∏î‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" } } finally { tmp.delete() }
-        }.onSuccess { notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏†‡∏≤‡∏û‡∏ä‡∏∏‡∏î‡∏Å‡∏±‡∏ö‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ä‡∏∏‡∏î‡∏ô‡∏µ‡πâ‡∏ï‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á") }.onFailure { notice(it.message ?: "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-        prefs.edit().remove("presenter_outfit_actor").remove("presenter_outfit_slot").apply()
-    }
-    private fun bodyTemplateMenu() {
-        choiceMenu("‡πÅ‡∏°‡πà‡πÅ‡∏ö‡∏ö‡∏£‡∏π‡∏õ‡∏£‡πà‡∏≤‡∏á",listOf("‡πÅ‡∏°‡πà‡πÅ‡∏ö‡∏ö 1 ‚Ä¢ ‡∏ú‡∏π‡πâ‡∏ä‡∏≤‡∏¢")) { index ->
-            val file=runCatching { bodyTemplateFile(index) }.getOrElse { notice("‡πÄ‡∏õ‡∏¥‡∏î‡πÅ‡∏°‡πà‡πÅ‡∏ö‡∏ö‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ"); return@choiceMenu }
-            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-            panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(240)) })
-            val name=EditText(this).apply { hint="‡∏ä‡∏∑‡πà‡∏≠‡∏ô‡∏±‡∏Å‡πÅ‡∏™‡∏î‡∏á‡πÉ‡∏´‡∏°‡πà (‡∏ä‡∏∑‡πà‡∏≠‡∏ñ‡∏≤‡∏ß‡∏£)"; panel.addView(this) }
-            val age=EditText(this).apply { hint="‡∏≠‡∏≤‡∏¢‡∏∏‡∏™‡∏°‡∏°‡∏ï‡∏¥ 0‚Äì1,000 ‡∏õ‡∏µ"; inputType=android.text.InputType.TYPE_CLASS_NUMBER; panel.addView(this) }
-            val face=EditText(this).apply { hint="‡∏•‡∏±‡∏Å‡∏©‡∏ì‡∏∞‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡πÅ‡∏•‡∏∞‡∏ó‡∏£‡∏á‡∏ú‡∏°‡πÉ‡∏´‡∏°‡πà (‡πÑ‡∏ó‡∏¢‡∏´‡∏£‡∏∑‡∏≠‡∏≠‡∏±‡∏á‡∏Å‡∏§‡∏©)"; panel.addView(this) }
-            val styling=EditText(this).apply { hint="‡∏™‡∏µ‡∏ú‡∏¥‡∏ß‡πÅ‡∏•‡∏∞‡πÄ‡∏™‡∏∑‡πâ‡∏≠‡∏ú‡πâ‡∏≤ (‡πÑ‡∏ó‡∏¢‡∏´‡∏£‡∏∑‡∏≠‡∏≠‡∏±‡∏á‡∏Å‡∏§‡∏©)"; panel.addView(this) }
-            panel.addView(TextView(this).apply { text="1. ‡∏™‡πà‡∏á‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏û‡∏£‡πâ‡∏≠‡∏°‡πÅ‡∏°‡πà‡πÅ‡∏ö‡∏ö‡πÑ‡∏õ‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÉ‡∏ô ChatGPT ‡∏´‡∏£‡∏∑‡∏≠ Gemini\n2. ‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡∏à‡∏£‡∏¥‡∏á ‡πÅ‡∏•‡πâ‡∏ß‡∏Å‡∏•‡∏±‡∏ö‡∏°‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏†‡∏≤‡∏û‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å" })
-            val dialog=AlertDialog.Builder(this).setTitle("‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏à‡∏≤‡∏Å‡πÅ‡∏°‡πà‡πÅ‡∏ö‡∏ö ${index+1}").setView(ScrollView(this).apply { addView(panel) })
-                .setPositiveButton("‡∏™‡πà‡∏á‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û",null).setNeutralButton("‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡πâ‡∏ß",null).setNegativeButton("‡∏õ‡∏¥‡∏î",null).showDirector()
-            fun profile(): JSONObject? {
-                val n=name.text.toString().trim(); val years=age.text.toString().toIntOrNull(); val appearance=face.text.toString().trim()
-                if(n.isEmpty() || years==null || !CharacterAge.valid(years) || appearance.isEmpty()) { notice("‡∏Å‡∏£‡∏≠‡∏Å‡∏ä‡∏∑‡πà‡∏≠ ‡∏≠‡∏≤‡∏¢‡∏∏ 0‚Äì1,000 ‡∏õ‡∏µ ‡πÅ‡∏•‡∏∞‡∏•‡∏±‡∏Å‡∏©‡∏ì‡∏∞‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤/‡∏ó‡∏£‡∏á‡∏ú‡∏°"); return null }
-                if((0 until actorCatalog().length()).any { actorCatalog().getJSONObject(it).optString("display_name")==n }) { notice("‡∏ä‡∏∑‡πà‡∏≠‡∏ô‡∏µ‡πâ‡∏°‡∏µ‡πÉ‡∏ô‡∏Ñ‡∏•‡∏±‡∏á‡πÅ‡∏•‡πâ‡∏ß"); return null }
-                val id="CHAR_"+(System.currentTimeMillis()%2000000000L).toString()
-                return JSONObject().put("id",id).put("display_name",n).put("character_age",years).put("character_gender",if(index==0) "man" else "woman").put("casting_description",appearance).put("body_template",index+1)
-            }
-            dialog.getButton(-1).setOnClickListener {
-                val p=profile() ?: return@setOnClickListener
-                val gender=p.getString("character_gender")
-                val appearance=p.getString("casting_description")
-                val style=styling.text.toString().trim().ifBlank { "natural skin tone and elegant opaque clothing" }
-                val command=ImagePromptPolicy.threeViewCharacter("a fictional $gender character with assigned age ${p.getInt("character_age")} years, age-appropriate nonsexual portrayal and outfit; for supernatural age preserve the reference appearance, new face and hairstyle: $appearance, $style, body silhouette and proportions based on the attached reference image")
-                shareImageCommand(command,listOf("BODY_TEMPLATE_${index+1}" to file),bodyOnly=true)
-            }
-            dialog.getButton(-3).setOnClickListener {
-                val p=profile() ?: return@setOnClickListener
-                prefs.edit().putString("new_actor_pending",p.toString()).apply()
-                actorImagePicker.launch(arrayOf("image/*"))
-            }
-        }
-    }
-    private fun importCharacterMaster() {
-        val labels=listOf("‡∏°‡∏ô‡∏∏‡∏©‡∏¢‡πå", "‡πÄ‡∏î‡πá‡∏Å", "‡πÄ‡∏ó‡∏û / ‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏û‡∏•‡∏±‡∏á", "‡∏≠‡∏±‡∏®‡∏ß‡∏¥‡∏ô", "‡∏™‡∏±‡∏ï‡∏ß‡πå", "‡∏≠‡∏™‡∏π‡∏£", "‡∏≠‡∏∑‡πà‡∏ô ‡πÜ", "‡∏õ‡∏µ‡∏®‡∏≤‡∏à", "‡∏ú‡∏µ", "‡∏ß‡∏¥‡∏ç‡∏ç‡∏≤‡∏ì", "‡∏†‡∏π‡∏ï")
-        val types=listOf("human", "child", "deity", "knight", "animal", "creature", "other", "demon", "ghost", "spirit", "fairy")
-        choiceMenu("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏õ‡∏£‡∏∞‡πÄ‡∏†‡∏ó‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£", labels) { index ->
-            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-            val name=EditText(this).apply { hint="‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£"; panel.addView(this) }
-            val age=EditText(this).apply { hint="‡∏≠‡∏≤‡∏¢‡∏∏‡∏™‡∏°‡∏°‡∏ï‡∏¥ 0‚Äì1,000 ‡∏õ‡∏µ (0 = ‡∏ï‡πà‡∏≥‡∏Å‡∏ß‡πà‡∏≤ 1 ‡∏õ‡∏µ)"; inputType=android.text.InputType.TYPE_CLASS_NUMBER; panel.addView(this) }
-            val description=EditText(this).apply { hint="‡∏•‡∏±‡∏Å‡∏©‡∏ì‡∏∞‡∏´‡∏£‡∏∑‡∏≠‡∏£‡∏≤‡∏¢‡∏•‡∏∞‡πÄ‡∏≠‡∏µ‡∏¢‡∏î‡πÄ‡∏û‡∏¥‡πà‡∏°‡πÄ‡∏ï‡∏¥‡∏° (‡πÑ‡∏°‡πà‡∏ö‡∏±‡∏á‡∏Ñ‡∏±‡∏ö)"; panel.addView(this) }
-            val gender=android.widget.Spinner(this).apply {
-                adapter=android.widget.ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡πÄ‡∏û‡∏®", "‡∏ä‡∏≤‡∏¢", "‡∏´‡∏ç‡∏¥‡∏á"))
-                panel.addView(this)
-            }
-            panel.addView(TextView(this).apply { text="‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏†‡∏≤‡∏û MASTER ‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö 1 ‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡∏°‡∏µ 3 ‡∏°‡∏∏‡∏° ‡πÅ‡∏≠‡∏õ‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏†‡∏≤‡∏û‡πÇ‡∏î‡∏¢‡πÑ‡∏°‡πà‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡πÉ‡∏´‡∏°‡πà" })
-            val dialog=AlertDialog.Builder(this).setTitle("‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤ MASTER ‚Ä¢ ${labels[index]}")
-                .setView(panel).setPositiveButton("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏†‡∏≤‡∏û",null).setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-            dialog.getButton(-1).setOnClickListener {
-                val n=name.text.toString().trim(); val years=age.text.toString().toIntOrNull()
-                if(n.isEmpty() || years==null || !CharacterAge.valid(years)) { notice("‡∏Å‡∏£‡∏≠‡∏Å‡∏ä‡∏∑‡πà‡∏≠‡πÅ‡∏•‡∏∞‡∏≠‡∏≤‡∏¢‡∏∏ 0‚Äì1,000 ‡∏õ‡∏µ"); return@setOnClickListener }
-                if(types[index] in listOf("human", "child", "deity", "knight") && gender.selectedItemPosition==0) { notice("‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏û‡∏®‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏Å‡∏≥‡∏´‡∏ô‡∏î‡∏ú‡∏π‡πâ‡∏û‡∏π‡∏î‡πÉ‡∏´‡πâ‡∏ñ‡∏π‡∏Å‡∏ï‡πâ‡∏≠‡∏á"); return@setOnClickListener }
-                if((0 until actorCatalog().length()).any { actorCatalog().getJSONObject(it).optString("display_name")==n }) { notice("‡∏ä‡∏∑‡πà‡∏≠‡∏ô‡∏µ‡πâ‡∏°‡∏µ‡πÉ‡∏ô‡∏Ñ‡∏•‡∏±‡∏á‡πÅ‡∏•‡πâ‡∏ß"); return@setOnClickListener }
-                val id="CHAR_"+(System.currentTimeMillis()%2000000000L).toString()
-                val p=JSONObject().put("id",id).put("display_name",n).put("character_age",years)
-                    .put("character_type",types[index]).put("casting_description",description.text.toString().trim())
-                if(gender.selectedItemPosition>0) p.put("character_gender",if(gender.selectedItemPosition==1) "man" else "woman")
-                prefs.edit().putString("new_actor_pending",p.toString()).apply()
-                dialog.dismiss()
-                actorImagePicker.launch(arrayOf("image/*"))
-            }
-        }
-    }
-    private fun actorCatalogMenu() {
-        runCatching {
-            val records=actorCatalog()
-            val channel=ChannelCatalog.currentChannel(plan?.optString("channel").orEmpty())
-            val fantasy=ChannelFeaturePolicy.hasFantasyTools(channel)
-            val pia=channel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î"
-            val visible=(0 until records.length()).filter { i -> !pia || records.getJSONObject(i).optString("character_type") !in setOf("knight","deity","creature","demon","ghost","spirit","fairy") }
-            val base=if(fantasy) 4 else 3
-            val menus=listOf("üì• ‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤ MASTER ‡∏ó‡∏µ‡πà‡∏°‡∏µ‡∏≠‡∏¢‡∏π‡πà","‚ûï ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏à‡∏≤‡∏Å‡πÅ‡∏°‡πà‡πÅ‡∏ö‡∏ö","üìö ‡∏î‡∏π MASTER ‡∏Ñ‡∏•‡∏±‡∏á‡πÄ‡∏î‡∏¥‡∏°") + if(fantasy) listOf("‚ú® ‡∏î‡∏π MASTER ‡πÅ‡∏ü‡∏ô‡∏ï‡∏≤‡∏ã‡∏µ‡πÅ‡∏•‡∏∞‡∏†‡∏π‡∏ï‡∏ú‡∏µ") else emptyList()
-            chooseNamedCharacterGrid("‡∏Ñ‡∏•‡∏±‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ‚Ä¢ ${channel.ifBlank { "‡∏ä‡πà‡∏≠‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏" }}",menus.map { it to null }+visible.map { i -> records.getJSONObject(i).let { ("${it.getString("display_name")} ‚Ä¢ ‡∏≠‡∏≤‡∏¢‡∏∏ ${it.getInt("character_age")} ‡∏õ‡∏µ") to File(filesDir,"actor_master_v2/"+it.getString("file")) } }) { index ->
-                if(index==0) importCharacterMaster() else if(index==1) bodyTemplateMenu() else if(index==2) libraryMenu() else if(fantasy && index==3) {
-                    val fantasy=fantasyCatalog()
-                    chooseNamedCharacterGrid("MASTER ‡πÅ‡∏ü‡∏ô‡∏ï‡∏≤‡∏ã‡∏µ",(0 until fantasy.length()).map { i -> val entry=fantasy.getJSONObject(i); entry.getString("display_name") to runCatching { castingSource(entry) }.getOrNull() }) { selected ->
-                        val row=fantasy.getJSONObject(selected)
-                        runCatching { fullImage(castingSource(row),row.getString("display_name")) }.onFailure { notice(it.message ?: "‡πÄ‡∏õ‡∏¥‡∏î‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-                    }
-                } else {
-                    val actualIndex=visible[index-base]
-                    val row=records.getJSONObject(actualIndex)
-                    val file=File(filesDir,"actor_master_v2/"+row.getString("file"))
-                    choiceMenu(row.getString("display_name"),listOf("‡∏î‡∏π MASTER","‡∏Å‡∏≥‡∏´‡∏ô‡∏î‡∏õ‡∏£‡∏∞‡πÄ‡∏†‡∏ó‡πÅ‡∏•‡∏∞‡πÄ‡∏û‡∏®","‡∏ô‡∏≥‡∏≠‡∏≠‡∏Å‡∏à‡∏≤‡∏Å‡∏Ñ‡∏•‡∏±‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà")) { action ->
-                        if(action==0) { if(file.isFile) fullImage(file,row.getString("display_name")) else notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏†‡∏≤‡∏û MASTER") }
-                        else if(action==1) {
-                            val types=listOf("human", "animal", "creature", "demon", "ghost", "spirit", "fairy")
-                            choiceMenu("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏õ‡∏£‡∏∞‡πÄ‡∏†‡∏ó‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£",listOf("‡∏°‡∏ô‡∏∏‡∏©‡∏¢‡πå", "‡∏™‡∏±‡∏ï‡∏ß‡πå", "‡∏≠‡∏™‡∏π‡∏£", "‡∏õ‡∏µ‡∏®‡∏≤‡∏à", "‡∏ú‡∏µ", "‡∏ß‡∏¥‡∏ç‡∏ç‡∏≤‡∏ì", "‡∏†‡∏π‡∏ï")) { selected ->
-                                fun save(gender: String) {
-                                    row.put("character_type",types[selected]).put("character_gender",gender)
-                                    val temp=File(filesDir,"actor_catalog_v2.pending")
-                                    temp.writeText(JSONObject().put("records",records).toString(2))
-                                    if(temp.renameTo(actorCatalogFile)) notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏õ‡∏£‡∏∞‡πÄ‡∏†‡∏ó‡πÅ‡∏•‡∏∞‡πÄ‡∏û‡∏®‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡πÉ‡∏ä‡πâ‡∏Å‡∏±‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà") else notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏Ñ‡∏•‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ")
-                                }
-                                if(selected==0) choiceMenu("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏û‡∏®‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£",listOf("‡∏ä‡∏≤‡∏¢", "‡∏´‡∏ç‡∏¥‡∏á")) { g -> save(if(g==0) "man" else "woman") } else save("")
-                            }
-                        }
-                        else {
-                            val rest=JSONArray(); for(i in 0 until records.length()) if(i!=actualIndex) rest.put(records.getJSONObject(i))
-                            val temp=File(filesDir,"actor_catalog_v2.pending")
-                            temp.writeText(JSONObject().put("records",rest).toString(2))
-                            if(temp.renameTo(actorCatalogFile)) notice("‡∏ô‡∏≥‡∏≠‡∏≠‡∏Å‡∏à‡∏≤‡∏Å‡∏Ñ‡∏•‡∏±‡∏á‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ó‡∏µ‡πà‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÑ‡∏ß‡πâ‡∏¢‡∏±‡∏á‡πÉ‡∏ä‡πâ‡∏†‡∏≤‡∏û‡πÄ‡∏î‡∏¥‡∏°") else notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏Ñ‡∏•‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ")
-                        }
-                    }
-                }
-            }
-        }.onFailure { notice("‡∏≠‡πà‡∏≤‡∏ô‡∏Ñ‡∏•‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ: ${it.message}") }
-    }
-    private val masterLibrary by lazy { MasterLibrary(File(filesDir,"master_library")) { assets.open(it).use { stream -> stream.readBytes() } } }
-    private fun libraryMenu() {
-        runCatching {
-            val entries=masterLibrary.entries()
-            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-            panel.addView(TextView(this).apply { text=if(entries.isEmpty()) "‡∏Ñ‡∏•‡∏±‡∏á‡∏ß‡πà‡∏≤‡∏á ‚Ä¢ ‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏†‡∏≤‡∏û‡πÉ‡∏´‡∏°‡πà‡∏ú‡πà‡∏≤‡∏ô‡πÄ‡∏°‡∏ô‡∏π‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£" else "${entries.size} ‡πÅ‡∏ú‡πà‡∏ô ‚Ä¢ ‡∏´‡∏ô‡∏∂‡πà‡∏á‡πÅ‡∏ú‡πà‡∏ô‡∏ï‡πà‡∏≠‡∏´‡∏ô‡∏∂‡πà‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£" })
-            val search=EditText(this).apply { hint="‡∏Ñ‡πâ‡∏ô‡∏´‡∏≤ CHAR_001 ‡∏´‡∏£‡∏∑‡∏≠‡∏ä‡∏∑‡πà‡∏≠‡πÑ‡∏ü‡∏•‡πå"; isSingleLine=true; panel.addView(this) }
-            val list=LinearLayout(this).apply { orientation=1 }
-            panel.addView(ScrollView(this).apply { addView(list) },LinearLayout.LayoutParams(-1,dp(420)))
-            fun show(query: String) {
-                list.removeAllViews()
-                var row: LinearLayout?=null
-                entries.filter { (it.id+" "+it.displayName+" "+it.original).contains(query,ignoreCase=true) }.forEachIndexed { index, entry ->
-                    if(index%2==0) { row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; list.addView(row) }
-                    val file=runCatching { masterLibrary.source(entry) }.getOrNull()
-                    val card=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(4),dp(6),dp(4),dp(6)); layoutParams=LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f) }
-                    row?.addView(card)
-                    val label="${entry.displayName}\n${entry.id}"+(if(file?.isFile==true) "" else "\n‡πÑ‡∏°‡πà‡∏û‡∏ö MASTER")
-                    if(file?.isFile==true) card.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(file)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(140)); contentDescription=label; setOnClickListener { libraryEntry(entry) } })
-                    card.addView(Button(this).apply { text=label; setOnClickListener { libraryEntry(entry) } })
-                }
-            }
-            search.addTextChangedListener(object: android.text.TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { show(s?.toString().orEmpty()) }
-                override fun afterTextChanged(s: android.text.Editable?) {}
-            })
-            show("")
-            AlertDialog.Builder(this).setTitle("üé≠ ‡∏Ñ‡∏•‡∏±‡∏á MASTER").setView(panel).setNegativeButton("‡∏õ‡∏¥‡∏î",null).showDirector()
-        }.onFailure { notice("‡πÄ‡∏õ‡∏¥‡∏î‡∏Ñ‡∏•‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ: ${it.message}") }
-    }
-    private fun shortCatalogLabel(legacy: String): String? = runCatching {
-        val file=File(filesDir,"short_catalog_ids.json")
-        if(file.isFile) JSONObject(file.readText()).optString(legacy).takeIf { it.isNotBlank() } else null
-    }.getOrNull()
-    private fun libraryEntry(entry: MasterLibrary.Entry) {
-        runCatching {
-            val file=masterLibrary.source(entry)
-            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-            panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(400)); setOnClickListener { fullImage(file,entry.id) } })
-            panel.addView(TextView(this).apply { text="${shortCatalogLabel(entry.id) ?: entry.id} ‚Ä¢ ${entry.displayName} ‚Ä¢ ‡∏≠‡∏≤‡∏¢‡∏∏‡∏™‡∏°‡∏°‡∏ï‡∏¥ ${entry.characterAge} ‡∏õ‡∏µ\n‡∏†‡∏≤‡∏û‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö 3 ‡∏°‡∏∏‡∏°‡∏°‡∏≠‡∏á ‡πÅ‡∏ï‡∏∞‡∏†‡∏≤‡∏û‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏Ç‡∏¢‡∏≤‡∏¢" })
-            AlertDialog.Builder(this).setTitle("${shortCatalogLabel(entry.id) ?: entry.id} ‚Ä¢ ${entry.displayName}").setView(ScrollView(this).apply { addView(panel) })
-                .setPositiveButton("‡πÉ‡∏ä‡πâ‡∏Å‡∏±‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà") { _,_ ->
-                    choiceMenu("‡∏Å‡∏≥‡∏´‡∏ô‡∏î‡∏†‡∏≤‡∏û ${entry.id}",listOf("‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏´‡∏•‡∏±‡∏Å: ‡∏Å‡∏ß‡∏¥‡∏ô","‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏´‡∏•‡∏±‡∏Å: ‡∏£‡∏¥‡∏ô‡∏£‡∏î‡∏≤","‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏´‡∏•‡∏±‡∏Å: ‡πÄ‡∏°‡∏¢‡πå","‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÄ‡∏™‡∏£‡∏¥‡∏°‡∏û‡∏£‡πâ‡∏≠‡∏°‡∏ï‡∏±‡πâ‡∏á‡∏ä‡∏∑‡πà‡∏≠")) { slot ->
-                        if(slot==3) addLibrarySupport(entry) else runCatching {
-                            val id=listOf("gawin","rinlada","mind")[slot]
-                            masterLibrary.assign(entry,File(filesDir,"character_masters/$id.master"))
-                            notice("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ${entry.id} ‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÄ‡∏î‡∏¥‡∏°‡πÉ‡∏ä‡πâ‡∏†‡∏≤‡∏û‡πÄ‡∏î‡∏¥‡∏°")
-                        }.onFailure { notice(it.message ?: "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-                    }
-                }.setNegativeButton("‡∏õ‡∏¥‡∏î",null).showDirector()
-        }.onFailure { notice(it.message ?: "‡πÄ‡∏õ‡∏¥‡∏î‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-    }
-    private fun addLibrarySupport(entry: MasterLibrary.Entry) {
-        if(readSupportingCast().length()>=8) { notice("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÄ‡∏™‡∏£‡∏¥‡∏°‡πÑ‡∏î‡πâ‡πÑ‡∏°‡πà‡πÄ‡∏Å‡∏¥‡∏ô 8 ‡∏Ñ‡∏ô‡∏ï‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á ‚Ä¢ ‡∏ô‡∏≥‡∏Ñ‡∏ô‡πÄ‡∏î‡∏¥‡∏°‡∏≠‡∏≠‡∏Å‡∏Å‡πà‡∏≠‡∏ô"); return }
-        val input=EditText(this).apply { hint="‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÉ‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á"; setText(entry.displayName) }
-        AlertDialog.Builder(this).setTitle("‡πÄ‡∏û‡∏¥‡πà‡∏° ${entry.id} ‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà").setView(input).setPositiveButton("‡πÄ‡∏û‡∏¥‡πà‡∏°") { _,_ ->
-            runCatching {
-                val name=input.text.toString().trim()
-                val roster=readSupportingCast()
-                require(name.isNotBlank() && StoryIdentity.keyFor(name)==null && (0 until roster.length()).none { roster.getJSONObject(it).getString("name")==name }) { "‡∏£‡∏∞‡∏ö‡∏∏‡∏ä‡∏∑‡πà‡∏≠‡πÑ‡∏°‡πà‡∏ã‡πâ‡∏≥‡∏Å‡∏±‡∏ö‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ó‡∏µ‡πà‡∏°‡∏µ‡∏≠‡∏¢‡∏π‡πà" }
-                require((0 until roster.length()).none { roster.getJSONObject(it).optString("library_id")==entry.id }) { "‡πÄ‡∏•‡∏∑‡∏≠‡∏Å MASTER ‡∏ô‡∏µ‡πâ‡πÑ‡∏ß‡πâ‡πÅ‡∏•‡πâ‡∏ß" }
-                val id="support_"+UUID.randomUUID().toString().take(8)
-                val person=JSONObject().put("name",name).put("master","${id.uppercase()}_MASTER.png")
-                    .put("library_id",entry.id).put("character_gender",entry.gender).put("character_type",entry.characterType).put("visual_description",MasterLibrary.description(entry.id))
-                roster.put(person)
-                require(FlowCast.issues(JSONObject().put("supporting_characters",roster)).isEmpty()) { "‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÑ‡∏°‡πà‡∏ñ‡∏π‡∏Å‡∏ï‡πâ‡∏≠‡∏á" }
-                masterLibrary.assign(entry,File(filesDir,"supporting_masters/$id.master"))
-                // Keep the existing array format consumed by legacy projects and UI.
-                val target=File(filesDir,"supporting_cast.json")
-                val pending=File(filesDir,"supporting_cast.json.pending")
-                pending.writeText(roster.toString(2)); check(pending.renameTo(target))
-                notice("‡πÄ‡∏û‡∏¥‡πà‡∏° $name ‡∏à‡∏≤‡∏Å ${entry.id} ‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡πÉ‡∏ä‡πâ‡πÄ‡∏°‡∏∑‡πà‡∏≠‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà")
-            }.onFailure { notice(it.message ?: "‡πÄ‡∏û‡∏¥‡πà‡∏°‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-        }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-    }
-    private fun selectedLeadReferences(): JSONObject {
-        val entries=masterLibrary.entries()
-        val selected=JSONObject()
-        FlowProductionPack.names.keys.forEach { id ->
-            val file=File(filesDir,"character_masters/$id.master")
-            if(file.isFile) {
-                val hash=MasterLibrary.digest(file.readBytes())
-                entries.firstOrNull { it.sha256==hash }?.let { selected.put(id,JSONObject().put("library_id",it.id).put("visual_description",MasterLibrary.description(it.id))) }
-            }
-        }
-        return selected
-    }
-
-    private fun characterMasters() { unifiedMasterMenu() }
-
-    private fun presetMaster(id: String,name: String) {
-        val file=File(filesDir,"character_masters/$id.master")
-        choiceMenu(name,listOf("‡∏î‡∏π MASTER","‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏†‡∏≤‡∏û MASTER","‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ‡∏ú‡∏° ‡πÅ‡∏•‡∏∞‡∏£‡∏π‡∏õ‡∏£‡πà‡∏≤‡∏á","‡πÄ‡∏ï‡∏£‡∏µ‡∏¢‡∏° MASTER ‡∏°‡∏≤‡∏ï‡∏£‡∏ê‡∏≤‡∏ô","‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û MASTER")) { action -> when(action) {
-            0 -> if(file.exists()) fullImage(file,name) else notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ MASTER")
-            1 -> { masterSlot=id; masterPicker.launch(arrayOf("image/*")) }
-            2 -> editCharacterMemory(id,name,file)
-            3 -> sendProductionMaster(id,name,file)
-            4 -> reviewMaster(id,name,file)
-        } }
-    }
-    private data class UnifiedMasterItem(val name: String,val id: String,val category: String,val file: File?,val open: ()->Unit)
-    private fun unifiedMasterMenu() {
-        runCatching {
-            val all=mutableListOf<UnifiedMasterItem>()
-            listOf("rinlada" to "‡∏£‡∏¥‡∏ô‡∏£‡∏î‡∏≤","mind" to "‡πÄ‡∏°‡∏¢‡πå").forEach { (id,name) ->
-                val file=File(filesDir,"character_masters/$id.master")
-                all.add(UnifiedMasterItem(name,id.uppercase()+"_MASTER","‡∏°‡∏ô‡∏∏‡∏©‡∏¢‡πå",file,{ presetMaster(id,name) }))
-            }
-            val records=piaCatalog()
-            val oldEntries=masterLibrary.entries().associateBy { it.id }
-            for(i in 0 until records.length()) {
-                val item=records.getJSONObject(i)
-                val id=item.getString("id")
-                val name=item.optString("display_name",id)
-                val type=item.optString("character_type").lowercase()
-                val category=when(type) {
-                    "human" -> "‡∏°‡∏ô‡∏∏‡∏©‡∏¢‡πå"
-                    "animal" -> "‡∏™‡∏±‡∏ï‡∏ß‡πå"
-                    "creature","demon" -> "‡∏≠‡∏™‡∏π‡∏£‡πÅ‡∏•‡∏∞‡∏™‡∏±‡∏ï‡∏ß‡πå‡∏õ‡∏£‡∏∞‡∏´‡∏•‡∏≤‡∏î"
-                    "deity","knight" -> "‡πÄ‡∏ó‡∏û‡πÅ‡∏•‡∏∞‡∏ú‡∏π‡πâ‡∏û‡∏¥‡∏ó‡∏±‡∏Å‡∏©‡πå"
-                    "ghost","spirit","fairy" -> "‡∏ú‡∏µ ‡∏ß‡∏¥‡∏ç‡∏ç‡∏≤‡∏ì ‡πÅ‡∏•‡∏∞‡∏†‡∏π‡∏ï"
-                    else -> if(item.optString("character_gender").isNotBlank() && type.isBlank()) "‡∏°‡∏ô‡∏∏‡∏©‡∏¢‡πå" else "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏õ‡∏£‡∏∞‡πÄ‡∏†‡∏ó"
-                }
-                val file=runCatching { castingSource(item) }.getOrNull()
-                val old=oldEntries[id]
-                all.add(UnifiedMasterItem(name,id,category,file,{
-                    if(old!=null) libraryEntry(old)
-                    else if(file?.isFile==true) fullImage(file,name+" ‚Ä¢ "+id)
-                    else notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏†‡∏≤‡∏û MASTER ‡∏Ç‡∏≠‡∏á $name ‚Ä¢ $id")
-                }))
-            }
-            installPiaDefaults()
-            val blackReference=presenterOutfitFile(piaActorId,13)
-            all.add(UnifiedMasterItem("‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‚Ä¢ ‡∏ä‡∏∏‡∏î‡∏î‡∏≥ 3 ‡∏°‡∏∏‡∏°‡∏°‡∏≠‡∏á", "PIA_BLACK_OUTFIT", "‡∏°‡∏ô‡∏∏‡∏©‡∏¢‡πå", blackReference, {
-                if(blackReference.isFile) fullImage(blackReference,"‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‚Ä¢ ‡∏ä‡∏∏‡∏î‡∏î‡∏≥ 3 ‡∏°‡∏∏‡∏°‡∏°‡∏≠‡∏á") else notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á‡∏ä‡∏∏‡∏î‡∏î‡∏≥")
-            }))
-            propCatalog.forEachIndexed { index,name ->
-                val id=propId(index)
-                val file=runCatching {
-                    val target=File(cacheDir,"prop_masters/$id.png")
-                    if(!target.isFile) { target.parentFile!!.mkdirs(); assets.open("prop_masters/$id.png").use { input -> target.outputStream().use { input.copyTo(it) } } }
-                    target
-                }.getOrNull()
-                all.add(UnifiedMasterItem(name,id,"‡∏≠‡∏≤‡∏ß‡∏∏‡∏ò‡πÅ‡∏•‡∏∞‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå",file,{
-                    if(file?.isFile==true) fullImage(file,name+" ‚Ä¢ "+id) else notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏†‡∏≤‡∏û MASTER ‡∏Ç‡∏≠‡∏á $name ‚Ä¢ $id")
-                }))
-            }
-            // The black outfit is another view of the presenter, not another person.
-            fun legacyKey(item: UnifiedMasterItem) = if(item.id=="PIA_BLACK_OUTFIT") piaActorId else item.id
-            val shortIds=ShortCatalogIds(File(filesDir,"short_catalog_ids.json")).assign(all.map { legacyKey(it) to it.category })
-            val categories=listOf("‡∏ó‡∏±‡πâ‡∏á‡∏´‡∏°‡∏î","‡∏°‡∏ô‡∏∏‡∏©‡∏¢‡πå","‡∏™‡∏±‡∏ï‡∏ß‡πå","‡∏≠‡∏™‡∏π‡∏£‡πÅ‡∏•‡∏∞‡∏™‡∏±‡∏ï‡∏ß‡πå‡∏õ‡∏£‡∏∞‡∏´‡∏•‡∏≤‡∏î","‡πÄ‡∏ó‡∏û‡πÅ‡∏•‡∏∞‡∏ú‡∏π‡πâ‡∏û‡∏¥‡∏ó‡∏±‡∏Å‡∏©‡πå","‡∏ú‡∏µ ‡∏ß‡∏¥‡∏ç‡∏ç‡∏≤‡∏ì ‡πÅ‡∏•‡∏∞‡∏†‡∏π‡∏ï","‡∏≠‡∏≤‡∏ß‡∏∏‡∏ò‡πÅ‡∏•‡∏∞‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå","‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏õ‡∏£‡∏∞‡πÄ‡∏†‡∏ó")
-            choiceMenu("‡∏Ñ‡∏•‡∏±‡∏á MASTER ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏´‡∏°‡∏ß‡∏î",categories+listOf("‚ûï ‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£","üé≠ ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏Ç‡∏≠‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ó‡∏µ‡πà‡πÄ‡∏õ‡∏¥‡∏î")) { selected ->
-                if(selected==categories.size) { actorCatalogMenu(); return@choiceMenu }
-                if(selected==categories.size+1) { if(plan!=null) castMenu() else notice("‡πÄ‡∏õ‡∏¥‡∏î‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ó‡∏µ‡πà‡∏°‡∏µ‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô"); return@choiceMenu }
-                val category=categories[selected]
-                val panel=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-                val search=EditText(this).apply { hint="‡∏Ñ‡πâ‡∏ô‡∏´‡∏≤‡∏ä‡∏∑‡πà‡∏≠‡∏´‡∏£‡∏∑‡∏≠‡∏£‡∏´‡∏±‡∏™‡∏™‡∏±‡πâ‡∏ô"; isSingleLine=true }
-                val count=TextView(this)
-                val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
-                panel.addView(search); panel.addView(count)
-                panel.addView(ScrollView(this).apply { addView(grid) },LinearLayout.LayoutParams(-1,dp(420)))
-                val dialog=AlertDialog.Builder(this).setTitle("‡∏Ñ‡∏•‡∏±‡∏á MASTER ‚Ä¢ $category").setView(panel).setNegativeButton("‡∏õ‡∏¥‡∏î",null).create()
-                fun show(query: String) {
-                    grid.removeAllViews()
-                    val found=all.filter { (category=="‡∏ó‡∏±‡πâ‡∏á‡∏´‡∏°‡∏î" || it.category==category) && (it.name+" "+it.id+" "+shortIds[legacyKey(it)].orEmpty()).contains(query,ignoreCase=true) }
-                    count.text=if(found.isEmpty()) "‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£ ‚Ä¢ ‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏´‡∏°‡∏ß‡∏î‡∏≠‡∏∑‡πà‡∏ô‡πÑ‡∏î‡πâ" else "‡∏û‡∏ö ${found.size} ‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£ ‚Ä¢ ‡πÅ‡∏ï‡∏∞‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏î‡∏π"
-                    var row: LinearLayout?=null
-                    found.forEachIndexed { index,entry ->
-                        if(index%2==0) { row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; grid.addView(row) }
-                        val cell=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(4),dp(6),dp(4),dp(6)) }
-                        row?.addView(cell,LinearLayout.LayoutParams(0,-2,1f))
-                        val label=shortIds[legacyKey(entry)].orEmpty()+" ‚Ä¢ "+entry.name+(if(entry.file?.isFile==true) "" else "\n‡πÑ‡∏°‡πà‡∏û‡∏ö MASTER")
-                        if(entry.file?.isFile==true) cell.addView(ImageView(this).apply {
-                            setImageBitmap(castingThumbnail(entry.file)); adjustViewBounds=true
-                            contentDescription=label; setOnClickListener { dialog.dismiss(); entry.open() }
-                        },LinearLayout.LayoutParams(-1,dp(140)))
-                        cell.addView(Button(this).apply { text=label; setOnClickListener { dialog.dismiss(); entry.open() } })
-                    }
-                }
-                search.addTextChangedListener(object: android.text.TextWatcher {
-                    override fun beforeTextChanged(s: CharSequence?,start: Int,count: Int,after: Int) {}
-                    override fun onTextChanged(s: CharSequence?,start: Int,before: Int,count: Int) { show(s?.toString().orEmpty()) }
-                    override fun afterTextChanged(s: android.text.Editable?) {}
-                })
-                show(""); dialog.show()
-            }
-        }.onFailure { notice("‡πÄ‡∏õ‡∏¥‡∏î‡∏Ñ‡∏•‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ: ${it.message}") }
-    }
-    private fun sendProductionMaster(id: String, name: String, file: File) {
-        if(!file.exists()) { notice("‡πÄ‡∏û‡∏¥‡πà‡∏° MASTER ‡∏Å‡πà‡∏≠‡∏ô"); return }
-        val source=masterExportName(file,false) ?: run { notice("‡∏≠‡πà‡∏≤‡∏ô‡∏†‡∏≤‡∏û MASTER ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ"); return }
-        val command=ImagePromptPolicy.productionMaster(name,source,promptProfile(id,file))
-        showFlowCode("‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÄ‡∏ï‡∏£‡∏µ‡∏¢‡∏° MASTER ‡πÉ‡∏ô Flow",command,"${id.uppercase()}_MASTER_COMMAND.txt")
-    }
-    private fun reviewMaster(id: String, name: String, file: File) {
-        if(!file.exists()) { notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ MASTER"); return }
-        val profile=characterMemory.read(id,file)
-        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
-        panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(320)) })
-        panel.addView(TextView(this).apply { text="‡∏ï‡∏£‡∏ß‡∏à‡πÄ‡∏ó‡∏µ‡∏¢‡∏ö‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö: ‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡πÅ‡∏•‡∏∞‡∏ú‡∏°‡∏ï‡∏£‡∏á‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô ‚Ä¢ ‡∏£‡∏π‡∏õ‡∏£‡πà‡∏≤‡∏á‡πÑ‡∏°‡πà‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡πÇ‡∏î‡∏¢‡πÑ‡∏°‡πà‡∏ï‡∏±‡πâ‡∏á‡πÉ‡∏à ‚Ä¢ ‡∏°‡∏∑‡∏≠‡∏õ‡∏Å‡∏ï‡∏¥ ‚Ä¢ ‡∏ä‡∏∏‡∏î‡∏û‡∏∑‡πâ‡∏ô‡∏ê‡∏≤‡∏ô‡∏ä‡∏±‡∏î‡πÄ‡∏à‡∏ô ‚Ä¢ ‡πÅ‡∏™‡∏á‡πÅ‡∏•‡∏∞‡∏†‡∏≤‡∏û‡∏Ñ‡∏°‡∏ä‡∏±‡∏î\n‡∏Å‡∏≤‡∏£‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ô‡∏µ‡πâ‡πÄ‡∏õ‡πá‡∏ô‡∏ú‡∏•‡∏ï‡∏£‡∏ß‡∏à‡∏Ç‡∏≠‡∏á‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ ‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πà‡∏ú‡∏•‡∏£‡∏±‡∏ö‡∏£‡∏≠‡∏á‡∏à‡∏≤‡∏Å‡∏£‡∏∞‡∏ö‡∏ö‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û" })
-        AlertDialog.Builder(this).setTitle("‡∏ï‡∏£‡∏ß‡∏à MASTER ‚Ä¢ $name").setView(ScrollView(this).apply { addView(panel) })
-            .setPositiveButton("‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡πâ‡∏ß ‡πÉ‡∏ä‡πâ‡∏†‡∏≤‡∏û‡∏ô‡∏µ‡πâ") { _,_ -> profile.put("reference_reviewed_at",System.currentTimeMillis()); characterMemory.save(id,file,profile); notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏ú‡∏•‡∏ï‡∏£‡∏ß‡∏à‡∏Ç‡∏≠‡∏á‡∏†‡∏≤‡∏û‡∏ô‡∏µ‡πâ‡πÅ‡∏•‡πâ‡∏ß") }
-            .setNeutralButton("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏†‡∏≤‡∏û‡πÉ‡∏´‡∏°‡πà") { _,_ -> if(file.parentFile?.name=="character_masters") { masterSlot=id; masterPicker.launch(arrayOf("image/*")) } else { castTarget=name to file; castPicker.launch(arrayOf("image/*")) } }
-            .setNegativeButton("‡∏õ‡∏¥‡∏î",null).showDirector()
-    }
-    private fun editCharacterMemory(id: String, name: String, file: File) {
-        if (!file.exists()) { notice("‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏†‡∏≤‡∏û MASTER ‡∏Å‡πà‡∏≠‡∏ô‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÇ‡∏õ‡∏£‡πÑ‡∏ü‡∏•‡πå"); return }
-        val profile=characterMemory.read(id,file)
-        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
-        panel.addView(TextView(this).apply { text="‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏ô‡∏µ‡πâ‡∏ú‡∏π‡∏Å‡∏Å‡∏±‡∏ö‡∏†‡∏≤‡∏û MASTER ‡∏ô‡∏µ‡πâ‡πÄ‡∏ó‡πà‡∏≤‡∏ô‡∏±‡πâ‡∏ô ‚Ä¢ ‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏™‡∏¥‡πà‡∏á‡∏ó‡∏µ‡πà‡πÄ‡∏´‡πá‡∏ô ‡∏ä‡∏∏‡∏î‡πÅ‡∏•‡∏∞‡∏â‡∏≤‡∏Å‡∏Å‡∏≥‡∏´‡∏ô‡∏î‡πÉ‡∏ô‡∏ö‡∏ó" })
-        panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(240)) })
-        val fields=listOf("face" to "‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡πÅ‡∏•‡∏∞‡∏î‡∏ß‡∏á‡∏ï‡∏≤", "hair" to "‡∏ú‡∏°‡πÅ‡∏•‡∏∞‡∏´‡∏ô‡∏ß‡∏î‡πÄ‡∏Ñ‡∏£‡∏≤") + BodyReferencePolicy.fields + ("accessories" to "‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏õ‡∏£‡∏∞‡∏î‡∏±‡∏ö‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á (‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ï‡∏≤‡∏°‡∏ö‡∏ó‡πÑ‡∏î‡πâ)")
-        val inputs=fields.map { (key,label) -> key to EditText(this).apply { hint=label; setText(profile.optString(key)); panel.addView(this) } }
-        AlertDialog.Builder(this).setTitle("‡∏Ñ‡∏ß‡∏≤‡∏°‡∏à‡∏≥‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ‚Ä¢ $name").setView(ScrollView(this).apply { addView(panel) })
-            .setPositiveButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å") { _,_ -> inputs.forEach { (key,input) -> profile.put(key,input.text.toString().trim()) }; characterMemory.save(id,file,profile); notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á‡∏Ç‡∏≠‡∏á $name ‡πÅ‡∏•‡πâ‡∏ß") }
-            .setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-    }
-    private val otherGenres = listOf("‡∏î‡∏£‡∏≤‡∏°‡πà‡∏≤‡∏ä‡∏µ‡∏ß‡∏¥‡∏ï", "‡∏Ñ‡∏£‡∏≠‡∏ö‡∏Ñ‡∏£‡∏±‡∏ß", "‡πÇ‡∏£‡πÅ‡∏°‡∏ô‡∏ï‡∏¥‡∏Å", "‡∏ï‡∏•‡∏Å", "‡∏™‡∏∑‡∏ö‡∏™‡∏ß‡∏ô", "‡∏£‡∏∞‡∏ó‡∏∂‡∏Å‡∏Ç‡∏ß‡∏±‡∏ç", "‡∏™‡∏¢‡∏≠‡∏á‡∏Ç‡∏ß‡∏±‡∏ç", "‡πÅ‡∏ü‡∏ô‡∏ï‡∏≤‡∏ã‡∏µ", "‡πÅ‡∏≠‡πá‡∏Å‡∏ä‡∏±‡∏ô", "‡∏≠‡∏ö‡∏≠‡∏∏‡πà‡∏ô‡∏´‡∏±‡∏ß‡πÉ‡∏à")
-    private val smartDirector = "‡∏£‡∏∞‡∏ö‡∏ö‡∏Å‡∏≥‡∏Å‡∏±‡∏ö‡∏•‡∏∞‡∏Ñ‡∏£‡∏≠‡∏±‡∏à‡∏â‡∏£‡∏¥‡∏¢‡∏∞"
-    private val genreLabels = listOf(
-        "üé≠ ‡∏î‡∏£‡∏≤‡∏°‡πà‡∏≤‡∏ä‡∏µ‡∏ß‡∏¥‡∏ï\n‡∏ï‡πà‡∏≠‡∏™‡∏π‡πâ‡∏ä‡∏µ‡∏ß‡∏¥‡∏ï‡πÅ‡∏•‡∏∞‡∏Å‡∏≤‡∏£‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏ï‡πâ‡∏ô‡πÉ‡∏´‡∏°‡πà",
-        "üè° ‡∏Ñ‡∏£‡∏≠‡∏ö‡∏Ñ‡∏£‡∏±‡∏ß\n‡∏Ñ‡∏ß‡∏≤‡∏°‡∏£‡∏±‡∏Å‡πÅ‡∏•‡∏∞‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ú‡∏π‡∏Å‡∏û‡∏±‡∏ô‡πÉ‡∏ô‡∏ö‡πâ‡∏≤‡∏ô",
-        "üíï ‡πÇ‡∏£‡πÅ‡∏°‡∏ô‡∏ï‡∏¥‡∏Å\n‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏£‡∏±‡∏Å‡πÅ‡∏•‡∏∞‡∏Ñ‡∏ß‡∏≤‡∏°‡∏™‡∏±‡∏°‡∏û‡∏±‡∏ô‡∏ò‡πå",
-        "üòÇ ‡∏ï‡∏•‡∏Å\n‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏™‡∏ô‡∏∏‡∏Å ‡∏ä‡∏ß‡∏ô‡∏¢‡∏¥‡πâ‡∏°‡πÅ‡∏•‡∏∞‡∏´‡∏±‡∏ß‡πÄ‡∏£‡∏≤‡∏∞",
-        "üîé ‡∏™‡∏∑‡∏ö‡∏™‡∏ß‡∏ô\n‡∏ï‡∏≤‡∏°‡πÄ‡∏ö‡∏≤‡∏∞‡πÅ‡∏™ ‡πÄ‡∏õ‡∏¥‡∏î‡πÄ‡∏ú‡∏¢‡∏Ñ‡∏ß‡∏≤‡∏°‡∏à‡∏£‡∏¥‡∏á",
-        "üò± ‡∏£‡∏∞‡∏ó‡∏∂‡∏Å‡∏Ç‡∏ß‡∏±‡∏ç\n‡∏•‡∏∏‡πâ‡∏ô‡∏ó‡∏∏‡∏Å‡∏â‡∏≤‡∏Å ‡∏õ‡∏£‡∏¥‡∏®‡∏ô‡∏≤‡πÅ‡∏•‡∏∞‡∏≠‡∏±‡∏ô‡∏ï‡∏£‡∏≤‡∏¢",
-        "üëª ‡∏™‡∏¢‡∏≠‡∏á‡∏Ç‡∏ß‡∏±‡∏ç\n‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏•‡∏µ‡πâ‡∏•‡∏±‡∏ö‡πÅ‡∏•‡∏∞‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ô‡πà‡∏≤‡∏Å‡∏•‡∏±‡∏ß",
-        "‚ú® ‡πÅ‡∏ü‡∏ô‡∏ï‡∏≤‡∏ã‡∏µ\n‡πÇ‡∏•‡∏Å‡∏à‡∏¥‡∏ô‡∏ï‡∏ô‡∏≤‡∏Å‡∏≤‡∏£‡πÅ‡∏•‡∏∞‡∏û‡∏•‡∏±‡∏á‡∏ß‡∏¥‡πÄ‡∏®‡∏©",
-        "üî• ‡πÅ‡∏≠‡πá‡∏Å‡∏ä‡∏±‡∏ô\n‡∏†‡∏≤‡∏£‡∏Å‡∏¥‡∏à ‡∏Å‡∏≤‡∏£‡πÑ‡∏•‡πà‡∏•‡πà‡∏≤‡πÅ‡∏•‡∏∞‡∏Å‡∏≤‡∏£‡∏ï‡πà‡∏≠‡∏™‡∏π‡πâ",
-        "üå∑ ‡∏≠‡∏ö‡∏≠‡∏∏‡πà‡∏ô‡∏´‡∏±‡∏ß‡πÉ‡∏à\n‡∏Ñ‡∏ß‡∏≤‡∏°‡∏´‡∏ß‡∏±‡∏á ‡∏Å‡∏≤‡∏£‡∏ä‡πà‡∏ß‡∏¢‡πÄ‡∏´‡∏•‡∏∑‡∏≠‡πÅ‡∏•‡∏∞‡∏Å‡∏≥‡∏•‡∏±‡∏á‡πÉ‡∏à")
-    private val originalChannel = ChannelCatalog.channel
-    private val planPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) background {
-            val text = contentResolver.openInputStream(uri)!!.bufferedReader().use { it.readText() }
-            val candidate = JSONObject(text.removePrefix("\uFEFF"))
-            validate(candidate)
-            val id = UUID.randomUUID().toString()
-            val folder = File(base, id).apply { mkdirs() }
-            File(folder, "story.json").writeText(candidate.toString(2))
-            prefs.edit().putString("project", id).commit()
-        }
-    }
-    private val packagePicker = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        if (uris.isNotEmpty()) receivePackage(uris)
-    }
-    private fun receivePackage(selected: List<Uri>, confirmed: Boolean = false) {
-        importing = true
-        val dialog = AlertDialog.Builder(this).setMessage("‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ï‡∏£‡∏ß‡∏à‡∏ö‡∏ó‡πÅ‡∏•‡∏∞‡∏†‡∏≤‡∏û‚Ä¶").setCancelable(false).showDirector()
-        Thread {
-            try {
-                File(cacheDir,"story_import").deleteRecursively()
-                val staging = File(cacheDir, "story_import/${UUID.randomUUID()}").apply { mkdirs() }
-                val files = mutableListOf<Uri>()
-                val failedZipEntries = mutableListOf<String>()
-                for (uri in selected) {
-                    if (displayName(uri).endsWith(".zip", true) || contentResolver.getType(uri) in listOf("application/zip", "application/x-zip-compressed")) {
-                        val archive = File(staging, "archive-${files.size}.zip")
-                        contentResolver.openInputStream(uri)!!.use { input -> archive.outputStream().use { input.copyTo(it) } }
-                        require(archive.length() > 4 && archive.inputStream().use { it.read() == 'P'.code && it.read() == 'K'.code }) { "‡πÑ‡∏ü‡∏•‡πå‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πà ZIP ‡∏ó‡∏µ‡πà‡∏™‡∏°‡∏ö‡∏π‡∏£‡∏ì‡πå" }
-                        val unpacked = StoryFiles.unpackFile(archive, File(staging, "unpacked-${files.size}"))
-                        files.addAll(unpacked.files.map { Uri.fromFile(it) })
-                        failedZipEntries.addAll(unpacked.failedEntries)
-                    } else files.add(uri)
-                }
-                // A broken large ZIP may end before story.json. Keep its valid images,
-                // then automatically merge them when the separately downloaded story.json arrives.
-                val selectedHasStory = files.any { displayName(it).equals("story.json", true) }
-                if (selectedHasStory && pendingRecovery.isDirectory) {
-                    files.addAll(pendingRecovery.listFiles()?.filter { it.isFile && it.name != "recovery.txt" }?.map { Uri.fromFile(it) }.orEmpty())
-                }
-                val scripts = files.filter { displayName(it).equals("story.json", true) }
-                require(scripts.size <= 1) { "‡πÄ‡∏•‡∏∑‡∏≠‡∏Å story.json ‡∏Ç‡∏≠‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡πÄ‡∏ó‡πà‡∏≤‡∏ô‡∏±‡πâ‡∏ô" }
-                val videos = files.filter { displayName(it).endsWith(".mp4",true) || contentResolver.getType(it)=="video/mp4" }
-                val pictures = files.filter { displayName(it).substringAfterLast('.').lowercase() in listOf("png", "jpg", "jpeg", "webp") || contentResolver.getType(it)?.startsWith("image/") == true }
-                val masters = pictures.filter { Regex("^CHARACTER_\\d+\\.", RegexOption.IGNORE_CASE).containsMatchIn(displayName(it)) }
-                val covers = pictures.filter { StoryFiles.coverName(displayName(it)) != null }
-                val scenes = pictures.filter { !StoryFiles.isMaster(displayName(it)) } - covers.toSet()
-                require(scripts.isNotEmpty() || pictures.isNotEmpty() || videos.isNotEmpty()) { "‡πÑ‡∏°‡πà‡∏û‡∏ö story.json ‡∏´‡∏£‡∏∑‡∏≠‡∏†‡∏≤‡∏û‡πÉ‡∏ô‡πÑ‡∏ü‡∏•‡πå‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ZIP ‡∏ä‡∏∏‡∏î‡∏á‡∏≤‡∏ô ‡∏´‡∏£‡∏∑‡∏≠ JSON/PNG/JPG" }
-                val candidate = scripts.firstOrNull()?.let { contentResolver.openInputStream(it)!!.bufferedReader().use { reader -> JSONObject(reader.readText().removePrefix("\uFEFF")) } }
-                if (candidate == null && plan == null && pictures.isNotEmpty()) {
-                    pendingRecovery.deleteRecursively(); pendingRecovery.mkdirs()
-                    pictures.forEachIndexed { index, uri ->
-                        val safeName = displayName(uri).ifBlank { "recovered-$index.img" }
-                        contentResolver.openInputStream(uri)!!.use { input -> File(pendingRecovery,safeName).outputStream().use { input.copyTo(it) } }
-                    }
-                    File(pendingRecovery,"recovery.txt").writeText("‡∏Å‡∏π‡πâ‡∏†‡∏≤‡∏û ${pictures.size} ‡πÑ‡∏ü‡∏•‡πå\n" + failedZipEntries.joinToString("\n"))
-                    runOnUiThread {
-                        importing=false; dialog.dismiss(); render()
-                        notice("‡∏Å‡∏π‡πâ‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡∏™‡∏°‡∏ö‡∏π‡∏£‡∏ì‡πå‡πÑ‡∏ß‡πâ‡πÅ‡∏•‡πâ‡∏ß ${pictures.size} ‡πÑ‡∏ü‡∏•‡πå ‚Ä¢ ZIP ‡∏Ç‡∏≤‡∏î story.json\n\n‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤ story.json ‡∏ú‡πà‡∏≤‡∏ô‡πÄ‡∏°‡∏ô‡∏π‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏ö‡∏ó‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á ‡πÅ‡∏≠‡∏õ‡∏à‡∏∞‡∏£‡∏ß‡∏°‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡∏Å‡∏π‡πâ‡πÑ‡∏ß‡πâ‡πÉ‡∏´‡πâ‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥ ‡πÑ‡∏°‡πà‡∏ï‡πâ‡∏≠‡∏á‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ZIP ‡∏ã‡πâ‡∏≥")
-                    }
-                    return@Thread
-                }
-                val destinationStory = candidate ?: plan ?: error("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ö‡∏ó ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤ story.json ‡∏Å‡πà‡∏≠‡∏ô")
-                val checkedVideos = videos.map { uri ->
-                    val number=StoryFiles.sceneNumber(displayName(uri)) ?: error("‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠‡∏ï‡πâ‡∏≠‡∏á‡∏ä‡∏∑‡πà‡∏≠ EP01_SC001.mp4: ${displayName(uri)}")
-                    val scene=rows(destinationStory).firstOrNull { it.getInt("ep")==number.first && it.getInt("scene")==number.second } ?: error("‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠‡πÑ‡∏°‡πà‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡∏ö‡∏ó: ${displayName(uri)}")
-                    val temp=File(staging,"checked_videos/${key(scene)}.mp4").apply { parentFile!!.mkdirs() }
-                    contentResolver.openInputStream(uri)!!.use { input -> temp.outputStream().use { input.copyTo(it) } }
-                    val reader=android.media.MediaMetadataRetriever()
-                    try { reader.setDataSource(temp.path); require(reader.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()?.let { it>0 }==true) { "‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠‡∏≠‡πà‡∏≤‡∏ô‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" } } finally { reader.release() }
-                    key(scene) to temp
-                }
-                require(checkedVideos.map { it.first }.distinct().size==videos.size) { "‡∏°‡∏µ‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠‡∏â‡∏≤‡∏Å‡∏ã‡πâ‡∏≥" }
-                val checkedCovers = covers.map { uri ->
-                    val name = StoryFiles.coverName(displayName(uri))!!
-                    require(name in coverNames(destinationStory)) { "‡∏õ‡∏Å $name ‡πÑ‡∏°‡πà‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö EP ‡πÉ‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á" }
-                    val temp = File(staging,"checked/$name.img").apply { parentFile!!.mkdirs() }
-                    contentResolver.openInputStream(uri)!!.use { input -> temp.outputStream().use { input.copyTo(it) } }
-                    val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                    android.graphics.BitmapFactory.decodeFile(temp.path,bounds)
-                    val ratio = if (name.endsWith("16x9")) 16.0 / 9 else 9.0 / 16
-                    require(bounds.outHeight > 0 && kotlin.math.abs(bounds.outWidth.toDouble()/bounds.outHeight - ratio) < 0.04) { "$name ‡∏ï‡πâ‡∏≠‡∏á‡∏°‡∏µ‡∏™‡∏±‡∏î‡∏™‡πà‡∏ß‡∏ô ${if (name.endsWith("16x9")) "16:9" else "9:16"}" }
-                    name to temp
-                }
-                require(checkedCovers.map { it.first }.distinct().size == covers.size) { "‡∏°‡∏µ‡πÑ‡∏ü‡∏•‡πå‡∏õ‡∏Å‡∏ã‡πâ‡∏≥ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏´‡∏ô‡∏∂‡πà‡∏á‡∏†‡∏≤‡∏û‡∏ï‡πà‡∏≠‡∏™‡∏±‡∏î‡∏™‡πà‡∏ß‡∏ô‡∏ï‡πà‡∏≠ EP" }
-                if (candidate != null) validate(candidate)
-                if (!confirmed) {
-                    runOnUiThread {
-                        importing=false; dialog.dismiss()
-                        showPackagePreview(destinationStory, files, failedZipEntries) { receivePackage(selected,true) }
-                    }
-                    return@Thread
-                }
-                if (candidate != null) {
-                    validate(candidate)
-                    // Reimporting the same story must retain images already received.
-                    val sameStory = plan?.let { old -> old.optString("title") == candidate.optString("title") && old.optString("category") == candidate.optString("category") && rows(old).map { it.toString() } == rows(candidate).map { it.toString() } } == true
-                    val folder = if (sameStory) project else File(base, UUID.randomUUID().toString()).apply { mkdirs() }
-                    importOriginalReferences(pictures,folder,candidate)
-                    importNewMasters(masters, folder, candidate)
-                    if (candidate.optString("character_mode","original") == "original") {
-                        listOf("gawin","rinlada","mind").forEach { id ->
-                            val target=File(folder,"original_masters/$id.master")
-                            val source=File(filesDir,"character_masters/$id.master")
-                            if(!target.exists() && source.exists()) { target.parentFile!!.mkdirs(); source.copyTo(target) }
-                        }
-                    }
-                    val storyFile = File(folder,"story.json")
-                    storyFile.writeText(candidate.toString(2))
-                    require(storyFile.isFile && storyFile.length() > 0) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å story.json ‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à" }
-                    require(prefs.edit().putString("project",folder.name).commit()) { "‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤‡πÇ‡∏Ñ‡∏£‡∏á‡∏Å‡∏≤‡∏£‡∏õ‡∏±‡∏à‡∏à‡∏∏‡∏ö‡∏±‡∏ô‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à" }
-                    val persisted = JSONObject(File(project,"story.json").readText())
-                    validate(persisted)
-                    plan = persisted
-                    File(project,"package_imported").writeText(System.currentTimeMillis().toString())
-                } else {
-                    require(plan != null) { "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ö‡∏ó ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤ story.json ‡∏´‡∏£‡∏∑‡∏≠ ZIP ‡∏ó‡∏µ‡πà‡∏°‡∏µ‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô" }
-                    importOriginalReferences(pictures,project,plan!!)
-                    importNewMasters(masters)
-                }
-                checkedVideos.forEach { (id,temp) ->
-                    val target=File(project,"videos/$id.mp4").apply { parentFile!!.mkdirs() }
-                    if(target.exists()) archiveVersion(target,project,id,"video")
-                    temp.copyTo(target,overwrite=true)
-                }
-                checkedCovers.forEach { (name, temp) -> coverFile(name).apply { parentFile!!.mkdirs() }.let { if(it.exists()) archiveVersion(it,project,name,"cover"); temp.copyTo(it,overwrite=true) } }
-                runOnUiThread {
-                    importing = false; dialog.dismiss(); render()
-                    if (candidate != null && plan == null) return@runOnUiThread notice("‡∏£‡∏±‡∏ö‡πÑ‡∏ü‡∏•‡πå‡πÅ‡∏•‡πâ‡∏ß‡πÅ‡∏ï‡πà‡∏¢‡∏±‡∏á‡πÄ‡∏õ‡∏¥‡∏î‡πÇ‡∏Ñ‡∏£‡∏á‡∏Å‡∏≤‡∏£‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤ ZIP ‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á")
-                    if (scenes.isNotEmpty()) importImages(scenes)
-                    else if (videos.isNotEmpty()) showImportReceipt()
-                    else if (covers.isNotEmpty()) { pendingRecovery.deleteRecursively(); showImportReceipt() }
-                    else notice(if (failedZipEntries.isNotEmpty()) "‡∏£‡∏±‡∏ö‡∏™‡πà‡∏ß‡∏ô‡∏ó‡∏µ‡πà‡∏™‡∏°‡∏ö‡∏π‡∏£‡∏ì‡πå‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏Ç‡πâ‡∏≤‡∏°‡πÑ‡∏ü‡∏•‡πå‡∏ó‡∏µ‡πà‡∏≠‡πà‡∏≤‡∏ô‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ${failedZipEntries.size} ‡πÑ‡∏ü‡∏•‡πå ‡∏Å‡∏î‡∏ï‡∏£‡∏ß‡∏à‡∏á‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡∏Ç‡∏≤‡∏î‡πÄ‡∏û‡∏∑‡πà‡∏≠‡πÄ‡∏û‡∏¥‡πà‡∏°‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡πÑ‡∏ü‡∏•‡πå" else if (candidate != null) "‡∏£‡∏±‡∏ö story.json ‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤ ZIP ‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏õ‡∏Å‡∏Ç‡∏≠‡∏á‡πÅ‡∏ï‡πà‡∏•‡∏∞ EP ‡∏ú‡πà‡∏≤‡∏ô‡πÄ‡∏°‡∏ô‡∏π 2 ‡∏ï‡πà‡∏≠‡πÑ‡∏î‡πâ ‡πÑ‡∏°‡πà‡∏ï‡πâ‡∏≠‡∏á‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ö‡∏ó‡∏ã‡πâ‡∏≥" else "‡∏£‡∏±‡∏ö‡∏†‡∏≤‡∏û MASTER ‡πÅ‡∏•‡πâ‡∏ß ‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡πÉ‡∏ô‡∏Ç‡∏±‡πâ‡∏ô‡∏ï‡∏≠‡∏ô 2 ‡πÑ‡∏î‡πâ‡πÄ‡∏•‡∏¢")
-                }
-            } catch (e: Exception) { runOnUiThread { importing = false; dialog.dismiss(); render(); notice("‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏ö‡∏ó‡πÅ‡∏•‡∏∞‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à: ${e.message}") } }
-        }.start()
-    }
-    private val imagesPicker = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        if (uris.isNotEmpty()) importImages(uris)
-    }
-    private val zipPicker = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
-        if (uri != null) { val backup = backupMode; backupMode = false; background { if (backup) contentResolver.openOutputStream(uri)!!.use { StudioArchive.write(project,it,File(filesDir,"short_catalog_ids.json")) } else export(uri) } }
-    }
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        listOf("body_02.png", "body_03.png").forEach { File(cacheDir, "body_template_sources/$it").delete() }
-        adoptGeminiProject(intent)
-        val masterError = runCatching { installCharacterMasters() }.exceptionOrNull()
-        render()
-        if (masterError != null) notice("‡∏ï‡∏¥‡∏î‡∏ï‡∏±‡πâ‡∏á MASTER ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏õ‡∏¥‡∏î‡πÅ‡∏≠‡∏õ‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á")
-    }
-    private fun adoptGeminiProject(incoming: Intent?) {
-        val id=incoming?.getStringExtra("gemini_project") ?: return
-        if(Regex("[a-zA-Z0-9-]+").matches(id) && File(base,"$id/gemini_job/spec.json").isFile) prefs.edit().putString("project",id).apply()
-    }
-    override fun onNewIntent(incoming: Intent) {
-        super.onNewIntent(incoming); setIntent(incoming); adoptGeminiProject(incoming); render()
-    }
-    private fun installCharacterMasters() {
-        // Install explicitly supplied defaults only when no user image exists.
-        val characterDir=File(filesDir,"character_masters").apply { mkdirs() }
-        listOf("rinlada","mind").forEach { id ->
-            val target=File(characterDir,"$id.master")
-            if(!target.exists()) {
-                val temp=File(characterDir,"$id.default.pending")
-                try {
-                    assets.open("character_defaults/$id.jpg").use { input -> temp.outputStream().use { output -> input.copyTo(output) } }
-                    val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
-                    android.graphics.BitmapFactory.decodeFile(temp.path,bounds)
-                    require(bounds.outWidth>0 && bounds.outHeight>0) { "‡∏†‡∏≤‡∏û MASTER ‡∏Ç‡∏≠‡∏á $id ‡∏≠‡πà‡∏≤‡∏ô‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" }
-                    if(!target.exists()) check(temp.renameTo(target)) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å MASTER ‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à" }
-                } finally { temp.delete() }
-            }
-        }
-        // Preserve existing character libraries and project snapshots during upgrades.
-        // Refresh an existing cached copy of Krit's reference after the bundled image changes.
-        if(File(filesDir,"master_library/CHAR_141__1000030680.jpg").isFile) {
-            masterLibrary.entries().firstOrNull { it.id=="CHAR_141" }?.let { masterLibrary.source(it) }
-        }
-    }
-    override fun onResume() {
-        super.onResume()
-        pendingStoryShare=null
-        pendingReceipt=null
-        val receiptPath=prefs.getString("gemini_receipt_pending",null)
-        if(receiptPath!=null) {
-            prefs.edit().remove("gemini_receipt_pending").apply()
-            val receiver=prefs.getString("image_receipt_app","Gemini") ?: "Gemini"
-            AlertDialog.Builder(this).setTitle("‡∏ú‡∏•‡∏Å‡∏≤‡∏£‡∏£‡∏±‡∏ö‡πÑ‡∏ü‡∏•‡πå‡πÉ‡∏ô $receiver")
-                .setMessage("‡∏ï‡∏£‡∏ß‡∏à‡∏ß‡πà‡∏≤‡∏£‡∏π‡∏õ‡πÅ‡∏•‡∏∞‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÉ‡∏ô $receiver ‡∏Ñ‡∏£‡∏ö‡∏´‡∏£‡∏∑‡∏≠‡πÑ‡∏°‡πà ‡∏Å‡∏≤‡∏£‡πÄ‡∏õ‡∏¥‡∏î‡πÅ‡∏≠‡∏õ‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ß‡πà‡∏≤‡∏£‡∏±‡∏ö‡∏Ñ‡∏£‡∏ö‡∏´‡∏£‡∏∑‡∏≠‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡πÅ‡∏•‡πâ‡∏ß")
-                .setPositiveButton("‡∏£‡∏±‡∏ö‡∏Ñ‡∏£‡∏ö‡πÅ‡∏•‡πâ‡∏ß") { _,_ -> recordGeminiReceipt(receiptPath,"user_confirmed_received") }
-                .setNegativeButton("‡∏™‡πà‡∏á‡∏£‡∏π‡∏õ‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á") { _,_ -> recordGeminiReceipt(receiptPath,"user_reported_missing"); retryLastImage() }
-                .setNeutralButton("‡∏Å‡∏•‡∏±‡∏ö‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏£‡∏π‡∏õ/‡∏ã‡∏µ‡∏ô") { _,_ ->
-                    recordGeminiReceipt(receiptPath,"unverified")
-                    if(!returnToImageList()) notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏£‡∏π‡∏õ/‡∏ã‡∏µ‡∏ô‡∏ó‡∏µ‡πà‡πÄ‡∏õ‡∏¥‡∏î‡πÑ‡∏ß‡πâ‡πÉ‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ")
-                }.showDirector()
-        }
-        storyUiHandler.removeCallbacks(storyPoll)
-        storyUiHandler.post(storyPoll)
-        if(!importing && !GeminiStoryService.running) updater.checkAutomatically()
-    }
-    private fun recordGeminiReceipt(path: String, status: String) {
-        val file=File(path)
-        if(!file.canonicalPath.startsWith(base.canonicalPath+"/")) return
-        runCatching { val value=JSONObject(file.readText()); value.put("receipt_status",status).put("receipt_at",System.currentTimeMillis()); file.writeText(value.toString(2)) }
-    }
-    override fun onPause() {
-        storyUiHandler.removeCallbacks(storyPoll)
-        super.onPause()
-    }
-    private fun rows(p: JSONObject): List<JSONObject> {
-        val result = mutableListOf<JSONObject>()
-        val eps = p.getJSONArray("episodes")
-        for (i in 0 until eps.length()) {
-            val ep = eps.getJSONObject(i)
-            val scenes = ep.getJSONArray("scenes")
-            for (j in 0 until scenes.length()) result.add(scenes.getJSONObject(j).put("ep", ep.getInt("ep")))
-        }
-        return result
-    }
-    private fun key(s: JSONObject) = "EP%02d_SC%03d".format(s.getInt("ep"), s.getInt("scene"))
-    private fun image(s: JSONObject) = File(project, "images/${key(s)}.img")
-    private fun validate(p: JSONObject) {
-        ChannelCatalog.updateLegacyChannel(p)
-        require(p.getString("title").isNotBlank()) { "‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ä‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á" }
-        val mode = p.optString("character_mode", "original")
-        if(mode=="original") require(FlowCast.issues(p).isEmpty()) { FlowCast.issues(p).joinToString("\n") }
-        require(mode in listOf("original", "new")) { "‡∏£‡∏π‡∏õ‡πÅ‡∏ö‡∏ö‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÑ‡∏°‡πà‡∏ñ‡∏π‡∏Å‡∏ï‡πâ‡∏≠‡∏á" }
-        require(p.getString("category") in (if (mode == "new") otherGenres else ChannelCatalog.acceptedCategories + legacyCategories)) { "‡∏´‡∏°‡∏ß‡∏î‡∏´‡∏°‡∏π‡πà‡πÑ‡∏°‡πà‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡∏£‡∏π‡∏õ‡πÅ‡∏ö‡∏ö‡∏ä‡πà‡∏≠‡∏á" }
-        if (mode == "new") require(p.optString("channel").isNotBlank()) { "‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏£‡∏∞‡∏ö‡∏∏‡∏ä‡∏∑‡πà‡∏≠‡∏ä‡πà‡∏≠‡∏á‡πÉ‡∏ô‡∏ö‡∏ó" }
-        val eps = p.getJSONArray("episodes")
-        require(eps.length() > 0) { "‡πÑ‡∏°‡πà‡∏°‡∏µ EP" }
-        if (p.optInt("schema_version", 1) >= 2) {
-            require(p.optString("channel").isNotBlank()) { "‡∏ö‡∏ó‡∏Ç‡∏≤‡∏î‡∏ä‡∏∑‡πà‡∏≠‡∏ä‡πà‡∏≠‡∏á" }
-            require(p.optString("tagline").isNotBlank()) { "‡∏ö‡∏ó‡∏Ç‡∏≤‡∏î‡∏Ñ‡∏≥‡πÇ‡∏õ‡∏£‡∏¢‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á" }
-            require(p.getInt("episode_count") == eps.length()) { "‡∏à‡∏≥‡∏ô‡∏ß‡∏ô EP ‡πÑ‡∏°‡πà‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡∏ö‡∏ó" }
-            require(p.getInt("scene_count") == (0 until eps.length()).sumOf { eps.getJSONObject(it).getJSONArray("scenes").length() }) { "‡∏à‡∏≥‡∏ô‡∏ß‡∏ô‡∏ã‡∏µ‡∏ô‡∏£‡∏ß‡∏°‡πÑ‡∏°‡πà‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡∏ö‡∏ó" }
-        }
-        for (i in 0 until eps.length()) {
-            val ep = eps.getJSONObject(i)
-            require(ep.getInt("ep") == i + 1 || p.optString("export_scope") == "episode" && eps.length() == 1 && ep.getInt("ep") == p.optInt("source_episode")) { "EP ‡∏ï‡πâ‡∏≠‡∏á‡πÄ‡∏£‡∏µ‡∏¢‡∏á‡∏à‡∏≤‡∏Å 1" }
-            val scenes = ep.getJSONArray("scenes")
-            require(scenes.length() > 0) { "EP ‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏â‡∏≤‡∏Å" }
-            if (p.optInt("schema_version", 1) >= 2) {
-                require(ep.optString("title").isNotBlank()) { "EP ${i + 1} ‡∏Ç‡∏≤‡∏î‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏≠‡∏ô" }
-                require(ep.optString("tagline").isNotBlank()) { "EP ${i + 1} ‡∏Ç‡∏≤‡∏î‡∏Ñ‡∏≥‡πÇ‡∏õ‡∏£‡∏¢" }
-                require(ep.getInt("scene_count") == scenes.length()) { "‡∏à‡∏≥‡∏ô‡∏ß‡∏ô‡∏ã‡∏µ‡∏ô EP ${i + 1} ‡πÑ‡∏°‡πà‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡∏ö‡∏ó" }
-            }
-            for (j in 0 until scenes.length()) {
-                val s = scenes.getJSONObject(j)
-                require(s.getInt("scene") == j + 1) { "‡∏â‡∏≤‡∏Å‡∏ï‡πâ‡∏≠‡∏á‡πÄ‡∏£‡∏µ‡∏¢‡∏á‡∏à‡∏≤‡∏Å 1 ‡∏†‡∏≤‡∏¢‡πÉ‡∏ô‡πÅ‡∏ï‡πà‡∏•‡∏∞ EP" }
-                if (p.optInt("schema_version", 1) >= 3) {
-                    require(s.optString("location").isNotBlank() && s.optString("continuity_group").isNotBlank()) { "‡∏â‡∏≤‡∏Å‡∏Ç‡∏≤‡∏î‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡∏´‡∏£‡∏∑‡∏≠‡∏£‡∏´‡∏±‡∏™‡πÄ‡∏´‡∏ï‡∏∏‡∏Å‡∏≤‡∏£‡∏ì‡πå‡∏ï‡πà‡∏≠‡πÄ‡∏ô‡∏∑‡πà‡∏≠‡∏á" }
-                    val cast = s.getJSONArray("characters")
-                    require(cast.length() > 0) { "‡∏â‡∏≤‡∏Å‡∏Ç‡∏≤‡∏î‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£" }
-                    val names = mutableSetOf<String>()
-                    for (c in 0 until cast.length()) {
-                        val person = cast.getJSONObject(c)
-                        require(person.optString("name").isNotBlank() && names.add(person.getString("name"))) { "‡∏ä‡∏∑‡πà‡∏≠‡∏´‡∏£‡∏∑‡∏≠‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÑ‡∏°‡πà‡∏ñ‡∏π‡∏Å‡∏ï‡πâ‡∏≠‡∏á" }
-                        require(person.optString("outfit").isNotBlank()) { "‡∏â‡∏≤‡∏Å‡∏Ç‡∏≤‡∏î‡∏ä‡∏∏‡∏î‡∏Ç‡∏≠‡∏á ${person.optString("name")}" }
-                        val master = person.optString("master")
-                        require(if (mode == "original") FlowCast.matches(p,person) else Regex("^CHARACTER_[0-9]+[.]png$").matches(master)) { "MASTER ‡πÑ‡∏°‡πà‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ${person.optString("name")}" }
-                    }
-                }
-                for (field in listOf("action", "image_prompt", "flow_prompt")) require(s.getString(field).isNotBlank()) { "‡∏â‡∏≤‡∏Å‡∏Ç‡∏≤‡∏î $field" }
-            }
-        }
-    }
-    private fun render() {
-        plan = File(project, "story.json").takeIf { it.exists() }?.let { ChannelCatalog.updateLegacyChannel(JSONObject(it.readText())) }
-        if (plan?.optString("character_mode","original") == "original") {
-            listOf("gawin","rinlada","mind").forEach { id ->
-                val target=File(project,"original_masters/$id.master"); val source=File(filesDir,"character_masters/$id.master")
-                if(!target.exists() && source.exists()) { target.parentFile!!.mkdirs(); source.copyTo(target) }
-            }
-        }
-        window.statusBarColor = navy
-        window.navigationBarColor = navy
-        ViewCompat.getWindowInsetsController(window.decorView)?.apply {
-            isAppearanceLightStatusBars = false
-            isAppearanceLightNavigationBars = false
-        }
-        val isFantasyHome=plan?.let { ChannelFeaturePolicy.hasFantasyTools(it.optString("channel")) } == true
-        val scroll = ScrollView(this).apply { background = backdrop(Color.rgb(8,8,10),if(isFantasyHome) Color.rgb(40,25,25) else Color.rgb(31,24,17)); isFillViewport = true; clipToPadding = false }
-        root = LinearLayout(this).apply { orientation = 1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-        scroll.addView(root)
-        val host = LinearLayout(this).apply { orientation = 1; setBackgroundColor(navy) }
-        host.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
-        host.addView(TextView(this).apply {
-            text = "Veo 3.1 Lite ‚Ä¢ ${plan?.optInt("duration_seconds",8) ?: 8} ‡∏ß‡∏¥‡∏ô‡∏≤‡∏ó‡∏µ ‚Ä¢ ${plan?.optString("aspect_ratio","9:16") ?: "9:16"}\n‡∏û‡∏±‡∏í‡∏ô‡∏≤‡πÇ‡∏î‡∏¢ : ‡∏ô‡∏≤‡∏¢‡∏õ‡∏£‡∏¥‡∏ç‡∏ç‡∏≤ ‡∏à‡∏±‡∏ô‡∏ó‡∏£‡πå‡∏à‡∏±‡∏Å‡∏©‡∏∏"
-            textSize = 11f; gravity = Gravity.CENTER; setTextColor(muted)
-            setPadding(dp(10),dp(6),dp(10),dp(6))
-            background = backdrop(navy,navy)
-        })
-        setContentView(host)
-        ViewCompat.setOnApplyWindowInsetsListener(host) { v, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(bars.left,bars.top,bars.right,bars.bottom)
-            insets
-        }
-        ViewCompat.requestApplyInsets(host)
-        val hero = ImageView(this).apply {
-            setImageResource(R.drawable.cinema_header)
-            scaleType=ImageView.ScaleType.FIT_CENTER
-            adjustViewBounds=true
-            contentDescription="DIRECTOR X ‚Ä¢ ‡∏†‡∏≤‡∏û‡∏ú‡∏π‡πâ‡∏Å‡∏≥‡∏Å‡∏±‡∏ö‡πÉ‡∏ô‡πÇ‡∏£‡∏á‡∏†‡∏≤‡∏û‡∏¢‡∏ô‡∏ï‡∏£‡πå"
-        }
-        root.addView(hero,LinearLayout.LayoutParams(-1,-2))
-        root.addView(TextView(this).apply {
-            text="DIRECTOR X "+packageManager.getPackageInfo(packageName,0).versionName
-            textSize=12f; gravity=Gravity.END; setTextColor(gold)
-        })
-        
-        flowHome()
-    }
-    private fun splitActions(left: String, right: String, leftAction: () -> Unit, rightAction: () -> Unit, colors: List<IntArray> = listOf(menuColors[1], menuColors[2])) {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(-1,-2).apply { topMargin = dp(3); bottomMargin = dp(3) }
-        }
-        listOf(left to leftAction, right to rightAction).forEachIndexed { index, item ->
-            row.addView(Button(this).apply {
-                text = item.first; isAllCaps = false; textSize = 12f
-                setTextColor(gold); setTypeface(null,Typeface.BOLD); gravity = Gravity.CENTER
-                minWidth = 0; minimumWidth = 0; minHeight = dp(48); minimumHeight = dp(48)
-                setPadding(dp(4),dp(5),dp(4),dp(5))
-                backgroundTintList = null
-                background = backdrop(Color.rgb(25,25,28),Color.rgb(19,19,22),Color.rgb(63,55,39))
-                layoutParams = LinearLayout.LayoutParams(0,-2,1f).apply { if (index == 0) marginEnd = dp(3) else marginStart = dp(3) }
-                setOnClickListener { if (!importing) item.second() }
-            })
-        }
-        root.addView(row)
-    }
-    private fun testImageMenu() {
-        choiceMenu("üñºÔ∏è ‡∏ó‡∏î‡∏•‡∏≠‡∏á‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏£‡∏π‡∏õ 1 ‡∏†‡∏≤‡∏û", listOf("üé≠ ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÄ‡∏î‡∏¥‡∏° ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏Ñ‡∏ô‡∏ó‡∏µ‡πà‡∏ï‡πâ‡∏≠‡∏á‡∏Å‡∏≤‡∏£", "‚ú® ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏™‡∏°‡∏°‡∏∏‡∏ï‡∏¥ ‚Ä¢ ‡πÉ‡∏ä‡πâ‡∏£‡∏π‡∏õ‡∏ú‡∏°‡∏´‡∏£‡∏∑‡∏≠‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏Ñ‡∏ô‡πÉ‡∏´‡∏°‡πà")) { choice ->
-            if (choice == 0) chooseNamedCharacterGrid("üé≠ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÉ‡∏ô‡∏†‡∏≤‡∏û", listOf("üë® ‡∏Å‡∏ß‡∏¥‡∏ô ‚Ä¢ ‡∏Ñ‡∏ô‡πÄ‡∏î‡∏µ‡∏¢‡∏ß" to File(filesDir,"character_masters/gawin.master"), "üë© ‡∏£‡∏¥‡∏ô‡∏£‡∏î‡∏≤ ‚Ä¢ ‡∏Ñ‡∏ô‡πÄ‡∏î‡∏µ‡∏¢‡∏ß" to File(filesDir,"character_masters/rinlada.master"), "üë© ‡πÄ‡∏°‡∏¢‡πå ‚Ä¢ ‡∏Ñ‡∏ô‡πÄ‡∏î‡∏µ‡∏¢‡∏ß" to File(filesDir,"character_masters/mind.master"), "üë• ‡∏ó‡∏±‡πâ‡∏á 3 ‡∏Ñ‡∏ô‡πÉ‡∏ô‡∏†‡∏≤‡∏û‡πÄ‡∏î‡∏µ‡∏¢‡∏ß" to null)) { index ->
-                val keys = listOf("gawin", "rinlada", "mind")
-                val selected = if (index == 3) keys else listOf(keys[index])
-                choiceMenu("üñºÔ∏è ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ß‡∏¥‡∏ò‡∏µ‡∏ó‡∏î‡∏™‡∏≠‡∏ö", listOf("üéØ ‡∏Ñ‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÅ‡∏•‡∏∞‡∏ä‡∏∏‡∏î‡πÄ‡∏î‡∏¥‡∏° ‚Ä¢ ‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥", "üëó ‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ä‡∏∏‡∏î‡πÅ‡∏•‡∏∞‡∏â‡∏≤‡∏Å") + if (selected.size == 1) listOf("üßµ ‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ä‡∏∏‡∏î‡∏≠‡∏¢‡πà‡∏≤‡∏á‡πÄ‡∏î‡∏µ‡∏¢‡∏ß ‚Ä¢ ‡∏Ñ‡∏á‡∏ó‡πà‡∏≤‡πÅ‡∏•‡∏∞‡∏â‡∏≤‡∏Å") else emptyList()) { mode ->
-                    if(mode==0) sendTestImage(selected,preserveMaster=true) else choiceMenu("‡∏Å‡∏¥‡∏à‡∏Å‡∏£‡∏£‡∏°‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡∏ó‡∏î‡∏™‡∏≠‡∏ö",listOf("‡∏õ‡∏£‡∏∞‡∏ä‡∏∏‡∏°","‡∏≠‡∏¢‡∏π‡πà‡∏ö‡πâ‡∏≤‡∏ô","‡πÄ‡∏Ç‡πâ‡∏≤‡∏ô‡∏≠‡∏ô","‡∏ó‡πà‡∏≠‡∏á‡πÄ‡∏ó‡∏µ‡πà‡∏¢‡∏ß")) { activity ->
-                        sendTestImage(selected,preserveMaster=false,wardrobeOnly=mode==2,testActivity=listOf("meeting","home","sleep","casual")[activity])
-                    }
-                }
-            }
-            else choiceMenu("‚ú® ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏™‡∏°‡∏°‡∏∏‡∏ï‡∏¥", listOf("üë® ‡πÉ‡∏ä‡πâ‡∏£‡∏π‡∏õ‡∏ú‡∏° ‚Ä¢ ‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ä‡∏∏‡∏î‡πÅ‡∏•‡∏∞‡∏â‡∏≤‡∏Å‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥", "‚ú® ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏Ñ‡∏ô‡πÉ‡∏´‡∏°‡πà")) { mode ->
-                if (mode == 0) personalTestImageMenu()
-                else sendFictionalCharacterTest()
-            }
-        }
-    }
-    private fun sendFictionalCharacterTest() {
-        val references = listOf("gawin" to "GAWIN_MASTER", "rinlada" to "RINLADA_MASTER", "mind" to "MIND_MASTER")
-        val available = references.filter { File(filesDir,"character_masters/${it.first}.master").exists() }
-        if (available.size != references.size) return notice("‡∏†‡∏≤‡∏û MASTER ‡∏ó‡∏±‡πâ‡∏á 3 ‡∏Ñ‡∏ô‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏Ñ‡∏£‡∏ö ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏Å‡πà‡∏≠‡∏ô‡∏ó‡∏î‡∏™‡∏≠‡∏ö")
-        val last = prefs.getInt("fictional_reference_last",-1)
-        val candidates = available.indices.filter { it != last }
-        val index = candidates.random()
-        prefs.edit().putInt("fictional_reference_last",index).apply()
-        val (key,label) = available[index]
-        val filename = masterExportName(File(filesDir,"character_masters/$key.master"),false) ?: return notice("‡∏≠‡πà‡∏≤‡∏ô‡∏†‡∏≤‡∏û‡∏ï‡πâ‡∏ô‡πÅ‡∏ö‡∏ö‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ")
-        val location = nextTestLocation()
-        val command = ImagePromptPolicy.newCharacter("$filename ($label)",location)
-        shareText(command,useNewMasters=false,selectedMasterKeys=listOf(key))
-    }
-    private val personalTestPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            val temporary = File(filesDir, "personal_test_reference.tmp")
-            try {
-                contentResolver.openInputStream(uri)?.use { input ->
-                    temporary.outputStream().use { input.copyTo(it) }
-                } ?: error("‡πÄ‡∏õ‡∏¥‡∏î‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ")
-                val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                android.graphics.BitmapFactory.decodeFile(temporary.path, bounds)
-                require(bounds.outWidth > 0 && bounds.outHeight > 0) { "‡πÑ‡∏ü‡∏•‡πå‡∏ô‡∏µ‡πâ‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πà‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡∏≠‡πà‡∏≤‡∏ô‡πÑ‡∏î‡πâ" }
-                require(temporary.renameTo(File(filesDir, "personal_test_reference.master"))) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" }
-                sendPersonalTestImage()
-            } catch (e: Exception) {
-                temporary.delete()
-                notice("‡∏£‡∏±‡∏ö‡∏£‡∏π‡∏õ‡∏ú‡∏°‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à: ${e.message}")
-            }
-        }
-    }
-    private fun personalTestImageMenu() {
-        val reference = File(filesDir, "personal_test_reference.master")
-        if (!reference.exists()) {
-            try {
-                assets.open("test_references/PARINYA_REFERENCE.png").use { input ->
-                    reference.outputStream().use { input.copyTo(it) }
-                }
-            } catch (e: Exception) {
-                reference.delete()
-                notice("‡πÄ‡∏ï‡∏£‡∏µ‡∏¢‡∏°‡∏£‡∏π‡∏õ‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏ï‡πâ‡∏ô‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à: ${e.message}")
-                return
-            }
-            sendPersonalTestImage()
-            return
-        }
-        choiceMenu("üë® ‡∏£‡∏π‡∏õ‡∏ú‡∏°‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡∏ó‡∏î‡∏™‡∏≠‡∏ö", listOf("üñºÔ∏è ‡πÉ‡∏ä‡πâ‡∏£‡∏π‡∏õ‡∏ó‡∏µ‡πà‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏ß‡πâ ‚Ä¢ ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡∏ó‡∏î‡∏™‡∏≠‡∏ö", "üì∑ ‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏£‡∏π‡∏õ‡∏ú‡∏°")) { choice ->
-            if (choice == 0) sendPersonalTestImage()
-            else personalTestPicker.launch(arrayOf("image/*"))
-        }
-    }
-    private fun sendPersonalTestImage() {
-        try {
-            val reference = File(filesDir, "personal_test_reference.master")
-            if (!reference.exists()) {
-                personalTestPicker.launch(arrayOf("image/*"))
-                return
-            }
-            val outfits = listOf("‡πÄ‡∏™‡∏∑‡πâ‡∏≠‡πÇ‡∏õ‡πÇ‡∏•‡∏™‡∏µ‡∏Å‡∏£‡∏°‡∏ó‡πà‡∏≤‡∏û‡∏≠‡∏î‡∏µ‡∏ï‡∏±‡∏ß‡∏Å‡∏±‡∏ö‡∏Å‡∏≤‡∏á‡πÄ‡∏Å‡∏á‡∏Ç‡∏≤‡∏¢‡∏≤‡∏ß‡∏™‡∏µ‡πÄ‡∏ö‡∏à", "‡πÄ‡∏™‡∏∑‡πâ‡∏≠‡πÄ‡∏ä‡∏¥‡πâ‡∏ï‡∏™‡∏µ‡πÄ‡∏ó‡∏≤‡∏≠‡πà‡∏≠‡∏ô‡∏û‡∏±‡∏ö‡πÅ‡∏Ç‡∏ô‡∏Å‡∏±‡∏ö‡∏Å‡∏≤‡∏á‡πÄ‡∏Å‡∏á‡∏Ç‡∏≤‡∏¢‡∏≤‡∏ß‡∏™‡∏µ‡∏î‡∏≥", "‡πÄ‡∏™‡∏∑‡πâ‡∏≠‡∏¢‡∏∑‡∏î‡∏™‡∏µ‡∏Ç‡∏≤‡∏ß‡∏Å‡∏±‡∏ö‡πÄ‡∏™‡∏∑‡πâ‡∏≠‡∏Ñ‡∏•‡∏∏‡∏°‡∏™‡∏µ‡∏ô‡πâ‡∏≥‡∏ï‡∏≤‡∏•‡πÅ‡∏•‡∏∞‡∏Å‡∏≤‡∏á‡πÄ‡∏Å‡∏á‡∏Ç‡∏≤‡∏¢‡∏≤‡∏ß‡∏™‡∏µ‡∏Ñ‡∏£‡∏µ‡∏°")
-            val last = prefs.getInt("personal_test_outfit_last", -1)
-            val index = outfits.indices.filter { it != last }.random()
-            prefs.edit().putInt("personal_test_outfit_last", index).apply()
-            val location = nextTestLocation()
-            val command = ImagePromptPolicy.scene(
-                "‡∏õ‡∏£‡∏¥‡∏ç‡∏ç‡∏≤ ‚Üí PARINYA_REFERENCE | ‡∏ä‡∏∏‡∏î: ${outfits[index]}", location,
-                "‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏à‡∏±‡∏î‡∏ú‡∏±‡∏Å‡∏™‡∏î‡∏•‡∏á‡∏ä‡∏≤‡∏°‡∏ö‡∏ô‡πÇ‡∏ï‡πä‡∏∞‡πÄ‡∏ï‡∏£‡∏µ‡∏¢‡∏°‡∏≠‡∏≤‡∏´‡∏≤‡∏£ ‡∏™‡∏µ‡∏´‡∏ô‡πâ‡∏≤‡πÄ‡∏õ‡πá‡∏ô‡∏°‡∏¥‡∏ï‡∏£",
-                source="‡∏†‡∏≤‡∏û PARINYA_REFERENCE ‡∏ó‡∏µ‡πà‡πÅ‡∏ô‡∏ö", framing="‡πÄ‡∏´‡πá‡∏ô‡∏®‡∏µ‡∏£‡∏©‡∏∞‡∏ñ‡∏∂‡∏á‡∏ï‡πâ‡∏ô‡∏Ç‡∏≤‡πÅ‡∏•‡∏∞‡∏°‡∏∑‡∏≠‡∏ó‡∏µ‡πà‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ó‡∏≥‡∏á‡∏≤‡∏ô")
-            shareText(command, useNewMasters = false, includeMasters = false,
-                referenceImages = listOf("PARINYA_REFERENCE" to reference))
-        } catch (e: Exception) {
-            notice("‡πÄ‡∏ï‡∏£‡∏µ‡∏¢‡∏°‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à: ${e.message}")
-        }
-    }
-    private fun nextTestLocation(): String {
-        val places = listOf(
-            "‡∏Ñ‡∏£‡∏±‡∏ß‡∏ö‡πâ‡∏≤‡∏ô‡∏™‡πÑ‡∏ï‡∏•‡πå‡∏ç‡∏µ‡πà‡∏õ‡∏∏‡πà‡∏ô ‡∏ï‡∏π‡πâ‡πÑ‡∏°‡πâ‡∏™‡∏µ‡∏≠‡πà‡∏≠‡∏ô ‡∏´‡∏ô‡πâ‡∏≤‡∏ï‡πà‡∏≤‡∏á‡∏ä‡∏°‡∏™‡∏ß‡∏ô‡∏´‡∏¥‡∏ô ‡πÅ‡∏™‡∏á‡πÄ‡∏ä‡πâ‡∏≤",
-            "‡∏£‡∏∞‡πÄ‡∏ö‡∏µ‡∏¢‡∏á‡∏ö‡πâ‡∏≤‡∏ô‡∏£‡∏¥‡∏°‡∏™‡∏ß‡∏ô ‡πÇ‡∏ï‡πä‡∏∞‡πÄ‡∏ï‡∏£‡∏µ‡∏¢‡∏°‡∏≠‡∏≤‡∏´‡∏≤‡∏£‡πÑ‡∏°‡πâ‡πÅ‡∏•‡∏∞‡πÄ‡∏ï‡∏≤‡∏û‡∏Å‡∏û‡∏≤ ‡∏°‡∏µ‡∏ï‡πâ‡∏ô‡πÑ‡∏°‡πâ‡πÅ‡∏•‡∏∞‡πÅ‡∏™‡∏á‡∏ò‡∏£‡∏£‡∏°‡∏ä‡∏≤‡∏ï‡∏¥",
-            "‡∏Ñ‡∏£‡∏±‡∏ß‡∏£‡πâ‡∏≤‡∏ô‡∏Å‡∏≤‡πÅ‡∏ü‡πÄ‡∏•‡πá‡∏Å ‡∏ú‡∏ô‡∏±‡∏á‡∏≠‡∏¥‡∏ê ‡∏ä‡∏±‡πâ‡∏ô‡∏ß‡∏≤‡∏á‡∏ñ‡πâ‡∏ß‡∏¢‡πÅ‡∏•‡∏∞‡πÄ‡∏Ñ‡∏≤‡∏ô‡πå‡πÄ‡∏ï‡∏≠‡∏£‡πå‡πÄ‡∏ï‡∏£‡∏µ‡∏¢‡∏°‡∏≠‡∏≤‡∏´‡∏≤‡∏£",
-            "‡∏´‡πâ‡∏≠‡∏á‡πÄ‡∏£‡∏µ‡∏¢‡∏ô‡∏ó‡∏≥‡∏≠‡∏≤‡∏´‡∏≤‡∏£ ‡πÇ‡∏ï‡πä‡∏∞‡∏™‡πÄ‡∏ï‡∏ô‡πÄ‡∏•‡∏™ ‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡πÄ‡∏£‡∏µ‡∏¢‡∏ö‡∏£‡πâ‡∏≠‡∏¢ ‡∏´‡∏ô‡πâ‡∏≤‡∏ï‡πà‡∏≤‡∏á‡∏£‡∏±‡∏ö‡πÅ‡∏™‡∏á‡∏Å‡∏•‡∏≤‡∏á‡∏ß‡∏±‡∏ô",
-            "‡∏•‡∏≤‡∏ô‡∏ó‡∏≥‡∏≠‡∏≤‡∏´‡∏≤‡∏£‡πÉ‡∏ô‡∏™‡∏ß‡∏ô‡∏ä‡∏ô‡∏ö‡∏ó ‡∏ã‡∏∏‡πâ‡∏°‡πÑ‡∏°‡πâ ‡πÇ‡∏ï‡πä‡∏∞‡πÄ‡∏ï‡∏£‡∏µ‡∏¢‡∏°‡∏≠‡∏≤‡∏´‡∏≤‡∏£ ‡∏°‡∏µ‡πÅ‡∏õ‡∏•‡∏á‡∏ú‡∏±‡∏Å‡∏î‡πâ‡∏≤‡∏ô‡∏´‡∏•‡∏±‡∏á",
-            "‡∏Ñ‡∏£‡∏±‡∏ß‡∏ö‡πâ‡∏≤‡∏ô‡∏û‡∏±‡∏Å‡∏£‡∏¥‡∏°‡∏ó‡∏∞‡πÄ‡∏• ‡∏ï‡∏π‡πâ‡∏™‡∏µ‡∏Ç‡∏≤‡∏ß ‡∏´‡∏ô‡πâ‡∏≤‡∏ï‡πà‡∏≤‡∏á‡∏°‡∏≠‡∏á‡πÄ‡∏´‡πá‡∏ô‡∏ó‡∏∞‡πÄ‡∏• ‡πÅ‡∏™‡∏á‡∏ö‡πà‡∏≤‡∏¢‡∏ô‡∏∏‡πà‡∏°",
-            "‡∏Ñ‡∏£‡∏±‡∏ß‡∏Å‡∏£‡∏∞‡∏ó‡πà‡∏≠‡∏°‡∏ö‡∏ô‡∏†‡∏π‡πÄ‡∏Ç‡∏≤ ‡πÄ‡∏Ñ‡∏≤‡∏ô‡πå‡πÄ‡∏ï‡∏≠‡∏£‡πå‡πÑ‡∏°‡πâ ‡∏´‡∏ô‡πâ‡∏≤‡∏ï‡πà‡∏≤‡∏á‡∏°‡∏≠‡∏á‡πÄ‡∏´‡πá‡∏ô‡∏ï‡πâ‡∏ô‡∏™‡∏ô ‡πÅ‡∏™‡∏á‡∏ò‡∏£‡∏£‡∏°‡∏ä‡∏≤‡∏ï‡∏¥",
-            "‡∏Ñ‡∏£‡∏±‡∏ß‡∏ö‡∏ô‡∏î‡∏≤‡∏î‡∏ü‡πâ‡∏≤‡∏≠‡∏≤‡∏Ñ‡∏≤‡∏£ ‡πÇ‡∏ï‡πä‡∏∞‡πÄ‡∏ï‡∏£‡∏µ‡∏¢‡∏°‡∏≠‡∏≤‡∏´‡∏≤‡∏£ ‡πÄ‡∏ï‡∏≤‡∏û‡∏Å‡∏û‡∏≤ ‡∏°‡∏µ‡∏™‡∏ß‡∏ô‡∏Å‡∏£‡∏∞‡∏ñ‡∏≤‡∏á‡πÅ‡∏•‡∏∞‡∏ß‡∏¥‡∏ß‡πÄ‡∏°‡∏∑‡∏≠‡∏á"
-        )
-        val last = prefs.getInt("test_location_last", -1)
-        val used = prefs.getStringSet("test_location_used", emptySet()).orEmpty()
-            .mapNotNull { it.toIntOrNull() }.filter { it in places.indices }.toSet()
-        val available = places.indices.filter { it !in used }
-        val round = if (available.isEmpty()) emptySet<Int>() else used
-        val choices = (if (available.isEmpty()) places.indices.toList() else available).filter { it != last }
-        val index = choices.random()
-        prefs.edit().putInt("test_location_last", index)
-            .putStringSet("test_location_used", (round + index).map { it.toString() }.toSet()).apply()
-        return places[index]
-    }
-    private fun sendTestImage(selectedKeys: List<String>, preserveMaster: Boolean, wardrobeOnly: Boolean = false, testActivity: String = "home") {
-        val cast = listOf("gawin" to "‡∏Å‡∏ß‡∏¥‡∏ô", "rinlada" to "‡∏£‡∏¥‡∏ô‡∏£‡∏î‡∏≤", "mind" to "‡πÄ‡∏°‡∏¢‡πå")
-        val selected = cast.filter { it.first in selectedKeys }
-        require(selected.isNotEmpty())
-        if (selected.any { !File(filesDir,"character_masters/${it.first}.master").exists() }) {
-            AlertDialog.Builder(this).setTitle("‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏†‡∏≤‡∏û MASTER ‡∏Å‡πà‡∏≠‡∏ô‡∏ó‡∏î‡∏™‡∏≠‡∏ö")
-                .setMessage("‡∏ï‡πâ‡∏≠‡∏á‡∏°‡∏µ‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö‡∏Ç‡∏≠‡∏á ${selected.joinToString { it.second }} ‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á‡πÄ‡∏≠‡∏Å‡∏•‡∏±‡∏Å‡∏©‡∏ì‡πå‡πÅ‡∏•‡∏∞‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤")
-                .setPositiveButton("‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏†‡∏≤‡∏û‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£") { _,_ -> characterMasters() }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-            return
-        }
-        val scene = JSONObject().put("activity",testActivity).put("story_day","TEST_DAY01").put("wardrobe_event","TEST_$testActivity")
-        val characters = JSONArray()
-        val actions = mutableListOf<String>()
-        val details = mutableListOf<String>()
-        val references = mutableListOf<Pair<String,File>>()
-        for ((key, name) in selected) {
-            if (StoryIdentity.keyFor(name) != key) { notice("‡∏à‡∏±‡∏ö‡∏Ñ‡∏π‡πà‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏Å‡∏±‡∏ö MASTER ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ"); return }
-            val source = File(filesDir,"character_masters/$key.master")
-            val masterName = masterExportName(source, false)
-            if (masterName == null || !StoryIdentity.matchesMaster(name, masterName)) {
-                notice("‡∏≠‡πà‡∏≤‡∏ô‡∏†‡∏≤‡∏û MASTER ‡∏Ç‡∏≠‡∏á $name ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏†‡∏≤‡∏û‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö‡πÉ‡∏´‡∏°‡πà"); return
-            }
-            val outfit = if (preserveMaster) "‡∏Ñ‡∏á‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÅ‡∏ï‡πà‡∏á‡∏Å‡∏≤‡∏¢‡∏à‡∏≤‡∏Å MASTER ‡∏Ç‡∏≠‡∏á‡∏Ñ‡∏ô‡∏ô‡∏µ‡πâ" else WardrobeTimeline.resolve(WardrobeBeat(key,"TEST_DAY01","TEST_$testActivity",testActivity,"",""),emptyList())
-            val action = if (preserveMaster) "$name ‡∏Ñ‡∏á‡∏ó‡πà‡∏≤‡∏ó‡∏≤‡∏á ‡∏™‡∏µ‡∏´‡∏ô‡πâ‡∏≤ ‡∏™‡∏≤‡∏¢‡∏ï‡∏≤ ‡πÅ‡∏•‡∏∞‡∏Å‡∏¥‡∏à‡∏Å‡∏£‡∏£‡∏°‡∏ï‡∏≤‡∏° MASTER ‡∏Ç‡∏≠‡∏á‡∏ï‡∏ô‡πÄ‡∏≠‡∏á" else when(testActivity) {
-                "meeting" -> "$name ‡∏¢‡∏∑‡∏ô‡∏ñ‡∏∑‡∏≠‡πÅ‡∏ü‡πâ‡∏°‡πÄ‡∏≠‡∏Å‡∏™‡∏≤‡∏£‡∏Ç‡πâ‡∏≤‡∏á‡πÇ‡∏ï‡πä‡∏∞‡∏õ‡∏£‡∏∞‡∏ä‡∏∏‡∏° ‡∏™‡∏µ‡∏´‡∏ô‡πâ‡∏≤‡∏ï‡∏±‡πâ‡∏á‡πÉ‡∏à"
-                "sleep" -> "$name ‡∏ô‡∏±‡πà‡∏á‡∏ö‡∏ô‡∏Ç‡∏≠‡∏ö‡πÄ‡∏ï‡∏µ‡∏¢‡∏á‡πÄ‡∏ï‡∏£‡∏µ‡∏¢‡∏°‡πÄ‡∏Ç‡πâ‡∏≤‡∏ô‡∏≠‡∏ô ‡∏™‡∏µ‡∏´‡∏ô‡πâ‡∏≤‡∏ú‡πà‡∏≠‡∏ô‡∏Ñ‡∏•‡∏≤‡∏¢"
-                "home" -> "$name ‡∏ô‡∏±‡πà‡∏á‡∏û‡∏±‡∏Å‡∏ö‡∏ô‡πÇ‡∏ã‡∏ü‡∏≤ ‡∏ñ‡∏∑‡∏≠‡πÅ‡∏Å‡πâ‡∏ß‡∏ô‡πâ‡∏≥"
-                else -> "$name ‡∏ô‡∏±‡πà‡∏á‡∏û‡∏±‡∏Å‡∏ó‡∏µ‡πà‡πÇ‡∏ï‡πä‡∏∞‡∏£‡πâ‡∏≤‡∏ô‡∏≠‡∏≤‡∏´‡∏≤‡∏£‡∏£‡∏¥‡∏°‡∏ó‡∏∞‡πÄ‡∏•"
-            }
-            characters.put(JSONObject().put("name", name).put("master", masterName).put("outfit", outfit))
-            actions.add(action)
-            details.add("$name ‚Üí $masterName | ${promptProfile(key,source)} | ‡∏ä‡∏∏‡∏î: $outfit")
-            references.add(masterName.substringBeforeLast('.') to source)
-        }
-        scene.put("characters", characters)
-        val location = if(preserveMaster) nextTestLocation() else when(testActivity) {
-            "meeting" -> "‡∏´‡πâ‡∏≠‡∏á‡∏õ‡∏£‡∏∞‡∏ä‡∏∏‡∏°‡∏™‡∏≥‡∏ô‡∏±‡∏Å‡∏á‡∏≤‡∏ô‡∏ó‡∏±‡∏ô‡∏™‡∏°‡∏±‡∏¢‡∏ï‡∏≠‡∏ô‡πÄ‡∏ä‡πâ‡∏≤"
-            "sleep" -> "‡∏´‡πâ‡∏≠‡∏á‡∏ô‡∏≠‡∏ô‡∏ï‡∏≠‡∏ô‡∏Å‡∏•‡∏≤‡∏á‡∏Ñ‡∏∑‡∏ô ‡πÅ‡∏™‡∏á‡πÇ‡∏Ñ‡∏°‡πÑ‡∏ü‡∏´‡∏±‡∏ß‡πÄ‡∏ï‡∏µ‡∏¢‡∏á"
-            "home" -> "‡∏´‡πâ‡∏≠‡∏á‡∏ô‡∏±‡πà‡∏á‡πÄ‡∏•‡πà‡∏ô‡∏ï‡∏≠‡∏ô‡∏ö‡πà‡∏≤‡∏¢"
-            else -> "‡∏£‡πâ‡∏≤‡∏ô‡∏≠‡∏≤‡∏´‡∏≤‡∏£‡∏£‡∏¥‡∏°‡∏ó‡∏∞‡πÄ‡∏•‡∏ï‡∏≠‡∏ô‡∏ö‡πà‡∏≤‡∏¢"
-        }
-        val command = when {
-            wardrobeOnly -> ImagePromptPolicy.edit("‡∏†‡∏≤‡∏û MASTER", "‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÅ‡∏ï‡πà‡∏á‡∏Å‡∏≤‡∏¢‡πÄ‡∏õ‡πá‡∏ô‡∏ä‡∏∏‡∏î‡∏ï‡πà‡∏≠‡πÑ‡∏õ‡∏ô‡∏µ‡πâ ‡πÇ‡∏î‡∏¢‡πÉ‡∏´‡πâ‡∏ó‡∏£‡∏á‡∏ä‡∏∏‡∏î‡∏û‡∏≠‡∏î‡∏µ‡∏Å‡∏±‡∏ö‡∏£‡∏π‡∏õ‡∏£‡πà‡∏≤‡∏á‡πÄ‡∏î‡∏¥‡∏°\n${details.joinToString("\n")}", cast=selected.joinToString { it.second })
-            preserveMaster && selected.size == 1 -> ImagePromptPolicy.edit("‡∏†‡∏≤‡∏û MASTER", "‡∏â‡∏≤‡∏Å‡∏´‡∏•‡∏±‡∏á‡πÄ‡∏õ‡πá‡∏ô $location", cast=details.joinToString("\n"))
-            else -> ImagePromptPolicy.scene(details.joinToString("\n"), location,
-                if (preserveMaster) "‡∏à‡∏±‡∏î‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏Ñ‡∏ô‡πÉ‡∏ô‡∏†‡∏≤‡∏û‡πÄ‡∏î‡∏µ‡∏¢‡∏ß ‡πÉ‡∏´‡πâ‡∏ó‡∏≥‡∏Å‡∏¥‡∏à‡∏Å‡∏£‡∏£‡∏°‡∏ï‡∏≤‡∏° MASTER ‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô" else actions.joinToString("; "), lighting=if(testActivity=="sleep") "‡πÅ‡∏™‡∏á‡∏ô‡∏∏‡πà‡∏°‡∏à‡∏≤‡∏Å‡πÇ‡∏Ñ‡∏°‡πÑ‡∏ü‡πÉ‡∏ô‡πÄ‡∏ß‡∏•‡∏≤‡∏Å‡∏•‡∏≤‡∏á‡∏Ñ‡∏∑‡∏ô" else "‡πÅ‡∏™‡∏á‡∏ò‡∏£‡∏£‡∏°‡∏ä‡∏≤‡∏ï‡∏¥‡∏ï‡∏≤‡∏°‡πÄ‡∏ß‡∏•‡∏≤‡πÉ‡∏ô‡∏â‡∏≤‡∏Å",changeWardrobe=!preserveMaster)
-        }
-        shareText(command,includeMasters=false,referenceImages=references)
-    }
-    private fun stepCard(number: Int, icon: String, title: String, detail: String, enabled: Boolean = true, completed: Boolean = false, currentStep: Int, statusText: String? = null, action: () -> Unit) {
-        val active = enabled && !completed && number == currentStep
-        val status = statusText ?: if (completed) "‡πÄ‡∏™‡∏£‡πá‡∏à‡πÅ‡∏•‡πâ‡∏ß" else if (enabled) "‡∏û‡∏£‡πâ‡∏≠‡∏°‡πÉ‡∏ä‡πâ‡∏á‡∏≤‡∏ô" else "‡∏£‡∏≠‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏Ç‡∏±‡πâ‡∏ô‡∏ï‡∏≠‡∏ô‡∏Å‡πà‡∏≠‡∏ô‡∏´‡∏ô‡πâ‡∏≤"
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(-1,-2)
-        }
-        row.addView(object : android.view.View(this) {
-            private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
-            override fun onDraw(canvas: android.graphics.Canvas) {
-                super.onDraw(canvas)
-                val x = width / 2f; val y = height / 2f; val radius = dp(14).toFloat()
-                paint.strokeWidth = dp(if (number <= currentStep) 4 else 2).toFloat()
-                if (number > 1) { paint.color=if(number<=currentStep) electricBlue else Color.rgb(74,87,108); canvas.drawLine(x,0f,x,y-radius,paint) }
-                if (number < 3) { paint.color=if(number<currentStep) electricBlue else Color.rgb(74,87,108); canvas.drawLine(x,y+radius,x,height.toFloat(),paint) }
-                if (active) { paint.color=Color.argb(70,42,220,255); canvas.drawCircle(x,y,dp(18).toFloat(),paint) }
-                paint.color = if (completed || active) electricBlue else Color.rgb(85,102,125)
-                canvas.drawCircle(x,y,radius,paint)
-                paint.color = if (active || completed) Color.WHITE else muted
-                paint.textSize = dp(12).toFloat(); paint.textAlign = android.graphics.Paint.Align.CENTER
-                paint.typeface = Typeface.create(Typeface.DEFAULT,Typeface.BOLD)
-                canvas.drawText(number.toString(),x,y-(paint.ascent()+paint.descent())/2,paint)
-            }
-        }, LinearLayout.LayoutParams(dp(34),-1).apply { marginEnd = dp(10) })
-        val card = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16),dp(15),dp(16),dp(15))
-            background = backdrop(if (active) Color.rgb(18,51,88) else Color.rgb(24,31,47), if (active) Color.rgb(28,23,67) else Color.rgb(17,23,37), if (active) cyan else if (completed) Color.rgb(57,112,157) else Color.rgb(67,76,94))
-            layoutParams = LinearLayout.LayoutParams(0,-2,1f).apply { topMargin = dp(6); bottomMargin = dp(6) }
-            minimumHeight = dp(108)
-            isEnabled = enabled; isClickable = enabled; isFocusable = enabled
-            val attribute = android.util.TypedValue()
-            theme.resolveAttribute(android.R.attr.selectableItemBackground,attribute,true)
-            foreground = getDrawable(attribute.resourceId)
-            contentDescription = "‡∏Ç‡∏±‡πâ‡∏ô‡∏ï‡∏≠‡∏ô $number $title $status $detail"
-            setOnClickListener { if (enabled && !importing) action() else if (importing) Toast.makeText(this@StudioActivity,"‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏†‡∏≤‡∏û ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏£‡∏≠‡∏™‡∏±‡∏Å‡∏Ñ‡∏£‡∏π‡πà",Toast.LENGTH_SHORT).show() }
-        }
-        card.addView(TextView(this).apply {
-            text = "‡∏Ç‡∏±‡πâ‡∏ô‡∏ï‡∏≠‡∏ô $number  ‚Ä¢  $status"; textSize = 10f
-            setTextColor(if(completed || active) cyan else muted)
-            setTypeface(null,Typeface.BOLD)
-        })
-        card.addView(TextView(this).apply {
-            text = "$title  ${if (completed) "‚úì" else if (enabled) "‚Ä∫" else "üîí"}"; textSize = 16f
-            setTypeface(null,Typeface.BOLD); setTextColor(if(enabled || completed) ice else muted)
-            setPadding(0,dp(7),0,0)
-        })
-        card.addView(TextView(this).apply {
-            text = detail; textSize = 12f; setTextColor(if(enabled || completed) Color.rgb(185,198,218) else Color.rgb(112,120,137)); setPadding(0,dp(6),0,0)
-        })
-        row.addView(card)
-        root.addView(row)
-    }
-    private fun toolsMenu() {
-        choiceMenu("‚öôÔ∏è ‡∏ï‡∏±‡∏ß‡πÄ‡∏•‡∏∑‡∏≠‡∏Å", listOf("üé≠ ‡∏†‡∏≤‡∏û‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£", "üîé ‡∏î‡∏π‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏ö‡∏ó‡πÉ‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ", "üìö ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ó‡∏µ‡πà‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å", "üé¨ ‡∏™‡πà‡∏á‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏†‡∏≤‡∏û‡∏ó‡∏±‡πâ‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á", "üí° ‡∏ß‡∏¥‡∏ò‡∏µ‡πÉ‡∏ä‡πâ‡∏á‡∏≤‡∏ô", "üìù ‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏†‡∏≤‡∏û: ${if(detailedImageProfiles) "‡∏û‡∏£‡πâ‡∏≠‡∏°‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏•‡∏∞‡πÄ‡∏≠‡∏µ‡∏¢‡∏î" else "‡∏Å‡∏£‡∏∞‡∏ä‡∏±‡∏ö‡∏ï‡∏≤‡∏°‡∏ï‡πâ‡∏ô‡πÅ‡∏ö‡∏ö"}")) { index ->
-            when (index) {
-                0 -> characterMasters()
-                1 -> review()
-                2 -> {
-                    val folders = base.listFiles()?.filter { File(it,"story.json").exists() } ?: emptyList()
-                    choiceMenu("üìö ‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏Ç‡∏≠‡∏á‡∏Ñ‡∏∏‡∏ì", folders.map { "üìñ " + JSONObject(File(it,"story.json").readText()).getString("title") }) { i -> prefs.edit().putString("project",folders[i].name).apply(); render() }
-                }
-                5 -> { prefs.edit().putBoolean("detailed_image_profiles",!detailedImageProfiles).apply(); notice(if(detailedImageProfiles) "‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡πÇ‡∏õ‡∏£‡πÑ‡∏ü‡∏•‡πå‡πÉ‡∏ô‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏†‡∏≤‡∏û‡πÅ‡∏•‡πâ‡∏ß" else "‡πÉ‡∏ä‡πâ‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏†‡∏≤‡∏û‡∏Å‡∏£‡∏∞‡∏ä‡∏±‡∏ö‡∏ï‡∏≤‡∏°‡∏ï‡πâ‡∏ô‡πÅ‡∏ö‡∏ö‡πÅ‡∏•‡πâ‡∏ß") }
-                3 -> wholeStoryCommands()
-                4 -> notice("1. ‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á: ‡∏ï‡∏£‡∏ß‡∏à MASTER ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ä‡πà‡∏≠‡∏á‡πÅ‡∏•‡∏∞‡πÅ‡∏ô‡∏ß ‡∏™‡πà‡∏á‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÑ‡∏õ ChatGPT ‡πÅ‡∏•‡πâ‡∏ß‡∏™‡πà‡∏á‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡πÉ‡∏ô ChatGPT ‡πÄ‡∏û‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ö‡∏ó‡πÅ‡∏•‡∏∞‡∏†‡∏≤‡∏û\n\n2. ‡∏£‡∏±‡∏ö‡∏ö‡∏ó‡πÅ‡∏•‡∏∞‡∏†‡∏≤‡∏û: ‡∏î‡∏≤‡∏ß‡∏ô‡πå‡πÇ‡∏´‡∏•‡∏î‡πÅ‡∏•‡∏∞‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤ story.json ‡∏Å‡πà‡∏≠‡∏ô ‡∏à‡∏≤‡∏Å‡∏ô‡∏±‡πâ‡∏ô‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤ ZIP ‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏õ‡∏Å‡∏Ç‡∏≠‡∏á‡πÅ‡∏ï‡πà‡∏•‡∏∞ EP ‡∏ú‡πà‡∏≤‡∏ô‡πÄ‡∏°‡∏ô‡∏π 2 ‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏ï‡πà‡∏≠‡∏ó‡∏µ‡∏•‡∏∞ EP ‡πÑ‡∏î‡πâ ‡πÑ‡∏°‡πà‡∏ï‡πâ‡∏≠‡∏á‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ö‡∏ó‡∏ã‡πâ‡∏≥ ‡∏ï‡∏£‡∏ß‡∏à‡∏á‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡∏Ç‡∏≤‡∏î‡∏Å‡πà‡∏≠‡∏ô‡∏ó‡∏≥‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠\n\n3. ‡∏ó‡∏≥‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠: ‡πÉ‡∏ä‡πâ‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡πÅ‡∏•‡∏∞‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÉ‡∏ô Flow / Veo ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏Ñ‡∏•‡∏¥‡∏õ‡πÄ‡∏≠‡∏á ‡∏î‡∏≤‡∏ß‡∏ô‡πå‡πÇ‡∏´‡∏•‡∏î MP4 ‡πÅ‡∏•‡πâ‡∏ß‡∏ô‡∏≥‡πÑ‡∏õ‡∏ï‡∏±‡∏î‡∏ï‡πà‡∏≠‡πÉ‡∏ô‡πÇ‡∏õ‡∏£‡πÅ‡∏Å‡∏£‡∏°‡∏†‡∏≤‡∏¢‡∏ô‡∏≠‡∏Å\n\n‡πÅ‡∏≠‡∏õ‡πÄ‡∏õ‡∏¥‡∏î‡∏ö‡∏£‡∏¥‡∏Å‡∏≤‡∏£‡∏†‡∏≤‡∏¢‡∏ô‡∏≠‡∏Å‡πÅ‡∏•‡∏∞‡∏à‡∏±‡∏î‡πÑ‡∏ü‡∏•‡πå ‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏ï‡πâ‡∏≠‡∏á‡∏™‡πà‡∏á‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡πÉ‡∏ô ChatGPT ‡πÅ‡∏•‡∏∞‡∏≠‡∏±‡∏õ‡πÇ‡∏´‡∏•‡∏î‡∏†‡∏≤‡∏û‡πÉ‡∏ô Flow ‡πÄ‡∏≠‡∏á")
-            }
-        }
-    }
-
-    private fun label(value: String, size: Int, bold: Boolean = false) {
-        root.addView(TextView(this).apply {
-            text = value; textSize = size.toFloat(); setTextColor(if (bold) gold else muted)
-            setPadding(dp(4),dp(4),dp(4),dp(4)); if (bold) setTypeface(null, Typeface.BOLD)
-        })
-    }
-    private fun button(value: String, primary: Boolean = true, action: () -> Unit) {
-        val colors = when {
-            !primary -> if (value.contains("Update")) menuColors[3] else if (value.contains("‡∏õ‡∏Å")) menuColors[1] else menuColors[4]
-            value.startsWith("‚ë†") -> intArrayOf(Color.rgb(255,204,86),Color.rgb(255,174,38))
-            value.startsWith("‚ë°") -> intArrayOf(Color.rgb(42,153,246),Color.rgb(27,101,211))
-            value.startsWith("‚ë¢") -> intArrayOf(Color.rgb(164,96,246),Color.rgb(111,65,209))
-            value.startsWith("‚ë£") -> intArrayOf(Color.rgb(40,220,164),Color.rgb(10,183,133))
-            value.startsWith("‚ë§") -> intArrayOf(Color.rgb(35,205,216),Color.rgb(14,163,182))
-            else -> intArrayOf(Color.rgb(255,203,81),Color.rgb(255,166,39))
-        }
-        val darkText = !value.startsWith("‚ë°") && !value.startsWith("‚ë¢")
-        root.addView(Button(this).apply {
-            text = value; isAllCaps = false; textSize = if (primary) 16f else 14f
-            setTypeface(null,if (primary) Typeface.BOLD else Typeface.NORMAL)
-            setTextColor(if (primary) navy else gold)
-            backgroundTintList = null
-            background = if (primary) backdrop(gold,Color.rgb(208,151,54)) else backdrop(Color.rgb(25,25,28),Color.rgb(19,19,22),Color.rgb(63,55,39))
-            elevation = dp(if (primary) 3 else 0).toFloat()
-            minHeight = dp(if (primary) 46 else 38); minimumHeight = minHeight
-            layoutParams = LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,dp(4),0,dp(4)) }
-            setPadding(dp(10),dp(6),dp(10),dp(6))
-            setOnClickListener { if (!importing) action() else Toast.makeText(this@StudioActivity,"‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏†‡∏≤‡∏û ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏£‡∏≠‡∏™‡∏±‡∏Å‡∏Ñ‡∏£‡∏π‡πà",Toast.LENGTH_SHORT).show() }
-        })
-    }
-    private fun showPackagePreview(story: JSONObject, files: List<Uri>, warnings: List<String>, confirm: () -> Unit) {
-        val panel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(dp(16),dp(16),dp(16),dp(12))
-            background = backdrop(navy,Color.rgb(35,18,55),gold)
-        }
-        fun text(parent: LinearLayout, value: String, color: Int = ice, size: Float = 13f): TextView = TextView(this).apply {
-            this.text=value; textSize=size; setTextColor(color); setPadding(0,dp(5),0,dp(5)); parent.addView(this)
-        }
-        text(panel,"‡∏ï‡∏£‡∏ß‡∏à‡∏ä‡∏∏‡∏î‡πÑ‡∏ü‡∏•‡πå‡∏Å‡πà‡∏≠‡∏ô‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤",gold,20f)
-        text(panel,story.optString("title"),ice,16f)
-        val names=files.map { displayName(it) }
-        val sceneCount=names.count { StoryFiles.sceneNumber(it)!=null && !it.endsWith(".mp4",true) }
-        val coverCount=names.count { StoryFiles.coverName(it)!=null }
-        text(panel,"‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á‡∏ô‡∏µ‡πâ ‚Ä¢ ‡∏ö‡∏ó ${names.count { it.equals("story.json",true) }} ‚Ä¢ ‡∏†‡∏≤‡∏û $sceneCount ‚Ä¢ ‡∏õ‡∏Å $coverCount",cyan)
-        text(panel,"‡∏ï‡∏≤‡∏°‡∏ö‡∏ó‡∏ó‡∏±‡πâ‡∏á‡∏´‡∏°‡∏î ‚Ä¢ ${story.getJSONArray("episodes").length()} EP ‚Ä¢ ${rows(story).size} ‡∏â‡∏≤‡∏Å ‚Ä¢ ${coverNames(story).size} ‡∏õ‡∏Å",muted)
-        val list=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
-        val scroll=ScrollView(this).apply { isVerticalScrollBarEnabled=true; isScrollbarFadingEnabled=false; addView(list) }
-        panel.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
-        val episodes=story.getJSONArray("episodes")
-        for(i in 0 until episodes.length()) {
-            val ep=episodes.getJSONObject(i); val number=ep.getInt("ep")
-            val selected=names.filter { StoryFiles.sceneNumber(it)?.first==number || StoryFiles.coverName(it)?.startsWith("EP%02d_".format(number))==true }
-            val card=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)); background=backdrop(Color.rgb(21,42,65),Color.rgb(30,24,54),Color.rgb(65,94,126)); layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(8) } }
-            val heading=text(card,"EP %02d ‚Ä¢ %s  ‚ñæ".format(number,ep.optString("title")),gold,15f)
-            text(card,"‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ${selected.size} ‡πÑ‡∏ü‡∏•‡πå ‚Ä¢ ‡∏ö‡∏ó ${ep.getJSONArray("scenes").length()} ‡∏â‡∏≤‡∏Å")
-            val detail=text(card,selected.joinToString("\n").ifBlank { "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÑ‡∏ü‡∏•‡πå‡∏Ç‡∏≠‡∏á EP ‡∏ô‡∏µ‡πâ" })
-            detail.visibility=android.view.View.GONE
-            heading.isFocusable=true; heading.setOnClickListener { detail.visibility=if(detail.visibility==android.view.View.GONE) android.view.View.VISIBLE else android.view.View.GONE }
-            list.addView(card)
-        }
-        val other=names.filter { StoryFiles.sceneNumber(it)==null && StoryFiles.coverName(it)==null }
-        if(other.isNotEmpty()) text(list,other.joinToString("\n"),muted)
-        if(warnings.isNotEmpty()) text(list,"‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏£‡∏ï‡∏£‡∏ß‡∏à\n"+warnings.joinToString("\n"),gold)
-        text(list,"‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏ã‡πâ‡∏≥‡∏à‡∏∞‡∏ñ‡∏≤‡∏°‡∏Å‡πà‡∏≠‡∏ô‡πÅ‡∏ó‡∏ô ‚Ä¢ ‡∏õ‡∏Å‡∏ó‡∏µ‡πà‡∏ã‡πâ‡∏≥‡πÄ‡∏Å‡πá‡∏ö‡πÄ‡∏ß‡∏≠‡∏£‡πå‡∏ä‡∏±‡∏ô‡πÄ‡∏î‡∏¥‡∏°\n‡∏´‡∏•‡∏±‡∏á‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏à‡∏∞‡∏ï‡∏£‡∏ß‡∏à‡∏à‡∏≥‡∏ô‡∏ß‡∏ô‡∏ó‡∏µ‡πà‡∏¢‡∏±‡∏á‡∏Ç‡∏≤‡∏î",muted)
-        val dialog=AlertDialog.Builder(this).setView(panel).create()
-        val actions=LinearLayout(this).apply { orientation=0 }
-        listOf("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å","‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤").forEachIndexed { index,label ->
-            actions.addView(Button(this).apply {
-                text=label; isAllCaps=false; setTextColor(if(index==1) navy else ice); backgroundTintList=null
-                background=if(index==1) backdrop(gold,Color.rgb(214,154,54)) else backdrop(navy,navy,Color.rgb(95,110,137))
-                layoutParams=LinearLayout.LayoutParams(0,-2,1f).apply { setMargins(dp(3),dp(8),dp(3),0) }
-                setOnClickListener { isEnabled=false; dialog.dismiss(); if(index==1) confirm() }
-            })
-        }
-        panel.addView(actions)
-        dialog.show(); dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
-        dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(24),(resources.displayMetrics.heightPixels*0.82).toInt())
-    }
-    private fun showImportReceipt(batchSummary: String = "") {
-        val story=plan ?: return
-        val issues=FlowProductionPack.issues(story)
-        val text=batchSummary+"\n‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á: ${story.optString("title")}\n${story.getJSONArray("episodes").length()} EP ‚Ä¢ ${rows(story).size} ‡∏ã‡∏µ‡∏ô\n"+
-            if(issues.isEmpty()) "‡∏ö‡∏ó‡∏û‡∏£‡πâ‡∏≠‡∏°‡∏™‡πà‡∏á‡∏≠‡∏≠‡∏Å‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow ‚Ä¢ ‡πÑ‡∏°‡πà‡∏ï‡πâ‡∏≠‡∏á‡∏°‡∏µ‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏Å‡πà‡∏≠‡∏ô" else "‡∏ï‡∏£‡∏ß‡∏à‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏Å‡πà‡∏≠‡∏ô‡∏™‡πà‡∏á‡∏≠‡∏≠‡∏Å:\n"+issues.take(12).joinToString("\n")
-        AlertDialog.Builder(this).setTitle("‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡πÑ‡∏ü‡∏•‡πå‡πÅ‡∏•‡πâ‡∏ß").setMessage(text)
-            .setPositiveButton("‡∏Å‡∏•‡∏±‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡∏´‡∏•‡∏±‡∏Å") { _,_ -> render() }.showDirector()
-    }
-    private fun notice(text: String) { AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setMessage(text).setPositiveButton("‡∏ï‡∏Å‡∏•‡∏á", null).showDirector() }
-    private fun background(block: () -> Unit) {
-        importing = true
-        val dialog = AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setMessage("‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏à‡∏±‡∏î‡πÑ‡∏ü‡∏•‡πå‚Ä¶").setCancelable(false).showDirector()
-        Thread {
-            try { block(); runOnUiThread { importing = false; dialog.dismiss(); render(); notice("‡πÄ‡∏™‡∏£‡πá‡∏à‡πÄ‡∏£‡∏µ‡∏¢‡∏ö‡∏£‡πâ‡∏≠‡∏¢") } }
-            catch (e: Exception) { File(filesDir,"last_error.txt").writeText("${java.util.Date()}\n${e.stackTraceToString()}"); runOnUiThread { importing = false; dialog.dismiss(); notice("‡∏î‡∏≥‡πÄ‡∏ô‡∏¥‡∏ô‡∏Å‡∏≤‡∏£‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à: ${e.message}") } }
-        }.start()
-    }
-    private fun masterExportName(source: File, useNewMasters: Boolean): String? {
-        if (!source.isFile) return null
-        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        android.graphics.BitmapFactory.decodeFile(source.path, bounds)
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-        val extension = when (bounds.outMimeType) { "image/jpeg" -> "jpg"; "image/webp" -> "webp"; else -> "png" }
-        val name = if (useNewMasters) source.nameWithoutExtension else source.nameWithoutExtension + "_MASTER"
-        return "${name.uppercase()}.$extension"
-    }
-    private fun offerFlowTranslation(story: JSONObject,scene: JSONObject,spec: FlowSceneSpec,camera: String,silent: Boolean) {
-        val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
-        val fields=ShortFlowPrompt.untranslatedFields(spec,camera).joinToString(" / ").ifBlank { "‡∏Ñ‡∏≥‡∏Å‡∏≥‡∏Å‡∏±‡∏ö‡∏â‡∏≤‡∏Å" }
-        AlertDialog.Builder(this).setTitle("‡πÄ‡∏ï‡∏£‡∏µ‡∏¢‡∏°‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow")
-            .setMessage("$fields ‡∏¢‡∏±‡∏á‡∏°‡∏µ‡∏†‡∏≤‡∏©‡∏≤‡πÑ‡∏ó‡∏¢ ‡∏ï‡πâ‡∏≠‡∏á‡πÅ‡∏õ‡∏•‡πÄ‡∏õ‡πá‡∏ô‡∏≠‡∏±‡∏á‡∏Å‡∏§‡∏©‡∏Å‡πà‡∏≠‡∏ô‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å ‚Ä¢ ‡∏ö‡∏ó‡∏û‡∏π‡∏î/‡∏ö‡∏£‡∏£‡∏¢‡∏≤‡∏¢‡∏†‡∏≤‡∏©‡∏≤‡πÑ‡∏ó‡∏¢‡∏Ñ‡∏á‡πÄ‡∏î‡∏¥‡∏°\n\n‡πÉ‡∏ä‡πâ AI ‡πÅ‡∏õ‡∏•‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏Ñ‡∏≥‡∏Å‡∏≥‡∏Å‡∏±‡∏ö ‡πÅ‡∏•‡πâ‡∏ß‡∏ï‡∏£‡∏ß‡∏à‡∏ú‡∏•‡∏Å‡πà‡∏≠‡∏ô‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å (‡πÉ‡∏ä‡πâ‡πÇ‡∏Ñ‡∏ß‡∏ï‡∏≤ API) ‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÅ‡∏Å‡πâ‡∏î‡πâ‡∏ß‡∏¢‡∏ï‡∏ô‡πÄ‡∏≠‡∏á")
-            .setPositiveButton("‡πÉ‡∏´‡πâ AI ‡πÅ‡∏õ‡∏•") { _,_ ->
-                if(providers.isEmpty()) { notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ API ‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÅ‡∏•‡∏∞‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡∏µ‡∏¢‡πå‡πÑ‡∏ß‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤ API ‡∏´‡∏£‡∏∑‡∏≠‡πÅ‡∏Å‡πâ‡∏ã‡∏µ‡∏ô‡∏î‡πâ‡∏ß‡∏¢‡∏ï‡∏ô‡πÄ‡∏≠‡∏á"); return@setPositiveButton }
-                val projectId=project.name; val snapshot=scene.toString()
-                val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
-                val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
-                val loading=AlertDialog.Builder(this).setMessage("‡∏Å‡∏≥‡∏•‡∏±‡∏á‡πÅ‡∏õ‡∏•‡∏Ñ‡∏≥‡∏Å‡∏≥‡∏Å‡∏±‡∏ö‡∏â‡∏≤‡∏Å ‚Ä¢ ‡∏ö‡∏ó‡∏û‡∏π‡∏î‡∏Ñ‡∏á‡πÄ‡∏î‡∏¥‡∏°").setNegativeButton("‡∏´‡∏¢‡∏∏‡∏î",null).showDirector()
-                loading.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
-                Thread {
-                    var value: Pair<FlowSceneSpec,String>?=null
-                    for(provider in providers) {
-                        if(stopped.get()) break
-                        val answer=runCatching { val client=StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ stopped.get() },automaticRetry=false,context=this@StudioActivity); active.set(client); if(stopped.get()) throw java.util.concurrent.CancellationException(); client.generate(FlowEnglishDirections.prompt(spec),FlowEnglishDirections.schema()) }.getOrNull() ?: continue
-                        val translated=runCatching { FlowEnglishDirections.apply(spec,answer) }.getOrNull() ?: continue
-                        val command=runCatching { ShortFlowPrompt.build(translated,camera,silent) }.getOrNull() ?: continue
-                        value=translated to command; break
-                    }
-                    val result=value
-                    runOnUiThread {
-                        if(stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
-                        active.set(null); loading.dismiss()
-                        if(project.name!=projectId || plan!==story || scene.toString()!=snapshot) { notice("‡∏ã‡∏µ‡∏ô‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏£‡∏∞‡∏´‡∏ß‡πà‡∏≤‡∏á‡πÅ‡∏õ‡∏• ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏•‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà"); return@runOnUiThread }
-                        if(result==null) { notice("‡∏¢‡∏±‡∏á‡πÅ‡∏õ‡∏•‡∏Ñ‡∏≥‡∏Å‡∏≥‡∏Å‡∏±‡∏ö‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à API ‡∏´‡∏£‡∏∑‡∏≠‡∏Å‡∏î‡πÅ‡∏Å‡πâ‡∏ã‡∏µ‡∏ô‡∏î‡πâ‡∏ß‡∏¢‡∏ï‡∏ô‡πÄ‡∏≠‡∏á ‚Ä¢ ‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Å‡∏≤‡∏£‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ö‡∏ó"); return@runOnUiThread }
-                        val text="‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏≥‡πÅ‡∏õ‡∏•‡πÄ‡∏ó‡∏µ‡∏¢‡∏ö‡∏Å‡∏±‡∏ö‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å ‚Ä¢ ‡∏Å‡∏≤‡∏£‡πÅ‡∏õ‡∏•‡∏ô‡∏µ‡πâ‡πÑ‡∏°‡πà‡πÅ‡∏Å‡πâ‡∏ö‡∏ó‡∏ó‡∏µ‡πà‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å\n\n‡∏Å‡∏≤‡∏£‡∏Å‡∏£‡∏∞‡∏ó‡∏≥‡πÄ‡∏î‡∏¥‡∏°: ${spec.action}\n\n‡∏Ñ‡∏≥‡πÅ‡∏õ‡∏•: ${result.first.action}\n\n‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á‡πÅ‡∏•‡∏∞‡πÄ‡∏™‡∏∑‡πâ‡∏≠‡∏ú‡πâ‡∏≤ (‡∏ï‡∏£‡∏ß‡∏à‡πÉ‡∏´‡πâ‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡∏†‡∏≤‡∏û): ${result.first.cast.mapIndexed { i,p -> "Character ${i+1}: ${p.position}, ${ShortFlowPrompt.clothing(p).ifBlank { "‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡πÄ‡∏™‡∏∑‡πâ‡∏≠" }} (‡πÄ‡∏î‡∏¥‡∏°: ${ShortFlowPrompt.clothing(spec.cast[i]).ifBlank { "‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏" }})" }.joinToString("; ")}\n\n‡πÄ‡∏™‡∏µ‡∏¢‡∏á‡∏â‡∏≤‡∏Å: ${result.first.sound.ifBlank { "‡πÑ‡∏°‡πà‡∏°‡∏µ" }}\n\n‡∏ö‡∏ó‡∏û‡∏π‡∏î/‡∏ö‡∏£‡∏£‡∏¢‡∏≤‡∏¢‡∏†‡∏≤‡∏©‡∏≤‡πÑ‡∏ó‡∏¢‡∏Ñ‡∏á‡πÄ‡∏î‡∏¥‡∏°\n\n${result.second}"
-                        AlertDialog.Builder(this).setTitle("‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏≥‡πÅ‡∏õ‡∏•‡∏Å‡πà‡∏≠‡∏ô‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å").setView(ScrollView(this).apply { addView(TextView(context).apply { setPadding(dp(18),dp(12),dp(18),dp(12)); this.text=text; setTextIsSelectable(true) }) })
-                            .setPositiveButton("‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow") { _,_ -> copyCommand(result.second) }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-                    }
-                }.start()
-            }.setNeutralButton("‡πÅ‡∏Å‡πâ‡∏ã‡∏µ‡∏ô‡πÄ‡∏≠‡∏á") { _,_ -> editScene(scene) }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-    }
-    private fun wardrobeSourceKey(projectName: String, id: String, digest: String, person: JSONObject): String {
-        val outfitDigest=MasterLibrary.digest(person.optString("outfit").trim().toByteArray(Charsets.UTF_8))
-        return "wardrobe_source_v2_${projectName}_${referenceId(id)}_${digest}_${outfitDigest}"
-    }
-    private fun previewImageReferences(task: SimpleProductionCommands.Task, references: List<Pair<String,File>>, labels: Map<String,String>) {
-        val masterDigests=runCatching { references.take(task.references.size).associate { (id,file) -> id to MasterLibrary.digest(file.readBytes()) } }
-            .getOrElse { notice("‡∏≠‡πà‡∏≤‡∏ô MASTER ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡πÑ‡∏ü‡∏•‡πå‡∏Å‡πà‡∏≠‡∏ô‡∏™‡πà‡∏á"); return }
-        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
-        fun stepLabel(number: String, title: String) = TextView(this).apply {
-            text="‚ù∂‚ù∑‚ù∏"[number.toInt()-1].toString()+"  "+title
-            textSize=18f; setTextColor(Color.rgb(255,193,69)); setTypeface(null,Typeface.BOLD)
-            setPadding(dp(12),dp(12),dp(12),dp(6))
-        }
-        val referenceMode=Spinner(this).apply {
-            adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("‡∏†‡∏≤‡∏û‡∏Ñ‡∏£‡∏≠‡∏õ‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ + ‡∏†‡∏≤‡∏û‡∏™‡∏≤‡∏°‡∏°‡∏∏‡∏°‡∏°‡∏≠‡∏á", "‡∏†‡∏≤‡∏û‡∏Ñ‡∏£‡∏≠‡∏õ‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡∏≠‡∏¢‡πà‡∏≤‡∏á‡πÄ‡∏î‡∏µ‡∏¢‡∏ß", "MASTER + ‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏ó‡∏µ‡πà‡∏ï‡∏£‡∏ß‡∏à‡∏ú‡πà‡∏≤‡∏ô"))
-            setSelection(prefs.getInt("image_reference_mode_${project.name}",0).coerceIn(0,2))
-        }
-        val imageOrder=Spinner(this).apply {
-            adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("‡∏†‡∏≤‡∏û‡∏™‡∏≤‡∏°‡∏°‡∏∏‡∏° ‚Üí ‡∏†‡∏≤‡∏û‡∏Ñ‡∏£‡∏≠‡∏õ", "‡∏†‡∏≤‡∏û‡∏Ñ‡∏£‡∏≠‡∏õ ‚Üí ‡∏†‡∏≤‡∏û‡∏™‡∏≤‡∏°‡∏°‡∏∏‡∏°"))
-            setSelection(prefs.getInt("image_attachment_order",0).coerceIn(0,1))
-        }
-        val transferOrder=Spinner(this).apply {
-            adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á ‚Üí ‡∏†‡∏≤‡∏û", "‡∏†‡∏≤‡∏û ‚Üí ‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á"))
-            setSelection(prefs.getInt("image_transfer_order",0).coerceIn(0,1))
-        }
-        panel.addView(stepLabel("1","‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á")); panel.addView(referenceMode)
-        panel.addView(stepLabel("2","‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏•‡∏≥‡∏î‡∏±‡∏ö‡∏†‡∏≤‡∏û")); panel.addView(imageOrder)
-        panel.addView(stepLabel("3","‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏•‡∏≥‡∏î‡∏±‡∏ö‡∏™‡πà‡∏á")); panel.addView(transferOrder)
-        val orderSummary=TextView(this).apply { setPadding(dp(12),dp(10),dp(12),dp(10)); setTextColor(Color.CYAN) }
-        panel.addView(orderSummary)
-        var refreshCards: () -> Unit = {}
-        fun refreshOrder() {
-            refreshCards()
-            imageOrder.isEnabled=referenceMode.selectedItemPosition==0
-            val refs=if(referenceMode.selectedItemPosition==1) "‡∏Ñ‡∏£‡∏≠‡∏õ‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤" else if(referenceMode.selectedItemPosition==2) "MASTER + ‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å" else if(imageOrder.selectedItemPosition==1) "‡∏Ñ‡∏£‡∏≠‡∏õ ‚Üí ‡∏™‡∏≤‡∏°‡∏°‡∏∏‡∏°" else "‡∏™‡∏≤‡∏°‡∏°‡∏∏‡∏° ‚Üí ‡∏Ñ‡∏£‡∏≠‡∏õ"
-            orderSummary.text=if(transferOrder.selectedItemPosition==1) "$refs ‚Üí ‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á" else "‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á ‚Üí $refs"
-        }
-        val orderListener=object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
-            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) { refreshOrder() }
-        }
-        referenceMode.onItemSelectedListener=orderListener; imageOrder.onItemSelectedListener=orderListener; transferOrder.onItemSelectedListener=orderListener
-        panel.addView(TextView(this).apply { text="‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏ä‡∏∑‡πà‡∏≠‡∏Å‡πà‡∏≠‡∏ô‡∏™‡πà‡∏á ‚Ä¢ ‡πÅ‡∏≠‡∏õ‡∏õ‡∏•‡∏≤‡∏¢‡∏ó‡∏≤‡∏á‡∏≠‡∏≤‡∏à‡∏à‡∏±‡∏î‡∏•‡∏≥‡∏î‡∏±‡∏ö‡∏ï‡πà‡∏≤‡∏á‡∏Å‡∏±‡∏ô" })
-        val piaFaceLock=runCatching { GeminiStoryFiles.read(File(project,"gemini_job/spec.json")).optBoolean("pia_face_lock",false) }.getOrDefault(false) && plan?.optString("channel")=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î"
-        val faceOnly=android.widget.CheckBox(this).apply { text="‡πÉ‡∏ä‡πâ‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ MASTER ‚Ä¢ ‡∏ä‡∏∏‡∏î‡∏ï‡∏≤‡∏°‡∏â‡∏≤‡∏Å"; isChecked=piaFaceLock; panel.addView(this) }
-        val masterAppearance=linkedMapOf<String,android.widget.CheckBox>()
-        val crops=linkedMapOf<String,Pair<String,File>>()
-        val cropDigests=linkedMapOf<String,String>()
-        val cropLabels=linkedMapOf<String,String>()
-        panel.addView(TextView(this).apply { text="‡∏ï‡∏£‡∏ß‡∏à‡∏ä‡∏∑‡πà‡∏≠‡∏Å‡∏±‡∏ö‡∏†‡∏≤‡∏û MASTER ‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô ‚Ä¢ ‡∏†‡∏≤‡∏û‡∏Ñ‡∏£‡∏≠‡∏õ‡∏ó‡∏µ‡πà‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏ß‡πâ‡∏à‡∏∞‡πÅ‡∏ô‡∏ö‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥‡∏û‡∏£‡πâ‡∏≠‡∏° MASTER ‡πÄ‡∏î‡∏¥‡∏° ‡∏´‡∏≤‡∏Å‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ ‡πÉ‡∏´‡πâ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏Å‡∏£‡∏≠‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡∏ï‡∏£‡∏á" })
-        val cropStore=FaceReferenceStore(File(filesDir,"master_face_references"))
-        task.references.forEachIndexed { index, person ->
-            val (id,file)=references[index]
-            val position=if(task.id.contains("_COVER_")) when(task.references.size) { 1 -> "center"; 2 -> if(index==0) "left" else "right"; 3 -> listOf("left","center","right")[index]; else -> "‡∏•‡∏≥‡∏î‡∏±‡∏ö ${index+1}" } else person.optString("screen_position")
-            val shortId=shortCatalogLabel(person.optString("library_id").ifBlank { referenceId(id) })
-            panel.addView(TextView(this).apply { text="${shortId?.let { "$it ‚Ä¢ " }.orEmpty()}${person.optString("name")} ‚Ä¢ $position\n‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡∏£‡∏∞‡∏ö‡∏∏‡πÉ‡∏ô‡∏ö‡∏ó: ${person.optString("outfit")}"; setTypeface(null,Typeface.BOLD) })
-            val sourceKey=wardrobeSourceKey(project.name,id,masterDigests[id].orEmpty(),person)
-            masterAppearance[id]=android.widget.CheckBox(this).apply {
-                isChecked=prefs.getBoolean(sourceKey,WardrobeEvidence.useMasterOutfit(person.optString("outfit")))
-                fun refreshSourceLabel() { text=if(isChecked) "‡πÅ‡∏´‡∏•‡πà‡∏á‡∏ä‡∏∏‡∏î: MASTER ‡∏Ç‡∏≠‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ô‡∏µ‡πâ ‚úì\n‡πÅ‡∏ï‡∏∞‡πÄ‡∏û‡∏∑‡πà‡∏≠‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡πÄ‡∏õ‡πá‡∏ô‡∏ä‡∏∏‡∏î‡∏ï‡∏≤‡∏°‡∏ö‡∏ó" else "‡πÅ‡∏´‡∏•‡πà‡∏á‡∏ä‡∏∏‡∏î: ‡∏ï‡∏≤‡∏°‡∏ö‡∏ó ‚úì\n‡πÅ‡∏ï‡∏∞‡πÄ‡∏û‡∏∑‡πà‡∏≠‡πÉ‡∏ä‡πâ‡∏ä‡∏∏‡∏î‡∏à‡∏≤‡∏Å MASTER" }
-                refreshSourceLabel()
-                setOnCheckedChangeListener { _,_ -> refreshSourceLabel() }
-                panel.addView(this)
-            }
-            val imageRow=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
-            val cropColumn=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
-            val masterColumn=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
-            imageRow.addView(cropColumn,LinearLayout.LayoutParams(0,-2,1f)); imageRow.addView(masterColumn,LinearLayout.LayoutParams(0,-2,1f)); panel.addView(imageRow)
-            val status=TextView(this).apply { text="‡∏Ñ‡∏£‡∏≠‡∏õ‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ‚Ä¢ ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å"; cropColumn.addView(this) }
-            val cropPreview=ImageView(this).apply { adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(160)); cropColumn.addView(this) }
-            val masterStatus=TextView(this).apply { text="MASTER ‚Ä¢ ‡∏™‡∏≤‡∏°‡∏°‡∏∏‡∏°‡∏°‡∏≠‡∏á"; masterColumn.addView(this) }
-            val previousRefresh=refreshCards
-            refreshCards={
-                previousRefresh()
-                val mode=referenceMode.selectedItemPosition
-                val offset=index + (0 until index).count { previous -> mode==0 && crops.containsKey(references[previous].first) }
-                val hasCrop=crops.containsKey(id)
-                val cropFirst=imageOrder.selectedItemPosition==1
-                status.text=if(!hasCrop) "‡∏Ñ‡∏£‡∏≠‡∏õ‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ‚Ä¢ ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å" else if(mode==0) "‡∏Ñ‡∏£‡∏≠‡∏õ‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ‚Ä¢ ‡∏™‡πà‡∏á ${offset+if(cropFirst) 1 else 2}" else if(mode==1) "‡∏Ñ‡∏£‡∏≠‡∏õ‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ‚Ä¢ ‡∏™‡πà‡∏á ${offset+1}" else "‡∏Ñ‡∏£‡∏≠‡∏õ‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ‚Ä¢ ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏™‡πà‡∏á"
-                masterStatus.text=if(mode==1) "MASTER ‚Ä¢ ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏™‡πà‡∏á" else "MASTER ‚Ä¢ ‡∏™‡πà‡∏á ${offset+if(mode==0 && cropFirst && hasCrop) 2 else 1}"
-            }
-            masterColumn.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(160)); setOnClickListener { fullImage(file,person.optString("name")) } })
-            fun showCrop(target: File) {
-                val cropId="${referenceId(id)}_FACE_CROP"
-                crops[id]=cropId to target
-                cropDigests[id]=MasterLibrary.digest(target.readBytes())
-                cropLabels[cropId]="‡∏†‡∏≤‡∏û‡∏Ñ‡∏£‡∏≠‡∏õ‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ${person.optString("name")} ‡∏à‡∏≤‡∏Å MASTER $id"
-                refreshOrder()
-                cropPreview.setImageBitmap(previewBitmap(Uri.fromFile(target)))
-                cropPreview.visibility=android.view.View.VISIBLE
-                cropPreview.setOnClickListener { fullImage(target,"‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡∏Ñ‡∏£‡∏≠‡∏õ ‚Ä¢ ${person.optString("name")}") }
-            }
-            runCatching { cropStore.latest(file)?.let { showCrop(it) } }
-            panel.addView(Button(this).apply {
-                text="‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏Å‡∏£‡∏≠‡∏ö‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡∏à‡∏≤‡∏Å MASTER"
-                setOnClickListener {
-                    runCatching {
-                        val cropView=FaceReferenceCropView(this@StudioActivity,file)
-                        val layout=LinearLayout(this@StudioActivity).apply { orientation=1; addView(TextView(context).apply { text="‡∏•‡∏≤‡∏Å‡∏Å‡∏£‡∏≠‡∏ö‡∏£‡∏≠‡∏ö‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡∏°‡∏∏‡∏°‡∏ï‡∏£‡∏á‡∏Ç‡∏≠‡∏á ${person.optString("name")} ‡∏à‡∏≤‡∏Å‡∏†‡∏≤‡∏û‡∏ô‡∏µ‡πâ ‡πÅ‡∏•‡πâ‡∏ß‡∏ï‡∏£‡∏ß‡∏à‡∏ä‡∏∑‡πà‡∏≠‡∏Å‡πà‡∏≠‡∏ô‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å" }); addView(cropView,LinearLayout.LayoutParams(-1,dp(520))) }
-                        val dialog=AlertDialog.Builder(this@StudioActivity).setTitle("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ‚Ä¢ ${person.optString("name")}").setView(layout).setPositiveButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏Å‡∏£‡∏≠‡∏ö",null).setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-                        dialog.getButton(-1).setOnClickListener {
-                            runCatching {
-                                val target=cropStore.newFile(file)
-                                val pending=File(target.parentFile,target.name+".pending")
-                                try { cropView.save(pending); check(pending.renameTo(target)) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏†‡∏≤‡∏û‡∏Ñ‡∏£‡∏≠‡∏õ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" } } finally { pending.delete() }
-                                showCrop(target)
-                                dialog.dismiss()
-                            }.onFailure { notice(it.message ?: "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏†‡∏≤‡∏û‡∏Ñ‡∏£‡∏≠‡∏õ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-                        }
-                    }.onFailure { notice(it.message ?: "‡πÄ‡∏õ‡∏¥‡∏î‡∏†‡∏≤‡∏û MASTER ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-                }
-            })
-        }
-        val extraChecks=linkedMapOf<String,android.widget.CheckBox>()
-        references.drop(task.references.size).forEach { (id,file) ->
-            extraChecks[id]=android.widget.CheckBox(this).apply { text=labels[id] ?: "‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á‡∏ó‡∏µ‡πà‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ $id"; isChecked=!id.startsWith("OUTFIT_PIA_SELECTED_") || PiaReferencePolicy.outfitInitiallySelected(task.id); panel.addView(this) }
-            panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(180)); setOnClickListener { fullImage(file,labels[id] ?: "‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á") } })
-        }
-        val allowFantasyProps=ChannelFeaturePolicy.hasFantasyTools(plan?.optString("channel").orEmpty())
-        val propNames=propCatalog
-        val propPreference="prop_master_${project.name}_${task.id}"
-        val scene=plan?.let { story -> rows(story).firstOrNull { key(it)==task.id } }
-        val rawAssignments=runCatching { JSONObject(File(project,"prop_assignments.json").readText()).optJSONArray(task.id) }.getOrNull()
-        val automatic=if(scene==null) null else ScenePropBinding.valid(scene,rawAssignments)
-        if(rawAssignments!=null && (automatic?.length() ?: 0)<rawAssignments.length()) panel.addView(TextView(this).apply {
-            text="‚ö†Ô∏è ‡∏Ç‡πâ‡∏≠‡πÄ‡∏™‡∏ô‡∏≠‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏ö‡∏≤‡∏á‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏ú‡∏π‡∏Å‡∏Å‡∏±‡∏ö‡∏ö‡∏ó‡∏õ‡∏±‡∏à‡∏à‡∏∏‡∏ö‡∏±‡∏ô‡∏´‡∏£‡∏∑‡∏≠‡∏ö‡∏ó‡∏ñ‡∏π‡∏Å‡πÅ‡∏Å‡πâ‡πÑ‡∏Ç ‚Ä¢ ‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡πÅ‡∏•‡∏∞‡∏ï‡∏£‡∏ß‡∏à‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡πÉ‡∏´‡∏°‡πà‡∏Å‡πà‡∏≠‡∏ô‡πÉ‡∏ä‡πâ"
-            setTypeface(null,Typeface.BOLD)
-        })
-        val autoIds=(0 until (automatic?.length() ?: 0)).mapNotNull { automatic?.optJSONObject(it)?.optString("prop_id") }.toSet()
-        // Only an explicit cover incident naming the exact catalog item is evidence for the cover.
-        val coverEvidence=if(task.id.contains("_COVER_")) plan?.optJSONArray("episodes")?.let { episodes ->
-            (0 until episodes.length()).mapNotNull { episodes.optJSONObject(it) }.filter { episode ->
-                task.id.startsWith("STORY_") || task.id.startsWith("EP%02d_".format(episode.optInt("ep")))
-            }.joinToString(" ") { it.optString("cover_incident") }
-        }.orEmpty() else ""
-        val coverIds=propCatalog.mapIndexedNotNull { index,name -> if(coverEvidence.contains(name,true)) propId(index) else null }.toSet()
-        val saved=if(prefs.contains(propPreference)) prefs.getStringSet(propPreference, emptySet()).orEmpty() else autoIds+coverIds
-        val checks=linkedMapOf<String,android.widget.CheckBox>()
-        val explicitProps=scene?.optString("props")?.trim().orEmpty()
-        val noProps=explicitProps.isBlank() || explicitProps.equals("none",true) || explicitProps=="‡πÑ‡∏°‡πà‡∏°‡∏µ"
-        val visiblePropIds=autoIds+coverIds
-        if(!noProps && visiblePropIds.isEmpty()) panel.addView(TextView(this).apply {
-            text="‚ö†Ô∏è ‡∏ö‡∏ó‡∏£‡∏∞‡∏ö‡∏∏‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á: $explicitProps ‚Ä¢ ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏û‡∏ö MASTER ‡∏ó‡∏µ‡πà‡∏ú‡∏π‡∏Å‡∏Å‡∏±‡∏ö‡∏â‡∏≤‡∏Å ‡∏ï‡∏£‡∏ß‡∏à‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á‡∏ï‡∏≤‡∏°‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô‡∏™‡πà‡∏á"
-            setTypeface(null,Typeface.BOLD)
-        })
-        if(visiblePropIds.isNotEmpty()) panel.addView(TextView(this).apply { text="MASTER ‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏ó‡∏µ‡πà‡∏ú‡∏π‡∏Å‡∏Å‡∏±‡∏ö‡∏ö‡∏ó‡∏â‡∏≤‡∏Å‡∏ô‡∏µ‡πâ ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏ß‡πà‡∏≤‡∏õ‡∏£‡∏≤‡∏Å‡∏è‡πÉ‡∏ô‡∏†‡∏≤‡∏û‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏ï‡πâ‡∏ô"; setTypeface(null,Typeface.BOLD) })
-        propNames.forEachIndexed { index,name ->
-            val id="PROP_%02d_MASTER".format(index+1)
-            if(id !in visiblePropIds) return@forEachIndexed
-            val checkbox=android.widget.CheckBox(this).apply { text="$name ‚Ä¢ $id"; isChecked=id in saved || (!prefs.contains(propPreference) && id in visiblePropIds) }
-            checks[id]=checkbox
-            panel.addView(checkbox)
-            val image=ImageView(this).apply { adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(180)); visibility=if(checkbox.isChecked) android.view.View.VISIBLE else android.view.View.GONE }
-            fun propFile(): File {
-                val file=File(cacheDir,"prop_masters/$id.png")
-                if (!file.isFile) { file.parentFile!!.mkdirs(); assets.open("prop_masters/$id.png").use { input -> file.outputStream().use { input.copyTo(it) } } }
-                return file
-            }
-            fun showProp() { runCatching { val file=propFile(); image.setImageBitmap(previewBitmap(Uri.fromFile(file))); image.setOnClickListener { fullImage(file,name) } }.onFailure { notice("‡πÄ‡∏õ‡∏¥‡∏î‡∏†‡∏≤‡∏û‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ: $name") } }
-            if(checkbox.isChecked) showProp()
-            checkbox.setOnCheckedChangeListener { _,checked -> image.visibility=if(checked) android.view.View.VISIBLE else android.view.View.GONE; if(checked) showProp() }
-            panel.addView(image)
-        }
-        AlertDialog.Builder(this).setTitle("‡∏ï‡∏£‡∏ß‡∏à MASTER ‚Ä¢ ${task.id}").setView(ScrollView(this).apply { addView(panel) })
-            .setPositiveButton("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÅ‡∏≠‡∏õ‡πÅ‡∏•‡∏∞‡∏™‡πà‡∏á") { _,_ ->
-                val stable=runCatching { references.take(task.references.size).all { (id,file) -> file.isFile && MasterLibrary.digest(file.readBytes())==masterDigests[id] } }.getOrDefault(false)
-                if(!stable) { notice("‡∏†‡∏≤‡∏û MASTER ‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏´‡∏£‡∏∑‡∏≠‡∏´‡∏≤‡∏¢‡∏£‡∏∞‡∏´‡∏ß‡πà‡∏≤‡∏á‡∏ï‡∏£‡∏ß‡∏à ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏õ‡∏¥‡∏î‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡πÅ‡∏•‡∏∞‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á"); return@setPositiveButton }
-                val mode=referenceMode.selectedItemPosition
-                if(mode==1 && task.references.indices.any { crops[references[it].first]==null }) { notice("‡πÇ‡∏´‡∏°‡∏î‡∏Ñ‡∏£‡∏≠‡∏õ‡∏´‡∏ô‡πâ‡∏≤‡∏≠‡∏¢‡πà‡∏≤‡∏á‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡∏ï‡πâ‡∏≠‡∏á‡∏°‡∏µ‡∏†‡∏≤‡∏û‡∏Ñ‡∏£‡∏≠‡∏õ‡∏Ç‡∏≠‡∏á‡∏ó‡∏∏‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£"); return@setPositiveButton }
-                if(mode==1 && masterAppearance.values.any { it.isChecked }) { notice("‡∏†‡∏≤‡∏û‡∏Ñ‡∏£‡∏≠‡∏õ‡πÑ‡∏°‡πà‡πÄ‡∏´‡πá‡∏ô‡∏ä‡∏∏‡∏î MASTER ‚Ä¢ ‡πÇ‡∏õ‡∏£‡∏î‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÉ‡∏ä‡πâ‡∏†‡∏≤‡∏û‡∏™‡∏≤‡∏°‡∏°‡∏∏‡∏°‡πÄ‡∏°‡∏∑‡πà‡∏≠‡πÉ‡∏ä‡πâ‡∏ä‡∏∏‡∏î MASTER"); return@setPositiveButton }
-                val selected=if(mode==0) crops.toMap() else emptyMap()
-                val cropsToVerify=if(mode==1) crops else selected
-                val cropsStable=runCatching { cropsToVerify.all { (id,crop) -> crop.second.isFile && MasterLibrary.digest(crop.second.readBytes())==cropDigests[id] } }.getOrDefault(false)
-                if(!cropsStable) { notice("‡∏†‡∏≤‡∏û‡∏Ñ‡∏£‡∏≠‡∏õ‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏´‡∏£‡∏∑‡∏≠‡∏´‡∏≤‡∏¢ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏à‡∏≤‡∏Å MASTER ‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á"); return@setPositiveButton }
-                val bindings=selected.entries.joinToString("\n") { (id,crop) -> "CHARACTER ${labels[id].orEmpty()} ‚Äî FACE CROP ${crop.first} is cropped from MASTER ${referenceId(id)}; both show the same character. Use the crop for facial identity and the original MASTER for verification. Never use this crop for another character." }
-                val rawCommand=if(faceOnly.isChecked || mode==1) SimpleProductionCommands.faceOnly(task.command) else task.command
-                val modeCommand=if(mode==1) rawCommand.replace("The three views show one person; use the large clear front view for facial details.","Each attached character reference is a close-up of one person.").replace("The three views in each MASTER represent ONE person;", "Each attached face reference represents ONE person;") else rawCommand
-                val baseCommand=modeCommand+(if(bindings.isBlank()) "" else "\n\n$bindings")
-                val locked=task.references.mapIndexedNotNull { index,person ->
-                    val id=references[index].first
-                    if(masterAppearance[id]?.isChecked==true) person.optString("name") to referenceId(id) else null
-                }
-                val command=runCatching { SimpleProductionCommands.withWardrobeSources(baseCommand,task.references,locked.map { it.second }.toSet()) }.getOrElse {
-                    notice(it.message ?: "‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏´‡∏•‡πà‡∏á‡∏ä‡∏∏‡∏î‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à"); return@setPositiveButton
-                }
-                val sourcePrefs=prefs.edit()
-                task.references.forEachIndexed { index,person ->
-                    val id=references[index].first
-                    sourcePrefs.putBoolean(wardrobeSourceKey(project.name,id,masterDigests[id].orEmpty(),person),masterAppearance[id]?.isChecked==true)
-                }
-                sourcePrefs.apply()
-                val chosen=checks.filterValues { it.isChecked }.keys
-                val propRefs=runCatching { chosen.map { id ->
-                    val file=File(cacheDir,"prop_masters/$id.png")
-                    if(!file.isFile) { file.parentFile!!.mkdirs(); assets.open("prop_masters/$id.png").use { input -> file.outputStream().use { input.copyTo(it) } } }
-                    check(file.isFile && file.length()>0) { "‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏†‡∏≤‡∏û $id" }
-                    id to file
-                } }.getOrElse { notice(it.message ?: "‡πÄ‡∏õ‡∏¥‡∏î MASTER ‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ"); return@setPositiveButton }
-                if (prefs.contains(propPreference) || chosen != saved) prefs.edit().putStringSet(propPreference,chosen.toSet()).apply()
-                val propLabels=propRefs.associate { (id,_) -> id to propNames[id.substring(5,7).toInt()-1] }
-                val coverOwners=if(task.id.contains("_COVER_")) task.references.mapNotNull { person -> characterProp(person.optString("master")).takeIf { it.isNotBlank() && it in chosen }?.let { "${person.optString("name")} is associated with $it; show it only if appropriate to this cover." } }.joinToString("\n") else ""
-                val owners=(0 until (automatic?.length() ?: 0)).mapNotNull { automatic?.optJSONObject(it) }.filter { it.optString("prop_id") in chosen }.joinToString("\n") { "${it.optString("holder").ifBlank { "Holder unspecified" }} is associated with ${it.optString("prop_id")} in this scene. Start-frame prop state: ${it.optString("start_prop_state").ifBlank { "unspecified; follow the story, do not assume it is held" }}. Follow the start state and action." }
-                val propInstruction=if(propRefs.isEmpty()) "" else "\n\nPROP MASTER REFERENCES: Each selected image shows multiple views of ONE object. Match each named object to its own attached MASTER. Preserve its distinctive silhouette, proportions, materials, colors, markings, gems, guard and handle across scenes. Do not invent a replacement or mix different objects. Depict only the selected props appropriate to this scene; follow the planned action and placement. Follow the provided image order and generate directly. Similarity is a target and cannot be guaranteed.\n"+propLabels.entries.joinToString("\n") { "${it.value} | MASTER ID: ${it.key}" }
-                val extras=references.drop(task.references.size).filter { extraChecks[it.first]?.isChecked == true }
-                val outfitExtras=extras.filter { extra -> extra.first.startsWith("OUTFIT_") && locked.none { (_,id) -> extra.first.endsWith(id,true) } }
-                if(mode==2 && outfitExtras.none { it.first.startsWith("OUTFIT_EP") }) { notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡πÄ‡∏î‡∏µ‡πà‡∏¢‡∏ß‡∏ó‡∏µ‡πà‡∏ï‡∏£‡∏ß‡∏à‡∏ú‡πà‡∏≤‡∏ô‡πÅ‡∏•‡∏∞‡∏ä‡∏∏‡∏î‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ô ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ß‡∏¥‡∏ò‡∏µ‡∏≠‡∏∑‡πà‡∏ô"); return@setPositiveButton }
-                val outfitGuide=if(outfitExtras.isEmpty()) "" else (if(mode==2) "\n\nREVIEWED SCENE REFERENCE: The checked prior single-character scene was reviewed by the user for this same character and outfit. Use it as a supplemental identity and wardrobe reference; the original MASTER remains the source of identity. " else "")+"\n\nREVIEWED OUTFIT REFERENCES: For the listed characters only, these checked images override generic instructions against copying clothing. Use each labeled frame as a clothing reference for its named character, while the original character MASTER remains the identity reference. Preserve visible garments; follow the written outfit for parts not visible. Do not copy background, pose or objects. "+outfitExtras.joinToString("; ") { "${it.first} = ${labels[it.first]}" }
-                val primary=if(mode==1) references.take(task.references.size).map { (id,_) -> id to crops.getValue(id).second } else references.take(task.references.size)
-                val orderedPeople=if(mode==0) primary.flatMap { master ->
-                    val crop=selected[master.first]
-                    if(crop==null) listOf(master) else if(imageOrder.selectedItemPosition==1) listOf(crop,master) else listOf(master,crop)
-                } else primary
-                val payload=orderedPeople+extras.filter { !it.first.startsWith("OUTFIT_") || it in outfitExtras }+propRefs
-                prefs.edit().putInt("image_reference_mode_${project.name}",mode).putInt("image_attachment_order",imageOrder.selectedItemPosition).putInt("image_transfer_order",transferOrder.selectedItemPosition).apply()
-                if(payload.size>9) { notice("‡∏°‡∏µ‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á ${payload.size} ‡∏†‡∏≤‡∏û ‡∏ã‡∏∂‡πà‡∏á‡πÄ‡∏Å‡∏¥‡∏ô 9 ‡∏†‡∏≤‡∏û ‚Ä¢ ‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á‡∏ö‡∏≤‡∏á‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡πÅ‡∏•‡πâ‡∏ß‡∏•‡∏≠‡∏á‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á"); return@setPositiveButton }
-                shareImageCommand(command+outfitGuide+propInstruction+(if(owners.isBlank()) "" else "\n$owners")+(if(coverOwners.isBlank()) "" else "\n$coverOwners"),payload,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
-            }
-            .setNegativeButton("‡∏Å‡∏•‡∏±‡∏ö‡πÑ‡∏õ‡∏ï‡∏£‡∏ß‡∏à",null).showDirector()
-    }
-    private fun shareImageCommand(command: String, references: List<Pair<String,File>>, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false) {
-        val referenceDigests=runCatching { ReferenceSnapshot.capture(references) }.getOrElse { notice(it.message ?: "‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ"); return }
-        val orderedCommand=if(bodyOnly) command else SimpleProductionCommands.orderedReferenceCommand(command,references.map { it.first })
-        val preferred=prefs.getString("image_provider","ChatGPT") ?: "ChatGPT"
-        val providers=imageProviderOptions(preferred)
-        val choices=providers.mapIndexed { i,name -> name+if(i==0) " ‚Ä¢ ‡∏ï‡∏±‡∏ß‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ó‡∏µ‡πà‡∏à‡∏≥‡πÑ‡∏ß‡πâ" else "" } + "‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á ‚Ä¢ ‡πÅ‡∏ô‡∏ö MASTER ‡πÄ‡∏≠‡∏á"
-        choiceMenu("‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡∏î‡πâ‡∏ß‡∏¢‡πÅ‡∏≠‡∏õ‡πÑ‡∏´‡∏ô",choices) { selected ->
-            if(selected==providers.size) {
-                copyCommand(orderedCommand)
-                notice("‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡πÅ‡∏ô‡∏ö‡∏†‡∏≤‡∏û‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ï‡∏≤‡∏°‡∏•‡∏≥‡∏î‡∏±‡∏ö‡πÉ‡∏ô‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á")
-            } else {
-                val provider=providers[selected]
-                prefs.edit().putString("image_provider",provider).apply()
-                shareText(orderedCommand,includeMasters=false,referenceImages=references,destinationLabel=provider,imagePackage=true,referenceLabels=referenceLabels,twoCovers=twoCovers,bodyOnly=bodyOnly,referenceDigests=referenceDigests)
-            }
-        }
-    }
-    private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT", imagePackage: Boolean = false, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false, referenceDigests: Map<String,String> = emptyMap()) {
-        var text = if (lockCreation && !inputText.contains("‡∏Ñ‡πà‡∏≤‡∏ï‡∏±‡πâ‡∏á‡∏ï‡πâ‡∏ô‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ (‡πÉ‡∏ä‡πâ‡πÅ‡∏ó‡∏ô‡∏Ñ‡πà‡∏≤‡∏ï‡∏±‡∏ß‡∏≠‡∏¢‡πà‡∏≤‡∏á)")) inputText + "\n‡∏Ñ‡πà‡∏≤‡∏ï‡∏±‡πâ‡∏á‡∏ï‡πâ‡∏ô‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ (‡πÉ‡∏ä‡πâ‡πÅ‡∏ó‡∏ô‡∏Ñ‡πà‡∏≤‡∏ï‡∏±‡∏ß‡∏≠‡∏¢‡πà‡∏≤‡∏á): EP=${prefs.getString("plan_episodes", "").orEmpty().ifBlank { "AI ‡∏õ‡∏£‡∏∞‡πÄ‡∏°‡∏¥‡∏ô" }} ‡∏â‡∏≤‡∏Å/EP=${prefs.getString("plan_scenes", "").orEmpty().ifBlank { "AI ‡∏õ‡∏£‡∏∞‡πÄ‡∏°‡∏¥‡∏ô" }} ‡πÄ‡∏ß‡∏•‡∏≤=${prefs.getString("plan_duration", "8")} ‡∏ß‡∏¥‡∏ô‡∏≤‡∏ó‡∏µ ‡∏™‡∏±‡∏î‡∏™‡πà‡∏ß‡∏ô=${"9:16"} ‡∏Å‡∏≥‡∏´‡∏ô‡∏î duration_seconds ‡πÅ‡∏•‡∏∞ aspect_ratio ‡πÉ‡∏ô story.json ‡πÅ‡∏•‡∏∞‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏ó‡∏∏‡∏Å‡∏â‡∏≤‡∏Å‡∏ï‡∏≤‡∏°‡∏ô‡∏µ‡πâ" else inputText
-        if (imagePackage && !bodyOnly && !text.contains(SimpleProductionCommands.faceOnlyMarker) && !text.contains(BodyReferencePolicy.imageIdentityLock)) text += "\n\n" + BodyReferencePolicy.imageIdentityLock
-        if (imagePackage && !bodyOnly && !text.contains(ImagePromptPolicy.skinTone)) text += "\n\n" + ImagePromptPolicy.skinTone
-        if (imagePackage) for ((name,_) in referenceImages) {
-            val id=referenceId(name)
-            text=text.replace(Regex("(?i)"+Regex.escape(id)+"[.](png|jpe?g|webp)\\b"),id)
-        }
-        val uris = arrayListOf<Uri>()
-        val attachments = JSONArray()
-        val transferId = UUID.randomUUID().toString()
-        val sources = if (!includeMasters) emptyList<File>() else if (useNewMasters) File(project, "masters").listFiles()?.filter { it.isFile && !it.name.endsWith(".tmp") && !it.name.endsWith(".pending") } ?: emptyList()
-            else (selectedMasterKeys ?: listOf("gawin", "rinlada", "mind")).map { File(project, "original_masters/$it.master").takeIf { f -> f.exists() } ?: File(filesDir, "character_masters/$it.master") }
-        if (includeMasters && (sources.isEmpty() || sources.any { !it.exists() })) {
-            notice("‡∏†‡∏≤‡∏û MASTER ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏Ñ‡∏£‡∏ö‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏ô‡∏µ‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏Å‡πà‡∏≠‡∏ô‡∏™‡πà‡∏á ‡πÄ‡∏û‡∏∑‡πà‡∏≠‡πÑ‡∏°‡πà‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ú‡∏¥‡∏î‡∏Ñ‡∏ô")
-            return
-        }
-        for (source in sources) {
-            if (source.exists()) {
-                val name = masterExportName(source, useNewMasters)
-                if (name == null) { notice("‡∏≠‡πà‡∏≤‡∏ô‡∏†‡∏≤‡∏û MASTER ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏†‡∏≤‡∏û‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÉ‡∏´‡∏°‡πà"); return }
-                val out = File(cacheDir,"character_master_exports/$transferId/$name")
-                out.parentFile!!.mkdirs(); source.copyTo(out, overwrite = true)
-                attachments.put(JSONObject().put("name",out.name).put("sha256",java.security.MessageDigest.getInstance("SHA-256").digest(out.readBytes()).joinToString("") { "%02x".format(it) }).put("bytes",out.length()))
-                uris.add(FileProvider.getUriForFile(this,"$packageName.fileprovider",out))
-            }
-        }
-        for ((name, source) in referenceImages) {
-            if (!source.exists()) { notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á $name ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏Å‡πà‡∏≠‡∏ô"); return }
-            val options = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            android.graphics.BitmapFactory.decodeFile(source.path, options)
-            if (options.outWidth <= 0) { notice("‡∏≠‡πà‡∏≤‡∏ô‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á $name ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ"); return }
-            val extension = when (options.outMimeType) { "image/jpeg" -> "jpg"; "image/webp" -> "webp"; else -> "png" }
-            val out = File(cacheDir, "scene_reference_exports/$transferId/$name.$extension")
-            out.parentFile!!.mkdirs()
-            val expected=referenceDigests[name]
-            if(expected!=null) {
-                if(runCatching { ReferenceSnapshot.copyVerified(source,out,expected) }.isFailure) { notice("‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á $name ‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏´‡∏£‡∏∑‡∏≠‡∏´‡∏≤‡∏¢‡∏£‡∏∞‡∏´‡∏ß‡πà‡∏≤‡∏á‡πÄ‡∏ï‡∏£‡∏µ‡∏¢‡∏°‡∏™‡πà‡∏á ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡πÉ‡∏´‡∏°‡πà"); return }
-            } else source.copyTo(out, overwrite = true)
-            attachments.put(JSONObject().put("name",out.name).put("sha256",java.security.MessageDigest.getInstance("SHA-256").digest(out.readBytes()).joinToString("") { "%02x".format(it) }).put("bytes",out.length()))
-                uris.add(FileProvider.getUriForFile(this,"$packageName.fileprovider",out))
-        }
-        // ChatGPT Android builds do not all read the same share field. Keep
-        // the command in both EXTRA_TEXT and the first ClipData item, then
-        // append every granted image URI to that same ClipData payload.
-        val geminiImages=destinationLabel=="Gemini" && imagePackage && uris.isNotEmpty()
-        val filePackage=!geminiImages && (destinationLabel=="Gemini" || imagePackage) && uris.isNotEmpty()
-        val intent = if(geminiImages) buildGeminiImageShareIntent((if(bodyOnly) "‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÉ‡∏´‡∏°‡πà‡∏ï‡∏≤‡∏°‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á ‡πÉ‡∏ä‡πâ‡∏†‡∏≤‡∏û‡πÅ‡∏ô‡∏ö‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡∏£‡∏π‡∏õ‡∏£‡πà‡∏≤‡∏á‡πÄ‡∏ó‡πà‡∏≤‡∏ô‡∏±‡πâ‡∏ô\n\n"+text else geminiImageMessage(text,twoCovers)),ArrayList(uris),prefs.getInt("image_transfer_order",0)==1) else if(filePackage) {
-            val command=File(cacheDir,"scene_reference_exports/$transferId/READ_FIRST_IMAGE_COMMAND.txt")
-            command.parentFile!!.mkdirs()
-            command.writeText((if(bodyOnly) "‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÉ‡∏´‡∏°‡πà‡∏ï‡∏≤‡∏°‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á ‡∏†‡∏≤‡∏û‡πÅ‡∏ô‡∏ö‡πÉ‡∏ä‡πâ‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á‡∏£‡∏π‡∏õ‡∏£‡πà‡∏≤‡∏á‡πÄ‡∏ó‡πà‡∏≤‡∏ô‡∏±‡πâ‡∏ô" else if(twoCovers) "‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏õ‡∏Å 2 ‡∏†‡∏≤‡∏û‡πÅ‡∏¢‡∏Å‡πÑ‡∏ü‡∏•‡πå‡∏ï‡∏≤‡∏°‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏î‡πâ‡∏≤‡∏ô‡∏•‡πà‡∏≤‡∏á ‡πÉ‡∏ä‡πâ MASTER ‡∏ó‡∏µ‡πà‡πÅ‡∏ô‡∏ö‡πÉ‡∏´‡πâ‡∏ï‡∏£‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£" else "‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡∏´‡∏ô‡∏∂‡πà‡∏á‡∏†‡∏≤‡∏û‡∏ï‡∏≤‡∏°‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏î‡πâ‡∏≤‡∏ô‡∏•‡πà‡∏≤‡∏á ‡πÉ‡∏ä‡πâ MASTER ‡∏ó‡∏µ‡πà‡πÅ‡∏ô‡∏ö‡πÉ‡∏´‡πâ‡∏ï‡∏£‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£")+" ‡πÑ‡∏°‡πà‡∏™‡∏£‡∏∏‡∏õ‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á ‡πÑ‡∏°‡πà‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠\n\n"+text,Charsets.UTF_8)
-            val commandUri=FileProvider.getUriForFile(this,"$packageName.fileprovider",command)
-            val shareText=if(destinationLabel=="Gemini" && imagePackage) geminiImageMessage(text,twoCovers) else text
-            val imagesFirst=imagePackage && prefs.getInt("image_transfer_order",0)==1
-            val result=buildGeminiPackageIntent(shareText,commandUri,ArrayList(uris),imagesFirst)
-            if(imagesFirst) uris.add(commandUri) else uris.add(0,commandUri)
-            attachments.put(JSONObject().put("name",command.name).put("bytes",command.length()).put("sha256",MasterLibrary.digest(command.readBytes())))
-            result
-        } else buildChatShareIntent(text,uris)
-        if(!filePackage) (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
-            .setPrimaryClip(ClipData.newPlainText("‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á DIRECTOR X", text))
-        val destination = project
-        val sceneId = prefs.getString("last_scene_${destination.name}", "")!!
-        val commandFile = File(destination, if (lockCreation) "last_story_command.txt" else "last_command.txt")
-        commandFile.writeText(text)
-        File(destination,"last_payload.json").writeText(JSONObject().put("text",text).put("creation",lockCreation)
-            .put("images",JSONArray(uris.map { it.toString() })).put("attachments",attachments).toString())
-        if(imagePackage) {
-            val images=uris.filter { contentResolver.getType(it)?.startsWith("image/")==true }
-            File(destination,"last_image_payload.json").writeText(JSONObject().put("text",text).put("images",JSONArray(images.map { it.toString() })).toString())
-        }
-        val imageList = (0 until attachments.length()).joinToString("\n") { i -> attachments.getJSONObject(i).let { "${it.optString("name")} ‚Ä¢ ${it.optLong("bytes")} bytes ‚Ä¢ SHA ${it.optString("sha256").take(12)}" } }
-        pendingStorySummary = "‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á ${text.length} ‡∏ï‡∏±‡∏ß‡∏≠‡∏±‡∏Å‡∏©‡∏£ ‚Ä¢ ‡∏†‡∏≤‡∏û ${uris.count { contentResolver.getType(it)?.startsWith("image/")==true }} ‡∏†‡∏≤‡∏û" + if(filePackage) " ‚Ä¢ ‡πÑ‡∏ü‡∏•‡πå‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á 1 ‡πÑ‡∏ü‡∏•‡πå" else ""
-        fun launchShare() {
-            if(geminiImages) {
-                (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
-                    .setPrimaryClip(ClipData.newPlainText("‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û Gemini",geminiImageMessage(text,twoCovers)))
-            }
-            val request = JSONObject().put("id",transferId).put("scene",sceneId).put("created_at",System.currentTimeMillis())
-                .put("text",text).put("attachments",attachments).put("status","opened_external_app")
-            File(destination,"image_requests/$transferId.json").apply { parentFile!!.mkdirs(); writeText(request.toString(2)) }
-            pendingReceipt = {
-                if (lockCreation) File(destination,"command_sent").writeText("confirmed")
-                else File(destination,"receipts/${UUID.randomUUID()}.txt").apply { parentFile!!.mkdirs() }
-                    .writeText("$sceneId\n${System.currentTimeMillis()}\n$text")
-            }
-            var opened = false
-            for (target in if(destinationLabel=="Gemini") listOf("com.google.android.apps.bard") else if(destinationLabel=="ChatGPT") listOf("com.openai.chatgpt", "com.openai.chatgpt.beta") else emptyList()) {
-                try {
-                    uris.forEach { grantUriPermission(target,it,Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-                    startActivity(Intent(intent).setPackage(target))
-                    opened = true; break
-                } catch (_: android.content.ActivityNotFoundException) { }
-                  catch (_: SecurityException) { }
-            }
-            if (!opened) {
-                try {
-                    startActivity(Intent.createChooser(intent,if(filePackage) "‡πÄ‡∏•‡∏∑‡∏≠‡∏Å $destinationLabel ‚Ä¢ ‡πÅ‡∏ô‡∏ö‡πÑ‡∏ü‡∏•‡πå‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏û‡∏£‡πâ‡∏≠‡∏°‡∏£‡∏π‡∏õ" else "‡πÄ‡∏•‡∏∑‡∏≠‡∏Å $destinationLabel ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏£‡∏π‡∏õ‡πÅ‡∏•‡∏∞‡∏ß‡∏≤‡∏á‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏Å‡πà‡∏≠‡∏ô‡∏™‡πà‡∏á").apply {
-                        clipData = intent.clipData; addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    })
-                    opened = true
-                } catch (e: Exception) { pendingReceipt = null; notice("‡πÄ‡∏õ‡∏¥‡∏î‡∏´‡∏ô‡πâ‡∏≤‡∏£‡∏±‡∏ö‡πÅ‡∏ä‡∏£‡πå‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ: ${e.message}\n"+if(filePackage) "‡∏Å‡∏•‡∏±‡∏ö‡∏°‡∏≤‡∏™‡πà‡∏á‡∏ä‡∏∏‡∏î‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÅ‡∏•‡∏∞‡∏£‡∏π‡∏õ‡πÉ‡∏´‡∏°‡πà‡πÑ‡∏î‡πâ" else "‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡πÑ‡∏ß‡πâ‡πÅ‡∏•‡πâ‡∏ß") }
-            }
-            if (opened) {
-                pendingStoryShare = { launchShare() }
-                if(filePackage || geminiImages) prefs.edit().putString("image_receipt_app",destinationLabel).putString("gemini_receipt_pending",File(destination,"image_requests/$transferId.json").absolutePath).apply()
-            }
-        }
-        val preview = LinearLayout(this).apply { orientation = 1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-        preview.addView(TextView(this).apply {
-            this.text = if(geminiImages) "$pendingStorySummary\n$imageList\n‡∏™‡πà‡∏á‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡∏û‡∏£‡πâ‡∏≠‡∏°‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á‡πÑ‡∏õ Gemini ‡πÅ‡∏•‡∏∞‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÑ‡∏ß‡πâ‡πÉ‡∏´‡πâ‡∏î‡πâ‡∏ß‡∏¢\n\n1. ‡∏ï‡∏£‡∏ß‡∏à‡∏ß‡πà‡∏≤‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏õ‡∏£‡∏≤‡∏Å‡∏è‡∏Ñ‡∏£‡∏ö‡∏Å‡πà‡∏≠‡∏ô‡∏Å‡∏î‡∏™‡πà‡∏á\n2. ‡∏´‡∏≤‡∏Å Gemini ‡πÑ‡∏°‡πà‡πÅ‡∏™‡∏î‡∏á‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á ‡πÉ‡∏´‡πâ‡πÅ‡∏ï‡∏∞‡∏ä‡πà‡∏≠‡∏á‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏Ñ‡πâ‡∏≤‡∏á‡πÅ‡∏•‡πâ‡∏ß‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ‡∏ß‡∏≤‡∏á\n3. ‡∏´‡∏≤‡∏Å Gemini ‡∏ï‡∏≠‡∏ö‡πÄ‡∏õ‡πá‡∏ô‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏° ‡πÉ‡∏´‡πâ‡πÄ‡∏õ‡∏¥‡∏î‡πÇ‡∏´‡∏°‡∏î‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡πÅ‡∏•‡πâ‡∏ß‡∏•‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà" else if(filePackage) "$pendingStorySummary\n$imageList\n‡πÅ‡∏ô‡∏ö‡πÑ‡∏ü‡∏•‡πå READ_FIRST_IMAGE_COMMAND.txt ‡∏û‡∏£‡πâ‡∏≠‡∏° MASTER ‡πÑ‡∏õ‡πÉ‡∏ô‡∏ä‡∏∏‡∏î‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡∏Å‡∏±‡∏ô ‡∏ï‡∏£‡∏ß‡∏à‡∏ß‡πà‡∏≤ $destinationLabel ‡πÅ‡∏™‡∏î‡∏á‡πÑ‡∏ü‡∏•‡πå‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÅ‡∏•‡∏∞‡∏£‡∏π‡∏õ‡∏Ñ‡∏£‡∏ö‡∏Å‡πà‡∏≠‡∏ô‡∏Å‡∏î‡∏™‡πà‡∏á ‡∏´‡∏≤‡∏Å‡∏ä‡πà‡∏≠‡∏á‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ß‡πà‡∏≤‡∏á‡πÉ‡∏´‡πâ‡∏£‡∏∞‡∏ö‡∏∏‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏Å‡πà‡∏≠‡∏ô‡∏™‡πà‡∏á" else "$pendingStorySummary\n$imageList\n‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡πÉ‡∏ô $destinationLabel ‡∏Å‡πà‡∏≠‡∏ô‡∏Å‡∏î‡∏™‡πà‡∏á ‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡πÑ‡∏ß‡πâ‡πÉ‡∏ô‡∏Ñ‡∏•‡∏¥‡∏õ‡∏ö‡∏≠‡∏£‡πå‡∏î‡πÅ‡∏•‡πâ‡∏ß"
-            textSize = 13f
-        })
-        uris.filter { contentResolver.getType(it)?.startsWith("image/")==true }.forEachIndexed { imageIndex,uri ->
-            val filename=uri.lastPathSegment?.substringAfterLast('/').orEmpty()
-            val label=referenceLabels[referenceId(filename)]
-            preview.addView(TextView(this).apply { this.text = "‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà ${imageIndex+1} ‚Ä¢ " + if(label.isNullOrBlank()) filename else label; textSize=14f })
-            preview.addView(ImageView(this).apply {
-            setImageBitmap(previewBitmap(uri)); adjustViewBounds = true
-            layoutParams = LinearLayout.LayoutParams(-1,dp(120)).apply { bottomMargin = dp(8) }
-            contentDescription = label ?: uri.lastPathSegment
-        }) }
-        preview.addView(TextView(this).apply { this.text = text; textSize = 14f; setTextIsSelectable(true) })
-        AlertDialog.Builder(this).setTitle("‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÅ‡∏•‡∏∞‡∏†‡∏≤‡∏û‡∏Å‡πà‡∏≠‡∏ô‡∏™‡πà‡∏á")
-            .setView(ScrollView(this).apply { addView(preview) })
-            .setPositiveButton("‡∏™‡πà‡∏á‡πÅ‡∏•‡∏∞‡πÄ‡∏õ‡∏¥‡∏î $destinationLabel") { _,_ -> launchShare() }
-            .setNeutralButton("‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å") { _,_ -> copyCommand(text) }
-            .setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-    }
-
-    private fun storyVisualGuide(mode: String): String {
-        val aspect = plan?.optString("aspect_ratio","9:16") ?: "9:16"
-        return neutralIdentityGuide(if (mode == "new") "CHARACTER MASTER ‡∏Ç‡∏≠‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ" else "‡∏†‡∏≤‡∏û MASTER ‡∏ó‡∏µ‡πà‡πÅ‡∏ô‡∏ö",aspect)
-    }
-    private fun sceneWardrobe(scene: JSONObject, person: JSONObject): String {
-        val character=memoryId(person)
-        val history=mutableListOf<WardrobeEntry>()
-        val scenes=plan?.let { rows(it) }.orEmpty()
-        for (item in scenes) {
-            val people=item.optJSONArray("characters") ?: JSONArray()
-            for(i in 0 until people.length()) {
-                val actor=people.getJSONObject(i)
-                if(memoryId(actor)!=character) continue
-                val activity=WardrobeTimeline.activity(item.optString("activity").ifBlank { item.optString("action") })
-                val beat=WardrobeBeat(character,item.optString("story_day"),actor.optString("wardrobe_event").ifBlank { item.optString("wardrobe_event") },
-                    activity,item.optString("continuity_group"),actor.optString("outfit"),actor.optBoolean("wardrobe_change",item.optBoolean("wardrobe_change",false)))
-                val outfit=WardrobeTimeline.resolve(beat,history)
-                if(item === scene || (item.optInt("ep")==scene.optInt("ep") && item.optInt("scene")==scene.optInt("scene"))) return outfit
-                history.add(WardrobeEntry(beat,outfit))
-            }
-        }
-        return person.optString("outfit").ifBlank { WardrobeTimeline.resolve(WardrobeBeat(character,scene.optString("story_day"),scene.optString("wardrobe_event"),WardrobeTimeline.activity(scene.optString("activity").ifBlank { scene.optString("action") }),scene.optString("continuity_group"),""),history) }
-    }
-    private fun sceneCastDescription(scene: JSONObject): String {
-        val cast = scene.optJSONArray("characters") ?: return ""
-        return (0 until cast.length()).joinToString("\n") { i ->
-            val person = cast.getJSONObject(i)
-            val master=masterFor(person)
-            val exported=masterExportName(master,person.optString("master").startsWith("CHARACTER",true)) ?: person.optString("master")
-            listOf("${person.optString("name")} ‚Üí ${referenceId(exported)}",(if(detailedImageProfiles) memoryBrief(person) else ""),
-                "‡∏ä‡∏∏‡∏î: ${sceneWardrobe(scene,person)}",PerformanceDirection.text(person).takeIf { it.isNotBlank() }?.let { "‡∏Å‡∏≤‡∏£‡πÅ‡∏™‡∏î‡∏á: $it" }.orEmpty())
-                .filter { it.isNotBlank() }.joinToString(" | ") }
-    }
-    private fun storySceneCommand(p: JSONObject, scene: JSONObject): String {
-        val setting=listOf(scene.optString("location"),scene.optString("story_day"),scene.optString("story_time"),scene.optString("activity"),scene.optString("props")).filter { it.isNotBlank() }.joinToString(" ‚Ä¢ ")
-        val details=sceneCastDescription(scene)
-        val people=scene.optJSONArray("characters") ?: JSONArray()
-        val corrections=(0 until people.length()).mapNotNull { i ->
-            val person=people.getJSONObject(i)
-            val review=scene.optJSONObject("body_reviews")?.optJSONObject(memoryId(person))
-            val status=bodyReviewStatus(scene,person)
-            if(review!=null && status.startsWith("‡∏ï‡πâ‡∏≠‡∏á‡πÅ‡∏Å‡πâ") && review.optString("note").isNotBlank())
-                "${person.optString("name")}: ${review.optString("note")} ‚Ä¢ ‡πÅ‡∏Å‡πâ‡πÉ‡∏´‡πâ‡∏Å‡∏•‡∏±‡∏ö‡∏°‡∏≤‡∏ï‡∏£‡∏á MASTER ‡πÇ‡∏î‡∏¢‡πÑ‡∏°‡πà‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏™‡∏±‡∏î‡∏™‡πà‡∏ß‡∏ô‡πÄ‡∏≠‡∏á" else null
-        }.joinToString("; ")
-        val action=scene.optString("action").ifBlank { scene.optString("image_prompt") }
-        val continuity=listOf(scene.optString("start_state"),
-            "‡∏†‡∏≤‡∏û‡∏Å‡πà‡∏≠‡∏ô‡∏´‡∏ô‡πâ‡∏≤‡πÉ‡∏ä‡πâ‡∏î‡∏π‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡πÅ‡∏•‡∏∞‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á ‡∏ä‡∏∏‡∏î‡∏¢‡∏∂‡∏î‡∏â‡∏≤‡∏Å‡∏õ‡∏±‡∏à‡∏à‡∏∏‡∏ö‡∏±‡∏ô ‡∏ï‡∏±‡∏ß‡∏ö‡∏∏‡∏Ñ‡∏Ñ‡∏•‡∏¢‡∏∂‡∏î MASTER ‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô",corrections).filter { it.isNotBlank() }.joinToString(" ‚Ä¢ ")
-        return ImagePromptPolicy.scene(details,setting,action,p.optString("aspect_ratio","9:16"),
-            if(p.optString("character_mode","original")=="new") "CHARACTER MASTER ‡∏ó‡∏µ‡πà‡πÅ‡∏ô‡∏ö" else "‡∏†‡∏≤‡∏û MASTER ‡∏ó‡∏µ‡πà‡πÅ‡∏ô‡∏ö",
-            scene.optString("framing"),scene.optString("lighting"),continuity,"${key(scene)}.png")
-    }
-
-    private fun sendSceneImage(p: JSONObject, scene: JSONObject) {
-        val cast = scene.optJSONArray("characters")
-        val keys = if (cast != null) (0 until cast.length()).mapNotNull { FlowCast.id(cast.getJSONObject(it)) }
-            else StoryIdentity.keysFromPrompt(scene.optString("image_prompt"))
-        val original = p.optString("character_mode", "original") == "original"
-        if (original && keys.isEmpty()) { notice("‡∏â‡∏≤‡∏Å‡∏ô‡∏µ‡πâ‡∏¢‡∏±‡∏á‡∏à‡∏±‡∏ö‡∏Ñ‡∏π‡πà MASTER ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏≠‡∏±‡∏õ‡πÄ‡∏î‡∏ï‡∏ö‡∏ó‡πÉ‡∏´‡πâ‡∏°‡∏µ‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÉ‡∏ô image_prompt ‡∏´‡∏£‡∏∑‡∏≠ characters"); return }
-        val scenes = rows(p)
-        val index = scenes.indexOfFirst { key(it) == key(scene) }
-        val group = scene.optString("continuity_group")
-        val previous = if (group.isBlank()) null else scenes.take(index).lastOrNull {
-            it.optString("continuity_group") == group && image(it).exists()
-        }
-        val references = previous?.let { listOf(key(it) to image(it)) } ?: emptyList()
-        val masterRefs = if(cast != null) (0 until cast.length()).map { cast.getJSONObject(it) }.map { person ->
-            val source=masterFor(person)
-            val exported=masterExportName(source,!original) ?: run { notice("‡∏Ç‡∏≤‡∏î MASTER ‡∏Ç‡∏≠‡∏á ${person.optString("name")}"); return }
-            exported.substringBeforeLast('.') to source
-        } else keys.map { id -> val source=File(project,"original_masters/$id.master").takeIf { it.exists() } ?: File(filesDir,"character_masters/$id.master"); "${id.uppercase()}_MASTER" to source }
-        rememberScene(scene)
-        shareImageCommand(storySceneCommand(p,scene),masterRefs+references)
-    }
-    private fun wholeStoryCommands() {
-        val p = plan ?: return notice("‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡πÅ‡∏ú‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏Å‡πà‡∏≠‡∏ô‡∏Ñ‡∏£‡∏±‡∏ö")
-        val episodes = p.getJSONArray("episodes")
-        val commands = (0 until episodes.length()).joinToString("\n\n") { i ->
-            val ep = episodes.getJSONObject(i)
-            rows(p).filter { it.getInt("ep") == ep.getInt("ep") }.joinToString("\n\n") { s -> storySceneCommand(p,s) } + "\n\n" + coverCommand(p,ep)
-        }
-        shareText("‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÅ‡∏•‡∏∞‡πÅ‡∏™‡∏î‡∏á‡∏†‡∏≤‡∏û‡∏à‡∏£‡∏¥‡∏á‡∏ï‡∏≤‡∏°‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏Ç‡∏≠‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á ${p.getString("title")} ‡πÄ‡∏£‡∏µ‡∏¢‡∏á‡∏Ñ‡∏£‡∏ö‡∏ó‡∏∏‡∏Å EP ‡∏´‡∏ô‡∏∂‡πà‡∏á‡∏â‡∏≤‡∏Å‡∏´‡∏ô‡∏∂‡πà‡∏á‡∏†‡∏≤‡∏û ‡πÄ‡∏°‡∏∑‡πà‡∏≠‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏™‡∏∏‡∏î‡∏ó‡πâ‡∏≤‡∏¢‡∏Ç‡∏≠‡∏á‡πÅ‡∏ï‡πà‡∏•‡∏∞ EP ‡πÅ‡∏•‡πâ‡∏ß‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏õ‡∏Å‡∏ï‡∏≤‡∏°‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏õ‡∏Å‡πÅ‡∏¢‡∏Å‡∏ï‡πà‡∏≤‡∏á‡∏´‡∏≤‡∏Å ‡∏´‡∏≤‡∏Å‡∏ï‡∏¥‡∏î‡∏Ç‡πâ‡∏≠‡∏à‡∏≥‡∏Å‡∏±‡∏î‡πÉ‡∏´‡πâ‡πÅ‡∏à‡πâ‡∏á‡∏â‡∏≤‡∏Å‡∏•‡πà‡∏≤‡∏™‡∏∏‡∏î‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏ó‡∏≥‡∏ï‡πà‡∏≠\n\n$commands")
-    }
-    private fun coverNames(p: JSONObject): List<String> {
-        val eps = p.getJSONArray("episodes")
-        return (0 until eps.length()).flatMap { i -> listOf("9x16","16x9").map { ratio -> "EP%02d_COVER_%s".format(eps.getJSONObject(i).getInt("ep"), ratio) } }
-    }
-    private fun coverFile(name: String, folder: File = project) = File(folder, "covers/$name.img")
-    private fun coverCommand(p: JSONObject, ep: JSONObject): String {
-        val number = ep.getInt("ep")
-        val title = ep.optString("title")
-        val scenes=ep.getJSONArray("scenes")
-        val people=linkedMapOf<String,JSONObject>()
-        for(i in 0 until scenes.length()) {
-            val cast=scenes.getJSONObject(i).getJSONArray("characters")
-            for(j in 0 until cast.length()) { val person=cast.getJSONObject(j); people.putIfAbsent(person.getString("name"),person) }
-        }
-        val refs=people.values.joinToString("\n") { person ->
-            val master=masterFor(person)
-            "${person.getString("name")} ‚Üí ${masterExportName(master,false) ?: person.optString("master")} ‚Ä¢ ${person.optString("visual_description")} ‚Ä¢ Outfit: ${person.optString("outfit")}"
-        }
-        return listOf("9x16","16x9").joinToString("\n\n") { ratio ->
-            FlowVisualDirection.cover(ratio,refs,p.optString("channel",originalChannel),p.getString("title"),number,title,
-                ep.optString("tagline").ifBlank { p.optString("tagline") },ep.optString("cover_incident").ifBlank { scenes.getJSONObject(0).optString("action") })
-        }
-    }
-    private fun sendCoverCommands() {
-        val p = plan ?: return notice("‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏ö‡∏ó‡πÅ‡∏•‡∏∞‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏à‡∏≤‡∏Å ZIP ‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏õ‡∏Å")
-        val eps = p.getJSONArray("episodes")
-        choiceMenu("üé® ‡∏™‡∏£‡πâ‡∏≤‡∏á / ‡∏õ‡∏£‡∏±‡∏ö‡∏õ‡∏Å‡∏à‡∏≤‡∏Å‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å", listOf("‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏õ‡∏Å‡∏ó‡∏∏‡∏Å EP") + (0 until eps.length()).map { i ->
-            val ep = eps.getJSONObject(i)
-            "EP ${ep.getInt("ep")} ‚Ä¢ ${ep.optString("title")}" }) { index ->
-            if (index == 0) {
-                val references = (0 until eps.length()).map { i ->
-                    rows(p).lastOrNull { it.getInt("ep") == eps.getJSONObject(i).getInt("ep") && image(it).exists() }
-                }
-                if (references.any { it == null }) notice("‡∏¢‡∏±‡∏á‡∏°‡∏µ EP ‡∏ó‡∏µ‡πà‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤ ZIP ‡∏´‡∏£‡∏∑‡∏≠‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏Å‡πà‡∏≠‡∏ô")
-                else sendReferencedCovers(p, references.filterNotNull())
-            } else {
-                val ep = eps.getJSONObject(index - 1)
-                val available = rows(p).filter { it.getInt("ep") == ep.getInt("ep") && image(it).exists() }
-                if (available.isEmpty()) notice("EP ‡∏ô‡∏µ‡πâ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏†‡∏≤‡∏û‡∏Å‡πà‡∏≠‡∏ô")
-                else choiceMenu("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏ï‡πâ‡∏ô‡πÅ‡∏ö‡∏ö‡∏Ç‡∏≠‡∏á‡∏õ‡∏Å", available.map { "${key(it)} ‚Ä¢ ${it.optString("action")}" }) { selected ->
-                    sendReferencedCovers(p, listOf(available[selected]))
-                }
-            }
-        }
-    }
-    private fun sendReferencedCovers(p: JSONObject, references: List<JSONObject>) {
-        val edits = EditText(this).apply { hint = "‡∏™‡∏¥‡πà‡∏á‡∏ó‡∏µ‡πà‡∏≠‡∏¢‡∏≤‡∏Å‡∏õ‡∏£‡∏±‡∏ö ‡πÄ‡∏ä‡πà‡∏ô ‡∏™‡∏µ ‡∏ï‡∏±‡∏ß‡∏≠‡∏±‡∏Å‡∏©‡∏£ ‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏° (‡πÄ‡∏ß‡πâ‡∏ô‡∏ß‡πà‡∏≤‡∏á‡πÑ‡∏î‡πâ)" }
-        AlertDialog.Builder(this).setTitle("‡∏õ‡∏Å‡∏à‡∏≤‡∏Å‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏ó‡∏µ‡πà‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤")
-            .setMessage("‡πÅ‡∏ô‡∏ö‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å ${references.size} ‡∏†‡∏≤‡∏û ‡πÉ‡∏ä‡πâ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ‡∏ä‡∏∏‡∏î ‡πÅ‡∏•‡∏∞‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡∏à‡∏≤‡∏Å‡∏†‡∏≤‡∏û‡πÄ‡∏´‡∏•‡πà‡∏≤‡∏ô‡∏µ‡πâ ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏õ‡∏Å 9:16")
-            .setView(edits).setPositiveButton("‡∏™‡πà‡∏á‡πÑ‡∏õ ChatGPT") { _, _ ->
-                val eps = p.getJSONArray("episodes")
-                val commands = references.joinToString("\n\n") { scene ->
-                    val ep = (0 until eps.length()).map { eps.getJSONObject(it) }.first { it.getInt("ep") == scene.getInt("ep") }
-                    val number = ep.getInt("ep")
-                    "‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏õ‡∏Å‡πÅ‡∏ô‡∏ß‡∏ï‡∏±‡πâ‡∏á 9:16 EP $number ‡∏à‡∏≤‡∏Å‡∏†‡∏≤‡∏û ${key(scene)} ‡∏ó‡∏µ‡πà‡πÅ‡∏ô‡∏ö ‡∏´‡∏ô‡∏∂‡πà‡∏á‡∏†‡∏≤‡∏û ‡∏ä‡∏∑‡πà‡∏≠‡πÑ‡∏ü‡∏•‡πå EP%02d_COVER_9x16.png\n".format(number)+
-                        ImagePromptPolicy.coverReference("‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏ó‡∏µ‡πà‡πÅ‡∏ô‡∏ö")+"\n‡πÄ‡∏´‡∏ï‡∏∏‡∏Å‡∏≤‡∏£‡∏ì‡πå: ${scene.optString("action")}\n"+
-                        CoverTypography.prompt(p.optString("channel",originalChannel),p.getString("title"),number,ep.optString("title"))
-                }
-                shareText("‡πÉ‡∏ä‡πâ‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏ó‡∏µ‡πà‡πÅ‡∏ô‡∏ö‡∏à‡∏≤‡∏Å‡∏ä‡∏∏‡∏î‡∏á‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡πÄ‡∏õ‡πá‡∏ô‡∏ï‡πâ‡∏ô‡πÅ‡∏ö‡∏ö‡∏õ‡∏Å ‡πÅ‡∏Å‡πâ‡∏à‡∏≤‡∏Å‡∏†‡∏≤‡∏û‡πÄ‡∏î‡∏¥‡∏° ‡πÇ‡∏î‡∏¢‡∏Ñ‡∏á‡∏ä‡∏∏‡∏î‡πÅ‡∏•‡∏∞‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡∏Ç‡∏≠‡∏á‡∏†‡∏≤‡∏û‡∏ô‡∏±‡πâ‡∏ô\n‡∏™‡∏¥‡πà‡∏á‡∏ó‡∏µ‡πà‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏Ç‡∏≠‡∏õ‡∏£‡∏±‡∏ö: ${edits.text.toString().ifBlank { "‡∏≠‡∏≠‡∏Å‡πÅ‡∏ö‡∏ö‡∏õ‡∏Å‡πÉ‡∏´‡πâ‡∏™‡∏ß‡∏¢‡∏á‡∏≤‡∏° ‡∏≠‡πà‡∏≤‡∏ô‡∏ä‡∏±‡∏î" }}\n$commands\n‡πÅ‡∏™‡∏î‡∏á‡∏õ‡∏Å‡∏à‡∏£‡∏¥‡∏á‡πÅ‡∏¢‡∏Å‡πÑ‡∏ü‡∏•‡πå ‡πÅ‡∏•‡∏∞‡∏£‡∏ß‡∏°‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏õ‡∏Å‡∏ó‡∏µ‡πà‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÉ‡∏ô ZIP ‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏Å‡∏•‡∏±‡∏ö DIRECTOR X ‡∏´‡∏≤‡∏Å‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡πÉ‡∏´‡πâ‡πÅ‡∏à‡πâ‡∏á‡∏ï‡∏≤‡∏°‡∏à‡∏£‡∏¥‡∏á", includeMasters = false, referenceImages = references.map { key(it) to image(it) })
-            }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-    }
-    private var starterFlowPack = false
-    private fun savedCoverSelection(story: JSONObject,folder: File): Map<String,Set<String>> {
-        val eps=story.optJSONArray("episodes") ?: JSONArray()
-        val scopes=listOf("STORY")+(0 until eps.length()).map { "EP%02d".format(eps.getJSONObject(it).getInt("ep")) }
-        return scopes.distinct().mapNotNull { scope ->
-            val key="cover_cast_${folder.name}_$scope"
-            if(prefs.contains(key)) scope to prefs.getStringSet(key,emptySet()).orEmpty().toSet() else null
-        }.toMap()
-    }
-    private val flowPackPicker = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
-        if(uri!=null) {
-            val current=if(starterFlowPack) null else plan?.let { JSONObject(it.toString()) }
-            val sources=FlowCast.definitions(current).associate { person ->
-                val id=FlowCast.id(person)!!
-                id to
-                if(current==null) File(filesDir,"character_masters/$id.master")
-                else File(project,"original_masters/$id.master").takeIf { it.exists() } ?: File(filesDir,"character_masters/$id.master")
-            }
-            val destination=project
-            val coverSelection=if(current!=null) savedCoverSelection(current,destination) else emptyMap()
-            val wardrobeMasterIds=if(current!=null) {
-                val eps=current.getJSONArray("episodes")
-                (0 until eps.length()).flatMap { i ->
-                    val number=eps.getJSONObject(i).getInt("ep")
-                    SimpleProductionCommands.imageTasks(current,number,coverSelection)
-                }.associate { task -> task.id to task.references.mapNotNull { person ->
-                    val id=referenceId(person.optString("master"))
-                    val file=runCatching { masterFor(person) }.getOrNull() ?: return@mapNotNull null
-                    val digest=runCatching { MasterLibrary.digest(file.readBytes()) }.getOrNull() ?: return@mapNotNull null
-                    if(prefs.getBoolean(wardrobeSourceKey(destination.name,id,digest,person),WardrobeEvidence.useMasterOutfit(person.optString("outfit")))) id else null
-                }.toSet() }
-            } else emptyMap()
-            val storyRevision=if(current!=null) File(destination,"story.json").takeIf { it.isFile }?.let { EpisodeMedia.digest(it) } else null
-            val memory=JSONObject()
-            sources.forEach { (id,file) -> memory.put(id,characterMemory.read(id,file)) }
-            background {
-                contentResolver.openOutputStream(uri)!!.use { output ->
-                    if(current!=null) SimpleProductionCommands.write(output,current,coverSelection,wardrobeMasterIds)
-                    else FlowProductionPack.write(output,null,sources,memory,categories.first(),originalChannel)
-                }
-                if(storyRevision!=null) File(destination,"flow_pack_exported.sha256").writeText(storyRevision)
-            }
-        }
-    }
-    private val flowCodePicker = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
-        if(uri!=null) runCatching {
-            val text=prefs.getString("pending_flow_code","").orEmpty()
-            require(text.isNotBlank()) { "‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÉ‡∏´‡πâ‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å" }
-            contentResolver.openOutputStream(uri)!!.use { it.write(text.toByteArray(Charsets.UTF_8)) }
-        }.onSuccess { notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏ü‡∏•‡πå‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÅ‡∏•‡πâ‡∏ß") }.onFailure { notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à: ${it.message}") }
-    }
-    private fun sendStoryPackage(code: String) {
-        runCatching {
-            val destination=File(cacheDir,"character_master_exports/${UUID.randomUUID()}").apply { mkdirs() }
-            val uris=arrayListOf<Uri>()
-            val command=File(destination,"FLOW_STORY_COMMAND.txt").apply { writeText(code,Charsets.UTF_8) }
-            uris.add(FileProvider.getUriForFile(this,"$packageName.fileprovider",command))
-            FlowProductionPack.names.keys.forEach { id ->
-                val source=File(project,"original_masters/$id.master").takeIf { it.isFile } ?: File(filesDir,"character_masters/$id.master")
-                val name=masterExportName(source,false) ?: error("‡∏≠‡πà‡∏≤‡∏ô MASTER ‡∏Ç‡∏≠‡∏á ${FlowProductionPack.names[id]} ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ")
-                val image=File(destination,name); source.copyTo(image)
-                uris.add(FileProvider.getUriForFile(this,"$packageName.fileprovider",image))
-            }
-            val intro="‡∏≠‡πà‡∏≤‡∏ô FLOW_STORY_COMMAND.txt ‡πÅ‡∏•‡∏∞ MASTER ‡∏ó‡∏±‡πâ‡∏á 3 ‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡πÅ‡∏ô‡∏ö ‡πÅ‡∏•‡πâ‡∏ß‡πÄ‡∏£‡∏¥‡πà‡∏°‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó‡∏ï‡∏≤‡∏°‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á ‡∏™‡∏£‡πâ‡∏≤‡∏á story.json ‡πÅ‡∏•‡∏∞ ZIP ‡∏ö‡∏ó‡πÉ‡∏´‡πâ‡∏î‡∏≤‡∏ß‡∏ô‡πå‡πÇ‡∏´‡∏•‡∏î‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏ô‡∏≥‡∏Å‡∏•‡∏±‡∏ö‡πÄ‡∏Ç‡πâ‡∏≤ DIRECTOR X ‡πÑ‡∏°‡πà‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡∏´‡∏£‡∏∑‡∏≠‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠‡πÉ‡∏ô‡∏Ç‡∏±‡πâ‡∏ô‡∏ï‡∏≠‡∏ô‡∏ô‡∏µ‡πâ\n\n$code"
-            val intent=buildStoryPackageIntent(intro,uris)
-            val chooser=Intent.createChooser(intent,"‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÅ‡∏≠‡∏õ AI ‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó").apply {
-                clipData=intent.clipData; addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            startActivity(chooser)
-        }.onFailure { notice("‡∏™‡πà‡∏á‡∏ä‡∏∏‡∏î‡∏ß‡∏≤‡∏á‡∏ö‡∏ó‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à: ${it.message}\n‡πÉ‡∏ä‡πâ‡∏î‡∏π‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏´‡∏£‡∏∑‡∏≠‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏ü‡∏•‡πå‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏•‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà‡πÑ‡∏î‡πâ") }
-    }
-    private val propCatalog = listOf("‡∏î‡∏≤‡∏ö‡πÄ‡∏á‡∏≤‡∏à‡∏±‡∏ô‡∏ó‡∏£‡∏≤", "‡∏î‡∏≤‡∏ö‡πÄ‡∏ß‡∏ó‡∏°‡∏ô‡∏ï‡∏£‡πå‡πÅ‡∏™‡∏á‡∏ü‡πâ‡∏≤", "‡∏î‡∏≤‡∏ö‡∏≠‡∏±‡∏®‡∏ß‡∏¥‡∏ô‡∏™‡∏∏‡∏£‡∏¥‡∏¢‡∏±‡∏ô", "‡∏î‡∏≤‡∏ö‡∏°‡∏±‡∏á‡∏Å‡∏£‡πÄ‡∏û‡∏•‡∏¥‡∏á", "‡∏Ñ‡∏ó‡∏≤‡∏î‡∏ß‡∏á‡∏î‡∏≤‡∏ß‡πÅ‡∏•‡∏∞‡∏Å‡∏≤‡∏•‡πÄ‡∏ß‡∏•‡∏≤", "‡∏Ñ‡∏ó‡∏≤‡∏ú‡∏π‡πâ‡∏û‡∏¥‡∏ó‡∏±‡∏Å‡∏©‡πå‡πÅ‡∏™‡∏á", "‡∏Ñ‡∏ó‡∏≤‡∏ú‡∏•‡∏∂‡∏Å‡πÄ‡∏´‡∏°‡∏±‡∏ô‡∏ï‡πå", "‡∏´‡∏≠‡∏Å‡∏ú‡∏π‡πâ‡∏û‡∏¥‡∏ó‡∏±‡∏Å‡∏©‡πå‡∏ô‡∏†‡∏≤", "‡πÇ‡∏•‡πà‡∏≠‡∏±‡∏®‡∏ß‡∏¥‡∏ô‡∏®‡∏±‡∏Å‡∏î‡∏¥‡πå‡∏™‡∏¥‡∏ó‡∏ò‡∏¥‡πå", "‡∏î‡∏≤‡∏ö‡∏û‡∏•‡∏±‡∏á‡∏á‡∏≤‡∏ô‡∏à‡∏±‡∏Å‡∏£‡∏Å‡∏•", "‡∏ò‡∏ô‡∏π‡∏ú‡∏π‡πâ‡∏û‡∏¥‡∏ó‡∏±‡∏Å‡∏©‡πå‡∏û‡∏á‡πÑ‡∏û‡∏£", "‡πÇ‡∏•‡πà‡∏û‡∏•‡∏±‡∏á‡∏á‡∏≤‡∏ô‡πÑ‡∏ã‡πÄ‡∏ö‡∏≠‡∏£‡πå", "‡∏Ñ‡∏ó‡∏≤‡∏õ‡∏£‡∏≤‡∏ö‡∏ß‡∏¥‡∏ç‡∏ç‡∏≤‡∏ì", "‡∏î‡∏≤‡∏ö‡∏≠‡∏≤‡∏Ñ‡∏°‡πÇ‡∏ö‡∏£‡∏≤‡∏ì", "‡∏°‡∏µ‡∏î‡∏´‡∏°‡∏≠‡∏û‡∏¥‡∏ò‡∏µ‡∏Å‡∏£‡∏£‡∏°", "‡∏ñ‡∏∏‡∏á‡∏°‡∏∑‡∏≠‡∏Ñ‡∏ß‡∏ö‡∏Ñ‡∏∏‡∏°‡∏û‡∏•‡∏±‡∏á", "‡∏ï‡∏∞‡πÄ‡∏Å‡∏µ‡∏¢‡∏á‡∏™‡πà‡∏≠‡∏á‡∏ß‡∏¥‡∏ç‡∏ç‡∏≤‡∏ì", "‡∏´‡∏ô‡∏±‡∏á‡∏™‡∏∑‡∏≠‡∏ú‡∏ô‡∏∂‡∏Å‡∏Ñ‡∏≥‡∏™‡∏≤‡∏õ", "‡∏Å‡∏∏‡∏ç‡πÅ‡∏à‡∏õ‡∏£‡∏∞‡∏ï‡∏π‡∏°‡∏¥‡∏ï‡∏¥", "‡∏•‡∏π‡∏Å‡∏õ‡∏£‡∏∞‡∏Ñ‡∏≥‡πÅ‡∏•‡∏∞‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏£‡∏≤‡∏á‡∏õ‡πâ‡∏≠‡∏á‡∏Å‡∏±‡∏ô")
-    private fun propId(index: Int) = "PROP_%02d_MASTER".format(index+1)
-    private fun characterPropKey(master: String) = "character_prop_${project.name}_${referenceId(master).lowercase()}"
-    private fun characterProp(master: String) = prefs.getString(characterPropKey(master), "").orEmpty()
-    private fun characterPropMenu(story: JSONObject) {
-        val people=rows(story).flatMap { FlowReferencePrompt.people(it) }.distinctBy { referenceId(it.optString("master")).lowercase() }.filter { it.optString("master").isNotBlank() }
-        if(people.isEmpty()) return notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ó‡∏µ‡πà‡∏°‡∏µ MASTER ‡πÉ‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á")
-        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-        panel.addView(TextView(this).apply { text="‡∏ú‡∏π‡∏Å‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏õ‡∏£‡∏∞‡∏à‡∏≥‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ‚Ä¢ ‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ ‚Ä¢ ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏´‡∏°‡∏≤‡∏¢‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ß‡πà‡∏≤‡∏ï‡πâ‡∏≠‡∏á‡∏õ‡∏£‡∏≤‡∏Å‡∏è‡∏ó‡∏∏‡∏Å‡∏ã‡∏µ‡∏ô\n‡∏Å‡∏≥‡∏´‡∏ô‡∏î‡πÅ‡∏•‡πâ‡∏ß‡πÉ‡∏´‡πâ‡πÉ‡∏ä‡πâ‡πÄ‡∏°‡∏ô‡∏π AI ‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏ö‡∏ó‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏ã‡∏µ‡∏ô" })
-        val spinners=people.map { person ->
-            val master=referenceId(person.getString("master"))
-            panel.addView(TextView(this).apply { text="${person.optString("name")} ‚Ä¢ $master"; setTypeface(null,Typeface.BOLD) })
-            Spinner(this).apply {
-                adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("‡πÑ‡∏°‡πà‡∏Å‡∏≥‡∏´‡∏ô‡∏î")+propCatalog.mapIndexed { index,name -> "$name ‚Ä¢ ${propId(index)}" })
-                setSelection(propCatalog.indices.indexOfFirst { propId(it)==characterProp(master) }.let { if(it<0) 0 else it+1 })
-                panel.addView(this)
-            }
-        }
-        AlertDialog.Builder(this).setTitle("‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏õ‡∏£‡∏∞‡∏à‡∏≥‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å") { _,_ ->
-            val editor=prefs.edit()
-            people.forEachIndexed { index,person -> val selected=spinners[index].selectedItemPosition; editor.putString(characterPropKey(person.getString("master")),if(selected<=0) "" else propId(selected-1)) }
-            editor.apply(); notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏õ‡∏£‡∏∞‡∏à‡∏≥‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏ã‡∏µ‡∏ô‡∏î‡πâ‡∏ß‡∏¢‡πÄ‡∏°‡∏ô‡∏π AI ‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û")
-        }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-    }
-    private fun propReviewStamp(scene: JSONObject): String = ReviewFingerprints.props(scene)
-    private fun propReviewStatus(scene: JSONObject): String {
-        val pref="props_review_${project.name}_${key(scene)}"
-        var saved=prefs.getString(pref,"").orEmpty()
-        val current=propReviewStamp(scene)
-        if(saved.isNotBlank() && saved==ReviewFingerprints.legacyProps(scene)) {
-            prefs.edit().putString(pref,current).apply(); saved=current
-        }
-        return when { saved.isBlank() -> "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏ï‡∏£‡∏ß‡∏à"; saved==current -> "‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏ï‡∏£‡∏ß‡∏à‡∏ö‡∏ó‡πÅ‡∏•‡πâ‡∏ß"; else -> "‡∏ö‡∏ó‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á" }
-    }
-    private fun sameOpenStory(snapshot: String): Boolean {
-        val current=plan ?: return false
-        // rows adds episode numbers for display; normalize both snapshots before comparison.
-        rows(current)
-        return StorySnapshot.same(snapshot,current)
-    }
-    private fun suggestSceneObjects(story: JSONObject) {
-        if(GeminiStoryService.running) return notice("‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏£‡∏≠‡∏´‡∏£‡∏∑‡∏≠‡∏´‡∏¢‡∏∏‡∏î‡∏á‡∏≤‡∏ô‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á")
-        val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
-        if(providers.isEmpty()) return notice("‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤ API ‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô‡πÉ‡∏ä‡πâ AI")
-        val scenes=rows(story)
-        if(scenes.isEmpty()) return notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏â‡∏≤‡∏Å‡πÉ‡∏´‡πâ‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå")
-        val projectId=project.name
-        val snapshot=story.toString()
-        val fantasy=ChannelFeaturePolicy.hasFantasyTools(story.optString("channel"))
-        val bindings=if(fantasy) scenes.flatMap { FlowReferencePrompt.people(it) }.distinctBy { it.optString("master") }.mapNotNull { person ->
-            characterProp(person.optString("master")).takeIf { it.isNotBlank() }?.let { "${person.optString("name")}: $it" }
-        }.joinToString("\n") else ""
-        val context=JSONArray(scenes.map { scene -> JSONObject().put("scene_id",key(scene)).put("action",scene.optString("action")).put("start_state",scene.optString("start_state")).put("end_state",scene.optString("end_state")).put("props",scene.optString("props")).put("characters",JSONArray(FlowReferencePrompt.people(scene).map { it.optString("name") })) })
-        if(context.toString().length>100000) return notice("‡∏ö‡∏ó‡∏°‡∏µ‡∏Ç‡∏ô‡∏≤‡∏î‡πÉ‡∏´‡∏ç‡πà‡πÄ‡∏Å‡∏¥‡∏ô‡πÑ‡∏õ‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏Ñ‡∏£‡∏±‡πâ‡∏á‡πÄ‡∏î‡∏µ‡∏¢‡∏ß ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏ó‡∏µ‡∏•‡∏∞‡∏â‡∏≤‡∏Å‡πÑ‡∏î‡πâ")
-        notice("‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á‡∏à‡∏≤‡∏Å‡∏ö‡∏ó ‚Ä¢ ‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Å‡∏≤‡∏£‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ö‡∏ó‡∏à‡∏ô‡∏Å‡∏ß‡πà‡∏≤‡∏à‡∏∞‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÅ‡∏•‡∏∞‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å")
-        Thread {
-            val properties=JSONObject()
-            listOf("scene_id","item","holder","details","continuity_id","evidence").forEach { properties.put(it,JSONObject().put("type","string")) }
-            val item=JSONObject().put("type","object").put("properties",properties).put("required",JSONArray(listOf("scene_id","item","holder","details","continuity_id","evidence")))
-            val schema=JSONObject().put("type","object").put("properties",JSONObject().put("items",JSONObject().put("type","array").put("items",item))).put("required",JSONArray().put("items"))
-            val prompt="""Extract objects explicitly present in the supplied scene descriptions. Return items with scene_id, item (Thai when possible), holder (exact visible character name or empty), details (only explicit properties), continuity_id (short stable ID only when the same object is supported by story; otherwise empty), evidence (exact verbatim substring of action, start_state, end_state or props). Distinguish initial objects from later actions; do not claim any image has been checked. If a generic tool is unspecified, call it ‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏°‡∏∑‡∏≠‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏ä‡∏ô‡∏¥‡∏î and do not invent a type. Do not invent props, holders, colors, links or events. Fantasy character bindings are hints, not evidence of appearance. Return JSON only.
-FANTASY CHARACTER BINDINGS:
-$bindings
-SCENES:
-$context"""
-            var answer: JSONObject?=null
-            for(provider in providers) {
-                answer=runCatching { StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false,context=this@StudioActivity).generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("items")!=null }
-                if(answer!=null) break
-            }
-            val result=answer
-            runOnUiThread {
-                if(isFinishing || isDestroyed) return@runOnUiThread
-                if(result==null) { notice("AI ‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à API ‡πÅ‡∏•‡πâ‡∏ß‡∏•‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà ‚Ä¢ ‡∏ö‡∏ó‡πÄ‡∏î‡∏¥‡∏°‡πÑ‡∏°‡πà‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô"); return@runOnUiThread }
-                if(project.name!=projectId || !sameOpenStory(snapshot)) { notice("‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏£‡∏∞‡∏´‡∏ß‡πà‡∏≤‡∏á‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏£‡∏¥‡πà‡∏°‡πÉ‡∏´‡∏°‡πà"); return@runOnUiThread }
-                val allowed=scenes.associateBy { key(it) }
-                val proposals=PropSuggestionReview.valid(result,allowed)
-                if(proposals.isEmpty()) { notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏Ç‡πâ‡∏≠‡πÄ‡∏™‡∏ô‡∏≠‡∏ó‡∏µ‡πà‡∏°‡∏µ‡∏´‡∏•‡∏±‡∏Å‡∏ê‡∏≤‡∏ô‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡∏ö‡∏ó ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏û‡∏¥‡πà‡∏°‡πÄ‡∏≠‡∏á‡∏£‡∏≤‡∏¢‡∏â‡∏≤‡∏Å‡πÑ‡∏î‡πâ"); return@runOnUiThread }
-                // Only apply automatically if every proposal has literal supporting evidence.
-                // Ambiguous suggestions stay on screen for the user to decide.
-                if(proposals.all { PropSuggestionReview.directlySupported(it,allowed[it.optString("scene_id")]) }) {
-                    val previous=plan ?: return@runOnUiThread
-                    runCatching {
-                        val candidate=JSONObject(previous.toString())
-                        val targets=rows(candidate).associateBy { key(it) }
-                        proposals.groupBy { it.optString("scene_id") }.forEach { (id,items) ->
-                            PropSuggestionReview.apply(targets.getValue(id),items)
-                        }
-                        plan=candidate
-                        try { saveStory() } catch(e: Exception) { plan=previous; throw e }
-                    }.onSuccess {
-                        render()
-                        showPropsNext("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á‡∏ó‡∏µ‡πà‡∏°‡∏µ‡∏´‡∏•‡∏±‡∏Å‡∏ê‡∏≤‡∏ô‡∏ï‡∏£‡∏á‡∏ö‡∏ó‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥ ${proposals.size} ‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£ ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡∏à‡∏£‡∏¥‡∏á‡∏Å‡πà‡∏≠‡∏ô‡πÉ‡∏ä‡πâ")
-                    }.onFailure { notice(it.message ?: "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‚Ä¢ ‡∏ö‡∏ó‡πÄ‡∏î‡∏¥‡∏°‡πÑ‡∏°‡πà‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô") }
-                    return@runOnUiThread
-                }
-                val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-                panel.addView(TextView(this).apply {
-                    text="‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏ó‡∏µ‡πà‡∏°‡∏µ‡∏´‡∏•‡∏±‡∏Å‡∏ê‡∏≤‡∏ô‡∏ä‡∏±‡∏î‡πÄ‡∏à‡∏ô‡∏ñ‡∏π‡∏Å‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÑ‡∏ß‡πâ‡πÉ‡∏´‡πâ ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡∏∞‡∏õ‡∏£‡∏±‡∏ö‡πÑ‡∏î‡πâ‡∏Å‡πà‡∏≠‡∏ô‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å\n‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏ó‡∏µ‡πà‡πÑ‡∏°‡πà‡∏ä‡∏±‡∏î‡πÄ‡∏à‡∏ô‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏ñ‡∏π‡∏Å‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ‚Ä¢ ‡∏Å‡∏•‡∏∏‡πà‡∏°‡∏ï‡πà‡∏≠‡πÄ‡∏ô‡∏∑‡πà‡∏≠‡∏á‡∏ï‡πâ‡∏≠‡∏á‡∏ï‡∏£‡∏ß‡∏à‡πÄ‡∏≠‡∏á\n‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡∏à‡∏£‡∏¥‡∏á ‚Ä¢ ‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡πÄ‡∏î‡∏¥‡∏°‡πÅ‡∏•‡∏∞ MASTER ‡πÑ‡∏°‡πà‡∏ñ‡∏π‡∏Å‡∏•‡∏ö"
-                    setPadding(0,0,0,dp(12))
-                })
-                val boxes=proposals.map { row ->
-                    val matched=allowed[row.optString("scene_id")]?.let { scene -> FlowReferencePrompt.people(scene).firstOrNull { it.optString("name")==row.optString("holder") } }
-                    val linkedMaster=if(fantasy && matched!=null) characterProp(matched.optString("master")) else ""
-                    val label="${row.optString("scene_id")} ‚Ä¢ ${row.optString("item")}\n‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ: ${row.optString("holder").ifBlank { "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏" }}\n‡∏£‡∏≤‡∏¢‡∏•‡∏∞‡πÄ‡∏≠‡∏µ‡∏¢‡∏î: ${row.optString("details").ifBlank { "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏" }}\n‡∏Å‡∏•‡∏∏‡πà‡∏°‡∏ï‡πà‡∏≠‡πÄ‡∏ô‡∏∑‡πà‡∏≠‡∏á: ${row.optString("continuity_id").ifBlank { "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏ ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡πÄ‡∏≠‡∏á" }}\n‡∏´‡∏•‡∏±‡∏Å‡∏ê‡∏≤‡∏ô‡πÉ‡∏ô‡∏ö‡∏ó: ${row.optString("evidence")}"+(if(linkedMaster.isBlank()) "" else "\nMASTER ‡∏ó‡∏µ‡πà‡∏ú‡∏π‡∏Å‡∏Å‡∏±‡∏ö‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£: $linkedMaster ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏ß‡πà‡∏≤‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á‡∏ô‡∏µ‡πâ")
-                    android.widget.CheckBox(this).apply { text=label; isChecked=PropSuggestionReview.directlySupported(row,allowed[row.optString("scene_id")]); textSize=15f; setTextColor(navy); setPadding(dp(12),dp(12),dp(12),dp(12)); background=backdrop(Color.rgb(248,246,239),Color.rgb(226,234,243),Color.rgb(173,187,204)); layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) }; panel.addView(this) }
-                }
-                val dialog=AlertDialog.Builder(this).setTitle("‚ú® ‡∏ï‡∏£‡∏ß‡∏à‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á‡∏ó‡∏µ‡πà AI ‡πÄ‡∏™‡∏ô‡∏≠ ‚Ä¢ ${proposals.size} ‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£")
-                    .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å",null).setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-                dialog.getButton(-1).setOnClickListener {
-                    if(project.name!=projectId || !sameOpenStory(snapshot)) { notice("‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏£‡∏∞‡∏´‡∏ß‡πà‡∏≤‡∏á‡∏ï‡∏£‡∏ß‡∏à ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏£‡∏¥‡πà‡∏°‡πÉ‡∏´‡∏°‡πà"); return@setOnClickListener }
-                    val selected=proposals.filterIndexed { i,_ -> boxes[i].isChecked }
-                    if(selected.isEmpty()) { notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£ ‚Ä¢ ‡∏ö‡∏ó‡πÄ‡∏î‡∏¥‡∏°‡πÑ‡∏°‡πà‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô"); return@setOnClickListener }
-                    runCatching {
-                        val previous=plan ?: error("‡πÑ‡∏°‡πà‡∏û‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á")
-                        val candidate=JSONObject(previous.toString())
-                        val targets=rows(candidate).associateBy { key(it) }
-                        selected.groupBy { it.optString("scene_id") }.forEach { (id,items) -> PropSuggestionReview.apply(targets.getValue(id),items) }
-                        plan=candidate
-                        try { saveStory() } catch(e: Exception) { plan=previous; throw e }
-                    }.onSuccess {
-                        dialog.dismiss(); render(); showPropsNext("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏Ç‡πâ‡∏≠‡πÄ‡∏™‡∏ô‡∏≠‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏¢‡∏±‡∏á‡∏ï‡πâ‡∏≠‡∏á‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡∏∞‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏â‡∏≤‡∏Å ‡∏´‡∏≤‡∏Å‡∏°‡∏µ‡∏†‡∏≤‡∏û‡πÄ‡∏î‡∏¥‡∏°‡πÉ‡∏´‡πâ‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow ‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á")
-                    }.onFailure { notice(it.message ?: "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‚Ä¢ ‡∏ö‡∏ó‡πÄ‡∏î‡∏¥‡∏°‡πÑ‡∏°‡πà‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô") }
-                }
-            }
-        }.start()
-    }
-    private fun reviewSceneProps(story: JSONObject) {
-        val scenes=rows(story)
-        if(scenes.isEmpty()) return notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏â‡∏≤‡∏Å‡πÉ‡∏´‡πâ‡∏ï‡∏£‡∏ß‡∏à")
-        val options=scenes.map { scene ->
-            val props=scene.optString("props").trim().ifBlank { "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á‡πÉ‡∏ô‡∏ö‡∏ó" }
-            "${key(scene)} ‚Ä¢ ${propReviewStatus(scene)}\n‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á: ${props.take(100)}"
-        }
-        choiceMenu("‡∏Ç‡∏±‡πâ‡∏ô‡∏ï‡∏≠‡∏ô 2 ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á‡πÉ‡∏ô‡∏ö‡∏ó\n‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏â‡∏≤‡∏Å‡∏´‡∏£‡∏∑‡∏≠‡∏ï‡∏±‡∏ß‡∏ä‡πà‡∏ß‡∏¢ AI",listOf("‚ú® ‡πÉ‡∏´‡πâ AI ‡πÄ‡∏™‡∏ô‡∏≠‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á‡πÅ‡∏•‡∏∞‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ï‡πà‡∏≠‡πÄ‡∏ô‡∏∑‡πà‡∏≠‡∏á ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡∏∞‡πÄ‡∏•‡∏∑‡∏≠‡∏Å")+options) { selected ->
-            if(selected==0) { suggestSceneObjects(story); return@choiceMenu }
-            val scene=scenes[selected-1]
-            val cast=FlowReferencePrompt.people(scene).joinToString("„ÄÅ") { it.optString("name") }.ifBlank { "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£" }
-            val start=scene.optString("start_state").ifBlank { "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏" }
-            val editor=EditText(this).apply {
-                hint="‡∏£‡∏∞‡∏ö‡∏∏‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á‡πÅ‡∏•‡∏∞‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ ‡πÄ‡∏ä‡πà‡∏ô ‡∏Å‡∏ß‡∏¥‡∏ô: ‡∏à‡∏≠‡∏ö; ‡πÄ‡∏û‡πá‡∏ç‡∏®‡∏£‡∏µ: ‡∏ñ‡∏±‡∏á‡∏ô‡πâ‡∏≥"
-                setText(scene.optString("props")); minLines=3
-            }
-            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-            panel.addView(TextView(this).apply { text="‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£: $cast\n‡∏ï‡πâ‡∏ô‡∏â‡∏≤‡∏Å‡∏à‡∏≤‡∏Å‡∏ö‡∏ó: $start\n\n‡∏£‡∏∞‡∏ö‡∏∏‡∏ä‡∏∑‡πà‡∏≠‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á‡πÅ‡∏•‡∏∞‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏ï‡∏≤‡∏°‡∏ö‡∏ó ‡∏´‡∏≤‡∏Å‡πÑ‡∏°‡πà‡∏ä‡∏±‡∏î‡πÄ‡∏à‡∏ô‡πÉ‡∏´‡πâ‡∏£‡∏∞‡∏ö‡∏∏‡∏ß‡πà‡∏≤‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏ó‡∏£‡∏≤‡∏ö\n\nüì∑ ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡∏à‡∏£‡∏¥‡∏á ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏ß‡πà‡∏≤‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á‡∏≠‡∏¢‡∏π‡πà‡πÉ‡∏ô‡∏†‡∏≤‡∏û‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏ï‡πâ‡∏ô‡∏î‡πâ‡∏ß‡∏¢‡∏ï‡∏ô‡πÄ‡∏≠‡∏á\n‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏ô‡∏µ‡πâ‡πÉ‡∏ä‡πâ‡∏õ‡∏£‡∏∞‡∏Å‡∏≠‡∏ö‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏†‡∏≤‡∏û ‡πÑ‡∏°‡πà‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÑ‡∏ß‡πâ‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏´‡∏≤‡∏Å‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏Å‡∏≤‡∏£‡∏Å‡∏£‡∏∞‡∏ó‡∏≥ ‡πÉ‡∏´‡πâ‡πÅ‡∏Å‡πâ‡∏£‡∏≤‡∏¢‡∏•‡∏∞‡πÄ‡∏≠‡∏µ‡∏¢‡∏î‡∏â‡∏≤‡∏Å‡πÅ‡∏•‡∏∞‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow ‡∏î‡πâ‡∏ß‡∏¢" })
-            panel.addView(editor)
-            val dialog=AlertDialog.Builder(this).setTitle("${key(scene)} ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á‡πÉ‡∏ô‡∏ö‡∏ó").setView(ScrollView(this).apply { addView(panel) })
-                .setPositiveButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÅ‡∏•‡∏∞‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ï‡∏£‡∏ß‡∏à‡∏ö‡∏ó",null).setNeutralButton("‡πÅ‡∏Å‡πâ‡∏£‡∏≤‡∏¢‡∏•‡∏∞‡πÄ‡∏≠‡∏µ‡∏¢‡∏î‡∏â‡∏≤‡∏Å",null).setNegativeButton("‡∏Å‡∏•‡∏±‡∏ö",null).showDirector()
-            dialog.getButton(-3).setOnClickListener { dialog.dismiss(); editScene(scene) }
-            dialog.getButton(-1).setOnClickListener {
-                if(plan!==story) { notice("‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡πÅ‡∏•‡πâ‡∏ß ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏õ‡∏¥‡∏î‡∏ï‡∏£‡∏ß‡∏à‡πÉ‡∏´‡∏°‡πà"); return@setOnClickListener }
-                val old=scene.optString("props")
-                scene.put("props",editor.text.toString().trim())
-                runCatching { saveStory() }.onSuccess {
-                    val statusSaved=prefs.edit().putString("props_review_${project.name}_${key(scene)}",propReviewStamp(scene)).commit()
-                    val imageNote=if(image(scene).isFile) "‡∏â‡∏≤‡∏Å ${key(scene)} ‡∏°‡∏µ‡∏†‡∏≤‡∏û‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏ß‡πâ ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡πÄ‡∏î‡∏¥‡∏°‡πÅ‡∏•‡∏∞‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow ‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á" else "‡∏â‡∏≤‡∏Å ${key(scene)} ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÉ‡∏ô‡πÅ‡∏≠‡∏õ"
-                    dialog.dismiss(); render()
-                    showPropsNext(if(statusSaved) "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÅ‡∏•‡∏∞‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ï‡∏£‡∏ß‡∏à‡∏ö‡∏ó ${key(scene)} ‡πÅ‡∏•‡πâ‡∏ß\n$imageNote" else "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏ö‡∏ó‡πÅ‡∏•‡πâ‡∏ß ‡πÅ‡∏ï‡πà‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞‡∏ï‡∏£‡∏ß‡∏à‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á")
-                }.onFailure { scene.put("props",old); notice(it.message ?: "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-            }
-        }
-    }
-    private fun commandCardsMenu() {
-        val story=plan ?: return notice("‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏´‡∏£‡∏∑‡∏≠‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô‡∏Ñ‡∏£‡∏±‡∏ö")
-        if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
-        val eps=story.getJSONArray("episodes")
-        val channel=ChannelCatalog.currentChannel(story.optString("channel"))
-        val options=(0 until eps.length()).map { "üé¨ EP.${eps.getJSONObject(it).getInt("ep")} ‚Ä¢ ${eps.getJSONObject(it).optString("title")}" }
-        choiceMenu("‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å EP\n‡∏ä‡πà‡∏≠‡∏á: ${channel.ifBlank { "‡∏ä‡πà‡∏≠‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏" }}\n‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á: ${story.optString("title").ifBlank { "‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏ä‡∏∑‡πà‡∏≠" }}",options) { index ->
-            confirmEpisode(story,eps.getJSONObject(index).getInt("ep"))
-        }
-    }
-
-    private fun suggestStoryWardrobe(story: JSONObject, mode: Int) {
-        val useVision=mode!=2
-        val useOpenAi=mode==1
-        val visionName=if(useOpenAi) "OpenAI" else "Gemini"
-        if(GeminiStoryService.running) return notice("‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏£‡∏≠‡∏´‡∏£‡∏∑‡∏≠‡∏´‡∏¢‡∏∏‡∏î‡∏á‡∏≤‡∏ô‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô‡∏õ‡∏£‡∏±‡∏ö‡∏ä‡∏∏‡∏î")
-        val eligible=StoryProvider.eligible(this).filter { it.hasKey(this) }
-        val providers=if(useVision) eligible.filter { it==StoryProvider.GEMINI } else eligible
-        if(useOpenAi && StoryProvider.freeOnly(this)) return notice("‡πÇ‡∏´‡∏°‡∏î‡∏ü‡∏£‡∏µ‡πÄ‡∏õ‡∏¥‡∏î‡∏≠‡∏¢‡∏π‡πà ‚Ä¢ ‡∏õ‡∏¥‡∏î‡πÇ‡∏´‡∏°‡∏î‡∏ü‡∏£‡∏µ‡∏Å‡πà‡∏≠‡∏ô‡πÉ‡∏ä‡πâ OpenAI API ‡∏ã‡∏∂‡πà‡∏á‡∏≠‡∏≤‡∏à‡∏°‡∏µ‡∏Ñ‡πà‡∏≤‡∏ö‡∏£‡∏¥‡∏Å‡∏≤‡∏£")
-        if(useOpenAi && !ExtraApiSettings(this,ExtraApiProvider.OPENAI).hasKey()) return notice("‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤ OpenAI API Key ‡πÉ‡∏ô‡πÄ‡∏°‡∏ô‡∏π API ‡πÄ‡∏û‡∏¥‡πà‡∏°‡πÄ‡∏ï‡∏¥‡∏°‡∏Å‡πà‡∏≠‡∏ô ‚Ä¢ ChatGPT Plus ‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πà API Key")
-        if(!useOpenAi && providers.isEmpty()) return notice(if(useVision) "‡∏ï‡πâ‡∏≠‡∏á‡πÄ‡∏õ‡∏¥‡∏î‡πÉ‡∏ä‡πâ Gemini ‡πÅ‡∏•‡∏∞‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤ API Key ‡∏Å‡πà‡∏≠‡∏ô‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏†‡∏≤‡∏û MASTER ‚Ä¢ ‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Å‡∏≤‡∏£‡∏™‡πà‡∏á‡∏†‡∏≤‡∏û" else "‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤ API ‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô‡πÉ‡∏´‡πâ AI ‡πÄ‡∏™‡∏ô‡∏≠‡∏ä‡∏∏‡∏î")
-        val scenes=rows(story)
-        val projectId=project.name
-        val snapshot=story.toString()
-        val groups=linkedMapOf<Pair<String,String>,JSONObject>()
-        scenes.forEach { scene ->
-            val day=scene.optString("story_day").trim()
-            if(day.isNotBlank()) FlowReferencePrompt.people(scene).forEach { person ->
-                val id=referenceId(person.optString("master")); if(id.isNotBlank()) groups.putIfAbsent(id.lowercase() to day.lowercase(),person)
-            }
-        }
-        if(groups.isEmpty()) return notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏´‡∏£‡∏∑‡∏≠ story_day ‡∏ó‡∏µ‡πà‡πÉ‡∏ä‡πâ‡∏ß‡∏≤‡∏á‡∏ä‡∏∏‡∏î")
-        val references=if(useVision) groups.values.distinctBy { referenceId(it.optString("master")).lowercase() }.map { person ->
-            referenceId(person.optString("master")) to runCatching { masterFor(person) }.getOrNull()
-        } else emptyList()
-        if(useVision && (references.size>8 || references.any { it.second?.isFile!=true })) return notice("‡∏ï‡πâ‡∏≠‡∏á‡∏°‡∏µ MASTER ‡∏à‡∏£‡∏¥‡∏á‡∏Ñ‡∏£‡∏ö‡∏ó‡∏∏‡∏Å‡∏ï‡∏±‡∏ß‡πÅ‡∏•‡∏∞‡πÑ‡∏°‡πà‡πÄ‡∏Å‡∏¥‡∏ô 8 ‡∏†‡∏≤‡∏û ‚Ä¢ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏•‡∏±‡∏á‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏à‡∏≤‡∏Å‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°")
-        val summary=JSONArray(scenes.map { scene -> JSONObject().put("id",key(scene)).put("story_day",scene.optString("story_day")).put("location",scene.optString("location")).put("action",scene.optString("action")).put("start_state",scene.optString("start_state")).put("characters",JSONArray(FlowReferencePrompt.people(scene).map { p -> JSONObject().put("name",p.optString("name")).put("master",referenceId(p.optString("master"))).put("role",p.optString("role")).put("character_type",p.optString("character_type")).put("outfit",p.optString("outfit")) })) })
-        if(summary.toString().length>100000) return notice("‡∏ö‡∏ó‡∏°‡∏µ‡∏Ç‡∏ô‡∏≤‡∏î‡πÉ‡∏´‡∏ç‡πà‡πÄ‡∏Å‡∏¥‡∏ô‡πÑ‡∏õ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÅ‡∏Å‡πâ‡∏ä‡∏∏‡∏î‡∏£‡∏≤‡∏¢‡∏ã‡∏µ‡∏ô‡∏Å‡πà‡∏≠‡∏ô")
-        notice(if(useVision) "‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏™‡πà‡∏á‡∏†‡∏≤‡∏û MASTER ‡πÑ‡∏õ $visionName ‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏ä‡πà‡∏ß‡∏¢‡πÄ‡∏™‡∏ô‡∏≠‡∏ä‡∏∏‡∏î ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏ú‡∏•‡∏Å‡πà‡∏≠‡∏ô‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å" else "‡∏Å‡∏≥‡∏•‡∏±‡∏á‡πÉ‡∏´‡πâ AI ‡πÄ‡∏™‡∏ô‡∏≠‡∏ä‡∏∏‡∏î‡∏à‡∏≤‡∏Å‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ö‡∏ó ‚Ä¢ ‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Å‡∏≤‡∏£‡∏™‡πà‡∏á‡∏†‡∏≤‡∏û MASTER")
-        Thread {
-            val item=JSONObject().put("type","object").put("properties",JSONObject().put("master",JSONObject().put("type","string")).put("story_day",JSONObject().put("type","string")).put("outfit",JSONObject().put("type","string")).put("summary_th",JSONObject().put("type","string"))).put("required",JSONArray().put("master").put("story_day").put("outfit"))
-            val schema=JSONObject().put("type","object").put("properties",JSONObject().put("assignments",JSONObject().put("type","array").put("items",item))).put("required",JSONArray().put("assignments"))
-            val prompt="""Review the story and propose outfits for visible characters using their actual role, setting and activity. ${WardrobeContext.planning}
-Return JSON assignments. Each item must contain exact master ID and exact story_day from the input and a complete outfit with Top: ...; Bottom: ...; Shoes: ...; Accessories: ... . Do not add characters, roles, events, or props. Keep one exact outfit for each character and story_day. For Top, Bottom and Shoes include shade=color #RRGGBB, and for Top include sleeves=long-sleeve, short-sleeve, three-quarter-sleeve, cap-sleeve, sleeveless, strapless or one-sleeve. ${if(useVision) "Each attached image is labeled by MASTER ID; use only the matching image to describe visible armor, clothing and anatomy. Image observations are suggestions requiring human review; the story can specify a different outfit." else "The input describes the story in text only; you cannot see the MASTER image."} Never infer whether clothing, armor or accessories are absent from character type, and never assume an unknown all-none outfit means a deliberate choice. Do not erase known armor. If the story does not supply enough detail to propose an outfit, omit that assignment for user review. Preserve nonhuman anatomy and explicitly described equipment. Existing presenter-selected outfit should remain unless the user decides otherwise. Also provide summary_th, a short faithful Thai description of the proposed outfit, with no invented details; say no clothing where appropriate. Return only items you can match confidently. Story: $summary"""
-            var answer: JSONObject?=null
-            var failure=""
-            if(useOpenAi) {
-                val config=ExtraApiSettings(this,ExtraApiProvider.OPENAI)
-                answer=runCatching { OpenAiVisionClient(config.key(),config.model()).generate(prompt,schema,references.map { it.first to requireNotNull(it.second) }) }
-                    .onFailure { failure=it.message.orEmpty() }.getOrNull()?.takeIf { it.optJSONArray("assignments")!=null }
-            }
-            for(provider in if(useOpenAi) emptyList() else providers) {
-                answer=runCatching {
-                    if(useVision) {
-                        val slot=GeminiKeyPool.next(this)
-                        runOnUiThread { Toast.makeText(this,"‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏†‡∏≤‡∏û‡∏î‡πâ‡∏ß‡∏¢ Gemini ‡∏Ñ‡∏µ‡∏¢‡πå‡∏ä‡πà‡∏≠‡∏á ${slot.first}",Toast.LENGTH_SHORT).show() }
-                        GeminiClient(slot.second,provider.model(this),{ false },automaticRetry=false)
-                            .generateWithImages(prompt,schema,references.map { it.first to requireNotNull(it.second) })
-                    }
-                    else StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false,context=this@StudioActivity).generate(prompt,schema)
-                }.onFailure { failure=it.message.orEmpty() }.getOrNull()?.takeIf { it.optJSONArray("assignments")!=null }
-                if(answer!=null) break
-            }
-            val result=answer
-            runOnUiThread {
-                if(isFinishing || isDestroyed) return@runOnUiThread
-                if(result==null) { notice((if(useVision) "$visionName ‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏†‡∏≤‡∏û MASTER ‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à" else "AI ‡∏¢‡∏±‡∏á‡πÄ‡∏™‡∏ô‡∏≠‡∏ä‡∏∏‡∏î‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ")+" ‚Ä¢ "+failure.ifBlank { "‡∏ï‡∏£‡∏ß‡∏à API ‡πÅ‡∏•‡πâ‡∏ß‡∏•‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà" }+" ‚Ä¢ ‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Å‡∏≤‡∏£‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ö‡∏ó"); return@runOnUiThread }
-                if(project.name!=projectId || !sameOpenStory(snapshot)) { notice("‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏£‡∏∞‡∏´‡∏ß‡πà‡∏≤‡∏á‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏£‡∏¥‡πà‡∏°‡πÉ‡∏´‡∏°‡πà"); return@runOnUiThread }
-                val a=result.optJSONArray("assignments") ?: JSONArray()
-                val proposals=(0 until a.length()).mapNotNull { a.optJSONObject(it) }.filter { row ->
-                    val id=referenceId(row.optString("master")).lowercase() to row.optString("story_day").trim().lowercase()
-                    id in groups && runCatching { AutoDirectorWardrobe.parts(row.optString("outfit")) }.isSuccess
-                }.distinctBy { referenceId(it.optString("master")).lowercase() to it.optString("story_day").trim().lowercase() }
-                if(proposals.isEmpty()) { notice("AI ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡πÄ‡∏™‡∏ô‡∏≠‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡∏ï‡∏£‡∏ß‡∏à‡∏£‡∏π‡∏õ‡πÅ‡∏ö‡∏ö‡πÑ‡∏î‡πâ ‚Ä¢ ‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Å‡∏≤‡∏£‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ö‡∏ó"); return@runOnUiThread }
-                val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-                val reviewScroll=ScrollView(this).apply { addView(panel) }
-                val proposedKeys=proposals.map { referenceId(it.optString("master")).lowercase() to it.optString("story_day").trim().lowercase() }.toSet()
-                val missing=groups.filterKeys { it !in proposedKeys }.values.map { it.optString("name").ifBlank { "‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏ä‡∏∑‡πà‡∏≠" } }.distinct()
-                if(missing.isNotEmpty()) panel.addView(TextView(this).apply { text="‚ö†Ô∏è AI ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡πÄ‡∏™‡∏ô‡∏≠‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡∏ï‡∏£‡∏ß‡∏à‡πÑ‡∏î‡πâ‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö: "+missing.joinToString(", ")+" ‚Ä¢ ‡πÇ‡∏õ‡∏£‡∏î‡∏ï‡∏£‡∏ß‡∏à‡∏î‡πâ‡∏ß‡∏¢‡∏ï‡∏ô‡πÄ‡∏≠‡∏á" })
-                panel.addView(TextView(this).apply { text=(if(useVision) "$visionName ‡πÑ‡∏î‡πâ‡∏£‡∏±‡∏ö‡∏†‡∏≤‡∏û MASTER ‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏ä‡πà‡∏ß‡∏¢‡πÄ‡∏™‡∏ô‡∏≠‡∏ä‡∏∏‡∏î ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏ú‡∏•‡∏à‡∏£‡∏¥‡∏á‡∏Å‡πà‡∏≠‡∏ô‡πÉ‡∏ä‡πâ" else "AI ‡πÄ‡∏™‡∏ô‡∏≠‡∏à‡∏≤‡∏Å‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ö‡∏ó‡πÄ‡∏ó‡πà‡∏≤‡∏ô‡∏±‡πâ‡∏ô ‚Ä¢ ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏î‡∏π‡∏†‡∏≤‡∏û MASTER")+"\n‡∏†‡∏≤‡∏û MASTER ‡πÉ‡∏ä‡πâ‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πà‡∏†‡∏≤‡∏û‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡πÄ‡∏™‡∏ô‡∏≠\n‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÉ‡∏ä‡πâ‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡πÄ‡∏™‡∏ô‡∏≠‡∏´‡∏£‡∏∑‡∏≠‡∏Ñ‡∏á‡∏ä‡∏∏‡∏î‡πÄ‡∏î‡∏¥‡∏°‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏Å‡πà‡∏≠‡∏ô‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å ‚Ä¢ ‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡πÄ‡∏î‡∏¥‡∏°‡∏ó‡∏µ‡πà‡πÑ‡∏î‡πâ‡∏£‡∏±‡∏ö‡∏ú‡∏•‡∏ï‡πâ‡∏≠‡∏á‡∏ï‡∏£‡∏ß‡∏à‡πÉ‡∏´‡∏°‡πà" })
-                val decisions=MutableList<Int?>(proposals.size) { null }
-                val inputs=mutableListOf<EditText>()
-                val confirmations=mutableListOf<android.widget.CheckBox>()
-                val cards=mutableListOf<LinearLayout>()
-                val host=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
-                var currentCard=0
-                val progress=TextView(this)
-                panel.addView(progress)
-                fun updateProgress() { progress.text="‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ${currentCard+1} / ${decisions.size} ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡πâ‡∏ß ${decisions.count { it!=null }} / ${decisions.size} ‚Ä¢ ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å" }
-                panel.addView(host)
-                proposals.forEachIndexed { index,row ->
-                    val card=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(8),dp(8),dp(8),dp(8)); visibility=if(index==0) android.view.View.VISIBLE else android.view.View.GONE }
-                    cards.add(card); host.addView(card)
-                    val id=referenceId(row.optString("master")); val day=row.optString("story_day").trim()
-                    val original=groups[id.lowercase() to day.lowercase()]!!
-                    val name=original.optString("name").ifBlank { id }
-                    val affected=scenes.filter { it.optString("story_day").trim().equals(day,true) && FlowReferencePrompt.people(it).any { p -> referenceId(p.optString("master")).equals(id,true) } }.map { key(it) }
-                    val originalOutfit=original.optString("outfit").trim()
-                    val noDetails=WardrobeEvidence.isUnknownOrAllNone(originalOutfit)
-                    card.addView(TextView(this).apply { text="‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£: $name\n‡∏ß‡∏±‡∏ô‡πÉ‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á: $day ‚Ä¢ MASTER: $id"; setTypeface(null,Typeface.BOLD); textSize=18f })
-                    val master=runCatching { masterFor(original) }.getOrNull()
-                    if(master?.isFile==true) {
-                        card.addView(TextView(this).apply { text="‡∏†‡∏≤‡∏û MASTER ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ‚Ä¢ ‡πÅ‡∏ï‡∏∞‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏Ç‡∏¢‡∏≤‡∏¢" })
-                        card.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(master)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(180)); contentDescription="MASTER $name"; setOnClickListener { fullImage(master,"MASTER $name") } })
-                    } else card.addView(TextView(this).apply { text="‚ö†Ô∏è ‡πÑ‡∏°‡πà‡∏û‡∏ö‡πÑ‡∏ü‡∏•‡πå MASTER ‡∏Ç‡∏≠‡∏á $name ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡πÑ‡∏ü‡∏•‡πå‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û" })
-                    card.addView(TextView(this).apply { text=if(noDetails) "‡∏ä‡∏∏‡∏î‡∏õ‡∏±‡∏à‡∏à‡∏∏‡∏ö‡∏±‡∏ô: ‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏ä‡∏±‡∏î‡πÄ‡∏à‡∏ô ‚Ä¢ ‡∏Ñ‡πà‡∏≤ none ‡∏≠‡∏≤‡∏à‡∏´‡∏°‡∏≤‡∏¢‡∏ñ‡∏∂‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏´‡∏£‡∏∑‡∏≠‡∏ï‡∏±‡πâ‡∏á‡πÉ‡∏à‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ä‡∏∏‡∏î‡πÅ‡∏•‡∏∞‡πÄ‡∏Å‡∏£‡∏≤‡∏∞ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à MASTER" else "‡∏ä‡∏∏‡∏î‡∏õ‡∏±‡∏à‡∏à‡∏∏‡∏ö‡∏±‡∏ô‡πÉ‡∏ô‡∏ö‡∏ó: $originalOutfit" })
-                    val summary=row.optString("summary_th").trim()
-                    card.addView(TextView(this).apply { text=if(summary.isBlank()) "‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà AI ‡πÄ‡∏™‡∏ô‡∏≠: ‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Ñ‡∏≥‡∏™‡∏£‡∏∏‡∏õ‡∏†‡∏≤‡∏©‡∏≤‡πÑ‡∏ó‡∏¢ ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏£‡∏≤‡∏¢‡∏•‡∏∞‡πÄ‡∏≠‡∏µ‡∏¢‡∏î‡∏î‡πâ‡∏≤‡∏ô‡∏•‡πà‡∏≤‡∏á" else "‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà AI ‡πÄ‡∏™‡∏ô‡∏≠ (‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡∏£‡∏≤‡∏¢‡∏•‡∏∞‡πÄ‡∏≠‡∏µ‡∏¢‡∏î): $summary" })
-                    card.addView(TextView(this).apply { text="‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏†‡∏≤‡∏û‡∏ï‡∏±‡∏ß‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏ä‡∏∏‡∏î‡πÉ‡∏ô‡πÅ‡∏≠‡∏õ ‚Ä¢ ‡∏†‡∏≤‡∏û MASTER ‡∏î‡πâ‡∏≤‡∏ô‡∏ö‡∏ô‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πà‡∏†‡∏≤‡∏û‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡πÄ‡∏™‡∏ô‡∏≠" })
-                    val input=EditText(this).apply { setText(row.optString("outfit")); minLines=3; textSize=16f; hint="‡∏£‡∏≤‡∏¢‡∏•‡∏∞‡πÄ‡∏≠‡∏µ‡∏¢‡∏î‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡πÄ‡∏™‡∏ô‡∏≠"; card.addView(this) }
-                    inputs.add(input)
-                    val warning=TextView(this).apply { text="‚ö†Ô∏è ‡∏Ç‡πâ‡∏≠‡πÄ‡∏™‡∏ô‡∏≠‡∏£‡∏∞‡∏ö‡∏∏‡∏ß‡πà‡∏≤‡πÑ‡∏°‡πà‡∏°‡∏µ‡πÄ‡∏™‡∏∑‡πâ‡∏≠‡∏ú‡πâ‡∏≤/‡πÄ‡∏Å‡∏£‡∏≤‡∏∞/‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏ó‡∏±‡πâ‡∏á‡∏´‡∏°‡∏î ‚Ä¢ ‡∏£‡∏∞‡∏ö‡∏ö‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏≠‡πà‡∏≤‡∏ô‡∏†‡∏≤‡∏û MASTER ‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡∏î‡πâ‡∏ß‡∏¢‡∏ï‡∏ô‡πÄ‡∏≠‡∏á" }
-                    val confirm=android.widget.CheckBox(this).apply { text="‡∏â‡∏±‡∏ô‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡πâ‡∏ß‡πÅ‡∏•‡∏∞‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ß‡πà‡∏≤‡∏ï‡∏±‡πâ‡∏á‡πÉ‡∏à‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πâ‡πÄ‡∏™‡∏∑‡πâ‡∏≠‡∏ú‡πâ‡∏≤ ‡πÄ‡∏Å‡∏£‡∏≤‡∏∞ ‡πÅ‡∏•‡∏∞‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏õ‡∏£‡∏∞‡∏î‡∏±‡∏ö‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö $name ‡πÉ‡∏ô $day" }
-                    card.addView(warning); card.addView(confirm); confirmations.add(confirm)
-                    fun refreshWarning() {
-                        val ambiguous=WardrobeEvidence.isAllNone(input.text.toString())
-                        warning.visibility=if(ambiguous) android.view.View.VISIBLE else android.view.View.GONE
-                        confirm.visibility=if(ambiguous) android.view.View.VISIBLE else android.view.View.GONE
-                    }
-                    input.addTextChangedListener(object: android.text.TextWatcher {
-                        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { confirm.isChecked=false; refreshWarning() }
-                        override fun afterTextChanged(s: android.text.Editable?) {}
-                    })
-                    refreshWarning()
-                    val showScenes=Button(this).apply { text="‡∏î‡∏π ${affected.size} ‡∏â‡∏≤‡∏Å‡∏ó‡∏µ‡πà‡∏à‡∏∞‡πÉ‡∏ä‡πâ‡∏ä‡∏∏‡∏î‡∏ô‡∏µ‡πâ"; setOnClickListener { AlertDialog.Builder(this@StudioActivity).setTitle("‡∏â‡∏≤‡∏Å‡∏Ç‡∏≠‡∏á $name ‚Ä¢ $day").setMessage(affected.joinToString("\n").ifBlank { "‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏â‡∏≤‡∏Å" }).setPositiveButton("‡∏õ‡∏¥‡∏î",null).showDirector() } }
-                    card.addView(showScenes)
-                    val preview=Button(this).apply { text="‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡∏ï‡∏±‡∏ß‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏ä‡∏∏‡∏î‡πÉ‡∏ô‡πÅ‡∏≠‡∏õ‡∏†‡∏≤‡∏û"; isEnabled=master?.isFile==true; setOnClickListener {
-                        val description=input.text.toString().trim()
-                        if(description.isBlank()) { notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏£‡∏≤‡∏¢‡∏•‡∏∞‡πÄ‡∏≠‡∏µ‡∏¢‡∏î‡∏ä‡∏∏‡∏î"); return@setOnClickListener }
-                        if(master==null || !master.isFile) { notice("‡πÑ‡∏°‡πà‡∏û‡∏ö MASTER ‡∏Ç‡∏≠‡∏á $name"); return@setOnClickListener }
-                        val command="Create one wardrobe preview image of $name using the attached MASTER $id only for this character's identity. Outfit: $description. Preserve species and anatomy. Show the complete outfit clearly. This is a suggested visual preview, not a final scene. Compare the result with the MASTER and outfit; similarity is not guaranteed."
-                        shareImageCommand(command,listOf(id to master),mapOf(id to name))
-                    } }
-                    card.addView(preview)
-                    val previewLabel=TextView(this).apply { text="‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏†‡∏≤‡∏û‡∏ï‡∏±‡∏ß‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å" }
-                    val previewImage=ImageView(this).apply { adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(240)); visibility=android.view.View.GONE }
-                    card.addView(previewLabel); card.addView(previewImage)
-                    card.addView(Button(this).apply { text="‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏†‡∏≤‡∏û‡∏ï‡∏±‡∏ß‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÅ‡∏•‡πâ‡∏ß"; setOnClickListener {
-                        wardrobePreviewResult={ uri ->
-                            runCatching { previewBitmap(uri) }.onSuccess { bitmap ->
-                                previewImage.setImageBitmap(bitmap); previewImage.visibility=android.view.View.VISIBLE
-                                previewLabel.text="‡∏†‡∏≤‡∏û‡∏ï‡∏±‡∏ß‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏ó‡∏µ‡πà‡∏Ñ‡∏∏‡∏ì‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏ß‡πà‡∏≤‡πÄ‡∏õ‡πá‡∏ô $name ‡πÅ‡∏•‡∏∞‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡πÄ‡∏™‡∏ô‡∏≠‡∏Å‡πà‡∏≠‡∏ô‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô"
-                                previewImage.setOnClickListener { AlertDialog.Builder(this@StudioActivity).setTitle("‡∏†‡∏≤‡∏û‡∏ï‡∏±‡∏ß‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏ä‡∏∏‡∏î ‚Ä¢ $name").setView(ImageView(this@StudioActivity).apply { setImageBitmap(bitmap); adjustViewBounds=true }).setPositiveButton("‡∏õ‡∏¥‡∏î",null).showDirector() }
-                            }.onFailure { notice("‡πÄ‡∏õ‡∏¥‡∏î‡∏†‡∏≤‡∏û‡∏ï‡∏±‡∏ß‡∏≠‡∏¢‡πà‡∏≤‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‚Ä¢ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÉ‡∏´‡∏°‡πà") }
-                        }
-                        wardrobePreviewPicker.launch(arrayOf("image/*"))
-                    } })
-                    card.addView(TextView(this).apply { text="‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡πÉ‡∏ô‡πÅ‡∏≠‡∏õ‡∏†‡∏≤‡∏û‡∏†‡∏≤‡∏¢‡∏ô‡∏≠‡∏Å‡πÅ‡∏•‡πâ‡∏ß‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏†‡∏≤‡∏û‡∏Å‡∏•‡∏±‡∏ö‡∏°‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡πÑ‡∏î‡πâ ‚Ä¢ ‡∏†‡∏≤‡∏û‡∏ï‡∏±‡∏ß‡∏≠‡∏¢‡πà‡∏≤‡∏á‡πÑ‡∏°‡πà‡∏ñ‡∏π‡∏Å‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÉ‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥" })
-                    val choice=RadioGroup(this).apply { orientation=RadioGroup.VERTICAL }
-                    val use=RadioButton(this).apply { text="‡πÉ‡∏ä‡πâ‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡πÄ‡∏™‡∏ô‡∏≠‡πÉ‡∏´‡πâ $name ‚Ä¢ ${affected.size} ‡∏â‡∏≤‡∏Å" }
-                    val keep=RadioButton(this).apply { text="‡∏Ñ‡∏á‡∏ä‡∏∏‡∏î‡πÄ‡∏î‡∏¥‡∏°‡∏Ç‡∏≠‡∏á $name ‚Ä¢ ‡πÑ‡∏°‡πà‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ö‡∏ó" }
-                    use.id=android.view.View.generateViewId(); keep.id=android.view.View.generateViewId()
-                    choice.addView(use); choice.addView(keep)
-                    choice.setOnCheckedChangeListener { _,checked -> decisions[index]=if(checked==use.id) 1 else 0; updateProgress() }
-                    card.addView(choice)
-                    card.addView(Space(this).apply { layoutParams=LinearLayout.LayoutParams(1,dp(16)) })
-                }
-                val navigation=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
-                val previous=Button(this).apply { text="‚óÄ ‡∏ï‡∏±‡∏ß‡∏Å‡πà‡∏≠‡∏ô‡∏´‡∏ô‡πâ‡∏≤" }
-                val next=Button(this).apply { text="‡∏ï‡∏±‡∏ß‡∏ñ‡∏±‡∏î‡πÑ‡∏õ ‚ñ∂" }
-                navigation.addView(previous,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f))
-                navigation.addView(next,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f))
-                panel.addView(navigation)
-                fun navigateTo(index: Int) {
-                    if(index !in cards.indices) return
-                    cards[currentCard].visibility=android.view.View.GONE
-                    currentCard=index
-                    cards[currentCard].visibility=android.view.View.VISIBLE
-                    previous.isEnabled=currentCard>0
-                    next.isEnabled=currentCard<cards.lastIndex
-                    updateProgress()
-                    reviewScroll.post { reviewScroll.scrollTo(0,0) }
-                }
-                previous.setOnClickListener { navigateTo(currentCard-1) }
-                next.setOnClickListener { navigateTo(currentCard+1) }
-                navigateTo(0)
-                updateProgress()
-                val dialog=AlertDialog.Builder(this).setTitle("‡∏ï‡∏£‡∏ß‡∏à‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà AI ‡πÄ‡∏™‡∏ô‡∏≠").setView(reviewScroll).setPositiveButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å",null).setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-                dialog.getButton(-1).setOnClickListener {
-                    if(project.name!=projectId || !sameOpenStory(snapshot)) { notice("‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏£‡∏∞‡∏´‡∏ß‡πà‡∏≤‡∏á‡∏ï‡∏£‡∏ß‡∏à ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏£‡∏¥‡πà‡∏°‡πÉ‡∏´‡∏°‡πà"); return@setOnClickListener }
-                    if(decisions.all { it==0 }) { dialog.dismiss(); notice("‡∏Ñ‡∏á‡∏ä‡∏∏‡∏î‡πÄ‡∏î‡∏¥‡∏°‡∏ó‡∏∏‡∏Å‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£ ‚Ä¢ ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ö‡∏ó"); return@setOnClickListener }
-                    runCatching {
-                        val wasConfirmed=wardrobeReviewStatus(story)==HomeReviewState.WARDROBE_CONFIRMED
-                        require(decisions.all { it!=null }) { "‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÉ‡∏ä‡πâ‡∏ä‡∏∏‡∏î‡∏´‡∏£‡∏∑‡∏≠‡∏Ñ‡∏á‡∏ä‡∏∏‡∏î‡πÄ‡∏î‡∏¥‡∏°‡πÉ‡∏´‡πâ‡∏Ñ‡∏£‡∏ö‡∏ó‡∏∏‡∏Å‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£" }
-                        proposals.forEachIndexed { i,row ->
-                            if(decisions[i]==1 && WardrobeEvidence.isAllNone(inputs[i].text.toString()) && !confirmations[i].isChecked) {
-                                navigateTo(i)
-                                throw IllegalArgumentException("‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à MASTER ‡πÅ‡∏•‡∏∞‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏î‡πâ‡∏ß‡∏¢‡∏ï‡∏ô‡πÄ‡∏≠‡∏á ‡∏´‡∏≤‡∏Å‡∏ï‡∏±‡πâ‡∏á‡πÉ‡∏à‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πâ‡∏ä‡∏∏‡∏î ‡πÄ‡∏Å‡∏£‡∏≤‡∏∞ ‡πÅ‡∏•‡∏∞‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏õ‡∏£‡∏∞‡∏î‡∏±‡∏ö")
-                            }
-                        }
-                        val choices=proposals.mapIndexedNotNull { i,row -> if(decisions[i]!=1) null else WardrobeRevision.Choice(row.optString("master"),row.optString("story_day"),inputs[i].text.toString().trim()) }
-                        require(choices.isNotEmpty()) { "‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏Ñ‡∏á‡∏ä‡∏∏‡∏î‡πÄ‡∏î‡∏¥‡∏°‡∏ó‡∏∏‡∏Å‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£ ‚Ä¢ ‡∏ö‡∏ó‡πÄ‡∏î‡∏¥‡∏°‡πÑ‡∏°‡πà‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô ‡∏Å‡∏î‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏õ‡∏¥‡∏î" }
-                        val chosen=choices.map { referenceId(it.master).lowercase() to it.day.trim().lowercase() }.toSet()
-                        val affected=scenes.filter { scene ->
-                            val day=scene.optString("story_day").trim().lowercase()
-                            FlowReferencePrompt.people(scene).any { person -> (referenceId(person.optString("master")).lowercase() to day) in chosen }
-                        }
-                        val selectedNames=chosen.mapNotNull { groups[it]?.optString("name") }.distinct()
-                        val unchanged=groups.filterKeys { it !in chosen }.values.map { it.optString("name") }.distinct()
-                        val withImage=affected.filter { image(it).isFile }.map { key(it) }
-                        val candidate=WardrobeRevision.apply(story,choices)
-                        plan=candidate
-                        try { saveStory() } catch(e: Exception) { plan=story; throw e }
-                        val stamp=wardrobeReviewStamp(candidate)
-                        val editor=prefs.edit().putString("wardrobe_selected_stamp_${project.name}",stamp).putBoolean("wardrobe_changed_${project.name}",!wasConfirmed)
-                        if(wasConfirmed) editor.putString("wardrobe_review_${project.name}",stamp)
-                        val statusSaved=editor.commit()
-                        val details="‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÅ‡∏•‡πâ‡∏ß: ${selectedNames.joinToString(", ").ifBlank { "‡∏ï‡∏≤‡∏°‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å" }}\n‡∏â‡∏≤‡∏Å‡∏ó‡∏µ‡πà‡πÄ‡∏Å‡∏µ‡πà‡∏¢‡∏ß‡∏Ç‡πâ‡∏≠‡∏á: ${affected.map { key(it) }.joinToString(", ")}\n‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏´‡∏£‡∏∑‡∏≠‡∏ß‡∏±‡∏ô‡∏ó‡∏µ‡πà‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏¢‡∏±‡∏á‡πÉ‡∏ä‡πâ‡∏ä‡∏∏‡∏î‡πÄ‡∏î‡∏¥‡∏°: ${unchanged.joinToString(", ").ifBlank { "‡πÑ‡∏°‡πà‡∏°‡∏µ" }}\n‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡∏°‡∏µ‡∏≠‡∏¢‡∏π‡πà‡πÅ‡∏•‡∏∞‡∏Ñ‡∏ß‡∏£‡∏ï‡∏£‡∏ß‡∏à‡πÉ‡∏´‡∏°‡πà: ${withImage.joinToString(", ").ifBlank { "‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÉ‡∏ô‡πÅ‡∏≠‡∏õ" }}"
-                        val state=if(!statusSaved) "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏ö‡∏ó‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à ‡πÅ‡∏ï‡πà‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞‡∏ï‡∏£‡∏ß‡∏à‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡∏ä‡∏∏‡∏î‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á" else if(wasConfirmed) "‡∏ä‡∏∏‡∏î‡∏≠‡∏∑‡πà‡∏ô‡∏Ñ‡∏á‡πÄ‡∏î‡∏¥‡∏°‡∏ï‡∏≤‡∏°‡∏ó‡∏µ‡πà‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡πÑ‡∏ß‡πâ" else "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ä‡∏∏‡∏î‡∏ó‡∏±‡πâ‡∏á‡∏´‡∏°‡∏î"
-                        details+"\n\n"+state
-                    }.onSuccess { message -> dialog.dismiss(); render(); showWardrobeNext(message) }
-                        .onFailure { notice(it.message ?: "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏ä‡∏∏‡∏î‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-                }
-            }
-        }.start()
-    }
-    private fun suggestStoryProps(story: JSONObject) {
-        val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
-        if(providers.isEmpty()) return notice("‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤ API ‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô‡πÉ‡∏ä‡πâ AI ‡πÄ‡∏™‡∏ô‡∏≠‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå")
-        val projectId=project.name
-        val scenes=rows(story)
-        val storySnapshot=story.toString()
-        val context=JSONArray(scenes.map { scene -> JSONObject().put("id",key(scene)).put("action",scene.optString("action")).put("start_state",scene.optString("start_state")).put("end_state",scene.optString("end_state")).put("dialogue",scene.optString("dialogue")).put("characters",JSONArray(FlowReferencePrompt.people(scene).map { it.optString("name") })) })
-        val catalog=propCatalog
-        val reviewed=runCatching { GeminiStoryFiles.read(File(project,"gemini_job/spec.json")).optJSONArray("selected_prop_masters") }.getOrNull()
-        val reviewedIds=(0 until (reviewed?.length() ?: 0)).mapNotNull { reviewed?.optJSONObject(it)?.optString("prop_id")?.takeIf(String::isNotBlank) }.toSet()
-        if(reviewed!=null && reviewedIds.isEmpty()) { notice("‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å MASTER ‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ö‡∏ó ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏î‡πâ‡∏ß‡∏¢‡∏ï‡∏ô‡πÄ‡∏≠‡∏á‡πÉ‡∏ô‡∏ã‡∏µ‡∏ô‡πÑ‡∏î‡πâ"); return }
-        val manualBindings=scenes.flatMap { FlowReferencePrompt.people(it) }.distinctBy { it.optString("master") }.mapNotNull { person -> characterProp(person.optString("master")).takeIf { it.isNotBlank() }?.let { "${person.optString("name")} = $it" } }
-        val registered=FlowCast.definitions(story)
-        val reviewedBindings=(0 until (reviewed?.length() ?: 0)).mapNotNull { i ->
-            val row=reviewed?.optJSONObject(i) ?: return@mapNotNull null
-            val owner=row.optString("owner_library_id"); val id=row.optString("prop_id")
-            val name=registered.singleOrNull { it.optString("library_id")==owner && owner.isNotBlank() }?.optString("name").orEmpty()
-            if(name.isBlank() || id !in reviewedIds) null else "$name = $id"
-        }
-        val characterBindings=(manualBindings+reviewedBindings).distinct().joinToString("\n")
-        val catalogText=catalog.mapIndexedNotNull { i,n -> val id=propId(i); if(reviewed!=null && id !in reviewedIds) null else "$id = $n" }.joinToString("\n")
-        notice("‡∏Å‡∏≥‡∏•‡∏±‡∏á‡πÉ‡∏´‡πâ AI ‡πÄ‡∏™‡∏ô‡∏≠‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏Å‡πà‡∏≠‡∏ô‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å ‚Ä¢ ‡∏ö‡∏ó‡πÄ‡∏î‡∏¥‡∏°‡πÑ‡∏°‡πà‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô")
-        Thread {
-            val item=JSONObject().put("type","object").put("properties",JSONObject().put("scene_id",JSONObject().put("type","string")).put("prop_id",JSONObject().put("type","string")).put("holder",JSONObject().put("type","string"))).put("required",JSONArray().put("scene_id").put("prop_id").put("holder"))
-            val schema=JSONObject().put("type","object").put("properties",JSONObject().put("assignments",JSONObject().put("type","array").put("items",item))).put("required",JSONArray().put("assignments"))
-            val prompt="""Review the following movie scenes and choose matching prop references from this catalog. Return JSON assignments with scene_id, prop_id, holder. Only propose an object when it is visibly present in the START STATE of that scene, not merely mentioned in dialogue or future action. Do not add story events, objects or people. Assign the same prop ID across scenes for the same object. A holder must be an exact visible character name in that scene; if unclear use empty string. Respect any transfers explicitly in the story. If the object is unclear, omit it for human review. Do not assign covers.
-CHARACTER PROP BINDINGS (only when visibly present in this scene; don't invent appearances or change ownership without story evidence):
-$characterBindings
-CATALOG:
-$catalogText
-SCENES:
-$context"""
-            var result: JSONObject?=null
-            for(provider in providers) {
-                result=runCatching { StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false,context=this@StudioActivity).generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("assignments")!=null }
-                if(result!=null) break
-            }
-            val answer=result
-            runOnUiThread {
-                if(isFinishing || isDestroyed) return@runOnUiThread
-                if(answer==null) { notice("AI ‡∏¢‡∏±‡∏á‡πÄ‡∏™‡∏ô‡∏≠‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à API ‡πÅ‡∏•‡πâ‡∏ß‡∏•‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà ‚Ä¢ ‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Å‡∏≤‡∏£‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ö‡∏ó"); return@runOnUiThread }
-                if(project.name!=projectId || !sameOpenStory(storySnapshot)) { notice("‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏£‡∏∞‡∏´‡∏ß‡πà‡∏≤‡∏á‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏£‡∏¥‡πà‡∏°‡πÉ‡∏´‡∏°‡πà"); return@runOnUiThread }
-                val allowed=scenes.associateBy { key(it) }
-                val a=answer.optJSONArray("assignments") ?: JSONArray()
-                val proposals=(0 until a.length()).mapNotNull { a.optJSONObject(it) }.filter { row ->
-                    val scene=allowed[row.optString("scene_id")]
-                    val id=row.optString("prop_id")
-                    val holder=row.optString("holder")
-                    scene!=null && Regex("PROP_(0[1-9]|1[0-9]|20)_MASTER").matches(id) && (reviewed==null || id in reviewedIds) && (holder.isBlank() || FlowReferencePrompt.people(scene).any { it.optString("name")==holder })
-                }.distinctBy { it.optString("scene_id")+"|"+it.optString("prop_id") }
-                if(proposals.isEmpty()) { notice("AI ‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏ó‡∏µ‡πà‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡πÑ‡∏î‡πâ ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏î‡πâ‡∏ß‡∏¢‡∏ï‡∏ô‡πÄ‡∏≠‡∏á‡πÉ‡∏ô‡∏ã‡∏µ‡∏ô ‡∏´‡∏£‡∏∑‡∏≠‡∏õ‡∏£‡∏±‡∏ö‡∏ö‡∏ó‡πÅ‡∏•‡πâ‡∏ß‡∏•‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà"); return@runOnUiThread }
-                val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-                panel.addView(TextView(this).apply { text="‡∏ï‡∏£‡∏ß‡∏à‡∏ß‡πà‡∏≤‡∏Ç‡∏≠‡∏á‡∏õ‡∏£‡∏≤‡∏Å‡∏è‡πÉ‡∏ô‡πÄ‡∏ü‡∏£‡∏°‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏ï‡πâ‡∏ô ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ú‡∏π‡πâ‡∏ñ‡∏∑‡∏≠‡∏´‡∏£‡∏∑‡∏≠‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏ ‡πÅ‡∏•‡∏∞‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏ó‡∏µ‡πà‡πÑ‡∏°‡πà‡∏ï‡πâ‡∏≠‡∏á‡∏Å‡∏≤‡∏£ ‚Ä¢ ‡∏Å‡∏≤‡∏£‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÅ‡∏ó‡∏ô‡∏Ç‡πâ‡∏≠‡πÄ‡∏™‡∏ô‡∏≠ AI ‡πÄ‡∏î‡∏¥‡∏°‡∏Ç‡∏≠‡∏á‡∏ó‡∏±‡πâ‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á ‡∏ï‡∏±‡∏ß‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ó‡∏µ‡πà‡πÄ‡∏Ñ‡∏¢‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏≠‡∏á‡πÉ‡∏ô‡∏ã‡∏µ‡∏ô‡∏¢‡∏±‡∏á‡∏Ñ‡∏á‡∏≠‡∏¢‡∏π‡πà" })
-                val boxes=mutableListOf<android.widget.CheckBox>()
-                val holders=mutableListOf<android.widget.Spinner>()
-                val propStates=mutableListOf<android.widget.Spinner>()
-                val stateLabels=listOf("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞ ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏ö‡∏ó", "‡∏ñ‡∏∑‡∏≠‡∏≠‡∏¢‡∏π‡πà", "‡πÄ‡∏Å‡πá‡∏ö‡πÉ‡∏ô‡∏ù‡∏±‡∏Å / ‡∏™‡∏∞‡∏û‡∏≤‡∏¢", "‡∏ß‡∏≤‡∏á‡∏≠‡∏¢‡∏π‡πà‡πÉ‡∏ô‡∏â‡∏≤‡∏Å")
-                val stateValues=listOf("", "held", "sheathed_or_carried", "placed")
-                proposals.forEach { row ->
-                    val id=row.getString("prop_id")
-                    val name=catalog[id.substring(5,7).toInt()-1]
-                    val scene=allowed.getValue(row.getString("scene_id"))
-                    val names=FlowReferencePrompt.people(scene).map { it.optString("name") }.filter { it.isNotBlank() }.distinct()
-                    val options=listOf("‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏ú‡∏π‡πâ‡∏ñ‡∏∑‡∏≠")+names
-                    val box=android.widget.CheckBox(this).apply { text="${row.getString("scene_id")} ‚Ä¢ $name"; isChecked=true }
-                    val spinner=android.widget.Spinner(this).apply {
-                        adapter=android.widget.ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,options)
-                        setSelection(names.indexOf(row.optString("holder")).let { if(it<0) 0 else it+1 })
-                    }
-                    val stateSpinner=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,stateLabels) }
-                    boxes.add(box); holders.add(spinner); propStates.add(stateSpinner); panel.addView(box); panel.addView(spinner); panel.addView(stateSpinner)
-                }
-                AlertDialog.Builder(this).setTitle("‡∏ï‡∏£‡∏ß‡∏à‡∏Ç‡πâ‡∏≠‡πÄ‡∏™‡∏ô‡∏≠ AI ‚Ä¢ ${proposals.size} ‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å") { _,_ ->
-                    runCatching {
-                        val file=File(project,"prop_assignments.json")
-                        check(project.name==projectId && sameOpenStory(storySnapshot)) { "‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏£‡∏∞‡∏´‡∏ß‡πà‡∏≤‡∏á‡∏ï‡∏£‡∏ß‡∏à ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏£‡∏¥‡πà‡∏°‡πÉ‡∏´‡∏°‡πà" }
-                        val data=JSONObject()
-                        val approved=proposals.mapIndexedNotNull { index,row ->
-                            if (!boxes[index].isChecked) null else JSONObject(row.toString()).put("holder", if(holders[index].selectedItemPosition==0) "" else holders[index].selectedItem.toString()).put("start_prop_state",stateValues[propStates[index].selectedItemPosition.coerceIn(0,stateValues.lastIndex)]).put("source_scene_digest",ScenePropBinding.signature(allowed.getValue(row.getString("scene_id"))))
-                        }.groupBy { it.getString("scene_id") }
-                        approved.forEach { (sceneId,items) -> data.put(sceneId,JSONArray(items)) }
-                        val pending=File(project,"prop_assignments.json.pending"); pending.writeText(data.toString(2)); check(pending.renameTo(file)) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à" }
-                        notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏Ç‡πâ‡∏≠‡πÄ‡∏™‡∏ô‡∏≠‡πÅ‡∏•‡πâ‡∏ß ${approved.values.sumOf { it.size }} ‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£ ‚Ä¢ ‡πÄ‡∏õ‡∏¥‡∏î‡∏ã‡∏µ‡∏ô‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏ï‡∏£‡∏ß‡∏à MASTER ‡∏Å‡πà‡∏≠‡∏ô‡∏™‡πà‡∏á ‚Ä¢ ‡∏ï‡∏±‡∏ß‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ó‡∏µ‡πà‡πÄ‡∏Ñ‡∏¢‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏î‡πâ‡∏ß‡∏¢‡∏ï‡∏ô‡πÄ‡∏≠‡∏á‡∏°‡∏µ‡∏•‡∏≥‡∏î‡∏±‡∏ö‡∏Å‡πà‡∏≠‡∏ô")
-                    }.onFailure { notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ: ${it.message}") }
-                }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-            }
-        }.start()
-    }
-    private fun productionCheckMenu(story: JSONObject) {
-        val problems=ProductionCommandCheck.issues(story)
-        val text=if(problems.isEmpty()) "‡∏ú‡πà‡∏≤‡∏ô‡∏Å‡∏≤‡∏£‡∏ï‡∏£‡∏ß‡∏à‡πÇ‡∏Ñ‡∏£‡∏á‡∏™‡∏£‡πâ‡∏≤‡∏á ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ‡∏ú‡∏π‡πâ‡∏û‡∏π‡∏î ‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á ‡∏ä‡∏∏‡∏î‡∏£‡∏≤‡∏¢‡∏ß‡∏±‡∏ô ‡πÅ‡∏•‡∏∞‡∏Ç‡πâ‡∏≠‡∏Ç‡∏±‡∏î‡πÅ‡∏¢‡πâ‡∏á‡πÄ‡∏™‡∏µ‡∏¢‡∏á‡∏ó‡∏µ‡πà‡∏£‡∏∞‡∏ö‡∏ö‡∏ï‡∏£‡∏ß‡∏à‡πÑ‡∏î‡πâ ‚Ä¢ ‡∏¢‡∏±‡∏á‡∏ï‡πâ‡∏≠‡∏á‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠‡∏à‡∏£‡∏¥‡∏á" else problems.joinToString("\n\n")
-        AlertDialog.Builder(this).setTitle("‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á ‚Ä¢ ${problems.size} ‡∏à‡∏∏‡∏î").setMessage(text)
-            .setPositiveButton("‡πÅ‡∏Å‡πâ‡∏ã‡∏µ‡∏ô‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å") { _,_ ->
-                val scenes=rows(story)
-                choiceMenu("‡πÅ‡∏Å‡πâ‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏ã‡∏µ‡∏ô ‚Ä¢ ‡πÑ‡∏°‡πà‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà",scenes.map { key(it)+" ‚Ä¢ "+it.optString("action").take(50) }) { editScene(scenes[it]) }
-            }.setNeutralButton("‡πÅ‡∏Å‡πâ‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏õ‡∏Å") { _,_ -> editProductionCover(story) }.setNegativeButton("‡∏õ‡∏¥‡∏î",null).showDirector()
-    }
-    private fun editProductionCover(story: JSONObject) {
-        val eps=story.getJSONArray("episodes")
-        choiceMenu("‡πÅ‡∏Å‡πâ‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏õ‡∏Å",listOf("‡∏õ‡∏Å‡∏£‡∏ß‡∏° ‚Ä¢ ‡∏ä‡∏∑‡πà‡∏≠‡∏ä‡πà‡∏≠‡∏á / ‡∏ä‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á / ‡∏Ñ‡∏≥‡πÇ‡∏õ‡∏£‡∏¢")+(0 until eps.length()).map { "EP.${eps.getJSONObject(it).getInt("ep")} ‚Ä¢ ‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏≠‡∏ô" }) { index ->
-            val target=if(index==0) story else eps.getJSONObject(index-1)
-            val fields=if(index==0) listOf("channel" to "‡∏ä‡∏∑‡πà‡∏≠‡∏ä‡πà‡∏≠‡∏á","title" to "‡∏ä‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á","tagline" to "‡∏Ñ‡∏≥‡πÇ‡∏õ‡∏£‡∏¢") else listOf("title" to "‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏≠‡∏ô")
-            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-            val inputs=fields.map { (key,label) -> key to EditText(this).apply { hint=label; setText(target.optString(key)); panel.addView(this) } }
-            val dialog=AlertDialog.Builder(this).setTitle("‡πÅ‡∏Å‡πâ‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏õ‡∏Å ‚Ä¢ ‡πÑ‡∏°‡πà‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ã‡∏µ‡∏ô").setView(panel).setPositiveButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å",null).setNegativeButton("‡∏õ‡∏¥‡∏î",null).showDirector()
-            dialog.getButton(-1).setOnClickListener {
-                if(inputs.any { it.second.text.isBlank() }) notice("‡∏Å‡∏£‡∏≠‡∏Å‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏õ‡∏Å‡πÉ‡∏´‡πâ‡∏Ñ‡∏£‡∏ö")
-                else { inputs.forEach { (key,input) -> target.put(key,input.text.toString().trim()) }; saveStory(); dialog.dismiss(); render(); notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏õ‡∏Å‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏™‡πà‡∏á‡∏≠‡∏≠‡∏Å‡πÑ‡∏ü‡∏•‡πå‡πÉ‡∏´‡∏°‡πà‡πÑ‡∏î‡πâ ‡πÑ‡∏°‡πà‡∏ï‡πâ‡∏≠‡∏á‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó‡πÉ‡∏´‡∏°‡πà") }
-            }
-        }
-    }
-    private fun productionTaskType(story: JSONObject,number: Int) {
-        choiceMenu("EP.$number ‚Ä¢ ‡πÄ‡∏õ‡∏¥‡∏î‡∏´‡∏£‡∏∑‡∏≠‡πÅ‡∏Å‡πâ‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£",listOf("‡∏£‡∏π‡∏õ‡πÅ‡∏•‡∏∞‡∏õ‡∏Å ChatGPT / Gemini","‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠ Flow")) { productionTaskDeck(story,number,it==0) }
-    }
-    private fun returnToImageList(): Boolean {
-        val story=plan ?: return false
-        val number=prefs.getInt("last_image_deck_${project.name}",0)
-        val eps=story.optJSONArray("episodes") ?: return false
-        if(number<=0 || (0 until eps.length()).none { eps.optJSONObject(it)?.optInt("ep")==number }) return false
-        activeProductionDialog?.dismiss()
-        activeProductionDialog=null
-        val saved=prefs.getStringSet("last_image_group_${project.name}_$number",emptySet()).orEmpty().toSet()
-        productionTaskDeck(story,number,true,saved.takeIf { it.isNotEmpty() })
-        return true
-    }
-    private fun productionTaskDeck(story: JSONObject,number: Int,images: Boolean,queueIds: Set<String>?=null) {
-        val coverSelection=listOf("STORY","EP%02d".format(number)).mapNotNull { scope ->
-            val key="cover_cast_${project.name}_$scope"
-            if(prefs.contains(key)) scope to prefs.getStringSet(key,emptySet()).orEmpty().toSet() else null
-        }.toMap()
-        val allTasks=runCatching { if(images) SimpleProductionCommands.imageTasks(story,number,coverSelection) else SimpleProductionCommands.videoTasks(story,number) }.getOrElse {
-            if(images && coverSelection.isNotEmpty()) {
-                AlertDialog.Builder(this).setTitle("‡∏ï‡∏£‡∏ß‡∏à‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏õ‡∏Å").setMessage((it.message ?: "‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÑ‡∏°‡πà‡∏Ñ‡∏£‡∏ö")+"\n‡∏´‡∏≤‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÉ‡∏ô‡∏ö‡∏ó‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô ‡∏™‡∏≤‡∏°‡∏≤‡∏£‡∏ñ‡∏•‡πâ‡∏≤‡∏á‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏õ‡∏Å‡∏ó‡∏µ‡πà‡πÄ‡∏Ñ‡∏¢‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ‡πÅ‡∏•‡πâ‡∏ß‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÉ‡∏´‡∏°‡πà‡πÑ‡∏î‡πâ")
-                    .setPositiveButton("‡∏•‡πâ‡∏≤‡∏á‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏õ‡∏Å‡πÅ‡∏•‡∏∞‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÉ‡∏´‡∏°‡πà") { _,_ ->
-                        val editor=prefs.edit(); coverSelection.keys.forEach { scope -> editor.remove("cover_cast_${project.name}_$scope") }; editor.apply()
-                        productionTaskDeck(story,number,images,queueIds)
-                    }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-            } else { notice(it.message ?: "‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÑ‡∏°‡πà‡∏Ñ‡∏£‡∏ö"); productionCheckMenu(story) }
-            return
-        }
-        if(queueIds==null) {
-            val covers=if(images) allTasks.filter { it.id.contains("_COVER_") } else emptyList()
-            val groups=SimpleProductionCommands.groupScenes(allTasks)
-            val storyCovers=covers.filter { it.id.startsWith("STORY_COVER_") }
-            val episodeCovers=covers.filter { !it.id.startsWith("STORY_COVER_") }
-            val groupsWithCovers=listOf(storyCovers,episodeCovers).filter { it.isNotEmpty() }+groups
-            val options=groupsWithCovers.map { group ->
-                val label=if(group.first().id.startsWith("STORY_COVER_")) "‡∏õ‡∏Å‡∏£‡∏ß‡∏°‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á ‚Ä¢ ‡πÅ‡∏ô‡∏ß‡∏ï‡∏±‡πâ‡∏á‡πÅ‡∏•‡∏∞‡πÅ‡∏ô‡∏ß‡∏ô‡∏≠‡∏ô" else if(group.first().id.contains("_COVER_")) "‡∏õ‡∏Å EP.$number ‚Ä¢ ‡πÅ‡∏ô‡∏ß‡∏ï‡∏±‡πâ‡∏á‡πÅ‡∏•‡∏∞‡πÅ‡∏ô‡∏ß‡∏ô‡∏≠‡∏ô" else "${group.first().id} ‚Äì ${group.last().id}"
-                val completed=group.count { task -> rows(story).firstOrNull { key(it)==task.id }?.let { sceneFrameApproved(it) } == true }
-                if(group.first().id.contains("_COVER_")) label else if(images) "$label ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏ú‡πà‡∏≤‡∏ô $completed/${group.size}" else "$label ‚Ä¢ ${group.size} ‡∏ã‡∏µ‡∏ô"
-            }
-            if(options.isEmpty()) { notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏†‡∏≤‡∏û‡πÉ‡∏ô EP ‡∏ô‡∏µ‡πâ"); return }
-            val episode=story.optJSONArray("episodes")?.let { eps -> (0 until eps.length()).mapNotNull { eps.optJSONObject(it) }.firstOrNull { it.optInt("ep")==number } }
-            val episodeTitle=episode?.optString("title")?.takeIf { it.isNotBlank() } ?: "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏ï‡∏±‡πâ‡∏á‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏≠‡∏ô"
-            val storyTitle=story.optString("title").ifBlank { "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏ä‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á" }
-            choiceMenu("‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á: $storyTitle\nEP.$number ‚Ä¢ $episodeTitle\n‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ä‡∏∏‡∏î${if(images) "‡∏†‡∏≤‡∏û" else "‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow"} (‡∏Ñ‡∏£‡∏±‡πâ‡∏á‡∏•‡∏∞ 5 ‡∏ã‡∏µ‡∏ô)",options) { selected ->
-                productionTaskDeck(story,number,images,groupsWithCovers[selected].map { it.id }.toSet())
-            }
-            return
-        }
-        val tasks=if(queueIds==null) allTasks else allTasks.filter { it.id in queueIds }
-        if(tasks.isEmpty()) { if(images) prefs.edit().remove("last_image_group_${project.name}_$number").apply(); notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏†‡∏≤‡∏û ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ä‡∏∏‡∏î‡πÉ‡∏´‡∏°‡πà"); return }
-        if(images) prefs.edit().putInt("last_image_deck_${project.name}",number).putStringSet("last_image_group_${project.name}_$number",tasks.map { it.id }.toSet()).apply()
-        val legacyPreference="production_cursor_${project.name}_${number}_$images"
-        val groupDigest=java.security.MessageDigest.getInstance("SHA-256").digest(tasks.map { it.id }.sorted().joinToString("|").toByteArray(Charsets.UTF_8)).take(8).joinToString("") { "%02x".format(it) }
-        val preference="${legacyPreference}_$groupDigest"
-        val previous=prefs.getString(preference,null) ?: prefs.getString(legacyPreference,"")
-        val start=tasks.indexOfFirst { it.id==previous }.coerceAtLeast(0)
-        val options=listOf("‡∏ó‡∏≥‡∏ï‡πà‡∏≠‡∏à‡∏≤‡∏Å‡∏•‡πà‡∏≤‡∏™‡∏∏‡∏î‡∏ó‡∏µ‡πà‡πÄ‡∏õ‡∏¥‡∏î ‚Ä¢ ${tasks[start].id}")+tasks.map { task ->
-            val scene=rows(story).firstOrNull { key(it)==task.id }
-            val status=if(scene==null || !images) "" else when {
-                sceneFrameApproved(scene) -> " ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏ú‡πà‡∏≤‡∏ô"
-                !image(scene).isFile -> " ‚Ä¢ ‡∏£‡∏≠‡∏†‡∏≤‡∏û"
-                scene.optString("user_review")=="needs_revision" -> " ‚Ä¢ ‡∏ï‡πâ‡∏≠‡∏á‡πÅ‡∏Å‡πâ"
-                else -> " ‚Ä¢ ‡∏£‡∏≠‡∏ï‡∏£‡∏ß‡∏à"
-            }
-            "${task.id} ‚Ä¢ ${task.title}$status"+(scene?.let { "\n"+SceneOverview.short(it) } ?: "")
-        }
-        choiceMenu("EP.$number ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å${if(images) "‡∏£‡∏π‡∏õ" else "‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow"} ‡πÉ‡∏ô‡∏ä‡∏∏‡∏î",options) { selected ->
-            val index=if(selected==0) start else selected-1; val task=tasks[index]
-            prefs.edit().putString(preference,task.id).putString(legacyPreference,task.id).apply()
-            val next=tasks.getOrNull(index+1)?.id ?: "‡∏à‡∏ö‡∏ä‡∏∏‡∏î‡∏ô‡∏µ‡πâ ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ä‡∏∏‡∏î‡∏ñ‡∏±‡∏î‡πÑ‡∏õ"
-            val sceneSummary=rows(story).firstOrNull { key(it)==task.id }?.let { SceneOverview.detail(it,task.id) }
-            val sceneForFlow=if(images) null else rows(story).firstOrNull { key(it)==task.id }
-            val flowSpec=sceneForFlow?.let { scene ->
-                val original=ProductionCommandCheck.spec(scene)
-                val prefKey="prop_master_${project.name}_${task.id}"
-                val assigned=ScenePropBinding.valid(scene,runCatching { JSONObject(File(project,"prop_assignments.json").readText()).optJSONArray(task.id) }.getOrNull())
-                val manual=if(prefs.contains(prefKey)) prefs.getStringSet(prefKey,emptySet()).orEmpty() else null
-                val notes=(0 until (assigned?.length() ?: 0)).mapNotNull { assigned?.optJSONObject(it) }.filter { manual==null || it.optString("prop_id") in manual }.map { row ->
-                    "${row.optString("prop_id")} with ${row.optString("holder").ifBlank { "holder unspecified" }}; initial state ${row.optString("start_prop_state").ifBlank { "unspecified; follow first frame" }}"
-                }
-                if(notes.isEmpty()) original else original.copy(action=original.action+". Prop continuity: "+notes.joinToString("; ")+". Preserve the actual first frame; do not create missing objects.")
-            }
-            val flowCamera=when(sceneForFlow?.optString("camera_movement")) { "track" -> "Gentle tracking movement."; "locked" -> "Locked camera."; "push_in" -> "Slow push-in."; else -> "Slow gentle pan." }
-            val preview=if(!images && flowSpec!=null && FlowScenePrompt.issues(flowSpec).isEmpty()) task.copy(command=runCatching { ShortFlowPrompt.build(flowSpec,flowCamera) }.getOrElse { "Flow prompt needs review: non-English scene direction." }) else task
-            val wardrobeNotice=if(images) task.references.mapNotNull { person ->
-                val outfit=person.optString("outfit")
-                val pieces=runCatching { AutoDirectorWardrobe.parts(outfit) }.getOrNull() ?: return@mapNotNull null
-                val name=person.optString("name").ifBlank { "‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£" }
-                val checks=mutableListOf<String>()
-                if(pieces["Shoes"].orEmpty().trim().equals("none",true)) checks.add("Shoes: none = ‡πÄ‡∏ó‡πâ‡∏≤‡πÄ‡∏õ‡∏•‡πà‡∏≤ ‡πÇ‡∏õ‡∏£‡∏î‡∏ï‡∏£‡∏ß‡∏à‡∏ß‡πà‡∏≤‡∏ï‡∏±‡πâ‡∏á‡πÉ‡∏à‡∏´‡∏£‡∏∑‡∏≠‡πÑ‡∏°‡πà")
-                val top=pieces["Top"].orEmpty()
-                if(top.length<35 && !top.equals("none",true)) checks.add("‡∏£‡∏≤‡∏¢‡∏•‡∏∞‡πÄ‡∏≠‡∏µ‡∏¢‡∏î‡∏ä‡∏∏‡∏î‡∏≠‡∏≤‡∏à‡πÑ‡∏°‡πà‡∏û‡∏≠ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡∏ó‡∏£‡∏á ‡πÅ‡∏Ç‡∏ô ‡∏Ñ‡∏≠ ‡∏™‡∏µ ‡πÅ‡∏•‡∏∞‡πÄ‡∏ô‡∏∑‡πâ‡∏≠‡∏ú‡πâ‡∏≤")
-                if(checks.isEmpty()) null else "$name: ${checks.joinToString(" ‚Ä¢ ")}"
-            } else emptyList()
-            val warning=if(wardrobeNotice.isEmpty()) "" else "‡∏ï‡∏£‡∏ß‡∏à‡∏ä‡∏∏‡∏î‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û (‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏ö‡∏ó):\n"+wardrobeNotice.joinToString("\n")+"\n\n"
-            val code=warning+(sceneSummary?.plus("\n\n") ?: "")+SimpleProductionCommands.block(preview,index,images)+"\n\n‡∏•‡πà‡∏≤‡∏™‡∏∏‡∏î‡∏ó‡∏µ‡πà‡πÄ‡∏õ‡∏¥‡∏î: ${task.id} | ‡∏ñ‡∏±‡∏î‡πÑ‡∏õ: $next\n‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞‡∏ô‡∏µ‡πâ‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏Å‡∏≤‡∏£‡πÄ‡∏õ‡∏¥‡∏î‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ß‡πà‡∏≤‡∏†‡∏≤‡∏û‡∏´‡∏£‡∏∑‡∏≠‡∏Ñ‡∏•‡∏¥‡∏õ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à‡πÅ‡∏•‡πâ‡∏ß"
-            val problems=ProductionCommandCheck.issues(story)
-            val dialog=showFlowCode("${task.id} ‚Ä¢ ‡∏ñ‡∏±‡∏î‡πÑ‡∏õ $next",code,"${task.id}_${if(images) "IMAGE" else "FLOW"}.txt")
-            if(images) activeProductionDialog=dialog
-            dialog.getButton(-2).text=if(images) "‡∏Å‡∏•‡∏±‡∏ö‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏£‡∏π‡∏õ/‡∏ã‡∏µ‡∏ô" else "‡∏Å‡∏•‡∏±‡∏ö‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏ã‡∏µ‡∏ô"
-            dialog.getButton(-2).setOnClickListener {
-                dialog.dismiss()
-                if(images) activeProductionDialog=null
-                productionTaskDeck(story,number,images,queueIds)
-            }
-            if(problems.isNotEmpty()) dialog.getButton(-1).setOnClickListener { notice("‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏¢‡∏±‡∏á‡∏°‡∏µ‡∏à‡∏∏‡∏î‡∏ï‡πâ‡∏≠‡∏á‡πÅ‡∏Å‡πâ ‚Ä¢ ‡πÄ‡∏õ‡∏¥‡∏î ‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á / ‡πÅ‡∏Å‡πâ‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏à‡∏∏‡∏î ‡∏Å‡πà‡∏≠‡∏ô‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å") }
-            dialog.getButton(-1).text=if(images) "‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÅ‡∏≠‡∏õ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û + MASTER" else "‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow"
-            dialog.getButton(-1).setOnClickListener {
-                if(!images) {
-                    if(problems.isNotEmpty() || flowSpec==null) { productionCheckMenu(story); return@setOnClickListener }
-                    choiceMenu("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow ‚Ä¢ ${task.id}",listOf("‚ë† XML ‚Ä¢ ‡∏Å‡∏£‡∏∞‡∏ä‡∏±‡∏ö", "‚ë° ‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏õ‡∏Å‡∏ï‡∏¥")) { mode ->
-                        val value=runCatching { if(mode==0) ShortFlowPrompt.build(flowSpec,flowCamera) else ShortFlowPrompt.plain(flowSpec,flowCamera) }.getOrElse { error ->
-                            if(error.message?.contains("‡∏Ñ‡∏≥‡∏ö‡∏£‡∏£‡∏¢‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏Å‡∏£‡∏∞‡∏ó‡∏≥ ‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á ‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏™‡∏µ‡∏¢‡∏á‡∏¢‡∏±‡∏á‡∏°‡∏µ‡∏†‡∏≤‡∏©‡∏≤‡πÑ‡∏ó‡∏¢")==true && sceneForFlow!=null) offerFlowTranslation(story,sceneForFlow,flowSpec,flowCamera,false)
-                            else notice(error.message ?: "‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow ‡∏Å‡πà‡∏≠‡∏ô‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å")
-                            return@choiceMenu
-                        }
-                        copyCommand(value)
-                    }
-                    return@setOnClickListener
-                }
-                if(problems.isNotEmpty()) { productionCheckMenu(story); return@setOnClickListener }
-                val refs=task.references.map { person -> referenceId(person.getString("master")) to masterFor(person) }
-                if(refs.isEmpty()) { notice("‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏´‡∏£‡∏∑‡∏≠ MASTER ‡∏ó‡∏µ‡πà‡∏£‡∏∞‡∏ö‡∏∏‡πÉ‡∏ô‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏ô‡∏µ‡πâ"); return@setOnClickListener }
-                val missing=task.references.zip(refs).filter { !it.second.second.isFile }.map { (person,ref) -> "${person.optString("name")} ‚Ä¢ ${ref.first}" }
-                if(missing.isNotEmpty()) { notice("‡πÑ‡∏°‡πà‡∏û‡∏ö MASTER ‡∏Ç‡∏≠‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ï‡πà‡∏≠‡πÑ‡∏õ‡∏ô‡∏µ‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏†‡∏≤‡∏û‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á:\n"+missing.joinToString("\n")); return@setOnClickListener }
-                if(refs.map { it.first.lowercase() }.distinct().size != refs.size) { notice("‡∏£‡∏´‡∏±‡∏™ MASTER ‡∏ã‡πâ‡∏≥‡∏Å‡∏±‡∏ô ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û"); return@setOnClickListener }
-                val hashes=runCatching { refs.map { MasterLibrary.digest(it.second.readBytes()) } }.getOrElse { notice("‡∏≠‡πà‡∏≤‡∏ô MASTER ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡πÑ‡∏ü‡∏•‡πå‡∏†‡∏≤‡∏û"); return@setOnClickListener }
-                if(hashes.distinct().size != hashes.size) { notice("MASTER ‡∏Ç‡∏≠‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ï‡πà‡∏≤‡∏á‡∏Ñ‡∏ô‡πÄ‡∏õ‡πá‡∏ô‡πÑ‡∏ü‡∏•‡πå‡∏†‡∏≤‡∏û‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡∏Å‡∏±‡∏ô ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡∏∞‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏†‡∏≤‡∏û‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á"); return@setOnClickListener }
-                val labels=task.references.associate { referenceId(it.getString("master")) to it.getString("name") }.toMutableMap()
-                val scene=rows(story).firstOrNull { key(it)==task.id }
-                val all=rows(story); val sceneIndex=if(scene==null) -1 else all.indexOfFirst { key(it)==task.id }
-                val previous=if(scene==null || sceneIndex<0 || scene.optString("location").isBlank()) null else all.take(sceneIndex).firstOrNull {
-                    it.optString("location").trim().equals(scene.optString("location").trim(),true) && sceneFrameApproved(it)
-                }
-                val context=previous?.let { prior ->
-                    val id=key(prior); labels[id]="‡∏†‡∏≤‡∏û‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡∏ó‡∏µ‡πà‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡πÉ‡∏ä‡πâ‡∏î‡∏π‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡πÅ‡∏•‡∏∞‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á‡πÄ‡∏ó‡πà‡∏≤‡∏ô‡∏±‡πâ‡∏ô"; listOf(id to image(prior))
-                }.orEmpty()
-                // A reviewed single-character frame may serve as a clothing reference only.
-                // Never infer that an arbitrary group frame or unreviewed output matches an outfit.
-                val candidates=all.take(sceneIndex.coerceAtLeast(0)).mapNotNull { prior ->
-                    val people=FlowReferencePrompt.people(prior)
-                    val person=people.singleOrNull() ?: return@mapNotNull null
-                    OutfitReferencePolicy.Candidate(key(prior),referenceId(person.optString("master")),prior.optString("story_day"),person.optString("outfit"),sceneFrameApproved(prior),people.size)
-                }
-                val outfitRefs=if(scene==null) emptyList() else task.references.mapNotNull { person ->
-                    val candidate=OutfitReferencePolicy.choose(candidates,task.id,referenceId(person.optString("master")),scene.optString("story_day"),person.optString("outfit")) ?: return@mapNotNull null
-                    val prior=all.first { key(it)==candidate.sceneId }
-                    val id="OUTFIT_${candidate.sceneId}_${referenceId(person.optString("master"))}"
-                    labels[id]="‡∏†‡∏≤‡∏û‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ${person.optString("name")} ‚Ä¢ ${candidate.sceneId} ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏ß‡πà‡∏≤‡∏°‡∏≠‡∏á‡πÄ‡∏´‡πá‡∏ô‡∏ä‡∏∏‡∏î‡∏Ñ‡∏£‡∏ö"
-                    Triple(id,image(prior),person.optString("name"))
-                }
-                val selectedPiaOutfit=File(project,"presenter_outfit_reference.image")
-                val piaPerson=task.references.firstOrNull { FlowCast.id(it)?.equals("support_%08x".format(1999999999),true)==true }
-                val piaRef=if(piaPerson!=null && selectedPiaOutfit.isFile && plan?.optString("channel")=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") {
-                    val id="OUTFIT_PIA_SELECTED_${referenceId(piaPerson.getString("master"))}"
-                    labels[id]="‡∏ä‡∏∏‡∏î‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏ï‡πâ‡∏ô‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ‚Ä¢ ${piaPerson.optString("name")} ‚Ä¢ ‡∏ï‡∏¥‡πä‡∏Å‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡πÄ‡∏°‡∏∑‡πà‡∏≠‡∏ä‡∏∏‡∏î‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡∏â‡∏≤‡∏Å‡∏ô‡∏µ‡πâ"
-                    listOf(id to selectedPiaOutfit)
-                } else emptyList()
-                previewImageReferences(task,refs+context+outfitRefs.map { it.first to it.second }+piaRef,labels)
-            }
-            dialog.getButton(-3).text="‡πÅ‡∏Å‡πâ‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏ô‡∏µ‡πâ"
-            dialog.getButton(-3).setOnClickListener {
-                dialog.dismiss()
-                val scene=rows(story).firstOrNull { key(it)==task.id }
-                choiceMenu("‡πÅ‡∏Å‡πâ ${task.id}",if(scene==null) listOf("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ö‡∏ô‡∏õ‡∏Å","‡πÅ‡∏Å‡πâ‡∏Å‡∏≤‡∏£‡∏à‡∏±‡∏î‡∏†‡∏≤‡∏û‡∏õ‡∏Å","‡πÅ‡∏Å‡πâ‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ö‡∏ô‡∏õ‡∏Å") else if(images) listOf("‡πÅ‡∏Å‡πâ‡∏ó‡∏¥‡∏®‡∏ó‡∏≤‡∏á‡∏†‡∏≤‡∏û‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏à‡∏∏‡∏î","‡πÅ‡∏Å‡πâ‡∏ö‡∏ó / ‡∏Å‡∏≤‡∏£‡∏Å‡∏£‡∏∞‡∏ó‡∏≥ / ‡∏ä‡∏∏‡∏î / ‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á / ‡πÄ‡∏™‡∏µ‡∏¢‡∏á","‡πÄ‡∏™‡∏ô‡∏≠‡∏Ç‡∏¢‡∏≤‡∏¢‡∏ö‡∏ó‡∏™‡∏±‡πâ‡∏ô") else listOf("‡πÅ‡∏Å‡πâ‡∏ó‡∏¥‡∏®‡∏ó‡∏≤‡∏á‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏à‡∏∏‡∏î","‡πÅ‡∏Å‡πâ‡∏ö‡∏ó / ‡∏Å‡∏≤‡∏£‡∏Å‡∏£‡∏∞‡∏ó‡∏≥ / ‡∏ä‡∏∏‡∏î / ‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á / ‡πÄ‡∏™‡∏µ‡∏¢‡∏á","‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏Å‡∏≤‡∏£‡πÄ‡∏Ñ‡∏•‡∏∑‡πà‡∏≠‡∏ô‡∏Å‡∏•‡πâ‡∏≠‡∏á","‡πÄ‡∏™‡∏ô‡∏≠‡∏Ç‡∏¢‡∏≤‡∏¢‡∏ö‡∏ó‡∏™‡∏±‡πâ‡∏ô")) { action ->
-                    if(scene==null && action==0) {
-                        val overall=task.id.startsWith("STORY_"); val scope=if(overall) "STORY" else "EP%02d".format(number)
-                        val candidates=SimpleProductionCommands.coverCandidates(story,number,overall)
-                        val chosen=task.references.map { referenceId(it.getString("master")) }.toMutableSet()
-                        val list=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-                        list.addView(TextView(this).apply { text="‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏™‡∏≥‡∏Ñ‡∏±‡∏ç‡∏à‡∏≤‡∏Å${if(overall) "‡∏ó‡∏±‡πâ‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á" else "‡∏ó‡∏∏‡∏Å‡∏â‡∏≤‡∏Å‡πÉ‡∏ô‡∏ï‡∏≠‡∏ô"} ‚Ä¢ ‡∏™‡∏π‡∏á‡∏™‡∏∏‡∏î 9 ‡∏†‡∏≤‡∏û MASTER ‚Ä¢ ‡πÅ‡∏ï‡∏∞‡∏†‡∏≤‡∏û‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏Ç‡∏¢‡∏≤‡∏¢" })
-                        var coverRow: LinearLayout?=null
-                        candidates.forEachIndexed { index, person ->
-                            if(index%2==0) { coverRow=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; list.addView(coverRow) }
-                            val id=referenceId(person.getString("master")); val file=masterFor(person)
-                            val card=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(4),dp(6),dp(4),dp(6)); layoutParams=LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f) }
-                            coverRow?.addView(card)
-                            val box=android.widget.CheckBox(this).apply { text="${person.optString("name")}\n$id"+(if(file.isFile) "" else "\n‡πÑ‡∏°‡πà‡∏û‡∏ö MASTER"); isChecked=id in chosen; isEnabled=file.isFile }
-                            if(file.isFile) card.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(file)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(140)); contentDescription=box.text; setOnClickListener { fullImage(file,box.text.toString()) } })
-                            card.addView(box)
-                            box.setOnCheckedChangeListener { _,checked -> if(checked) chosen.add(id) else chosen.remove(id) }
-                        }
-                        val picker=AlertDialog.Builder(this).setTitle("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ö‡∏ô‡∏õ‡∏Å").setView(ScrollView(this).apply { addView(list) }).setPositiveButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å",null).setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-                        picker.getButton(-1).setOnClickListener {
-                            if(chosen.isEmpty() || chosen.size>9) notice("‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏†‡∏≤‡∏û MASTER 1‚Äì9 ‡∏ï‡∏±‡∏ß")
-                            else if(candidates.filter { referenceId(it.getString("master")) in chosen }.any { !masterFor(it).isFile }) notice("‡∏†‡∏≤‡∏û MASTER ‡∏ö‡∏≤‡∏á‡∏ï‡∏±‡∏ß‡∏´‡∏≤‡∏¢ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÉ‡∏´‡∏°‡πà")
-                            else { prefs.edit().putStringSet("cover_cast_${project.name}_$scope",chosen.toSet()).apply(); picker.dismiss(); notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏õ‡∏Å‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡πÄ‡∏õ‡∏¥‡∏î‡∏õ‡∏Å‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡∏∞‡∏™‡πà‡∏á") }
-                        }
-                    }
-                    else if(scene==null && action==2) editProductionCover(story)
-                    else if(scene!=null && (images && action==2 || !images && action==3)) suggestLongerSpeech(scene)
-                    else if(action==2 && scene!=null && !images) {
-                        val modes=listOf("‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥‡∏ï‡∏≤‡∏°‡∏ã‡∏µ‡∏ô","‡∏ã‡∏π‡∏°‡πÄ‡∏Ç‡πâ‡∏≤‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏ä‡πâ‡∏≤ ‡πÜ","‡πÅ‡∏û‡∏ô‡∏Å‡∏•‡πâ‡∏≠‡∏á","‡πÄ‡∏Ñ‡∏•‡∏∑‡πà‡∏≠‡∏ô‡∏ï‡∏≤‡∏°‡∏Å‡∏≤‡∏£‡∏Å‡∏£‡∏∞‡∏ó‡∏≥","‡∏Å‡∏•‡πâ‡∏≠‡∏á‡∏ô‡∏¥‡πà‡∏á")
-                        val keys=listOf("","push_in","pan","track","locked")
-                        choiceMenu("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏Å‡∏•‡πâ‡∏≠‡∏á ‚Ä¢ ${task.id}",modes) { selected ->
-                            scene.put("camera_movement",keys[selected]); saveStory(); render()
-                            notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏Å‡∏≤‡∏£‡πÄ‡∏Ñ‡∏•‡∏∑‡πà‡∏≠‡∏ô‡∏Å‡∏•‡πâ‡∏≠‡∏á‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡πÄ‡∏õ‡∏¥‡∏î‡∏ã‡∏µ‡∏ô‡πÄ‡∏î‡∏¥‡∏°‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÉ‡∏´‡∏°‡πà")
-                        }
-                    } else if(action==1 && scene!=null) { editScene(scene) }
-                    else {
-                        val target=scene ?: if(task.id.startsWith("STORY_")) story else story.getJSONArray("episodes").let { eps -> (0 until eps.length()).map { eps.getJSONObject(it) }.first { it.getInt("ep")==number } }
-                        val field=if(scene==null) "production_note_${task.id}" else if(images) "production_image_note" else "production_video_note"
-                        val input=EditText(this).apply { hint="‡∏£‡∏∞‡∏ö‡∏∏‡∏™‡πà‡∏ß‡∏ô‡∏ó‡∏µ‡πà‡∏ï‡πâ‡∏≠‡∏á‡πÅ‡∏Å‡πâ ‡πÇ‡∏î‡∏¢‡∏Ñ‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ‡∏ä‡∏∏‡∏î‡πÅ‡∏•‡∏∞‡∏ö‡∏ó‡πÄ‡∏î‡∏¥‡∏°"; setText(target.optString(field)) }
-                        AlertDialog.Builder(this).setTitle("‡πÅ‡∏Å‡πâ‡πÄ‡∏â‡∏û‡∏≤‡∏∞ ${task.id}").setView(input).setPositiveButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å") { _,_ ->
-                            target.put(field,input.text.toString().trim())
-                            if(scene!=null) { scene.put("user_review","needs_revision"); scene.remove("flow_image_revision") }
-                            saveStory(); render(); notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏≠‡∏∑‡πà‡∏ô‡πÅ‡∏•‡∏∞‡∏ä‡∏∏‡∏î‡∏õ‡∏£‡∏∞‡∏à‡∏≥‡∏ß‡∏±‡∏ô‡∏Ñ‡∏á‡πÄ‡∏î‡∏¥‡∏° ‚Ä¢ ‡πÄ‡∏õ‡∏¥‡∏î‡∏£‡∏´‡∏±‡∏™‡πÄ‡∏î‡∏¥‡∏°‡∏´‡∏£‡∏∑‡∏≠‡∏™‡πà‡∏á‡∏≠‡∏≠‡∏Å‡πÉ‡∏´‡∏°‡πà‡πÑ‡∏î‡πâ")
-                        }.setNegativeButton("‡∏õ‡∏¥‡∏î",null).showDirector()
-                    }
-                }
-            }
-        }
-    }
-    private fun showCommandCards(cards: List<SceneCommandCards.Card>, number: Int, kind: Int) {
-        require(cards.isNotEmpty())
-        var index=0
-        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-        val picker=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,cards.map { it.title }); panel.addView(this) }
-        panel.addView(TextView(this).apply { text=if(kind==0) "‡πÅ‡∏ô‡∏ö MASTER ‡∏ï‡∏≤‡∏°‡∏£‡∏≤‡∏¢‡∏ä‡∏∑‡πà‡∏≠ ‚Ä¢ ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ó‡∏µ‡∏•‡∏∞‡∏†‡∏≤‡∏û‡πÉ‡∏ô Gemini" else "‡πÅ‡∏°‡πà‡πÅ‡∏ö‡∏ö Flow ‚Ä¢ ‡πÅ‡∏ô‡∏ö‡∏†‡∏≤‡∏û‡∏ã‡∏µ‡∏ô‡∏ó‡∏µ‡πà‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡πâ‡∏ß ‡∏ï‡∏£‡∏ß‡∏à‡∏ú‡∏π‡πâ‡∏û‡∏π‡∏î‡πÅ‡∏•‡∏∞‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á‡∏Å‡πà‡∏≠‡∏ô‡πÉ‡∏ä‡πâ ‚Ä¢ ‡πÄ‡∏™‡∏µ‡∏¢‡∏á‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏à‡∏≤‡∏Å‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÉ‡∏ô Flow"; textSize=12f })
-        val code=TextView(this).apply { textSize=13f; setTextIsSelectable(true); setPadding(dp(8),dp(8),dp(8),dp(8)) }
-        panel.addView(ScrollView(this).apply { addView(code) },LinearLayout.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.38).toInt()))
-        val nav=LinearLayout(this).apply { orientation=0; panel.addView(this) }
-        fun show(n: Int) { index=n.coerceIn(cards.indices); code.text=cards[index].command; if(picker.selectedItemPosition!=index) picker.setSelection(index) }
-        listOf("‡∏Å‡πà‡∏≠‡∏ô‡∏´‡∏ô‡πâ‡∏≤" to -1,"‡∏ñ‡∏±‡∏î‡πÑ‡∏õ" to 1).forEach { (label,step) -> nav.addView(android.widget.Button(this).apply { text=label; setOnClickListener { show(index+step) } },LinearLayout.LayoutParams(0,-2,1f)) }
-        picker.onItemSelectedListener=object: android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: android.widget.AdapterView<*>?,view: android.view.View?,position: Int,id: Long) { show(position) }
-            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
-        }
-        val dialog=AlertDialog.Builder(this).setTitle("EP.$number ‚Ä¢ ${if(kind==0) "‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏†‡∏≤‡∏û" else "‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠"}").setView(panel)
-            .setPositiveButton("‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡∏ä‡∏∏‡∏î‡∏ô‡∏µ‡πâ",null).setNeutralButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏ó‡∏±‡πâ‡∏á EP") { _,_ -> prefs.edit().putString("pending_flow_code",SceneCommandCards.join(cards)).apply(); flowCodePicker.launch("EP%02d_%s.txt".format(number,if(kind==0) "IMAGES" else "VIDEOS")) }
-            .setNegativeButton("‡∏õ‡∏¥‡∏î",null).showDirector()
-        dialog.getButton(-1).setOnClickListener { copyCommand(cards[index].command) }
-        show(0)
-    }
-    private fun showFlowCode(title: String, code: String, filename: String): AlertDialog {
-        val text=TextView(this).apply {
-            this.text=code; textSize=13f; typeface=Typeface.MONOSPACE; setTextIsSelectable(true)
-            setPadding(dp(16),dp(12),dp(16),dp(12)); setTextColor(ice); setBackgroundColor(navy)
-        }
-        // Bound only the scroll area, leaving dialog title and action buttons visible.
-        val scroll=ScrollView(this).apply { addView(text) }
-        val frame=FrameLayout(this).apply {
-            addView(scroll,FrameLayout.LayoutParams(-1,-1))
-            layoutParams=android.view.ViewGroup.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.48f).toInt())
-        }
-        val builder=AlertDialog.Builder(this).setTitle(title)
-            .setMessage(if(filename.endsWith("_IMAGE.txt")) "‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏†‡∏≤‡∏û‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö Gemini ‚Ä¢ ‡πÅ‡∏ô‡∏ö MASTER ‡∏ó‡∏µ‡πà‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ‚Ä¢ ‡∏´‡∏±‡∏ß‡∏Ç‡πâ‡∏≠‡πÅ‡∏•‡∏∞‡∏ä‡∏∑‡πà‡∏≠‡πÑ‡∏ü‡∏•‡πå‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πà‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡πÉ‡∏´‡πâ‡∏ß‡∏≤‡∏î‡∏•‡∏á‡∏ã‡∏µ‡∏ô" else if(filename.matches(Regex("EP[0-9]+_IMAGES[.]txt"))) "‡πÅ‡∏ô‡∏ö‡πÑ‡∏ü‡∏•‡πå‡∏ô‡∏µ‡πâ‡∏û‡∏£‡πâ‡∏≠‡∏° MASTER ‡πÉ‡∏ô Gemini ‚Ä¢ ‡∏°‡∏µ‡∏™‡∏≤‡∏£‡∏ö‡∏±‡∏ç‡πÅ‡∏•‡∏∞‡∏£‡∏´‡∏±‡∏™‡∏†‡∏≤‡∏û ‚Ä¢ next = ‡∏ñ‡∏±‡∏î‡πÑ‡∏õ / ‡πÅ‡∏Å‡πâ‡∏†‡∏≤‡∏û <‡∏£‡∏´‡∏±‡∏™> = ‡πÅ‡∏Å‡πâ‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏à‡∏∏‡∏î ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏õ‡∏Å‡πÉ‡∏ô‡∏†‡∏≤‡∏û‡∏à‡∏£‡∏¥‡∏á" else if(filename.matches(Regex("EP[0-9]+_FLOW[.]txt"))) "‡∏£‡∏ß‡∏°‡∏ó‡∏∏‡∏Å‡∏ã‡∏µ‡∏ô‡∏Ç‡∏≠‡∏á EP ‡∏ô‡∏µ‡πâ ‚Ä¢ ‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡∏ó‡∏µ‡∏•‡∏∞‡∏ö‡∏•‡πá‡∏≠‡∏Å‡πÑ‡∏õ Flow ‡∏û‡∏£‡πâ‡∏≠‡∏°‡∏†‡∏≤‡∏û PNG ‡∏£‡∏´‡∏±‡∏™‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡∏Å‡∏±‡∏ô ‚Ä¢ ‡∏ö‡∏ó‡∏û‡∏π‡∏î‡πÅ‡∏•‡∏∞‡πÄ‡∏™‡∏µ‡∏¢‡∏á‡∏≠‡∏¢‡∏π‡πà‡πÉ‡∏ô‡∏ö‡∏•‡πá‡∏≠‡∏Å‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡πÅ‡∏•‡πâ‡∏ß" else if(filename.contains("GEMINI_NEXT")) "‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡∏ó‡∏±‡πâ‡∏á‡∏´‡∏°‡∏î‡∏Ñ‡∏£‡∏±‡πâ‡∏á‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡πÑ‡∏õ Gemini ‡∏û‡∏£‡πâ‡∏≠‡∏° MASTER ‡∏ó‡∏µ‡πà‡∏£‡∏∞‡∏ö‡∏∏ ‚Ä¢ ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ó‡∏µ‡∏•‡∏∞‡∏†‡∏≤‡∏û‡πÅ‡∏•‡πâ‡∏ß‡∏û‡∏¥‡∏°‡∏û‡πå next ‚Ä¢ ‡∏ñ‡πâ‡∏≤‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏¢‡∏≤‡∏ß‡πÄ‡∏Å‡∏¥‡∏ô‡∏ä‡πà‡∏≠‡∏á‡πÅ‡∏ä‡∏ï ‡πÉ‡∏´‡πâ‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏ü‡∏•‡πå‡πÅ‡∏ô‡∏ö‡∏û‡∏£‡πâ‡∏≠‡∏° MASTER ‡πÅ‡∏•‡πâ‡∏ß‡∏™‡∏±‡πà‡∏á‡πÉ‡∏´‡πâ‡∏≠‡πà‡∏≤‡∏ô‡πÑ‡∏ü‡∏•‡πå‡πÅ‡∏•‡∏∞‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏Ñ‡∏¥‡∏ß ‚Ä¢ ‡∏ï‡πâ‡∏≠‡∏á‡∏ï‡∏£‡∏ß‡∏à‡∏ú‡∏•‡∏à‡∏£‡∏¥‡∏á ‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÉ‡∏ô‡πÅ‡∏≠‡∏õ" else if(filename.startsWith("AD_")) "‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏õ‡∏Å: ‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡πÑ‡∏õ Gemini ‡∏û‡∏£‡πâ‡∏≠‡∏°‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á ‚Ä¢ XML: ‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏ó‡∏µ‡∏•‡∏∞‡∏â‡∏≤‡∏Å‡πÑ‡∏õ Flow ‡∏´‡∏•‡∏±‡∏á‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û ‚Ä¢ ‡πÅ‡∏≠‡∏õ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏™‡∏∑‡πà‡∏≠‡πÉ‡∏ô‡∏Ç‡∏±‡πâ‡∏ô‡∏ï‡∏≠‡∏ô‡∏ô‡∏µ‡πâ" else if(filename=="FLOW_STORY_COMMAND.txt") "‡∏™‡πà‡∏á‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á + MASTER 3 ‡∏†‡∏≤‡∏û‡πÉ‡∏´‡πâ AI ‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó ‚Üí ‡∏£‡∏±‡∏ö story.json ‚Üí ‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏Ç‡∏±‡πâ‡∏ô‡∏ï‡∏≠‡∏ô 2 ‚Ä¢ ‡πÅ‡∏≠‡∏õ‡∏õ‡∏•‡∏≤‡∏¢‡∏ó‡∏≤‡∏á‡∏≠‡∏≤‡∏à‡πÉ‡∏´‡πâ‡∏Å‡∏î‡∏™‡πà‡∏á‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á" else "‡πÑ‡∏ü‡∏•‡πå‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡πÉ‡∏ä‡πâ‡∏á‡∏≤‡∏ô‡πÉ‡∏ô Flow ‚Ä¢ ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡∏´‡∏£‡∏∑‡∏≠‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠")
-            .setView(frame)
-            .setPositiveButton(if(filename=="FLOW_STORY_COMMAND.txt") "‡∏™‡πà‡∏á‡πÉ‡∏´‡πâ AI" else if(filename.contains("GEMINI_NEXT")) "‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡∏ó‡∏±‡πâ‡∏á‡∏´‡∏°‡∏î" else "‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å") { _,_ ->
-                if(filename=="FLOW_STORY_COMMAND.txt") sendStoryPackage(code) else copyCommand(code)
-            }
-            .setNeutralButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏ü‡∏•‡πå") { _,_ -> prefs.edit().putString("pending_flow_code",code).apply(); flowCodePicker.launch(filename) }
-            .setNegativeButton("‡∏õ‡∏¥‡∏î",null)
-        val dialog=builder.showDirector()
-        frame.layoutParams=frame.layoutParams.apply { height=(resources.displayMetrics.heightPixels*0.48f).toInt() }
-        frame.requestLayout()
-        return dialog
-    }
-    private fun wardrobeReviewStamp(story: JSONObject): String = ReviewFingerprints.wardrobe(rows(story))
-    private fun wardrobeReviewStatus(story: JSONObject): String {
-        val all=rows(story)
-        val current=ReviewFingerprints.wardrobe(all)
-        var saved=prefs.getString("wardrobe_review_${project.name}","").orEmpty()
-        if(saved.isNotBlank() && saved==ReviewFingerprints.legacyWardrobe(all)) {
-            prefs.edit().putString("wardrobe_review_${project.name}",current).apply()
-            saved=current
-        }
-        val partial=prefs.getString("wardrobe_selected_stamp_${project.name}","").orEmpty()
-        return HomeReviewState.wardrobeProgress(saved,partial,current,prefs.getBoolean("wardrobe_changed_${project.name}",false))
-    }
-    private fun confirmAllWardrobe(story: JSONObject) {
-        val groups=rows(story).flatMap { scene -> FlowReferencePrompt.people(scene).map { p -> Triple(p.optString("name"),scene.optString("story_day"),p.optString("outfit")) } }.distinct()
-        if(groups.isEmpty()) return notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÉ‡∏ô‡∏ö‡∏ó‡πÉ‡∏´‡πâ‡∏ï‡∏£‡∏ß‡∏à‡∏ä‡∏∏‡∏î")
-        val summary=groups.joinToString("\n\n") { "${it.first} ‚Ä¢ ${it.second.ifBlank { "‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏ß‡∏±‡∏ô" }}\n‡∏ä‡∏∏‡∏î: ${it.third.ifBlank { "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏" }}" }
-        val before=wardrobeReviewStamp(story)
-        val warnings=WardrobeReviewAudit.warnings(rows(story))
-        val review=if(warnings.isEmpty()) "" else "\n\n‡∏à‡∏∏‡∏î‡∏ó‡∏µ‡πà‡∏Ñ‡∏ß‡∏£‡∏ï‡∏£‡∏ß‡∏à:\n"+warnings.take(20).joinToString("\n")
-        AlertDialog.Builder(this).setTitle("‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡∏∞‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ä‡∏∏‡∏î‡∏ó‡∏±‡πâ‡∏á‡∏´‡∏°‡∏î‡πÉ‡∏ô‡∏ö‡∏ó")
-            .setMessage(summary+review+"\n\n‡∏Å‡∏≤‡∏£‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏´‡∏°‡∏≤‡∏¢‡∏ñ‡∏∂‡∏á‡∏Ñ‡∏∏‡∏ì‡∏ï‡∏£‡∏ß‡∏à‡∏ä‡∏∏‡∏î‡πÉ‡∏ô‡∏ö‡∏ó ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡∏à‡∏£‡∏¥‡∏á")
-            .setPositiveButton("‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ä‡∏∏‡∏î‡∏ó‡∏±‡πâ‡∏á‡∏´‡∏°‡∏î") { _,_ ->
-                if(plan!==story || wardrobeReviewStamp(story)!=before) notice("‡∏ö‡∏ó‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡πÅ‡∏•‡πâ‡∏ß ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡πÉ‡∏´‡∏°‡πà")
-                else {
-                    val ok=prefs.edit().putString("wardrobe_review_${project.name}",before).putString("wardrobe_selected_stamp_${project.name}",before).putBoolean("wardrobe_changed_${project.name}",false).commit()
-                    render()
-                    if(ok) showWardrobeNext("‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ä‡∏∏‡∏î‡∏ó‡∏±‡πâ‡∏á‡∏´‡∏°‡∏î‡πÉ‡∏ô‡∏ö‡∏ó‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏Å‡∏•‡∏±‡∏ö‡∏°‡∏≤‡πÅ‡∏Å‡πâ‡πÑ‡∏î‡πâ") else notice("‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏•‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà")
-                }
-            }.setNegativeButton("‡∏Å‡∏•‡∏±‡∏ö",null).showDirector()
-    }
-    private fun showWardrobeNext(message: String) {
-        AlertDialog.Builder(this).setTitle("üëï ‡∏Ç‡∏±‡πâ‡∏ô‡∏ï‡∏≠‡∏ô 1 ‚Ä¢ ‡∏ä‡∏∏‡∏î‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£").setMessage(message)
-            .setPositiveButton("‡πÑ‡∏õ‡∏ï‡∏£‡∏ß‡∏à‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á ‚Üí") { _,_ -> plan?.let { reviewSceneProps(it) } ?: notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á") }
-            .setNeutralButton("‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡∏∞‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ä‡∏∏‡∏î‡∏ó‡∏±‡πâ‡∏á‡∏´‡∏°‡∏î") { _,_ -> plan?.let { confirmAllWardrobe(it) } ?: notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á") }
-            .setNegativeButton("‡∏Å‡∏•‡∏±‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡πÅ‡∏£‡∏Å",null).showDirector()
-    }
-    private fun showPropsNext(message: String) {
-        val current=plan ?: return notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á")
-        val scenes=rows(current)
-        val reviewed=scenes.count { propReviewStatus(it)=="‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏ï‡∏£‡∏ß‡∏à‡∏ö‡∏ó‡πÅ‡∏•‡πâ‡∏ß" }
-        AlertDialog.Builder(this).setTitle("üß∞ ‡∏Ç‡∏±‡πâ‡∏ô‡∏ï‡∏≠‡∏ô 2 ‚Ä¢ ‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á‡πÉ‡∏ô‡∏ö‡∏ó")
-            .setMessage(message+"\n\n‡∏ï‡∏£‡∏ß‡∏à‡∏ö‡∏ó‡πÅ‡∏•‡πâ‡∏ß $reviewed/${scenes.size} ‡∏â‡∏≤‡∏Å ‚Ä¢ ‡∏Å‡∏≤‡∏£‡∏ï‡∏£‡∏ß‡∏à‡∏ö‡∏ó‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡∏à‡∏£‡∏¥‡∏á")
-            .setPositiveButton("‡πÑ‡∏õ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û + Flow ‚Üí") { _,_ -> commandCardsMenu() }
-            .setNeutralButton("‡∏ï‡∏£‡∏ß‡∏à‡∏â‡∏≤‡∏Å‡∏≠‡∏∑‡πà‡∏ô") { _,_ -> plan?.let { reviewSceneProps(it) } ?: notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á") }
-            .setNegativeButton("‡∏Å‡∏•‡∏±‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡πÅ‡∏£‡∏Å",null).showDirector()
-    }
-    private fun wardrobeMenu(story: JSONObject) {
-        choiceMenu("‡∏Ç‡∏±‡πâ‡∏ô‡∏ï‡∏≠‡∏ô 1 ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏ä‡∏∏‡∏î‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£\n‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞: ${wardrobeReviewStatus(story)}",listOf("‡∏î‡∏π‡πÅ‡∏•‡∏∞‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ä‡∏∏‡∏î‡πÉ‡∏ô‡∏ö‡∏ó\n‡∏ï‡∏£‡∏ß‡∏à‡∏ä‡∏∏‡∏î‡πÄ‡∏î‡∏¥‡∏°‡πÅ‡∏•‡∏∞‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡πÄ‡∏°‡∏∑‡πà‡∏≠‡∏ñ‡∏π‡∏Å‡∏ï‡πâ‡∏≠‡∏á","‡πÉ‡∏´‡πâ AI ‡πÄ‡∏™‡∏ô‡∏≠‡∏ä‡∏∏‡∏î‡πÉ‡∏´‡∏°‡πà\n‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡∏ï‡πâ‡∏≠‡∏á‡∏Å‡∏≤‡∏£‡∏Å‡πà‡∏≠‡∏ô‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å","‡πÅ‡∏Å‡πâ‡∏ä‡∏∏‡∏î‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏â‡∏≤‡∏Å\n‡∏õ‡∏£‡∏±‡∏ö‡∏£‡∏≤‡∏¢‡∏•‡∏∞‡πÄ‡∏≠‡∏µ‡∏¢‡∏î‡πÉ‡∏ô‡∏â‡∏≤‡∏Å‡∏ó‡∏µ‡πà‡∏ï‡πâ‡∏≠‡∏á‡∏Å‡∏≤‡∏£")) { selected ->
-            when(selected) { 0 -> confirmAllWardrobe(story); 1 -> choiceMenu("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ß‡∏¥‡∏ò‡∏µ‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏ä‡∏∏‡∏î",listOf("‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏†‡∏≤‡∏û MASTER ‡∏î‡πâ‡∏ß‡∏¢ Gemini ‚Ä¢ ‡∏™‡πà‡∏á‡∏†‡∏≤‡∏û‡πÑ‡∏õ Google","‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏†‡∏≤‡∏û MASTER ‡∏î‡πâ‡∏ß‡∏¢ OpenAI API ‚Ä¢ ‡∏≠‡∏≤‡∏à‡∏°‡∏µ‡∏Ñ‡πà‡∏≤‡∏ö‡∏£‡∏¥‡∏Å‡∏≤‡∏£","‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏à‡∏≤‡∏Å‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ö‡∏ó‡πÄ‡∏ó‡πà‡∏≤‡∏ô‡∏±‡πâ‡∏ô ‚Ä¢ ‡πÑ‡∏°‡πà‡∏™‡πà‡∏á‡∏†‡∏≤‡∏û")) { mode -> suggestStoryWardrobe(story,mode) }; else -> productionCheckMenu(story) }
-        }
-    }
-    private fun confirmEpisode(story: JSONObject,number: Int) {
-        val pending=rows(story).filter { it.optInt("ep")==number && propReviewStatus(it)!="‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏ï‡∏£‡∏ß‡∏à‡∏ö‡∏ó‡πÅ‡∏•‡πâ‡∏ß" }.size
-        val wardrobe=wardrobeReviewStatus(story)
-        fun open() {
-            productionTaskDeck(story,number,false)
-        }
-        if(HomeReviewState.shouldWarn(wardrobe,pending)) {
-            AlertDialog.Builder(this).setTitle("‡∏ï‡∏£‡∏ß‡∏à‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞ Flow")
-                .setMessage("‡∏ä‡∏∏‡∏î: $wardrobe\n‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á‡πÉ‡∏ô EP.$number ‡∏ó‡∏µ‡πà‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏´‡∏£‡∏∑‡∏≠‡∏Ñ‡∏ß‡∏£‡∏ï‡∏£‡∏ß‡∏à‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á: $pending ‡∏â‡∏≤‡∏Å\n\n‡∏Ñ‡∏∏‡∏ì‡∏™‡∏≤‡∏°‡∏≤‡∏£‡∏ñ‡∏î‡∏≥‡πÄ‡∏ô‡∏¥‡∏ô‡∏Å‡∏≤‡∏£‡∏ï‡πà‡∏≠‡πÑ‡∏î‡πâ ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á‡∏Å‡∏±‡∏ö‡∏†‡∏≤‡∏û‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏ï‡πâ‡∏ô‡∏à‡∏£‡∏¥‡∏á‡∏Å‡πà‡∏≠‡∏ô‡πÉ‡∏ä‡πâ Flow")
-                .setPositiveButton("‡∏î‡∏≥‡πÄ‡∏ô‡∏¥‡∏ô‡∏Å‡∏≤‡∏£‡∏ï‡πà‡∏≠") { _,_ -> open() }.setNegativeButton("‡∏Å‡∏•‡∏±‡∏ö‡πÑ‡∏õ‡∏ï‡∏£‡∏ß‡∏à",null).showDirector()
-        } else open()
-    }
-    private fun extraToolsMenu(current: JSONObject?) {
-        val options=mutableListOf("üì• ‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏ö‡∏ó‡∏ó‡∏µ‡πà‡∏°‡∏µ‡∏≠‡∏¢‡∏π‡πà","‚öôÔ∏è DIRECTOR X ‚Ä¢ ‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠","üß™ ‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠","üé≠ ‡πÅ‡∏°‡πà‡πÅ‡∏ö‡∏ö‡πÅ‡∏•‡∏∞‡∏Ñ‡∏•‡∏±‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£")
-        if(current!=null) options.add("üìã ‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡πÇ‡∏û‡∏™‡∏ï‡πå Facebook / TikTok")
-        if(current!=null && current.optString("clip_format")=="short") options.add("üí¨ ‡∏ä‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á ‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏¢‡πà‡∏≠ ‡πÅ‡∏•‡∏∞‡πÅ‡∏Ñ‡∏õ‡∏ä‡∏±‡πà‡∏ô")
-        if(current!=null && prefs.getInt("last_image_deck_${project.name}",0)>0) options.add("‚Ü© ‡∏Å‡∏•‡∏±‡∏ö‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏£‡∏π‡∏õ / ‡∏ã‡∏µ‡∏ô‡∏•‡πà‡∏≤‡∏™‡∏∏‡∏î")
-        if(File(project,"last_image_payload.json").isFile) options.add("üîÅ ‡∏™‡πà‡∏á‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÅ‡∏•‡∏∞‡∏£‡∏π‡∏õ‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á")
-        if(current!=null && current.optString("aspect_ratio","16:9")!="9:16") options.add("‚Üî ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏™‡∏≥‡πÄ‡∏ô‡∏≤‡πÅ‡∏ô‡∏ß‡∏ï‡∏±‡πâ‡∏á 9:16")
-        choiceMenu("üß∞ ‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏°‡∏∑‡∏≠‡πÄ‡∏û‡∏¥‡πà‡∏°‡πÄ‡∏ï‡∏¥‡∏°",options) { index ->
-            when(options[index]) {
-                "üì• ‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏ö‡∏ó‡∏ó‡∏µ‡πà‡∏°‡∏µ‡∏≠‡∏¢‡∏π‡πà" -> packagePicker.launch(arrayOf("*/*"))
-                "‚öôÔ∏è DIRECTOR X ‚Ä¢ ‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠" -> autoDirectorMenu()
-                "üß™ ‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠" -> flowTestMenu()
-                "üé≠ ‡πÅ‡∏°‡πà‡πÅ‡∏ö‡∏ö‡πÅ‡∏•‡∏∞‡∏Ñ‡∏•‡∏±‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£" -> choiceMenu("‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£",listOf("‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏à‡∏≤‡∏Å‡πÅ‡∏°‡πà‡πÅ‡∏ö‡∏ö","‡∏Ñ‡∏•‡∏±‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÉ‡∏´‡∏°‡πà","‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏Ç‡∏≠‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ó‡∏µ‡πà‡πÄ‡∏õ‡∏¥‡∏î")) { when(it) { 0 -> bodyTemplateMenu(); 1 -> actorCatalogMenu(); else -> castMenu() } }
-                "üìã ‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡πÇ‡∏û‡∏™‡∏ï‡πå Facebook / TikTok" -> if(current!=null) postDetails(current)
-                "üí¨ ‡∏ä‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á ‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏¢‡πà‡∏≠ ‡πÅ‡∏•‡∏∞‡πÅ‡∏Ñ‡∏õ‡∏ä‡∏±‡πà‡∏ô" -> if(current!=null) AlertDialog.Builder(this).setTitle("‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡πÅ‡∏•‡∏∞‡πÅ‡∏Ñ‡∏õ‡∏ä‡∏±‡πà‡∏ô‡∏Ñ‡∏•‡∏¥‡∏õ‡∏™‡∏±‡πâ‡∏ô").setMessage(ShortStoryDetails.text(current)).setPositiveButton("‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡∏ó‡∏±‡πâ‡∏á‡∏´‡∏°‡∏î") { _,_ -> copyCommand(ShortStoryDetails.text(current)) }.setNegativeButton("‡∏õ‡∏¥‡∏î",null).showDirector()
-                "‚Ü© ‡∏Å‡∏•‡∏±‡∏ö‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏£‡∏π‡∏õ / ‡∏ã‡∏µ‡∏ô‡∏•‡πà‡∏≤‡∏™‡∏∏‡∏î" -> if(!returnToImageList()) notice("‡πÑ‡∏°‡πà‡∏û‡∏ö EP ‡∏ó‡∏µ‡πà‡πÄ‡∏Ñ‡∏¢‡πÄ‡∏õ‡∏¥‡∏î‡πÉ‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ")
-                "üîÅ ‡∏™‡πà‡∏á‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÅ‡∏•‡∏∞‡∏£‡∏π‡∏õ‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á" -> retryLastImage()
-                "‚Üî ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏™‡∏≥‡πÄ‡∏ô‡∏≤‡πÅ‡∏ô‡∏ß‡∏ï‡∏±‡πâ‡∏á 9:16" -> landscapeCopyMenu()
-            }
-        }
-    }
-    private fun flowHome() {
-        val current=plan
-        val fantasy=current?.let { ChannelFeaturePolicy.hasFantasyTools(it.optString("channel")) } == true
-        val channel=current?.optString("channel")?.takeIf { it.isNotBlank() } ?: "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏"
-        val title=current?.optString("title")?.takeIf { it.isNotBlank() } ?: "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ó‡∏µ‡πà‡πÄ‡∏õ‡∏¥‡∏î"
-        val episodes=current?.optJSONArray("episodes")?.length() ?: 0
-        val storyFile=File(project,"story.json")
-        val exported=current!=null && storyFile.isFile && File(project,"flow_pack_exported.sha256").takeIf { it.isFile }?.readText()==EpisodeMedia.digest(storyFile)
-        val scenes=current?.let { rows(it) }.orEmpty()
-        val reviewed=scenes.count { propReviewStatus(it)=="‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏ï‡∏£‡∏ß‡∏à‡∏ö‡∏ó‡πÅ‡∏•‡πâ‡∏ß" }
-        val wardrobe=current?.let { wardrobeReviewStatus(it) } ?: "‡∏£‡∏≠‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ö‡∏ó"
-        val card=LinearLayout(this).apply {
-            orientation=LinearLayout.VERTICAL; setPadding(dp(16),dp(14),dp(16),dp(14))
-            background=backdrop(if(fantasy) Color.rgb(35,24,68) else Color.rgb(17,34,55),Color.rgb(13,20,39),Color.rgb(155,113,55))
-            layoutParams=LinearLayout.LayoutParams(-1,-2).apply { topMargin=dp(10); bottomMargin=dp(8) }
-        }
-        card.addView(TextView(this).apply { text="‚ú¶ ‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ó‡∏µ‡πà‡πÄ‡∏õ‡∏¥‡∏î‡∏≠‡∏¢‡∏π‡πà ‚ú¶"; textSize=13f; setTextColor(gold); setTypeface(null,Typeface.BOLD) })
-        card.addView(TextView(this).apply { text="‡∏ä‡πà‡∏≠‡∏á: $channel\n‡∏´‡∏°‡∏ß‡∏î: ${DisplayText.category(current?.optString("category")?.takeIf { it.isNotBlank() } ?: "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏")}\n‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á: $title"; textSize=16f; setTextColor(ice); setTypeface(null,Typeface.BOLD); setPadding(0,dp(8),0,dp(6)) })
-        card.addView(TextView(this).apply { text=if(current==null) "‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ö‡∏ó‡πÉ‡∏´‡∏°‡πà ‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏õ‡∏¥‡∏î‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ó‡∏µ‡πà‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏ß‡πâ" else "$episodes EP ‚Ä¢ ${scenes.size} ‡∏â‡∏≤‡∏Å ‚Ä¢ ${current.optString("aspect_ratio","9:16")}"+(if(exported) " ‚Ä¢ ‡πÄ‡∏Ñ‡∏¢‡∏™‡πà‡∏á‡∏≠‡∏≠‡∏Å‡∏ö‡∏ó‡∏ô‡∏µ‡πâ‡πÅ‡∏•‡πâ‡∏ß" else ""); textSize=12f; setTextColor(muted) })
-        root.addView(card)
-        if(File(project,"gemini_job/spec.json").isFile) {
-            root.addView(TextView(this).apply { text="ü§ñ ‡∏á‡∏≤‡∏ô‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó‡∏•‡πà‡∏≤‡∏™‡∏∏‡∏î"; textSize=16f; setTextColor(gold); setTypeface(null,Typeface.BOLD); setPadding(dp(8),dp(12),dp(8),0) })
-            geminiStatusView=TextView(this).apply { text=geminiStatusText(readGeminiStatus()); setTextColor(ice); textSize=14f; setPadding(dp(8),dp(8),dp(8),dp(8)) }
-            root.addView(geminiStatusView)
-            geminiProgressView=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply {
-                max=100; progress=readGeminiStatus()?.optInt("percent")?.coerceIn(0,100) ?: 0
-                progressTintList=ColorStateList.valueOf(Color.rgb(0,210,240)); contentDescription="‡∏Ñ‡∏ß‡∏≤‡∏°‡∏Ñ‡∏∑‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡∏ö‡∏ó‡∏ó‡∏µ‡πà‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÅ‡∏•‡πâ‡∏ß"
-            }
-            root.addView(geminiProgressView,LinearLayout.LayoutParams(-1,dp(10)).apply { setMargins(dp(8),0,dp(8),dp(8)) })
-            button("ü§ñ ‡∏á‡∏≤‡∏ô‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó ‚Ä¢ ‡∏î‡∏π‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞ / ‡∏ó‡∏≥‡∏ï‡πà‡∏≠",false) { geminiJobMenu() }
-        } else { geminiStatusView=null; geminiProgressView=null }
-        button("üé¨ ‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà",true) { flowPlanning() }
-        root.addView(TextView(this).apply { text="‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ä‡πà‡∏≠‡∏á‡πÅ‡∏•‡∏∞‡πÅ‡∏ô‡∏ß‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á ‡πÉ‡∏´‡πâ AI ‡∏ä‡πà‡∏ß‡∏¢‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ö‡∏ó"; textSize=12f; gravity=Gravity.CENTER; setTextColor(ice); setPadding(0,0,0,dp(8)) })
-        fun menuRow(items: List<Triple<Int,Pair<String,String>,()->Unit>>) {
-            val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
-            items.forEachIndexed { index,item ->
-                val tile=LinearLayout(this).apply {
-                    orientation=LinearLayout.VERTICAL
-                    minimumHeight=dp(208)
-                    background=backdrop(Color.rgb(32,27,20),Color.rgb(11,11,13),Color.rgb(176,129,49))
-                    setPadding(dp(5),dp(5),dp(5),dp(8))
-                    isClickable=true; isFocusable=true
-                    contentDescription=item.second.first+" ‚Ä¢ "+item.second.second
-                    setOnClickListener { if(!importing) item.third() }
-                }
-                tile.addView(ImageView(this).apply {
-                    setImageResource(item.first); scaleType=ImageView.ScaleType.CENTER_CROP
-                    contentDescription=null
-                },LinearLayout.LayoutParams(-1,dp(104)))
-                tile.addView(TextView(this).apply {
-                    text=item.second.first; textSize=16f; setTextColor(ice)
-                    setTypeface(null,Typeface.BOLD); setPadding(dp(5),dp(5),dp(5),0)
-                })
-                tile.addView(TextView(this).apply {
-                    text=item.second.second; textSize=12f; setTextColor(ice)
-                    setPadding(dp(5),dp(3),dp(5),0)
-                })
-                row.addView(tile,LinearLayout.LayoutParams(0,-1,1f).apply { if(index==0) marginEnd=dp(5) else marginStart=dp(5) })
-            }
-            root.addView(row,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) })
-        }
-        menuRow(listOf(
-            Triple(R.drawable.menu_cast,"‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£" to "‡∏à‡∏±‡∏î‡∏Å‡∏≤‡∏£‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ MASTER",{ unifiedMasterMenu() }),
-            Triple(R.drawable.menu_script,"‡∏ö‡∏ó‡∏†‡∏≤‡∏û‡∏¢‡∏ô‡∏ï‡∏£‡πå" to "‡∏ï‡∏£‡∏ß‡∏à‡∏ö‡∏ó‡πÅ‡∏•‡∏∞‡∏â‡∏≤‡∏Å",{ current?.let { productionCheckMenu(it) } ?: notice("‡πÄ‡∏õ‡∏¥‡∏î‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ó‡∏µ‡πà‡∏°‡∏µ‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô") })
-        ))
-        menuRow(listOf(
-            Triple(R.drawable.menu_cover,"‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û" to "‡∏†‡∏≤‡∏û‡∏õ‡∏Å‡πÅ‡∏•‡∏∞‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å",{ current?.let { story ->
-                val eps=story.optJSONArray("episodes")
-                if(eps==null || eps.length()==0) notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ï‡∏≠‡∏ô‡πÉ‡∏ô‡∏ö‡∏ó")
-                else choiceMenu("‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û ‚Ä¢ ${story.optString("title").ifBlank { "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏ä‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á" }}", (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} ‚Ä¢ ${ep.optString("title").ifBlank { "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏ï‡∏±‡πâ‡∏á‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏≠‡∏ô" }}" } + "‡∏à‡∏±‡∏î‡∏Å‡∏≤‡∏£‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á") { i ->
-                    if(i<eps.length()) productionTaskDeck(story,eps.getJSONObject(i).optInt("ep"),true)
-                    else choiceMenu("‡∏à‡∏±‡∏î‡∏Å‡∏≤‡∏£‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå",listOf("‡∏ú‡∏π‡∏Å‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏Å‡∏±‡∏ö‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£","‡πÉ‡∏´‡πâ AI ‡πÄ‡∏™‡∏ô‡∏≠‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏£‡∏≤‡∏¢‡∏ã‡∏µ‡∏ô")) { mode -> if(mode==0) characterPropMenu(story) else suggestStoryProps(story) }
-                }
-            } ?: notice("‡πÄ‡∏õ‡∏¥‡∏î‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ó‡∏µ‡πà‡∏°‡∏µ‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô") }),
-            Triple(R.drawable.menu_scene,"‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow" to "‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠",{ commandCardsMenu() })
-        ))
-        root.addView(TextView(this).apply { text="‡∏Ç‡∏±‡πâ‡∏ô‡∏ï‡∏≠‡∏ô‡∏Å‡∏≤‡∏£‡∏ó‡∏≥‡∏á‡∏≤‡∏ô"; textSize=18f; setTextColor(gold); setTypeface(null,Typeface.BOLD); setPadding(0,dp(6),0,dp(4)) })
-        val active=if(current==null || wardrobe!="‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ä‡∏∏‡∏î‡πÉ‡∏ô‡∏ö‡∏ó‡πÅ‡∏•‡πâ‡∏ß") 1 else if(reviewed<scenes.size) 2 else 3
-        stepCard(1,"üëï","‡∏ï‡∏£‡∏ß‡∏à‡∏ä‡∏∏‡∏î‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£","‡∏ï‡∏£‡∏ß‡∏à‡∏ä‡∏∏‡∏î ‡∏´‡∏£‡∏∑‡∏≠‡πÉ‡∏´‡πâ AI ‡∏ä‡πà‡∏ß‡∏¢‡πÄ‡∏•‡∏∑‡∏≠‡∏Å",enabled=current!=null,completed=current!=null && wardrobe=="‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ä‡∏∏‡∏î‡πÉ‡∏ô‡∏ö‡∏ó‡πÅ‡∏•‡πâ‡∏ß",currentStep=active,statusText=wardrobe) { current?.let { wardrobeMenu(it) } }
-        stepCard(2,"üß∞","‡∏ï‡∏£‡∏ß‡∏à‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á‡πÉ‡∏ô‡∏ö‡∏ó","‡∏ï‡∏£‡∏ß‡∏à‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á ‡∏´‡∏£‡∏∑‡∏≠‡πÉ‡∏´‡πâ AI ‡∏ä‡πà‡∏ß‡∏¢‡πÄ‡∏•‡∏∑‡∏≠‡∏Å",enabled=current!=null,completed=current!=null && scenes.isNotEmpty() && reviewed==scenes.size,currentStep=active,statusText=if(current==null) "‡∏£‡∏≠‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ö‡∏ó" else "‡∏ï‡∏£‡∏ß‡∏à‡∏ö‡∏ó‡πÅ‡∏•‡πâ‡∏ß $reviewed/${scenes.size} ‡∏â‡∏≤‡∏Å") { current?.let { reviewSceneProps(it) } }
-        stepCard(3,"üé¨","‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow","‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏â‡∏≤‡∏Å‡πÅ‡∏•‡∏∞‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡∏Å‡πà‡∏≠‡∏ô‡πÉ‡∏ä‡πâ Flow",enabled=current!=null,currentStep=active,statusText=if(current==null) "‡∏£‡∏≠‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ö‡∏ó" else "‡πÄ‡∏õ‡∏¥‡∏î‡πÉ‡∏ä‡πâ‡∏á‡∏≤‡∏ô‡πÑ‡∏î‡πâ ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏Å‡πà‡∏≠‡∏ô‡πÉ‡∏ä‡πâ") { commandCardsMenu() }
-        button("üß∞ ‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏°‡∏∑‡∏≠‡πÄ‡∏û‡∏¥‡πà‡∏°‡πÄ‡∏ï‡∏¥‡∏°",false) { extraToolsMenu(current) }
-        splitActions("üìö ‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ó‡∏µ‡πà‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å","‚öôÔ∏è ‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤",{ storiesMenu() },{ flowSettings() })
-    }
-    private fun flowSettings() {
-        choiceMenu("‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤ DIRECTOR X",listOf("‡∏≠‡∏±‡∏õ‡πÄ‡∏î‡∏ï‡πÅ‡∏≠‡∏õ","‡∏î‡∏≤‡∏ß‡∏ô‡πå‡πÇ‡∏´‡∏•‡∏î‡πÅ‡∏°‡πà‡∏ö‡∏ó + MASTER","‡∏™‡∏≥‡∏£‡∏≠‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ó‡∏±‡πâ‡∏á‡∏´‡∏°‡∏î","‡∏Å‡∏π‡πâ‡∏Ñ‡∏∑‡∏ô‡∏ä‡∏∏‡∏î‡∏™‡∏≥‡∏£‡∏≠‡∏á","‡πÄ‡∏£‡∏¥‡πà‡∏°‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà","‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤ API ‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó")) { i -> when(i) {
-            0 -> updater.check()
-            1 -> { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
-            2 -> if(plan==null) notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡πâ‡∏™‡∏≥‡∏£‡∏≠‡∏á") else { backupMode=true; zipPicker.launch(StoryFiles.zipName(plan!!.optString("title")+"_‡∏™‡∏≥‡∏£‡∏≠‡∏á")) }
-            3 -> restorePicker.launch(arrayOf("application/zip"))
-            4 -> AlertDialog.Builder(this).setTitle("‡πÄ‡∏£‡∏¥‡πà‡∏°‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà")
-                .setMessage("‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏õ‡∏±‡∏à‡∏à‡∏∏‡∏ö‡∏±‡∏ô‡∏¢‡∏±‡∏á‡∏≠‡∏¢‡∏π‡πà‡πÉ‡∏ô‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ó‡∏µ‡πà‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å")
-                .setPositiveButton("‡πÄ‡∏£‡∏¥‡πà‡∏°‡πÉ‡∏´‡∏°‡πà") { _,_ -> prefs.edit().putString("project",UUID.randomUUID().toString()).apply(); render() }
-                .setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-            5 -> geminiSettings()
-        } }
-    }
-    private fun readGeminiStatus(): JSONObject? = runCatching { GeminiStoryFiles.read(File(project,"gemini_job/status.json")) }.getOrNull()
-    private fun geminiStatusText(status: JSONObject?,details: Boolean=false): String {
-        if(status==null) return "${StoryProvider.label(this)} ‚Ä¢ ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏á‡∏≤‡∏ô"
-        val spec=runCatching { GeminiStoryFiles.read(File(project,"gemini_job/spec.json")) }.getOrNull()
-        val outline=runCatching { GeminiStoryFiles.read(File(project,"gemini_job/outline.json")) }.getOrNull()
-        val saved=runCatching { GeminiStoryFiles.read(File(project,"story.json")) }.getOrNull()
-        val channel=spec?.optString("channel")?.takeIf { it.isNotBlank() } ?: saved?.optString("channel")?.takeIf { it.isNotBlank() } ?: "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏"
-        val title=outline?.optString("title")?.takeIf { it.isNotBlank() } ?: saved?.optString("title")?.takeIf { it.isNotBlank() } ?: "‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ï‡∏±‡πâ‡∏á‡∏ä‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á"
-        val category=spec?.optString("category")?.takeIf { it.isNotBlank() } ?: saved?.optString("category")?.takeIf { it.isNotBlank() } ?: "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏"
-        return "‡∏ä‡πà‡∏≠‡∏á: $channel\n‡∏´‡∏°‡∏ß‡∏î: ${DisplayText.category(category)}\n‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á: $title\n"+StoryStatusText.format(status,GeminiStoryService.running && GeminiStoryService.projectId==project.name,details=details)
-    }
-    private fun geminiSettings(afterSave: (() -> Unit)?=null) {
-        val providers=StoryProvider.activeProviders
-        val choices=providers.map { it.label+"\n"+StoryProvider.lastTest(this,it) }+
-            listOf("‚òëÔ∏è ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å API ‡∏ó‡∏µ‡πà‡∏≠‡∏ô‡∏∏‡∏ç‡∏≤‡∏ï", "üîç ‡∏ï‡∏£‡∏ß‡∏à API ‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å")
-        choiceMenu("‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤‡∏Ñ‡∏µ‡∏¢‡πå API ‚Ä¢ ‡πÉ‡∏ä‡πâ‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥",choices) { index ->
-            if(index==providers.size) selectStoryApiProviders(afterSave)
-            else if(index==providers.size+1) { val selected=StoryProvider.eligible(this); if(selected.isEmpty()) notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ API ‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÉ‡∏ô‡πÇ‡∏´‡∏°‡∏î‡∏õ‡∏±‡∏à‡∏à‡∏∏‡∏ö‡∏±‡∏ô") else testStoryApis(selected) }
-            else if(providers[index].extra()==null) storyProviderSettings(providers[index],afterSave)
-            else extraApiKeyDialog(providers[index].extra()!!,afterSave)
-        }
-    }
-    private fun selectStoryApiProviders(afterSave: (() -> Unit)?=null) {
-        val providers=StoryProvider.activeProviders
-        val allowed=StoryProvider.allowedIds(this)
-        val checks=BooleanArray(providers.size) { providers[it].id in allowed }
-        val labels=providers.map { "${it.label} ‚Ä¢ ${StoryProvider.lastTest(this,it)}" }.toTypedArray()
-        val dialog=AlertDialog.Builder(this)
-            .setTitle("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å API ‡∏ó‡∏µ‡πà‡∏≠‡∏ô‡∏∏‡∏ç‡∏≤‡∏ï\n‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏û‡πá‡∏Å‡πÄ‡∏Å‡∏à‡πÅ‡∏•‡∏∞‡∏Ñ‡πà‡∏≤‡∏ö‡∏£‡∏¥‡∏Å‡∏≤‡∏£‡∏Å‡πà‡∏≠‡∏ô‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ‚Ä¢ ‡∏ú‡∏•‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡∏≠‡∏≤‡∏à‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡πÑ‡∏î‡πâ\n‡πÇ‡∏´‡∏°‡∏î‡∏ü‡∏£‡∏µ‡πÉ‡∏ä‡πâ‡πÄ‡∏â‡∏û‡∏≤‡∏∞ OpenRouter ‚Ä¢ ‡∏°‡∏µ‡∏ú‡∏•‡πÄ‡∏°‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏¥‡πà‡∏°/‡∏ó‡∏≥‡∏ï‡πà‡∏≠")
-            .setMultiChoiceItems(labels,checks) { _,which,checked -> checks[which]=checked }
-            .setPositiveButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å",null).setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-        dialog.getButton(-1).setOnClickListener {
-            val chosen=providers.filterIndexed { i,_ -> checks[i] }.map { it.id }.toSet()
-            runCatching { StoryProvider.setAllowed(this,chosen) }
-                .onSuccess { dialog.dismiss(); notice(if(StoryProvider.freeOnly(this) && StoryProvider.OPENROUTER.id !in chosen) "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡πÇ‡∏´‡∏°‡∏î‡∏ü‡∏£‡∏µ‡∏¢‡∏±‡∏á‡πÄ‡∏õ‡∏¥‡∏î‡∏≠‡∏¢‡∏π‡πà ‡πÅ‡∏ï‡πà‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å OpenRouter ‡∏à‡∏∂‡∏á‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏á‡∏≤‡∏ô‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" else "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å API ‡∏ó‡∏µ‡πà‡∏≠‡∏ô‡∏∏‡∏ç‡∏≤‡∏ï‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏°‡∏µ‡∏ú‡∏•‡∏Å‡∏±‡∏ö‡∏á‡∏≤‡∏ô‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏´‡∏£‡∏∑‡∏≠‡∏ó‡∏≥‡∏ï‡πà‡∏≠‡∏Ñ‡∏£‡∏±‡πâ‡∏á‡∏ñ‡∏±‡∏î‡πÑ‡∏õ") }
-                .onFailure { notice(it.message ?: "‡πÄ‡∏•‡∏∑‡∏≠‡∏Å API ‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏ô‡πâ‡∏≠‡∏¢‡∏´‡∏ô‡∏∂‡πà‡∏á‡πÄ‡∏à‡πâ‡∏≤") }
-        }
-    }
-    private fun extraApiSettingsMenu() {
-        val providers=ExtraApiProvider.entries.filter { it !in setOf(ExtraApiProvider.DEEPSEEK, ExtraApiProvider.MISTRAL, ExtraApiProvider.SAMBANOVA, ExtraApiProvider.CEREBRAS) }
-        val choices=providers.map { provider ->
-            provider.label + if(ExtraApiSettings(this,provider).hasKey()) " ‚Ä¢ ‡∏°‡∏µ‡∏Ñ‡∏µ‡∏¢‡πå‡πÅ‡∏•‡πâ‡∏ß" else " ‚Ä¢ ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Ñ‡∏µ‡∏¢‡πå"
-        }
-        choiceMenu("‡∏à‡∏±‡∏î‡πÄ‡∏Å‡πá‡∏ö API Key ‡πÄ‡∏û‡∏¥‡πà‡∏°‡πÄ‡∏ï‡∏¥‡∏°",choices) { index -> extraApiKeyDialog(providers[index]) }
-    }
-    private fun extraApiKeyDialog(provider: ExtraApiProvider,afterSave: (() -> Unit)?=null) {
-        val settings=ExtraApiSettings(this,provider)
-        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-        panel.addView(TextView(this).apply { text="${provider.label} ‚Ä¢ ‡∏Ñ‡∏µ‡∏¢‡πå‡πÄ‡∏Å‡πá‡∏ö‡πÅ‡∏ö‡∏ö‡πÄ‡∏Ç‡πâ‡∏≤‡∏£‡∏´‡∏±‡∏™‡∏ö‡∏ô‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÅ‡∏•‡∏∞‡πÑ‡∏°‡πà‡∏£‡∏ß‡∏°‡πÉ‡∏ô‡πÑ‡∏ü‡∏•‡πå‡∏™‡∏≥‡∏£‡∏≠‡∏á ‚Ä¢ ‡∏£‡∏∞‡∏ö‡∏ö‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏Ñ‡πà‡∏≤‡∏¢‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥ ‚Ä¢ ‡∏Å‡∏≤‡∏£‡πÄ‡∏£‡∏µ‡∏¢‡∏Å‡πÉ‡∏ä‡πâ‡∏Ç‡∏∂‡πâ‡∏ô‡∏≠‡∏¢‡∏π‡πà‡∏Å‡∏±‡∏ö‡πÇ‡∏Ñ‡∏ß‡∏ï‡∏≤‡πÅ‡∏•‡∏∞‡∏Ñ‡πà‡∏≤‡∏ö‡∏£‡∏¥‡∏Å‡∏≤‡∏£‡∏Ç‡∏≠‡∏á‡∏ö‡∏±‡∏ç‡∏ä‡∏µ" })
-        val key=EditText(this).apply {
-            hint=if(settings.hasKey()) "‡∏°‡∏µ‡∏Ñ‡∏µ‡∏¢‡πå‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏û‡∏¥‡∏°‡∏û‡πå‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡πÄ‡∏°‡∏∑‡πà‡∏≠‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏Ñ‡∏µ‡∏¢‡πå" else "${provider.label} API Key"
-            inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-            setSingleLine(true)
-            panel.addView(this)
-        }
-        if(provider==ExtraApiProvider.OPENAI) panel.addView(TextView(this).apply { text="OpenAI API ‡πÅ‡∏¢‡∏Å‡∏à‡∏≤‡∏Å ChatGPT Plus ‚Ä¢ ‡∏≠‡∏≤‡∏à‡∏°‡∏µ‡∏Ñ‡πà‡∏≤‡∏ö‡∏£‡∏¥‡∏Å‡∏≤‡∏£ ‚Ä¢ ‡∏†‡∏≤‡∏û MASTER ‡∏à‡∏∞‡∏ñ‡∏π‡∏Å‡∏™‡πà‡∏á‡πÄ‡∏°‡∏∑‡πà‡∏≠‡∏Ñ‡∏∏‡∏ì‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏î‡πâ‡∏ß‡∏¢ OpenAI" })
-        if(provider==ExtraApiProvider.CEREBRAS) panel.addView(TextView(this).apply { text="Cerebras ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡πÇ‡∏Ñ‡∏ß‡∏ï‡∏≤‡πÅ‡∏•‡∏∞‡∏Ñ‡πà‡∏≤‡πÉ‡∏ä‡πâ‡∏à‡πà‡∏≤‡∏¢‡∏ï‡∏≤‡∏°‡∏ö‡∏±‡∏ç‡∏ä‡∏µ ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÇ‡∏°‡πÄ‡∏î‡∏•‡∏ó‡∏µ‡πà‡∏£‡∏≠‡∏á‡∏£‡∏±‡∏ö JSON ‚Ä¢ ‡πÇ‡∏´‡∏°‡∏î OpenRouter ‡∏ü‡∏£‡∏µ‡∏à‡∏∞‡πÑ‡∏°‡πà‡πÄ‡∏£‡∏µ‡∏¢‡∏Å Cerebras" })
-        if(provider==ExtraApiProvider.SAMBANOVA) panel.addView(TextView(this).apply { text="‡πÄ‡∏•‡∏∑‡∏≠‡∏Å Model ID ‡∏ó‡∏µ‡πà‡∏ö‡∏±‡∏ç‡∏ä‡∏µ SambaNova ‡πÉ‡∏ä‡πâ‡∏á‡∏≤‡∏ô‡πÑ‡∏î‡πâ ‡πÅ‡∏•‡∏∞‡∏£‡∏≠‡∏á‡∏£‡∏±‡∏ö JSON ‚Ä¢ ‡∏´‡∏≤‡∏Å‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡πÑ‡∏°‡πà‡∏ú‡πà‡∏≤‡∏ô‡πÉ‡∏´‡πâ‡∏ï‡∏£‡∏ß‡∏à‡∏ä‡∏∑‡πà‡∏≠‡πÇ‡∏°‡πÄ‡∏î‡∏•‡πÅ‡∏•‡∏∞‡∏™‡∏¥‡∏ó‡∏ò‡∏¥‡πå‡∏ö‡∏±‡∏ç‡∏ä‡∏µ" })
-        val model=EditText(this).apply { hint="‡∏ä‡∏∑‡πà‡∏≠‡πÇ‡∏°‡πÄ‡∏î‡∏•"; setSingleLine(true); setText(settings.model()); panel.addView(this) }
-        panel.addView(Button(this).apply { text="‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÅ‡∏•‡∏∞‡∏ó‡∏î‡∏™‡∏≠‡∏ö ${provider.label}"; setOnClickListener {
-            runCatching { settings.save(key.text.toString().trim().ifBlank { settings.key() },model.text.toString().trim()) }
-                .onSuccess { key.setText(""); key.hint="‡∏°‡∏µ‡∏Ñ‡∏µ‡∏¢‡πå‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏û‡∏¥‡∏°‡∏û‡πå‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡πÄ‡∏°‡∏∑‡πà‡∏≠‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏Ñ‡∏µ‡∏¢‡πå"; testExtraApi(provider) }
-                .onFailure { notice(it.message ?: "‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏µ‡∏¢‡πå‡πÅ‡∏•‡∏∞‡∏ä‡∏∑‡πà‡∏≠‡πÇ‡∏°‡πÄ‡∏î‡∏•") }
-        } })
-        val dialog=AlertDialog.Builder(this).setTitle("${provider.label} ‚Ä¢ ‡∏à‡∏±‡∏î‡πÄ‡∏Å‡πá‡∏ö API Key")
-            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å",null)
-            .setNeutralButton("‡∏•‡∏ö‡∏Ñ‡∏µ‡∏¢‡πå") { _,_ -> settings.clear(); notice("‡∏•‡∏ö‡∏Ñ‡∏µ‡∏¢‡πå ${provider.label} ‡∏à‡∏≤‡∏Å‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÅ‡∏•‡πâ‡∏ß") }
-            .setNegativeButton("‡∏õ‡∏¥‡∏î",null).showDirector()
-        dialog.getButton(-1).setOnClickListener {
-            runCatching {
-                val value=key.text.toString().trim()
-                settings.save(value.ifBlank { settings.key() }, model.text.toString().trim())
-            }.onSuccess { key.setText(""); dialog.dismiss(); afterSave?.invoke() ?: notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å ${provider.label} ‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏£‡∏∞‡∏ö‡∏ö‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏Ñ‡πà‡∏≤‡∏¢‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥") }
-                .onFailure { Toast.makeText(this,it.message ?: "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ",Toast.LENGTH_LONG).show() }
-        }
-    }
-    private fun testExtraApi(provider: ExtraApiProvider) {
-        if(StoryProvider.freeOnly(this) && provider!=ExtraApiProvider.OPENROUTER) { notice("‡πÇ‡∏´‡∏°‡∏î‡∏ü‡∏£‡∏µ‡πÄ‡∏õ‡∏¥‡∏î‡∏≠‡∏¢‡∏π‡πà ‚Ä¢ ‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡πÑ‡∏î‡πâ‡πÄ‡∏â‡∏û‡∏≤‡∏∞ OpenRouter ‡πÇ‡∏°‡πÄ‡∏î‡∏•‡∏ü‡∏£‡∏µ") ; return }
-        if(GeminiStoryService.running) { notice("‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏£‡∏≠‡∏´‡∏£‡∏∑‡∏≠‡∏´‡∏¢‡∏∏‡∏î‡∏á‡∏≤‡∏ô‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô‡∏ó‡∏î‡∏™‡∏≠‡∏ö API"); return }
-        val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
-        val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
-        val view=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text="‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ó‡∏î‡∏™‡∏≠‡∏ö ${provider.label} ‡∏î‡πâ‡∏ß‡∏¢‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏™‡∏±‡πâ‡∏ô ‚Ä¢ ‡πÉ‡∏ä‡πâ‡πÇ‡∏Ñ‡∏ß‡∏ï‡∏≤‡∏Ç‡∏≠‡∏á‡∏ö‡∏±‡∏ç‡∏ä‡∏µ ‚Ä¢ ‡πÑ‡∏°‡πà‡∏™‡πà‡∏á‡∏ö‡∏ó‡∏´‡∏£‡∏∑‡∏≠‡∏†‡∏≤‡∏û"; setTextIsSelectable(true) }
-        val dialog=AlertDialog.Builder(this).setTitle("‡∏ó‡∏î‡∏™‡∏≠‡∏ö ${provider.label}").setView(ScrollView(this).apply { addView(view) }).setNegativeButton("‡∏õ‡∏¥‡∏î / ‡∏´‡∏¢‡∏∏‡∏î",null).showDirector()
-        dialog.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
-        Thread {
-            var passed=false
-                var failureReason=""
-            val result=try {
-                val settings=ExtraApiSettings(this,provider)
-                val client=CompatibleStoryClient(provider.service,settings.key(),settings.model(),{ stopped.get() },automaticRetry=false)
-                active.set(client)
-                if(stopped.get()) throw java.util.concurrent.CancellationException()
-                StoryApiProbe.check(client)
-                passed=true
-                "${provider.label}: ‡∏ú‡πà‡∏≤‡∏ô ‚Ä¢ ${settings.model()} ‚Ä¢ ‡∏£‡∏±‡∏ö‡∏Ñ‡∏≥‡∏ï‡∏≠‡∏ö JSON ‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à\n\n‡∏ú‡∏•‡∏ô‡∏µ‡πâ‡πÑ‡∏°‡πà‡∏£‡∏±‡∏ö‡∏õ‡∏£‡∏∞‡∏Å‡∏±‡∏ô‡πÇ‡∏Ñ‡∏ß‡∏ï‡∏≤‡∏£‡∏∞‡∏´‡∏ß‡πà‡∏≤‡∏á‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏¢‡∏≤‡∏ß"
-            } catch(e: Exception) { failureReason=StoryApiProbe.error(e); "${provider.label}: "+failureReason }
-            finally { active.set(null) }
-            if(!stopped.get()) runCatching { StoryProvider.recordTest(this,StoryProvider.from(provider.id),passed,failureReason) }
-            runOnUiThread { if(!stopped.get() && !isFinishing && !isDestroyed) view.text=result }
-        }.apply { name="director-extra-api-probe"; start() }
-    }
-    private fun testStoryApis(providers: List<StoryProvider>) {
-        if(StoryProvider.freeOnly(this) && providers.any { it!=StoryProvider.OPENROUTER }) { notice("‡πÇ‡∏´‡∏°‡∏î‡∏ü‡∏£‡∏µ‡πÄ‡∏õ‡∏¥‡∏î‡∏≠‡∏¢‡∏π‡πà ‚Ä¢ ‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡πÑ‡∏î‡πâ‡πÄ‡∏â‡∏û‡∏≤‡∏∞ OpenRouter ‡πÇ‡∏°‡πÄ‡∏î‡∏•‡∏ü‡∏£‡∏µ"); return }
-        if(GeminiStoryService.running) { notice("‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏£‡∏≠‡∏´‡∏£‡∏∑‡∏≠‡∏´‡∏¢‡∏∏‡∏î‡∏á‡∏≤‡∏ô‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô‡∏ó‡∏î‡∏™‡∏≠‡∏ö API"); return }
-        val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
-        val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
-        val view=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text="‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏µ‡∏¢‡πå‡πÅ‡∏•‡∏∞‡πÇ‡∏°‡πÄ‡∏î‡∏•‡∏ó‡∏µ‡πà‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏ß‡πâ‚Ä¶\n‡∏™‡πà‡∏á‡∏Ñ‡∏≥‡∏Ç‡∏≠‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡∏™‡∏±‡πâ‡∏ô‡∏à‡∏£‡∏¥‡∏á‡πÑ‡∏õ‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏ö‡∏£‡∏¥‡∏Å‡∏≤‡∏£ ‡πÉ‡∏ä‡πâ‡πÇ‡∏Ñ‡∏ß‡∏ï‡∏≤‡∏Ç‡∏≠‡∏á‡∏ö‡∏±‡∏ç‡∏ä‡∏µ‡∏ô‡∏±‡πâ‡∏ô ‡πÑ‡∏°‡πà‡∏™‡πà‡∏á‡∏ö‡∏ó‡∏´‡∏£‡∏∑‡∏≠‡∏£‡∏π‡∏õ"; setTextIsSelectable(true) }
-        val dialog=AlertDialog.Builder(this).setTitle("‡∏ó‡∏î‡∏™‡∏≠‡∏ö API ‚Ä¢ ‡πÑ‡∏°‡πà‡∏™‡∏•‡∏±‡∏ö‡∏ö‡∏£‡∏¥‡∏Å‡∏≤‡∏£‡πÅ‡∏ó‡∏ô‡∏ú‡∏•‡∏ó‡∏î‡∏™‡∏≠‡∏ö")
-            .setView(ScrollView(this).apply { addView(view) }).setNegativeButton("‡∏õ‡∏¥‡∏î / ‡∏´‡∏¢‡∏∏‡∏î",null).showDirector()
-        dialog.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
-        Thread {
-            val results=mutableListOf<String>()
-            for(target in providers) {
-                if(stopped.get()) break
-                if(target==StoryProvider.GEMINI) {
-                    var passed=0
-                    var tested=0
-                    var lastFailure=""
-                    val model=target.model(this)
-                    for(index in 0 until 5) {
-                        if(stopped.get()) break
-                        val settings=GeminiSettings(this,StoryProvider.GEMINI,index)
-                        var reason=""
-                        val result=try {
-                            if(!settings.hasSaved()) "Gemini ‡∏Ñ‡∏µ‡∏¢‡πå ${index+1}: ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤"
-                            else {
-                                val key=settings.key()
-                                require(key.isNotBlank()) { "‡∏≠‡πà‡∏≤‡∏ô‡∏Ñ‡∏µ‡∏¢‡πå‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" }
-                                val client=GeminiClient(key,model,{ stopped.get() },automaticRetry=false)
-                                active.set(client)
-                                tested++
-                                StoryApiProbe.check(client)
-                                passed++
-                                "Gemini ‡∏Ñ‡∏µ‡∏¢‡πå ${index+1}: ‡∏ú‡πà‡∏≤‡∏ô ‚Ä¢ $model"
-                            }
-                        } catch(e: Exception) {
-                            reason=StoryApiProbe.error(e); lastFailure=reason
-                            "Gemini ‡∏Ñ‡∏µ‡∏¢‡πå ${index+1}: $reason"
-                        } finally { active.set(null) }
-                        results.add(result)
-                        val text=results.joinToString("\n\n")+"\n\n‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡∏ó‡∏µ‡∏•‡∏∞‡∏Ñ‡∏µ‡∏¢‡πå ‚Ä¢ ‡∏û‡∏±‡∏Å‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏ä‡πà‡∏≠‡∏á‡∏ó‡∏µ‡πà‡πÑ‡∏î‡πâ‡∏£‡∏±‡∏ö 429 (‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏ä‡πà‡∏≠‡∏á‡∏ï‡πâ‡∏≠‡∏á‡∏≠‡∏¢‡∏π‡πà‡∏Ñ‡∏ô‡∏•‡∏∞‡πÇ‡∏õ‡∏£‡πÄ‡∏à‡∏Å‡∏ï‡πå)"
-                        runOnUiThread { if(!stopped.get() && !isFinishing && !isDestroyed) view.text=text }
-                    }
-                    if(!stopped.get() && tested>0) runCatching { StoryProvider.recordTest(this,target,passed==tested,lastFailure) }
-                    continue
-                }
-                var passed=false
-                var failureReason=""
-                val result=try {
-                    if(!target.hasKey(this)) "${target.label}: ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡∏µ‡∏¢‡πå"
-                    else {
-                        val model=target.model(this)
-                        val client=StoryClientFactory.create(target,target.key(this),model,{ stopped.get() },automaticRetry=false,context=this@StudioActivity)
-                        active.set(client)
-                        if(stopped.get()) throw java.util.concurrent.CancellationException()
-                        StoryApiProbe.check(client)
-                        passed=true
-                        "${target.label}: ‡∏ú‡πà‡∏≤‡∏ô ‚Ä¢ $model ‚Ä¢ ‡∏£‡∏±‡∏ö‡∏Ñ‡∏≥‡∏ï‡∏≠‡∏ö JSON ‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à"
-                    }
-                } catch(e: Exception) { failureReason=StoryApiProbe.error(e); "${target.label}: "+failureReason }
-                finally { active.set(null) }
-                if(!stopped.get() && target.hasKey(this)) runCatching { StoryProvider.recordTest(this,target,passed,failureReason) }
-                val stamp=java.text.SimpleDateFormat("dd/MM HH:mm:ss",java.util.Locale.getDefault()).format(java.util.Date())
-                results.add("$result\n‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡πÄ‡∏°‡∏∑‡πà‡∏≠ $stamp")
-                val text=results.joinToString("\n\n")+"\n\n‡∏ú‡∏•‡∏ó‡∏î‡∏™‡∏≠‡∏ö ‡∏ì ‡πÄ‡∏ß‡∏•‡∏≤‡∏ô‡∏µ‡πâ ‡πÑ‡∏°‡πà‡∏£‡∏±‡∏ö‡∏õ‡∏£‡∏∞‡∏Å‡∏±‡∏ô‡πÇ‡∏Ñ‡∏ß‡∏ï‡∏≤‡∏£‡∏∞‡∏´‡∏ß‡πà‡∏≤‡∏á‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏¢‡∏≤‡∏ß"+
-                    if(results.size<providers.size) "\n‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡∏ö‡∏£‡∏¥‡∏Å‡∏≤‡∏£‡∏ñ‡∏±‡∏î‡πÑ‡∏õ‚Ä¶" else ""
-                runOnUiThread { if(!stopped.get() && !isFinishing && !isDestroyed) view.text=text }
-            }
-        }.apply { name="director-api-probe"; start() }
-    }
-    private fun geminiMultiKeyDialog(afterSave: (() -> Unit)?=null) {
-        val panel=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-        panel.addView(TextView(this).apply {
-            text="Gemini ‡∏™‡∏π‡∏á‡∏™‡∏∏‡∏î 5 ‡∏Ñ‡∏µ‡∏¢‡πå ‚Ä¢ ‡∏ä‡πà‡∏≠‡∏á 1 ‡∏Ñ‡∏∑‡∏≠‡∏Ñ‡∏µ‡∏¢‡πå‡πÄ‡∏î‡∏¥‡∏°\n‡∏Ñ‡∏µ‡∏¢‡πå‡πÄ‡∏Å‡πá‡∏ö‡πÄ‡∏Ç‡πâ‡∏≤‡∏£‡∏´‡∏±‡∏™‡∏ö‡∏ô‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á ‚Ä¢ ‡πÑ‡∏°‡πà‡πÅ‡∏™‡∏î‡∏á‡∏Ñ‡∏µ‡∏¢‡πå‡πÄ‡∏î‡∏¥‡∏°\n‡∏£‡∏∞‡∏ö‡∏ö‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏Ñ‡∏µ‡∏¢‡πå‡∏ï‡∏≤‡∏°‡∏á‡∏≤‡∏ô‡πÉ‡∏´‡∏°‡πà ‡πÉ‡∏ä‡πâ‡∏ó‡∏µ‡∏•‡∏∞‡∏Ñ‡∏≥‡∏Ç‡∏≠ ‡πÄ‡∏ß‡πâ‡∏ô‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏ô‡πâ‡∏≠‡∏¢ 3 ‡∏ß‡∏¥‡∏ô‡∏≤‡∏ó‡∏µ ‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏ä‡πà‡∏≠‡∏á‡∏ï‡πâ‡∏≠‡∏á‡πÄ‡∏õ‡πá‡∏ô‡∏Ñ‡∏ô‡∏•‡∏∞‡πÇ‡∏õ‡∏£‡πÄ‡∏à‡∏Å‡∏ï‡πå ‚Ä¢ ‡∏´‡∏≤‡∏Å‡πÑ‡∏î‡πâ‡∏£‡∏±‡∏ö 429 ‡∏à‡∏∞‡∏û‡∏±‡∏Å‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏Ñ‡∏µ‡∏¢‡πå‡∏ô‡∏±‡πâ‡∏ô ‡πÅ‡∏•‡∏∞‡πÉ‡∏ä‡πâ‡∏ö‡∏£‡∏¥‡∏Å‡∏≤‡∏£‡∏≠‡∏∑‡πà‡∏ô‡∏ó‡∏µ‡πà‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤‡πÑ‡∏ß‡πâ‡∏´‡∏≤‡∏Å‡∏û‡∏£‡πâ‡∏≠‡∏°\n‡∏Ñ‡∏µ‡∏¢‡πå‡πÉ‡∏ô‡πÇ‡∏õ‡∏£‡πÄ‡∏à‡∏Å‡∏ï‡πå‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡∏Å‡∏±‡∏ô‡πÉ‡∏ä‡πâ‡πÇ‡∏Ñ‡∏ß‡∏ï‡∏≤‡∏£‡πà‡∏ß‡∏°‡∏Å‡∏±‡∏ô ‚Ä¢ ‡∏Ñ‡πà‡∏≤‡πÉ‡∏ä‡πâ‡∏à‡πà‡∏≤‡∏¢‡∏Ç‡∏∂‡πâ‡∏ô‡∏≠‡∏¢‡∏π‡πà‡∏Å‡∏±‡∏ö‡πÅ‡∏ï‡πà‡∏•‡∏∞‡πÇ‡∏õ‡∏£‡πÄ‡∏à‡∏Å‡∏ï‡πå"
-        })
-        val model=EditText(this).apply { hint="‡∏ä‡∏∑‡πà‡∏≠‡πÇ‡∏°‡πÄ‡∏î‡∏• Gemini ‡∏ó‡∏µ‡πà‡πÉ‡∏ä‡πâ‡∏£‡πà‡∏ß‡∏°‡∏Å‡∏±‡∏ô"; setSingleLine(true); setText(runCatching { GeminiSettings.firstModel(this@StudioActivity) }.getOrDefault(GeminiSettings.DEFAULT_MODEL)); panel.addView(this) }
-        panel.addView(Button(this).apply { text="‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏ä‡∏∑‡πà‡∏≠‡πÇ‡∏°‡πÄ‡∏î‡∏•‡∏£‡πà‡∏ß‡∏°"; setOnClickListener {
-            val name=model.text.toString().trim()
-            if(!Regex("gemini-[a-zA-Z0-9.-]+").matches(name)) { notice("‡∏ä‡∏∑‡πà‡∏≠‡πÇ‡∏°‡πÄ‡∏î‡∏• Gemini ‡πÑ‡∏°‡πà‡∏ñ‡∏π‡∏Å‡∏ï‡πâ‡∏≠‡∏á"); return@setOnClickListener }
-            getSharedPreferences("gemini_key_pool",android.content.Context.MODE_PRIVATE).edit().putString("model",name).apply()
-            notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÇ‡∏°‡πÄ‡∏î‡∏•‡∏£‡πà‡∏ß‡∏°‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏°‡∏µ‡∏ú‡∏•‡∏Å‡∏±‡∏ö‡∏á‡∏≤‡∏ô‡∏ñ‡∏±‡∏î‡πÑ‡∏õ")
-        } })
-        panel.addView(Button(this).apply { text="‡∏ó‡∏î‡∏™‡∏≠‡∏ö Gemini ‡∏ó‡∏±‡πâ‡∏á 5 ‡∏Ñ‡∏µ‡∏¢‡πå‡∏ó‡∏µ‡∏•‡∏∞‡∏ä‡πà‡∏≠‡∏á"; setOnClickListener { testStoryApis(listOf(StoryProvider.GEMINI)) } })
-        val statusViews=mutableListOf<TextView>()
-        for(index in 0 until 5) {
-            val settings=GeminiSettings(this,StoryProvider.GEMINI,index)
-            val heading=TextView(this).apply { text="‡∏Ñ‡∏µ‡∏¢‡πå‡∏ä‡πà‡∏≠‡∏á‡∏ó‡∏µ‡πà ${index+1}"+if(index==0) " ‚Ä¢ ‡∏Ñ‡∏µ‡∏¢‡πå‡πÄ‡∏î‡∏¥‡∏°" else ""; textSize=18f; setTypeface(null,Typeface.BOLD); panel.addView(this) }
-            val status=TextView(this).apply {
-                text=if(!settings.hasSaved()) "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Ñ‡∏µ‡∏¢‡πå" else if(settings.hasKey()) "‡∏°‡∏µ‡∏Ñ‡∏µ‡∏¢‡πå‡πÄ‡∏Ç‡πâ‡∏≤‡∏£‡∏´‡∏±‡∏™‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏ß‡πà‡∏≤‡∏á‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏Ñ‡∏á‡∏Ñ‡∏µ‡∏¢‡πå‡πÄ‡∏î‡∏¥‡∏°" else "‡∏≠‡πà‡∏≤‡∏ô‡∏Ñ‡∏µ‡∏¢‡πå‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‚Ä¢ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à"
-                panel.addView(this)
-            }
-            statusViews.add(status)
-            val input=EditText(this).apply {
-                hint=if(settings.hasSaved()) "‡∏°‡∏µ‡∏Ñ‡∏µ‡∏¢‡πå‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏Å‡∏£‡∏≠‡∏Å‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡πÄ‡∏°‡∏∑‡πà‡∏≠‡∏ï‡πâ‡∏≠‡∏á‡∏Å‡∏≤‡∏£‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô" else "‡∏ß‡∏≤‡∏á Gemini API Key ‡∏ä‡πà‡∏≠‡∏á ${index+1}"
-                inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-                setSingleLine(true); panel.addView(this)
-            }
-            panel.addView(Button(this).apply { text="‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏Ñ‡∏µ‡∏¢‡πå‡∏ä‡πà‡∏≠‡∏á ${index+1}"; setOnClickListener {
-                runCatching {
-                    val value=input.text.toString().trim().ifBlank { settings.key() }
-                    require(value.isNotBlank()) { "‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏Å‡∏£‡∏≠‡∏Å‡∏Ñ‡∏µ‡∏¢‡πå‡∏ä‡πà‡∏≠‡∏á ${index+1}" }
-                    val other=(0 until 5).filter { it!=index }.map { GeminiSettings(this@StudioActivity,StoryProvider.GEMINI,it) }.filter { it.hasSaved() }.map { it.key() }
-                    require(other.none { it==value }) { "‡∏Ñ‡∏µ‡∏¢‡πå‡∏ô‡∏µ‡πâ‡∏ã‡πâ‡∏≥‡∏Å‡∏±‡∏ö‡∏ä‡πà‡∏≠‡∏á‡∏≠‡∏∑‡πà‡∏ô ‚Ä¢ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à" }
-                    val modelName=model.text.toString().trim()
-                    settings.save(value,modelName)
-                    getSharedPreferences("gemini_key_pool",android.content.Context.MODE_PRIVATE).edit().putString("model",modelName).apply()
-                }.onSuccess {
-                    input.setText(""); input.hint="‡∏°‡∏µ‡∏Ñ‡∏µ‡∏¢‡πå‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏Å‡∏£‡∏≠‡∏Å‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡πÄ‡∏°‡∏∑‡πà‡∏≠‡∏ï‡πâ‡∏≠‡∏á‡∏Å‡∏≤‡∏£‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô"
-                    status.text="‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏Ñ‡∏µ‡∏¢‡πå‡∏ä‡πà‡∏≠‡∏á ${index+1} ‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏ó‡∏î‡∏™‡∏≠‡∏ö"
-                }.onFailure { notice(it.message ?: "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏Ñ‡∏µ‡∏¢‡πå‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-            } })
-            panel.addView(Button(this).apply { text="‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡∏Ñ‡∏µ‡∏¢‡πå‡∏ä‡πà‡∏≠‡∏á ${index+1}"; setOnClickListener {
-                if(input.text.toString().isNotBlank()) { notice("‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏Ñ‡∏µ‡∏¢‡πå‡∏ä‡πà‡∏≠‡∏á ${index+1} ‡∏Å‡πà‡∏≠‡∏ô‡∏ó‡∏î‡∏™‡∏≠‡∏ö"); return@setOnClickListener }
-                val key=runCatching { settings.key() }.getOrNull().orEmpty()
-                val selectedModel=model.text.toString().trim()
-                if(key.isBlank()) { notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Ñ‡∏µ‡∏¢‡πå‡πÉ‡∏ô‡∏ä‡πà‡∏≠‡∏á ${index+1}"); return@setOnClickListener }
-                isEnabled=false; status.text="‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡∏Ñ‡∏µ‡∏¢‡πå‡∏ä‡πà‡∏≠‡∏á ${index+1} ‚Ä¢ ‡∏£‡∏≠‡∏ú‡∏•"
-                val button=this
-                Thread {
-                    val passed=runCatching { StoryApiProbe.check(GeminiClient(key,selectedModel,{ false },automaticRetry=false)) }.isSuccess
-                    runOnUiThread {
-                        if(isFinishing || isDestroyed) return@runOnUiThread
-                        button.isEnabled=true
-                        status.text=if(passed) "‡∏Ñ‡∏µ‡∏¢‡πå‡∏ä‡πà‡∏≠‡∏á ${index+1} ‚Ä¢ ‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡∏ú‡πà‡∏≤‡∏ô" else "‡∏Ñ‡∏µ‡∏¢‡πå‡∏ä‡πà‡∏≠‡∏á ${index+1} ‚Ä¢ ‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡πÑ‡∏°‡πà‡∏ú‡πà‡∏≤‡∏ô ‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏µ‡∏¢‡πå ‡πÇ‡∏°‡πÄ‡∏î‡∏• ‡∏™‡∏¥‡∏ó‡∏ò‡∏¥‡πå ‡πÅ‡∏•‡∏∞‡πÇ‡∏Ñ‡∏ß‡∏ï‡∏≤"
-                    }
-                }.start()
-            } })
-            panel.addView(Button(this).apply { text="‡∏•‡∏ö‡∏Ñ‡∏µ‡∏¢‡πå‡∏ä‡πà‡∏≠‡∏á ${index+1}"; setOnClickListener {
-                AlertDialog.Builder(this@StudioActivity).setTitle("‡∏•‡∏ö‡∏Ñ‡∏µ‡∏¢‡πå Gemini ‡∏ä‡πà‡∏≠‡∏á ${index+1}?")
-                    .setMessage("‡∏•‡∏ö‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏Ñ‡∏µ‡∏¢‡πå‡∏ä‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ‡∏à‡∏≤‡∏Å‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á ‚Ä¢ ‡∏Ñ‡∏µ‡∏¢‡πå‡∏ä‡πà‡∏≠‡∏á‡∏≠‡∏∑‡πà‡∏ô‡πÑ‡∏°‡πà‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô")
-                    .setPositiveButton("‡∏•‡∏ö") { _,_ -> settings.clear(); input.setText(""); status.text="‡∏•‡∏ö‡∏Ñ‡∏µ‡∏¢‡πå‡∏ä‡πà‡∏≠‡∏á ${index+1} ‡πÅ‡∏•‡πâ‡∏ß"; input.hint="‡∏ß‡∏≤‡∏á Gemini API Key ‡∏ä‡πà‡∏≠‡∏á ${index+1}" }
-                    .setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-            } })
-        }
-        panel.addView(Button(this).apply { text="‡πÄ‡∏õ‡∏¥‡∏î Google AI Studio ‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏Ñ‡∏µ‡∏¢‡πå"; setOnClickListener {
-            runCatching { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(StoryProvider.GEMINI.keyUrl))) }.onFailure { notice("‡πÄ‡∏õ‡∏¥‡∏î Google AI Studio ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-        } })
-        AlertDialog.Builder(this).setTitle("Gemini ‚Ä¢ ‡∏Ñ‡∏µ‡∏¢‡πå 1‚Äì5")
-            .setView(ScrollView(this).apply { addView(panel) })
-            .setPositiveButton("‡πÄ‡∏™‡∏£‡πá‡∏à‡∏™‡∏¥‡πâ‡∏ô") { _,_ -> afterSave?.invoke() }
-            .setNegativeButton("‡∏õ‡∏¥‡∏î",null).showDirector()
-    }
-    private fun storyProviderSettings(provider: StoryProvider,afterSave: (() -> Unit)?=null) {
-        if(provider==StoryProvider.GEMINI) { geminiMultiKeyDialog(afterSave); return }
-        val settings=GeminiSettings(this,provider)
-        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-        panel.addView(TextView(this).apply { text="${provider.label} ‚Ä¢ ‡∏Ñ‡∏µ‡∏¢‡πå‡πÄ‡∏Å‡πá‡∏ö‡πÅ‡∏¢‡∏Å‡πÅ‡∏•‡∏∞‡πÄ‡∏Ç‡πâ‡∏≤‡∏£‡∏´‡∏±‡∏™‡∏ö‡∏ô‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á ‡πÑ‡∏°‡πà‡∏™‡πà‡∏á‡∏≠‡∏≠‡∏Å‡πÉ‡∏ô‡∏™‡∏≥‡∏£‡∏≠‡∏á‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏• ‚Ä¢ ‡∏£‡∏∞‡∏ö‡∏ö‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÅ‡∏•‡∏∞‡∏™‡πà‡∏á‡∏ï‡πà‡∏≠‡∏£‡∏∞‡∏´‡∏ß‡πà‡∏≤‡∏á‡∏Ñ‡πà‡∏≤‡∏¢‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥ ‚Ä¢ ‡∏™‡πà‡∏á‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ö‡∏ó/‡∏•‡∏±‡∏Å‡∏©‡∏ì‡∏∞‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ‡πÑ‡∏°‡πà‡∏™‡πà‡∏á‡∏£‡∏π‡∏õ MASTER ‚Ä¢ ‡πÇ‡∏Ñ‡∏ß‡∏ï‡∏≤‡πÅ‡∏•‡∏∞‡∏Ñ‡πà‡∏≤‡∏ö‡∏£‡∏¥‡∏Å‡∏≤‡∏£‡∏Ç‡∏∂‡πâ‡∏ô‡∏Å‡∏±‡∏ö‡∏ö‡∏±‡∏ç‡∏ä‡∏µ‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏Ñ‡πà‡∏≤‡∏¢" })
-        val key=EditText(this).apply { hint=if(settings.hasKey()) "‡∏°‡∏µ‡∏Ñ‡∏µ‡∏¢‡πå‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏ß‡πà‡∏≤‡∏á‡πÄ‡∏û‡∏∑‡πà‡∏≠‡πÉ‡∏ä‡πâ‡∏Ñ‡∏µ‡∏¢‡πå‡πÄ‡∏î‡∏¥‡∏°" else "${provider.label} API Key"; inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD; setSingleLine(true); panel.addView(this) }
-        val model=EditText(this).apply { hint="‡∏ä‡∏∑‡πà‡∏≠‡πÇ‡∏°‡πÄ‡∏î‡∏•"; setSingleLine(true); setText(settings.model()); panel.addView(this) }
-        if(provider==StoryProvider.GROQ) panel.addView(TextView(this).apply { text="‡πÇ‡∏°‡πÄ‡∏î‡∏•‡∏ó‡∏µ‡πà‡∏£‡∏≠‡∏á‡∏£‡∏±‡∏ö: "+GroqClient.MODELS.joinToString(" / ")+" ‚Ä¢ ‡∏Ñ‡∏£‡∏±‡πâ‡∏á‡∏•‡∏∞ 2 ‡∏ã‡∏µ‡∏ô ‚Ä¢ ‡πÄ‡∏ß‡πâ‡∏ô‡∏Ñ‡∏≥‡∏Ç‡∏≠‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏ô‡πâ‡∏≠‡∏¢ 65 ‡∏ß‡∏¥‡∏ô‡∏≤‡∏ó‡∏µ‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏•‡∏î‡∏Å‡∏≤‡∏£‡∏ä‡∏ô‡πÇ‡∏Ñ‡∏ß‡∏ï‡∏≤‡∏ü‡∏£‡∏µ ‚Ä¢ ‡∏´‡∏¢‡∏∏‡∏î / ‡∏ó‡∏≥‡∏ï‡πà‡∏≠‡πÑ‡∏î‡πâ" })
-        panel.addView(Button(this).apply { text="‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏Ñ‡∏µ‡∏¢‡πå ${provider.label}"; setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(provider.keyUrl))) } })
-        panel.addView(Button(this).apply { text="‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏Ñ‡∏µ‡∏¢‡πå‡πÅ‡∏•‡∏∞‡∏ó‡∏î‡∏™‡∏≠‡∏ö ${provider.label}"; setOnClickListener {
-            runCatching { settings.save(key.text.toString().trim().ifBlank { settings.key() },model.text.toString().trim()) }
-                .onSuccess { key.setText(""); key.hint="‡∏°‡∏µ‡∏Ñ‡∏µ‡∏¢‡πå‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏ß‡πà‡∏≤‡∏á‡πÄ‡∏û‡∏∑‡πà‡∏≠‡πÉ‡∏ä‡πâ‡∏Ñ‡∏µ‡∏¢‡πå‡πÄ‡∏î‡∏¥‡∏°"; testStoryApis(listOf(provider)) }
-                .onFailure { notice("‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏µ‡∏¢‡πå‡πÅ‡∏•‡∏∞‡∏ä‡∏∑‡πà‡∏≠‡πÇ‡∏°‡πÄ‡∏î‡∏•‡∏Å‡πà‡∏≠‡∏ô‡∏ó‡∏î‡∏™‡∏≠‡∏ö") }
-        } })
-        val dialog=AlertDialog.Builder(this).setTitle("${provider.label} ‚Ä¢ ‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤ API")
-            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å",null)
-            .setNeutralButton("‡∏•‡∏ö‡∏Ñ‡∏µ‡∏¢‡πå") { _,_ -> settings.clear(); notice("‡∏•‡∏ö‡∏Ñ‡∏µ‡∏¢‡πå ${provider.label} ‡∏à‡∏≤‡∏Å‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÅ‡∏•‡πâ‡∏ß") }.setNegativeButton("‡∏õ‡∏¥‡∏î",null).showDirector()
-        dialog.getButton(-1).setOnClickListener {
-            runCatching { settings.save(key.text.toString().trim().ifBlank { settings.key() },model.text.toString().trim()) }
-                .onSuccess { dialog.dismiss(); afterSave?.invoke() ?: notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å ${provider.label} ‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏£‡∏∞‡∏ö‡∏ö‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏Ñ‡πà‡∏≤‡∏¢‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥") }
-                .onFailure { Toast.makeText(this,it.message ?: "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ",Toast.LENGTH_LONG).show() }
-        }
-    }
-    private fun startGeminiJob(folder: File) {
-        if(GeminiStoryService.running) { notice("‡∏°‡∏µ‡∏á‡∏≤‡∏ô‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ó‡∏≥‡∏á‡∏≤‡∏ô‡∏≠‡∏¢‡∏π‡πà ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏£‡∏≠‡∏´‡∏£‡∏∑‡∏≠‡∏´‡∏¢‡∏∏‡∏î‡∏á‡∏≤‡∏ô‡πÄ‡∏î‡∏¥‡∏°‡∏Å‡πà‡∏≠‡∏ô"); return }
-        runCatching {
-            val intent=Intent(this,GeminiStoryService::class.java).putExtra("project",folder.name)
-            androidx.core.content.ContextCompat.startForegroundService(this,intent)
-        }.onFailure { notice("‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏á‡∏≤‡∏ô‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏õ‡∏¥‡∏î‡πÅ‡∏≠‡∏õ‡∏Ñ‡πâ‡∏≤‡∏á‡πÑ‡∏ß‡πâ‡πÅ‡∏•‡πâ‡∏ß‡∏•‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà") }
-    }
-    private fun resolvePendingCharacterName() {
-        if(GeminiStoryService.running) { notice("‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏´‡∏¢‡∏∏‡∏î‡∏á‡∏≤‡∏ô‡∏Å‡πà‡∏≠‡∏ô‡πÅ‡∏Å‡πâ‡∏ä‡∏∑‡πà‡∏≠"); return }
-        val job=File(project,"gemini_job")
-        val status=readGeminiStatus() ?: return notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞‡∏á‡∏≤‡∏ô")
-        val match=Regex("EP ([0-9]+) ‡∏ã‡∏µ‡∏ô ([0-9]+): ‡∏û‡∏ö‡∏ä‡∏∑‡πà‡∏≠‡∏†‡∏≤‡∏©‡∏≤‡∏≠‡∏±‡∏á‡∏Å‡∏§‡∏© '([A-Za-z][A-Za-z0-9_]*)'").find(status.optString("message"))
-            ?: return notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏ä‡∏∑‡πà‡∏≠‡∏ó‡∏µ‡πà‡∏ï‡πâ‡∏≠‡∏á‡∏à‡∏±‡∏ö‡∏Ñ‡∏π‡πà‡πÉ‡∏ô‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞‡∏õ‡∏±‡∏à‡∏à‡∏∏‡∏ö‡∏±‡∏ô")
-        val ep=match.groupValues[1].toInt()
-        val sceneNumber=match.groupValues[2].toInt()
-        val files=job.listFiles().orEmpty().filter { it.name.matches(Regex("EP%02d_[0-9]+[.]json[.]pending[.]json".format(ep))) }
-        val candidates=files.filter { file -> runCatching {
-            val rows=GeminiStoryFiles.read(file).getJSONArray("scenes")
-            (0 until rows.length()).count { rows.getJSONObject(it).optInt("scene")==sceneNumber }==1
-        }.getOrDefault(false) }
-        if(candidates.size!=1) { notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏ä‡πà‡∏ß‡∏á‡∏ã‡∏µ‡∏ô‡∏ó‡∏µ‡πà‡∏Ñ‡πâ‡∏≤‡∏á‡πÄ‡∏û‡∏µ‡∏¢‡∏á‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡πÄ‡∏î‡∏µ‡∏¢‡∏ß ‡∏à‡∏∂‡∏á‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÅ‡∏Å‡πâ‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•"); return }
-        val file=candidates.single()
-        val specFile=File(job,"spec.json")
-        val state=runCatching {
-            val batch=GeminiStoryFiles.read(file)
-            val spec=GeminiStoryFiles.read(specFile)
-            Triple(batch.toString(),spec,PendingNameReview.collect(batch,spec,CharacterAliasRegistry.read(job)))
-        }.getOrElse { notice("‡∏≠‡πà‡∏≤‡∏ô‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏ó‡∏µ‡πà‡∏Ñ‡πâ‡∏≤‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡∏á‡∏≤‡∏ô‡πÄ‡∏î‡∏¥‡∏°"); return }
-        val (snapshot,spec,issues)=state
-        if(issues.isEmpty()) {
-            if(!StoryProvider.ready(this)) { geminiSettings { geminiJobMenu() }; return }
-            runCatching {
-                GeminiStoryFiles.write(specFile,StoryProvider.configure(this,GeminiStoryFiles.read(specFile)))
-                startGeminiJob(project)
-            }.onFailure { notice("‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏á‡∏≤‡∏ô‡∏ï‡πà‡∏≠‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ: "+(it.message ?: "‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏•‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà")) }
-            return
-        }
-        choiceMenu("EP $ep ‚Ä¢ ‡∏ä‡∏∑‡πà‡∏≠‡∏ó‡∏µ‡πà‡∏ï‡πâ‡∏≠‡∏á‡∏ï‡∏£‡∏ß‡∏à‡πÉ‡∏ô‡∏ä‡∏∏‡∏î‡∏ô‡∏µ‡πâ (${issues.size})",issues.map { "‡∏ã‡∏µ‡∏ô ${it.scene} ‚Ä¢ ${it.alias}" }) { index ->
-            val issue=issues[index]
-            val definitions=FlowCast.definitions(spec)
-            val people=issue.people.filter { person ->
-                person.optString("name").isNotBlank() && person.optString("master").isNotBlank() &&
-                    definitions.count { it.optString("name")==person.optString("name") && it.optString("master").equals(person.optString("master"),true) }==1
-            }
-            if(people.isEmpty() || people.map { it.optString("name") }.distinct().size!=people.size) {
-                notice("‡∏£‡∏≤‡∏¢‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÉ‡∏ô‡∏ã‡∏µ‡∏ô‡πÑ‡∏°‡πà‡∏Ñ‡∏£‡∏ö‡∏´‡∏£‡∏∑‡∏≠‡∏ã‡πâ‡∏≥ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô"); return@choiceMenu
-            }
-            AlertDialog.Builder(this).setTitle("‡∏ï‡∏£‡∏ß‡∏à ${issue.alias} ‚Ä¢ ‡∏ã‡∏µ‡∏ô ${issue.scene}")
-                .setMessage("‡∏Å‡∏≤‡∏£‡∏Å‡∏£‡∏∞‡∏ó‡∏≥‡πÉ‡∏ô‡∏ã‡∏µ‡∏ô:\n${issue.action}\n\n‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡πÄ‡∏°‡∏∑‡πà‡∏≠‡πÅ‡∏ô‡πà‡πÉ‡∏à‡∏ß‡πà‡∏≤‡πÄ‡∏õ‡πá‡∏ô‡∏Ñ‡∏ô‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡∏Å‡∏±‡∏ô")
-                .setPositiveButton("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏£‡∏≤‡∏¢‡∏ä‡∏∑‡πà‡∏≠") { _,_ ->
-                    chooseStoryCharacterGrid("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ó‡∏µ‡πà‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö ${issue.alias}",people) { selected ->
-                        val person=people[selected]
-                        val chosen=person.getString("name")
-                        val master=person.getString("master")
-                        AlertDialog.Builder(this).setTitle("‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£")
-                            .setMessage("‡∏à‡∏±‡∏ö‡∏Ñ‡∏π‡πà ${issue.alias} ‡∏Å‡∏±‡∏ö $chosen ‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ ‡πÅ‡∏•‡πâ‡∏ß‡∏ï‡∏£‡∏ß‡∏à‡∏ä‡∏∑‡πà‡∏≠‡∏ó‡∏µ‡πà‡πÄ‡∏´‡∏•‡∏∑‡∏≠‡∏ï‡πà‡∏≠?")
-                            .setPositiveButton("‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô") { _,_ ->
-                                if(GeminiStoryService.running) { notice("‡∏á‡∏≤‡∏ô‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ó‡∏≥‡∏á‡∏≤‡∏ô‡∏≠‡∏¢‡∏π‡πà ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏´‡∏¢‡∏∏‡∏î‡∏Å‡πà‡∏≠‡∏ô"); return@setPositiveButton }
-                                runCatching {
-                                    require(GeminiStoryFiles.read(file).toString()==snapshot) { "‡∏ã‡∏µ‡∏ô‡∏ó‡∏µ‡πà‡∏Ñ‡πâ‡∏≤‡∏á‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡πÑ‡∏õ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏õ‡∏¥‡∏î‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡πÉ‡∏´‡∏°‡πà" }
-                                    val freshSpec=GeminiStoryFiles.read(specFile)
-                                    val fresh=FlowCast.definitions(freshSpec)
-                                    require(fresh.count { it.optString("name")==chosen && it.optString("master").equals(master,true) }==1) { "‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏´‡∏£‡∏∑‡∏≠ MASTER ‡πÑ‡∏°‡πà‡∏ï‡∏£‡∏á‡∏ó‡∏∞‡πÄ‡∏ö‡∏µ‡∏¢‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á" }
-                                    require(fresh.none { it.optString("name")!=chosen && it.optString("english_name").equals(issue.alias,true) }) { "‡∏ä‡∏∑‡πà‡∏≠‡∏ô‡∏µ‡πâ‡πÄ‡∏õ‡πá‡∏ô‡∏ä‡∏∑‡πà‡∏≠‡∏Ç‡∏≠‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏≠‡∏∑‡πà‡∏ô‡πÉ‡∏ô‡∏ó‡∏∞‡πÄ‡∏ö‡∏µ‡∏¢‡∏ô" }
-                                    val registry=CharacterAliasRegistry.read(job)
-                                    CharacterAliasRegistry.add(registry,issue.alias,chosen,master)
-                                    CharacterAliasRegistry.save(job,registry)
-                                }.onSuccess { resolvePendingCharacterName() }
-                                 .onFailure { notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏Å‡∏≤‡∏£‡∏à‡∏±‡∏ö‡∏Ñ‡∏π‡πà‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ: "+(it.message ?: "‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏•‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà")) }
-                            }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-                    }
-                }.setNegativeButton("‡∏Å‡∏•‡∏±‡∏ö",null).showDirector()
-        }
-    }
-    private fun regeneratePendingScene() {
-        if(GeminiStoryService.running) return notice("‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏´‡∏¢‡∏∏‡∏î‡∏á‡∏≤‡∏ô‡∏Å‡πà‡∏≠‡∏ô")
-        val job=File(project,"gemini_job")
-        val match=Regex("EP ([0-9]+) ‡∏ã‡∏µ‡∏ô ([0-9]+): ‡∏û‡∏ö‡∏ä‡∏∑‡πà‡∏≠‡∏†‡∏≤‡∏©‡∏≤‡∏≠‡∏±‡∏á‡∏Å‡∏§‡∏©").find(readGeminiStatus()?.optString("message").orEmpty())
-            ?: return notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏ã‡∏µ‡∏ô‡∏ó‡∏µ‡πà‡∏ï‡πâ‡∏≠‡∏á‡πÅ‡∏Å‡πâ‡πÉ‡∏ô‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞‡∏õ‡∏±‡∏à‡∏à‡∏∏‡∏ö‡∏±‡∏ô")
-        val ep=match.groupValues[1].toInt()
-        val scene=match.groupValues[2].toInt()
-        val candidates=job.listFiles().orEmpty().filter { it.name.matches(Regex("EP%02d_[0-9]+[.]json[.]pending[.]json".format(ep))) }.filter { file ->
-            runCatching {
-                val rows=GeminiStoryFiles.read(file).getJSONArray("scenes")
-                (0 until rows.length()).count { rows.getJSONObject(it).optInt("scene")==scene }==1
-            }.getOrDefault(false)
-        }
-        if(candidates.size!=1) return notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏ä‡πà‡∏ß‡∏á‡∏ã‡∏µ‡∏ô‡∏ó‡∏µ‡πà‡∏Ñ‡πâ‡∏≤‡∏á‡πÄ‡∏û‡∏µ‡∏¢‡∏á‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡πÄ‡∏î‡∏µ‡∏¢‡∏ß ‡∏à‡∏∂‡∏á‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÅ‡∏Å‡πâ‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•")
-        AlertDialog.Builder(this).setTitle("‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ã‡∏µ‡∏ô‡∏ó‡∏µ‡πà‡∏Ñ‡πâ‡∏≤‡∏á‡πÉ‡∏´‡∏°‡πà")
-            .setMessage("‡∏™‡∏≥‡∏£‡∏≠‡∏á‡∏ä‡πà‡∏ß‡∏á‡πÄ‡∏î‡∏¥‡∏° ‡πÅ‡∏•‡πâ‡∏ß‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡πÉ‡∏´‡∏°‡πà‡πÄ‡∏â‡∏û‡∏≤‡∏∞ EP $ep ‡∏ã‡∏µ‡∏ô $scene ‡πÇ‡∏î‡∏¢‡πÉ‡∏ä‡πâ‡πÇ‡∏Ñ‡∏£‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÄ‡∏î‡∏¥‡∏° ‡πÄ‡∏ô‡∏∑‡πâ‡∏≠‡∏´‡∏≤‡∏ã‡∏µ‡∏ô‡∏≠‡∏≤‡∏à‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô ‡∏ã‡∏µ‡∏ô‡∏ó‡∏µ‡πà‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÅ‡∏•‡πâ‡∏ß‡∏à‡∏∞‡∏¢‡∏±‡∏á‡∏Ñ‡∏á‡∏≠‡∏¢‡∏π‡πà")
-            .setPositiveButton("‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ã‡∏µ‡∏ô‡πÉ‡∏´‡∏°‡πà") { _,_ ->
-                if(GeminiStoryService.running) notice("‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏´‡∏¢‡∏∏‡∏î‡∏á‡∏≤‡∏ô‡∏Å‡πà‡∏≠‡∏ô")
-                else runCatching {
-                    GeminiStoryEngine.prepareSceneRegeneration(job,candidates.single(),ep,scene)
-                    if(!StoryProvider.ready(this)) geminiSettings { geminiJobMenu() }
-                    else {
-                        val specFile=File(job,"spec.json")
-                        GeminiStoryFiles.write(specFile,StoryProvider.configure(this,GeminiStoryFiles.read(specFile)))
-                        startGeminiJob(project)
-                    }
-                }.onFailure { notice("‡πÄ‡∏ï‡∏£‡∏µ‡∏¢‡∏°‡∏ã‡∏µ‡∏ô‡πÉ‡∏´‡∏°‡πà‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ: "+(it.message ?: "‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡∏á‡∏≤‡∏ô‡πÄ‡∏î‡∏¥‡∏°")) }
-            }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-    }
-    private fun geminiJobMenu() {
-        val state=readGeminiStatus()?.optString("state")
-        if(state=="complete" && plan!=null) { if(plan!!.optString("content_profile")==AutoDirectorContent.profile) autoDirectorMenu() else episodesMenu(); return }
-        if(GeminiStoryService.running) {
-            val live=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text=geminiStatusText(readGeminiStatus(),true); setTextIsSelectable(true) }
-            geminiLiveDialog=live
-            val dialog=AlertDialog.Builder(this).setTitle("‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞‡∏á‡∏≤‡∏ô ‚Ä¢ ‡∏≠‡∏±‡∏õ‡πÄ‡∏î‡∏ï‡∏ó‡∏∏‡∏Å‡∏ß‡∏¥‡∏ô‡∏≤‡∏ó‡∏µ")
-                .setView(live)
-                .setPositiveButton("‡∏î‡∏π‡∏ï‡πà‡∏≠",null).setNeutralButton("‡∏´‡∏¢‡∏∏‡∏î‡∏á‡∏≤‡∏ô") { _,_ -> startService(Intent(this,GeminiStoryService::class.java).setAction(GeminiStoryService.CANCEL)) }
-                .setNegativeButton("‡∏õ‡∏¥‡∏î",null).showDirector()
-            dialog.setOnDismissListener { if(geminiLiveDialog===live) geminiLiveDialog=null }
-        } else {
-            if(readGeminiStatus()?.optString("message")?.contains("‡∏û‡∏ö‡∏ä‡∏∑‡πà‡∏≠‡∏†‡∏≤‡∏©‡∏≤‡∏≠‡∏±‡∏á‡∏Å‡∏§‡∏©")==true) {
-                choiceMenu("‡∏á‡∏≤‡∏ô‡∏Ñ‡πâ‡∏≤‡∏á‡πÄ‡∏û‡∏£‡∏≤‡∏∞‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ß‡∏¥‡∏ò‡∏µ‡∏ó‡∏≥‡∏ï‡πà‡∏≠",listOf(
-                    "‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ã‡∏µ‡∏ô‡∏ó‡∏µ‡πà‡∏Ñ‡πâ‡∏≤‡∏á‡πÉ‡∏´‡∏°‡πà ‚Ä¢ ‡πÄ‡∏Å‡πá‡∏ö‡∏ã‡∏µ‡∏ô‡∏ó‡∏µ‡πà‡∏ú‡πà‡∏≤‡∏ô‡πÅ‡∏•‡πâ‡∏ß",
-                    "‡∏à‡∏±‡∏ö‡∏Ñ‡∏π‡πà‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏î‡πâ‡∏ß‡∏¢‡∏ï‡∏±‡∏ß‡πÄ‡∏≠‡∏á",
-                    "‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤ API"
-                )) { selected ->
-                    when(selected) {
-                        0 -> regeneratePendingScene()
-                        1 -> resolvePendingCharacterName()
-                        else -> geminiSettings()
-                    }
-                }
-                return
-            }
-            AlertDialog.Builder(this).setTitle("‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó‡∏ï‡πà‡∏≠‡∏à‡∏≤‡∏Å‡∏ó‡∏µ‡πà‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å")
-                .setMessage(geminiStatusText(readGeminiStatus(),true)+"\n‡∏à‡∏∞‡πÉ‡∏ä‡πâ ${StoryProvider.label(this@StudioActivity)} ‡πÅ‡∏•‡∏∞‡πÇ‡∏°‡πÄ‡∏î‡∏•‡∏ó‡∏µ‡πà‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤‡∏õ‡∏±‡∏à‡∏à‡∏∏‡∏ö‡∏±‡∏ô ‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏ä‡πà‡∏ß‡∏á‡∏ó‡∏µ‡πà‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à")
-                .setPositiveButton("‡∏ó‡∏≥‡∏ï‡πà‡∏≠") { _,_ ->
-                    if(!StoryProvider.ready(this)) geminiSettings { geminiJobMenu() }
-                    else runCatching {
-                        val specFile=File(project,"gemini_job/spec.json"); val spec=StoryProvider.configure(this,GeminiStoryFiles.read(specFile))
-                        GeminiStoryFiles.write(specFile,spec); startGeminiJob(project)
-                    }.onFailure { notice("‡∏≠‡πà‡∏≤‡∏ô‡∏á‡∏≤‡∏ô‡πÄ‡∏î‡∏¥‡∏°‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏£‡∏¥‡πà‡∏°‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà") }
-                }.setNeutralButton(if(readGeminiStatus()?.optString("message")?.contains("‡∏û‡∏ö‡∏ä‡∏∑‡πà‡∏≠‡∏†‡∏≤‡∏©‡∏≤‡∏≠‡∏±‡∏á‡∏Å‡∏§‡∏©")==true) "‡πÅ‡∏Å‡πâ‡∏ã‡∏µ‡∏ô‡∏ó‡∏µ‡πà‡∏Ñ‡πâ‡∏≤‡∏á" else "‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤ API") { _,_ ->
-                    if(readGeminiStatus()?.optString("message")?.contains("‡∏û‡∏ö‡∏ä‡∏∑‡πà‡∏≠‡∏†‡∏≤‡∏©‡∏≤‡∏≠‡∏±‡∏á‡∏Å‡∏§‡∏©")==true)
-                        choiceMenu("‡πÅ‡∏Å‡πâ‡∏ã‡∏µ‡∏ô‡∏ó‡∏µ‡πà‡∏Ñ‡πâ‡∏≤‡∏á",listOf("‡∏à‡∏±‡∏ö‡∏Ñ‡∏π‡πà‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£","‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ã‡∏µ‡∏ô‡∏ó‡∏µ‡πà‡∏Ñ‡πâ‡∏≤‡∏á‡πÉ‡∏´‡∏°‡πà","‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤ API")) { when(it) { 0 -> resolvePendingCharacterName(); 1 -> regeneratePendingScene(); else -> geminiSettings() } }
-                    else geminiSettings()
-                }.setNegativeButton("‡∏õ‡∏¥‡∏î",null).showDirector()
-        }
-    }
-    private fun landscapeCopyMenu() {
-        val source=plan ?: return notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ö‡∏ó‡πÉ‡∏´‡πâ‡∏ó‡∏≥‡∏™‡∏≥‡πÄ‡∏ô‡∏≤")
-        AlertDialog.Builder(this).setTitle("‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏™‡∏≥‡πÄ‡∏ô‡∏≤‡πÅ‡∏ô‡∏ß‡∏ï‡∏±‡πâ‡∏á 9:16")
-            .setMessage("‡πÄ‡∏Å‡πá‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÄ‡∏î‡∏¥‡∏°‡πÑ‡∏ß‡πâ ‡πÅ‡∏•‡πâ‡∏ß‡∏ó‡∏≥‡∏™‡∏≥‡πÄ‡∏ô‡∏≤‡∏ö‡∏ó‡∏Å‡∏±‡∏ö MASTER ‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏õ‡∏Å ‡∏†‡∏≤‡∏û ‡πÅ‡∏•‡∏∞‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠‡πÉ‡∏´‡∏°‡πà‡πÄ‡∏õ‡πá‡∏ô‡πÅ‡∏ô‡∏ß‡∏ï‡∏±‡πâ‡∏á 1080√ó1920 ‚Ä¢ ‡πÑ‡∏°‡πà‡∏¢‡∏∑‡∏î‡∏´‡∏£‡∏∑‡∏≠‡∏Ñ‡∏£‡∏≠‡∏õ‡∏†‡∏≤‡∏û/‡∏Ñ‡∏•‡∏¥‡∏õ‡πÄ‡∏Å‡πà‡∏≤‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥ ‡∏ï‡πâ‡∏≠‡∏á‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡πÉ‡∏´‡∏°‡πà‡∏Å‡πà‡∏≠‡∏ô‡πÉ‡∏ä‡πâ Flow")
-            .setPositiveButton("‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏™‡∏≥‡πÄ‡∏ô‡∏≤") { _,_ ->
-                val original=project
-                val folder=File(base,UUID.randomUUID().toString())
-                runCatching {
-                    folder.mkdirs()
-                    listOf("original_masters","masters").forEach { name -> val refs=File(original,name); if(refs.isDirectory) check(refs.copyRecursively(File(folder,name))) }
-                    val copy=LandscapeProduction.copyPlan(source).put("portrait_copy_of",original.name)
-                    GeminiStoryFiles.write(File(folder,"story.json"),copy)
-                    prefs.edit().putString("project",folder.name).apply(); render()
-                    notice("‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏™‡∏≥‡πÄ‡∏ô‡∏≤‡πÅ‡∏ô‡∏ß‡∏ï‡∏±‡πâ‡∏á‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏õ‡∏Å‡πÅ‡∏•‡∏∞‡∏†‡∏≤‡∏û‡πÉ‡∏´‡∏°‡πà ‡∏à‡∏≤‡∏Å‡∏ô‡∏±‡πâ‡∏ô‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏°‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡∏∞‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠ 9:16")
-                }.onFailure { folder.deleteRecursively(); notice(it.message ?: "‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏™‡∏≥‡πÄ‡∏ô‡∏≤‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-            }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-    }
-    private fun autoDirectorMenu() {
-        choiceMenu("DIRECTOR X",listOf("‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏´‡∏°‡∏ß‡∏î‡∏´‡∏•‡∏±‡∏Å / AI ‡∏Ñ‡∏¥‡∏î‡∏û‡∏•‡πá‡∏≠‡∏ï","Phase 1 ‚Ä¢ ‡∏î‡∏π‡πÇ‡∏Ñ‡∏£‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ó‡∏µ‡πà‡πÄ‡∏õ‡∏¥‡∏î","Phase 2‚Äì4 ‚Ä¢ ‡∏ó‡∏≥‡∏á‡∏≤‡∏ô‡∏ó‡∏µ‡∏•‡∏∞ EP","‡∏™‡πà‡∏á‡∏≠‡∏≠‡∏Å ZIP ‚Ä¢ ‡∏ï‡∏≠‡∏ô‡∏•‡∏∞ 2 ‡πÑ‡∏ü‡∏•‡πå","‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏†‡∏≤‡∏û / Flow ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å EP")) { action ->
-            if(action==0) { flowPlanning(true); return@choiceMenu }
-            val story=plan
-            if(story==null) { if(File(project,"gemini_job/spec.json").isFile) geminiJobMenu() else notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ö‡∏ó ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà‡∏´‡∏£‡∏∑‡∏≠‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô"); return@choiceMenu }
-            if(story.optString("content_profile")!=AutoDirectorContent.profile) {
-                notice("‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ‡πÉ‡∏ä‡πâ‡∏£‡∏π‡∏õ‡πÅ‡∏ö‡∏ö‡πÄ‡∏î‡∏¥‡∏° ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà‡πÉ‡∏ô DIRECTOR X ‡πÄ‡∏û‡∏∑‡πà‡∏≠‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏ß‡∏•‡∏≤‡∏Ñ‡∏•‡∏¥‡∏õ ‡πÄ‡∏™‡∏∑‡πâ‡∏≠‡∏ú‡πâ‡∏≤ 4 ‡∏™‡πà‡∏ß‡∏ô ‡πÅ‡∏•‡∏∞‡πÑ‡∏ü‡∏•‡πå Gemini / Flow XML"); return@choiceMenu
-            }
-            if(story.optString("aspect_ratio","16:9")!="9:16") { landscapeCopyMenu(); return@choiceMenu }
-            val wardrobeIssues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(story))
-            if(action>=2 && wardrobeIssues.isNotEmpty()) { notice(wardrobeIssues.take(12).joinToString("\n")); return@choiceMenu }
-            val revision=EpisodeMedia.digest(File(project,"story.json"))
-            val phaseKey="autodirector_${project.name}_$revision"
-            when(action) {
-                1 -> {
-                    showFlowCode("Phase 1 ‚Ä¢ ‡πÇ‡∏Ñ‡∏£‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á",AutoDirectorContent.outline(story),"AD_01_OUTLINE.txt")
-                    prefs.edit().putBoolean(phaseKey+"_outline",true).apply()
-                }
-                2 -> {
-                    val eps=story.getJSONArray("episodes")
-                    choiceMenu("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å EP",(0 until eps.length()).map { i -> "EP.${i+1} ${eps.getJSONObject(i).optString("title")}" }) { index ->
-                        val number=eps.getJSONObject(index).getInt("ep"); val key=phaseKey+"_ep$number"
-                        choiceMenu("EP.$number ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ó‡∏≥‡∏ó‡∏µ‡∏•‡∏∞‡∏Ç‡∏±‡πâ‡∏ô",listOf("‡∏†‡∏≤‡∏û EP.$number ‚Ä¢ ‡∏õ‡∏Å‡πÅ‡∏•‡∏∞‡∏ã‡∏µ‡∏ô","‡∏ö‡∏ó‡∏û‡∏π‡∏î EP.$number","‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠ EP.$number ‚Ä¢ ‡∏ó‡∏µ‡∏•‡∏∞‡∏ã‡∏µ‡∏ô‡∏û‡∏£‡πâ‡∏≠‡∏°‡πÄ‡∏™‡∏µ‡∏¢‡∏á","XML EP.$number ‚Ä¢ ‡∏Ç‡∏±‡πâ‡∏ô‡∏™‡∏π‡∏á")) { stage ->
-                            val reached=prefs.getInt(key,0)
-                            val code=when(stage) {
-                                0,2 -> ""
-                                1 -> AutoDirectorContent.dialogue(story,number)
-                                else -> AutoDirectorContent.flowXml(story,number)
-                            }
-                            val file=when(stage) { 0 -> "AD_EP%02d_IMAGES_GEMINI.txt"; 1 -> "AD_EP%02d_DIALOGUE.txt"; else -> "AD_EP%02d_FLOW.xml" }.format(number)
-                            when(stage) {
-                                0 -> productionTaskDeck(story,number,true)
-                                2 -> productionTaskDeck(story,number,false)
-                                else -> showFlowCode("Phase ${if(stage==3) 4 else 3} ‚Ä¢ EP.$number",code,file)
-                            }
-                            prefs.edit().putInt(key,maxOf(reached,minOf(stage+1,3))).apply()
-                        }
-                    }
-                }
-                4 -> commandCardsMenu()
-                3 -> {
-                    val issues=FlowProductionPack.issues(story)
-                    if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else { starterFlowPack=false; flowPackPicker.launch(StoryFiles.zipName(story.optString("title"))) }
-                }
-            }
-        }
-    }
-    private fun postDetails(story: JSONObject) {
-        val episodes=story.optJSONArray("episodes")
-        if(episodes==null || episodes.length()==0) { notice("‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏ï‡∏≠‡∏ô"); return }
-        choiceMenu("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏≠‡∏ô‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å",(0 until episodes.length()).map { i -> episodes.getJSONObject(i).let { "EP.${it.optInt("ep",i+1)} ‚Ä¢ ${it.optString("title").ifBlank { "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏≠‡∏ô" }}" } }) { index ->
-            val text=SocialPostText.build(story,index)
-            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-            panel.addView(TextView(this).apply { this.text="‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡∏∞‡πÅ‡∏Å‡πâ‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏Å‡πà‡∏≠‡∏ô‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å ‚Ä¢ ‡∏Ñ‡∏≥‡∏≠‡∏ò‡∏¥‡∏ö‡∏≤‡∏¢‡∏≠‡∏≤‡∏à‡∏°‡∏≤‡∏à‡∏≤‡∏Å‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏¢‡πà‡∏≠ ‡πÇ‡∏õ‡∏£‡∏î‡∏ï‡∏£‡∏ß‡∏à‡∏ß‡πà‡∏≤‡πÑ‡∏°‡πà‡πÄ‡∏õ‡∏¥‡∏î‡πÄ‡∏ú‡∏¢‡∏ï‡∏≠‡∏ô‡∏à‡∏ö ‚Ä¢ ‡∏´‡∏≤‡∏Å‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏Ç‡∏≤‡∏î‡∏™‡∏≤‡∏°‡∏≤‡∏£‡∏ñ‡∏û‡∏¥‡∏°‡∏û‡πå‡πÄ‡∏û‡∏¥‡πà‡∏°‡πÑ‡∏î‡πâ" })
-            val edit=EditText(this).apply { setText(text); minLines=8; gravity=android.view.Gravity.TOP; panel.addView(this) }
-            val dialog=AlertDialog.Builder(this).setTitle("‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡πÇ‡∏û‡∏™‡∏ï‡πå ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡∏∞‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å").setView(ScrollView(this).apply { addView(panel) })
-                .setPositiveButton("‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡∏ó‡∏±‡πâ‡∏á‡∏´‡∏°‡∏î",null).setNegativeButton("‡∏õ‡∏¥‡∏î",null).showDirector()
-            dialog.getButton(-1).setOnClickListener {
-                val result=edit.text.toString().trim()
-                if(result.isBlank()) { notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡πÉ‡∏´‡πâ‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å"); return@setOnClickListener }
-                copyCommand(result); dialog.dismiss()
-            }
-        }
-    }
-    private fun savedChannelNames(): List<String> = runCatching {
-        val a=JSONArray(prefs.getString("story_channels","[]")); (0 until a.length()).map { a.optString(it).trim() }.filter { it.isNotBlank() }
-    }.getOrDefault(emptyList())
-    private fun chooseStoryChannel(done: (String)->Unit) {
-        // Only the requested two channels are offered for new work. Existing stories stay untouched.
-        val names=listOf("‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î",originalChannel)
-        choiceMenu("‡∏Ç‡∏±‡πâ‡∏ô‡πÅ‡∏£‡∏Å ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ä‡∏∑‡πà‡∏≠‡∏ä‡πà‡∏≠‡∏á",names) { index ->
-            prefs.edit().putString("selected_story_channel",names[index]).apply()
-            done(names[index])
-        }
-    }
-    private var selectedStoryTopic: String = ""
-    private fun chooseStoryTopic(index: Int, done: (Int) -> Unit) {
-        val topics=ChannelCatalog.shortTopics(ChannelCatalog.allCategories[index].id)
-        if(topics.isEmpty()) { selectedStoryTopic=""; done(index); return }
-        choiceMenu("‡∏Ç‡∏±‡πâ‡∏ô‡∏ó‡∏µ‡πà 3 ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏™‡∏ñ‡∏≤‡∏ô‡∏Å‡∏≤‡∏£‡∏ì‡πå ‚Ä¢ ${ChannelCatalog.allCategories[index].name}",listOf("üé≤ ‡∏™‡∏∏‡πà‡∏°‡∏™‡∏ñ‡∏≤‡∏ô‡∏Å‡∏≤‡∏£‡∏ì‡πå")+topics) { choice ->
-            selectedStoryTopic=if(choice==0) topics.random() else topics[choice-1]
-            done(index)
-        }
-    }
-    private fun chooseTopicWithRandom(channel: String,category: String,topics: List<String>,done: (String)->Unit) {
-        if(topics.isEmpty()) { notice("‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏´‡∏°‡∏ß‡∏î‡∏¢‡πà‡∏≠‡∏¢‡πÉ‡∏´‡πâ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å"); return }
-        val prefKey="last_topic_"+java.lang.Integer.toUnsignedString((channel+"|"+category).hashCode(),16)
-        var previous=prefs.getString(prefKey,"").orEmpty()
-        fun accept(value: String) { prefs.edit().putString(prefKey,value).apply(); done(value) }
-        lateinit var pick: ()->Unit
-        pick={
-            val choices=ChannelFeaturePolicy.candidates(topics,previous)
-            val result=choices.random()
-            previous=result
-            choiceMenu("üé≤ ‡∏™‡∏∏‡πà‡∏°‡πÑ‡∏î‡πâ ‚Ä¢ $result",listOf("‚úÖ ‡πÉ‡∏ä‡πâ‡∏´‡∏°‡∏ß‡∏î‡∏ô‡∏µ‡πâ","üé≤ ‡∏™‡∏∏‡πà‡∏°‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á","‚Ü© ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏≠‡∏á")) { answer ->
-                when(answer) { 0 -> accept(result); 1 -> pick(); else -> chooseTopicWithRandom(channel,category,topics,done) }
-            }
-        }
-        choiceMenu("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏´‡∏°‡∏ß‡∏î‡∏¢‡πà‡∏≠‡∏¢ ‚Ä¢ $category",listOf("üé≤ ‡∏™‡∏∏‡πà‡∏°‡∏´‡∏°‡∏ß‡∏î‡∏¢‡πà‡∏≠‡∏¢")+topics) { choice ->
-            if(choice==0) pick() else accept(topics[choice-1])
-        }
-    }
-    private fun chooseChannelTopic(channel: String, done: (Int) -> Unit) {
-        if(channel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") {
-            val ids=listOf("pia_benefits","pia_safety","personal_social_drama","pia_products")
-            val labels=listOf("üìå ‡∏™‡∏ß‡∏±‡∏™‡∏î‡∏¥‡∏Å‡∏≤‡∏£‡πÅ‡∏•‡∏∞‡∏™‡∏¥‡∏ó‡∏ò‡∏¥‡∏õ‡∏£‡∏∞‡πÇ‡∏¢‡∏ä‡∏ô‡πå\n‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏™‡∏¥‡∏ó‡∏ò‡∏¥‡πÅ‡∏•‡∏∞‡∏Ç‡πà‡∏≤‡∏ß‡∏™‡∏ß‡∏±‡∏™‡∏î‡∏¥‡∏Å‡∏≤‡∏£", "üí° ‡∏Ñ‡∏ß‡∏≤‡∏°‡∏£‡∏π‡πâ‡πÅ‡∏•‡∏∞‡πÄ‡∏ï‡∏∑‡∏≠‡∏ô‡∏†‡∏±‡∏¢\n‡∏Ñ‡∏ß‡∏≤‡∏°‡∏£‡∏π‡πâ‡πÉ‡∏Å‡∏•‡πâ‡∏ï‡∏±‡∏ß‡πÅ‡∏•‡∏∞‡∏†‡∏±‡∏¢‡∏°‡∏¥‡∏à‡∏â‡∏≤‡∏ä‡∏µ‡∏û", "üé¨ ‡∏•‡∏∞‡∏Ñ‡∏£‡∏™‡∏±‡πâ‡∏ô‡∏™‡∏∞‡∏ó‡πâ‡∏≠‡∏ô‡∏™‡∏±‡∏á‡∏Ñ‡∏°\n‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÄ‡∏•‡πà‡∏≤‡πÅ‡∏•‡∏∞‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏¥‡∏î", "üõçÔ∏è ‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢‡∏û‡∏≤‡∏ä‡πâ‡∏≠‡∏õ\n‡∏£‡∏µ‡∏ß‡∏¥‡∏ß‡πÅ‡∏•‡∏∞‡πÅ‡∏ô‡∏∞‡∏ô‡∏≥‡∏™‡∏¥‡∏ô‡∏Ñ‡πâ‡∏≤")
-            val subcategories=listOf(
-                listOf("‡∏™‡∏¥‡∏ó‡∏ò‡∏¥‡∏ú‡∏π‡πâ‡∏™‡∏π‡∏á‡∏≠‡∏≤‡∏¢‡∏∏", "‡∏™‡∏¥‡∏ó‡∏ò‡∏¥‡∏ú‡∏π‡πâ‡∏û‡∏¥‡∏Å‡∏≤‡∏£", "‡∏™‡∏ß‡∏±‡∏™‡∏î‡∏¥‡∏Å‡∏≤‡∏£‡πÄ‡∏î‡πá‡∏Å‡πÅ‡∏•‡∏∞‡∏Ñ‡∏£‡∏≠‡∏ö‡∏Ñ‡∏£‡∏±‡∏ß", "‡∏ö‡∏±‡∏ï‡∏£‡∏™‡∏ß‡∏±‡∏™‡∏î‡∏¥‡∏Å‡∏≤‡∏£‡πÅ‡∏´‡πà‡∏á‡∏£‡∏±‡∏ê", "‡∏õ‡∏£‡∏∞‡∏Å‡∏±‡∏ô‡∏™‡∏±‡∏á‡∏Ñ‡∏°", "‡∏™‡∏¥‡∏ó‡∏ò‡∏¥‡∏£‡∏±‡∏Å‡∏©‡∏≤‡∏û‡∏¢‡∏≤‡∏ö‡∏≤‡∏•", "‡∏Ç‡∏±‡πâ‡∏ô‡∏ï‡∏≠‡∏ô‡∏ï‡∏£‡∏ß‡∏à‡∏™‡∏≠‡∏ö‡∏™‡∏¥‡∏ó‡∏ò‡∏¥", "‡∏Ç‡πà‡∏≤‡∏ß‡∏™‡∏ß‡∏±‡∏™‡∏î‡∏¥‡∏Å‡∏≤‡∏£‡∏≠‡∏∑‡πà‡∏ô ‡πÜ"),
-                listOf("‡πÄ‡∏ï‡∏∑‡∏≠‡∏ô‡∏†‡∏±‡∏¢‡∏°‡∏¥‡∏à‡∏â‡∏≤‡∏ä‡∏µ‡∏û", "‡πÇ‡∏ó‡∏£‡∏®‡∏±‡∏û‡∏ó‡πå‡πÅ‡∏•‡∏∞‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏´‡∏•‡∏≠‡∏Å‡∏•‡∏ß‡∏á", "‡∏´‡∏•‡∏≠‡∏Å‡πÇ‡∏≠‡∏ô‡πÄ‡∏á‡∏¥‡∏ô‡πÅ‡∏•‡∏∞‡∏ã‡∏∑‡πâ‡∏≠‡∏Ç‡∏≤‡∏¢‡∏≠‡∏≠‡∏ô‡πÑ‡∏•‡∏ô‡πå", "‡∏Ñ‡∏ß‡∏≤‡∏°‡∏õ‡∏•‡∏≠‡∏î‡∏†‡∏±‡∏¢‡∏ö‡∏±‡∏ç‡∏ä‡∏µ‡πÅ‡∏•‡∏∞‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•", "‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÑ‡∏≠‡∏ó‡∏µ‡πÅ‡∏•‡∏∞‡∏°‡∏∑‡∏≠‡∏ñ‡∏∑‡∏≠", "‡∏ß‡∏¥‡∏ò‡∏µ‡πÉ‡∏ä‡πâ‡πÅ‡∏≠‡∏õ‡πÉ‡∏Å‡∏•‡πâ‡∏ï‡∏±‡∏ß", "‡∏Ñ‡∏ß‡∏≤‡∏°‡∏£‡∏π‡πâ‡πÉ‡∏ô‡∏ä‡∏µ‡∏ß‡∏¥‡∏ï‡∏õ‡∏£‡∏∞‡∏à‡∏≥‡∏ß‡∏±‡∏ô", "‡∏£‡∏π‡πâ‡πÄ‡∏ó‡πà‡∏≤‡∏ó‡∏±‡∏ô‡∏Ç‡πà‡∏≤‡∏ß‡πÅ‡∏•‡∏∞‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•"),
-                listOf("‡∏Ñ‡∏£‡∏≠‡∏ö‡∏Ñ‡∏£‡∏±‡∏ß‡πÅ‡∏•‡∏∞‡∏Ñ‡∏ß‡∏≤‡∏°‡∏Å‡∏ï‡∏±‡∏ç‡∏ç‡∏π", "‡∏ú‡∏π‡πâ‡∏™‡∏π‡∏á‡∏≠‡∏≤‡∏¢‡∏∏‡πÅ‡∏•‡∏∞‡∏Å‡∏≤‡∏£‡∏î‡∏π‡πÅ‡∏•", "‡∏ô‡πâ‡∏≥‡πÉ‡∏à‡πÅ‡∏•‡∏∞‡∏Å‡∏≤‡∏£‡∏ä‡πà‡∏ß‡∏¢‡πÄ‡∏´‡∏•‡∏∑‡∏≠", "‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ã‡∏∑‡πà‡∏≠‡∏™‡∏±‡∏ï‡∏¢‡πå‡πÅ‡∏•‡∏∞‡∏Ñ‡∏ß‡∏≤‡∏°‡πÑ‡∏ß‡πâ‡πÉ‡∏à", "‡∏Ñ‡∏ô‡∏ó‡∏≥‡∏á‡∏≤‡∏ô‡πÅ‡∏•‡∏∞‡∏≠‡∏≤‡∏ä‡∏µ‡∏û", "‡∏õ‡∏±‡∏ç‡∏´‡∏≤‡πÉ‡∏ô‡∏ä‡∏∏‡∏°‡∏ä‡∏ô", "‡∏Å‡∏≤‡∏£‡πÉ‡∏´‡πâ‡πÇ‡∏≠‡∏Å‡∏≤‡∏™‡πÅ‡∏•‡∏∞‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏ï‡πâ‡∏ô‡πÉ‡∏´‡∏°‡πà", "‡∏°‡∏¥‡∏ï‡∏£‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏™‡∏±‡∏ï‡∏ß‡πå‡πÄ‡∏•‡∏µ‡πâ‡∏¢‡∏á"),
-                listOf("‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏°‡∏∑‡∏≠‡∏ä‡πà‡∏≤‡∏á", "‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏°‡∏∑‡∏≠‡∏™‡∏ß‡∏ô‡πÅ‡∏•‡∏∞‡πÄ‡∏Å‡∏©‡∏ï‡∏£", "‡∏Ç‡∏≠‡∏á‡πÉ‡∏ä‡πâ‡πÉ‡∏ô‡∏ö‡πâ‡∏≤‡∏ô", "‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏ä‡πâ‡πÑ‡∏ü‡∏ü‡πâ‡∏≤‡πÉ‡∏ô‡∏Ñ‡∏£‡∏±‡∏ß", "‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡πÑ‡∏≠‡∏ó‡∏µ‡πÅ‡∏•‡∏∞‡∏°‡∏∑‡∏≠‡∏ñ‡∏∑‡∏≠", "‡∏Ç‡∏≠‡∏á‡πÉ‡∏ä‡πâ‡∏™‡πà‡∏ß‡∏ô‡∏ï‡∏±‡∏ß", "‡∏Ç‡∏≠‡∏á‡πÉ‡∏ä‡πâ‡πÉ‡∏ô‡∏£‡∏ñ", "‡πÄ‡∏õ‡∏£‡∏µ‡∏¢‡∏ö‡πÄ‡∏ó‡∏µ‡∏¢‡∏ö‡πÅ‡∏•‡∏∞‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ã‡∏∑‡πâ‡∏≠‡∏™‡∏¥‡∏ô‡∏Ñ‡πâ‡∏≤")
-            )
-            choiceMenu("‡∏´‡∏°‡∏ß‡∏î‡∏ä‡πà‡∏≠‡∏á ‚Ä¢ ‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î",labels) { selected ->
-                val index=ChannelCatalog.allCategories.indexOfFirst { it.id==ids[selected] }
-                require(index>=0) { "‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏´‡∏°‡∏ß‡∏î‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å" }
-                chooseTopicWithRandom(channel,ChannelCatalog.allCategories[index].name,subcategories[selected]) { topic ->
-                    selectedStoryTopic=topic
-                    done(index)
-                }
-            }
-            return
-        }
-        val film=ChannelCatalog.filmCategories
-        choiceMenu("‡∏Ç‡∏±‡πâ‡∏ô‡∏ó‡∏µ‡πà 1 ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏´‡∏°‡∏ß‡∏î‡∏´‡∏•‡∏±‡∏Å ‚Ä¢ ‡∏£‡πâ‡∏≠‡∏¢‡∏â‡∏≤‡∏Å",film.map { it.menuLabel }) { selected ->
-            val index=ChannelCatalog.allCategories.indexOfFirst { it.id==film[selected].id }
-            val topics=ChannelCatalog.shortTopics(film[selected].id)
-            chooseTopicWithRandom(channel,film[selected].id,topics) { topic ->
-                selectedStoryTopic=topic
-                done(index)
-            }
-        }
-    }
-    private fun chooseDramaTopic(done: (Int) -> Unit) {
-        val shelves=ChannelCatalog.storyShelves
-        choiceMenu("‡∏Ç‡∏±‡πâ‡∏ô‡∏ó‡∏µ‡πà 1 ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏´‡∏°‡∏ß‡∏î‡∏´‡∏•‡∏±‡∏Å",shelves.map { it.menuLabel }) { selected ->
-            val shelf=shelves[selected]
-            val choices=shelf.categoryIds.map { id -> ChannelCatalog.allCategories.indexOfFirst { it.id==id }.also { require(it>=0) } }
-            choiceMenu("‡∏Ç‡∏±‡πâ‡∏ô‡∏ó‡∏µ‡πà 2 ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÅ‡∏ô‡∏ß‡∏¢‡πà‡∏≠‡∏¢",choices.map { ChannelCatalog.genreMenuLabel(ChannelCatalog.allCategories[it]) }) { picked ->
-                chooseStoryTopic(choices[picked],done)
-            }
-        }
-    }
-    private fun chooseClip(done: (String,Int) -> Unit) {
-        choiceMenu("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏£‡∏π‡∏õ‡πÅ‡∏ö‡∏ö ‚Ä¢ ‡∏ó‡∏∏‡∏Å‡πÅ‡∏ö‡∏ö‡πÅ‡∏ô‡∏ß‡∏ï‡∏±‡πâ‡∏á 9:16",listOf("‡∏Ñ‡∏•‡∏¥‡∏õ‡∏™‡∏±‡πâ‡∏ô","‡∏Ñ‡∏•‡∏¥‡∏õ‡∏¢‡∏≤‡∏ß")) { format ->
-            val times=if(format==0) ClipPlan.shortSeconds else ClipPlan.longSeconds
-            choiceMenu(if(format==0) "‡πÄ‡∏ß‡∏•‡∏≤‡πÄ‡∏ô‡∏∑‡πâ‡∏≠‡∏´‡∏≤‡∏Ñ‡∏•‡∏¥‡∏õ‡∏™‡∏±‡πâ‡∏ô ‚Ä¢ ‡πÑ‡∏°‡πà‡∏£‡∏ß‡∏°‡∏õ‡∏Å" else "‡πÄ‡∏ß‡∏•‡∏≤‡πÄ‡∏ô‡∏∑‡πâ‡∏≠‡∏´‡∏≤‡∏ï‡πà‡∏≠ EP ‚Ä¢ ‡πÑ‡∏°‡πà‡∏£‡∏ß‡∏°‡∏õ‡∏Å‡πÄ‡∏õ‡∏¥‡∏î",times.map { ClipPlan.label(it)+(if(it==if(format==0) 30 else 300) " ‚Ä¢ ‡πÅ‡∏ô‡∏∞‡∏ô‡∏≥‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏ï‡πâ‡∏ô" else "") }) { index -> done(if(format==0) "short" else "long",times[index]) }
-        }
-    }
-    private fun flowPlanning(autoDirector: Boolean = false) {
-        if(GeminiStoryService.running) { geminiJobMenu(); return }
-        if(!StoryProvider.ready(this)) { geminiSettings { flowPlanning(autoDirector) }; return }
-        var chosenChannel=originalChannel
-        val configure: (Int) -> Unit = { index ->
-            chooseClip { format, seconds ->
-            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-            panel.addView(TextView(this).apply { text="‡∏´‡∏°‡∏ß‡∏î: ${categories[index]}\n‡∏™‡∏ñ‡∏≤‡∏ô‡∏Å‡∏≤‡∏£‡∏ì‡πå‡∏ï‡∏±‡πâ‡∏á‡∏ï‡πâ‡∏ô: $selectedStoryTopic\n${if(chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") "‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢‡πÄ‡∏õ‡πá‡∏ô‡∏ú‡∏π‡πâ‡∏î‡∏≥‡πÄ‡∏ô‡∏¥‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÅ‡∏•‡∏∞‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ä‡∏∏‡∏î‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏ï‡πâ‡∏ô" else "AI ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ô‡∏±‡∏Å‡πÅ‡∏™‡∏î‡∏á‡∏à‡∏≤‡∏Å‡∏Ñ‡∏•‡∏±‡∏á MASTER ‡πÅ‡∏•‡∏∞‡∏ï‡∏±‡πâ‡∏á‡∏ä‡∏∑‡πà‡∏≠‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥‡∏ï‡∏≤‡∏°‡∏ö‡∏ó"} ${if(format=="short") "‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏à‡∏ö‡πÉ‡∏ô‡∏Ñ‡∏•‡∏¥‡∏õ‡πÄ‡∏î‡∏µ‡∏¢‡∏ß" else "‡πÅ‡∏•‡πâ‡∏ß‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ï‡πà‡∏≠‡∏Ñ‡∏£‡∏ö‡∏ó‡∏∏‡∏Å EP"}"; textSize=14f })
-            fun stepHeader(number: String, label: String, color: Int) {
-                val row=LinearLayout(this).apply {
-                    orientation=LinearLayout.HORIZONTAL
-                    gravity=Gravity.CENTER_VERTICAL
-                    setPadding(dp(12),dp(8),dp(12),dp(8))
-                    background=GradientDrawable().apply { setColor(color); cornerRadius=dp(12).toFloat() }
-                }
-                row.addView(TextView(this).apply { text=number; textSize=30f; setTypeface(null,Typeface.BOLD); setTextColor(Color.WHITE); setPadding(0,0,dp(12),0) })
-                row.addView(TextView(this).apply { text=label; textSize=17f; setTypeface(null,Typeface.BOLD); setTextColor(Color.WHITE) },LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f))
-                panel.addView(row,LinearLayout.LayoutParams(-1,LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin=dp(10); bottomMargin=dp(6) })
-            }
-            fun colorAction(button: Button, color: Int, darkText: Boolean=false) {
-                button.backgroundTintList=ColorStateList.valueOf(color)
-                button.setTextColor(if(darkText) Color.rgb(25,31,36) else Color.WHITE)
-                button.textSize=16f
-                button.setTypeface(null,Typeface.BOLD)
-                button.minHeight=dp(52)
-            }
-            stepHeader("1","AI ‡∏Ñ‡∏¥‡∏î‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏à‡∏≤‡∏Å‡πÅ‡∏ô‡∏ß‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å",Color.rgb(34,105,160))
-            panel.addView(TextView(this).apply { text="‡∏•‡πá‡∏≠‡∏Å‡πÅ‡∏ô‡∏ß‡∏Ñ‡∏¥‡∏î‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ AI ‡∏à‡∏∞‡∏Ñ‡∏¥‡∏î‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏à‡∏≤‡∏Å‡∏´‡∏°‡∏ß‡∏î‡πÅ‡∏•‡∏∞‡∏™‡∏ñ‡∏≤‡∏ô‡∏Å‡∏≤‡∏£‡∏ì‡πå‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å"; setTextColor(Color.WHITE); setPadding(dp(12),dp(8),dp(12),dp(8)) })
-            val needsFacts=ChannelCatalog.allCategories[index].id in setOf("pia_benefits","pia_safety","pia_products")
-            val premise=EditText(this).apply {
-                hint="‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏à‡∏£‡∏¥‡∏á‡πÅ‡∏•‡∏∞‡πÅ‡∏´‡∏•‡πà‡∏á‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á‡∏ó‡∏µ‡πà‡∏ï‡∏£‡∏ß‡∏à‡∏™‡∏≠‡∏ö‡πÅ‡∏•‡πâ‡∏ß"
-                maxLines=4
-                if(needsFacts) panel.addView(this)
-            }
-            if(needsFacts) panel.addView(TextView(this).apply { text="‡∏´‡∏°‡∏ß‡∏î‡∏ô‡∏µ‡πâ‡∏ï‡πâ‡∏≠‡∏á‡∏£‡∏∞‡∏ö‡∏∏‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏à‡∏£‡∏¥‡∏á‡∏ó‡∏µ‡πà‡∏ï‡∏£‡∏ß‡∏à‡∏™‡∏≠‡∏ö‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ AI ‡∏à‡∏∞‡πÉ‡∏ä‡πâ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ö‡∏ó ‡πÑ‡∏°‡πà‡πÅ‡∏ï‡πà‡∏á‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏™‡∏¥‡∏ô‡∏Ñ‡πâ‡∏≤ ‡∏Ñ‡∏ß‡∏≤‡∏°‡∏õ‡∏•‡∏≠‡∏î‡∏†‡∏±‡∏¢ ‡∏´‡∏£‡∏∑‡∏≠‡∏™‡∏¥‡∏ó‡∏ò‡∏¥‡∏õ‡∏£‡∏∞‡πÇ‡∏¢‡∏ä‡∏ô‡πå‡πÄ‡∏≠‡∏á"; setTextColor(Color.WHITE); setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(149,54,40)) })
-            if(ChannelCatalog.allCategories[index].id=="pia_products") {
-                panel.addView(Button(this).apply { text="‡∏î‡∏π‡∏ï‡∏±‡∏ß‡∏≠‡∏¢‡πà‡∏≤‡∏á‡πÇ‡∏Ü‡∏©‡∏ì‡∏≤‡∏™‡∏¥‡∏ô‡∏Ñ‡πâ‡∏≤ TikTok"; colorAction(this,Color.rgb(225,161,35),true); setOnClickListener {
-                    runCatching { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://ads.tiktok.com/business/creativecenter/inspiration/topads/pc/en?region=TH"))) }.onFailure { notice("‡πÄ‡∏õ‡∏¥‡∏î TikTok Creative Center ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-                } })
-            }
-            val advancedControls=mutableListOf<android.view.View>()
-            panel.addView(Button(this).apply {
-                text="‚öô ‡∏ï‡∏±‡∏ß‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏û‡∏¥‡πà‡∏°‡πÄ‡∏ï‡∏¥‡∏° ‚Ä¢ ‡πÅ‡∏ï‡∏∞‡πÄ‡∏û‡∏∑‡πà‡∏≠‡πÄ‡∏õ‡∏¥‡∏î"
-                colorAction(this,Color.rgb(245,245,245),true)
-                setOnClickListener {
-                    val show=advancedControls.any { it.visibility!=android.view.View.VISIBLE }
-                    advancedControls.forEach { it.visibility=if(show) android.view.View.VISIBLE else android.view.View.GONE }
-                    text=if(show) "‚öô ‡∏ã‡πà‡∏≠‡∏ô‡∏ï‡∏±‡∏ß‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏û‡∏¥‡πà‡∏°‡πÄ‡∏ï‡∏¥‡∏°" else "‚öô ‡∏ï‡∏±‡∏ß‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏û‡∏¥‡πà‡∏°‡πÄ‡∏ï‡∏¥‡∏° ‚Ä¢ ‡πÅ‡∏ï‡∏∞‡πÄ‡∏û‡∏∑‡πà‡∏≠‡πÄ‡∏õ‡∏¥‡∏î"
-                }
-            })
-            val presenters=runCatching { if(chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") { installPiaDefaults(); JSONArray().put(piaCatalog().getJSONObject(0)) } else castingCatalog() }.getOrDefault(JSONArray())
-            val presenter=Spinner(this).apply {
-                val labels=listOf(if(chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") "‡πÄ‡∏•‡∏∑‡∏≠‡∏Å MASTER ‡∏ú‡∏π‡πâ‡∏î‡∏≥‡πÄ‡∏ô‡∏¥‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á" else "‡πÉ‡∏´‡πâ AI ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏´‡∏•‡∏±‡∏Å")+(0 until presenters.length()).map { presenters.getJSONObject(it).optString("display_name").ifBlank { presenters.getJSONObject(it).optString("id") } }
-                adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,labels)
-                panel.addView(this)
-                if(chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î" && presenters.length()>0 && presenters.getJSONObject(0).optString("id")==piaActorId) setSelection(1)
-            }
-            presenter.visibility=android.view.View.GONE
-            val presenterButton=Button(this).apply {
-                fun updateLabel() { text=(if(chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") "‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏´‡∏•‡∏±‡∏Å (‡∏ï‡πâ‡∏≠‡∏á‡πÄ‡∏•‡∏∑‡∏≠‡∏Å): " else "‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏´‡∏•‡∏±‡∏Å (‡πÑ‡∏°‡πà‡∏ö‡∏±‡∏á‡∏Ñ‡∏±‡∏ö): ")+presenter.selectedItem.toString() }
-                updateLabel()
-                setOnClickListener {
-                    val items=(0 until presenter.count).map { i ->
-                        presenter.getItemAtPosition(i).toString() to if(i==0) null else runCatching { castingSource(presenters.getJSONObject(i-1)) }.getOrNull()
-                    }
-                    chooseNamedCharacterGrid("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏´‡∏•‡∏±‡∏Å",items) { i -> presenter.setSelection(i); updateLabel() }
-                }
-            }
-            presenterButton.visibility=android.view.View.GONE
-            colorAction(presenterButton,Color.rgb(62,86,110))
-            advancedControls.add(presenterButton); panel.addView(presenterButton)
-            fun proposalProgress(label: String, stopped: java.util.concurrent.atomic.AtomicBoolean, active: java.util.concurrent.atomic.AtomicReference<StoryTextClient?>, providers: List<StoryProvider>): Pair<androidx.appcompat.app.AlertDialog, java.util.concurrent.atomic.AtomicInteger> {
-                val current=java.util.concurrent.atomic.AtomicInteger(1)
-                val start=android.os.SystemClock.elapsedRealtime()
-                val handler=android.os.Handler(android.os.Looper.getMainLooper())
-                val content=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(24),dp(16),dp(24),dp(8)) }
-                val status=TextView(this).apply { textSize=18f }
-                content.addView(status)
-                content.addView(ProgressBar(this).apply { isIndeterminate=true })
-                val dialog=AlertDialog.Builder(this).setTitle(label).setView(content).setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-                val tick=object: Runnable {
-                    override fun run() {
-                        if(!dialog.isShowing) return
-                        val seconds=(android.os.SystemClock.elapsedRealtime()-start)/1000
-                        val waiting=if(seconds>=60) "\n‡πÉ‡∏ä‡πâ‡πÄ‡∏ß‡∏•‡∏≤‡∏ô‡∏≤‡∏ô‡∏Å‡∏ß‡πà‡∏≤‡∏õ‡∏Å‡∏ï‡∏¥ ‚Ä¢ ‡∏£‡∏≠‡∏ï‡πà‡∏≠‡∏´‡∏£‡∏∑‡∏≠‡∏Å‡∏î‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å‡πÑ‡∏î‡πâ" else ""
-                        status.text="‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ï‡∏¥‡∏î‡∏ï‡πà‡∏≠ ${providers.getOrNull(current.get()-1)?.label ?: "API"} ‚Ä¢ ${current.get()}/${providers.size}\n‡πÄ‡∏ß‡∏•‡∏≤‡∏£‡∏ß‡∏° %02d:%02d\n‡∏´‡∏≤‡∏Å‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏£‡∏±‡∏ö‡∏Ñ‡∏≥‡∏ï‡∏≠‡∏ö ‡∏£‡∏∞‡∏ö‡∏ö‡∏à‡∏∞‡∏•‡∏≠‡∏á API ‡∏ñ‡∏±‡∏î‡πÑ‡∏õ%s".format(seconds/60,seconds%60,waiting)
-                        handler.postDelayed(this,1000)
-                    }
-                }
-                dialog.setOnDismissListener { handler.removeCallbacks(tick); stopped.set(true); active.get()?.cancel() }
-                handler.post(tick)
-                return dialog to current
-            }
-            val selectedActors=linkedSetOf<String>()
-            val selectedProps=linkedMapOf<String,String>()
-            val proposedProps=linkedMapOf<String,String>()
-            var automaticEquipmentUnresolved=false
-            val propSummary=TextView(this).apply { text="‡πÑ‡∏°‡πà‡∏ö‡∏±‡∏á‡∏Ñ‡∏±‡∏ö ‚Ä¢ ‡∏Ç‡πâ‡∏≤‡∏°‡πÑ‡∏î‡πâ‡∏´‡∏≤‡∏Å‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πâ‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå"; setPadding(dp(8),dp(8),dp(8),dp(8)); setTextColor(Color.WHITE); setBackgroundColor(Color.rgb(28,62,95)) }
-            var automaticPropsPending=false
-            var automaticPropsStart: (() -> Unit)?=null
-            var automaticCastPending=false
-            var autoRunning=false
-            var automaticCreate: (() -> Unit)?=null
-            val castButton=Button(this).apply { text=if(chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") "‚ë°.2 ‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡∏∞‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ‚Ä¢ ‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢‡πÄ‡∏õ‡πá‡∏ô‡∏ï‡∏±‡∏ß‡∏´‡∏•‡∏±‡∏Å" else "‚ë°.2 ‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡∏∞‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏à‡∏≤‡∏Å MASTER" }
-            val castSummary=TextView(this).apply { text="‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£"; setPadding(dp(8),dp(8),dp(8),dp(8)); setTextColor(Color.WHITE); setBackgroundColor(Color.rgb(146,57,38)) }
-            stepHeader("2","AI ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏à‡∏≤‡∏Å MASTER",Color.rgb(19,116,80))
-            val suggestedRoles=linkedMapOf<String,String>()
-            var castProposalPending=false
-            val analyzeCast=Button(this).apply {
-                text="‚ë°.1 ‚ú® ‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡πÅ‡∏•‡∏∞‡πÄ‡∏™‡∏ô‡∏≠‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£"
-                setOnClickListener {
-                    val automatic=automaticCastPending
-                    automaticCastPending=false
-                    val catalog=runCatching {
-                        val all=if(chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") piaCatalog() else castingCatalog()
-                        JSONArray().apply {
-                            for(i in 0 until all.length()) {
-                                val row=all.getJSONObject(i)
-                                val file=runCatching { castingSource(row) }.getOrNull()
-                                if(file?.isFile==true && runCatching { MasterLibrary.digest(file.readBytes())==row.getString("sha256") }.getOrDefault(false)) put(row)
-                            }
-                        }
-                    }.getOrElse { if(automatic) autoRunning=false; notice("‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏•‡∏±‡∏á MASTER ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ: ${it.message}"); return@setOnClickListener }
-                    if(catalog.length()==0 || (chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î" && (0 until catalog.length()).none { catalog.getJSONObject(it).optString("id")==piaActorId })) {
-                        if(automatic) autoRunning=false
-                        notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏†‡∏≤‡∏û MASTER ‡∏ó‡∏µ‡πà‡∏ï‡∏£‡∏ß‡∏à‡∏™‡∏≠‡∏ö‡πÑ‡∏î‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏´‡∏£‡∏∑‡∏≠‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏•‡∏±‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£"); return@setOnClickListener
-                    }
-                    val providers=StoryProvider.eligible(this@StudioActivity).filter { it.hasKey(this@StudioActivity) }
-                    if(providers.isEmpty()) { if(automatic) autoRunning=false; notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ API ‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤ API ‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏•‡∏∑‡∏≠‡∏Å MASTER ‡πÄ‡∏≠‡∏á"); return@setOnClickListener }
-                    val channel=chosenChannel; val situation=selectedStoryTopic; val detail=premise.text.toString(); val category=categories[index]
-                    val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
-                    val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
-                    val (loading, providerNumber)=proposalProgress("‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏à‡∏≤‡∏Å MASTER",stopped,active,providers)
-                    if(automatic) {
-                        loading.setOnCancelListener { autoRunning=false }
-                        loading.getButton(-2).setOnClickListener { autoRunning=false; loading.dismiss() }
-                    }
-                    Thread {
-                        var result: JSONObject?=null
-                        for((providerIndex,provider) in providers.withIndex()) {
-                            providerNumber.set(providerIndex+1)
-                            if(stopped.get()) break
-                            val answer=runCatching {
-                                val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false,context=this@StudioActivity)
-                                client.useProposalTimeouts()
-                                active.set(client)
-                                val prompt="Suggest a cast for this Thai story. Channel: $channel; category: $category; situation: $situation; details: $detail. Use ONLY the provided library IDs. Suggest only characters suitable for the story, with a short proposed role in Thai. Do not infer occupation or identity from a face; roles are fictional suggestions for user review. Use as many as needed, from 1 to 8. "+(if(channel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") "Include $piaActorId as central protagonist and suitable supporting roles. " else "")+"Catalog: "+AutoCast.promptCatalog(catalog).toString()
-                                client.generate(prompt,AutoCast.schema()).also { AutoCast.validate(it,catalog); if(channel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") AutoCast.requirePresenter(it,piaActorId) }
-                            }.getOrNull()
-                            if(answer!=null) { result=answer; break }
-                        }
-                        val proposal=result
-                        runOnUiThread {
-                            if(stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
-                            active.set(null); loading.dismiss()
-                            if(proposal==null) { if(automatic) autoRunning=false; notice("‡∏¢‡∏±‡∏á‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‚Ä¢ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏à‡∏≤‡∏Å‡∏Ñ‡∏•‡∏±‡∏á MASTER ‡πÄ‡∏≠‡∏á"); return@runOnUiThread }
-                            if(situation!=selectedStoryTopic || detail!=premise.text.toString()) { if(automatic) autoRunning=false; notice("‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏£‡∏∞‡∏´‡∏ß‡πà‡∏≤‡∏á‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå ‚Ä¢ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á"); return@runOnUiThread }
-                            suggestedRoles.clear()
-                            val cast=proposal.getJSONArray("cast")
-                            for(i in 0 until cast.length()) cast.getJSONObject(i).let { suggestedRoles[it.getString("library_id")]=it.getString("role") }
-                            if(automatic) {
-                                selectedActors.clear(); selectedActors.addAll(suggestedRoles.keys)
-                                selectedProps.clear(); proposedProps.clear()
-                                automaticEquipmentUnresolved=ChannelFeaturePolicy.hasFantasyTools(channel)
-                                if(automaticEquipmentUnresolved) propSummary.text="‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå ‚Ä¢ ‡∏£‡∏≠‡∏ú‡∏•‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ö‡∏ó"
-                                castProposalPending=false
-                                val names=(0 until catalog.length()).map { catalog.getJSONObject(it) }.filter { it.optString("id") in selectedActors }
-                                    .map { "${it.optString("display_name").ifBlank { it.optString("id") }} ‚Ä¢ ${it.optString("id")} ‚Ä¢ ${suggestedRoles[it.optString("id")].orEmpty()}" }
-                                castButton.text="‚ë°.2 AI ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÅ‡∏•‡πâ‡∏ß ${selectedActors.size} ‡∏ï‡∏±‡∏ß ‚Ä¢ ‡πÅ‡∏ï‡∏∞‡πÄ‡∏û‡∏∑‡πà‡∏≠‡πÅ‡∏Å‡πâ"
-                                castSummary.text="‚úì AI ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥ ${names.size} ‡∏ï‡∏±‡∏ß:\n"+names.joinToString("\n")
-                                castSummary.setBackgroundColor(Color.rgb(19,112,72))
-                                if(ChannelFeaturePolicy.hasFantasyTools(channel)) automaticPropsStart?.invoke()
-                                else { autoRunning=false; automaticCreate?.invoke() }
-                            } else {
-                                castProposalPending=true
-                                castSummary.text="‡∏£‡∏∞‡∏ö‡∏ö‡πÄ‡∏™‡∏ô‡∏≠ ${suggestedRoles.size} ‡∏ï‡∏±‡∏ß ‚Ä¢ ‡∏£‡∏≠‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô"
-                                castSummary.setBackgroundColor(Color.rgb(146,57,38))
-                                castButton.performClick()
-                            }
-                        }
-                    }.start()
-                }
-            }
-            panel.addView(Button(this).apply {
-                text="‚ú® ‡∏Å‡∏î‡∏Ñ‡∏£‡∏±‡πâ‡∏á‡πÄ‡∏î‡∏µ‡∏¢‡∏ß ‚Ä¢ AI ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÅ‡∏•‡∏∞‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ö‡∏ó"
-                colorAction(this,Color.rgb(18,139,89))
-                setOnClickListener {
-                    if(autoRunning) { notice("‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ó‡∏≥‡∏á‡∏≤‡∏ô‡∏≠‡∏¢‡∏π‡πà ‚Ä¢ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏£‡∏≠"); return@setOnClickListener }
-                    if(needsFacts && premise.text.toString().trim().isEmpty()) { notice("‡∏´‡∏°‡∏ß‡∏î‡∏ô‡∏µ‡πâ‡∏ï‡πâ‡∏≠‡∏á‡∏£‡∏∞‡∏ö‡∏∏‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏à‡∏£‡∏¥‡∏á‡∏ó‡∏µ‡πà‡∏ï‡∏£‡∏ß‡∏à‡∏™‡∏≠‡∏ö‡πÅ‡∏•‡πâ‡∏ß‡∏Å‡πà‡∏≠‡∏ô"); return@setOnClickListener }
-                    autoRunning=true; automaticCastPending=true; analyzeCast.performClick()
-                }
-            })
-            colorAction(analyzeCast,Color.rgb(224,143,30),true)
-            colorAction(castButton,Color.rgb(244,192,57),true)
-            analyzeCast.visibility=android.view.View.GONE; castButton.visibility=android.view.View.GONE
-            advancedControls.add(analyzeCast); advancedControls.add(castButton)
-            panel.addView(analyzeCast)
-            panel.addView(castButton)
-            panel.addView(castSummary)
-            castButton.setOnClickListener {
-                val choices=runCatching { if(chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") piaCatalog() else castingCatalog() }.getOrElse { notice("‡πÄ‡∏õ‡∏¥‡∏î‡∏Ñ‡∏•‡∏±‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ"); return@setOnClickListener }
-                val draft=selectedActors.toMutableSet().apply { if(castProposalPending) addAll(suggestedRoles.keys) }
-                if(chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") draft.add(piaActorId)
-                val grid=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-                grid.addView(TextView(this).apply { text="‡∏ï‡∏¥‡πä‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ó‡∏µ‡πà‡∏ï‡πâ‡∏≠‡∏á‡∏Å‡∏≤‡∏£‡πÉ‡∏ä‡πâ‡πÉ‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á ‡∏™‡∏π‡∏á‡∏™‡∏∏‡∏î 8 ‡∏ï‡∏±‡∏ß ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏ö‡∏ó‡∏ö‡∏≤‡∏ó‡∏Å‡πà‡∏≠‡∏ô‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô" })
-                val order=(0 until choices.length()).sortedBy { if(choices.getJSONObject(it).optString("id") in draft) 0 else 1 }
-                var row: LinearLayout?=null
-                for((position,n) in order.withIndex()) {
-                    if(position%2==0) { row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; grid.addView(row) }
-                    val actor=choices.getJSONObject(n); val id=actor.getString("id")
-                    val source=runCatching { castingSource(actor) }.getOrNull()
-                    val card=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(4),dp(6),dp(4),dp(6)); layoutParams=LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f) }
-                    row?.addView(card)
-                    val box=android.widget.CheckBox(this).apply {
-                        text=(actor.optString("display_name").ifBlank { id })+"\n"+id+(suggestedRoles[id]?.let { "\n‡∏ö‡∏ó‡∏ö‡∏≤‡∏ó‡∏ó‡∏µ‡πà‡πÄ‡∏™‡∏ô‡∏≠: $it" } ?: "")+(if(source?.isFile==true) "" else "\n‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏†‡∏≤‡∏û MASTER")
-                        isChecked=id in draft
-                        isEnabled=source?.isFile==true && !(chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î" && id==piaActorId)
-                    }
-                    if(source?.isFile==true) card.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(source)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(150)); contentDescription=box.text; setOnClickListener { fullImage(source,box.text.toString()) } })
-                    card.addView(box)
-                    box.setOnCheckedChangeListener { _,checked -> if(checked) draft.add(id) else draft.remove(id) }
-                }
-                AlertDialog.Builder(this).setTitle("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏†‡∏≤‡∏û MASTER ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£").setView(ScrollView(this).apply { addView(grid) }).setPositiveButton("‡πÉ‡∏ä‡πâ‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å") { _,_ ->
-                    if(draft.size>8) { notice("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÑ‡∏î‡πâ‡∏™‡∏π‡∏á‡∏™‡∏∏‡∏î 8 ‡∏Ñ‡∏ô ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÉ‡∏´‡∏°‡πà"); return@setPositiveButton }
-                    selectedActors.clear(); selectedActors.addAll(draft)
-                    castProposalPending=false
-                    castButton.text=if(selectedActors.isEmpty()) "‚ë°.2 ‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡∏∞‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏à‡∏≤‡∏Å MASTER" else "‚ë°.2 ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÅ‡∏•‡πâ‡∏ß ${selectedActors.size} ‡∏ï‡∏±‡∏ß ‚Ä¢ ‡πÅ‡∏ï‡∏∞‡πÄ‡∏û‡∏∑‡πà‡∏≠‡πÅ‡∏Å‡πâ"
-                    val names=(0 until choices.length()).map { choices.getJSONObject(it) }.filter { it.optString("id") in selectedActors }
-                        .map { "${it.optString("display_name").ifBlank { it.optString("id") }} ‚Ä¢ ${it.optString("id")}" }
-                    castSummary.text=if(names.isEmpty()) "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£" else "‚úì ‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡πÅ‡∏•‡πâ‡∏ß ${names.size} ‡∏ï‡∏±‡∏ß:\n"+names.joinToString("\n")
-                    castSummary.setBackgroundColor(if(names.isEmpty()) Color.rgb(146,57,38) else Color.rgb(19,112,72))
-                }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-            }
-            if(!ChannelFeaturePolicy.hasFantasyTools(chosenChannel)) {
-                stepHeader("3","‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå ‚Ä¢ ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ï‡∏±‡∏ß‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÉ‡∏ô‡∏ä‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ",Color.rgb(181,99,30))
-            }
-            if(ChannelFeaturePolicy.hasFantasyTools(chosenChannel)) {
-                stepHeader("3","‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå ‚Ä¢ AI ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÉ‡∏´‡πâ‡πÄ‡∏°‡∏∑‡πà‡∏≠‡∏à‡∏≥‡πÄ‡∏õ‡πá‡∏ô",Color.rgb(181,99,30))
-                val chooseProps=Button(this).apply { text="‚ë¢.2 ‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡∏∞‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏à‡∏≤‡∏Å MASTER" }
-                val analyzeProps=Button(this).apply {
-                    text="‚ë¢.1 ‚ú® ‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡πÅ‡∏•‡∏∞‡πÄ‡∏™‡∏ô‡∏≠‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå"
-                    setOnClickListener {
-                        val automatic=automaticPropsPending
-                        automaticPropsPending=false
-                        val providers=StoryProvider.eligible(this@StudioActivity).filter { it.hasKey(this@StudioActivity) }
-                        if(providers.isEmpty()) { if(automatic) { autoRunning=false; propSummary.text="‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏≠‡∏á‡∏´‡∏£‡∏∑‡∏≠‡∏Å‡∏î‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡πÉ‡∏´‡∏°‡πà" }; notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ API ‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡πÄ‡∏≠‡∏á‡πÑ‡∏î‡πâ"); return@setOnClickListener }
-                        val all=runCatching { castingCatalog() }.getOrElse { if(automatic) autoRunning=false; notice("‡πÄ‡∏õ‡∏¥‡∏î‡∏Ñ‡∏•‡∏±‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ"); return@setOnClickListener }
-                        val actors=(0 until all.length()).map { all.getJSONObject(it) }.filter { it.optString("id") in selectedActors }
-                        val available=propCatalog.mapIndexedNotNull { n,name -> val id=propId(n); if(runCatching { assets.open("prop_masters/$id.png").use { it.read()>=0 } }.getOrDefault(false)) id to name else null }
-                        if(available.isEmpty()) { if(automatic) { autoRunning=false; propSummary.text="‡πÑ‡∏°‡πà‡∏û‡∏ö MASTER ‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå ‚Ä¢ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏≠‡∏á" }; notice("‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏†‡∏≤‡∏û MASTER ‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå ‚Ä¢ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏•‡∏±‡∏á"); return@setOnClickListener }
-                        val topic=selectedStoryTopic; val details=premise.text.toString(); val category=categories[index]
-                        val actorSnapshot=selectedActors.toSet()
-                        val actorText=actors.joinToString("\n") { "${it.optString("id")} = ${it.optString("display_name")}" }
-                        val catalogText=available.joinToString("\n") { "${it.first} = ${it.second}" }
-                        val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
-                        val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
-                        val (loading, providerNumber)=proposalProgress("‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏à‡∏≤‡∏Å MASTER",stopped,active,providers)
-                        if(automatic) {
-                            loading.setOnCancelListener { autoRunning=false; propSummary.text="‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å‡∏Å‡∏≤‡∏£‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏≠‡∏á‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏£‡∏¥‡πà‡∏°‡πÉ‡∏´‡∏°‡πà" }
-                            loading.getButton(-2).setOnClickListener { autoRunning=false; propSummary.text="‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å‡∏Å‡∏≤‡∏£‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏≠‡∏á‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏£‡∏¥‡πà‡∏°‡πÉ‡∏´‡∏°‡πà"; loading.dismiss() }
-                        }
-                        Thread {
-                            val item=JSONObject().put("type","object").put("properties",JSONObject().put("prop_id",JSONObject().put("type","string")).put("owner_library_id",JSONObject().put("type","string"))).put("required",JSONArray().put("prop_id").put("owner_library_id"))
-                            val schema=JSONObject().put("type","object").put("properties",JSONObject().put("assignments",JSONObject().put("type","array").put("items",item))).put("required",JSONArray().put("assignments"))
-                            val prompt="Suggest only story-relevant equipment from the real catalog below for human review. Return assignments with prop_id and owner_library_id. Use an exact listed character ID only when the story clearly supports an owner, otherwise use an empty string. Do not assign equipment to everyone. Return an empty array when no equipment is appropriate. Category: $category; situation: $topic; details: $details\nCHARACTERS:\n$actorText\nEQUIPMENT:\n$catalogText"
-                            var answer: JSONObject?=null
-                            for((providerIndex,provider) in providers.withIndex()) {
-                                providerNumber.set(providerIndex+1)
-                                if(stopped.get()) break
-                                answer=runCatching { val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false,context=this@StudioActivity); client.useProposalTimeouts(); active.set(client); client.generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("assignments")!=null }
-                                if(answer!=null) break
-                            }
-                            val result=answer
-                            runOnUiThread {
-                                if(stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
-                                active.set(null); loading.dismiss()
-                                if(actorSnapshot!=selectedActors.toSet() || topic!=selectedStoryTopic || details!=premise.text.toString()) { if(automatic) autoRunning=false; notice("‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏£‡∏∞‡∏´‡∏ß‡πà‡∏≤‡∏á‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå ‚Ä¢ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á"); return@runOnUiThread }
-                                if(result==null) { if(automatic) { autoRunning=false; propSummary.text="‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏≠‡∏á‡∏´‡∏£‡∏∑‡∏≠‡∏Å‡∏î‡∏ß‡∏¥‡πÄ‡∏Ñ‡∏£‡∏≤‡∏∞‡∏´‡πå‡πÉ‡∏´‡∏°‡πà" }; notice("‡∏¢‡∏±‡∏á‡πÄ‡∏™‡∏ô‡∏≠‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏à‡∏≤‡∏Å‡∏Ñ‡∏•‡∏±‡∏á‡πÄ‡∏≠‡∏á‡πÑ‡∏î‡πâ"); return@runOnUiThread }
-                                proposedProps.clear()
-                                val assignments=result.optJSONArray("assignments") ?: JSONArray()
-                                val allowed=available.map { it.first }.toSet()
-                                for(i in 0 until assignments.length()) assignments.optJSONObject(i)?.let { row ->
-                                    val id=row.optString("prop_id"); val owner=row.optString("owner_library_id")
-                                    if(id in allowed && (owner.isBlank() || owner in actorSnapshot)) proposedProps[id]=owner
-                                }
-                                if(proposedProps.isEmpty()) {
-                                    if(assignments.length()>0) { if(automatic) { autoRunning=false; propSummary.text="‡∏à‡∏±‡∏ö‡∏Ñ‡∏π‡πà‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‚Ä¢ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡πÄ‡∏≠‡∏á" }; notice("AI ‡πÄ‡∏™‡∏ô‡∏≠‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏ó‡∏µ‡πà‡∏à‡∏±‡∏ö‡∏Ñ‡∏π‡πà MASTER ‡∏´‡∏£‡∏∑‡∏≠‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‚Ä¢ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡πÄ‡∏≠‡∏á"); return@runOnUiThread }
-                                    if(automatic) { selectedProps.clear(); automaticEquipmentUnresolved=false; propSummary.text="AI ‡πÑ‡∏°‡πà‡πÄ‡∏™‡∏ô‡∏≠‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ ‚Ä¢ ‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ö‡∏ó"; propSummary.setBackgroundColor(Color.rgb(28,62,95)); autoRunning=false; automaticCreate?.invoke() }
-                                    else notice("AI ‡πÑ‡∏°‡πà‡πÄ‡∏™‡∏ô‡∏≠‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏≠‡∏á‡∏´‡∏£‡∏∑‡∏≠‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πâ‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡πÑ‡∏î‡πâ")
-                                    return@runOnUiThread
-                                }
-                                if(automatic) {
-                                    if(proposedProps.size!=assignments.length()) { autoRunning=false; notice("‡∏Ç‡πâ‡∏≠‡πÄ‡∏™‡∏ô‡∏≠‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏ö‡∏≤‡∏á‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏à‡∏±‡∏ö‡∏Ñ‡∏π‡πà‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‚Ä¢ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡πÄ‡∏≠‡∏á"); return@runOnUiThread }
-                                    selectedProps.clear(); selectedProps.putAll(proposedProps)
-                                    automaticEquipmentUnresolved=false
-                                    proposedProps.clear()
-                                    val names=selectedProps.map { (id,owner) ->
-                                        val n=propCatalog.indices.first { propId(it)==id }
-                                        val actor=actors.firstOrNull { it.optString("id")==owner }?.optString("display_name").orEmpty()
-                                        "${propCatalog[n]} ‚Ä¢ $id ‚Ä¢ "+actor.ifBlank { "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ" }
-                                    }
-                                    propSummary.text="‚úì AI ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå ${names.size} ‡∏ä‡∏¥‡πâ‡∏ô:\n"+names.joinToString("\n")
-                                    propSummary.setBackgroundColor(Color.rgb(19,112,72))
-                                    autoRunning=false; automaticCreate?.invoke()
-                                } else {
-                                    propSummary.text="‡∏£‡∏∞‡∏ö‡∏ö‡πÄ‡∏™‡∏ô‡∏≠ ${proposedProps.size} ‡∏ä‡∏¥‡πâ‡∏ô ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£"
-                                    chooseProps.performClick()
-                                }
-                            }
-                        }.start()
-                    }
-                }
-                automaticPropsStart={ automaticPropsPending=true; analyzeProps.performClick() }
-                colorAction(analyzeProps,Color.rgb(224,143,30),true)
-                colorAction(chooseProps,Color.rgb(244,192,57),true)
-                analyzeProps.visibility=android.view.View.GONE; chooseProps.visibility=android.view.View.GONE
-                advancedControls.add(analyzeProps); advancedControls.add(chooseProps)
-                panel.addView(analyzeProps)
-                panel.addView(chooseProps)
-                panel.addView(propSummary)
-                chooseProps.setOnClickListener {
-                    val choices=runCatching { castingCatalog() }.getOrElse { notice("‡πÄ‡∏õ‡∏¥‡∏î‡∏Ñ‡∏•‡∏±‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ"); return@setOnClickListener }
-                    val actors=(0 until choices.length()).map { choices.getJSONObject(it) }.filter { it.optString("id") in selectedActors }
-                    val actorIds=listOf("")+actors.map { it.optString("id") }
-                    val actorNames=listOf("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ")+actors.map { it.optString("display_name").ifBlank { it.optString("id") }+" ‚Ä¢ "+it.optString("id") }
-                    val draft=proposedProps.toMutableMap().apply { putAll(selectedProps) }
-                    val grid=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-                    grid.addView(TextView(this).apply { text="‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏ó‡∏µ‡πà‡πÄ‡∏Å‡∏µ‡πà‡∏¢‡∏ß‡∏Ç‡πâ‡∏≠‡∏á ‚Ä¢ ‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏Å‡∏≥‡∏´‡∏ô‡∏î‡∏†‡∏≤‡∏¢‡∏´‡∏•‡∏±‡∏á‡πÑ‡∏î‡πâ ‚Ä¢ ‡πÅ‡∏ï‡∏∞‡∏†‡∏≤‡∏û‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏Ç‡∏¢‡∏≤‡∏¢" })
-                    propCatalog.forEachIndexed { index,name ->
-                        val id=propId(index)
-                        val available=runCatching { assets.open("prop_masters/$id.png").use { it.read()>=0 } }.getOrDefault(false)
-                        val box=android.widget.CheckBox(this).apply { text="$name ‚Ä¢ $id"+if(available) "" else " ‚Ä¢ ‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏†‡∏≤‡∏û MASTER"; isChecked=id in draft; isEnabled=available; grid.addView(this) }
-                        val owner=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,actorNames); setSelection(actorIds.indexOf(draft[id]).coerceAtLeast(0)); grid.addView(this) }
-                        val image=ImageView(this).apply { adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(150)); visibility=if(box.isChecked) android.view.View.VISIBLE else android.view.View.GONE; grid.addView(this) }
-                        fun showImage() { runCatching {
-                            val file=File(cacheDir,"prop_masters/$id.png"); file.parentFile!!.mkdirs()
-                            if(!file.isFile) assets.open("prop_masters/$id.png").use { input -> file.outputStream().use { input.copyTo(it) } }
-                            image.setImageBitmap(castingThumbnail(file)); image.setOnClickListener { fullImage(file,name) }
-                        }.onFailure { notice("‡πÄ‡∏õ‡∏¥‡∏î‡∏†‡∏≤‡∏û $name ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") } }
-                        if(box.isChecked) showImage()
-                        owner.onItemSelectedListener=object: android.widget.AdapterView.OnItemSelectedListener {
-                            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
-                            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, rowId: Long) { if(box.isChecked) draft[id]=actorIds[position] }
-                        }
-                        box.setOnCheckedChangeListener { _,checked ->
-                            image.visibility=if(checked) android.view.View.VISIBLE else android.view.View.GONE
-                            if(checked) { draft[id]=actorIds[owner.selectedItemPosition.coerceAtLeast(0)]; showImage() } else draft.remove(id)
-                        }
-                    }
-                    AlertDialog.Builder(this).setTitle("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å MASTER ‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå").setView(ScrollView(this).apply { addView(grid) })
-                        .setPositiveButton("‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£") { _,_ ->
-                            selectedProps.clear(); selectedProps.putAll(draft)
-                            automaticEquipmentUnresolved=false
-                            proposedProps.clear()
-                            val names=selectedProps.map { (id,owner) -> val i=propCatalog.indices.first { propId(it)==id }; "${propCatalog[i]} ‚Ä¢ $id ‚Ä¢ "+(actors.firstOrNull { it.optString("id")==owner }?.optString("display_name") ?: "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ") }
-                            propSummary.text=if(names.isEmpty()) "‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå ‚Ä¢ ‡∏Ç‡πâ‡∏≤‡∏°‡πÑ‡∏î‡πâ" else "‚úì ‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ${names.size} ‡∏ä‡∏¥‡πâ‡∏ô:\n"+names.joinToString("\n")
-                            propSummary.setBackgroundColor(if(names.isEmpty()) Color.rgb(28,62,95) else Color.rgb(19,112,72))
-                        }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-                }
-            }
-            val presenterOutfits=listOf("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ä‡∏∏‡∏î‡∏ï‡∏≤‡∏°‡πÄ‡∏ô‡∏∑‡πâ‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á", "‡∏™‡∏π‡∏ó‡∏Å‡∏£‡∏°‡∏ó‡πà‡∏≤ ‡πÄ‡∏ô‡∏Å‡πÑ‡∏ó‡∏•‡∏≤‡∏¢‡∏ü‡πâ‡∏≤", "‡∏ä‡∏∏‡∏î‡∏ä‡πà‡∏≤‡∏á‡∏™‡∏µ‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ß‡πÄ‡∏Ç‡πâ‡∏°", "‡∏ä‡∏∏‡∏î‡∏ä‡πà‡∏≤‡∏á‡∏™‡∏µ‡∏Å‡∏£‡∏°‡∏ó‡πà‡∏≤‡∏™‡πâ‡∏°", "‡∏ä‡∏∏‡∏î‡∏ä‡πà‡∏≤‡∏á‡∏™‡∏µ‡πÄ‡∏ó‡∏≤‡πÄ‡∏Ç‡πâ‡∏°", "‡∏ä‡∏∏‡∏î‡∏ä‡πà‡∏≤‡∏á‡∏™‡∏µ‡∏ô‡πâ‡∏≥‡πÄ‡∏á‡∏¥‡∏ô", "‡πÄ‡∏™‡∏∑‡πâ‡∏≠‡πÄ‡∏ä‡∏¥‡πâ‡∏ï‡∏™‡∏µ‡∏Ñ‡∏£‡∏µ‡∏° ‡∏Å‡∏≤‡∏á‡πÄ‡∏Å‡∏á‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ß", "‡πÄ‡∏™‡∏∑‡πâ‡∏≠‡πÄ‡∏ä‡∏¥‡πâ‡∏ï‡∏™‡∏µ‡∏ü‡πâ‡∏≤ ‡∏Å‡∏≤‡∏á‡πÄ‡∏Å‡∏á‡∏Å‡∏£‡∏°‡∏ó‡πà‡∏≤", "‡πÄ‡∏™‡∏∑‡πâ‡∏≠‡πÄ‡∏ä‡∏¥‡πâ‡∏ï‡∏™‡∏µ‡∏Ç‡∏≤‡∏ß ‡∏Å‡∏≤‡∏á‡πÄ‡∏Å‡∏á‡∏î‡∏≥", "‡πÄ‡∏™‡∏∑‡πâ‡∏≠‡πÄ‡∏ä‡∏¥‡πâ‡∏ï‡∏™‡∏µ‡∏î‡∏≥ ‡∏Å‡∏≤‡∏á‡πÄ‡∏Å‡∏á‡πÄ‡∏ó‡∏≤", "‡πÄ‡∏™‡∏∑‡πâ‡∏≠‡∏ä‡πà‡∏≤‡∏á‡∏Å‡∏£‡∏° ‡∏Å‡∏≤‡∏á‡πÄ‡∏Å‡∏á‡πÄ‡∏ó‡∏≤ ‡∏ñ‡∏∏‡∏á‡∏°‡∏∑‡∏≠", "‡∏ä‡∏∏‡∏î‡∏ó‡∏≥‡∏™‡∏ß‡∏ô‡∏™‡∏µ‡∏Ñ‡∏£‡∏µ‡∏° ‡∏´‡∏°‡∏ß‡∏Å‡πÅ‡∏•‡∏∞‡∏£‡∏≠‡∏á‡πÄ‡∏ó‡πâ‡∏≤‡∏ö‡∏π‡∏ó", "‡∏ä‡∏∏‡∏î‡∏ó‡∏≥‡∏™‡∏ß‡∏ô‡∏Å‡∏£‡∏°‡∏ó‡πà‡∏≤ ‡∏´‡∏°‡∏ß‡∏Å‡∏Ñ‡∏•‡∏∏‡∏°‡∏ï‡πâ‡∏ô‡∏Ñ‡∏≠‡πÅ‡∏•‡∏∞‡∏£‡∏≠‡∏á‡πÄ‡∏ó‡πâ‡∏≤‡∏ö‡∏π‡∏ó", "‡∏ä‡∏∏‡∏î‡∏î‡∏≥‡∏•‡∏≥‡∏•‡∏≠‡∏á ‚Ä¢ 3 ‡∏°‡∏∏‡∏°‡∏°‡∏≠‡∏á")
-            // Keep slot indices compatible with the existing picker and story snapshot.
-            val presenterOutfit=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,presenterOutfits) }
-            val piaFaceLock=android.widget.CheckBox(this).apply { text="‡∏•‡πá‡∏≠‡∏Å‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢‡∏à‡∏≤‡∏Å MASTER ‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö"; isChecked=true }
-            val piaFaceStatus=TextView(this).apply { text="‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏Å‡∏£‡∏≠‡∏ö‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ‚Ä¢ ‡πÉ‡∏ä‡πâ‡∏†‡∏≤‡∏û MASTER ‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö" }
-            val piaFacePreview=ImageView(this).apply { adjustViewBounds=true; visibility=android.view.View.GONE; layoutParams=LinearLayout.LayoutParams(-1,dp(150)) }
-            fun showPiaFace(target: File) {
-                piaFaceStatus.text="‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏Å‡∏£‡∏≠‡∏ö‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á"
-                piaFacePreview.setImageBitmap(previewBitmap(Uri.fromFile(target)))
-                piaFacePreview.visibility=android.view.View.VISIBLE
-                piaFacePreview.setOnClickListener { fullImage(target,"‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢‡∏à‡∏≤‡∏Å MASTER") }
-            }
-            val choosePiaFace=Button(this).apply { text="‚úÇÔ∏è ‡∏ß‡∏≤‡∏î‡∏Å‡∏£‡∏≠‡∏ö‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ / ‡∏•‡πá‡∏≠‡∏Å‡∏´‡∏ô‡πâ‡∏≤" }
-            if(chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") {
-                panel.addView(TextView(this).apply { text=if(piaIdentityFile.isFile) "‡πÉ‡∏ä‡πâ MASTER ‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏≠‡∏á ‚Ä¢ ‡πÅ‡∏ï‡∏∞‡∏†‡∏≤‡∏û‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏ï‡∏£‡∏ß‡∏à" else "‡πÉ‡∏ä‡πâ‡∏†‡∏≤‡∏û‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢‡∏ó‡∏µ‡πà‡∏°‡∏≤‡∏û‡∏£‡πâ‡∏≠‡∏°‡πÅ‡∏≠‡∏õ ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å MASTER ‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö‡∏Ç‡∏≠‡∏á‡∏Ñ‡∏∏‡∏ì‡πÑ‡∏î‡πâ" })
-                runCatching { castingSource(piaCatalog().getJSONObject(0)) }.getOrNull()?.takeIf { it.isFile }?.let { master ->
-                    panel.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(master)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(150)); setOnClickListener { fullImage(master,"MASTER ‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢‡∏ó‡∏µ‡πà‡πÉ‡∏ä‡πâ‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà") } })
-                }
-                panel.addView(Button(this).apply { text="‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏†‡∏≤‡∏û MASTER ‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢"; setOnClickListener { piaIdentityPicker.launch(arrayOf("image/*")) } })
-                panel.addView(piaFaceLock)
-                panel.addView(TextView(this).apply { text="‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏Å‡∏£‡∏≠‡∏ö‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡∏°‡∏∏‡∏°‡∏ï‡∏£‡∏á‡∏à‡∏≤‡∏Å MASTER ‡∏Ñ‡∏£‡∏±‡πâ‡∏á‡πÄ‡∏î‡∏µ‡∏¢‡∏ß ‡πÅ‡∏•‡πâ‡∏ß‡∏£‡∏∞‡∏ö‡∏ö‡πÉ‡∏ä‡πâ‡∏ã‡πâ‡∏≥‡πÑ‡∏î‡πâ ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡∏Å‡πà‡∏≠‡∏ô‡∏™‡πà‡∏á‡∏™‡∏£‡πâ‡∏≤‡∏á" })
-                panel.addView(choosePiaFace)
-                panel.addView(piaFaceStatus)
-                panel.addView(piaFacePreview)
-                val faceStore=FaceReferenceStore(File(filesDir,"master_face_references"))
-                runCatching { faceStore.latest(castingSource(piaCatalog().getJSONObject(0))) }.getOrNull()?.let { showPiaFace(it) }
-                choosePiaFace.setOnClickListener {
-                    runCatching {
-                        val master=castingSource(piaCatalog().getJSONObject(0))
-                        val cropView=FaceReferenceCropView(this@StudioActivity,master)
-                        val layout=LinearLayout(this@StudioActivity).apply { orientation=1; addView(TextView(context).apply { text="‡∏•‡∏≤‡∏Å‡∏Å‡∏£‡∏≠‡∏ö‡∏£‡∏≠‡∏ö‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡∏°‡∏∏‡∏°‡∏ï‡∏£‡∏á‡∏Ç‡∏≠‡∏á‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡πÅ‡∏•‡πâ‡∏ß‡∏Å‡∏î‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å" }); addView(cropView,LinearLayout.LayoutParams(-1,dp(520))) }
-                        val dialog=AlertDialog.Builder(this@StudioActivity).setTitle("‡∏ß‡∏≤‡∏î‡∏Å‡∏£‡∏≠‡∏ö‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢").setView(layout).setPositiveButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏Å‡∏£‡∏≠‡∏ö",null).setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-                        dialog.getButton(-1).setOnClickListener {
-                            runCatching {
-                                val target=faceStore.newFile(master); val pending=File(target.parentFile,target.name+".pending")
-                                try { cropView.save(pending); check(pending.renameTo(target)) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏†‡∏≤‡∏û‡∏Ñ‡∏£‡∏≠‡∏õ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" } } finally { pending.delete() }
-                                showPiaFace(target); piaFaceLock.isChecked=true; dialog.dismiss()
-                            }.onFailure { notice(it.message ?: "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏Å‡∏£‡∏≠‡∏ö‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-                        }
-                    }.onFailure { notice(it.message ?: "‡πÄ‡∏õ‡∏¥‡∏î MASTER ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-                }
-            }
-            if(chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") {
-                panel.addView(TextView(this).apply { text="‡∏ä‡∏∏‡∏î‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‚Ä¢ ‡∏ï‡∏¥‡πä‡∏Å‡πÄ‡∏•‡∏∑‡∏≠‡∏Å 1 ‡∏ä‡∏∏‡∏î ‡∏´‡∏£‡∏∑‡∏≠‡πÉ‡∏´‡πâ‡∏£‡∏∞‡∏ö‡∏ö‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏≤‡∏°‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á" })
-                val buttons=mutableListOf<android.widget.RadioButton>()
-                val auto=android.widget.RadioButton(this).apply { text="‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ä‡∏∏‡∏î‡∏ï‡∏≤‡∏°‡πÄ‡∏ô‡∏∑‡πâ‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á"; isChecked=true; panel.addView(this) }
-                buttons.add(auto)
-                auto.setOnClickListener { presenterOutfit.setSelection(0); buttons.forEachIndexed { i,button -> button.isChecked=i==0 } }
-                for(row in 0 until 7) {
-                    val line=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; panel.addView(this) }
-                    for(column in 0 until 2) {
-                        val slot=row*2+column+1
-                        if(slot>13) continue
-                        val card=LinearLayout(this).apply { orientation=1; setPadding(dp(3),dp(4),dp(3),dp(4)); layoutParams=LinearLayout.LayoutParams(0,-2,1f); line.addView(this) }
-                        val preview=ImageView(this).apply { val file=presenterOutfitFile(piaActorId,slot); setImageBitmap(castingThumbnail(file)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(135)); contentDescription=presenterOutfits[slot]; card.addView(this) }
-                        val radio=android.widget.RadioButton(this).apply { text=presenterOutfits[slot]; textSize=12f; card.addView(this) }
-                        buttons.add(radio)
-                        val choose={ presenterOutfit.setSelection(slot); buttons.forEachIndexed { i,button -> button.isChecked=i==slot } }
-                        radio.setOnClickListener { choose() }; preview.setOnClickListener { choose() }; card.setOnClickListener { choose() }
-                    }
-                }
-                panel.addView(TextView(this).apply { text="‡∏´‡∏≤‡∏Å‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡πÑ‡∏ü‡∏•‡πå‡∏†‡∏≤‡∏û‡∏ä‡∏∏‡∏î ‡πÉ‡∏´‡πâ‡πÄ‡∏õ‡∏¥‡∏î‡∏´‡∏ô‡πâ‡∏≤‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏î‡∏π‡∏†‡∏≤‡∏û‡∏•‡πà‡∏≤‡∏™‡∏∏‡∏î"; textSize=12f })
-            }
-            if(chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") panel.addView(Button(this).apply {
-                text="‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏£‡∏π‡∏õ‡∏Ç‡∏≠‡∏á‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å"
-                setOnClickListener {
-                    if(presenter.selectedItemPosition<=0 || presenterOutfit.selectedItemPosition<=0) {
-                        notice("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å MASTER ‡∏ú‡∏π‡πâ‡∏î‡∏≥‡πÄ‡∏ô‡∏¥‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÅ‡∏•‡∏∞‡∏ä‡∏∏‡∏î‡∏Å‡πà‡∏≠‡∏ô‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏£‡∏π‡∏õ")
-                    } else {
-                        prefs.edit().putString("presenter_outfit_actor",presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id"))
-                            .putInt("presenter_outfit_slot",presenterOutfit.selectedItemPosition).apply()
-                        presenterOutfitPicker.launch(arrayOf("image/*"))
-                    }
-                }
-            })
-            if(chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") panel.addView(Button(this).apply {
-                text="‚úÇÔ∏è ‡∏ß‡∏≤‡∏î‡∏Å‡∏£‡∏≠‡∏ö‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ / ‡∏•‡πá‡∏≠‡∏Å‡∏´‡∏ô‡πâ‡∏≤"
-                setOnClickListener { choosePiaFace.performClick() }
-            })
-            val episodes=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("1 EP ‚Ä¢ ‡∏à‡∏ö‡πÉ‡∏ô‡∏ï‡∏≠‡∏ô","‡πÉ‡∏´‡πâ AI ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å 4‚Äì7 EP","3 EP","4 EP","5 EP","6 EP","7 EP")); if(format!="short") panel.addView(this) }
-            if(format=="short") panel.addView(TextView(this).apply { text="‡∏Ñ‡∏•‡∏¥‡∏õ‡∏™‡∏±‡πâ‡∏ô ‚Ä¢ ‡∏à‡∏ö‡πÉ‡∏ô‡∏Ñ‡∏•‡∏¥‡∏õ‡πÄ‡∏î‡∏µ‡∏¢‡∏ß" })
-            panel.addView(TextView(this).apply { text="${if(format=="short") "‡∏Ñ‡∏•‡∏¥‡∏õ‡∏™‡∏±‡πâ‡∏ô" else "‡∏Ñ‡∏•‡∏¥‡∏õ‡∏¢‡∏≤‡∏ß"} ‚Ä¢ ${ClipPlan.label(seconds)}${if(format=="short") "" else " ‡∏ï‡πà‡∏≠ EP"} ‚Ä¢ ‡πÑ‡∏°‡πà‡∏£‡∏ß‡∏°‡∏õ‡∏Å‡πÄ‡∏õ‡∏¥‡∏î 3 ‡∏ß‡∏¥‡∏ô‡∏≤‡∏ó‡∏µ ‚Ä¢ ‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÄ‡∏õ‡πá‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà ‡πÄ‡∏Å‡πá‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÄ‡∏î‡∏¥‡∏°‡πÑ‡∏ß‡πâ\n\n‡∏ó‡∏±‡πâ‡∏á‡∏™‡∏≠‡∏á‡∏ä‡πà‡∏≠‡∏á‡πÉ‡∏ä‡πâ API ‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó‡∏ä‡∏∏‡∏î‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡∏Å‡∏±‡∏ô‡∏ó‡∏µ‡πà‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤‡πÑ‡∏ß‡πâ ‚Ä¢ ‡∏£‡∏∞‡∏ö‡∏ö‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏Ñ‡πà‡∏≤‡∏¢‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥‡∏à‡∏≤‡∏Å‡∏Ñ‡∏µ‡∏¢‡πå‡∏ó‡∏µ‡πà‡∏û‡∏£‡πâ‡∏≠‡∏° ‚Ä¢ ‡πÄ‡∏ô‡∏∑‡πâ‡∏≠‡∏´‡∏≤‡∏≠‡∏≤‡∏à‡∏ñ‡∏π‡∏Å‡∏™‡πà‡∏á‡πÑ‡∏õ‡∏¢‡∏±‡∏á‡∏Ñ‡πà‡∏≤‡∏¢‡∏ó‡∏µ‡πà‡∏£‡∏±‡∏ö‡∏ä‡πà‡∏ß‡∏á ‚Ä¢ ‡πÇ‡∏Ñ‡∏ß‡∏ï‡∏≤‡πÅ‡∏•‡∏∞‡∏Ñ‡πà‡∏≤‡∏ö‡∏£‡∏¥‡∏Å‡∏≤‡∏£‡∏Ç‡∏∂‡πâ‡∏ô‡∏≠‡∏¢‡∏π‡πà‡∏Å‡∏±‡∏ö‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏ö‡∏±‡∏ç‡∏ä‡∏µ ‚Ä¢ ‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏ö‡∏ó‡πÅ‡∏•‡∏∞‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á ‡∏™‡πà‡∏á‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠‡πÑ‡∏õ‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÉ‡∏ô Flow ‡∏†‡∏≤‡∏¢‡∏´‡∏•‡∏±‡∏á" })
-            stepHeader("4","AI ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ö‡∏ó‡∏ï‡πà‡∏≠‡πÉ‡∏´‡πâ‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥",Color.rgb(157,101,26))
-            val createDialog=AlertDialog.Builder(this).setTitle(if(autoDirector) "DIRECTOR X ‚Ä¢ ${categories[index]}" else "‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ö‡∏ó‡∏î‡πâ‡∏ß‡∏¢ ${StoryProvider.label(this@StudioActivity)}")
-                .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ö‡∏ó‡πÉ‡∏ô‡πÅ‡∏≠‡∏õ",null)
-                .setNeutralButton(if(autoDirector) "‡∏Å‡∏•‡∏±‡∏ö‡πÄ‡∏°‡∏ô‡∏π DIRECTOR X" else "‡πÉ‡∏ä‡πâ‡πÅ‡∏ä‡∏£‡πå‡πÑ‡∏ü‡∏•‡πå‡πÅ‡∏ó‡∏ô") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-            automaticCreate={ if(createDialog.isShowing && !isFinishing && !isDestroyed) createDialog.getButton(-1).performClick() }
-            createDialog.getButton(-1).setOnClickListener {
-                    runCatching {
-                        if(ChannelCatalog.allCategories[index].id in setOf("pia_benefits","pia_safety","pia_products")) require(premise.text.toString().trim().isNotEmpty()) { "‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏£‡∏∞‡∏ö‡∏∏‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏ó‡∏µ‡πà‡∏ï‡∏£‡∏ß‡∏à‡∏™‡∏≠‡∏ö‡πÅ‡∏•‡πâ‡∏ß‡∏´‡∏£‡∏∑‡∏≠‡∏£‡∏≤‡∏¢‡∏•‡∏∞‡πÄ‡∏≠‡∏µ‡∏¢‡∏î‡∏™‡∏¥‡∏ô‡∏Ñ‡πâ‡∏≤‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ö‡∏ó" }
-                        require(!autoRunning) { "AI ‡∏Å‡∏≥‡∏•‡∏±‡∏á‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÅ‡∏•‡∏∞‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå ‚Ä¢ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏£‡∏≠‡∏´‡∏£‡∏∑‡∏≠‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å" }
-                        require(selectedActors.isNotEmpty()) { "‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏î‡πâ‡∏ß‡∏¢ AI ‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏à‡∏≤‡∏Å MASTER ‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ö‡∏ó" }
-                        require(!automaticEquipmentUnresolved) { "‡∏Å‡∏≤‡∏£‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÄ‡∏™‡∏£‡πá‡∏à‡∏´‡∏£‡∏∑‡∏≠‡∏à‡∏±‡∏ö‡∏Ñ‡∏π‡πà‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‚Ä¢ ‡∏•‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏î‡πâ‡∏ß‡∏¢‡∏ï‡∏ô‡πÄ‡∏≠‡∏á" }
-                        val allCatalog=if(chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") piaCatalog() else castingCatalog()
-                        val catalog=CastingSelection.filter(allCatalog,selectedActors)
-                        val presenterId=if(chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") {
-                            require(presenter.selectedItemPosition>0) { "‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏£‡∏π‡∏õ MASTER ‡∏ú‡∏π‡πâ‡∏î‡∏≥‡πÄ‡∏ô‡∏¥‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏ô‡∏Ñ‡∏•‡∏±‡∏á ‡πÅ‡∏•‡πâ‡∏ß‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏à‡∏≤‡∏Å‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£" }
-                            presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id")
-                        } else if(presenter.selectedItemPosition>0) presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id") else ""
-                        require(presenterId.isBlank() || selectedActors.isEmpty() || presenterId in selectedActors) { "‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏´‡∏•‡∏±‡∏Å‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÑ‡∏°‡πà‡∏≠‡∏¢‡∏π‡πà‡πÉ‡∏ô‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡∏ï‡∏¥‡πä‡∏Å ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏¥‡πä‡∏Å‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏´‡∏•‡∏±‡∏Å‡πÉ‡∏´‡∏°‡πà" }
-                        require(selectedProps.values.all { it.isBlank() || it in selectedActors }) { "‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡πÑ‡∏°‡πà‡∏≠‡∏¢‡∏π‡πà‡πÉ‡∏ô‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á" }
-                        selectedProps.keys.forEach { id -> require(runCatching { assets.open("prop_masters/$id.png").use { it.read()>=0 } }.getOrDefault(false)) { "‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏†‡∏≤‡∏û MASTER ‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå $id" } }
-                        val reviewedProps=selectedProps.map { (id,owner) ->
-                            val n=propCatalog.indices.first { propId(it)==id }
-                            val who=(0 until allCatalog.length()).map { allCatalog.getJSONObject(it) }.firstOrNull { it.optString("id")==owner }?.optString("display_name").orEmpty()
-                            "${propCatalog[n]} ($id)"+(if(who.isBlank()) " ‚Ä¢ ‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ" else " ‚Ä¢ ‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å: $who ($owner)")
-                        }
-                        val reviewedRoles=selectedActors.mapNotNull { id -> suggestedRoles[id]?.let { "$id: $it" } }
-                        val storyPremise=listOf("‡∏™‡∏ñ‡∏≤‡∏ô‡∏Å‡∏≤‡∏£‡∏ì‡πå‡∏ï‡∏±‡πâ‡∏á‡∏ï‡πâ‡∏ô‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å: "+selectedStoryTopic,premise.text.toString(),if(reviewedRoles.isEmpty()) "" else "‡∏ö‡∏ó‡∏ö‡∏≤‡∏ó‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏à‡∏≤‡∏Å‡∏Ç‡πâ‡∏≠‡πÄ‡∏™‡∏ô‡∏≠ (‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏ß‡∏≤‡∏°‡∏™‡∏≠‡∏î‡∏Ñ‡∏•‡πâ‡∏≠‡∏á‡∏Å‡∏±‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á): "+reviewedRoles.joinToString("; "),if(reviewedProps.isEmpty()) "" else "‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå MASTER ‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å: "+reviewedProps.joinToString("; ")+". ‡πÉ‡∏ä‡πâ‡∏ï‡∏≤‡∏°‡πÄ‡∏´‡∏ï‡∏∏‡∏Å‡∏≤‡∏£‡∏ì‡πå ‡∏£‡∏∞‡∏ö‡∏∏‡∏â‡∏≤‡∏Å ‡∏ú‡∏π‡πâ‡∏ñ‡∏∑‡∏≠ ‡πÅ‡∏•‡∏∞‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ï‡πà‡∏≠‡πÄ‡∏ô‡∏∑‡πà‡∏≠‡∏á ‡∏´‡πâ‡∏≤‡∏°‡πÄ‡∏î‡∏≤‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏ó‡∏µ‡πà‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏").filter { it.isNotBlank() }.joinToString("\n")
-                        if(presenterId.isNotBlank() && presenterOutfit.selectedItemPosition>0) require(presenterOutfitFile(presenterId,presenterOutfit.selectedItemPosition).isFile) { "‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏£‡∏π‡∏õ‡∏Ç‡∏≠‡∏á‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ä‡∏∏‡∏î‡∏ï‡∏≤‡∏°‡πÄ‡∏ô‡∏∑‡πâ‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á" }
-                        require(catalog.length()>0) { "‡∏Ñ‡∏•‡∏±‡∏á MASTER ‡∏ß‡πà‡∏≤‡∏á ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏Å‡πà‡∏≠‡∏ô" }
-                        if(ChannelCatalog.allCategories[index].id=="younger_man_older_woman") {
-                            val candidates=(0 until catalog.length()).map { catalog.getJSONObject(it) }
-                            val men=candidates.filter { AutoCast.adultRomanceEligible(it) && it.optString("character_gender")=="man" && it.optInt("character_age") in 25..30 }
-                            val women=candidates.filter { AutoCast.adultRomanceEligible(it) && it.optString("character_gender")=="woman" && it.optInt("character_age") in 45..55 }
-                            require(men.any { man -> women.any { woman -> woman.optInt("character_age")-man.optInt("character_age")>=15 } }) {
-                                "‡∏´‡∏°‡∏ß‡∏î‡∏ô‡∏µ‡πâ‡∏ï‡πâ‡∏≠‡∏á‡∏°‡∏µ‡∏ú‡∏π‡πâ‡∏ä‡∏≤‡∏¢‡∏≠‡∏≤‡∏¢‡∏∏ 25‚Äì30 ‡πÅ‡∏•‡∏∞‡∏ú‡∏π‡πâ‡∏´‡∏ç‡∏¥‡∏á‡∏≠‡∏≤‡∏¢‡∏∏ 45‚Äì55 ‡∏´‡πà‡∏≤‡∏á‡∏Å‡∏±‡∏ô‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏ô‡πâ‡∏≠‡∏¢ 15 ‡∏õ‡∏µ ‡πÉ‡∏ô‡∏Ñ‡∏•‡∏±‡∏á MASTER ‚Ä¢ ‡∏û‡∏ö‡∏ä‡∏≤‡∏¢ ${men.size} ‡∏Ñ‡∏ô ‡∏´‡∏ç‡∏¥‡∏á ${women.size} ‡∏Ñ‡∏ô ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡πÉ‡∏ô‡∏Ñ‡∏•‡∏±‡∏á‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÅ‡∏ô‡∏ß‡∏ó‡∏±‡πà‡∏ß‡πÑ‡∏õ"
-                            }
-                        }
-                        if(ChannelCatalog.allCategories[index].id=="older_man_younger_woman") {
-                            val candidates=(0 until catalog.length()).map { catalog.getJSONObject(it) }
-                            val men=candidates.filter { AutoCast.adultRomanceEligible(it) && it.optString("character_gender")=="man" && it.optInt("character_age") in 45..60 }
-                            val women=candidates.filter { AutoCast.adultRomanceEligible(it) && it.optString("character_gender")=="woman" && it.optInt("character_age") in 25..35 }
-                            require(men.any { man -> women.any { woman -> man.optInt("character_age")-woman.optInt("character_age")>=15 } }) {
-                                "‡πÅ‡∏ô‡∏ß‡∏ô‡∏µ‡πâ‡∏ï‡πâ‡∏≠‡∏á‡∏°‡∏µ MASTER ‡∏ú‡∏π‡πâ‡∏ä‡∏≤‡∏¢‡∏≠‡∏≤‡∏¢‡∏∏ 45‚Äì60 ‡∏õ‡∏µ ‡πÅ‡∏•‡∏∞‡∏ú‡∏π‡πâ‡∏´‡∏ç‡∏¥‡∏á‡∏≠‡∏≤‡∏¢‡∏∏ 25‚Äì35 ‡∏õ‡∏µ ‡πÇ‡∏î‡∏¢‡∏ú‡∏π‡πâ‡∏ä‡∏≤‡∏¢‡∏≠‡∏≤‡∏¢‡∏∏‡∏°‡∏≤‡∏Å‡∏Å‡∏ß‡πà‡∏≤‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏ô‡πâ‡∏≠‡∏¢ 15 ‡∏õ‡∏µ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏•‡∏±‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£"
-                            }
-                        }
-                        val folder=File(base,UUID.randomUUID().toString()).apply { mkdirs() }
-                        for(n in 0 until catalog.length()) {
-                            val row=catalog.getJSONObject(n); val target=File(folder,"master_candidates/"+row.getString("file")); target.parentFile!!.mkdirs()
-                            val original=castingSource(row); require(original.isFile && MasterLibrary.digest(original.readBytes())==row.getString("sha256")) { "‡∏†‡∏≤‡∏û MASTER ‡∏Ç‡∏≠‡∏á ${row.optString("display_name")} ‡∏™‡∏π‡∏ç‡∏´‡∏≤‡∏¢‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡πÑ‡∏õ" }
-                            val outfitImage=if(row.getString("id")==presenterId && presenterOutfit.selectedItemPosition>0) presenterOutfitFile(presenterId,presenterOutfit.selectedItemPosition) else null
-                            PiaReferencePolicy.capture(original,outfitImage,target,File(folder,"presenter_outfit_reference.image"))
-                        }
-                        val count=if(format=="short") 1 else when(episodes.selectedItemPosition) { 0 -> 1; 1 -> 0; else -> episodes.selectedItemPosition+1 }
-                        val reviewedPropRecords=JSONArray().apply { selectedProps.forEach { (id,owner) ->
-                            val n=propCatalog.indices.first { propId(it)==id }
-                            put(JSONObject().put("prop_id",id).put("name",propCatalog[n]).put("owner_library_id",owner))
-                        } }
-                        GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",chosenChannel).put("presenter_library_id",presenterId)
-                            .put("pia_face_lock",chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î" && piaFaceLock.isChecked).put("required_cast_ids",JSONArray(selectedActors.toList())).put("selected_prop_masters",reviewedPropRecords).put("presenter_outfit",if(chosenChannel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î" && presenterOutfit.selectedItemPosition>0) presenterOutfits[presenterOutfit.selectedItemPosition] else "").put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",3).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("story_situation",selectedStoryTopic).put("premise",storyPremise).put("episodes",count)))
-                        prefs.edit().putString("project",folder.name).apply(); createDialog.dismiss(); render(); startGeminiJob(folder)
-                    }.onFailure { notice(it.message ?: "‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏á‡∏≤‡∏ô‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-                }
-        }
-        }
-        chooseStoryChannel { channel -> chosenChannel=channel; chooseChannelTopic(channel,configure) }
-    }
-    private fun flowPlanningShare() {
-        chooseStoryChannel { channel ->
-        if(channel=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î") { notice("‡∏ä‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ‡∏ï‡πâ‡∏≠‡∏á‡πÄ‡∏•‡∏∑‡∏≠‡∏Å MASTER ‡∏ú‡∏π‡πâ‡∏î‡∏≥‡πÄ‡∏ô‡∏¥‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ú‡πà‡∏≤‡∏ô‡πÄ‡∏°‡∏ô‡∏π‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ö‡∏ó‡πÉ‡∏ô‡πÅ‡∏≠‡∏õ"); return@chooseStoryChannel }
-        chooseChannelTopic(channel) { index ->
-            chooseClip { format, seconds ->
-            val premise=EditText(this).apply { hint="‡πÅ‡∏ô‡∏ß‡∏Ñ‡∏¥‡∏î‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á (‡πÄ‡∏ß‡πâ‡∏ô‡∏ß‡πà‡∏≤‡∏á‡πÉ‡∏´‡πâ‡∏Ñ‡∏¥‡∏î‡πÉ‡∏´‡∏°‡πà)" }
-            fun prepare(): String {
-                val code=FlowProductionPack.masterCommand(categories[index],channel)+"\n"+ChannelCatalog.direction(categories[index])+"\n"+(if(format=="short") ChannelCatalog.shortDirection(categories[index],ClipPlan.scenes(seconds)) else ChannelCatalog.longDirection)+"\n"+ChannelCatalog.storyConsistency+"\nUSER DURATION OVERRIDE: ${if(format=="short") "One standalone episode only; beginning, middle and ending within this one clip. " else ""}${ClipPlan.scenes(seconds)} scenes per EP, 8 seconds each, ${ClipPlan.time(ClipPlan.scenes(seconds)*8)} content per EP. Supersedes default 24 scenes and 180-second minimum above. Set clip_plan_version=1, clip_format=$format, target_seconds=$seconds, scenes_per_episode=${ClipPlan.scenes(seconds)} in story.json.\n‡πÅ‡∏ô‡∏ß‡∏¢‡πà‡∏≠‡∏¢: "+selectedStoryTopic+"\n‡πÅ‡∏ô‡∏ß‡∏Ñ‡∏¥‡∏î: "+premise.text.toString().ifBlank { "‡∏Ñ‡∏¥‡∏î‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥" }
-                File(project,"flow_story_command.txt").writeText(code)
-                render()
-                return code
-            }
-            AlertDialog.Builder(this).setTitle("‡∏™‡πà‡∏á‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡πÉ‡∏´‡πâ AI ‡∏ß‡∏≤‡∏á‡∏ö‡∏ó")
-                .setMessage("‡πÅ‡∏≠‡∏õ‡πÅ‡∏ô‡∏ö‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÅ‡∏•‡∏∞ MASTER 3 ‡∏†‡∏≤‡∏û‡πÉ‡∏´‡πâ‡πÄ‡∏≠‡∏á ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÅ‡∏≠‡∏õ AI ‡∏ó‡∏µ‡πà‡∏£‡∏±‡∏ö‡πÑ‡∏ü‡∏•‡πå ‡πÅ‡∏•‡πâ‡∏ß‡∏ï‡∏£‡∏ß‡∏à‡πÑ‡∏ü‡∏•‡πå‡πÅ‡∏ô‡∏ö‡πÅ‡∏•‡∏∞‡∏Å‡∏î‡∏™‡πà‡∏á‡πÉ‡∏ô‡πÅ‡∏≠‡∏õ‡∏ô‡∏±‡πâ‡∏ô ‡∏ú‡∏•‡∏•‡∏±‡∏û‡∏ò‡πå‡∏ó‡∏µ‡πà‡∏ï‡πâ‡∏≠‡∏á‡∏£‡∏±‡∏ö‡∏Å‡∏•‡∏±‡∏ö: story.json / ZIP ‡∏ö‡∏ó ‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏Ç‡∏±‡πâ‡∏ô‡∏ï‡∏≠‡∏ô 2 ‚Ä¢ ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πà‡∏Å‡∏≤‡∏£‡πÄ‡∏£‡∏µ‡∏¢‡∏Å API ‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥")
-                .setView(premise).setPositiveButton("‡∏™‡πà‡∏á‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á + MASTER") { _,_ -> sendStoryPackage(prepare()) }
-                .setNeutralButton("‡∏î‡∏π‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏Å‡πà‡∏≠‡∏ô") { _,_ -> showFlowCode("‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏ß‡∏≤‡∏á‡∏ö‡∏ó",prepare(),"FLOW_STORY_COMMAND.txt") }
-                .setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-        }
-    }
-    }
-    }
-    private fun flowTestMenu() {
-        val ids=FlowProductionPack.names.keys.toList(); val checked=BooleanArray(ids.size)
-        val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-        var row: LinearLayout?=null
-        ids.forEachIndexed { i,id ->
-            if(i%2==0) { row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; grid.addView(row) }
-            val file=File(filesDir,"character_masters/$id.master")
-            val card=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(4),dp(6),dp(4),dp(6)); layoutParams=LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f) }
-            row?.addView(card)
-            if(file.isFile) card.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(file)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(140)); contentDescription=FlowProductionPack.names.getValue(id); setOnClickListener { fullImage(file,FlowProductionPack.names.getValue(id)) } })
-            card.addView(android.widget.CheckBox(this).apply { text=FlowProductionPack.names.getValue(id)+(if(file.isFile) "" else "\n‡πÑ‡∏°‡πà‡∏û‡∏ö MASTER"); isEnabled=file.isFile; setOnCheckedChangeListener { _,value -> checked[i]=value } })
-        }
-        val dialog=AlertDialog.Builder(this).setTitle("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠")
-            .setView(ScrollView(this).apply { addView(grid) })
-            .setPositiveButton("‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤‡∏â‡∏≤‡∏Å",null).setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).create()
-        dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-            val selected=ids.filterIndexed { i,_ -> checked[i] }
-            if(selected.isEmpty()) Toast.makeText(this,"‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏ô‡πâ‡∏≠‡∏¢ 1 ‡∏Ñ‡∏ô",Toast.LENGTH_SHORT).show()
-            else { dialog.dismiss(); flowTestSetup(selected) }
-        } }; dialog.show()
-    }
-    private fun flowTestSetup(ids: List<String>) {
-        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-        panel.addView(TextView(this).apply { text="‡πÅ‡∏ô‡∏ö‡∏†‡∏≤‡∏û‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏≤‡∏°‡∏£‡∏´‡∏±‡∏™‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á‡∏î‡πâ‡∏≤‡∏ô‡∏ö‡∏ô‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á ‡πÑ‡∏°‡πà‡∏ï‡πâ‡∏≠‡∏á‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ä‡∏∑‡πà‡∏≠‡πÑ‡∏ü‡∏•‡πå‡∏´‡∏£‡∏∑‡∏≠‡∏Å‡∏£‡∏≠‡∏Å‡∏ô‡∏≤‡∏°‡∏™‡∏Å‡∏∏‡∏•" })
-        val activity=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("‡∏•‡∏≥‡∏•‡∏≠‡∏á / ‡∏≠‡∏¢‡∏π‡πà‡∏ö‡πâ‡∏≤‡∏ô","‡∏õ‡∏£‡∏∞‡∏ä‡∏∏‡∏° / ‡∏ó‡∏≥‡∏á‡∏≤‡∏ô","‡∏ä‡∏∏‡∏î‡∏ô‡∏≠‡∏ô")) }
-        panel.addView(activity)
-        val location=EditText(this).apply { hint="‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡πÅ‡∏•‡∏∞‡πÄ‡∏ß‡∏•‡∏≤"; setText("‡∏´‡πâ‡∏≠‡∏á‡∏ô‡∏±‡πà‡∏á‡πÄ‡∏•‡πà‡∏ô‡∏ï‡∏≠‡∏ô‡∏ö‡πà‡∏≤‡∏¢ ‡πÅ‡∏™‡∏á‡∏ò‡∏£‡∏£‡∏°‡∏ä‡∏≤‡∏ï‡∏¥"); panel.addView(this) }
-        val action=EditText(this).apply { hint="‡∏ó‡πà‡∏≤‡∏ó‡∏≤‡∏á / ‡∏Å‡∏≤‡∏£‡∏Å‡∏£‡∏∞‡∏ó‡∏≥"; setText("‡∏¢‡∏∑‡∏ô‡∏Ç‡πâ‡∏≤‡∏á‡πÇ‡∏ï‡πä‡∏∞ ‡∏ñ‡∏∑‡∏≠‡πÅ‡∏Å‡πâ‡∏ß‡∏ô‡πâ‡∏≥‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏ú‡πà‡∏≠‡∏ô‡∏Ñ‡∏•‡∏≤‡∏¢"); panel.addView(this) }
-        val outfit=EditText(this).apply { hint="‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡∏ï‡πâ‡∏≠‡∏á‡∏Å‡∏≤‡∏£ (‡∏ß‡πà‡∏≤‡∏á = ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏≤‡∏°‡∏Å‡∏¥‡∏à‡∏Å‡∏£‡∏£‡∏°)"; panel.addView(this) }
-        AlertDialog.Builder(this).setTitle("‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠ ‚Ä¢ ${ids.joinToString { FlowProductionPack.names.getValue(it) }}")
-            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á") { _,_ ->
-                val files=ids.associateWith { id -> File(filesDir,"character_masters/$id.master") }
-                runCatching {
-                    require(files.values.all { it.isFile && it.length()>0 }) { "‡∏Ç‡∏≤‡∏î‡∏†‡∏≤‡∏û MASTER ‡∏Ç‡∏≠‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å" }
-                    FlowTestPrompt.build(ids,listOf("home","meeting","sleep")[activity.selectedItemPosition],location.text.toString(),action.text.toString(),outfit.text.toString()) }
-                    .onSuccess { code ->
-                        showFlowCode("‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠ ‚Ä¢ ‡πÅ‡∏ô‡∏ö MASTER ‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å",code,"FLOW_VIDEO_TEST_${ids.joinToString("_")}.txt")
-                    }
-                    .onFailure { notice(it.message ?: "‡∏ï‡∏£‡∏ß‡∏à‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏ó‡∏î‡∏™‡∏≠‡∏ö") }
-            }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-    }
-    private fun flowSceneMenu(s: JSONObject) {
-        if(plan?.optString("aspect_ratio","16:9")!="9:16") { landscapeCopyMenu(); return }
-        choiceMenu("${key(s)} ‚Ä¢ ${if(sceneFrameApproved(s)) "‡∏†‡∏≤‡∏û‡∏ú‡πà‡∏≤‡∏ô‡πÅ‡∏•‡πâ‡∏ß" else "‡∏£‡∏≠‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û"}",listOf("1. ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏à‡∏≤‡∏Å MASTER","3. ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠‡∏à‡∏≤‡∏Å‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡∏ú‡πà‡∏≤‡∏ô","‡πÅ‡∏Å‡πâ‡∏ö‡∏ó / ‡∏ä‡∏∏‡∏î / ‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà","‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏†‡∏≤‡∏û‡∏à‡∏≤‡∏Å Gemini / Flow","‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏Ñ‡∏•‡∏¥‡∏õ MP4","2. ‡πÄ‡∏ó‡∏µ‡∏¢‡∏ö MASTER / ‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏†‡∏≤‡∏û","‡∏î‡∏π‡∏Ñ‡∏•‡∏¥‡∏õ","‡πÄ‡∏ß‡∏≠‡∏£‡πå‡∏ä‡∏±‡∏ô‡πÑ‡∏ü‡∏•‡πå","‡πÄ‡∏™‡∏ô‡∏≠‡∏Ç‡∏¢‡∏≤‡∏¢‡∏ö‡∏ó‡∏™‡∏±‡πâ‡∏ô ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏Å‡πà‡∏≠‡∏ô‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å")) { i -> when(i) {
-            0 -> if(plan?.optString("content_profile")==AutoDirectorContent.profile) {
-                val issues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(plan!!))
-                if(issues.isNotEmpty()) notice(issues.take(12).joinToString("\n")) else showFlowCode("IMAGE PROMPT ‚Ä¢ Gemini",AutoDirectorContent.sceneImage(plan!!,s),"AD_${key(s)}_IMAGE_GEMINI.txt")
-            }
-                else showFlowCode("IMAGE PROMPT",FlowReferencePrompt.scene(s,s.optInt("ep",1),"image"),"${key(s)}_IMAGE.txt")
-            1 -> reviewedVideoCommand(s)
-            2 -> editScene(s)
-            3 -> { mediaSlot=key(s); mediaKind="image"; mediaProject=project.name; sceneMediaPicker.launch(arrayOf("image/*")) }
-            4 -> { mediaSlot=key(s); mediaKind="video"; mediaProject=project.name; sceneMediaPicker.launch(arrayOf("video/mp4")) }
-            5 -> compareScene(s)
-            6 -> playVideo(s)
-            7 -> versionsMenu(s)
-            8 -> suggestLongerSpeech(s)
-        } }
-    }
-
-    private fun suggestLongerSpeech(scene: JSONObject) {
-        if(ProductionCommandCheck.dialogueTurns(scene).isNotEmpty()) return notice("‡∏Ç‡∏ì‡∏∞‡∏ô‡∏µ‡πâ‡πÉ‡∏´‡πâ‡πÅ‡∏Å‡πâ‡∏ö‡∏ó‡∏´‡∏•‡∏≤‡∏¢‡∏Ñ‡∏ô‡πÉ‡∏ô‡πÄ‡∏°‡∏ô‡∏π‡πÅ‡∏Å‡πâ‡∏ö‡∏ó‡∏ó‡∏µ‡∏•‡∏∞‡∏ä‡πà‡∏ß‡∏á‡∏Å‡πà‡∏≠‡∏ô")
-        val field=if(scene.optString("dialogue").trim().let { it.isNotBlank() && it !in listOf("‡πÑ‡∏°‡πà‡∏°‡∏µ","none") }) "dialogue" else "narration"
-        val original=scene.optString(field).trim()
-        if(original.isBlank() || original in listOf("‡πÑ‡∏°‡πà‡∏°‡∏µ","none","‡πÑ‡∏°‡πà‡∏°‡∏µ‡πÄ‡∏™‡∏µ‡∏¢‡∏á‡∏ö‡∏£‡∏£‡∏¢‡∏≤‡∏¢")) return notice("‡∏â‡∏≤‡∏Å‡∏ô‡∏µ‡πâ‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ö‡∏ó‡∏û‡∏π‡∏î‡∏´‡∏£‡∏∑‡∏≠‡∏ö‡∏£‡∏£‡∏¢‡∏≤‡∏¢‡πÉ‡∏´‡πâ‡∏Ç‡∏¢‡∏≤‡∏¢")
-        val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
-        if(providers.isEmpty()) return notice("‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤ API ‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô‡πÉ‡∏ä‡πâ‡∏£‡∏∞‡∏ö‡∏ö‡πÄ‡∏™‡∏ô‡∏≠‡∏Ç‡∏¢‡∏≤‡∏¢‡∏ö‡∏ó")
-        val snapshot=scene.toString()
-        val projectId=project.name
-        val sceneId=key(scene)
-        val sceneContext=JSONObject().put("action",scene.optString("action")).put("speaker",scene.optString("speaker")).put("location",scene.optString("location")).put("speech",original)
-        notice("‡∏Å‡∏≥‡∏•‡∏±‡∏á‡πÄ‡∏™‡∏ô‡∏≠‡∏Ç‡∏¢‡∏≤‡∏¢‡∏ö‡∏ó ‚Ä¢ ‡∏ö‡∏ó‡πÄ‡∏î‡∏¥‡∏°‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô")
-        Thread {
-            val schema=JSONObject().put("type","object").put("properties",JSONObject().put("text",JSONObject().put("type","string"))).put("required",JSONArray().put("text"))
-            val prompt="""Suggest a natural Thai ${if(field=="dialogue") "dialogue line" else "narration"} for an eight-second scene based only on the supplied scene. Expand the original only where the meaning and events support it; do not add facts, characters, plot events or stage directions. Keep it naturally speakable without rushing. Return JSON with a single text field. The user must review it before saving. Scene: $sceneContext"""
-            var result: String?=null
-            for(provider in providers) {
-                result=runCatching { StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false,context=this@StudioActivity).generate(prompt,schema).optString("text").trim() }.getOrNull()?.takeIf { it.isNotBlank() }
-                if(result!=null) break
-            }
-            val proposal=result
-            runOnUiThread {
-                if(isFinishing || isDestroyed) return@runOnUiThread
-                if(proposal==null) { notice("‡πÑ‡∏°‡πà‡∏™‡∏≤‡∏°‡∏≤‡∏£‡∏ñ‡∏Ç‡∏≠‡∏Ç‡πâ‡∏≠‡πÄ‡∏™‡∏ô‡∏≠‡∏ö‡∏ó‡πÑ‡∏î‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à API ‡πÅ‡∏•‡πâ‡∏ß‡∏•‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà"); return@runOnUiThread }
-                if(project.name!=projectId || scene.toString()!=snapshot || plan?.let { current -> rows(current).none { it===scene } } != false) { notice("‡∏ã‡∏µ‡∏ô‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏£‡∏∞‡∏´‡∏ß‡πà‡∏≤‡∏á‡∏Ç‡∏≠‡∏Ç‡πâ‡∏≠‡πÄ‡∏™‡∏ô‡∏≠ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏õ‡∏¥‡∏î‡πÉ‡∏´‡∏°‡πà"); return@runOnUiThread }
-                val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-                panel.addView(TextView(this).apply { text="‡∏ö‡∏ó‡πÄ‡∏î‡∏¥‡∏°:\n$original\n\n‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏ß‡∏≤‡∏°‡∏´‡∏°‡∏≤‡∏¢ ‡πÄ‡∏´‡∏ï‡∏∏‡∏Å‡∏≤‡∏£‡∏ì‡πå ‡πÅ‡∏•‡∏∞‡∏ó‡∏î‡∏•‡∏≠‡∏á‡∏≠‡πà‡∏≤‡∏ô‡πÉ‡∏´‡πâ‡πÄ‡∏´‡∏°‡∏≤‡∏∞‡∏Å‡∏±‡∏ö 8 ‡∏ß‡∏¥‡∏ô‡∏≤‡∏ó‡∏µ ‡∏Å‡πà‡∏≠‡∏ô‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô" })
-                val edit=EditText(this).apply { setText(proposal); minLines=3; panel.addView(this) }
-                val dialog=AlertDialog.Builder(this).setTitle("‡∏ï‡∏£‡∏ß‡∏à‡∏Ç‡πâ‡∏≠‡πÄ‡∏™‡∏ô‡∏≠‡∏ö‡∏ó ‚Ä¢ $sceneId").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡πÅ‡∏•‡∏∞‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å",null).setNegativeButton("‡πÉ‡∏ä‡πâ‡∏ö‡∏ó‡πÄ‡∏î‡∏¥‡∏°",null).showDirector()
-                dialog.getButton(-1).setOnClickListener {
-                    val value=edit.text.toString().trim()
-                    if(value.isBlank()) { notice("‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏£‡∏∞‡∏ö‡∏∏‡∏ö‡∏ó‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÉ‡∏ä‡πâ‡∏ö‡∏ó‡πÄ‡∏î‡∏¥‡∏°"); return@setOnClickListener }
-                    if(project.name!=projectId || scene.toString()!=snapshot || plan?.let { current -> rows(current).none { it===scene } } != false) { dialog.dismiss(); notice("‡∏ã‡∏µ‡∏ô‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡πÅ‡∏•‡πâ‡∏ß ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏Ç‡∏≠‡∏Ç‡πâ‡∏≠‡πÄ‡∏™‡∏ô‡∏≠‡πÉ‡∏´‡∏°‡πà"); return@setOnClickListener }
-                    scene.put(field,value); scene.put("user_review","needs_revision"); scene.remove("flow_image_revision")
-                    saveStory(); dialog.dismiss(); render(); notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏ö‡∏ó‡∏ó‡∏µ‡πà‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡πÇ‡∏õ‡∏£‡∏î‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow ‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á")
-                }
-            }
-        }.apply { name="director-dialogue-suggestion"; start() }
-    }
-
-    private fun planning() {
-        val panel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(18), dp(18), dp(10))
-            background = backdrop(navy, Color.rgb(27,24,57))
-        }
-        panel.addView(TextView(this).apply {
-            text = "üé¨ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ä‡πà‡∏≠‡∏á‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏´‡∏ô‡∏±‡∏á"; textSize = 20f
-            setTextColor(gold); setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER; setPadding(0, 0, 0, dp(14))
-        })
-        val dialog = AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setView(panel).create()
-        fun option(mainChannel: Boolean, title: String, colors: IntArray, action: () -> Unit) {
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                background = backdrop(colors[0], colors[1], Color.argb(150,255,255,255))
-                clipToOutline = true; elevation = dp(5).toFloat()
-                layoutParams = LinearLayout.LayoutParams(-1,-2).apply { bottomMargin = dp(14) }
-                isClickable = true; isFocusable = true
-                contentDescription = title.replace("\n", " ")
-                setOnClickListener { dialog.dismiss(); action() }
-            }
-            card.addView(ImageView(this).apply {
-                setImageResource(R.drawable.studio_movie)
-                adjustViewBounds = true
-                scaleType = ImageView.ScaleType.FIT_CENTER
-                layoutParams = LinearLayout.LayoutParams(-1, -2)
-                contentDescription = "‡∏™‡∏ï‡∏π‡∏î‡∏¥‡πÇ‡∏≠ ‚Ä¢ ‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÉ‡∏´‡∏°‡πà‡∏Ç‡∏≠‡∏á‡∏Ñ‡∏∏‡∏ì"
-            })
-            card.addView(TextView(this).apply {
-                text = title; textSize = 18f; setTextColor(navy)
-                setTypeface(null, Typeface.BOLD); gravity = Gravity.CENTER
-                setPadding(dp(10), dp(12), dp(10), dp(14))
-                layoutParams = LinearLayout.LayoutParams(-1,-2)
-                setSingleLine(false); maxLines = 2
-                setAutoSizeTextTypeUniformWithConfiguration(14, 18, 1, android.util.TypedValue.COMPLEX_UNIT_SP)
-            })
-            panel.addView(card)
-        }
-        panel.addView(Button(this).apply {
-            text = "üé≠ ‡∏ï‡∏£‡∏ß‡∏à / ‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô MASTER ‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á"; isAllCaps = false
-            setOnClickListener { dialog.dismiss(); characterMasters() }
-        })
-        panel.addView(TextView(this).apply {
-            text = "‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö‡∏Å‡πà‡∏≠‡∏ô‡∏™‡πà‡∏á ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ä‡πà‡∏≠‡∏á‡∏î‡πâ‡∏≤‡∏ô‡∏•‡πà‡∏≤‡∏á‡πÄ‡∏°‡∏∑‡πà‡∏≠‡∏û‡∏£‡πâ‡∏≠‡∏°"; textSize = 12f
-            setTextColor(ice); setPadding(0,dp(6),0,dp(10))
-        })
-        option(true, "üé¨ ‡∏£‡πâ‡∏≠‡∏¢‡∏â‡∏≤‡∏Å\n‡∏ã‡∏µ‡∏£‡∏µ‡∏™‡πå‡∏™‡∏±‡πâ‡∏ô‡∏´‡∏•‡∏≤‡∏Å‡∏ä‡∏µ‡∏ß‡∏¥‡∏ï", intArrayOf(Color.rgb(255,204,86), Color.rgb(255,174,38))) {
-            chooseGenre(originalChannel, "original")
-        }
-        option(false, "üé¨ ‡∏£‡∏∞‡∏ö‡∏ö‡∏Å‡∏≥‡∏Å‡∏±‡∏ö‡∏•‡∏∞‡∏Ñ‡∏£‡∏≠‡∏±‡∏à‡∏â‡∏£‡∏¥‡∏¢‡∏∞\n‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏•‡∏∞‡∏Ñ‡∏£‡∏Ñ‡∏£‡∏ö‡∏ó‡∏∏‡∏Å‡πÅ‡∏ô‡∏ß", intArrayOf(Color.rgb(73,218,242), Color.rgb(32,169,228))) {
-            chooseGenre(prefs.getString("other_channel", "")?.takeIf { it.isNotBlank() } ?: smartDirector, "new")
-        }
-        panel.addView(TextView(this).apply {
-            text = "‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å"; textSize = 14f; setTextColor(muted)
-            gravity = Gravity.CENTER; minHeight = dp(48)
-            setOnClickListener { dialog.dismiss() }
-        })
-        dialog.show()
-        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
-        dialog.window?.setLayout(resources.displayMetrics.widthPixels - dp(24), -2)
-    }
-    private fun chooseGenre(channel: String, mode: String) {
-        if(mode=="original") { flowPlanning(); return }
-        val choices = if (mode == "original") categories else otherGenres
-        val labels = if (mode == "original") choices.mapIndexed { index, category -> "${menuIcon(index)} $category" } else genreLabels
-        val title = if (mode == "original") "üé¨ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏´‡∏°‡∏ß‡∏î‡∏´‡∏°‡∏π‡πà\n$channel" else "üé¨ $smartDirector\n‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÅ‡∏ô‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ‚Ä¢ 10 ‡πÅ‡∏ô‡∏ß"
-        choiceMenu(title, labels) { index ->
-            planningForCategory(choices[index],channel,mode)
-        }
-    }
-    private fun planningForCategory(category: String, channel: String, mode: String) {
-        val idea = EditText(this).apply { hint = "‡πÅ‡∏ô‡∏ß‡∏Ñ‡∏¥‡∏î‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á (‡πÄ‡∏ß‡πâ‡∏ô‡∏ß‡πà‡∏≤‡∏á‡πÉ‡∏´‡πâ‡∏Ñ‡∏¥‡∏î‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥)" }
-        AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setTitle(category).setMessage("‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏à‡∏ô‡∏à‡∏ö‡∏Ñ‡∏£‡∏ö‡∏ó‡∏∏‡∏Å EP\n‡πÄ‡∏ß‡πâ‡∏ô‡πÅ‡∏ô‡∏ß‡∏Ñ‡∏¥‡∏î‡∏ß‡πà‡∏≤‡∏á‡πÑ‡∏î‡πâ ‡∏£‡∏∞‡∏ö‡∏ö‡∏à‡∏∞‡∏Ñ‡∏¥‡∏î‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏ô‡∏´‡∏°‡∏ß‡∏î‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å").setView(idea).setPositiveButton("‡∏™‡πà‡∏á‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á") { _, _ ->
-            shareText("""‡∏ß‡∏≤‡∏á‡∏ö‡∏ó‡∏´‡∏ô‡∏±‡∏á/‡∏•‡∏∞‡∏Ñ‡∏£‡πÉ‡∏´‡πâ‡∏ä‡πà‡∏≠‡∏á $channel ‡∏à‡∏ô‡∏à‡∏ö‡∏Ñ‡∏£‡∏ö‡∏ó‡∏∏‡∏Å EP ‡∏ï‡∏≤‡∏°‡πÅ‡∏ô‡∏ß‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å
-‡πÅ‡∏ô‡∏ß‡∏Ñ‡∏¥‡∏î: ${idea.text.toString().ifBlank { "‡∏Ñ‡∏¥‡∏î‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥" }}
-‡∏´‡∏°‡∏ß‡∏î‡∏´‡∏°‡∏π‡πà‡∏ó‡∏µ‡πà‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å: $category
-‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏à‡∏≤‡∏Å MASTER ‡∏õ‡∏±‡∏à‡∏à‡∏∏‡∏ö‡∏±‡∏ô (‡∏ä‡∏∏‡∏î‡πÉ‡∏´‡πâ‡∏Å‡∏≥‡∏´‡∏ô‡∏î‡∏ï‡∏≤‡∏°‡∏ß‡∏±‡∏ô‡πÄ‡∏ß‡∏•‡∏≤‡πÅ‡∏•‡∏∞‡∏Å‡∏¥‡∏à‡∏Å‡∏£‡∏£‡∏°):
-${if(mode=="original") listOf("gawin" to "‡∏Å‡∏ß‡∏¥‡∏ô","rinlada" to "‡∏£‡∏¥‡∏ô‡∏£‡∏î‡∏≤","mind" to "‡πÄ‡∏°‡∏¢‡πå").joinToString("\n") { (id,name) -> val source=File(filesDir,"character_masters/$id.master"); "$name ‚Üí ${masterExportName(source,false) ?: "‡∏Ç‡∏≤‡∏î MASTER"}${promptProfile(id,source).takeIf { it.isNotBlank() }?.let { ": $it" }.orEmpty()}" } else "‡∏≠‡∏≠‡∏Å‡πÅ‡∏ö‡∏ö‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÉ‡∏´‡∏°‡πà‡πÅ‡∏¢‡∏Å‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô ‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πâ‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡∏Ç‡∏≠‡∏á‡πÇ‡∏õ‡∏£‡πÑ‡∏ü‡∏•‡πå‡πÄ‡∏î‡∏¥‡∏°"}
-‡∏Å‡πà‡∏≠‡∏ô‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û ‡∏ï‡πâ‡∏≠‡∏á‡πÅ‡∏™‡∏î‡∏á‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡πÇ‡∏Ñ‡∏£‡∏á‡∏Å‡∏≤‡∏£‡πÉ‡∏ô‡πÅ‡∏ä‡∏ï‡πÉ‡∏´‡πâ‡∏Ñ‡∏£‡∏ö ‡∏´‡πâ‡∏≤‡∏°‡∏Ç‡πâ‡∏≤‡∏°: ‡∏ä‡∏∑‡πà‡∏≠‡∏ä‡πà‡∏≠‡∏á "$channel", ‡∏ä‡∏∑‡πà‡∏≠‡∏´‡∏°‡∏ß‡∏î "$category", ‡∏ä‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏†‡∏≤‡∏©‡∏≤‡πÑ‡∏ó‡∏¢, ‡∏Ñ‡∏≥‡πÇ‡∏õ‡∏£‡∏¢‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏™‡∏±‡πâ‡∏ô 1‚Äì2 ‡∏õ‡∏£‡∏∞‡πÇ‡∏¢‡∏Ñ, ‡∏à‡∏≥‡∏ô‡∏ß‡∏ô EP ‡∏ó‡∏±‡πâ‡∏á‡∏´‡∏°‡∏î, ‡πÄ‡∏´‡∏ï‡∏∏‡∏ú‡∏•‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏à‡∏≥‡∏ô‡∏ß‡∏ô EP ‡∏´‡∏ô‡∏∂‡πà‡∏á‡∏õ‡∏£‡∏∞‡πÇ‡∏¢‡∏Ñ ‡πÅ‡∏•‡∏∞‡∏à‡∏≥‡∏ô‡∏ß‡∏ô‡∏ã‡∏µ‡∏ô‡∏£‡∏ß‡∏°
-‡∏ï‡∏≤‡∏°‡∏î‡πâ‡∏ß‡∏¢‡∏ï‡∏≤‡∏£‡∏≤‡∏á‡∏ó‡∏∏‡∏Å EP: ‡πÄ‡∏•‡∏Ç EP | ‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏≠‡∏ô‡∏†‡∏≤‡∏©‡∏≤‡πÑ‡∏ó‡∏¢ | ‡∏Ñ‡∏≥‡πÇ‡∏õ‡∏£‡∏¢‡∏ï‡∏≠‡∏ô‡∏™‡∏±‡πâ‡∏ô | ‡∏à‡∏≥‡∏ô‡∏ß‡∏ô‡∏ã‡∏µ‡∏ô | ‡πÄ‡∏ß‡∏•‡∏≤‡∏£‡∏ß‡∏° (‡∏à‡∏≥‡∏ô‡∏ß‡∏ô‡∏ã‡∏µ‡∏ô √ó 8 ‡∏ß‡∏¥‡∏ô‡∏≤‡∏ó‡∏µ) ‡∏ï‡πâ‡∏≠‡∏á‡∏£‡∏∞‡∏ö‡∏∏‡∏à‡∏≥‡∏ô‡∏ß‡∏ô‡∏à‡∏£‡∏¥‡∏á ‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πâ‡∏Ñ‡∏≥‡∏ß‡πà‡∏≤‡πÅ‡∏•‡πâ‡∏ß‡πÅ‡∏ï‡πà‡πÄ‡∏ô‡∏∑‡πâ‡∏≠‡∏´‡∏≤‡πÅ‡∏ó‡∏ô‡∏ï‡∏±‡∏ß‡πÄ‡∏•‡∏Ç
-‡∏ä‡∏∑‡πà‡∏≠‡∏ä‡πà‡∏≠‡∏á‡πÅ‡∏•‡∏∞‡∏´‡∏°‡∏ß‡∏î‡πÉ‡∏ä‡πâ‡∏Ñ‡πà‡∏≤‡∏à‡∏≤‡∏Å‡πÅ‡∏≠‡∏õ‡∏ï‡∏£‡∏á‡∏ï‡∏≤‡∏°‡∏ô‡∏µ‡πâ ‡πÑ‡∏°‡πà‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ä‡∏∑‡πà‡∏≠‡∏ä‡πà‡∏≠‡∏á‡πÄ‡∏≠‡∏á ‡∏ï‡∏±‡πâ‡∏á‡∏ä‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÅ‡∏•‡∏∞‡∏ä‡∏∑‡πà‡∏≠‡∏ó‡∏∏‡∏Å EP ‡πÉ‡∏´‡∏°‡πà‡πÉ‡∏´‡πâ‡πÄ‡∏Ç‡πâ‡∏≤‡∏Å‡∏±‡∏ö‡πÄ‡∏ô‡∏∑‡πâ‡∏≠‡∏´‡∏≤ ${if (mode == "original") "‡∏£‡∏π‡∏õ‡πÅ‡∏ö‡∏ö‡∏£‡πâ‡∏≠‡∏¢‡∏â‡∏≤‡∏Å ‡∏ã‡∏µ‡∏£‡∏µ‡∏™‡πå‡∏™‡∏±‡πâ‡∏ô‡∏´‡∏•‡∏≤‡∏Å‡∏ä‡∏µ‡∏ß‡∏¥‡∏ï ‡∏°‡∏µ‡∏à‡∏∏‡∏î‡πÄ‡∏õ‡∏¥‡∏î‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á ‡∏õ‡∏°‡πÅ‡∏•‡∏∞‡∏à‡∏∏‡∏î‡∏à‡∏ö‡∏ä‡∏±‡∏î‡πÄ‡∏à‡∏ô‡πÅ‡∏ï‡πà‡∏•‡∏∞ EP ‡∏û‡∏£‡πâ‡∏≠‡∏°‡πÄ‡∏™‡πâ‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ï‡πà‡∏≠‡πÄ‡∏ô‡∏∑‡πà‡∏≠‡∏á" else "‡∏£‡∏π‡∏õ‡πÅ‡∏ö‡∏ö‡∏´‡∏ô‡∏±‡∏á/‡∏•‡∏∞‡∏Ñ‡∏£‡∏´‡∏•‡∏≤‡∏¢‡πÅ‡∏ô‡∏ß ‡πÉ‡∏´‡πâ‡πÇ‡∏ó‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á ‡∏à‡∏±‡∏á‡∏´‡∏ß‡∏∞ ‡∏Ñ‡∏ß‡∏≤‡∏°‡∏™‡∏±‡∏°‡∏û‡∏±‡∏ô‡∏ò‡πå ‡πÅ‡∏•‡∏∞‡∏ö‡∏ó‡∏™‡∏£‡∏∏‡∏õ‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡πÅ‡∏ô‡∏ß‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ‡∏ñ‡πâ‡∏≤‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏à‡∏ö‡πÉ‡∏ô‡∏ï‡∏≠‡∏ô‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡πÉ‡∏ä‡πâ 1 EP ‡∏ñ‡πâ‡∏≤‡∏ï‡πâ‡∏≠‡∏á‡∏ï‡πà‡∏≠‡πÄ‡∏ô‡∏∑‡πà‡∏≠‡∏á‡πÅ‡∏ö‡πà‡∏á‡∏´‡∏•‡∏≤‡∏¢ EP ‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏°‡∏µ‡πÄ‡∏´‡∏ï‡∏∏‡∏ú‡∏•"}
-‡∏ß‡∏≤‡∏á‡∏ö‡∏ó‡∏Ñ‡∏£‡∏ö‡∏ó‡∏∏‡∏Å EP ‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û ‡πÄ‡∏Å‡πá‡∏ö‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏™‡∏£‡∏∏‡∏õ‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡∏Å‡∏±‡∏ô‡πÉ‡∏ô story.json ‡πÅ‡∏•‡∏∞‡∏ï‡∏£‡∏ß‡∏à‡∏ï‡∏±‡∏ß‡πÄ‡∏•‡∏Ç‡πÉ‡∏´‡πâ‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡∏à‡∏≥‡∏ô‡∏ß‡∏ô‡∏™‡∏°‡∏≤‡∏ä‡∏¥‡∏Å episodes ‡πÅ‡∏•‡∏∞ scenes ‡∏à‡∏£‡∏¥‡∏á ‡∏´‡πâ‡∏≤‡∏°‡∏™‡πà‡∏á JSON ‡∏ï‡∏±‡∏ß‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏ó‡∏µ‡πà‡∏°‡∏µ‡πÅ‡∏Ñ‡πà‡∏â‡∏≤‡∏Å‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡πÅ‡∏ó‡∏ô‡∏ö‡∏ó‡πÄ‡∏ï‡πá‡∏°
-‡∏ï‡∏±‡πâ‡∏á‡∏ä‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÄ‡∏õ‡πá‡∏ô‡∏†‡∏≤‡∏©‡∏≤‡πÑ‡∏ó‡∏¢‡πÄ‡∏ó‡πà‡∏≤‡∏ô‡∏±‡πâ‡∏ô ‡πÉ‡∏™‡πà‡∏ä‡∏∑‡πà‡∏≠‡∏†‡∏≤‡∏©‡∏≤‡πÑ‡∏ó‡∏¢‡πÉ‡∏ô‡∏Ñ‡πà‡∏≤ title ‡∏Ç‡∏≠‡∏á story.json ‡πÅ‡∏•‡∏∞‡∏ï‡∏±‡πâ‡∏á‡∏ä‡∏∑‡πà‡∏≠‡πÑ‡∏ü‡∏•‡πå ZIP ‡πÄ‡∏õ‡πá‡∏ô‡∏ä‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏†‡∏≤‡∏©‡∏≤‡πÑ‡∏ó‡∏¢.zip ‡∏´‡πâ‡∏≤‡∏°‡πÉ‡∏ä‡πâ‡∏ä‡∏∑‡πà‡∏≠‡∏´‡∏°‡∏ß‡∏î‡∏†‡∏≤‡∏©‡∏≤‡∏≠‡∏±‡∏á‡∏Å‡∏§‡∏©‡πÄ‡∏õ‡πá‡∏ô‡∏ä‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏´‡∏£‡∏∑‡∏≠‡∏ä‡∏∑‡πà‡∏≠ ZIP
-‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ä‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÅ‡∏•‡∏∞‡∏û‡∏•‡πá‡∏≠‡∏ï‡πÉ‡∏´‡πâ‡∏ï‡∏£‡∏á‡∏´‡∏°‡∏ß‡∏î‡∏ô‡∏µ‡πâ ‡πÉ‡∏ä‡πâ‡∏Ñ‡πà‡∏≤ category ‡πÉ‡∏ô story.json ‡πÄ‡∏õ‡πá‡∏ô "$category" ‡∏ï‡∏£‡∏á‡∏ó‡∏∏‡∏Å‡∏ï‡∏±‡∏ß‡∏≠‡∏±‡∏Å‡∏©‡∏£
-‡πÄ‡∏Å‡∏ì‡∏ë‡πå Auto EP: ‡∏´‡πâ‡∏≤‡∏°‡πÉ‡∏ä‡πâ 3 EP ‡πÄ‡∏õ‡πá‡∏ô‡∏Ñ‡πà‡∏≤‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏ï‡πâ‡∏ô‡∏ã‡πâ‡∏≥‡πÇ‡∏î‡∏¢‡πÑ‡∏°‡πà‡∏°‡∏µ‡πÄ‡∏´‡∏ï‡∏∏‡∏ú‡∏• ‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏™‡∏±‡πâ‡∏ô‡∏õ‡∏°‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡πÉ‡∏ä‡πâ 1‚Äì2 EP ‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏£‡∏∞‡∏î‡∏±‡∏ö‡∏Å‡∏•‡∏≤‡∏á‡∏°‡∏µ‡∏à‡∏∏‡∏î‡∏û‡∏•‡∏¥‡∏Å‡πÉ‡∏ä‡πâ 3‚Äì4 EP ‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ã‡∏±‡∏ö‡∏ã‡πâ‡∏≠‡∏ô‡∏´‡∏•‡∏≤‡∏¢‡∏Ñ‡∏ß‡∏≤‡∏°‡∏™‡∏±‡∏°‡∏û‡∏±‡∏ô‡∏ò‡πå‡∏´‡∏£‡∏∑‡∏≠‡∏´‡∏•‡∏≤‡∏¢‡∏õ‡∏°‡πÉ‡∏ä‡πâ 5‚Äì6 EP ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏ó‡πà‡∏≤‡∏ó‡∏µ‡πà‡∏à‡∏≥‡πÄ‡∏õ‡πá‡∏ô‡πÄ‡∏û‡∏∑‡πà‡∏≠‡πÄ‡∏•‡πà‡∏≤‡∏à‡∏ö ‡πÑ‡∏°‡πà‡∏¢‡∏∑‡∏î‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á ‡πÅ‡∏•‡∏∞‡∏≠‡∏ò‡∏¥‡∏ö‡∏≤‡∏¢‡πÄ‡∏´‡∏ï‡∏∏‡∏ú‡∏•‡∏´‡∏ô‡∏∂‡πà‡∏á‡∏õ‡∏£‡∏∞‡πÇ‡∏¢‡∏Ñ‡∏Å‡πà‡∏≠‡∏ô‡∏ï‡∏≤‡∏£‡∏≤‡∏á ‡∏´‡∏≤‡∏Å‡∏Ñ‡πà‡∏≤‡∏ï‡∏±‡πâ‡∏á‡∏ï‡πâ‡∏ô‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏Å‡∏≥‡∏´‡∏ô‡∏î‡∏ï‡∏±‡∏ß‡πÄ‡∏•‡∏Ç EP ‡πÉ‡∏´‡πâ‡πÉ‡∏ä‡πâ‡∏ï‡∏±‡∏ß‡πÄ‡∏•‡∏Ç‡∏ô‡∏±‡πâ‡∏ô‡πÅ‡∏ó‡∏ô‡πÄ‡∏Å‡∏ì‡∏ë‡πå Auto ‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÄ‡∏´‡∏ï‡∏∏‡∏ú‡∏•‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡∏Å‡∏±‡∏ô‡πÉ‡∏ô story.json ‡∏î‡πâ‡∏ß‡∏¢‡∏ü‡∏¥‡∏•‡∏î‡πå episode_reason
-‡∏õ‡∏£‡∏∞‡πÄ‡∏°‡∏¥‡∏ô‡∏à‡∏≥‡∏ô‡∏ß‡∏ô EP ‡πÅ‡∏•‡∏∞‡∏â‡∏≤‡∏Å‡∏ï‡∏≤‡∏°‡πÄ‡∏ô‡∏∑‡πâ‡∏≠‡∏´‡∏≤‡πÄ‡∏≠‡∏á ‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö Flow / Veo 3.1 Lite ‡∏ó‡∏∏‡∏Å‡∏â‡∏≤‡∏Å 8 ‡∏ß‡∏¥‡∏ô‡∏≤‡∏ó‡∏µ ‡πÅ‡∏ô‡∏ß‡∏ï‡∏±‡πâ‡∏á 9:16 Locked-off static camera ${if (mode == "original") "‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏´‡∏•‡∏±‡∏Å ‡∏Å‡∏ß‡∏¥‡∏ô ‡∏£‡∏¥‡∏ô‡∏£‡∏î‡∏≤ ‡πÄ‡∏°‡∏¢‡πå ‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á MASTER ‡∏Ç‡∏≠‡∏á‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏Ñ‡∏ô‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏£‡∏±‡∏Å‡∏©‡∏≤‡πÄ‡∏≠‡∏Å‡∏•‡∏±‡∏Å‡∏©‡∏ì‡πå ‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ‡∏ó‡∏£‡∏á‡∏ú‡∏° ‡∏ä‡πà‡∏ß‡∏á‡∏ß‡∏±‡∏¢ ‡πÅ‡∏•‡∏∞‡∏ö‡∏∏‡∏Ñ‡∏•‡∏¥‡∏Å‡∏ï‡∏£‡∏á‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô" else "‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ä‡∏∑‡πà‡∏≠ ‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ‡πÅ‡∏•‡∏∞‡∏ó‡∏£‡∏á‡∏ú‡∏°‡πÉ‡∏´‡∏°‡πà‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏Ç‡∏≠‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ ‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÅ‡∏ï‡πà‡∏•‡∏∞ CHARACTER MASTER ‡πÉ‡∏´‡πâ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å GAWIN_MASTER, RINLADA_MASTER ‡∏´‡∏£‡∏∑‡∏≠ MIND_MASTER ‡∏´‡∏ô‡∏∂‡πà‡∏á‡∏†‡∏≤‡∏û‡πÄ‡∏õ‡πá‡∏ô design_reference ‡∏î‡πâ‡∏≤‡∏ô‡∏™‡πÑ‡∏ï‡∏•‡πå‡∏†‡∏≤‡∏û ‡∏Ñ‡∏ß‡∏≤‡∏°‡∏™‡∏°‡∏à‡∏£‡∏¥‡∏á ‡πÅ‡∏•‡∏∞‡∏Å‡∏≤‡∏£‡∏à‡∏±‡∏î‡πÄ‡∏ü‡∏£‡∏° ‡∏Å‡∏£‡∏∞‡∏à‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÉ‡∏´‡πâ‡πÄ‡∏´‡∏°‡∏≤‡∏∞‡∏Å‡∏±‡∏ö‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÉ‡∏´‡∏°‡πà ‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏ä‡∏∑‡πà‡∏≠ design_reference ‡πÑ‡∏ß‡πâ‡πÉ‡∏ô bible ‡πÅ‡∏•‡πâ‡∏ß‡∏™‡∏£‡πâ‡∏≤‡∏á CHARACTER_01.png, CHARACTER_02.png ‡∏ï‡∏≤‡∏°‡∏à‡∏≥‡∏ô‡∏ß‡∏ô‡∏ó‡∏µ‡πà‡∏ï‡πâ‡∏≠‡∏á‡πÉ‡∏ä‡πâ ‡πÉ‡∏ä‡πâ CHARACTER MASTER ‡πÉ‡∏´‡∏°‡πà‡πÄ‡∏î‡∏¥‡∏°‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏ï‡πà‡∏≠‡πÄ‡∏ô‡∏∑‡πà‡∏≠‡∏á‡∏ó‡∏∏‡∏Å‡∏â‡∏≤‡∏Å"}\n${storyVisualGuide(mode)}\n‡πÉ‡∏ä‡πâ‡∏ß‡∏¥‡∏ò‡∏µ‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡∏Å‡∏±‡∏ö‡∏Å‡∏≤‡∏£‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û: MASTER ‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô‡πÄ‡∏õ‡πá‡∏ô‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö‡∏Ç‡∏≠‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ‡∏ä‡∏∏‡∏î ‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡πÅ‡∏•‡∏∞‡∏Å‡∏≤‡∏£‡∏Å‡∏£‡∏∞‡∏ó‡∏≥‡πÄ‡∏õ‡πá‡∏ô‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡πÉ‡∏´‡∏°‡πà‡∏ï‡∏≤‡∏°‡∏ö‡∏ó ‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô image_prompt ‡∏û‡∏£‡πâ‡∏≠‡∏°‡πÉ‡∏ä‡πâ‡∏Ç‡∏≠‡∏á‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏â‡∏≤‡∏Å‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏Å‡∏£‡∏∞‡∏ä‡∏±‡∏ö: ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÅ‡∏•‡∏∞ MASTER ‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô ‚Üí ‡∏ä‡∏∏‡∏î‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô ‚Üí ‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡πÅ‡∏•‡∏∞‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á ‚Üí ‡∏Å‡∏≤‡∏£‡∏Å‡∏£‡∏∞‡∏ó‡∏≥ ‚Üí ‡∏™‡∏µ‡∏´‡∏ô‡πâ‡∏≤‡πÅ‡∏•‡∏∞‡∏™‡∏≤‡∏¢‡∏ï‡∏≤ ‡∏£‡∏∞‡∏ö‡∏∏‡∏ä‡∏ô‡∏¥‡∏î ‡∏™‡∏µ ‡πÅ‡∏•‡∏∞‡∏ó‡∏£‡∏á‡∏ä‡∏∏‡∏î‡πÉ‡∏´‡πâ‡πÄ‡∏´‡∏°‡∏≤‡∏∞‡∏Å‡∏±‡∏ö‡∏ö‡∏ó‡∏ö‡∏≤‡∏ó ‡∏£‡∏ß‡∏°‡∏ó‡∏±‡πâ‡∏á‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡∏à‡∏£‡∏¥‡∏á‡πÉ‡∏ô‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏â‡∏≤‡∏Å‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ã‡πâ‡∏≥‡πÑ‡∏î‡πâ ‡∏ä‡∏∏‡∏î‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ï‡∏≤‡∏°‡∏ß‡∏±‡∏ô‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏´‡∏ï‡∏∏‡∏Å‡∏≤‡∏£‡∏ì‡πå ‡πÅ‡∏•‡∏∞‡∏Ñ‡∏á‡πÄ‡∏î‡∏¥‡∏°‡πÉ‡∏ô‡πÄ‡∏´‡∏ï‡∏∏‡∏Å‡∏≤‡∏£‡∏ì‡πå‡∏ï‡πà‡∏≠‡πÄ‡∏ô‡∏∑‡πà‡∏≠‡∏á ‡πÉ‡∏ä‡πâ‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏™‡∏±‡πâ‡∏ô‡πÅ‡∏ö‡∏ö ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á ‚Üí ‡∏ä‡∏∏‡∏î ‚Üí ‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà ‚Üí ‡∏Å‡∏≤‡∏£‡∏Å‡∏£‡∏∞‡∏ó‡∏≥ ‚Üí ‡∏£‡∏π‡∏õ‡πÅ‡∏ö‡∏ö‡∏†‡∏≤‡∏û ‡∏£‡∏∞‡∏ö‡∏∏‡∏•‡∏±‡∏Å‡∏©‡∏ì‡∏∞‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ‡∏ú‡∏°‡πÅ‡∏•‡∏∞‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏õ‡∏£‡∏∞‡∏î‡∏±‡∏ö‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏ó‡∏µ‡πà‡πÄ‡∏´‡πá‡∏ô‡∏à‡∏≤‡∏Å MASTER ‡πÑ‡∏°‡πà‡πÅ‡∏ï‡πà‡∏á‡∏£‡∏≤‡∏¢‡∏•‡∏∞‡πÄ‡∏≠‡∏µ‡∏¢‡∏î‡∏ó‡∏µ‡πà‡πÑ‡∏°‡πà‡∏ó‡∏£‡∏≤‡∏ö ‡πÑ‡∏°‡πà‡∏≠‡πâ‡∏≤‡∏á‡∏ß‡πà‡∏≤‡∏•‡πá‡∏≠‡∏Å‡∏Ñ‡∏ß‡∏≤‡∏°‡πÄ‡∏´‡∏°‡∏∑‡∏≠‡∏ô‡πÄ‡∏õ‡πá‡∏ô‡πÄ‡∏õ‡∏≠‡∏£‡πå‡πÄ‡∏ã‡πá‡∏ô‡∏ï‡πå ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏£‡∏∞‡∏¢‡∏∞‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡πÅ‡∏™‡∏á‡∏ï‡∏≤‡∏°‡∏Å‡∏¥‡∏à‡∏Å‡∏£‡∏£‡∏° ‡πÑ‡∏°‡πà‡∏Å‡∏≥‡∏´‡∏ô‡∏î‡πÄ‡∏≠‡∏ß‡∏Ç‡∏∂‡πâ‡∏ô‡πÑ‡∏õ‡∏ó‡∏∏‡∏Å‡∏â‡∏≤‡∏Å ‡πÉ‡∏ä‡πâ‡∏Ñ‡∏≥‡∏≠‡∏ò‡∏¥‡∏ö‡∏≤‡∏¢‡πÄ‡∏ä‡∏¥‡∏á‡∏ö‡∏ß‡∏Å‡∏™‡∏±‡πâ‡∏ô ‡πÜ ‡πÄ‡∏´‡∏ï‡∏∏‡∏Å‡∏≤‡∏£‡∏ì‡πå‡∏ó‡∏∏‡∏Å‡∏â‡∏≤‡∏Å‡∏°‡∏≤‡∏à‡∏≤‡∏Å‡∏ö‡∏ó‡∏Ç‡∏≠‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ ‡∏à‡∏ö‡∏õ‡∏°‡∏Ñ‡∏£‡∏ö‡∏ó‡∏∏‡∏Å‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á ‡∏ú‡∏π‡πâ‡∏û‡∏π‡∏î‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏â‡∏≤‡∏Å‡∏ä‡∏±‡∏î‡πÄ‡∏à‡∏ô ‡πÅ‡∏¢‡∏Å speaker ‡πÅ‡∏•‡∏∞ narration ‡∏ú‡∏π‡πâ‡∏ö‡∏£‡∏£‡∏¢‡∏≤‡∏¢‡∏ä‡∏≤‡∏¢‡πÄ‡∏õ‡πá‡∏ô‡πÄ‡∏™‡∏µ‡∏¢‡∏á‡∏ô‡∏≠‡∏Å‡∏†‡∏≤‡∏û ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÑ‡∏°‡πà‡∏Ç‡∏¢‡∏±‡∏ö‡∏õ‡∏≤‡∏Å‡∏ï‡∏≤‡∏°‡πÄ‡∏™‡∏µ‡∏¢‡∏á‡∏ö‡∏£‡∏£‡∏¢‡∏≤‡∏¢
-‡πÅ‡∏ú‡∏ô‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ï‡πà‡∏≠‡πÄ‡∏ô‡∏∑‡πà‡∏≠‡∏á‡∏Ç‡∏≠‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£: ‡πÄ‡∏Å‡πá‡∏ö‡∏ä‡∏∑‡πà‡∏≠ ‚Üí ‡πÑ‡∏ü‡∏•‡πå MASTER ‡∏ï‡∏≤‡∏¢‡∏ï‡∏±‡∏ß‡πÉ‡∏ô bible: ‡∏Å‡∏ß‡∏¥‡∏ô ‚Üí GAWIN_MASTER, ‡∏£‡∏¥‡∏ô‡∏£‡∏î‡∏≤ ‚Üí RINLADA_MASTER, ‡πÄ‡∏°‡∏¢‡πå ‚Üí MIND_MASTER ‡πÉ‡∏ä‡πâ‡∏ô‡∏≤‡∏°‡∏™‡∏Å‡∏∏‡∏• .png/.jpg/.webp ‡∏ï‡∏≤‡∏°‡πÑ‡∏ü‡∏•‡πå‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡πÅ‡∏ô‡∏ö ‡πÇ‡∏î‡∏¢‡∏ä‡∏∑‡πà‡∏≠‡∏ê‡∏≤‡∏ô‡∏à‡∏±‡∏ö‡∏Ñ‡∏π‡πà‡∏ï‡∏£‡∏á‡∏Ñ‡∏ô ‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡∏ä‡πà‡∏≠‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÉ‡∏´‡∏°‡πà‡πÉ‡∏ä‡πâ‡∏ä‡∏∑‡πà‡∏≠‡πÉ‡∏´‡∏°‡πà ‚Üí CHARACTER_01.png ‡∏ï‡∏≤‡∏°‡∏ó‡∏µ‡πà‡∏™‡∏£‡πâ‡∏≤‡∏á ‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏â‡∏≤‡∏Å‡∏°‡∏µ characters ‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏Ñ‡∏ô‡∏ó‡∏µ‡πà‡∏õ‡∏£‡∏≤‡∏Å‡∏è ‡∏û‡∏£‡πâ‡∏≠‡∏° name, master, outfit ‡∏£‡∏∞‡∏ö‡∏∏ location ‡πÅ‡∏•‡∏∞ continuity_group ‡πÄ‡∏´‡∏ï‡∏∏‡∏Å‡∏≤‡∏£‡∏ì‡πå‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡∏Å‡∏±‡∏ô‡πÉ‡∏ä‡πâ‡∏£‡∏´‡∏±‡∏™‡∏Å‡∏•‡∏∏‡πà‡∏°‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡∏Å‡∏±‡∏ô ‡∏ä‡∏∏‡∏î‡πÅ‡∏•‡∏∞‡∏£‡∏≤‡∏¢‡∏•‡∏∞‡πÄ‡∏≠‡∏µ‡∏¢‡∏î‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡πÄ‡∏´‡∏°‡∏∑‡∏≠‡∏ô‡πÄ‡∏î‡∏¥‡∏° ‡πÄ‡∏°‡∏∑‡πà‡∏≠‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ß‡∏±‡∏ô‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏´‡∏ï‡∏∏‡∏Å‡∏≤‡∏£‡∏ì‡πå‡∏à‡∏∂‡∏á‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏Å‡∏•‡∏∏‡πà‡∏°
-‡∏£‡∏∞‡∏ö‡∏ö‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏Å‡∏±‡∏ö‡∏ä‡∏∏‡∏î: MASTER ‡πÉ‡∏ä‡πâ‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ‡∏ú‡∏° ‡∏™‡∏µ‡∏ú‡∏¥‡∏ß‡πÅ‡∏•‡∏∞‡∏£‡∏π‡∏õ‡∏£‡πà‡∏≤‡∏á‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô ‡πÄ‡∏™‡∏∑‡πâ‡∏≠‡∏ú‡πâ‡∏≤‡πÉ‡∏ô MASTER ‡πÄ‡∏õ‡πá‡∏ô‡πÄ‡∏û‡∏µ‡∏¢‡∏á‡∏ä‡∏∏‡∏î‡πÉ‡∏ô‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á ‡∏ó‡∏∏‡∏Å‡∏â‡∏≤‡∏Å‡∏ï‡πâ‡∏≠‡∏á‡∏°‡∏µ story_day, story_time, activity ‡πÅ‡∏•‡∏∞ wardrobe_event ‡πÄ‡∏°‡∏∑‡πà‡∏≠‡∏õ‡∏£‡∏∞‡∏ä‡∏∏‡∏°‡πÉ‡∏´‡πâ‡πÉ‡∏ä‡πâ‡∏ä‡∏∏‡∏î‡∏õ‡∏£‡∏∞‡∏ä‡∏∏‡∏° ‡∏Å‡∏•‡∏±‡∏ö‡∏ö‡πâ‡∏≤‡∏ô‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ä‡∏∏‡∏î‡∏≠‡∏¢‡∏π‡πà‡∏ö‡πâ‡∏≤‡∏ô ‡πÄ‡∏Ç‡πâ‡∏≤‡∏ô‡∏≠‡∏ô‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ä‡∏∏‡∏î‡∏ô‡∏≠‡∏ô ‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ß‡∏±‡∏ô‡πÉ‡∏´‡πâ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ä‡∏∏‡∏î‡πÉ‡∏´‡∏°‡πà‡∏ï‡∏≤‡∏°‡∏ö‡∏ó (‡∏¢‡∏Å‡πÄ‡∏ß‡πâ‡∏ô‡∏ä‡∏∏‡∏î‡∏ó‡∏≥‡∏á‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡∏ï‡πâ‡∏≠‡∏á‡πÄ‡∏´‡∏°‡∏∑‡∏≠‡∏ô‡πÄ‡∏î‡∏¥‡∏°) ‡πÄ‡∏´‡∏ï‡∏∏‡∏Å‡∏≤‡∏£‡∏ì‡πå‡∏ï‡πà‡∏≠‡πÄ‡∏ô‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏ô‡∏ß‡∏±‡∏ô‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡∏Å‡∏±‡∏ô‡πÅ‡∏•‡∏∞‡∏Å‡∏¥‡∏à‡∏Å‡∏£‡∏£‡∏°‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡∏Å‡∏±‡∏ô‡πÉ‡∏´‡πâ‡∏Ñ‡∏á‡∏ä‡∏∏‡∏î‡πÄ‡∏î‡∏¥‡∏° ‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ß‡∏±‡∏ô‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏Å‡∏¥‡∏à‡∏Å‡∏£‡∏£‡∏°‡πÉ‡∏´‡πâ‡∏Ç‡∏∂‡πâ‡∏ô wardrobe_event ‡πÉ‡∏´‡∏°‡πà ‡∏Å‡∏≥‡∏´‡∏ô‡∏î outfit ‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô‡πÅ‡∏•‡∏∞ wardrobe_change=true ‡πÄ‡∏°‡∏∑‡πà‡∏≠‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ä‡∏∏‡∏î‡∏à‡∏£‡∏¥‡∏á ‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏£‡∏∞‡∏ö‡∏∏‡∏°‡∏µ‡∏•‡∏≥‡∏î‡∏±‡∏ö‡∏™‡∏π‡∏á‡∏™‡∏∏‡∏î ‡πÅ‡∏¢‡∏Å‡πÄ‡∏™‡∏µ‡∏¢‡∏á‡∏ú‡∏π‡πâ‡∏û‡∏π‡∏î‡∏≠‡∏≠‡∏Å‡∏à‡∏≤‡∏Å‡∏£‡∏π‡∏õ‡∏£‡πà‡∏≤‡∏á‡πÅ‡∏•‡∏∞‡πÄ‡∏™‡∏∑‡πâ‡∏≠‡∏ú‡πâ‡∏≤
-‡∏Å‡∏≤‡∏£‡∏ï‡πà‡∏≠‡∏â‡∏≤‡∏Å: ‡∏£‡∏∞‡∏ö‡∏∏ start_state ‡πÅ‡∏•‡∏∞ end_state ‡∏ó‡∏∏‡∏Å‡∏â‡∏≤‡∏Å ‡πÉ‡∏´‡πâ‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞‡∏ï‡πâ‡∏ô‡∏â‡∏≤‡∏Å‡∏ï‡πà‡∏≠‡∏à‡∏≤‡∏Å‡∏ó‡πâ‡∏≤‡∏¢‡∏â‡∏≤‡∏Å‡∏Å‡πà‡∏≠‡∏ô ‡∏£‡∏ß‡∏°‡∏ú‡∏π‡πâ‡∏ñ‡∏∑‡∏≠‡πÅ‡∏•‡∏∞‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå ‡∏Å‡∏≤‡∏£‡πÄ‡∏Ç‡πâ‡∏≤‡∏≠‡∏≠‡∏Å‡∏Ç‡∏≠‡∏á‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ‡∏ß‡∏±‡∏ô‡πÄ‡∏ß‡∏•‡∏≤‡πÅ‡∏•‡∏∞‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà ‡∏´‡πâ‡∏≤‡∏°‡∏¢‡πâ‡∏≤‡∏¢‡∏ã‡∏≠‡∏á ‡πÄ‡∏≠‡∏Å‡∏™‡∏≤‡∏£ ‡∏´‡∏£‡∏∑‡∏≠‡∏Ñ‡∏ô‡πÇ‡∏î‡∏¢‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏à‡∏±‡∏á‡∏´‡∏ß‡∏∞‡∏™‡πà‡∏á‡∏ï‡πà‡∏≠ ‡∏Ç‡πâ‡∏≤‡∏° EP ‡∏ï‡πà‡∏≠‡πÄ‡∏´‡∏ï‡∏∏‡∏Å‡∏≤‡∏£‡∏ì‡πå‡πÄ‡∏î‡∏¥‡∏°‡πÉ‡∏´‡πâ‡πÉ‡∏ä‡πâ‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞‡πÄ‡∏î‡∏¥‡∏° ‡∏õ‡∏¥‡∏î‡∏Ñ‡∏≥‡∏ñ‡∏≤‡∏°‡∏ó‡∏µ‡πà‡πÄ‡∏õ‡∏¥‡∏î‡πÑ‡∏ß‡πâ ‡πÄ‡∏ä‡πà‡∏ô ‡πÄ‡∏´‡∏ï‡∏∏‡∏ú‡∏•‡∏Å‡∏≤‡∏£‡πÇ‡∏≠‡∏ô‡πÄ‡∏á‡∏¥‡∏ô ‡∏Å‡πà‡∏≠‡∏ô‡∏à‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á
-‡∏Å‡∏≤‡∏£‡∏Å‡∏≥‡∏´‡∏ô‡∏î‡∏Ñ‡∏ô‡∏û‡∏π‡∏î: characters ‡∏ó‡∏∏‡∏Å‡∏Ñ‡∏ô‡∏ï‡πâ‡∏≠‡∏á‡∏°‡∏µ visual_description (‡∏ó‡∏£‡∏á‡∏ú‡∏°‡πÅ‡∏•‡∏∞‡∏•‡∏±‡∏Å‡∏©‡∏ì‡∏∞‡πÄ‡∏î‡πà‡∏ô) ‡πÅ‡∏•‡∏∞ screen_position ‡∏ï‡∏≤‡∏°‡∏≠‡∏á‡∏Ñ‡πå‡∏õ‡∏£‡∏∞‡∏Å‡∏≠‡∏ö‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡∏ß‡∏≤‡∏á‡πÅ‡∏ú‡∏ô ‡∏ä‡∏∑‡πà‡∏≠‡∏≠‡∏¢‡πà‡∏≤‡∏á‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡πÑ‡∏°‡πà‡∏û‡∏≠ ‡∏´‡∏•‡∏±‡∏á‡πÄ‡∏´‡πá‡∏ô‡∏†‡∏≤‡∏û‡∏à‡∏£‡∏¥‡∏á‡∏ï‡πâ‡∏≠‡∏á‡∏ï‡∏£‡∏ß‡∏à‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á ‡πÑ‡∏°‡πà‡πÄ‡∏î‡∏≤‡∏ã‡πâ‡∏≤‡∏¢‡∏Ç‡∏ß‡∏≤ ‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô flow_prompt ‡πÄ‡∏õ‡πá‡∏ô CHARACTER MAP ‡∏ä‡∏∑‡πà‡∏≠ + ‡∏•‡∏±‡∏Å‡∏©‡∏ì‡∏∞ + ‡∏ä‡∏∏‡∏î + ‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á ‡πÅ‡∏•‡πâ‡∏ß‡∏£‡∏∞‡∏ö‡∏∏‡∏ú‡∏π‡πâ‡∏û‡∏π‡∏î‡πÄ‡∏û‡∏µ‡∏¢‡∏á‡∏´‡∏ô‡∏∂‡πà‡∏á‡∏Ñ‡∏ô‡∏Å‡∏±‡∏ö‡∏ö‡∏ó‡∏û‡∏π‡∏î‡∏´‡∏ô‡∏∂‡πà‡∏á‡∏Ñ‡∏£‡∏±‡πâ‡∏á ‡∏ú‡∏π‡πâ‡∏ü‡∏±‡∏á‡∏ó‡∏∏‡∏Å‡∏Ñ‡∏ô‡∏õ‡∏¥‡∏î‡∏õ‡∏≤‡∏Å‡πÅ‡∏•‡∏∞‡πÅ‡∏™‡∏î‡∏á‡∏õ‡∏è‡∏¥‡∏Å‡∏¥‡∏£‡∏¥‡∏¢‡∏≤‡πÄ‡∏á‡∏µ‡∏¢‡∏ö ‡πÅ‡∏¢‡∏Å‡∏â‡∏≤‡∏Å‡∏ö‡∏ó‡∏û‡∏π‡∏î‡∏à‡∏≤‡∏Å‡πÄ‡∏™‡∏µ‡∏¢‡∏á‡∏ö‡∏£‡∏£‡∏¢‡∏≤‡∏¢ ‡∏ú‡∏π‡πâ‡∏ö‡∏£‡∏£‡∏¢‡∏≤‡∏¢‡πÄ‡∏õ‡πá‡∏ô‡πÄ‡∏™‡∏µ‡∏¢‡∏á‡∏ô‡∏≠‡∏Å‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡πÑ‡∏°‡πà‡∏°‡∏µ‡πÉ‡∏Ñ‡∏£‡∏Ç‡∏¢‡∏±‡∏ö‡∏õ‡∏≤‡∏Å‡∏ï‡∏≤‡∏° ‡∏£‡∏∞‡∏¢‡∏∞‡πÄ‡∏ß‡∏•‡∏≤‡∏ï‡πâ‡∏≠‡∏á‡∏û‡∏≠‡∏Å‡∏±‡∏ö‡∏ö‡∏ó ‡∏´‡∏≤‡∏Å‡∏¢‡∏≤‡∏ß‡πÉ‡∏´‡πâ‡∏¢‡πà‡∏≠‡∏´‡∏£‡∏∑‡∏≠‡πÅ‡∏¢‡∏Å‡∏â‡∏≤‡∏Å ‡πÑ‡∏°‡πà‡πÉ‡∏´‡πâ‡πÅ‡∏¢‡πà‡∏á‡∏Å‡∏±‡∏ô‡∏û‡∏π‡∏î
-‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏†‡∏≤‡∏û‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏â‡∏≤‡∏Å‡πÉ‡∏ä‡πâ‡∏ï‡πâ‡∏ô‡πÅ‡∏ö‡∏ö‡∏™‡∏±‡πâ‡∏ô: ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏•‡∏∞‡∏Ñ‡∏£‡∏à‡∏≤‡∏Å‡πÑ‡∏ü‡∏•‡πå‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á‡∏ó‡∏µ‡πà‡πÅ‡∏ô‡∏ö ‡∏Ñ‡∏á‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ‡∏ó‡∏£‡∏á‡∏ú‡∏° ‡∏™‡∏µ‡∏ú‡∏¥‡∏ß ‡πÅ‡∏•‡∏∞‡∏™‡∏±‡∏î‡∏™‡πà‡∏ß‡∏ô‡∏£‡∏π‡∏õ‡∏£‡πà‡∏≤‡∏á‡πÇ‡∏î‡∏¢‡∏£‡∏ß‡∏°‡∏ï‡∏≤‡∏° MASTER ‡πÑ‡∏°‡πà‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏´‡∏£‡∏∑‡∏≠‡∏•‡∏î‡πÄ‡∏≠‡∏á ${ImagePromptPolicy.referenceAppeal} ‡πÉ‡∏ä‡πâ‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡∏£‡∏∞‡∏ö‡∏∏‡πÉ‡∏ô‡∏â‡∏≤‡∏Å ‡∏ß‡∏±‡∏ô‡πÅ‡∏•‡∏∞‡πÄ‡∏´‡∏ï‡∏∏‡∏Å‡∏≤‡∏£‡∏ì‡πå‡∏ï‡πà‡∏≠‡πÄ‡∏ô‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏ä‡πâ‡∏ä‡∏∏‡∏î‡πÄ‡∏î‡∏¥‡∏° ‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡πÄ‡∏°‡∏∑‡πà‡∏≠‡∏ß‡∏±‡∏ô‡πÄ‡∏ß‡∏•‡∏≤ ‡∏Å‡∏¥‡∏à‡∏Å‡∏£‡∏£‡∏° ‡∏´‡∏£‡∏∑‡∏≠‡∏ö‡∏ó‡∏Å‡∏≥‡∏´‡∏ô‡∏î ‡πÅ‡∏ô‡∏ß‡∏ï‡∏±‡πâ‡∏á‡∏ï‡∏≤‡∏° aspect_ratio ‡πÅ‡∏•‡πâ‡∏ß‡πÄ‡∏ï‡∏¥‡∏°‡∏ä‡∏∑‡πà‡∏≠‡πÅ‡∏•‡∏∞ MASTER ‡∏ï‡∏£‡∏á‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô ‡∏ä‡∏∏‡∏î ‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà ‡∏Å‡∏≤‡∏£‡∏Å‡∏£‡∏∞‡∏ó‡∏≥ ‡πÅ‡∏•‡∏∞‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ï‡πà‡∏≠‡πÄ‡∏ô‡∏∑‡πà‡∏≠‡∏á‡∏Ç‡∏≠‡∏á‡∏â‡∏≤‡∏Å ‡πÑ‡∏°‡πà‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏Å‡∏≥‡∏Å‡∏±‡∏ö‡∏™‡∏£‡∏µ‡∏£‡∏∞‡∏¢‡∏≤‡∏ß‡∏ã‡πâ‡∏≥‡∏ó‡∏∏‡∏Å‡∏â‡∏≤‡∏Å ‡πÑ‡∏°‡πà‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡πÄ‡∏û‡∏¥‡πà‡∏°‡πÄ‡∏õ‡πá‡∏ô‡∏Ç‡∏±‡πâ‡∏ô‡∏ö‡∏±‡∏á‡∏Ñ‡∏±‡∏ö ‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô‡πÑ‡∏î‡πâ‡πÄ‡∏°‡∏∑‡πà‡∏≠‡∏à‡∏≥‡πÄ‡∏õ‡πá‡∏ô\n‡∏Å‡πà‡∏≠‡∏ô‡πÉ‡∏ä‡πâ‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏°‡∏∑‡∏≠‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏â‡∏≤‡∏Å ‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á MASTER ‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö‡∏ï‡∏£‡∏á‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á ‡πÉ‡∏ä‡πâ‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏Å‡πà‡∏≠‡∏ô‡∏´‡∏ô‡πâ‡∏≤‡πÉ‡∏ô‡∏Å‡∏•‡∏∏‡πà‡∏°‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡∏Å‡∏±‡∏ô‡πÄ‡∏õ‡πá‡∏ô‡∏ï‡∏±‡∏ß‡∏ä‡πà‡∏ß‡∏¢‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡πÅ‡∏•‡∏∞‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á ‡∏ä‡∏∏‡∏î‡∏¢‡∏∂‡∏î‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏â‡∏≤‡∏Å‡∏õ‡∏±‡∏à‡∏à‡∏∏‡∏ö‡∏±‡∏ô‡πÄ‡∏õ‡πá‡∏ô‡∏´‡∏•‡∏±‡∏Å‡πÅ‡∏•‡∏∞‡πÉ‡∏ä‡πâ‡∏†‡∏≤‡∏û‡∏Å‡πà‡∏≠‡∏ô‡∏´‡∏ô‡πâ‡∏≤‡∏£‡∏±‡∏Å‡∏©‡∏≤‡∏£‡∏≤‡∏¢‡∏•‡∏∞‡πÄ‡∏≠‡∏µ‡∏¢‡∏î‡πÄ‡∏°‡∏∑‡πà‡∏≠‡πÄ‡∏õ‡πá‡∏ô‡∏ä‡∏∏‡∏î‡πÄ‡∏î‡∏µ‡∏¢‡∏ß‡∏Å‡∏±‡∏ô ‡πÇ‡∏î‡∏¢‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤‡πÅ‡∏•‡∏∞‡∏£‡∏π‡∏õ‡∏£‡πà‡∏≤‡∏á‡∏¢‡∏∂‡∏î MASTER ‡πÄ‡∏õ‡πá‡∏ô‡∏´‡∏•‡∏±‡∏Å ‡∏ï‡∏£‡∏ß‡∏à‡∏ä‡∏∑‡πà‡∏≠‡πÅ‡∏•‡∏∞‡∏ä‡∏∏‡∏î‡∏Ç‡∏≠‡∏á‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏Ñ‡∏ô‡∏Å‡πà‡∏≠‡∏ô‡∏™‡πà‡∏á‡∏™‡∏£‡πâ‡∏≤‡∏á ‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πâ‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡∏Ñ‡∏•‡∏≤‡∏î‡πÄ‡∏Ñ‡∏•‡∏∑‡πà‡∏≠‡∏ô‡πÅ‡∏ó‡∏ô MASTER ‡∏´‡∏≤‡∏Å‡∏Ç‡∏≤‡∏î‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö‡πÉ‡∏´‡πâ‡πÅ‡∏à‡πâ‡∏á‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á
-‡∏™‡πà‡∏á‡πÑ‡∏ü‡∏•‡πå story.json ‡πÄ‡∏õ‡πá‡∏ô JSON ‡πÑ‡∏°‡πà‡∏°‡∏µ markdown ‡πÇ‡∏Ñ‡∏£‡∏á‡∏™‡∏£‡πâ‡∏≤‡∏á:
-{"schema_version":3,"channel":${JSONObject.quote(channel)},"character_mode":"$mode","title":"‡∏ä‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á","category":${JSONObject.quote(category)},"tagline":"‡∏Ñ‡∏≥‡πÇ‡∏õ‡∏£‡∏¢‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á","episode_count":1,"scene_count":1,"bible":"‡∏Ñ‡∏ß‡∏≤‡∏°‡∏™‡∏±‡∏°‡∏û‡∏±‡∏ô‡∏ò‡πå‡πÅ‡∏•‡∏∞‡∏û‡∏•‡πá‡∏≠‡∏ï","episodes":[{"ep":1,"title":"‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏≠‡∏ô‡∏†‡∏≤‡∏©‡∏≤‡πÑ‡∏ó‡∏¢","tagline":"‡∏Ñ‡∏≥‡πÇ‡∏õ‡∏£‡∏¢‡∏ï‡∏≠‡∏ô","scene_count":1,"scenes":[{"scene":1,"characters":[{"name":"‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ó‡∏µ‡πà‡∏≠‡∏¢‡∏π‡πà‡πÉ‡∏ô‡∏â‡∏≤‡∏Å","master":"‡∏ä‡∏∑‡πà‡∏≠‡πÑ‡∏ü‡∏•‡πå MASTER ‡∏ï‡∏£‡∏á‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô","outfit":"‡∏ä‡∏∏‡∏î‡∏ï‡∏≤‡∏°‡∏ß‡∏±‡∏ô‡πÄ‡∏ß‡∏•‡∏≤‡πÅ‡∏•‡∏∞‡∏Å‡∏¥‡∏à‡∏Å‡∏£‡∏£‡∏° ‡∏£‡∏∞‡∏ö‡∏∏‡∏ä‡∏ô‡∏¥‡∏î‡πÅ‡∏•‡∏∞‡∏™‡∏µ","wardrobe_change":false,"accessories":"‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏õ‡∏£‡∏∞‡∏î‡∏±‡∏ö‡∏ï‡∏≤‡∏°‡∏ö‡∏ó ‡∏´‡∏£‡∏∑‡∏≠‡∏ß‡πà‡∏≤‡∏á‡πÄ‡∏°‡∏∑‡πà‡∏≠‡πÑ‡∏°‡πà‡πÉ‡∏™‡πà","visual_description":"‡∏ó‡∏£‡∏á‡∏ú‡∏°‡πÅ‡∏•‡∏∞‡∏•‡∏±‡∏Å‡∏©‡∏ì‡∏∞‡πÄ‡∏î‡πà‡∏ô‡∏à‡∏≤‡∏Å MASTER ‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô","screen_position":"‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á‡∏ó‡∏µ‡πà‡∏ß‡∏≤‡∏á‡πÅ‡∏ú‡∏ô‡πÉ‡∏ô‡∏†‡∏≤‡∏û ‡∏ï‡πâ‡∏≠‡∏á‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏Å‡∏±‡∏ö‡∏†‡∏≤‡∏û‡∏à‡∏£‡∏¥‡∏á‡∏Å‡πà‡∏≠‡∏ô‡πÉ‡∏ä‡πâ Flow"}],"story_day":"DAY01","activity":"meeting / work / home / sleep / exercise / casual / formal","wardrobe_event":"DAY01_MEETING","story_time":"‡πÄ‡∏ß‡∏•‡∏≤‡πÉ‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á","location":"‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡πÅ‡∏•‡∏∞‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á‡∏´‡∏•‡∏±‡∏Å","framing":"‡∏£‡∏∞‡∏¢‡∏∞‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡πÄ‡∏´‡πá‡∏ô‡∏Å‡∏¥‡∏à‡∏Å‡∏£‡∏£‡∏°‡∏Ñ‡∏£‡∏ö ‡πÄ‡∏ä‡πà‡∏ô ‡∏®‡∏µ‡∏£‡∏©‡∏∞‡∏ñ‡∏∂‡∏á‡πÄ‡∏Ç‡πà‡∏≤‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏ï‡πá‡∏°‡∏ï‡∏±‡∏ß‡∏ï‡∏≤‡∏°‡∏ö‡∏ó","lighting":"‡πÅ‡∏™‡∏á‡∏ï‡∏≤‡∏°‡πÄ‡∏ß‡∏•‡∏≤‡πÅ‡∏•‡∏∞‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà","continuity_group":"DAY01_LOCATION01_EVENT01","start_state":"‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞‡∏ï‡πà‡∏≠‡∏à‡∏≤‡∏Å‡∏ó‡πâ‡∏≤‡∏¢‡∏â‡∏≤‡∏Å‡∏Å‡πà‡∏≠‡∏ô ‡∏£‡∏ß‡∏°‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á‡∏Ñ‡∏ô‡πÅ‡∏•‡∏∞‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á","end_state":"‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞‡∏ó‡∏µ‡πà‡∏™‡πà‡∏á‡∏ï‡πà‡∏≠‡∏â‡∏≤‡∏Å‡∏ñ‡∏±‡∏î‡πÑ‡∏õ","flow_action":"One visible action in English","action":"‡πÄ‡∏´‡∏ï‡∏∏‡∏Å‡∏≤‡∏£‡∏ì‡πå","dialogue":"‡∏ö‡∏ó‡∏û‡∏π‡∏î‡∏†‡∏≤‡∏©‡∏≤‡πÑ‡∏ó‡∏¢","speaker":"‡∏ä‡∏∑‡πà‡∏≠‡∏ú‡∏π‡πâ‡∏û‡∏π‡∏î‡∏´‡∏£‡∏∑‡∏≠‡∏ß‡πà‡∏≤‡∏á‡πÄ‡∏°‡∏∑‡πà‡∏≠‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ö‡∏ó‡∏û‡∏π‡∏î","narration":"‡πÄ‡∏™‡∏µ‡∏¢‡∏á‡∏ö‡∏£‡∏£‡∏¢‡∏≤‡∏¢‡∏ä‡∏≤‡∏¢‡∏´‡∏£‡∏∑‡∏≠‡∏ß‡πà‡∏≤‡∏á","image_prompt":"‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÅ‡∏•‡∏∞ MASTER ‡∏ï‡∏£‡∏á‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô ‡∏Ñ‡∏á‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ‡∏ú‡∏° ‡∏™‡∏µ‡∏ú‡∏¥‡∏ß‡πÅ‡∏•‡∏∞‡∏£‡∏π‡∏õ‡∏£‡πà‡∏≤‡∏á‡∏ï‡∏≤‡∏°‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á; ‡∏ä‡∏∏‡∏î‡∏ï‡∏≤‡∏°‡∏â‡∏≤‡∏Å‡∏õ‡∏±‡∏à‡∏à‡∏∏‡∏ö‡∏±‡∏ô‡∏£‡∏∞‡∏ö‡∏∏‡∏ä‡∏ô‡∏¥‡∏î‡πÅ‡∏•‡∏∞‡∏™‡∏µ; ‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà‡πÅ‡∏•‡∏∞‡∏™‡∏¥‡πà‡∏á‡∏Ç‡∏≠‡∏á; ‡∏Å‡∏≤‡∏£‡∏Å‡∏£‡∏∞‡∏ó‡∏≥ ‡∏™‡∏µ‡∏´‡∏ô‡πâ‡∏≤‡πÅ‡∏•‡∏∞‡∏™‡∏≤‡∏¢‡∏ï‡∏≤‡∏ï‡∏≤‡∏°‡∏ö‡∏ó; ‡∏†‡∏≤‡∏û‡∏•‡∏∞‡∏Ñ‡∏£‡πÑ‡∏ó‡∏¢‡∏™‡∏°‡∏à‡∏£‡∏¥‡∏á 9:16 ‡πÄ‡∏´‡πá‡∏ô‡∏Å‡∏≤‡∏£‡∏Å‡∏£‡∏∞‡∏ó‡∏≥‡∏Ñ‡∏£‡∏ö ‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°","flow_prompt":"Flow / Veo 3.1 Lite: English prompt + Thai speech, 8 seconds, 9:16, locked-off static camera"}]}]}
-‡∏Å‡∏≤‡∏£‡∏™‡πà‡∏á‡∏ä‡∏∏‡∏î‡∏á‡∏≤‡∏ô‡∏™‡∏∏‡∏î‡∏ó‡πâ‡∏≤‡∏¢: ‡∏™‡πà‡∏á story.json ‡πÄ‡∏õ‡πá‡∏ô‡πÑ‡∏ü‡∏•‡πå‡πÅ‡∏¢‡∏Å ‡πÅ‡∏•‡∏∞‡∏™‡πà‡∏á‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏Å‡∏±‡∏ö‡∏õ‡∏Å‡πÄ‡∏õ‡πá‡∏ô ZIP ‡πÅ‡∏¢‡∏Å‡∏£‡∏≤‡∏¢ EP ‡πÉ‡∏ä‡πâ MASTER ‡πÄ‡∏õ‡πá‡∏ô‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á‡∏£‡∏∞‡∏´‡∏ß‡πà‡∏≤‡∏á‡∏™‡∏£‡πâ‡∏≤‡∏á ‡πÅ‡∏ï‡πà‡πÑ‡∏°‡πà‡πÉ‡∏™‡πà‡πÑ‡∏ü‡∏•‡πå‡∏†‡∏≤‡∏û MASTER ‡∏´‡∏£‡∏∑‡∏≠‡πÇ‡∏ü‡∏•‡πÄ‡∏î‡∏≠‡∏£‡πå MASTER/characters ‡∏•‡∏á‡πÉ‡∏ô ZIP ‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow ‡∏£‡∏ß‡∏°‡∏´‡∏ô‡∏∂‡πà‡∏á‡πÑ‡∏ü‡∏•‡πå‡∏ï‡πà‡∏≠ EP: EP01_FLOW.txt, EP02_FLOW.txt ‡∏ï‡∏≤‡∏°‡∏à‡∏≥‡∏ô‡∏ß‡∏ô‡∏ï‡∏≠‡∏ô‡∏à‡∏£‡∏¥‡∏á ‡πÅ‡∏ï‡πà‡∏•‡∏∞‡πÑ‡∏ü‡∏•‡πå‡∏°‡∏µ‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏≠‡∏ô‡πÅ‡∏•‡∏∞‡∏ó‡∏∏‡∏Å‡∏ã‡∏µ‡∏ô‡πÄ‡∏£‡∏µ‡∏¢‡∏á‡πÄ‡∏•‡∏Ç ‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏ã‡∏µ‡∏ô‡πÅ‡∏™‡∏î‡∏á‡πÄ‡∏•‡∏Ç‡∏â‡∏≤‡∏Å ‡πÄ‡∏´‡∏ï‡∏∏‡∏Å‡∏≤‡∏£‡∏ì‡πå ‡∏ö‡∏ó‡∏û‡∏π‡∏î ‡πÅ‡∏•‡∏∞‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow ‡πÅ‡∏¢‡∏Å‡πÄ‡∏õ‡πá‡∏ô‡∏ö‡∏•‡πá‡∏≠‡∏Å‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡∏ó‡∏µ‡∏•‡∏∞‡∏ã‡∏µ‡∏ô ‡πÑ‡∏°‡πà‡πÅ‡∏¢‡∏Å‡πÄ‡∏õ‡πá‡∏ô‡πÑ‡∏ü‡∏•‡πå Flow ‡∏£‡∏≤‡∏¢‡∏ã‡∏µ‡∏ô ‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á flow_prompt ‡πÉ‡∏ô story.json ‡∏¢‡∏±‡∏á‡∏ï‡πâ‡∏≠‡∏á‡∏Ñ‡∏£‡∏ö‡∏ó‡∏∏‡∏Å‡∏ã‡∏µ‡∏ô‡∏ï‡∏≤‡∏°‡πÄ‡∏î‡∏¥‡∏°
-‡∏ï‡∏±‡∏ß‡πÄ‡∏•‡∏Ç 1 ‡πÉ‡∏ô‡∏ï‡∏±‡∏ß‡∏≠‡∏¢‡πà‡∏≤‡∏á‡πÄ‡∏õ‡πá‡∏ô‡πÄ‡∏û‡∏µ‡∏¢‡∏á‡∏£‡∏π‡∏õ‡πÅ‡∏ö‡∏ö ‡∏ï‡πâ‡∏≠‡∏á‡πÅ‡∏ó‡∏ô‡∏î‡πâ‡∏ß‡∏¢‡∏à‡∏≥‡∏ô‡∏ß‡∏ô‡∏à‡∏£‡∏¥‡∏á‡∏Ç‡∏≠‡∏á‡∏ö‡∏ó‡πÄ‡∏ï‡πá‡∏° ‡πÄ‡∏û‡∏¥‡πà‡∏° EP ‡πÅ‡∏•‡∏∞‡∏â‡∏≤‡∏Å‡πÄ‡∏ó‡πà‡∏≤‡∏ó‡∏µ‡πà‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ï‡πâ‡∏≠‡∏á‡πÉ‡∏ä‡πâ ‡πÄ‡∏£‡∏µ‡∏¢‡∏á‡πÄ‡∏•‡∏Ç‡∏à‡∏≤‡∏Å 1 ‡πÑ‡∏°‡πà‡∏Å‡∏≥‡∏´‡∏ô‡∏î‡∏à‡∏≥‡∏ô‡∏ß‡∏ô‡∏ï‡∏≤‡∏¢‡∏ï‡∏±‡∏ß ‡∏´‡∏•‡∏±‡∏á‡∏ß‡∏≤‡∏á‡∏ö‡∏ó‡∏ó‡∏±‡πâ‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á ‡∏ï‡πâ‡∏≠‡∏á‡∏™‡πà‡∏á story.json ‡πÄ‡∏õ‡πá‡∏ô‡πÑ‡∏ü‡∏•‡πå‡∏î‡∏≤‡∏ß‡∏ô‡πå‡πÇ‡∏´‡∏•‡∏î‡πÅ‡∏¢‡∏Å‡∏ó‡∏±‡∏ô‡∏ó‡∏µ ‡∏Å‡πà‡∏≠‡∏ô‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û ‡∏´‡πâ‡∏≤‡∏°‡∏£‡∏≠‡πÉ‡∏™‡πà story.json ‡πÑ‡∏ß‡πâ‡∏ó‡πâ‡∏≤‡∏¢ ZIP ‡πÄ‡∏ó‡πà‡∏≤‡∏ô‡∏±‡πâ‡∏ô ‡∏à‡∏≤‡∏Å‡∏ô‡∏±‡πâ‡∏ô‡πÉ‡∏ä‡πâ‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏°‡∏∑‡∏≠‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡πÅ‡∏™‡∏î‡∏á‡∏†‡∏≤‡∏û‡∏à‡∏£‡∏¥‡∏á‡πÉ‡∏ô‡πÅ‡∏ä‡∏ï‡πÅ‡∏¢‡∏Å‡∏´‡∏ô‡∏∂‡πà‡∏á‡∏â‡∏≤‡∏Å‡∏´‡∏ô‡∏∂‡πà‡∏á‡πÑ‡∏ü‡∏•‡πå‡∏ï‡∏≤‡∏°‡∏•‡∏≥‡∏î‡∏±‡∏ö‡∏Ñ‡∏£‡∏ö‡∏ó‡∏∏‡∏Å EP ‡∏à‡∏ô‡∏à‡∏ö ‡∏ï‡∏±‡πâ‡∏á‡∏ä‡∏∑‡πà‡∏≠ EP01_SC001.png ‡∏ï‡∏≤‡∏°‡πÄ‡∏•‡∏Ç EP ‡πÅ‡∏•‡∏∞‡∏â‡∏≤‡∏Å ‡πÑ‡∏°‡πà‡∏ó‡∏≥‡∏†‡∏≤‡∏û‡∏£‡∏ß‡∏°‡∏´‡∏•‡∏≤‡∏¢‡∏â‡∏≤‡∏Å ${if (mode == "original") "‡πÉ‡∏ä‡πâ MASTER ‡∏ó‡∏µ‡πà‡πÅ‡∏ô‡∏ö‡πÉ‡∏´‡πâ‡∏ï‡∏£‡∏á‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô" else "‡πÉ‡∏ä‡πâ CHARACTER MASTER ‡πÉ‡∏´‡∏°‡πà‡∏ó‡∏µ‡πà‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ‡∏ï‡∏£‡∏á‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô"} ‡∏û‡∏£‡πâ‡∏≠‡∏°‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö Flow / Veo 3.1 Lite ‡∏ó‡∏∏‡∏Å‡∏â‡∏≤‡∏Å ‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏ï‡πâ‡∏≠‡∏á‡∏Å‡∏≤‡∏£‡∏ö‡∏ó‡πÅ‡∏•‡∏∞‡∏†‡∏≤‡∏û‡∏û‡∏£‡πâ‡∏≠‡∏°‡∏ô‡∏≥‡πÑ‡∏õ‡∏ó‡∏≥‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠
-‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏õ‡πâ‡∏≠‡∏á‡∏Å‡∏±‡∏ô‡πÑ‡∏ü‡∏•‡πå‡∏Ç‡∏ô‡∏≤‡∏î‡πÉ‡∏´‡∏ç‡πà‡∏ñ‡∏π‡∏Å‡∏ï‡∏±‡∏î ‡πÉ‡∏´‡πâ‡∏™‡πà‡∏á ZIP ‡πÅ‡∏¢‡∏Å‡∏´‡∏ô‡∏∂‡πà‡∏á‡πÑ‡∏ü‡∏•‡πå‡∏ï‡πà‡∏≠ EP ‡∏ä‡∏∑‡πà‡∏≠ EP01_IMAGES.zip, EP02_IMAGES.zip ‡∏ï‡∏≤‡∏°‡∏à‡∏£‡∏¥‡∏á ‡πÅ‡∏ï‡πà‡∏•‡∏∞ ZIP ‡πÉ‡∏™‡πà‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡πÅ‡∏•‡∏∞‡∏õ‡∏Å‡∏Ç‡∏≠‡∏á EP ‡∏ô‡∏±‡πâ‡∏ô ‡∏´‡∏•‡∏±‡∏á‡∏™‡∏£‡πâ‡∏≤‡∏á ZIP ‡πÅ‡∏ï‡πà‡∏•‡∏∞ EP ‡πÉ‡∏´‡πâ‡πÄ‡∏õ‡∏¥‡∏î‡∏ï‡∏£‡∏ß‡∏à‡∏ß‡πà‡∏≤‡∏≠‡πà‡∏≤‡∏ô‡πÑ‡∏î‡πâ ‡∏ï‡∏£‡∏ß‡∏à‡∏à‡∏≥‡∏ô‡∏ß‡∏ô‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡πÅ‡∏•‡∏∞‡∏õ‡∏Å ‡πÅ‡∏•‡πâ‡∏ß‡∏£‡∏≤‡∏¢‡∏á‡∏≤‡∏ô‡∏à‡∏≥‡∏ô‡∏ß‡∏ô‡∏ó‡∏µ‡πà‡∏ï‡∏£‡∏ß‡∏à‡∏à‡∏£‡∏¥‡∏á ‡∏´‡πâ‡∏≤‡∏°‡πÅ‡∏à‡πâ‡∏á‡∏ß‡πà‡∏≤‡∏Ñ‡∏£‡∏ö‡∏à‡∏≤‡∏Å‡πÅ‡∏ú‡∏ô‡πÇ‡∏î‡∏¢‡πÑ‡∏°‡πà‡∏ï‡∏£‡∏ß‡∏à‡πÑ‡∏ü‡∏•‡πå ‡∏´‡πâ‡∏≤‡∏°‡∏£‡∏ß‡∏°‡∏†‡∏≤‡∏û‡∏ó‡∏∏‡∏Å EP ‡πÄ‡∏õ‡πá‡∏ô ZIP ‡∏Å‡πâ‡∏≠‡∏ô‡πÉ‡∏´‡∏ç‡πà‡πÑ‡∏ü‡∏•‡πå‡πÄ‡∏î‡∏µ‡∏¢‡∏ß
-‡∏´‡∏•‡∏±‡∏á‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏â‡∏≤‡∏Å‡∏™‡∏∏‡∏î‡∏ó‡πâ‡∏≤‡∏¢‡∏Ç‡∏≠‡∏á‡πÅ‡∏ï‡πà‡∏•‡∏∞ EP ‡πÉ‡∏´‡πâ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏õ‡∏Å‡πÅ‡∏ô‡∏ß‡∏ï‡∏±‡πâ‡∏á‡∏´‡∏ô‡∏∂‡πà‡∏á‡πÑ‡∏ü‡∏•‡πå‡∏ó‡∏±‡∏ô‡∏ó‡∏µ: EP01_COVER_9x16.png ‡∏Ç‡∏ô‡∏≤‡∏î 9:16 ‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡πÄ‡∏•‡∏Ç‡∏ï‡∏≤‡∏° EP ‡∏à‡∏±‡∏î‡∏≠‡∏á‡∏Ñ‡πå‡∏õ‡∏£‡∏∞‡∏Å‡∏≠‡∏ö‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏™‡∏±‡∏î‡∏™‡πà‡∏ß‡∏ô‡πÉ‡∏´‡∏°‡πà ‡πÉ‡∏ä‡πâ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏à‡∏≤‡∏Å MASTER ‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô ‡∏™‡∏∑‡πà‡∏≠‡πÄ‡∏´‡∏ï‡∏∏‡∏Å‡∏≤‡∏£‡∏ì‡πå‡πÄ‡∏î‡πà‡∏ô‡∏Ç‡∏≠‡∏á‡∏ï‡∏≠‡∏ô‡∏ô‡∏±‡πâ‡∏ô ‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏†‡∏≤‡∏©‡∏≤‡πÑ‡∏ó‡∏¢ 3 ‡∏ö‡∏£‡∏£‡∏ó‡∏±‡∏î‡∏à‡∏±‡∏î‡∏Å‡∏∂‡πà‡∏á‡∏Å‡∏•‡∏≤‡∏á‡πÉ‡∏ô‡∏û‡∏∑‡πâ‡∏ô‡∏ó‡∏µ‡πà‡∏Å‡∏•‡∏≤‡∏á‡∏†‡∏≤‡∏û ‡πÄ‡∏ß‡πâ‡∏ô‡∏Ç‡∏≠‡∏ö‡∏ã‡πâ‡∏≤‡∏¢‡∏Ç‡∏ß‡∏≤‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏ô‡πâ‡∏≠‡∏¢ 10% ‡πÅ‡∏•‡∏∞‡∏Ç‡∏≠‡∏ö‡∏ö‡∏ô‡∏•‡πà‡∏≤‡∏á 20%: ‡∏ö‡∏£‡∏£‡∏ó‡∏±‡∏î 1 ‡∏ä‡∏∑‡πà‡∏≠‡∏ä‡πà‡∏≠‡∏á (‡πÄ‡∏•‡πá‡∏Å‡∏Å‡∏ß‡πà‡∏≤), ‡∏ö‡∏£‡∏£‡∏ó‡∏±‡∏î 2 ‡∏ä‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á (‡πÉ‡∏´‡∏ç‡πà‡∏ó‡∏µ‡πà‡∏™‡∏∏‡∏î), ‡∏ö‡∏£‡∏£‡∏ó‡∏±‡∏î 3 EP 01 ‚Ä¢ ‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏≠‡∏ô (‡∏Ç‡∏ô‡∏≤‡∏î‡∏£‡∏≠‡∏á) ‡∏õ‡∏£‡∏±‡∏ö‡∏Ç‡∏ô‡∏≤‡∏î‡∏≠‡∏±‡∏Å‡∏©‡∏£‡πÉ‡∏´‡πâ‡∏Ñ‡∏£‡∏ö‡∏ó‡∏±‡πâ‡∏á‡∏ö‡∏£‡∏£‡∏ó‡∏±‡∏î ‡∏≠‡πà‡∏≤‡∏ô‡∏ä‡∏±‡∏î‡∏ö‡∏ô‡∏°‡∏∑‡∏≠‡∏ñ‡∏∑‡∏≠ ‡πÑ‡∏°‡πà‡∏ó‡∏±‡∏ö‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ‡∏ä‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÅ‡∏•‡∏∞‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏≠‡∏ô‡∏ï‡πâ‡∏≠‡∏á‡∏ï‡∏£‡∏á story.json ‡∏£‡∏ß‡∏°‡∏õ‡∏Å‡πÑ‡∏ß‡πâ‡πÉ‡∏ô ZIP ‡∏£‡∏≤‡∏¢ EP ‡∏ó‡∏µ‡πà‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡πÄ‡∏•‡∏Ç‡∏ï‡∏≠‡∏ô‡∏î‡πâ‡∏ß‡∏¢""", lockCreation = true, includeMasters=false, referenceImages=listOf("gawin","rinlada","mind").map { id -> val file=File(filesDir,"character_masters/$id.master"); "${id.uppercase()}_MASTER" to file })
-        }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-    }
-    private fun sceneCommands() {
-        val p = plan ?: return notice("‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡πÅ‡∏ú‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏Å‡πà‡∏≠‡∏ô‡∏Ñ‡∏£‡∏±‡∏ö")
-        val scenes = rows(p)
-        choiceMenu("üé¨ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏â‡∏≤‡∏Å‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏™‡πà‡∏á‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏†‡∏≤‡∏û", scenes.map { "üéûÔ∏è " + key(it) }) { index ->
-            val s = scenes[index]
-            sendSceneImage(p,s)
-        }
-    }
-    @Deprecated("Android legacy back callback")
-    override fun onBackPressed() { if (!importing) super.onBackPressed() }
-    private fun displayName(uri: Uri): String = if (uri.scheme == "file") File(uri.path!!).name else contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null,null,null)?.use { if (it.moveToFirst()) it.getString(0) else "" } ?: ""
-    private fun importOriginalReferences(pictures: List<Uri>, folder: File, story: JSONObject) {
-        if(story.optString("character_mode","original")!="original") return
-        FlowCast.definitions(story).forEach { person ->
-            val id=FlowCast.id(person) ?: return@forEach
-            val source=pictures.firstOrNull { displayName(it).substringBeforeLast('.').equals("${id.uppercase()}_MASTER",true) } ?: return@forEach
-            val target=File(folder,"original_masters/$id.master"); target.parentFile!!.mkdirs()
-            val temp=File(target.parentFile,target.name+".pending")
-            try {
-                contentResolver.openInputStream(source)!!.use { input -> temp.outputStream().use { input.copyTo(it) } }
-                require(masterExportName(temp,false)!=null) { "‡∏≠‡πà‡∏≤‡∏ô‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á‡∏Ç‡∏≠‡∏á ${person.getString("name")} ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" }
-                check(temp.renameTo(target)) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" }
-            } finally { temp.delete() }
-        }
-    }
-    private fun importNewMasters(uris: List<Uri>, folder: File = project, story: JSONObject? = plan) {
-        if (uris.isEmpty()) return
-        require(story?.optString("character_mode") == "new") { "‡∏†‡∏≤‡∏û CHARACTER ‡πÉ‡∏ä‡πâ‡∏Å‡∏±‡∏ö‡∏ä‡πà‡∏≠‡∏á‡∏≠‡∏∑‡πà‡∏ô‡πÄ‡∏ó‡πà‡∏≤‡∏ô‡∏±‡πâ‡∏ô" }
-        val dir = File(folder, "masters").apply { mkdirs() }
-        for (uri in uris) {
-            val index = Regex("^CHARACTER_(\\d+)\\.", RegexOption.IGNORE_CASE).find(displayName(uri))!!.groupValues[1]
-            val temporary = File(dir, "CHARACTER_$index.tmp")
-            contentResolver.openInputStream(uri)!!.use { input -> temporary.outputStream().use { input.copyTo(it) } }
-            val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            android.graphics.BitmapFactory.decodeFile(temporary.path, bounds)
-            require(bounds.outWidth > 0 && bounds.outHeight > 0) { "‡πÑ‡∏ü‡∏•‡πå MASTER ‡πÑ‡∏°‡πà‡πÉ‡∏ä‡πà‡∏†‡∏≤‡∏û" }
-            val target=File(dir,"CHARACTER_$index.png")
-            if(target.exists()) archiveVersion(target,folder,"CHARACTER_$index","master")
-            require(temporary.renameTo(target)) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å MASTER ‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à" }
-        }
-    }
-    private fun importImages(uris: List<Uri>, confirmedOrder: Boolean = false) {
-        val scenes = rows(plan!!)
-        val assignments = linkedMapOf<Uri,JSONObject>()
-        val unknown = mutableListOf<Uri>()
-        for (uri in uris) {
-            val match = StoryFiles.sceneNumber(displayName(uri))
-            val found = match?.let { m -> scenes.find { it.getInt("ep") == m.first && it.getInt("scene") == m.second } }
-            if (match != null && found == null) return notice("${displayName(uri)} ‡πÑ‡∏°‡πà‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡∏â‡∏≤‡∏Å‡πÉ‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏†‡∏≤‡∏û‡∏Ç‡∏≠‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏õ‡∏±‡∏à‡∏à‡∏∏‡∏ö‡∏±‡∏ô")
-            if (found == null) unknown.add(uri) else assignments[uri] = found
-        }
-        if (assignments.values.map { key(it) }.distinct().size != assignments.size) return notice("‡∏°‡∏µ‡πÑ‡∏ü‡∏•‡πå‡∏ä‡∏∑‡πà‡∏≠‡∏â‡∏≤‡∏Å‡∏ã‡πâ‡∏≥‡πÉ‡∏ô‡∏ä‡∏∏‡∏î‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏´‡∏ô‡∏∂‡πà‡∏á‡∏†‡∏≤‡∏û‡∏ï‡πà‡∏≠‡∏â‡∏≤‡∏Å‡∏Ñ‡∏£‡∏±‡∏ö")
-        val occupied = assignments.values.map { key(it) }.toSet()
-        val available = scenes.filter { key(it) !in occupied && !image(it).exists() }
-        if (unknown.size > available.size) {
-            val named = uris.filter { StoryFiles.sceneNumber(displayName(it)) != null }
-            val skipped = unknown.joinToString("\n") { displayName(it) }
-            if (named.isEmpty()) return notice("‡∏¢‡∏±‡∏á‡∏à‡∏±‡∏ö‡∏Ñ‡∏π‡πà‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÉ‡∏ä‡πâ‡∏ä‡∏∑‡πà‡∏≠ EP01_SC001.png ‡∏´‡∏£‡∏∑‡∏≠‡πÇ‡∏ü‡∏•‡πÄ‡∏î‡∏≠‡∏£‡πå EP01/SC001.png\n‡πÑ‡∏ü‡∏•‡πå‡∏ó‡∏µ‡πà‡∏ï‡πâ‡∏≠‡∏á‡∏ï‡∏£‡∏ß‡∏à:\n$skipped")
-            AlertDialog.Builder(this).setTitle("‡∏û‡∏ö‡∏†‡∏≤‡∏û‡∏≠‡∏∑‡πà‡∏ô‡πÉ‡∏ô‡∏ä‡∏∏‡∏î‡∏á‡∏≤‡∏ô")
-                .setMessage("‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡∏ï‡∏£‡∏á‡πÄ‡∏•‡∏Ç‡∏â‡∏≤‡∏Å‡πÑ‡∏î‡πâ ${named.size} ‡πÑ‡∏ü‡∏•‡πå ‡∏™‡πà‡∏ß‡∏ô ${unknown.size} ‡πÑ‡∏ü‡∏•‡πå‡∏ï‡πà‡∏≠‡πÑ‡∏õ‡∏ô‡∏µ‡πâ‡∏¢‡∏±‡∏á‡∏à‡∏±‡∏ö‡∏Ñ‡∏π‡πà‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‡∏à‡∏∞‡πÄ‡∏ß‡πâ‡∏ô‡πÑ‡∏ß‡πâ‡πÄ‡∏û‡∏∑‡πà‡∏≠‡πÑ‡∏°‡πà‡πÉ‡∏™‡πà‡∏ú‡∏¥‡∏î‡∏â‡∏≤‡∏Å:\n$skipped")
-                .setPositiveButton("‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡∏à‡∏±‡∏ö‡∏Ñ‡∏π‡πà‡πÑ‡∏î‡πâ") { _, _ -> importImages(named) }
-                .setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å", null).showDirector()
-            return
-        }
-        unknown.forEachIndexed { i, uri -> assignments[uri] = available[i] }
-        if (unknown.isNotEmpty() && !confirmedOrder) {
-            val list = uris.joinToString("\n") { "${displayName(it)} ‚Üí ${key(assignments.getValue(it))}" }
-            val content = TextView(this).apply { text = "‡∏ö‡∏≤‡∏á‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡∏°‡∏µ‡πÄ‡∏•‡∏Ç‡∏â‡∏≤‡∏Å ‡πÅ‡∏≠‡∏õ‡πÄ‡∏™‡∏ô‡∏≠‡πÄ‡∏£‡∏µ‡∏¢‡∏á‡∏ï‡∏≤‡∏°‡∏•‡∏≥‡∏î‡∏±‡∏ö‡πÑ‡∏ü‡∏•‡πå‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ï‡∏£‡∏ß‡∏à‡πÉ‡∏´‡πâ‡∏ï‡∏£‡∏á‡∏Å‡πà‡∏≠‡∏ô‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤\n\n$list"; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-            AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setTitle("‡∏ï‡∏£‡∏ß‡∏à‡∏•‡∏≥‡∏î‡∏±‡∏ö‡∏†‡∏≤‡∏û‡∏Ñ‡∏£‡∏±‡πâ‡∏á‡πÄ‡∏î‡∏µ‡∏¢‡∏ß").setView(ScrollView(this).apply { addView(content) }).setPositiveButton("‡∏•‡∏≥‡∏î‡∏±‡∏ö‡∏ñ‡∏π‡∏Å‡∏ï‡πâ‡∏≠‡∏á") { _,_ -> importImages(uris,true) }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-            return
-        }
-        val importFolder = project
-        importing = true
-        val remaining = uris.toMutableList()
-        var savedCount=0; var skippedCount=0
-        val failures=mutableListOf<String>()
-        val progressDialog=AlertDialog.Builder(this).setTitle("‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏†‡∏≤‡∏û").setMessage("0/${uris.size} ‡πÑ‡∏ü‡∏•‡πå").setCancelable(false).showDirector()
-        fun next() {
-            if (remaining.isEmpty()) {
-                importing = false; pendingRecovery.deleteRecursively(); render()
-                progressDialog.dismiss()
-                showImportReceipt("‡∏Ñ‡∏£‡∏±‡πâ‡∏á‡∏ô‡∏µ‡πâ ‚Ä¢ ‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏†‡∏≤‡∏û $savedCount ‚Ä¢ ‡∏Ç‡πâ‡∏≤‡∏° $skippedCount ‚Ä¢ ‡∏•‡πâ‡∏°‡πÄ‡∏´‡∏•‡∏ß ${failures.size}" + if(failures.isEmpty()) "" else "\n"+failures.joinToString("\n"))
-                return
-            }
-            progressDialog.setMessage("‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å ${uris.size-remaining.size+1}/${uris.size} ‡πÑ‡∏ü‡∏•‡πå")
-            val uri = remaining.removeAt(0)
-            val name = displayName(uri)
-            val match = StoryFiles.sceneNumber(name)
-            val found = match?.let { m -> scenes.find { it.getInt("ep") == m.first && it.getInt("scene") == m.second } }
-            fun save(s: JSONObject) {
-                Thread {
-                    try {
-                        val target = File(importFolder,"images/${key(s)}.img"); target.parentFile!!.mkdirs()
-                        val tmp = File(target.parentFile,"${target.name}.tmp")
-                        contentResolver.openInputStream(uri)!!.use { src -> tmp.outputStream().use { src.copyTo(it) } }
-                        require(tmp.length() > 0) { "‡πÑ‡∏ü‡∏•‡πå‡∏†‡∏≤‡∏û‡∏ß‡πà‡∏≤‡∏á" }
-                        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                        android.graphics.BitmapFactory.decodeFile(tmp.path,bounds)
-                        require(bounds.outWidth > 0) { "‡∏≠‡πà‡∏≤‡∏ô‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" }
-                        if (target.exists()) archiveVersion(target, importFolder, key(s), "image")
-                        check(tmp.renameTo(target)) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" }
-                        runOnUiThread { savedCount++; next() }
-                    } catch (e: Exception) { runOnUiThread { failures.add("$name: ${e.message}"); next() } }
-                }.start()
-            }
-            fun assign(s: JSONObject) {
-                if (image(s).exists()) AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setMessage("${key(s)} ‡∏°‡∏µ‡∏†‡∏≤‡∏û‡πÅ‡∏•‡πâ‡∏ß ‡πÅ‡∏ó‡∏ô‡∏î‡πâ‡∏ß‡∏¢ $name ‡∏´‡∏£‡∏∑‡∏≠‡πÑ‡∏°‡πà?").setPositiveButton("‡πÅ‡∏ó‡∏ô‡∏†‡∏≤‡∏û") { _,_ -> save(s) }.setNegativeButton("‡∏Ç‡πâ‡∏≤‡∏°") { _,_ -> skippedCount++; next() }.setCancelable(false).showDirector()
-                else save(s)
-            }
-            if (assignments[uri] != null) assign(assignments.getValue(uri))
-            else choiceMenu("üß© ‡∏à‡∏±‡∏ö‡∏Ñ‡∏π‡πà‡∏†‡∏≤‡∏û: $name", scenes.map { "üéûÔ∏è " + key(it) + if (image(it).exists()) " ‚úì" else " ‚Ä¢ ‡∏Ç‡∏≤‡∏î‡∏†‡∏≤‡∏û" }, cancel = "‚è≠Ô∏è ‡∏Ç‡πâ‡∏≤‡∏°", cancelable = false, onCancel = { next() }) { i -> assign(scenes[i]) }
-        }
-        next()
-    }
-    private fun castingThumbnail(source: File): android.graphics.Bitmap? = runCatching {
-        val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
-        android.graphics.BitmapFactory.decodeFile(source.path,bounds)
-        val options=android.graphics.BitmapFactory.Options().apply { inSampleSize=1 }
-        while(bounds.outWidth/options.inSampleSize>256 || bounds.outHeight/options.inSampleSize>384) options.inSampleSize *= 2
-        android.graphics.BitmapFactory.decodeFile(source.path,options)
-    }.getOrNull()
-    private fun previewBitmap(uri: Uri): android.graphics.Bitmap? {
-        return runCatching {
-            val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
-            contentResolver.openInputStream(uri)!!.use { android.graphics.BitmapFactory.decodeStream(it,null,bounds) }
-            val options=android.graphics.BitmapFactory.Options().apply { inSampleSize=1 }
-            while(bounds.outWidth/options.inSampleSize>1200 || bounds.outHeight/options.inSampleSize>1600) options.inSampleSize *= 2
-            contentResolver.openInputStream(uri)!!.use { android.graphics.BitmapFactory.decodeStream(it,null,options) }
-        }.getOrNull()
-    }
-    private fun copyCommand(text: String) {
-        runCatching {
-            (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
-                .setPrimaryClip(ClipData.newPlainText("DIRECTOR X",text))
-        }.onSuccess { notice("‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏ô‡∏≥‡πÑ‡∏õ‡∏ß‡∏≤‡∏á‡πÉ‡∏ô‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏°‡∏∑‡∏≠‡∏ó‡∏µ‡πà‡∏ï‡πâ‡∏≠‡∏á‡∏Å‡∏≤‡∏£") }
-            .onFailure { notice("‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏´‡∏£‡∏∑‡∏≠‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏¢‡∏≤‡∏ß‡πÄ‡∏Å‡∏¥‡∏ô‡∏Ñ‡∏•‡∏¥‡∏õ‡∏ö‡∏≠‡∏£‡πå‡∏î ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏ü‡∏•‡πå‡πÅ‡∏•‡πâ‡∏ß‡πÅ‡∏ô‡∏ö‡πÉ‡∏ô Gemini ‡∏´‡∏£‡∏∑‡∏≠‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏â‡∏û‡∏≤‡∏∞ EP") }
-    }
-    private fun saveStory() {
-        val p = plan ?: return
-        val target = File(project,"story.json")
-        if (target.exists()) target.copyTo(File(project,"story.previous.json"),overwrite=true)
-        val tmp = File(project,"story.pending")
-        tmp.writeText(p.toString(2)); check(tmp.renameTo(target)) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏ö‡∏ó‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" }
-    }
-    private fun rememberScene(s: JSONObject) {
-        prefs.edit().putString("last_scene_${project.name}",key(s)).apply()
-        File(project,"last_scene.txt").writeText(key(s))
-    }
-    private fun video(s: JSONObject) = File(project,"videos/${key(s)}.mp4")
-    private fun archiveVersion(source: File, folder: File, id: String, kind: String) {
-        val dst = File(folder,"versions/$id/$kind/${System.currentTimeMillis()}_${UUID.randomUUID()}.${source.extension}")
-        dst.parentFile!!.mkdirs(); source.copyTo(dst)
-    }
-    private fun resumeScene() {
-        val p = plan ?: return notice("‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏´‡∏£‡∏∑‡∏≠‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô‡∏Ñ‡∏£‡∏±‡∏ö")
-        val scenes = rows(p)
-        val last = prefs.getString("last_scene_${project.name}",null) ?: File(project,"last_scene.txt").takeIf { it.exists() }?.readText().orEmpty()
-        sceneMenu(scenes.firstOrNull { key(it) == last } ?: scenes.firstOrNull { !image(it).exists() } ?: scenes.first())
-    }
-    private fun episodesMenu() {
-        val p = plan ?: return notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ö‡∏ó ‚Ä¢ ‡πÄ‡∏£‡∏¥‡πà‡∏°‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà‡∏´‡∏£‡∏∑‡∏≠‡∏£‡∏±‡∏ö story.json")
-        val episodes = p.getJSONArray("episodes")
-        choiceMenu("üéûÔ∏è ${p.optString("title")}",(0 until episodes.length()).map { i ->
-            val ep = episodes.getJSONObject(i); val scenes = rows(p).filter { it.getInt("ep") == ep.getInt("ep") }
-            "EP ${ep.getInt("ep")} ‚Ä¢ ${ep.optString("title")}\n‡∏†‡∏≤‡∏û ${scenes.count { image(it).exists() }}/${scenes.size} ‚Ä¢ ‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠ ${scenes.count { video(it).exists() }}/${scenes.size}"
-        }) { index ->
-            val ep = episodes.getJSONObject(index).getInt("ep")
-            val scenes = rows(p).filter { it.getInt("ep") == ep }
-            choiceMenu("EP $ep ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏â‡∏≤‡∏Å",scenes.map { "${key(it)} ‚Ä¢ ${if (image(it).exists()) "‡∏°‡∏µ‡∏†‡∏≤‡∏û" else "‡∏Ç‡∏≤‡∏î‡∏†‡∏≤‡∏û"} ‚Ä¢ ${if (video(it).exists()) "‡∏°‡∏µ‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠" else "‡∏£‡∏≠‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠"}" } + "üì¶ ‡∏™‡πà‡∏á‡∏≠‡∏≠‡∏Å ZIP ‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏ó‡∏±‡πâ‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á") { i ->
-                if (i == scenes.size) { val issues=FlowProductionPack.issues(p); if(issues.isNotEmpty()) notice(issues.take(30).joinToString("\n")) else { starterFlowPack=false; flowPackPicker.launch(StoryFiles.zipName(plan?.optString("title").orEmpty())) } }
-                else sceneMenu(scenes[i])
-            }
-        }
-    }
-    private fun flowSpec(s: JSONObject): FlowSceneSpec {
-        val cast = s.optJSONArray("characters") ?: JSONArray()
-        return FlowSceneSpec((0 until cast.length()).map { i ->
-            val person = cast.getJSONObject(i)
-            FlowPerson(person.optString("name"), person.optString("visual_description"), person.optString("screen_position"), sceneWardrobe(s,person),PerformanceDirection.text(person))
-        }, s.optString("speaker"), s.optString("dialogue"), s.optString("narration"),
-            s.optString("flow_action").ifBlank { s.optString("action") }, s.optString("location"),
-            s.optString("start_state"), s.optString("end_state"),
-            plan?.optInt("duration_seconds",8) ?: 8, plan?.optString("aspect_ratio","9:16") ?: "9:16",SoundDesign.notes(s),ProductionCommandCheck.offscreen(s),ProductionCommandCheck.dialogueTurns(s))
-    }
-    private fun flowMappingCurrent(s: JSONObject): Boolean = image(s).exists() &&
-        s.optLong("flow_image_revision",-1L) == image(s).lastModified()
-    private fun flowCommand(s: JSONObject): String {
-        if (!sceneFrameApproved(s) || FlowScenePrompt.issues(flowSpec(s)).isNotEmpty()) return "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏û‡∏£‡πâ‡∏≠‡∏°‡∏™‡πà‡∏á Flow ‚Ä¢ ‡πÄ‡∏õ‡∏¥‡∏î‡∏†‡∏≤‡∏û ${key(s)} ‡πÅ‡∏•‡∏∞‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏•‡∏±‡∏Å‡∏©‡∏ì‡∏∞/‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á‡∏ú‡∏π‡πâ‡∏û‡∏π‡∏î‡πÉ‡∏ô‡πÄ‡∏°‡∏ô‡∏π‡∏Å‡∏≥‡∏´‡∏ô‡∏î‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏Å‡πà‡∏≠‡∏ô ‡πÑ‡∏°‡πà‡πÄ‡∏î‡∏≤‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á‡∏à‡∏≤‡∏Å‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ö‡∏ó"
-        return ShortFlowPrompt.build(flowSpec(s),"Slow gentle pan.")
-    }
-    private fun landscapeSceneImage(file: File): Boolean {
-        val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
-        android.graphics.BitmapFactory.decodeFile(file.path,bounds)
-        return bounds.outHeight>0 && kotlin.math.abs(bounds.outWidth.toDouble()/bounds.outHeight-9.0/16)<0.04
-    }
-    private fun frameReviewFacts(scene: JSONObject): String {
-        val base=flowSpec(scene).toString()
-        val selected=FlowReferencePrompt.people(scene).mapNotNull { person ->
-            val id=referenceId(person.optString("master"))
-            val master=runCatching { masterFor(person) }.getOrNull() ?: return@mapNotNull null
-            val digest=runCatching { MasterLibrary.digest(master.readBytes()) }.getOrNull() ?: return@mapNotNull null
-            val key=wardrobeSourceKey(project.name,id,digest,person)
-            if(prefs.getBoolean(key,WardrobeEvidence.useMasterOutfit(person.optString("outfit")))) id else null
-        }.sorted()
-        return if(selected.isEmpty()) base else base+"|wardrobe_master="+selected.joinToString(",")
-    }
-    private fun sceneFrameApproved(s: JSONObject): Boolean = landscapeSceneImage(image(s)) && SceneFrameReview.current(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) },frameReviewFacts(s))
-    private fun reviewedVideoCommand(s: JSONObject, copy: Boolean=false) {
-        if(plan?.optString("aspect_ratio","16:9")!="9:16") { landscapeCopyMenu(); return }
-        if(plan?.optString("content_profile")==AutoDirectorContent.profile) {
-            val issues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(plan!!))
-            if(issues.isNotEmpty()) { notice(issues.take(12).joinToString("\n")); return }
-        }
-        if(!image(s).isFile) { notice("‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡πÉ‡∏ô Gemini / Flow ‡πÅ‡∏•‡πâ‡∏ß‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏†‡∏≤‡∏û‡∏Å‡πà‡∏≠‡∏ô ‡∏à‡∏≤‡∏Å‡∏ô‡∏±‡πâ‡∏ô‡πÄ‡∏ó‡∏µ‡∏¢‡∏ö MASTER ‡πÅ‡∏•‡∏∞‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏†‡∏≤‡∏û"); return }
-        if(!sceneFrameApproved(s) || FlowScenePrompt.issues(flowSpec(s)).isNotEmpty()) { compareScene(s); return }
-        val code=runCatching { ShortFlowPrompt.build(flowSpec(s),"Slow gentle pan.") }.getOrElse { notice(it.message ?: "‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow"); return }
-        if(copy) copyCommand(code) else showFlowCode("‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠‡∏à‡∏≤‡∏Å‡∏†‡∏≤‡∏û‡∏ó‡∏µ‡πà‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡πÅ‡∏•‡πâ‡∏ß",code,"${key(s)}_VIDEO.txt")
-    }
-    private fun copyFlowCommand(s: JSONObject) { reviewedVideoCommand(s,true) }
-    private fun mapFlowCharacters(s: JSONObject) {
-        if (!image(s).exists()) { notice("‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏ô‡∏µ‡πâ‡∏Å‡πà‡∏≠‡∏ô‡∏Å‡∏≥‡∏´‡∏ô‡∏î‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£"); return }
-        if(!landscapeSceneImage(image(s))) { notice("‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏ï‡πâ‡∏≠‡∏á‡πÄ‡∏õ‡πá‡∏ô‡πÅ‡∏ô‡∏ß‡∏ï‡∏±‡πâ‡∏á 9:16 ‡∏Å‡πà‡∏≠‡∏ô‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô ‚Ä¢ ‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡πÉ‡∏´‡∏°‡πà‡πÉ‡∏ô Gemini ‡πÅ‡∏•‡πâ‡∏ß‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á"); return }
-        val cast = s.optJSONArray("characters") ?: JSONArray()
-        if (cast.length() == 0) { notice("‡∏ö‡∏ó‡∏â‡∏≤‡∏Å‡∏ô‡∏µ‡πâ‡∏Ç‡∏≤‡∏î‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÅ‡∏Å‡πâ‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏†‡∏≤‡∏û"); return }
-        val panel = LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
-        panel.addView(TextView(this).apply { text="‡πÄ‡∏ó‡∏µ‡∏¢‡∏ö‡∏†‡∏≤‡∏û‡∏à‡∏£‡∏¥‡∏á: ‡∏£‡∏∞‡∏ö‡∏∏‡∏ó‡∏£‡∏á‡∏ú‡∏°/‡∏•‡∏±‡∏Å‡∏©‡∏ì‡∏∞‡πÄ‡∏î‡πà‡∏ô ‡πÅ‡∏•‡∏∞‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á‡∏Ç‡∏≠‡∏á‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏Ñ‡∏ô ‡πÑ‡∏°‡πà‡πÄ‡∏î‡∏≤‡∏à‡∏≤‡∏Å‡∏ä‡∏∑‡πà‡∏≠ ‡∏´‡∏≤‡∏Å‡∏ö‡∏ó‡∏û‡∏π‡∏î‡∏Å‡∏±‡∏ö‡πÄ‡∏™‡∏µ‡∏¢‡∏á‡∏ö‡∏£‡∏£‡∏¢‡∏≤‡∏¢‡∏°‡∏µ‡∏û‡∏£‡πâ‡∏≠‡∏°‡∏Å‡∏±‡∏ô‡πÉ‡∏´‡πâ‡πÅ‡∏Å‡πâ‡∏ö‡∏ó‡πÅ‡∏¢‡∏Å‡∏Å‡πà‡∏≠‡∏ô" })
-        panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(image(s)))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(280)) })
-        val descriptions=(0 until cast.length()).map { i ->
-            val person=cast.getJSONObject(i)
-            val master=runCatching { masterFor(person) }.getOrNull()
-            val sourceId=referenceId(person.optString("master"))
-            val digest=master?.takeIf { it.isFile }?.let { runCatching { MasterLibrary.digest(it.readBytes()) }.getOrNull() }
-            val sourceKey=wardrobeSourceKey(project.name,sourceId,digest.orEmpty(),person)
-            val fromMaster=digest!=null && prefs.getBoolean(sourceKey,WardrobeEvidence.useMasterOutfit(person.optString("outfit")))
-            panel.addView(TextView(this).apply { text="${person.optString("name")} ‚Ä¢ ‡πÅ‡∏´‡∏•‡πà‡∏á‡∏ä‡∏∏‡∏î: ${if(fromMaster) "MASTER" else "‡∏ï‡∏≤‡∏°‡∏ö‡∏ó"}\n${if(fromMaster) "‡πÄ‡∏ó‡∏µ‡∏¢‡∏ö‡∏ä‡∏∏‡∏î‡∏Å‡∏±‡∏ö‡∏†‡∏≤‡∏û MASTER ‡∏î‡πâ‡∏≤‡∏ô‡∏•‡πà‡∏≤‡∏á" else "‡∏ä‡∏∏‡∏î‡πÉ‡∏ô‡∏ö‡∏ó: ${person.optString("outfit")}"}"; setTypeface(null,Typeface.BOLD) })
-            if(master?.isFile==true) panel.addView(ImageView(this).apply {
-                setImageBitmap(previewBitmap(Uri.fromFile(master))); adjustViewBounds=true
-                contentDescription="MASTER ‡∏Ç‡∏≠‡∏á ${person.optString("name")} ‚Ä¢ ‡πÅ‡∏ï‡∏∞‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏Ç‡∏¢‡∏≤‡∏¢"
-                setOnClickListener { fullImage(master,"MASTER ‚Ä¢ ${person.optString("name")}") }
-            },LinearLayout.LayoutParams(-1,dp(150)))
-            val appearance=EditText(this).apply { hint="‡∏•‡∏±‡∏Å‡∏©‡∏ì‡∏∞‡∏à‡∏≤‡∏Å‡∏†‡∏≤‡∏û ‡πÄ‡∏ä‡πà‡∏ô ‡∏ú‡∏π‡πâ‡∏´‡∏ç‡∏¥‡∏á‡∏ú‡∏°‡∏™‡∏±‡πâ‡∏ô‡∏õ‡∏£‡∏∞‡∏ö‡πà‡∏≤"; setText(person.optString("visual_description")); panel.addView(this) }
-            val position=EditText(this).apply { hint="‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á‡∏à‡∏≤‡∏Å‡∏†‡∏≤‡∏û ‡πÄ‡∏ä‡πà‡∏ô ‡∏ã‡πâ‡∏≤‡∏¢ / ‡∏Å‡∏•‡∏≤‡∏á / ‡∏Ç‡∏ß‡∏≤"; setText(person.optString("screen_position")); panel.addView(this) }
-            appearance to position
-        }
-        val checks=listOf("‡∏ï‡∏£‡∏ß‡∏à‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ‡∏ú‡∏° ‡πÅ‡∏•‡∏∞‡∏ï‡∏±‡∏ß‡∏ï‡∏ô‡∏ï‡∏£‡∏á MASTER ‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô‡πÅ‡∏•‡πâ‡∏ß","‡∏ï‡∏£‡∏ß‡∏à‡∏£‡∏π‡∏õ‡∏£‡πà‡∏≤‡∏á ‡∏´‡∏ô‡πâ‡∏≤‡∏≠‡∏Å ‡πÄ‡∏≠‡∏ß ‡∏™‡∏∞‡πÇ‡∏û‡∏Å ‡πÅ‡∏•‡∏∞‡πÅ‡∏Ç‡∏ô‡∏ï‡∏≤‡∏°‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö‡πÅ‡∏•‡πâ‡∏ß","‡∏ï‡∏£‡∏ß‡∏à‡∏ä‡∏∏‡∏î ‡∏™‡∏µ‡∏†‡∏≤‡∏û ‡∏°‡∏∑‡∏≠ ‡πÅ‡∏•‡∏∞‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå‡πÅ‡∏•‡πâ‡∏ß","‡∏ï‡∏£‡∏ß‡∏à‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á‡πÅ‡∏•‡∏∞‡∏ú‡∏π‡πâ‡∏û‡∏π‡∏î‡πÉ‡∏ô‡∏†‡∏≤‡∏û‡∏à‡∏£‡∏¥‡∏á‡πÅ‡∏•‡πâ‡∏ß").map { label -> CheckBox(this).apply { text=label; panel.addView(this) } }
-        val speaker=EditText(this).apply { hint="‡∏ú‡∏π‡πâ‡∏û‡∏π‡∏î‡∏´‡∏ô‡∏∂‡πà‡∏á‡∏Ñ‡∏ô (‡∏ä‡∏∑‡πà‡∏≠‡πÉ‡∏ô‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£) ‡∏´‡∏£‡∏∑‡∏≠‡∏ß‡πà‡∏≤‡∏á‡πÄ‡∏°‡∏∑‡πà‡∏≠‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ö‡∏ó‡∏û‡∏π‡∏î"; setText(s.optString("speaker")); panel.addView(this) }
-        val dialog=AlertDialog.Builder(this).setTitle("‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å ‚Ä¢ ${key(s)}")
-            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡πÄ‡∏õ‡∏¥‡∏î‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á",null).setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).create()
-        dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-            if(checks.any { !it.isChecked }) { notice("‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏ó‡∏≥‡πÄ‡∏Ñ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏´‡∏°‡∏≤‡∏¢‡πÉ‡∏´‡πâ‡∏Ñ‡∏£‡∏ö‡∏Å‡πà‡∏≠‡∏ô‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô"); return@setOnClickListener }
-            val candidate=JSONObject(s.toString())
-            val people=candidate.getJSONArray("characters")
-            descriptions.forEachIndexed { i, fields -> people.getJSONObject(i).put("visual_description",fields.first.text.toString().trim()).put("screen_position",fields.second.text.toString().trim()) }
-            candidate.put("speaker",speaker.text.toString().trim())
-            val issues=FlowScenePrompt.issues(flowSpec(candidate))
-            if (issues.isNotEmpty()) notice(issues.joinToString("\n")) else {
-                s.put("characters",people).put("speaker",candidate.optString("speaker")).put("flow_image_revision",image(s).lastModified())
-                val approved=runCatching { SceneFrameReview.approve(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) },frameReviewFacts(s)) }
-                if(approved.isFailure) { notice(approved.exceptionOrNull()?.message ?: "‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ"); return@setOnClickListener }
-                saveStory(); dialog.dismiss(); reviewedVideoCommand(s)
-            }
-        } }
-        dialog.show()
-    }
-    private fun sceneMenu(s: JSONObject) {
-        rememberScene(s)
-        flowSceneMenu(s)
-    }
-    private fun imageRequestResult(scene: JSONObject) {
-        val requests=File(project,"image_requests").listFiles()?.filter { it.extension=="json" }?.mapNotNull { file ->
-            runCatching { file to JSONObject(file.readText()) }.getOrNull()
-        }?.filter { it.second.optString("scene")==key(scene) } ?: emptyList()
-        val latest=requests.maxByOrNull { it.second.optLong("created_at") } ?: return notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏ó‡∏µ‡πà‡∏™‡πà‡∏á‡∏à‡∏≤‡∏Å‡∏£‡∏∏‡πà‡∏ô‡∏ô‡∏µ‡πâ‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡∏â‡∏≤‡∏Å‡∏ô‡∏µ‡πâ")
-        val (file,request)=latest
-        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-        panel.addView(TextView(this).apply { text="‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏ó‡∏µ‡πà‡πÄ‡∏õ‡∏¥‡∏î‡∏™‡πà‡∏á‡∏•‡πà‡∏≤‡∏™‡∏∏‡∏î\n${request.optJSONArray("attachments")}\n${request.optString("text")}\n‡∏ú‡∏•‡∏ó‡∏µ‡πà‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å: ${request.optString("result","‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å")}\n${request.optString("provider_message")}"; setTextIsSelectable(true) })
-        val message=EditText(this).apply { hint="‡∏ß‡∏≤‡∏á‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ï‡∏≠‡∏ö‡∏Å‡∏•‡∏±‡∏ö‡∏´‡∏£‡∏∑‡∏≠‡∏Ç‡πâ‡∏≠‡∏ú‡∏¥‡∏î‡∏û‡∏•‡∏≤‡∏î‡∏à‡∏£‡∏¥‡∏á‡∏à‡∏≤‡∏Å ChatGPT"; setText(request.optString("provider_message")); minLines=3 }
-        panel.addView(message)
-        fun record(result: String) {
-            request.put("result",result).put("provider_message",message.text.toString()).put("reported_by","user").put("reported_at",System.currentTimeMillis())
-            file.writeText(request.toString(2)); notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏ú‡∏•‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏ö‡∏ó ‡∏ä‡∏∏‡∏î ‡πÅ‡∏•‡∏∞ MASTER ‡∏¢‡∏±‡∏á‡∏Ñ‡∏á‡πÄ‡∏î‡∏¥‡∏°")
-        }
-        AlertDialog.Builder(this).setTitle("‡∏ú‡∏•‡∏à‡∏≤‡∏Å ChatGPT ‚Ä¢ ${key(scene)}")
-            .setMessage("‡πÅ‡∏≠‡∏õ‡πÑ‡∏°‡πà‡∏™‡∏≤‡∏°‡∏≤‡∏£‡∏ñ‡∏≠‡πà‡∏≤‡∏ô‡∏ú‡∏•‡∏à‡∏≤‡∏Å‡∏´‡∏ô‡πâ‡∏≤‡πÅ‡∏ä‡∏£‡πå‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏ï‡∏≤‡∏°‡∏ó‡∏µ‡πà‡πÄ‡∏´‡πá‡∏ô ‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏™‡∏≤‡πÄ‡∏´‡∏ï‡∏∏‡πÅ‡∏ó‡∏ô‡∏£‡∏∞‡∏ö‡∏ö")
-            .setView(ScrollView(this).apply { addView(panel) })
-            .setPositiveButton("‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÑ‡∏î‡πâ") { _,_ -> record("created_reported") }
-            .setNeutralButton("‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") { _,_ -> record("failed_reported") }
-            .setNegativeButton("‡∏õ‡∏¥‡∏î",null).showDirector()
-    }
-    private fun bodyReviewStatus(s: JSONObject, person: JSONObject): String {
-        val file=image(s); val master=masterFor(person)
-        if(!file.exists() || !master.exists()) return "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏†‡∏≤‡∏û‡∏Ñ‡∏£‡∏ö‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡∏ï‡∏£‡∏ß‡∏à"
-        val record=s.optJSONObject("body_reviews")?.optJSONObject(memoryId(person)) ?: return "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏ï‡∏£‡∏ß‡∏à‡∏£‡∏π‡∏õ‡∏£‡πà‡∏≤‡∏á"
-        val stamp=BodyReviewStamp(record.optString("scene_hash"),record.optString("master_hash"),record.optString("outfit"))
-        return if(stamp.matches(EpisodeMedia.digest(file),EpisodeMedia.digest(master),sceneWardrobe(s,person)))
-            "${record.optString("result")} ‚Ä¢ ${record.optString("note")}" else "‡∏ú‡∏•‡∏ï‡∏£‡∏ß‡∏à‡πÄ‡∏Å‡πà‡∏≤ ‚Ä¢ ‡∏†‡∏≤‡∏û MASTER ‡∏´‡∏£‡∏∑‡∏≠‡∏ä‡∏∏‡∏î‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô ‡∏ï‡πâ‡∏≠‡∏á‡∏ï‡∏£‡∏ß‡∏à‡πÉ‡∏´‡∏°‡πà"
-    }
-    private fun sceneBodyCheck(s: JSONObject, review: Boolean) {
-        val cast=s.optJSONArray("characters") ?: return notice("‡∏â‡∏≤‡∏Å‡∏ô‡∏µ‡πâ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£")
-        if(cast.length()==0) return notice("‡∏â‡∏≤‡∏Å‡∏ô‡∏µ‡πâ‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£")
-        choiceMenu(if(review) "‡∏ï‡∏£‡∏ß‡∏à‡∏£‡∏π‡∏õ‡∏£‡πà‡∏≤‡∏á‡πÄ‡∏ó‡∏µ‡∏¢‡∏ö MASTER" else "‡∏ó‡∏î‡∏™‡∏≠‡∏ö‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô‡∏Å‡πà‡∏≠‡∏ô‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏â‡∏≤‡∏Å",(0 until cast.length()).map { cast.getJSONObject(it).optString("name") }) { i ->
-            val person=cast.getJSONObject(i); val master=masterFor(person); val name=person.optString("name")
-            if(!master.exists()) { notice("‡∏Ç‡∏≤‡∏î MASTER ‡∏Ç‡∏≠‡∏á $name"); return@choiceMenu }
-            if(!review) {
-                val exported=masterExportName(master,person.optString("master").startsWith("CHARACTER",true)) ?: return@choiceMenu
-                val command=BodyReferencePolicy.singleCheck(name,exported,if(detailedImageProfiles) memoryBrief(person) else "",sceneWardrobe(s,person),plan?.optString("aspect_ratio","9:16") ?: "9:16")
-                shareText(command,includeMasters=false,referenceImages=listOf(exported.substringBeforeLast('.') to master))
-            } else {
-                if(!image(s).exists()) { notice("‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏Å‡πà‡∏≠‡∏ô‡∏ï‡∏£‡∏ß‡∏à"); return@choiceMenu }
-                val sceneHash=EpisodeMedia.digest(image(s)); val masterHash=EpisodeMedia.digest(master); val outfit=sceneWardrobe(s,person)
-                val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
-                listOf("MASTER ‚Ä¢ $name" to master, "‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å ‚Ä¢ ${key(s)}" to image(s)).forEach { (label,file) ->
-                    panel.addView(TextView(this).apply { text=label })
-                    panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(320)); setOnClickListener { fullImage(file,label) } })
-                }
-                panel.addView(TextView(this).apply { text="‡πÄ‡∏ó‡∏µ‡∏¢‡∏ö‡πÑ‡∏´‡∏•‡πà ‡∏ó‡∏£‡∏ß‡∏á‡∏≠‡∏Å‚Äì‡πÄ‡∏≠‡∏ß ‡∏™‡∏∞‡πÇ‡∏û‡∏Å ‡∏Ñ‡∏ß‡∏≤‡∏°‡∏¢‡∏≤‡∏ß‡∏•‡∏≥‡∏ï‡∏±‡∏ß‡πÅ‡∏•‡∏∞‡πÅ‡∏Ç‡∏ô‡∏Ç‡∏≤‡∏ó‡∏µ‡πà‡πÄ‡∏´‡πá‡∏ô ‡πÇ‡∏î‡∏¢‡∏Ñ‡∏≥‡∏ô‡∏∂‡∏á‡∏ñ‡∏∂‡∏á‡∏ä‡∏∏‡∏î ‡∏ó‡πà‡∏≤‡∏ó‡∏≤‡∏á‡πÅ‡∏•‡∏∞‡∏°‡∏∏‡∏°‡∏Å‡∏•‡πâ‡∏≠‡∏á ‡πÑ‡∏°‡πà‡∏õ‡∏£‡∏∞‡πÄ‡∏°‡∏¥‡∏ô‡∏à‡∏≤‡∏Å‡∏Ç‡∏ô‡∏≤‡∏î‡πÉ‡∏ô‡πÄ‡∏ü‡∏£‡∏°‡∏≠‡∏¢‡πà‡∏≤‡∏á‡πÄ‡∏î‡∏µ‡∏¢‡∏ß\n${bodyReviewStatus(s,person)}" })
-                val note=EditText(this).apply { hint="‡∏à‡∏∏‡∏î‡∏ó‡∏µ‡πà‡∏Ñ‡∏•‡∏≤‡∏î‡πÄ‡∏Ñ‡∏•‡∏∑‡πà‡∏≠‡∏ô‡∏´‡∏£‡∏∑‡∏≠‡∏°‡∏≠‡∏á‡πÑ‡∏°‡πà‡πÄ‡∏´‡πá‡∏ô ‡πÄ‡∏ä‡πà‡∏ô ‡πÄ‡∏≠‡∏ß‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô / ‡πÅ‡∏Ç‡∏ô‡∏ö‡∏±‡∏á‡∏•‡∏≥‡∏ï‡∏±‡∏ß"; panel.addView(this) }
-                fun save(result: String) {
-                    if(EpisodeMedia.digest(image(s))!=sceneHash || EpisodeMedia.digest(master)!=masterHash || sceneWardrobe(s,person)!=outfit) { notice("‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏õ‡∏¥‡∏î‡∏ï‡∏£‡∏ß‡∏à‡πÉ‡∏´‡∏°‡πà"); return }
-                    val records=s.optJSONObject("body_reviews") ?: JSONObject()
-                    records.put(memoryId(person),JSONObject().put("scene_hash",sceneHash).put("master_hash",masterHash).put("outfit",outfit).put("result",result).put("note",note.text.toString().trim()).put("reviewed_at",System.currentTimeMillis()))
-                    s.put("body_reviews",records)
-                    if(result!="‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏ï‡∏£‡∏ß‡∏à‡∏ß‡πà‡∏≤‡∏ï‡∏£‡∏á") { s.put("user_review","needs_revision"); s.remove("flow_image_revision") }
-                    saveStory(); notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏ú‡∏•‡∏ï‡∏£‡∏ß‡∏à‡∏Ç‡∏≠‡∏á $name ‡πÅ‡∏•‡πâ‡∏ß")
-                }
-                AlertDialog.Builder(this).setTitle("‡∏£‡∏π‡∏õ‡∏£‡πà‡∏≤‡∏á ‚Ä¢ $name").setView(ScrollView(this).apply { addView(panel) })
-                    .setPositiveButton("‡∏ï‡∏£‡∏á‡∏ï‡∏≤‡∏°‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á") { _,_ -> save("‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏ï‡∏£‡∏ß‡∏à‡∏ß‡πà‡∏≤‡∏ï‡∏£‡∏á") }
-                    .setNegativeButton("‡∏ï‡πâ‡∏≠‡∏á‡πÅ‡∏Å‡πâ") { _,_ -> save("‡∏ï‡πâ‡∏≠‡∏á‡πÅ‡∏Å‡πâ") }
-                    .setNeutralButton("‡∏°‡∏≠‡∏á‡πÑ‡∏°‡πà‡∏ä‡∏±‡∏î") { _,_ -> save("‡∏¢‡∏±‡∏á‡∏õ‡∏£‡∏∞‡πÄ‡∏°‡∏¥‡∏ô‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }.showDirector()
-            }
-        }
-    }
-    private fun compareScene(s: JSONObject) {
-        val panel = LinearLayout(this).apply { orientation = 1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
-        fun picture(title: String, file: File) {
-            panel.addView(TextView(this).apply { text = title; textSize = 15f; setTypeface(null,Typeface.BOLD) })
-            if (file.exists()) panel.addView(ImageView(this).apply {
-                setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds = true
-                layoutParams = LinearLayout.LayoutParams(-1,dp(280))
-                setOnClickListener { fullImage(file,title) }
-            }) else panel.addView(TextView(this).apply { text = "‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡πÑ‡∏ü‡∏•‡πå" })
-        }
-        val cast = s.optJSONArray("characters") ?: JSONArray()
-        for (i in 0 until cast.length()) {
-            val person = cast.getJSONObject(i); picture("MASTER ‚Ä¢ ${person.optString("name")} ‚Ä¢ ${bodyReviewStatus(s,person)}",masterFor(person))
-        }
-        picture("‡∏ú‡∏•‡∏•‡∏±‡∏û‡∏ò‡πå ‚Ä¢ ${key(s)} ‚Ä¢ ${s.optString("user_review","‡∏£‡∏≠‡∏ï‡∏£‡∏ß‡∏à")}",image(s))
-        panel.addView(TextView(this).apply { text = "‡∏ï‡∏£‡∏ß‡∏à‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ‡∏ú‡∏° ‡∏£‡∏π‡∏õ‡∏£‡πà‡∏≤‡∏á ‡∏ä‡∏∏‡∏î ‡πÅ‡∏•‡∏∞‡∏°‡∏∑‡∏≠‡πÄ‡∏ó‡∏µ‡∏¢‡∏ö MASTER ‚Ä¢ ‡πÉ‡∏´‡πâ‡∏ú‡∏π‡πâ‡πÉ‡∏ä‡πâ‡∏õ‡∏£‡∏∞‡πÄ‡∏°‡∏¥‡∏ô‡∏à‡∏≤‡∏Å‡∏†‡∏≤‡∏û‡∏à‡∏£‡∏¥‡∏á\n${sceneCastDescription(s)}\n${s.optString("action")}\n${s.optString("dialogue")}" })
-        AlertDialog.Builder(this).setTitle("‡πÄ‡∏õ‡∏£‡∏µ‡∏¢‡∏ö‡πÄ‡∏ó‡∏µ‡∏¢‡∏ö‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡πâ‡∏ß / ‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏†‡∏≤‡∏û") { _,_ -> mapFlowCharacters(s) }.setNeutralButton("‡πÅ‡∏Å‡πâ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏£‡∏≤‡∏¢‡∏Ñ‡∏ô") { _,_ -> repairSceneCharacter(s) }.setNegativeButton("‡∏õ‡∏¥‡∏î",null).showDirector()
-    }
-    private fun fullImage(file: File, title: String) {
-        val imageView = ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds = true; scaleType = ImageView.ScaleType.FIT_CENTER }
-        val dialog = AlertDialog.Builder(this).setTitle(title).setView(imageView).setPositiveButton("‡∏õ‡∏¥‡∏î",null).create()
-        dialog.show(); dialog.window?.setLayout(-1,-1)
-    }
-    private fun editScene(s: JSONObject) {
-        val draftFile=File(project,"drafts/${key(s)}.json")
-        val draft=runCatching { if(draftFile.exists()) JSONObject(draftFile.readText()) else s }.getOrDefault(s)
-        val previousGroup=s.optString("continuity_group")
-        val fields = listOf("action" to "‡πÄ‡∏´‡∏ï‡∏∏‡∏Å‡∏≤‡∏£‡∏ì‡πå", "dialogue" to "‡∏ö‡∏ó‡∏û‡∏π‡∏î", "speaker" to "‡∏ú‡∏π‡πâ‡∏û‡∏π‡∏î", "narration" to "‡πÄ‡∏™‡∏µ‡∏¢‡∏á‡∏ö‡∏£‡∏£‡∏¢‡∏≤‡∏¢", "location" to "‡∏™‡∏ñ‡∏≤‡∏ô‡∏ó‡∏µ‡πà", "continuity_group" to "‡∏Å‡∏•‡∏∏‡πà‡∏°‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ï‡πà‡∏≠‡πÄ‡∏ô‡∏∑‡πà‡∏≠‡∏á", "props" to "‡∏≠‡∏∏‡∏õ‡∏Å‡∏£‡∏ì‡πå", "story_time" to "‡πÄ‡∏ß‡∏•‡∏≤‡πÉ‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á", "story_day" to "‡∏ß‡∏±‡∏ô‡πÉ‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á ‡πÄ‡∏ä‡πà‡∏ô DAY01", "activity" to "‡∏Å‡∏¥‡∏à‡∏Å‡∏£‡∏£‡∏° ‡πÄ‡∏ä‡πà‡∏ô meeting / home / sleep", "wardrobe_event" to "‡∏ä‡πà‡∏ß‡∏á‡∏ä‡∏∏‡∏î ‡πÄ‡∏ä‡πà‡∏ô DAY01_MEETING", "image_prompt" to "‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏†‡∏≤‡∏û", "framing" to "‡∏£‡∏∞‡∏¢‡∏∞‡∏†‡∏≤‡∏û (‡∏ß‡πà‡∏≤‡∏á = ‡∏ï‡∏≤‡∏°‡∏Å‡∏≤‡∏£‡∏Å‡∏£‡∏∞‡∏ó‡∏≥)", "lighting" to "‡πÅ‡∏™‡∏á‡∏ï‡∏≤‡∏°‡∏â‡∏≤‡∏Å", "flow_prompt" to "VIDEO PROMPT (‡πÅ‡∏Å‡πâ‡πÉ‡∏´‡πâ‡∏ï‡∏£‡∏á‡∏Å‡∏±‡∏ö‡∏ö‡∏ó‡πÅ‡∏•‡∏∞‡∏ä‡∏∏‡∏î‡∏õ‡∏±‡∏à‡∏à‡∏∏‡∏ö‡∏±‡∏ô)", "flow_action" to "‡∏Å‡∏≤‡∏£‡∏Å‡∏£‡∏∞‡∏ó‡∏≥‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠ (English)", "start_state" to "‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞‡∏ï‡πâ‡∏ô‡∏â‡∏≤‡∏Å", "end_state" to "‡∏™‡∏ñ‡∏≤‡∏ô‡∏∞‡∏ó‡πâ‡∏≤‡∏¢‡∏â‡∏≤‡∏Å")
-        val panel = LinearLayout(this).apply { orientation = 1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
-        val inputs = fields.map { (key,label) -> key to EditText(this).apply { hint = label; setText(draft.optString(key,s.optString(key))); panel.addView(this) } }
-        val turnInput=EditText(this).apply {
-            hint="‡∏ö‡∏ó‡∏™‡∏ô‡∏ó‡∏ô‡∏≤‡∏´‡∏•‡∏≤‡∏¢‡∏Ñ‡∏ô: ‡∏ä‡∏∑‡πà‡∏≠‡∏ú‡∏π‡πâ‡∏û‡∏π‡∏î: ‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏° (‡∏´‡∏ô‡∏∂‡πà‡∏á‡∏ö‡∏£‡∏£‡∏ó‡∏±‡∏î‡∏ï‡πà‡∏≠‡∏´‡∏ô‡∏∂‡πà‡∏á‡∏ä‡πà‡∏ß‡∏á) ‚Ä¢ ‡πÄ‡∏ß‡πâ‡∏ô‡∏ö‡∏ó‡πÄ‡∏î‡∏µ‡πà‡∏¢‡∏ß‡πÅ‡∏•‡∏∞‡∏ö‡∏£‡∏£‡∏¢‡∏≤‡∏¢‡πÉ‡∏´‡πâ‡∏ß‡πà‡∏≤‡∏á"
-            setText(draft.optString("dialogue_turns_draft").ifBlank { ProductionCommandCheck.dialogueTurns(draft).joinToString("\n") { "${it.speaker}: ${it.text}" } })
-            minLines=2; panel.addView(this)
-        }
-        val cast = s.optJSONArray("characters") ?: JSONArray()
-        val outfits = (0 until cast.length()).map { i -> i to EditText(this).apply {
-            hint = "‡∏ä‡∏∏‡∏î ${cast.getJSONObject(i).optString("name")}"; setText(draft.optJSONArray("characters")?.optJSONObject(i)?.optString("outfit") ?: cast.getJSONObject(i).optString("outfit")); panel.addView(this)
-        } }
-        val positions=(0 until cast.length()).map { i -> i to EditText(this).apply {
-            hint="‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á ${cast.getJSONObject(i).optString("name")} ‡πÄ‡∏ä‡πà‡∏ô left / center / right"
-            setText(draft.optJSONArray("characters")?.optJSONObject(i)?.optString("screen_position") ?: cast.getJSONObject(i).optString("screen_position")); panel.addView(this)
-        } }
-        val soundInputs=listOf("ambience","sfx","music").map { field -> field to EditText(this).apply {
-            hint="‡πÄ‡∏™‡∏µ‡∏¢‡∏á $field (‡∏£‡∏∞‡∏ö‡∏∏ none ‡πÄ‡∏°‡∏∑‡πà‡∏≠‡πÑ‡∏°‡πà‡∏°‡∏µ)"; setText(draft.optJSONObject("sound_design")?.optString(field).orEmpty()); panel.addView(this)
-        } }
-        fun persistDraft() {
-            val copy=JSONObject(s.toString())
-            inputs.forEach { (key,input) -> copy.put(key,input.text.toString()) }
-            copy.put("dialogue_turns_draft",turnInput.text.toString())
-            val people=copy.optJSONArray("characters")
-            outfits.forEach { (i,input) -> people?.optJSONObject(i)?.put("outfit",input.text.toString()) }
-            positions.forEach { (i,input) -> people?.optJSONObject(i)?.put("screen_position",input.text.toString()) }
-            if(soundInputs.any { it.second.text.isNotBlank() }) copy.put("sound_design",JSONObject().apply { soundInputs.forEach { (field,input) -> put(field,input.text.toString().ifBlank { "none" }) } })
-            draftFile.parentFile!!.mkdirs(); draftFile.writeText(copy.toString(2))
-        }
-        val watcher=object : android.text.TextWatcher {
-            override fun beforeTextChanged(text: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(text: CharSequence?, start: Int, before: Int, count: Int) { persistDraft() }
-            override fun afterTextChanged(text: android.text.Editable?) {}
-        }
-        (inputs.map { it.second }+outfits.map { it.second }+positions.map { it.second }+soundInputs.map { it.second }+turnInput).forEach { it.addTextChangedListener(watcher) }
-        AlertDialog.Builder(this).setTitle("‡πÅ‡∏Å‡πâ‡∏ö‡∏ó ${key(s)} ‚Ä¢ ‡πÄ‡∏Å‡πá‡∏ö‡∏£‡πà‡∏≤‡∏á‡∏≠‡∏±‡∏ï‡πÇ‡∏ô‡∏°‡∏±‡∏ï‡∏¥")
-            .setView(ScrollView(this).apply { addView(panel) })
-            .setPositiveButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å") { _,_ ->
-                if(inputs.any { it.first in listOf("action","image_prompt","flow_prompt") && it.second.text.isBlank() }) { notice("‡πÄ‡∏´‡∏ï‡∏∏‡∏Å‡∏≤‡∏£‡∏ì‡πå ‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏†‡∏≤‡∏û ‡πÅ‡∏•‡∏∞‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow ‡∏ï‡πâ‡∏≠‡∏á‡πÑ‡∏°‡πà‡∏ß‡πà‡∏≤‡∏á"); return@setPositiveButton }
-                val turnLines=turnInput.text.toString().lines().map { it.trim() }.filter { it.isNotBlank() }
-                if(turnLines.any { ':' !in it || it.substringBefore(':').isBlank() || it.substringAfter(':').isBlank() }) { notice("‡πÅ‡∏ï‡πà‡∏•‡∏∞‡∏ö‡∏£‡∏£‡∏ó‡∏±‡∏î‡∏ï‡πâ‡∏≠‡∏á‡πÄ‡∏õ‡πá‡∏ô ‡∏ä‡∏∑‡πà‡∏≠‡∏ú‡∏π‡πâ‡∏û‡∏π‡∏î: ‡∏Ç‡πâ‡∏≠‡∏Ñ‡∏ß‡∏≤‡∏°"); return@setPositiveButton }
-                val turns=JSONArray().apply { turnLines.forEach { line -> put(JSONObject().put("speaker",line.substringBefore(':').trim()).put("text",line.substringAfter(':').trim())) } }
-                val candidate=JSONObject(s.toString())
-                inputs.forEach { (key,input) -> candidate.put(key,input.text.toString().trim()) }
-                candidate.put("dialogue_turns",turns)
-                if(turnLines.isNotEmpty()) {
-                    val turnIssues=FlowScenePrompt.issues(ProductionCommandCheck.spec(candidate)).filter { it.contains("‡∏ö‡∏ó‡∏™‡∏ô‡∏ó‡∏ô‡∏≤") || it.contains("‡∏ú‡∏π‡πâ‡∏û‡∏π‡∏î‡∏•‡∏≥‡∏î‡∏±‡∏ö") }
-                    if(turnIssues.isNotEmpty()) { notice(turnIssues.joinToString("\n")); return@setPositiveButton }
-                }
-                inputs.forEach { (key,input) -> s.put(key,input.text.toString().trim()) }
-                if(turns.length()>0) {
-                    s.put("dialogue_turns",turns)
-                    val speakers=ProductionCommandCheck.dialogueTurns(s).map { it.speaker }.toSet()
-                    FlowReferencePrompt.people(s).filter { it.optString("name") in speakers }.forEach { person ->
-                        person.optJSONObject("performance")?.let { performance -> if(performance.optString("voice")=="silent") performance.put("voice","natural Thai dialogue") }
-                    }
-                } else s.remove("dialogue_turns")
-                outfits.forEach { (i,input) -> cast.getJSONObject(i).put("outfit",input.text.toString().trim()) }
-                PerformanceDirection.normalizeSilentVoices(s)
-                positions.forEach { (i,input) -> cast.getJSONObject(i).put("screen_position",input.text.toString().trim()) }
-                if(soundInputs.any { it.second.text.isNotBlank() }) s.put("sound_design",JSONObject().apply { soundInputs.forEach { (field,input) -> put(field,input.text.toString().trim().ifBlank { "none" }) } })
-                val group = s.optString("continuity_group")
-                val affected = rows(plan!!).filter { key(it) == key(s) || (group.isNotBlank() && it.optString("continuity_group") == group || previousGroup.isNotBlank() && it.optString("continuity_group") == previousGroup) }
-                affected.forEach { it.put("user_review","needs_revision"); it.remove("flow_image_revision") }; saveStory(); draftFile.delete(); render()
-                notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏ß‡∏≤‡∏°‡∏ï‡πà‡∏≠‡πÄ‡∏ô‡∏∑‡πà‡∏≠‡∏á ${affected.joinToString { key(it) }}\n‡πÄ‡∏Å‡πá‡∏ö‡∏†‡∏≤‡∏û‡πÅ‡∏•‡∏∞‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠‡πÄ‡∏î‡∏¥‡∏°‡πÑ‡∏ß‡πâ‡πÅ‡∏•‡πâ‡∏ß ‡∏ï‡πâ‡∏≠‡∏á‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á Flow ‡πÉ‡∏´‡πâ‡∏ï‡∏£‡∏á‡∏ö‡∏ó‡∏ó‡∏µ‡πà‡πÅ‡∏Å‡πâ")
-            }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-    }
-    private fun masterFor(person: JSONObject): File {
-        if (person.optString("master").startsWith("CHARACTER",true)) {
-            val requested=person.optString("master"); val exact=File(project,"masters/$requested")
-            return if(exact.exists()) exact else File(project,"masters").listFiles()?.firstOrNull { it.nameWithoutExtension.equals(requested.substringBeforeLast('.'),true) } ?: exact
-        }
-        val id = FlowCast.id(person) ?: return File(project,"missing.master")
-        val snapshot=File(project,"original_masters/$id.master")
-        val frozen=FlowCast.supporting(plan).any { it.optBoolean("auto_cast") && FlowCast.id(it)==id }
-        return if(frozen || snapshot.isFile) snapshot else File(filesDir,"character_masters/$id.master")
-    }
-    private fun chooseNamedCharacterGrid(title: String, items: List<Pair<String,File?>>, onSelect: (Int) -> Unit) {
-        val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-        val dialog=AlertDialog.Builder(this).setTitle(title).setView(ScrollView(this).apply { addView(grid) }).setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).create()
-        var row: LinearLayout?=null
-        items.forEachIndexed { index, (name,file) ->
-            if(index%2==0) { row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; grid.addView(row) }
-            val card=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(4),dp(6),dp(4),dp(6)); layoutParams=LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f) }
-            row?.addView(card)
-            if(file?.isFile==true) card.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(file)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(140)); contentDescription=name; setOnClickListener { fullImage(file,name) } })
-            card.addView(Button(this).apply { text=name+(if(file!=null && !file.isFile) "\n‡πÑ‡∏°‡πà‡∏û‡∏ö MASTER" else ""); setOnClickListener { dialog.dismiss(); onSelect(index) } })
-        }
-        dialog.show()
-    }
-    private fun chooseStoryCharacterGrid(title: String, people: List<JSONObject>, onSelect: (Int) -> Unit) {
-        val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-        val dialog=AlertDialog.Builder(this).setTitle(title).setView(ScrollView(this).apply { addView(grid) }).setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).create()
-        var row: LinearLayout?=null
-        people.forEachIndexed { index, person ->
-            if(index%2==0) { row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; grid.addView(row) }
-            val file=runCatching { masterFor(person) }.getOrNull()
-            val label=person.optString("name")+"\n"+person.optString("master")+(if(file?.isFile==true) "" else "\n‡πÑ‡∏°‡πà‡∏û‡∏ö MASTER")
-            val card=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(4),dp(6),dp(4),dp(6)); layoutParams=LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f) }
-            row?.addView(card)
-            if(file?.isFile==true) card.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(file)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(140)); contentDescription=label })
-            card.addView(Button(this).apply { text=label; setOnClickListener { dialog.dismiss(); onSelect(index) } })
-        }
-        dialog.show()
-    }
-    private fun repairSceneCharacter(s: JSONObject) {
-        if (!image(s).isFile) return notice("‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏Å‡πà‡∏≠‡∏ô‡πÅ‡∏Å‡πâ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£")
-        val people=FlowReferencePrompt.people(s)
-        if(people.isEmpty()) return notice("‡∏â‡∏≤‡∏Å‡∏ô‡∏µ‡πâ‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£")
-        chooseStoryCharacterGrid("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡∏ó‡∏µ‡πà‡∏ï‡πâ‡∏≠‡∏á‡∏Å‡∏≤‡∏£‡πÅ‡∏Å‡πâ",people) { index ->
-            val person=people[index]; val master=masterFor(person); val name=person.optString("name")
-            if(!master.isFile) { notice("‡∏Ç‡∏≤‡∏î MASTER ‡∏Ç‡∏≠‡∏á $name"); return@chooseStoryCharacterGrid }
-            val input=EditText(this).apply { hint="‡πÄ‡∏ä‡πà‡∏ô ‡∏õ‡∏£‡∏±‡∏ö‡∏ó‡∏£‡∏á‡∏ú‡∏°‡πÉ‡∏´‡πâ‡∏ï‡∏£‡∏á MASTER" }
-            AlertDialog.Builder(this).setTitle("‡πÅ‡∏Å‡πâ‡πÄ‡∏â‡∏û‡∏≤‡∏∞ $name ‚Ä¢ ${key(s)}").setView(input)
-                .setPositiveButton("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÅ‡∏≠‡∏õ‡πÅ‡∏•‡∏∞‡∏™‡πà‡∏á") { _,_ ->
-                    val change=input.text.toString().trim()
-                    if(change.isBlank()) { notice("‡∏£‡∏∞‡∏ö‡∏∏‡∏™‡∏¥‡πà‡∏á‡∏ó‡∏µ‡πà‡∏ï‡πâ‡∏≠‡∏á‡∏Å‡∏≤‡∏£‡πÅ‡∏Å‡πâ‡∏Å‡πà‡∏≠‡∏ô"); return@setPositiveButton }
-                    val id=referenceId(person.getString("master"))
-                    val sceneId=key(s)
-                    val command="""Edit the attached scene image $sceneId. The attached reference $id is the MASTER of $name, positioned ${person.optString("screen_position")}.
-Change only $name: $change. Match that person's face, hairstyle, skin tone and body proportions to their MASTER. Preserve all other people, their appearance and positions, clothing, background, lighting, text and composition. Keep the existing scene and props. Return one edited image. Review the actual result; identity matching is not guaranteed.""".trimIndent()
-                    shareImageCommand(command,listOf(id to master, sceneId to image(s)),mapOf(id to name,sceneId to "‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡πÄ‡∏î‡∏¥‡∏°"))
-                }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-        }
-    }
-    private fun repairScene(s: JSONObject) {
-        if (!image(s).exists()) return notice("‡∏ï‡πâ‡∏≠‡∏á‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡∏Å‡πà‡∏≠‡∏ô‡πÅ‡∏Å‡πâ‡∏†‡∏≤‡∏û")
-        val input = EditText(this).apply { hint = "‡∏™‡πà‡∏ß‡∏ô‡∏ó‡∏µ‡πà‡∏ï‡πâ‡∏≠‡∏á‡πÅ‡∏Å‡πâ ‡πÄ‡∏ä‡πà‡∏ô ‡∏ä‡∏∏‡∏î‡πÉ‡∏´‡∏°‡πà / ‡∏â‡∏≤‡∏Å‡∏´‡∏•‡∏±‡∏á / ‡πÅ‡∏™‡∏á‡πÅ‡∏•‡∏∞‡∏™‡∏µ" }
-        AlertDialog.Builder(this).setTitle("‡πÅ‡∏Å‡πâ‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡∏™‡πà‡∏ß‡∏ô ${key(s)}").setView(input).setPositiveButton("‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡∏∞‡∏™‡πà‡∏á") { _,_ ->
-            val change = input.text.toString().trim()
-            if (change.isBlank()) { notice("‡∏£‡∏∞‡∏ö‡∏∏‡∏™‡πà‡∏ß‡∏ô‡∏ó‡∏µ‡πà‡∏ï‡πâ‡∏≠‡∏á‡πÅ‡∏Å‡πâ‡∏Å‡πà‡∏≠‡∏ô"); return@setPositiveButton }
-            val cast = s.optJSONArray("characters") ?: JSONArray()
-            val refs = (0 until cast.length()).map { cast.getJSONObject(it) }.map { (masterExportName(masterFor(it),it.optString("master").startsWith("CHARACTER",true)) ?: it.optString("master")).substringBeforeLast('.') to masterFor(it) } + (key(s) to image(s))
-            shareText(ImagePromptPolicy.edit("‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å ${key(s)}",change,plan?.optString("aspect_ratio","9:16") ?: "9:16",
-                sceneCastDescription(s),"${key(s)}.png"),includeMasters=false,referenceImages=refs)
-        }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-    }
-    private var mediaSlot: String?
-        get() = prefs.getString("media_slot",null)
-        set(value) { prefs.edit().putString("media_slot",value).apply() }
-    private var mediaKind: String
-        get() = prefs.getString("media_kind","image")!!
-        set(value) { prefs.edit().putString("media_kind",value).apply() }
-    private var mediaProject: String
-        get() = prefs.getString("media_project",project.name)!!
-        set(value) { prefs.edit().putString("media_project",value).apply() }
-    private val sceneMediaPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        val id = mediaSlot
-        if (uri != null && id != null) {
-            val folder = File(base,mediaProject); val kind = mediaKind
-            val target = File(folder,if(kind == "video") "videos/$id.mp4" else "images/$id.img")
-            fun accept() { background {
-                target.parentFile!!.mkdirs(); val temp = File(target.parentFile,target.name+".pending")
-                try {
-                    contentResolver.openInputStream(uri)!!.use { input -> temp.outputStream().use { input.copyTo(it) } }
-                    require(temp.length() > 0) { "‡πÑ‡∏ü‡∏•‡πå‡∏ß‡πà‡∏≤‡∏á" }
-                    if (kind == "image") {
-                        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
-                        android.graphics.BitmapFactory.decodeFile(temp.path,bounds); require(bounds.outWidth > 0) { "‡∏≠‡πà‡∏≤‡∏ô‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" }
-                    } else {
-                        val retriever = android.media.MediaMetadataRetriever()
-                        try { retriever.setDataSource(temp.path); require(retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()?.let { it > 0 } == true) { "‡∏≠‡πà‡∏≤‡∏ô‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" } } finally { retriever.release() }
-                    }
-                    if (target.exists()) archiveVersion(target,folder,id,kind)
-                    check(temp.renameTo(target)) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" }
-                    val storyFile = File(folder,"story.json")
-                    val story = JSONObject(storyFile.readText()); rows(story).firstOrNull { key(it) == id }?.put("user_review","pending")
-                    storyFile.writeText(story.toString(2))
-                } finally { temp.delete() }
-            } }
-            AlertDialog.Builder(this).setTitle("‡∏ï‡∏£‡∏ß‡∏à‡πÑ‡∏ü‡∏•‡πå‡∏Å‡πà‡∏≠‡∏ô‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤").setMessage("${displayName(uri)} ‚Üí $id\n‡∏ä‡∏ô‡∏¥‡∏î: $kind\n${if(target.exists()) "‡πÑ‡∏ü‡∏•‡πå‡πÄ‡∏î‡∏¥‡∏°‡∏à‡∏∞‡πÄ‡∏Å‡πá‡∏ö‡πÄ‡∏õ‡πá‡∏ô‡πÄ‡∏ß‡∏≠‡∏£‡πå‡∏ä‡∏±‡∏ô‡∏Å‡πà‡∏≠‡∏ô‡πÅ‡∏ó‡∏ô" else "‡πÄ‡∏û‡∏¥‡πà‡∏°‡πÑ‡∏ü‡∏•‡πå‡πÉ‡∏´‡∏°‡πà"}")
-                .setPositiveButton("‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤") { _,_ -> accept() }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-        }
-        mediaSlot = null
-    }
-    private fun playVideo(s: JSONObject) {
-        val file = video(s); if (!file.exists()) return notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠‡∏â‡∏≤‡∏Å‡∏ô‡∏µ‡πâ ‚Ä¢ ‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÉ‡∏ô Flow ‡πÅ‡∏•‡πâ‡∏ß‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏Å‡∏•‡∏±‡∏ö")
-        val view = VideoView(this).apply {
-            setVideoPath(file.path); val controls = MediaController(this@StudioActivity); controls.setAnchorView(this); setMediaController(controls)
-            setOnPreparedListener { start() }; setOnErrorListener { _,_,_ -> notice("‡πÄ‡∏•‡πà‡∏ô‡πÑ‡∏ü‡∏•‡πå‡∏ô‡∏µ‡πâ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠ MP4 ‡∏ó‡∏µ‡πà‡∏£‡∏≠‡∏á‡∏£‡∏±‡∏ö"); true }
-        }
-        val dialog = AlertDialog.Builder(this).setTitle(key(s)).setView(view).setPositiveButton("‡∏õ‡∏¥‡∏î",null).create()
-        dialog.setOnDismissListener { view.stopPlayback() }; dialog.show(); dialog.window?.setLayout(-1,dp(560))
-    }
-    private fun versionsMenu(s: JSONObject) {
-        choiceMenu("‡πÄ‡∏ß‡∏≠‡∏£‡πå‡∏ä‡∏±‡∏ô ${key(s)}",listOf("‡∏†‡∏≤‡∏û", "‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠")) { choice ->
-            val kind = if(choice == 0) "image" else "video"
-            val files = File(project,"versions/${key(s)}/$kind").listFiles()?.sortedByDescending { it.lastModified() }.orEmpty()
-            choiceMenu("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏ß‡∏≠‡∏£‡πå‡∏ä‡∏±‡∏ô $kind",files.map { java.text.DateFormat.getDateTimeInstance().format(java.util.Date(it.lastModified())) }) { i ->
-                val source = files[i]; val target = if(kind == "image") image(s) else video(s)
-                AlertDialog.Builder(this).setMessage("‡πÉ‡∏ä‡πâ‡πÄ‡∏ß‡∏≠‡∏£‡πå‡∏ä‡∏±‡∏ô‡∏ô‡∏µ‡πâ? ‡πÄ‡∏ß‡∏≠‡∏£‡πå‡∏ä‡∏±‡∏ô‡∏õ‡∏±‡∏à‡∏à‡∏∏‡∏ö‡∏±‡∏ô‡∏à‡∏∞‡πÄ‡∏Å‡πá‡∏ö‡πÑ‡∏ß‡πâ")
-                    .setPositiveButton("‡πÉ‡∏ä‡πâ‡πÄ‡∏ß‡∏≠‡∏£‡πå‡∏ä‡∏±‡∏ô‡∏ô‡∏µ‡πâ") { _,_ ->
-                        if(target.exists()) archiveVersion(target,project,key(s),kind)
-                        target.parentFile!!.mkdirs(); source.copyTo(target,overwrite=true); s.put("user_review","pending"); saveStory(); render()
-                    }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-            }
-        }
-    }
-    private fun auditStory() {
-        val p = plan ?: return notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ö‡∏ó")
-        val report = rows(p).map { s ->
-            val cast = s.optJSONArray("characters") ?: JSONArray()
-            val absent = (0 until cast.length()).map { cast.getJSONObject(it) }.filter { !masterFor(it).exists() }.map { it.optString("name") }
-            "${key(s)} ‚Ä¢ ‡∏†‡∏≤‡∏û ${if(image(s).exists()) "‚úì" else "‡∏Ç‡∏≤‡∏î"} ‚Ä¢ ‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠ ${if(video(s).exists()) "‚úì" else "‡∏Ç‡∏≤‡∏î"} ‚Ä¢ ‡∏ï‡∏£‡∏ß‡∏à‡∏£‡∏±‡∏ö ${s.optString("user_review","‡∏£‡∏≠‡∏ï‡∏£‡∏ß‡∏à")}\n" +
-                (if(absent.isEmpty()) "" else "‡∏Ç‡∏≤‡∏î MASTER: ${absent.joinToString()}\n") +
-                (if(s.optString("dialogue").length > 55) "‡∏ï‡∏£‡∏ß‡∏à‡∏ö‡∏ó‡∏û‡∏π‡∏î: ‡∏≠‡∏≤‡∏à‡∏¢‡∏≤‡∏ß‡πÄ‡∏Å‡∏¥‡∏ô 8 ‡∏ß‡∏¥‡∏ô‡∏≤‡∏ó‡∏µ\n" else "")
-        }.joinToString("\n")
-        val text = TextView(this).apply { this.text = report; setTextIsSelectable(true); setPadding(dp(16),dp(12),dp(16),dp(12)) }
-        AlertDialog.Builder(this).setTitle("‡∏ï‡∏£‡∏ß‡∏à‡∏á‡∏≤‡∏ô ‚Ä¢ ${p.optString("title")}").setView(ScrollView(this).apply { addView(text) }).setPositiveButton("‡∏õ‡∏¥‡∏î",null).setNeutralButton("‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å") { _,_ -> copyCommand(report) }.showDirector()
-    }
-    private fun storiesMenu() {
-        val folders = base.listFiles()?.filter { File(it,"story.json").exists() || File(it,"gemini_job/spec.json").exists() }?.sortedByDescending { maxOf(File(it,"story.json").lastModified(),File(it,"gemini_job/status.json").lastModified()) }.orEmpty()
-        fun channelOf(folder: File): String = runCatching { JSONObject(File(folder,"story.json").readText()).optString("channel").trim() }.getOrDefault("").ifBlank {
-            runCatching { GeminiStoryFiles.read(File(folder,"gemini_job/spec.json")).optString("channel").trim() }.getOrDefault("")
-        }.let { name ->
-            when {
-                name.isBlank() -> "‡πÑ‡∏°‡πà‡∏£‡∏∞‡∏ö‡∏∏‡∏ä‡∏∑‡πà‡∏≠‡∏ä‡πà‡∏≠‡∏á"
-                name.replace(" ","")=="‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î" -> "‡∏ô‡∏≤‡∏¢‡πÄ‡∏õ‡∏µ‡∏¢ ‡∏ö‡πâ‡∏≤‡∏ô‡∏Ñ‡∏•‡∏≠‡∏á‡∏Ç‡∏∏‡∏î"
-                else -> ChannelCatalog.currentChannel(name)
-            }
-        }
-        if(folders.isEmpty()) { notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ó‡∏µ‡πà‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å"); return }
-        val channels=folders.map { channelOf(it) }.distinct().sorted()
-        choiceMenu("üìö ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏ä‡∏∑‡πà‡∏≠‡∏ä‡πà‡∏≠‡∏á",channels.map { channel -> "$channel ‚Ä¢ ${folders.count { channelOf(it)==channel }} ‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á" }) { selected ->
-        val chosen=channels[selected]; val grouped=folders.filter { channelOf(it)==chosen }
-        choiceMenu("üìö $chosen",grouped.map { f ->
-            runCatching { JSONObject(File(f,"story.json").readText()).optString("title") }.getOrElse { runCatching { GeminiStoryFiles.read(File(f,"gemini_job/outline.json")).getString("title")+" ‚Ä¢ ‡∏¢‡∏±‡∏á‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡πÑ‡∏°‡πà‡∏à‡∏ö" }.getOrDefault("‡∏á‡∏≤‡∏ô‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ö‡∏ó‡∏ó‡∏µ‡πà‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏à‡∏ö") } + if(File(f,"archived").exists()) " ‚Ä¢ ‡πÄ‡∏Å‡πá‡∏ö‡πÅ‡∏•‡πâ‡∏ß" else ""
-        }) { i ->
-            prefs.edit().putString("project",grouped[i].name).apply(); render()
-            if(plan==null) { geminiJobMenu(); return@choiceMenu }
-            choiceMenu("‡∏à‡∏±‡∏î‡∏Å‡∏≤‡∏£‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á",listOf("‚ñ∂ ‡∏ó‡∏≥‡∏ï‡πà‡∏≠", "‚úèÔ∏è ‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏ä‡∏∑‡πà‡∏≠", "üìë ‡∏ó‡∏≥‡∏™‡∏≥‡πÄ‡∏ô‡∏≤", "üìÅ ‡πÄ‡∏Å‡πá‡∏ö / ‡πÄ‡∏õ‡∏¥‡∏î‡πÉ‡∏ä‡πâ‡∏á‡∏≤‡∏ô", "üóëÔ∏è ‡∏•‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á")) { action -> when(action) {
-                0 -> resumeScene()
-                1 -> { val input = EditText(this).apply { setText(plan?.optString("title")) }
-                    AlertDialog.Builder(this).setTitle("‡∏ä‡∏∑‡πà‡∏≠‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á").setView(input).setPositiveButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å") { _,_ ->
-                        if(input.text.isNotBlank()) { plan?.put("title",input.text.toString().trim()); saveStory(); render() }
-                    }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector() }
-                2 -> background { val source = project; val target = File(base,UUID.randomUUID().toString()); check(source.copyRecursively(target))
-                    val p = JSONObject(File(target,"story.json").readText()); p.put("title",p.optString("title")+" (‡∏™‡∏≥‡πÄ‡∏ô‡∏≤)"); File(target,"story.json").writeText(p.toString(2)); prefs.edit().putString("project",target.name).commit() }
-                3 -> { val file = File(project,"archived"); if(file.exists()) file.delete() else file.writeText("archived"); render() }
-                4 -> { val folder = project; AlertDialog.Builder(this).setMessage("‡∏•‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÅ‡∏•‡∏∞‡πÑ‡∏ü‡∏•‡πå‡∏ó‡∏±‡πâ‡∏á‡∏´‡∏°‡∏î? ‡∏™‡∏≥‡∏£‡∏≠‡∏á ZIP ‡∏Å‡πà‡∏≠‡∏ô‡∏•‡∏ö")
-                    .setPositiveButton("‡∏•‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á") { _,_ -> folder.deleteRecursively(); prefs.edit().putString("project",UUID.randomUUID().toString()).apply(); render() }
-                    .setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector() }
-            } }
-        }
-        }
-    }
-    private fun settingsMenu() {
-        choiceMenu("‚öôÔ∏è ‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤‡πÅ‡∏•‡∏∞‡∏î‡∏π‡πÅ‡∏•‡∏á‡∏≤‡∏ô",listOf("üîÑ ‡∏≠‡∏±‡∏õ‡πÄ‡∏î‡∏ï‡πÅ‡∏≠‡∏õ", "üì¶ ‡∏™‡πà‡∏á‡∏≠‡∏≠‡∏Å‡∏á‡∏≤‡∏ô‡∏ó‡∏±‡πâ‡∏á‡∏´‡∏°‡∏î / ‡∏™‡∏≥‡∏£‡∏≠‡∏á", "üì• ‡∏Å‡∏π‡πâ‡∏Ñ‡∏∑‡∏ô‡∏ä‡∏∏‡∏î‡∏™‡∏≥‡∏£‡∏≠‡∏á", "üé≠ ‡∏ï‡∏±‡∏ß‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏î‡∏¥‡∏° / MASTER", "üíæ ‡∏û‡∏∑‡πâ‡∏ô‡∏ó‡∏µ‡πà‡πÅ‡∏•‡∏∞‡∏Ç‡πâ‡∏≠‡∏ú‡∏¥‡∏î‡∏û‡∏•‡∏≤‡∏î", "‚Ü∂ ‡∏Å‡∏π‡πâ‡∏Ñ‡∏∑‡∏ô‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô‡πÅ‡∏Å‡πâ‡∏•‡πà‡∏≤‡∏™‡∏∏‡∏î", "üéõÔ∏è ‡∏ï‡∏±‡πâ‡∏á‡∏Ñ‡πà‡∏≤‡∏Å‡∏≤‡∏£‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á", "üõü ‡∏™‡∏≥‡∏£‡∏≠‡∏á‡∏ó‡∏±‡πâ‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á ‡∏£‡∏ß‡∏° MASTER ‡πÅ‡∏•‡∏∞‡πÄ‡∏ß‡∏≠‡∏£‡πå‡∏ä‡∏±‡∏ô", "‚Üó ‡∏™‡πà‡∏á‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏•‡πà‡∏≤‡∏™‡∏∏‡∏î‡∏ã‡πâ‡∏≥")) { i -> when(i) {
-            0 -> updater.check()
-            1 -> { if(plan == null) notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ö‡∏ó") else { exportEpisode=null; backupMode=false; zipPicker.launch(StoryFiles.zipName(plan!!.optString("title"))) } }
-            2 -> restorePicker.launch(arrayOf("application/zip"))
-            3 -> toolsMenu()
-            4 -> { val used = base.walkTopDown().filter { it.isFile }.sumOf { it.length() }
-                val message = "DIRECTOR X ${packageManager.getPackageInfo(packageName,0).versionName}\n‡∏á‡∏≤‡∏ô‡∏ó‡∏±‡πâ‡∏á‡∏´‡∏°‡∏î ${used/1024/1024} MB\n‡∏û‡∏∑‡πâ‡∏ô‡∏ó‡∏µ‡πà‡∏ß‡πà‡∏≤‡∏á ${filesDir.usableSpace/1024/1024} MB\n‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á ${plan?.optString("title").orEmpty()}\n${File(filesDir,"last_error.txt").takeIf { it.exists() }?.readText().orEmpty()}"
-                AlertDialog.Builder(this).setMessage(message).setPositiveButton("‡∏õ‡∏¥‡∏î",null).setNeutralButton("‡∏Ñ‡∏±‡∏î‡∏•‡∏≠‡∏Å") { _,_ -> copyCommand(message) }.showDirector() }
-            5 -> { val previous=File(project,"story.previous.json"); if(!previous.exists()) notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô‡πÅ‡∏Å‡πâ") else AlertDialog.Builder(this).setMessage("‡∏Å‡∏π‡πâ‡∏Ñ‡∏∑‡∏ô‡∏ö‡∏ó‡∏Å‡πà‡∏≠‡∏ô‡πÅ‡∏Å‡πâ‡∏•‡πà‡∏≤‡∏™‡∏∏‡∏î? ‡πÑ‡∏ü‡∏•‡πå‡∏†‡∏≤‡∏û‡∏¢‡∏±‡∏á‡∏≠‡∏¢‡∏π‡πà")
-                .setPositiveButton("‡∏Å‡∏π‡πâ‡∏Ñ‡∏∑‡∏ô") { _,_ -> val old=previous.readText(); saveStory(); File(project,"story.json").writeText(old); render() }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector() }
-            6 -> planningSettings()
-            8 -> retryLastCommand()
-            7 -> { if(plan == null) notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ö‡∏ó") else { backupMode=true; zipPicker.launch(StoryFiles.zipName(plan!!.optString("title")+"_‡∏™‡∏≥‡∏£‡∏≠‡∏á")) } }
-        } }
-    }
-    private val restorePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if(uri != null) AlertDialog.Builder(this).setTitle("‡∏Å‡∏π‡πâ‡∏Ñ‡∏∑‡∏ô‡∏ä‡∏∏‡∏î‡∏™‡∏≥‡∏£‡∏≠‡∏á")
-            .setMessage("${displayName(uri)}\n‡∏à‡∏∞‡∏Å‡∏π‡πâ‡∏Ñ‡∏∑‡∏ô‡πÄ‡∏õ‡πá‡∏ô‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà ‡πÑ‡∏°‡πà‡πÄ‡∏Ç‡∏µ‡∏¢‡∏ô‡∏ó‡∏±‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÄ‡∏î‡∏¥‡∏° ‡∏£‡∏ß‡∏° MASTER ‡∏†‡∏≤‡∏û ‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠ ‡πÅ‡∏•‡∏∞‡πÄ‡∏ß‡∏≠‡∏£‡πå‡∏ä‡∏±‡∏ô‡∏ó‡∏µ‡πà‡∏°‡∏µ‡πÉ‡∏ô‡∏ä‡∏∏‡∏î‡∏™‡∏≥‡∏£‡∏≠‡∏á")
-            .setPositiveButton("‡∏Å‡∏π‡πâ‡∏Ñ‡∏∑‡∏ô") { _,_ -> background {
-                val staging=File(cacheDir,"restore_${UUID.randomUUID()}")
-                try {
-                    contentResolver.openInputStream(uri)!!.use { StudioArchive.read(it,staging) }
-                    val p=JSONObject(File(staging,"story.json").readText()); validate(p)
-                    ShortCatalogIds(File(filesDir,"short_catalog_ids.json")).mergeBackup(File(staging,"__director_meta/short_catalog_ids.json"))
-                    val folder=File(base,UUID.randomUUID().toString()); check(staging.copyRecursively(folder))
-                    prefs.edit().putString("project",folder.name).commit()
-                } finally { staging.deleteRecursively() }
-            } }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-    }
-    private fun retryLastImage() {
-        val file=File(project,"last_image_payload.json")
-        if(!file.isFile) return notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏ä‡∏∏‡∏î‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏†‡∏≤‡∏û‡∏•‡πà‡∏≤‡∏™‡∏∏‡∏î ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏£‡∏π‡∏õ‡∏õ‡∏Å‡∏´‡∏£‡∏∑‡∏≠‡∏ã‡∏µ‡∏ô‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏™‡πà‡∏á‡∏Å‡πà‡∏≠‡∏ô")
-        runCatching {
-            val payload=JSONObject(file.readText()); val images=payload.getJSONArray("images")
-            require(images.length()>0) { "‡πÑ‡∏°‡πà‡∏û‡∏ö‡∏†‡∏≤‡∏û‡∏≠‡πâ‡∏≤‡∏á‡∏≠‡∏¥‡∏á‡πÉ‡∏ô‡∏ä‡∏∏‡∏î‡∏•‡πà‡∏≤‡∏™‡∏∏‡∏î ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏õ‡∏Å‡∏´‡∏£‡∏∑‡∏≠‡∏ã‡∏µ‡∏ô‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á" }
-            val references=(0 until images.length()).map { i ->
-                val uri=Uri.parse(images.getString(i))
-                require(uri.authority=="$packageName.fileprovider") { "‡πÅ‡∏´‡∏•‡πà‡∏á‡∏†‡∏≤‡∏û‡∏™‡πà‡∏á‡∏ã‡πâ‡∏≥‡πÑ‡∏°‡πà‡∏ñ‡∏π‡∏Å‡∏ï‡πâ‡∏≠‡∏á" }
-                val relative=uri.path?.trimStart('/') ?: error("‡πÑ‡∏°‡πà‡∏°‡∏µ‡πÄ‡∏™‡πâ‡∏ô‡∏ó‡∏≤‡∏á‡∏†‡∏≤‡∏û")
-                require(relative.startsWith("character_master_exports/") || relative.startsWith("scene_reference_exports/")) { "‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏≠‡∏¢‡∏π‡πà‡πÉ‡∏ô‡∏û‡∏∑‡πâ‡∏ô‡∏ó‡∏µ‡πà‡∏™‡πà‡∏á‡∏≠‡∏≠‡∏Å" }
-                val source=File(cacheDir,relative)
-                require(source.canonicalPath.startsWith(cacheDir.canonicalPath+File.separator) && source.isFile) { "‡πÑ‡∏ü‡∏•‡πå‡∏ä‡∏±‡πà‡∏ß‡∏Ñ‡∏£‡∏≤‡∏ß‡∏´‡∏°‡∏î‡∏≠‡∏≤‡∏¢‡∏∏ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏õ‡∏Å‡∏´‡∏£‡∏∑‡∏≠‡∏ã‡∏µ‡∏ô‡πÄ‡∏î‡∏¥‡∏°‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏™‡πà‡∏á‡πÉ‡∏´‡∏°‡πà" }
-                source.nameWithoutExtension to source
-            }
-            shareImageCommand(payload.getString("text"),references)
-        }.onFailure { notice(it.message ?: "‡∏™‡πà‡∏á‡∏£‡∏π‡∏õ‡∏ã‡πâ‡∏≥‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-    }
-    private fun retryLastCommand() {
-        val file=File(project,"last_payload.json")
-        if(!file.exists()) return notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏ó‡∏µ‡πà‡πÄ‡∏ï‡∏£‡∏µ‡∏¢‡∏°‡∏™‡πà‡∏á")
-        runCatching {
-            val payload=JSONObject(file.readText()); val images=payload.getJSONArray("images")
-            val references=(0 until images.length()).map { i ->
-                val uri=Uri.parse(images.getString(i))
-                // Resolve only the app's own export roots, never an external path.
-                require(uri.authority=="$packageName.fileprovider") { "‡πÅ‡∏´‡∏•‡πà‡∏á‡∏†‡∏≤‡∏û‡∏™‡πà‡∏á‡∏ã‡πâ‡∏≥‡πÑ‡∏°‡πà‡∏ñ‡∏π‡∏Å‡∏ï‡πâ‡∏≠‡∏á" }
-                val relative=uri.path?.trimStart('/') ?: error("‡πÑ‡∏°‡πà‡∏°‡∏µ‡πÄ‡∏™‡πâ‡∏ô‡∏ó‡∏≤‡∏á‡∏†‡∏≤‡∏û")
-                require(relative.startsWith("character_master_exports/") || relative.startsWith("scene_reference_exports/")) { "‡∏†‡∏≤‡∏û‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ‡∏≠‡∏¢‡∏π‡πà‡πÉ‡∏ô‡∏û‡∏∑‡πâ‡∏ô‡∏ó‡∏µ‡πà‡∏™‡πà‡∏á‡∏≠‡∏≠‡∏Å" }
-                val source=File(cacheDir,relative)
-                require(source.canonicalPath.startsWith(cacheDir.canonicalPath+File.separator) && source.isFile) { "‡∏†‡∏≤‡∏û‡∏™‡πà‡∏á‡∏ã‡πâ‡∏≥‡∏´‡∏°‡∏î‡∏≠‡∏≤‡∏¢‡∏∏ ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏™‡πà‡∏á‡∏à‡∏≤‡∏Å‡πÄ‡∏°‡∏ô‡∏π‡∏â‡∏≤‡∏Å‡∏≠‡∏µ‡∏Å‡∏Ñ‡∏£‡∏±‡πâ‡∏á" }
-                source.nameWithoutExtension to source
-            }
-            shareText(payload.getString("text"),lockCreation=payload.optBoolean("creation"),includeMasters=false,referenceImages=references)
-        }.onFailure { notice(it.message ?: "‡∏™‡πà‡∏á‡∏ã‡πâ‡∏≥‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-    }
-    private fun planningSettings() {
-        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-        val fields=listOf("episodes" to "‡∏à‡∏≥‡∏ô‡∏ß‡∏ô EP (‡∏ß‡πà‡∏≤‡∏á = AI ‡∏õ‡∏£‡∏∞‡πÄ‡∏°‡∏¥‡∏ô)", "scenes" to "‡∏â‡∏≤‡∏Å‡∏ï‡πà‡∏≠ EP (‡∏ß‡πà‡∏≤‡∏á = AI ‡∏õ‡∏£‡∏∞‡πÄ‡∏°‡∏¥‡∏ô)", "duration" to "‡∏ß‡∏¥‡∏ô‡∏≤‡∏ó‡∏µ‡∏ï‡πà‡∏≠‡∏â‡∏≤‡∏Å", "ratio" to "‡∏™‡∏±‡∏î‡∏™‡πà‡∏ß‡∏ô‡∏†‡∏≤‡∏û 9:16 ‡πÄ‡∏ó‡πà‡∏≤‡∏ô‡∏±‡πâ‡∏ô")
-        val inputs=fields.map { (id,label) -> id to EditText(this).apply { hint=label; setText(if(id=="ratio") "9:16" else prefs.getString("plan_$id",if(id=="duration") "8" else "")); if(id=="ratio") isEnabled=false; panel.addView(this) } }
-        AlertDialog.Builder(this).setTitle("‡∏Ñ‡πà‡∏≤‡∏ï‡∏±‡πâ‡∏á‡∏ï‡πâ‡∏ô‡∏™‡∏≥‡∏´‡∏£‡∏±‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà").setView(panel).setPositiveButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å") { _,_ ->
-            val values=inputs.associate { it.first to it.second.text.toString().trim() }
-            if(values["ratio"] !in listOf("9:16") || values["duration"]?.toIntOrNull()?.let { it in 1..60 } != true || listOf("episodes","scenes").any { values[it]!!.isNotBlank() && values[it]?.toIntOrNull()?.let { n -> n in 1..100 } != true }) notice("‡∏ï‡∏£‡∏ß‡∏à‡∏à‡∏≥‡∏ô‡∏ß‡∏ô 1‚Äì100 ‡∏£‡∏∞‡∏¢‡∏∞‡πÄ‡∏ß‡∏•‡∏≤ 1‚Äì60 ‡πÅ‡∏•‡∏∞‡∏™‡∏±‡∏î‡∏™‡πà‡∏ß‡∏ô 9:16")
-            else { val edit=prefs.edit(); values.forEach { (k,v) -> edit.putString("plan_$k",v) }; edit.apply(); notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏Ñ‡πà‡∏≤‡∏ï‡∏±‡πâ‡∏á‡∏ï‡πâ‡∏ô‡πÅ‡∏•‡πâ‡∏ß ‡πÉ‡∏ä‡πâ‡∏Å‡∏±‡∏ö‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡∏™‡∏£‡πâ‡∏≤‡∏á‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà") }
-        }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-    }
-    private var castTarget: Pair<String,File>?
-        get() { val name=prefs.getString("cast_target_name",null) ?: return null; val path=prefs.getString("cast_target_path",null) ?: return null; return name to File(path) }
-        set(value) { prefs.edit().putString("cast_target_name",value?.first).putString("cast_target_path",value?.second?.path).apply() }
-    private val castPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        val target=castTarget; castTarget=null
-        if(uri!=null && target!=null) background {
-            val file=target.second; file.parentFile!!.mkdirs(); val temp=File(file.parentFile,file.name+".pending")
-            try {
-                contentResolver.openInputStream(uri)!!.use { input -> temp.outputStream().use { input.copyTo(it) } }
-                val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }; android.graphics.BitmapFactory.decodeFile(temp.path,bounds)
-                require(bounds.outWidth>0) { "‡∏≠‡πà‡∏≤‡∏ô MASTER ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" }
-                if(file.exists()) archiveVersion(file,project,target.first,"master")
-                check(temp.renameTo(file))
-                val affected=rows(plan!!).filter { scene -> scene.optJSONArray("characters")?.let { a -> (0 until a.length()).any { a.getJSONObject(it).optString("name")==target.first } } == true }
-                affected.forEach { it.put("user_review","needs_revision"); it.remove("flow_image_revision") }; saveStory()
-            } finally { temp.delete() }
-        }
-    }
-    private fun readSupportingCast(): JSONArray = runCatching { JSONArray(File(filesDir,"supporting_cast.json").readText()) }.getOrDefault(JSONArray())
-    private val supportImagePicker=registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        val pending=prefs.getString("pending_support",null); prefs.edit().remove("pending_support").apply()
-        if(uri!=null && pending!=null) runCatching {
-            val person=JSONObject(pending); val id=FlowCast.id(person)!!
-            val file=File(filesDir,"supporting_masters/$id.master"); file.parentFile!!.mkdirs()
-            val temp=File(file.parentFile,file.name+".pending")
-            try {
-                contentResolver.openInputStream(uri)!!.use { input -> temp.outputStream().use { input.copyTo(it) } }
-                require(masterExportName(temp,false)!=null) { "‡∏≠‡πà‡∏≤‡∏ô‡∏†‡∏≤‡∏û‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÄ‡∏™‡∏£‡∏¥‡∏°‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ" }
-                check(temp.renameTo(file))
-                val list=readSupportingCast(); list.put(person)
-                require(FlowCast.issues(JSONObject().put("supporting_characters",list)).isEmpty()) { "‡∏ä‡∏∑‡πà‡∏≠‡∏ã‡πâ‡∏≥‡∏´‡∏£‡∏∑‡∏≠‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÄ‡∏™‡∏£‡∏¥‡∏°‡πÑ‡∏°‡πà‡∏ñ‡∏π‡∏Å‡∏ï‡πâ‡∏≠‡∏á" }
-                File(filesDir,"supporting_cast.json").writeText(list.toString(2))
-            } finally { temp.delete() }
-        }.onSuccess { notice("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÄ‡∏™‡∏£‡∏¥‡∏°‡πÅ‡∏•‡πâ‡∏ß ‚Ä¢ ‡πÉ‡∏ä‡πâ‡∏Å‡∏±‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà‡∏ó‡∏µ‡πà‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏ï‡πà‡∏≠‡∏à‡∏≤‡∏Å‡∏ô‡∏µ‡πâ") }.onFailure { notice(it.message ?: "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ") }
-    }
-    private fun supportingCastMenu() {
-        val roster=readSupportingCast()
-        choiceMenu("‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÄ‡∏™‡∏£‡∏¥‡∏° ‚Ä¢ ‡πÉ‡∏ä‡πâ‡∏Å‡∏±‡∏ö‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà",(0 until roster.length()).map { roster.getJSONObject(it).getString("name") }+"‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÄ‡∏™‡∏£‡∏¥‡∏°") { index ->
-            if(index==roster.length()) {
-                if(roster.length()>=8) { notice("‡∏£‡∏≠‡∏á‡∏£‡∏±‡∏ö‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÄ‡∏™‡∏£‡∏¥‡∏°‡πÑ‡∏°‡πà‡πÄ‡∏Å‡∏¥‡∏ô 8 ‡∏Ñ‡∏ô"); return@choiceMenu }
-                val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
-                val name=EditText(this).apply { hint="‡∏ä‡∏∑‡πà‡∏≠‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÄ‡∏™‡∏£‡∏¥‡∏°"; panel.addView(this) }
-                val description=EditText(this).apply { hint="‡∏ú‡∏π‡πâ‡πÉ‡∏´‡∏ç‡πà ‚Ä¢ ‡∏ö‡∏ó‡∏ö‡∏≤‡∏ó / ‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ / ‡∏ú‡∏° / ‡∏£‡∏π‡∏õ‡∏£‡πà‡∏≤‡∏á‡∏ó‡∏µ‡πà‡πÄ‡∏´‡πá‡∏ô‡∏à‡∏≤‡∏Å‡∏†‡∏≤‡∏û"; panel.addView(this) }
-                AlertDialog.Builder(this).setTitle("‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÄ‡∏™‡∏£‡∏¥‡∏°‡∏û‡∏£‡πâ‡∏≠‡∏°‡∏†‡∏≤‡∏û‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö").setView(panel).setPositiveButton("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏†‡∏≤‡∏û") { _,_ ->
-                    val value=name.text.toString().trim()
-                    if(value.isBlank() || description.text.isBlank() || StoryIdentity.keyFor(value)!=null || (0 until roster.length()).any { roster.getJSONObject(it).getString("name")==value }) notice("‡∏£‡∏∞‡∏ö‡∏∏‡∏ä‡∏∑‡πà‡∏≠‡πÑ‡∏°‡πà‡∏ã‡πâ‡∏≥‡πÅ‡∏•‡∏∞‡∏Ñ‡∏≥‡∏ö‡∏£‡∏£‡∏¢‡∏≤‡∏¢‡∏à‡∏≤‡∏Å‡∏†‡∏≤‡∏û")
-                    else {
-                        val id=UUID.randomUUID().toString().take(8).uppercase()
-                        val person=JSONObject().put("name",value).put("master","SUPPORT_${id}_MASTER.png").put("visual_description","adult fictional character; "+description.text.toString())
-                        prefs.edit().putString("pending_support",person.toString()).apply(); supportImagePicker.launch(arrayOf("image/*"))
-                    }
-                }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-            } else {
-                val person=roster.getJSONObject(index); val file=File(filesDir,"supporting_masters/${FlowCast.id(person)}.master")
-                choiceMenu(person.getString("name"),listOf("‡∏î‡∏π‡∏†‡∏≤‡∏û‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö","‡∏ô‡∏≥‡∏≠‡∏≠‡∏Å‡∏à‡∏≤‡∏Å‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà")) { action ->
-                    if(action==0) fullImage(file,person.getString("name")) else {
-                        val remaining=JSONArray(); for(i in 0 until roster.length()) if(i!=index) remaining.put(roster.getJSONObject(i))
-                        File(filesDir,"supporting_cast.json").writeText(remaining.toString(2)); notice("‡∏ô‡∏≥‡∏≠‡∏≠‡∏Å‡∏à‡∏≤‡∏Å‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÉ‡∏´‡∏°‡πà‡πÅ‡∏•‡πâ‡∏ß ‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡πÄ‡∏î‡∏¥‡∏°‡∏¢‡∏±‡∏á‡πÄ‡∏Å‡πá‡∏ö‡∏†‡∏≤‡∏û‡∏Ç‡∏≠‡∏á‡∏ï‡∏±‡∏ß‡πÄ‡∏≠‡∏á")
-                    }
-                }
-            }
-        }
-    }
-    private fun castMenu() {
-        val p=plan ?: return characterMasters()
-        val people=rows(p).flatMap { scene -> scene.optJSONArray("characters")?.let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.orEmpty() }.distinctBy { it.optString("name") }
-        chooseStoryCharacterGrid("üé≠ ‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ",people) { i ->
-            val person=people[i]; val name=person.optString("name")
-            choiceMenu(name,listOf("üñºÔ∏è ‡∏î‡∏π MASTER", "üì∑ ‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô MASTER ‡∏£‡∏≤‡∏¢‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á", "‚úèÔ∏è ‡∏ö‡∏ó‡∏ö‡∏≤‡∏ó‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£", "üß† ‡∏Ç‡πâ‡∏≠‡∏°‡∏π‡∏•‡πÉ‡∏ö‡∏´‡∏ô‡πâ‡∏≤ ‡∏ú‡∏° ‡πÅ‡∏•‡∏∞‡∏£‡∏π‡∏õ‡∏£‡πà‡∏≤‡∏á", "‡πÄ‡∏ï‡∏£‡∏µ‡∏¢‡∏° MASTER ‡∏°‡∏≤‡∏ï‡∏£‡∏ê‡∏≤‡∏ô", "‡∏ï‡∏£‡∏ß‡∏à‡∏†‡∏≤‡∏û MASTER")) { action -> when(action) {
-                0 -> { val file=masterFor(person); if(file.exists()) fullImage(file,name) else notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ MASTER") }
-                1 -> { val id=FlowCast.id(person)
-                    val file=if(p.optString("character_mode","original")=="new") masterFor(person) else if(id!=null) File(project,"original_masters/$id.master") else return@choiceMenu
-                    AlertDialog.Builder(this).setMessage("‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô MASTER ‡∏Ç‡∏≠‡∏á $name ‡πÄ‡∏â‡∏û‡∏≤‡∏∞‡πÄ‡∏£‡∏∑‡πà‡∏≠‡∏á‡∏ô‡∏µ‡πâ ‚Ä¢ ‡∏â‡∏≤‡∏Å‡∏ó‡∏µ‡πà‡πÉ‡∏ä‡πâ‡∏Ñ‡∏ô‡∏ô‡∏µ‡πâ‡∏à‡∏∞‡∏ñ‡∏π‡∏Å‡∏£‡∏∞‡∏ö‡∏∏‡∏ß‡πà‡∏≤‡∏ï‡πâ‡∏≠‡∏á‡∏ï‡∏£‡∏ß‡∏à‡πÉ‡∏´‡∏°‡πà")
-                        .setPositiveButton("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏£‡∏π‡∏õ") { _,_ -> castTarget=name to file; castPicker.launch(arrayOf("image/*")) }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector() }
-                2 -> { val input=EditText(this).apply { hint="‡∏ö‡∏ó‡∏ö‡∏≤‡∏ó‡πÅ‡∏•‡∏∞‡∏•‡∏±‡∏Å‡∏©‡∏ì‡∏∞‡∏ï‡∏±‡∏ß‡∏•‡∏∞‡∏Ñ‡∏£"; setText(p.optJSONObject("cast_roles")?.optString(name)) }
-                    AlertDialog.Builder(this).setTitle(name).setView(input).setPositiveButton("‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å") { _,_ -> val roles=p.optJSONObject("cast_roles") ?: JSONObject(); roles.put(name,input.text.toString()); p.put("cast_roles",roles); saveStory() }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector() }
-                3 -> editCharacterMemory(memoryId(person),name,masterFor(person))
-                4 -> sendProductionMaster(memoryId(person),name,masterFor(person))
-                5 -> reviewMaster(memoryId(person),name,masterFor(person))
-            } }
-        }
-    }
-
-    private fun moviesMenu() {
-        val p=plan ?: return notice("‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏ö‡∏ó‡πÅ‡∏•‡∏∞‡∏Ñ‡∏•‡∏¥‡∏õ‡∏Å‡πà‡∏≠‡∏ô‡∏Ñ‡∏£‡∏±‡∏ö")
-        val eps=p.getJSONArray("episodes")
-        choiceMenu("üé¨ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å EP ‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏ó‡∏≥‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠",(0 until eps.length()).map { i ->
-            val ep=eps.getJSONObject(i)
-            val scenes=rows(p).filter { it.getInt("ep")==ep.getInt("ep") }
-            val count=scenes.count { video(it).isFile && video(it).length()>0 }
-            "EP ${ep.getInt("ep")} ‚Ä¢ ${ep.optString("title")}\n‡∏Ñ‡∏•‡∏¥‡∏õ $count/${scenes.size} ‚Ä¢ " + if(count==scenes.size && scenes.isNotEmpty()) "‡∏û‡∏£‡πâ‡∏≠‡∏°‡∏ï‡∏£‡∏ß‡∏à‡πÅ‡∏•‡∏∞‡∏£‡∏ß‡∏° EP" else "‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤ MP4 ‡∏£‡∏≤‡∏¢‡∏â‡∏≤‡∏Å‡∏Å‡πà‡∏≠‡∏ô‡∏£‡∏ß‡∏°"
-        }) { i -> movieEpisode(eps.getJSONObject(i)) }
-    }
-    private fun movieEpisode(ep: JSONObject) {
-        choiceMenu("EP ${ep.getInt("ep")} ‚Ä¢ ${ep.optString("title")}",listOf("üé¨ ‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏•‡∏¥‡∏õ‡πÅ‡∏•‡∏∞‡∏£‡∏ß‡∏° EP", "‚è≥ ‡∏î‡∏π‡∏Ñ‡∏ß‡∏≤‡∏°‡∏Ñ‡∏∑‡∏ö‡∏´‡∏ô‡πâ‡∏≤ / ‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å", "‚ñ∂ ‡∏î‡∏π‡∏´‡∏ô‡∏±‡∏á‡∏ó‡∏µ‡πà‡∏£‡∏ß‡∏°‡πÅ‡∏•‡πâ‡∏ß", "‚¨á ‡∏î‡∏≤‡∏ß‡∏ô‡πå‡πÇ‡∏´‡∏•‡∏î MP4", "‚Üó ‡πÅ‡∏ä‡∏£‡πå MP4", "üóÇÔ∏è ‡∏´‡∏ô‡∏±‡∏á‡πÄ‡∏ß‡∏≠‡∏£‡πå‡∏ä‡∏±‡∏ô‡∏Å‡πà‡∏≠‡∏ô‡∏´‡∏ô‡πâ‡∏≤", "üéûÔ∏è ‡∏à‡∏±‡∏î‡∏Å‡∏≤‡∏£‡∏Ñ‡∏•‡∏¥‡∏õ‡∏â‡∏≤‡∏Å", "‚Üï ‡∏à‡∏±‡∏î‡∏•‡∏≥‡∏î‡∏±‡∏ö‡∏Ñ‡∏•‡∏¥‡∏õ")) { i -> when(i) {
-            0 -> prepareMovie(ep)
-            1 -> movieProgress(ep.getInt("ep"))
-            2 -> latestMovie(ep.getInt("ep"))?.let { playMovie(it) } ?: notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏´‡∏ô‡∏±‡∏á‡∏ó‡∏µ‡πà‡∏£‡∏ß‡∏°‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à")
-            3 -> latestMovie(ep.getInt("ep"))?.let { downloadMovie(it) } ?: notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏´‡∏ô‡∏±‡∏á‡∏ó‡∏µ‡πà‡∏£‡∏ß‡∏°‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à")
-            4 -> latestMovie(ep.getInt("ep"))?.let { shareMovie(it) } ?: notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏´‡∏ô‡∏±‡∏á‡∏ó‡∏µ‡πà‡∏£‡∏ß‡∏°‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à")
-            5 -> { val jobs=movieJobs(ep.getInt("ep")).filter { File(it,"output.mp4").exists() && readMovieState(it).optString("state")=="complete" }
-                choiceMenu("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡πÄ‡∏ß‡∏≠‡∏£‡πå‡∏ä‡∏±‡∏ô",jobs.map { java.text.DateFormat.getDateTimeInstance().format(java.util.Date(it.lastModified())) }) { n ->
-                    choiceMenu("‡∏´‡∏ô‡∏±‡∏á‡πÄ‡∏ß‡∏≠‡∏£‡πå‡∏ä‡∏±‡∏ô‡∏ô‡∏µ‡πâ",listOf("‡∏î‡∏π‡∏´‡∏ô‡∏±‡∏á", "‡∏î‡∏≤‡∏ß‡∏ô‡πå‡πÇ‡∏´‡∏•‡∏î MP4", "‡πÅ‡∏ä‡∏£‡πå")) { action -> when(action) { 0 -> playMovie(jobs[n]); 1 -> downloadMovie(jobs[n]); 2 -> shareMovie(jobs[n]) } }
-                }
-            }
-            6 -> episodesMenu()
-            7 -> reorderMovie(ep)
-        } }
-    }
-    private fun orderedMovieScenes(ep: JSONObject): List<JSONObject> {
-        val scenes=rows(plan!!).filter { it.getInt("ep")==ep.getInt("ep") }.sortedBy { it.getInt("scene") }
-        val order=ep.optJSONArray("render_order") ?: return scenes
-        val keys=(0 until order.length()).map { order.getString(it) }
-        require(keys.size==scenes.size && keys.toSet()==scenes.map { key(it) }.toSet()) { "‡∏•‡∏≥‡∏î‡∏±‡∏ö‡∏Ñ‡∏•‡∏¥‡∏õ‡πÑ‡∏°‡πà‡∏ï‡∏£‡∏á‡∏ö‡∏ó ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏à‡∏±‡∏î‡∏•‡∏≥‡∏î‡∏±‡∏ö‡πÉ‡∏´‡∏°‡πà‡∏´‡∏£‡∏∑‡∏≠‡∏Ñ‡∏∑‡∏ô‡∏•‡∏≥‡∏î‡∏±‡∏ö‡πÄ‡∏•‡∏Ç‡∏â‡∏≤‡∏Å" }
-        return keys.map { id -> scenes.first { key(it)==id } }
-    }
-    private fun reorderMovie(ep: JSONObject) {
-        val scenes=rows(plan!!).filter { it.getInt("ep")==ep.getInt("ep") }.sortedBy { it.getInt("scene") }
-        val ordered=runCatching { orderedMovieScenes(ep) }.getOrDefault(scenes)
-        val ids=ordered.map { key(it) }.toMutableList()
-        choiceMenu("‡∏à‡∏±‡∏î‡∏•‡∏≥‡∏î‡∏±‡∏ö ‚Ä¢ ‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏Ñ‡∏•‡∏¥‡∏õ‡πÄ‡∏û‡∏∑‡πà‡∏≠‡πÄ‡∏•‡∏∑‡πà‡∏≠‡∏ô",ids.mapIndexed { i,id -> "${i+1}. $id" }+"‡∏Ñ‡∏∑‡∏ô‡∏•‡∏≥‡∏î‡∏±‡∏ö‡πÄ‡∏•‡∏Ç‡∏â‡∏≤‡∏Å") { index ->
-            if(index==ids.size) { ep.remove("render_order"); saveStory(); reorderMovie(ep) }
-            else choiceMenu(ids[index],listOf("‡πÄ‡∏•‡∏∑‡πà‡∏≠‡∏ô‡∏Ç‡∏∂‡πâ‡∏ô", "‡πÄ‡∏•‡∏∑‡πà‡∏≠‡∏ô‡∏•‡∏á")) { action ->
-                val destination=if(action==0) index-1 else index+1
-                if(destination !in ids.indices) notice("‡∏≠‡∏¢‡∏π‡πà‡∏õ‡∏•‡∏≤‡∏¢‡∏•‡∏≥‡∏î‡∏±‡∏ö‡πÅ‡∏•‡πâ‡∏ß") else {
-                    val item=ids.removeAt(index); ids.add(destination,item); ep.put("render_order",JSONArray(ids)); saveStory(); reorderMovie(ep)
-                }
-            }
-        }
-    }
-    private fun movieJobs(ep: Int) = File(project,"movies/EP%02d".format(ep)).listFiles()?.filter { it.isDirectory }?.sortedByDescending { it.name }.orEmpty()
-    private fun readMovieState(job: File): JSONObject = runCatching { JSONObject(File(job,"status.json").readText()) }.getOrDefault(JSONObject())
-    private fun latestMovie(ep: Int) = movieJobs(ep).firstOrNull { readMovieState(it).optString("state")=="complete" && File(it,"output.mp4").isFile && runCatching { JSONObject(File(it,"result.json").readText()).let { result -> result.optInt("width")==EpisodeRules.WIDTH && result.optInt("height")==EpisodeRules.HEIGHT } }.getOrDefault(false) }
-    private fun movieFingerprint(ep: Int): String {
-        val episodes=plan!!.getJSONArray("episodes")
-        val episode=(0 until episodes.length()).map { episodes.getJSONObject(it) }.first { it.getInt("ep")==ep }
-        val scenes=orderedMovieScenes(episode)
-        val cover=coverFile("EP%02d_COVER_9x16".format(ep))
-        return "9:16|1080x1920|"+scenes.joinToString(",") { key(it) }+"|"+(listOf(cover)+scenes.map { video(it) }).joinToString("|") { if(it.exists()) EpisodeMedia.digest(it) else "missing" }
-    }
-    private fun prepareMovie(ep: JSONObject) {
-        if(plan?.optString("aspect_ratio","16:9")!="9:16") { landscapeCopyMenu(); return }
-        if(EpisodeRenderService.running) return movieProgress(ep.getInt("ep"))
-        val number=ep.getInt("ep"); val scenes=runCatching { orderedMovieScenes(ep) }.getOrElse { notice(it.message ?: "‡∏ï‡∏£‡∏ß‡∏à‡∏•‡∏≥‡∏î‡∏±‡∏ö‡∏Ñ‡∏•‡∏¥‡∏õ"); return }
-        val missing=scenes.filter { !video(it).exists() }
-        if(missing.isNotEmpty()) return notice("‡∏¢‡∏±‡∏á‡∏Ç‡∏≤‡∏î‡∏Ñ‡∏•‡∏¥‡∏õ ${missing.joinToString { key(it) }}\n‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡πÉ‡∏´‡πâ‡∏Ñ‡∏£‡∏ö‡∏Å‡πà‡∏≠‡∏ô‡∏£‡∏ß‡∏°")
-        val cover=coverFile("EP%02d_COVER_9x16".format(number))
-        if(!cover.exists()) return notice("‡∏¢‡∏±‡∏á‡∏Ç‡∏≤‡∏î‡∏õ‡∏Å‡πÅ‡∏ô‡∏ß‡∏ï‡∏±‡πâ‡∏á EP $number ‚Ä¢ ‡∏ô‡∏≥‡πÄ‡∏Ç‡πâ‡∏≤‡∏õ‡∏Å‡∏Å‡πà‡∏≠‡∏ô‡∏£‡∏ß‡∏°")
-        val dialog=AlertDialog.Builder(this).setMessage("‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ï‡∏£‡∏ß‡∏à‡∏Ç‡∏ô‡∏≤‡∏î ‡πÄ‡∏™‡∏µ‡∏¢‡∏á ‡πÅ‡∏•‡∏∞‡πÑ‡∏ü‡∏•‡πå‡∏Ñ‡∏•‡∏¥‡∏õ‚Ä¶").setCancelable(false).showDirector()
-        val folder=project; val p=plan!!
-        Thread {
-            try {
-                val infos=scenes.map { EpisodeMedia.inspect(video(it)) }
-                val duration=3000L+infos.sumOf { it.durationMs }
-                val rate=kotlin.math.round(infos.first().fps).toInt().coerceIn(1,120)
-                val bitrate=maxOf(24_000_000,infos.maxOf { it.bitrate }).coerceAtMost(80_000_000)
-                val needed=EpisodeRules.estimateBytes(duration,bitrate,infos.sumOf { it.file.length() })
-                require(folder.usableSpace>needed) { "‡∏û‡∏∑‡πâ‡∏ô‡∏ó‡∏µ‡πà‡πÑ‡∏°‡πà‡∏û‡∏≠ ‡∏ï‡πâ‡∏≠‡∏á‡∏°‡∏µ‡∏ß‡πà‡∏≤‡∏á‡∏õ‡∏£‡∏∞‡∏°‡∏≤‡∏ì ${needed/1024/1024} MB" }
-                val fingerprint=movieFingerprint(number)
-                val report="‡∏õ‡∏Å‡πÄ‡∏õ‡∏¥‡∏î 3 ‡∏ß‡∏¥‡∏ô‡∏≤‡∏ó‡∏µ ‚Üí ${scenes.size} ‡∏â‡∏≤‡∏Å\n‡∏ú‡∏•‡∏•‡∏±‡∏û‡∏ò‡πå 1080 √ó 1920 ‚Ä¢ $rate fps ‚Ä¢ ${duration/1000} ‡∏ß‡∏¥‡∏ô‡∏≤‡∏ó‡∏µ\n‡∏û‡∏∑‡πâ‡∏ô‡∏ó‡∏µ‡πà‡∏õ‡∏£‡∏∞‡∏°‡∏≤‡∏ì ${needed/1024/1024} MB\n\n"+infos.mapIndexed { i,v -> "${key(scenes[i])}: ${v.displayWidth} √ó ${v.displayHeight}, ${v.fps} fps, ${v.durationMs/1000.0} ‡∏ß‡∏¥‡∏ô‡∏≤‡∏ó‡∏µ, ${v.videoMime}, ‡πÄ‡∏™‡∏µ‡∏¢‡∏á ${v.audioMime ?: "‡πÑ‡∏°‡πà‡∏°‡∏µ"}" }.joinToString("\n")
-                runOnUiThread {
-                    dialog.dismiss()
-                    val view=TextView(this).apply { text=report; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-                    AlertDialog.Builder(this).setTitle("‡∏ï‡∏£‡∏ß‡∏à‡∏•‡∏≥‡∏î‡∏±‡∏ö‡πÅ‡∏•‡∏∞‡∏Ñ‡∏∏‡∏ì‡∏†‡∏≤‡∏û‡∏Å‡πà‡∏≠‡∏ô‡∏£‡∏ß‡∏°").setView(ScrollView(this).apply { addView(view) })
-                        .setPositiveButton("‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏£‡∏π‡∏õ‡πÅ‡∏ö‡∏ö‡∏£‡∏ß‡∏°") { _,_ ->
-                            choiceMenu("‡∏ß‡∏¥‡∏ò‡∏µ‡∏£‡∏ß‡∏° ‚Ä¢ ‡πÄ‡∏Å‡πá‡∏ö‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö‡∏ó‡∏∏‡∏Å‡∏Ñ‡∏•‡∏¥‡∏õ",listOf("‡∏Ñ‡∏∏‡∏ì‡∏†‡∏≤‡∏û‡∏™‡∏π‡∏á ‚Ä¢ ‡∏õ‡∏£‡∏±‡∏ö‡πÑ‡∏ü‡∏•‡πå‡πÉ‡∏´‡πâ‡πÄ‡∏Ç‡πâ‡∏≤‡∏Å‡∏±‡∏ô", "‡πÑ‡∏°‡πà‡πÄ‡∏Ç‡πâ‡∏≤‡∏£‡∏´‡∏±‡∏™‡∏Ñ‡∏•‡∏¥‡∏õ‡πÉ‡∏´‡∏°‡πà ‚Ä¢ ‡∏ï‡πâ‡∏≠‡∏á‡∏ï‡∏£‡∏á‡∏ó‡∏∏‡∏Å‡∏Ñ‡πà‡∏≤")) { mode ->
-                                fun start(crop: Boolean) {
-                                    if(EpisodeRenderService.running) { notice("‡∏°‡∏µ‡∏á‡∏≤‡∏ô‡∏£‡∏ß‡∏°‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ó‡∏≥‡∏≠‡∏¢‡∏π‡πà"); return }
-                                    val job=File(folder,"movies/EP%02d/%d_%s".format(number,System.currentTimeMillis(),UUID.randomUUID())).apply { mkdirs() }
-                                    val spec=JSONObject().put("aspect_ratio","9:16").put("width",EpisodeRules.WIDTH).put("height",EpisodeRules.HEIGHT).put("ep",number).put("title",p.optString("title")).put("filename",EpisodeRules.filename(p.optString("title"),number,ep.optString("title")))
-                                        .put("cover",cover.path).put("clips",JSONArray(infos.map { it.file.path })).put("fps",rate).put("bitrate",bitrate).put("duration_ms",duration).put("fingerprint",fingerprint).put("input_hashes",JSONArray((listOf(cover)+infos.map { it.file }).map { EpisodeMedia.digest(it) })).put("lossless",mode==1).put("crop",crop).put("has_audio",infos.any { it.audioMime!=null })
-                                    File(job,"spec.json").writeText(spec.toString(2))
-                                    File(job,"status.json").writeText(JSONObject().put("state","queued").put("message","‡∏Å‡∏≥‡∏•‡∏±‡∏á‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏£‡∏ß‡∏°").toString())
-                                    try { androidx.core.content.ContextCompat.startForegroundService(this,Intent(this,EpisodeRenderService::class.java).putExtra("job",job.path)); movieProgress(number) }
-                                    catch(e: Exception) { File(job,"status.json").writeText(JSONObject().put("state","failed").put("message",e.message).toString()); notice("‡πÄ‡∏£‡∏¥‡πà‡∏°‡∏£‡∏ß‡∏°‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ: ${e.message}") }
-                                }
-                                if(mode==1 && infos.any { it.width!=EpisodeRules.WIDTH || it.height!=EpisodeRules.HEIGHT || it.rotation!=0 || kotlin.math.abs(it.fps-infos.first().fps)>0.1f }) { notice("‡∏Ç‡∏ô‡∏≤‡∏î/‡πÄ‡∏ü‡∏£‡∏°‡πÄ‡∏£‡∏ï‡∏ï‡πà‡∏≤‡∏á‡∏Å‡∏±‡∏ô ‡∏ï‡πâ‡∏≠‡∏á‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‡∏õ‡∏£‡∏±‡∏ö‡πÑ‡∏ü‡∏•‡πå‡∏Ñ‡∏∏‡∏ì‡∏†‡∏≤‡∏û‡∏™‡∏π‡∏á"); return@choiceMenu }
-                                val message=if(mode==0) "‡∏õ‡∏Å‡πÅ‡∏•‡∏∞‡∏Ñ‡∏•‡∏¥‡∏õ‡∏à‡∏∞‡πÄ‡∏Ç‡πâ‡∏≤‡∏£‡∏´‡∏±‡∏™‡πÉ‡∏´‡∏°‡πà‡πÄ‡∏õ‡πá‡∏ô H.264 ‡∏Ñ‡∏∏‡∏ì‡∏†‡∏≤‡∏û‡∏™‡∏π‡∏á ${bitrate/1_000_000} Mbps ‡πÄ‡∏™‡∏µ‡∏¢‡∏á AAC ‡∏£‡∏±‡∏Å‡∏©‡∏≤‡πÄ‡∏™‡∏µ‡∏¢‡∏á‡πÄ‡∏î‡∏¥‡∏° ‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏î‡∏ô‡∏ï‡∏£‡∏µ‡πÄ‡∏û‡∏¥‡πà‡∏° ‡∏Ñ‡∏∏‡∏ì‡∏†‡∏≤‡∏û‡∏≠‡∏≤‡∏à‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡πÄ‡∏•‡πá‡∏Å‡∏ô‡πâ‡∏≠‡∏¢\n‡πÑ‡∏ü‡∏•‡πå‡∏Ç‡∏ô‡∏≤‡∏î‡πÄ‡∏•‡πá‡∏Å‡∏Å‡∏ß‡πà‡∏≤‡∏à‡∏∞‡∏ñ‡∏π‡∏Å‡∏Ç‡∏¢‡∏≤‡∏¢ ‡πÅ‡∏ï‡πà‡πÑ‡∏°‡πà‡πÄ‡∏û‡∏¥‡πà‡∏°‡∏£‡∏≤‡∏¢‡∏•‡∏∞‡πÄ‡∏≠‡∏µ‡∏¢‡∏î‡∏à‡∏£‡∏¥‡∏á" else "‡∏™‡∏£‡πâ‡∏≤‡∏á‡∏õ‡∏Å‡πÄ‡∏õ‡∏¥‡∏î‡∏Å‡πà‡∏≠‡∏ô ‡πÅ‡∏•‡πâ‡∏ß‡∏ï‡∏£‡∏ß‡∏à codec/config ‡πÅ‡∏•‡∏∞‡πÄ‡∏™‡∏µ‡∏¢‡∏á ‡∏ñ‡πâ‡∏≤‡πÑ‡∏°‡πà‡∏ï‡∏£‡∏á‡∏à‡∏∞‡∏´‡∏¢‡∏∏‡∏î‡πÅ‡∏•‡∏∞‡πÅ‡∏à‡πâ‡∏á ‡πÑ‡∏°‡πà‡πÅ‡∏õ‡∏•‡∏á‡∏Ñ‡∏•‡∏¥‡∏õ‡πÄ‡∏≠‡∏á"
-                                AlertDialog.Builder(this).setTitle("‡∏¢‡∏∑‡∏ô‡∏¢‡∏±‡∏ô‡∏ß‡∏¥‡∏ò‡∏µ‡∏£‡∏ß‡∏°").setMessage(message).setPositiveButton("‡∏î‡∏≥‡πÄ‡∏ô‡∏¥‡∏ô‡∏Å‡∏≤‡∏£") { _,_ ->
-                                    if(mode==0 && infos.any { it.width.toDouble()/it.height !in 1.76..1.79 || it.rotation!=0 }) choiceMenu("‡∏à‡∏±‡∏î‡∏†‡∏≤‡∏û‡∏ï‡πà‡∏≤‡∏á‡∏™‡∏±‡∏î‡∏™‡πà‡∏ß‡∏ô",listOf("‡πÄ‡∏ß‡πâ‡∏ô‡∏Ç‡∏≠‡∏ö ‚Ä¢ ‡πÄ‡∏´‡πá‡∏ô‡∏†‡∏≤‡∏û‡∏Ñ‡∏£‡∏ö", "‡∏Ñ‡∏£‡∏≠‡∏õ‡∏Å‡∏∂‡πà‡∏á‡∏Å‡∏•‡∏≤‡∏á ‚Ä¢ ‡πÄ‡∏ï‡πá‡∏°‡∏à‡∏≠ ‡∏≠‡∏≤‡∏à‡∏ï‡∏±‡∏î‡∏Ç‡∏≠‡∏ö")) { layout -> movieLayoutPreview(infos.first { it.width.toDouble()/it.height !in 1.76..1.79 || it.rotation!=0 }.file,layout==1) { start(layout==1) } }
-                                    else start(false)
-                                }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-                            }
-                        }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector()
-                }
-            } catch(e: Exception) { runOnUiThread { dialog.dismiss(); notice("‡∏ï‡∏£‡∏ß‡∏à‡∏Ñ‡∏•‡∏¥‡∏õ‡πÑ‡∏°‡πà‡∏ú‡πà‡∏≤‡∏ô: ${e.message}") } }
-        }.start()
-    }
-    private fun movieLayoutPreview(file: File, crop: Boolean, proceed: () -> Unit) {
-        val reader=android.media.MediaMetadataRetriever()
-        val bitmap=runCatching {
-            reader.setDataSource(file.path)
-            if(android.os.Build.VERSION.SDK_INT>=27) reader.getScaledFrameAtTime(0,android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC,960,540) else reader.getFrameAtTime(0)
-        }.getOrNull()
-        reader.release()
-        val view=ImageView(this).apply {
-            setImageBitmap(bitmap); setBackgroundColor(Color.BLACK)
-            scaleType=if(crop) ImageView.ScaleType.CENTER_CROP else ImageView.ScaleType.FIT_CENTER
-            layoutParams=LinearLayout.LayoutParams(dp(288),dp(162))
-        }
-        val panel=LinearLayout(this).apply { orientation=1; gravity=Gravity.CENTER; addView(view) }
-        val dialog=AlertDialog.Builder(this).setTitle(if(crop) "‡∏ï‡∏±‡∏ß‡∏≠‡∏¢‡πà‡∏≤‡∏á‡∏Ñ‡∏£‡∏≠‡∏õ‡∏Å‡∏∂‡πà‡∏á‡∏Å‡∏•‡∏≤‡∏á 9:16" else "‡∏ï‡∏±‡∏ß‡∏≠‡∏¢‡πà‡∏≤‡∏á‡πÄ‡∏ß‡πâ‡∏ô‡∏Ç‡∏≠‡∏ö 9:16").setView(panel)
-            .setPositiveButton("‡πÉ‡∏ä‡πâ‡∏£‡∏π‡∏õ‡πÅ‡∏ö‡∏ö‡∏ô‡∏µ‡πâ") { _,_ -> proceed() }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).create()
-        dialog.setOnDismissListener { view.setImageDrawable(null); bitmap?.recycle() }; dialog.show()
-    }
-    private fun movieProgress(ep: Int) {
-        val job=movieJobs(ep).firstOrNull() ?: return notice("‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏°‡∏µ‡∏á‡∏≤‡∏ô‡∏£‡∏ß‡∏° EP ‡∏ô‡∏µ‡πâ")
-        val text=TextView(this).apply { setPadding(dp(16),dp(16),dp(16),dp(16)); textSize=16f }
-        val dialog=AlertDialog.Builder(this).setTitle("‡∏£‡∏ß‡∏°‡∏´‡∏ô‡∏±‡∏á EP $ep").setView(text).setPositiveButton("‡∏õ‡∏¥‡∏î‡∏´‡∏ô‡πâ‡∏≤‡∏ï‡πà‡∏≤‡∏á",null).setNeutralButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å‡∏á‡∏≤‡∏ô") { _,_ ->
-            if(EpisodeRenderService.running) startService(Intent(this,EpisodeRenderService::class.java).setAction(EpisodeRenderService.CANCEL).putExtra("job",job.path))
-        }.create()
-        val handler=android.os.Handler(android.os.Looper.getMainLooper())
-        var ticks=0
-        val update=object : Runnable { override fun run() {
-            if(!dialog.isShowing) return
-            val status=readMovieState(job); val state=status.optString("state")
-            val interrupted=state in listOf("preparing","rendering","queued") && !EpisodeRenderService.running && ++ticks>5
-            text.text=if(interrupted) "‡∏á‡∏≤‡∏ô‡∏ñ‡∏π‡∏Å‡∏´‡∏¢‡∏∏‡∏î‡∏Å‡πà‡∏≠‡∏ô‡πÄ‡∏™‡∏£‡πá‡∏à ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏£‡∏ß‡∏°‡πÉ‡∏´‡∏°‡πà ‚Ä¢ ‡∏ï‡πâ‡∏ô‡∏â‡∏ö‡∏±‡∏ö‡∏¢‡∏±‡∏á‡∏≠‡∏¢‡∏π‡πà" else "${status.optString("message")}\n${status.optInt("progress")}%\n${if(state=="complete") "‡∏Å‡∏•‡∏±‡∏ö‡πÄ‡∏°‡∏ô‡∏π EP ‡πÄ‡∏û‡∏∑‡πà‡∏≠‡∏î‡∏π‡∏´‡∏ô‡∏±‡∏á‡∏´‡∏£‡∏∑‡∏≠‡∏î‡∏≤‡∏ß‡∏ô‡πå‡πÇ‡∏´‡∏•‡∏î MP4" else "‡∏™‡∏•‡∏±‡∏ö‡πÅ‡∏≠‡∏õ‡πÑ‡∏î‡πâ ‡∏á‡∏≤‡∏ô‡∏¢‡∏±‡∏á‡∏ó‡∏≥‡∏ï‡πà‡∏≠‡∏ú‡πà‡∏≤‡∏ô‡∏ö‡∏£‡∏¥‡∏Å‡∏≤‡∏£‡πÄ‡∏ö‡∏∑‡πâ‡∏≠‡∏á‡∏´‡∏ô‡πâ‡∏≤"}"
-            handler.postDelayed(this,1000)
-        } }
-        dialog.setOnDismissListener { handler.removeCallbacksAndMessages(null) }; dialog.show(); handler.post(update)
-    }
-    private fun checkMovieChanges(job: File, proceed: () -> Unit) {
-        val ep=JSONObject(File(job,"spec.json").readText()).getInt("ep")
-        val old=JSONObject(File(job,"result.json").readText()).optString("fingerprint")
-        val dialog=AlertDialog.Builder(this).setMessage("‡∏ï‡∏£‡∏ß‡∏à‡∏ß‡πà‡∏≤‡∏Ñ‡∏•‡∏¥‡∏õ‡πÅ‡∏•‡∏∞‡∏õ‡∏Å‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏´‡∏£‡∏∑‡∏≠‡πÑ‡∏°‡πà‚Ä¶").setCancelable(false).showDirector()
-        Thread { val changed=runCatching { movieFingerprint(ep)!=old }.getOrDefault(true); runOnUiThread {
-            dialog.dismiss()
-            if(changed) AlertDialog.Builder(this).setMessage("‡∏Ñ‡∏•‡∏¥‡∏õ‡∏´‡∏£‡∏∑‡∏≠‡∏õ‡∏Å‡πÄ‡∏õ‡∏•‡∏µ‡πà‡∏¢‡∏ô‡∏´‡∏•‡∏±‡∏á‡∏£‡∏ß‡∏° ‡∏´‡∏ô‡∏±‡∏á‡∏ô‡∏µ‡πâ‡πÄ‡∏õ‡πá‡∏ô‡πÄ‡∏ß‡∏≠‡∏£‡πå‡∏ä‡∏±‡∏ô‡πÄ‡∏î‡∏¥‡∏° ‡∏ï‡πâ‡∏≠‡∏á‡∏£‡∏ß‡∏°‡πÉ‡∏´‡∏°‡πà‡πÄ‡∏û‡∏∑‡πà‡∏≠‡πÉ‡∏ä‡πâ‡∏Å‡∏≤‡∏£‡πÅ‡∏Å‡πâ‡∏•‡πà‡∏≤‡∏™‡∏∏‡∏î")
-                .setPositiveButton("‡πÉ‡∏ä‡πâ‡πÄ‡∏ß‡∏≠‡∏£‡πå‡∏ä‡∏±‡∏ô‡πÄ‡∏î‡∏¥‡∏°") { _,_ -> proceed() }.setNegativeButton("‡∏¢‡∏Å‡πÄ‡∏•‡∏¥‡∏Å",null).showDirector() else proceed()
-        } }.start()
-    }
-    private fun playMovie(job: File) {
-        val file=File(job,"output.mp4"); val view=VideoView(this).apply { setVideoPath(file.path); val controls=MediaController(this@StudioActivity); controls.setAnchorView(this); setMediaController(controls); setOnPreparedListener { start() }; setOnErrorListener { _,_,_ -> notice("‡πÄ‡∏•‡πà‡∏ô‡∏´‡∏ô‡∏±‡∏á‡πÑ‡∏ü‡∏•‡πå‡∏ô‡∏µ‡πâ‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ"); true } }
-        val dialog=AlertDialog.Builder(this).setTitle("‡∏´‡∏ô‡∏±‡∏á EP").setView(view).setPositiveButton("‡∏õ‡∏¥‡∏î",null).create(); dialog.setOnDismissListener { view.stopPlayback() }; dialog.show(); dialog.window?.setLayout(-1,dp(560))
-    }
-    private val movieDownloadPicker=registerForActivityResult(ActivityResultContracts.CreateDocument("video/mp4")) { uri ->
-        val path=prefs.getString("movie_download_job",null)
-        if(uri!=null && path!=null) {
-            val dialog=AlertDialog.Builder(this).setMessage("‡∏Å‡∏≥‡∏•‡∏±‡∏á‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å MP4 ‡∏•‡∏á‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á‡∏ó‡∏µ‡πà‡πÄ‡∏•‡∏∑‡∏≠‡∏Å‚Ä¶").setCancelable(false).showDirector()
-            Thread {
-                try {
-                    val job=File(path); val file=File(job,"output.mp4"); require(file.isFile) { "‡πÑ‡∏°‡πà‡∏û‡∏ö MP4" }
-                    contentResolver.openOutputStream(uri,"wt")!!.use { output -> file.inputStream().use { it.copyTo(output) } }
-                    val size=contentResolver.openFileDescriptor(uri,"r")?.use { it.statSize }
-                    require(size==null || size<0 || size==file.length()) { "‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÑ‡∏ü‡∏•‡πå‡πÑ‡∏°‡πà‡∏Ñ‡∏£‡∏ö" }
-                    File(job,"downloaded.json").writeText(JSONObject().put("uri",uri.toString()).put("time",System.currentTimeMillis()).toString())
-                    runOnUiThread { dialog.dismiss(); notice("‡∏î‡∏≤‡∏ß‡∏ô‡πå‡πÇ‡∏´‡∏•‡∏î MP4 ‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à ‚Ä¢ ${displayName(uri)}") }
-                } catch(e: Exception) { runOnUiThread { dialog.dismiss(); notice("‡∏î‡∏≤‡∏ß‡∏ô‡πå‡πÇ‡∏´‡∏•‡∏î‡πÑ‡∏°‡πà‡∏™‡∏≥‡πÄ‡∏£‡πá‡∏à: ${e.message} ‚Ä¢ ‡πÑ‡∏ü‡∏•‡πå‡∏ó‡∏µ‡πà‡∏ï‡∏≥‡πÅ‡∏´‡∏ô‡πà‡∏á‡∏õ‡∏•‡∏≤‡∏¢‡∏ó‡∏≤‡∏á‡∏≠‡∏≤‡∏à‡∏¢‡∏±‡∏á‡πÑ‡∏°‡πà‡∏Ñ‡∏£‡∏ö ‡∏Å‡∏£‡∏∏‡∏ì‡∏≤‡∏ö‡∏±‡∏ô‡∏ó‡∏∂‡∏Å‡πÉ‡∏´‡∏°‡πà") } }
-            }.start()
-        }
-        prefs.edit().remove("movie_download_job").apply()
-    }
-    private fun downloadMovie(job: File) = checkMovieChanges(job) {
-        val filename=JSONObject(File(job,"result.json").readText()).getString("filename")
-        prefs.edit().putString("movie_download_job",job.path).apply(); movieDownloadPicker.launch(filename)
-    }
-    private fun shareMovie(job: File) = checkMovieChanges(job) {
-        val file=File(job,"output.mp4")
-        val name=JSONObject(File(job,"result.json").readText()).getString("filename")
-        val export=File(cacheDir,"movie_exports/${UUID.randomUUID()}/$name").apply { parentFile!!.mkdirs() }
-        background { file.copyTo(export); runOnUiThread {
-            val uri=FileProvider.getUriForFile(this,"$packageName.fileprovider",export)
-            val intent=Intent(Intent.ACTION_SEND).apply { type="video/mp4"; putExtra(Intent.EXTRA_STREAM,uri); clipData=ClipData.newUri(contentResolver,"‡∏´‡∏ô‡∏±‡∏á EP",uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-            runCatching { startActivity(Intent.createChooser(intent,"‡πÅ‡∏ä‡∏£‡πå‡∏´‡∏ô‡∏±‡∏á EP")) }.onFailure { notice("‡πÄ‡∏õ‡∏¥‡∏î‡πÅ‡∏ä‡∏£‡πå‡πÑ‡∏°‡πà‡πÑ‡∏î‡πâ: ${it.message}") }
-        } }
-    }
-
-    private fun review() { episodesMenu() }
-    private fun export(uri: Uri) {
-        val p = plan!!
-        contentResolver.openOutputStream(uri)!!.use { output -> ZipOutputStream(output).use { zip ->
-            fun put(name: String, data: ByteArray) { zip.putNextEntry(ZipEntry(name)); zip.write(data); zip.closeEntry() }
-            val delivered = JSONObject(p.toString())
-            if(exportEpisode != null) {
-                val selected = JSONArray(); val all = p.getJSONArray("episodes")
-                for(i in 0 until all.length()) if(all.getJSONObject(i).getInt("ep")==exportEpisode) selected.put(all.getJSONObject(i))
-                delivered.put("export_scope","episode").put("source_episode",exportEpisode).put("episodes",selected).put("episode_count",selected.length()).put("scene_count",rows(delivered).size)
-            }
-            put("story.json",delivered.toString(2).toByteArray())
-            put("MISSING.txt", rows(p).filter { exportEpisode == null || it.getInt("ep") == exportEpisode }.joinToString("\n") { "${key(it)}: ‡∏†‡∏≤‡∏û=${image(it).exists()} ‡∏ß‡∏¥‡∏î‡∏µ‡πÇ‡∏≠=${video(it).exists()}" }.toByteArray())
-            put("README.txt","${p.getString("title")}\n${p.getString("category")}\n‡∏ô‡∏≥‡∏†‡∏≤‡∏û‡∏â‡∏≤‡∏Å‡πÅ‡∏•‡∏∞‡∏Ñ‡∏≥‡∏™‡∏±‡πà‡∏á‡πÉ‡∏ô Flow/EPxx_FLOW.txt ‡πÑ‡∏õ‡πÉ‡∏ä‡πâ‡πÉ‡∏ô Flow ‚Ä¢ 8 ‡∏ß‡∏¥‡∏ô‡∏≤‡∏ó‡∏µ ‚Ä¢ 9:16".toByteArray())
-            for (name in coverNames(p)) {
-                val file = coverFile(name)
-                if (!file.exists()) continue
-                if (exportEpisode != null && StoryFiles.sceneNumber(name + "_SC001")?.first != exportEpisode && !name.startsWith("EP%02d_".format(exportEpisode))) continue
-                val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                android.graphics.BitmapFactory.decodeFile(file.path,opts)
-                val ext = when(opts.outMimeType) { "image/jpeg" -> "jpg"; "image/webp" -> "webp"; else -> "png" }
-                put("covers/$name.$ext",file.readBytes())
-            }
-            val episodes = p.getJSONArray("episodes")
-            for (i in 0 until episodes.length()) {
-                val ep = episodes.getJSONObject(i)
-                val number = ep.getInt("ep")
-                if (exportEpisode != null && number != exportEpisode) continue
-                val scenes = rows(p).filter { it.getInt("ep") == number }
-                val commands = StoryFiles.episodeFlow(number, ep.optString("title"), scenes.map {
-                    Triple(key(it), "${it.getString("action")}\n${it.optString("dialogue")}", flowCommand(it))
-                })
-                put("Flow/EP%02d_FLOW.txt".format(number), commands.replace("8 ‡∏ß‡∏¥‡∏ô‡∏≤‡∏ó‡∏µ‡∏ï‡πà‡∏≠‡∏ã‡∏µ‡∏ô ‚Ä¢ 9:16", "${p.optInt("duration_seconds",8)} ‡∏ß‡∏¥‡∏ô‡∏≤‡∏ó‡∏µ‡∏ï‡πà‡∏≠‡∏ã‡∏µ‡∏ô ‚Ä¢ ${p.optString("aspect_ratio","9:16")}").toByteArray())
-            }
-            for (s in rows(p)) {
-                if (exportEpisode != null && s.getInt("ep") != exportEpisode) continue
-                val path = "EP%02d/%s".format(s.getInt("ep"),key(s))
-                val file = image(s)
-                val video = video(s)
-                if (video.exists()) { zip.putNextEntry(ZipEntry("videos/${key(s)}.mp4")); video.inputStream().use { it.copyTo(zip) }; zip.closeEntry() }
-                if (!file.exists()) continue
-                val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                android.graphics.BitmapFactory.decodeFile(file.path,opts)
-                val extension = when(opts.outMimeType) { "image/jpeg" -> "jpg"; "image/webp" -> "webp"; else -> "png" }
-                zip.putNextEntry(ZipEntry("$path.$extension")); file.inputStream().use { it.copyTo(zip) }; zip.closeEntry()
-
-            }
-        } }
-    }
-}
+HHö[Jö[\—\ãú[ô[ô◊‹›‹ûW⁄[\‹ùäBàö]ò]Hò\à[éàî””ìÿöôX›»Hù[àö]ò]Hò\à[\‹ù[ô»Hò[ŸBàö]ò]Hò\àX›]ôTõŸX›[€ëX[ŸŒà[\ùX[Ÿœ»Hù[àö]ò]Hò\à[ô[ô‘›‹ûT⁄\ôNà
 
 
+HOà[ö]
+O»Hù[àö]ò]Hò\à[ô[ô‘›‹ûT›[[X\ûHHàÇàö]ò]Hò\à[ô[ô‘ôXŸZ\à
+
+
+HOà[ö]
+O»Hù[àö]ò]Hò\à^‹ù\\€ŸNà[ù¬àŸ]
+
+HHôYúÀôŸ][ù
+ô^‹ùŸ\\€ŸHã
+KùZŸRYà»]åBàŸ]
+ò[YJH»ôYúÀôY]
+
+Kú][ù
+ô^‹ùŸ\\€ŸHãò[YHŒà
+Kò\J
+HBàö]ò]Hò\àòX⁄›\[ŸNàõ€€X[ÇàŸ]
+
+HHôYúÀôŸ]õ€€X[äòòX⁄›\€[ŸHãò[ŸJBàŸ]
+ò[YJH»ôYúÀôY]
+
+Kú]õ€€X[äòòX⁄›\€[ŸHãò[YJKò\J
+HBàö]ò]Hò[\]\àH›Y[’\]\ä\ Bàö]ò]H]Z[ö]ò\àõ€›à[ôX\ì^[›]àö]ò]Hò[ò]ûHH€€‹ãúôÿäLãLãMJBàö]ò]Hò[€€H€€‹ãúôÿäåÃãNäBàö]ò]Hò[[X›öX–õYHH€€‹ãúôÿäÃMMãçMJBàö]ò]Hò[ﬁX[àH€€‹ãúôÿäãååçMJBàö]ò]Hò[XŸHH€€‹ãúôÿäççãåŒJBàö]ò]Hò[]]YH€€‹ãúôÿäMçMçMéJBàö]ò]Hù[à
+éà[ù
+HH
+à
+àô\€›\òŸ\Àô\‹^SY]öX‹Àô[ú⁄]JKù“[ù
+
+Bàö]ò]Hù[àòX⁄Ÿõ‹
+‹à[ùõ›€Nà[ùõ‹ô\éà[ù»Hù[
+HH‹òYY[ùò]ÿXõJ‹òYY[ùò]ÿXõKì‹öY[ù][€ãï–îã[ù\úò^SŸä‹õ›€JJKò\H¬à€‹õô\îòY]\»H
+MäKù—õÿ]
+
+BàYà
+õ‹ô\àOHù[
+HŸ]›õ⁄ŸJ
+JKõ‹ô\äBàBàö]ò]Hò[Y[ùP€€‹ú»H\úò^SŸäà[ù\úò^SŸä€€‹ãúôÿäçMKåNLLäK€€‹ãúôÿäçMKMÕÀN
+JKà[ù\úò^SŸä€€‹ãúôÿäLNKåÃãçL
+K€€‹ãúôÿäåÀNåÕJJKà[ù\úò^SŸä€€‹ãúôÿäåNKNMKçMJK€€‹ãúôÿäMÕãMÀç
+JKà[ù\úò^SŸä€€‹ãúôÿäLéçåäK€€‹ãúôÿäåÀåMå
+JKà[ù\úò^SŸä€€‹ãúôÿäçMKNKåJK€€‹ãúôÿäçKLŒKMÕJJJBàö]ò]Hù[àY[ùRX€€ä[ô^à[ù
+HH\›Ÿäº'„´Hãº'„™ãº'‰Êàãº'„´ãº'‰®HäV⁄[ô^	HWBàö]ò]Hù[à⁄⁄XŸSY[ùJ]Nà›ö[ôÀ⁄⁄XŸ\Œà\››ö[ôœãÿ[òŸ[à›ö[ô»H∏ß%ªÓ#»8.(∏. x.`8.)x.-8. Hãàÿ[òŸ[XõNàõ€€X[àHùYK€êÿ[òŸ[à
+
+
+HOà[ö]
+O»Hù[X›[€éà
+[ù
+HOà[ö]
+H¬àò[[ô[H[ôX\ì^[›]
+\ Kò\H¬à‹öY[ù][€àH[ôX\ì^[›]ïëTïP–S»Ÿ]Y[ô 
+MäK
+N
+K
+MäK
+LäJBàòX⁄Ÿ‹õ›[ôHòX⁄Ÿõ‹
+€€‹ãúôÿäççç Kò]ûK€€‹ãúôÿäÕåKŒJJBàBà[ô[òYöY] ^öY] \ Kò\H¬àò[›\ù]]Kö[ô^Ÿä∏.*∏.%∏.,∏.&x.,àäBàò[X€‹ò]YX[ôõ⁄Yù^î‹[õòXõT›ö[ô ]JBàYä›\ùèL
+HX€‹ò]YúŸ]‹[äà[ôõ⁄Yù^ú›[Këõ‹ôY‹õ›[ô€€‹î‹[äYä]Kò€€ùZ[ú ∏.*∏.%∏.,∏.&x.,à8.(∏.-¯.&x.(∏.,x.&x."∏..8.%8.`¯.&x.&∏.%¯.`x.)x.bx.)»äJH€€‹ãúôÿäLéKåçKMç H[ŸH€€‹ãúôÿäçMKNMãL
+JKà›\ù]Kõ[ô›[ôõ⁄Yù^î‹[õôYî‘Só—V”T“UëW—V”T“UëJBà^HX€‹ò]Y»^⁄^ôHHåé»Ÿ]^€€‹ä€€
+N»Ÿ]\YòXŸJù[\YòXŸKêì”
+BàŸ]Y[ô 
+M
+JBàJBàYä⁄⁄XŸ\Àú⁄^ôOåJH[ô[òYöY] ^öY] \ Kò\H¬à^H∏.`8.)x.-¯.+x. x.*¯.&x.-∏.b8.!¯.(¯.,∏.(∏. x.,∏.(»8†(à8.*¯.(x.,∏.(∏.`8.)x. ∏.`¯."∏.bx.(¯.,8.&∏..8.%x.,x.)¯.`8.)x.-¯.+x. HÇà^⁄^ôHHLôé»Ÿ]^€€‹ä€€‹ãúôÿäNÀåååJJN»Ÿ]Y[ô 
+L
+JBàJBàò[\›H[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€àH[ôX\ì^[›]ïëTïP–SBàò[ÿ‹õ€Hÿ‹õ€öY] \ Kò\H»YöY] \›
+HBà[ô[òYöY] ÿ‹õ€[ôX\ì^[›]ì^[›]\ò[\ LKLäJBàò[X[Ÿ»H[\ùX[ŸÀêùZ[\ä\ KúŸ]öY] [ô[
+KúŸ]ÿ[òŸ[XõJÿ[òŸ[XõJKò‹ôX]J
+Bà⁄⁄XŸ\Àôõ‹ëXX⁄[ô^Y»[ô^ò[YHOÇàò[[]O]⁄[äY[ùP⁄⁄XŸT›[Kúõ€Jò[YJJH¬àY[ùP⁄⁄XŸT›[KêRHOà[ù\úò^SŸä€€‹ãúôÿäÃKLLäK€€‹ãúôÿäçÀÕ
+K€€‹ãúôÿäMÕãLÕÀåçJJBàY[ùP⁄⁄XŸT›[KëQUOà[ù\úò^SŸä€€‹ãúôÿäNçÀÕJK€€‹ãúôÿäåKãÃJK€€‹ãúôÿäååãMÕM
+JBà[ŸHOà[ù\úò^SŸä€€‹ãúôÿäçKçãL K€€‹ãúôÿäNÃäK€€‹ãúôÿäLKMÕKåå
+JBàBàò[õ›œS[ôX\ì^[›]
+\ Kò\H¬à‹öY[ù][€èS[ôX\ì^[›]í‘íVì”ïS»‹ò]ö]OQ‹ò]ö]Kê—SïTó’ëTïP–SàZ[ö[][RZY⁄Y
+é
+N»Ÿ]Y[ô 
+LäK
+L
+K
+LäK
+L
+JBàòX⁄Ÿ‹õ›[ôXòX⁄Ÿõ‹
+[]VÃK[]VÃWK[]VÃóJBà^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ LKLäKò\H»õ›€SX\ô⁄[èY
+L
+HBà\–€X⁄ÿXõO]ùYN»\—õÿ›\ÿXõO]ùYBà€€ù[ù\ÿ‹ö\[€èH∏.%x.,x.)¯.`8.)x.-¯.+x. H	⁄[ô^
+Ã_Nà	ò[YHÇàò[]èX[ôõ⁄Yù][ï\Yò[YJ
+Bà[YKúô\€€ôP]öXù]J[ôõ⁄Yîãò]ãúŸ[X›XõR][PòX⁄Ÿ‹õ›[ô]ãùYJBàõ‹ôY‹õ›[ôYŸ]ò]ÿXõJ]ãúô\€›\òŸRY
+BàŸ]€ê€X⁄”\›[ô\à»X[ŸÀô\€Z\‹ 
+N»X›[€ä[ô^
+HBàBàõ›ÀòYöY] ^öY] \ Kò\H¬à^J[ô^
+ÃJKù‘›ö[ô 
+N»^⁄^ôOLNé»Ÿ]^€€‹ä€€‹ãï“UJBàŸ]\YòXŸJù[\YòXŸKêì”
+N»‹ò]ö]OQ‹ò]ö]Kê—SïTÇàòX⁄Ÿ‹õ›[ôXòX⁄Ÿõ‹
+[]VÃóK[]VÃJBà[\‹ù[ùõ‹êXÿŸ\‹⁄Xö[]OX[ôõ⁄YùöY]ÀïöY]ÀíST‘ïSï—ì‘ó–P–—T‘“PíSUW”ì¬àK[ôX\ì^[›]ì^[›]\ò[\ 
+Œ
+K
+Œ
+JKò\H»X\ô⁄[ë[ôY
+LäHJBàYä]OOH∏.%x.,x.bx.!¯.!8.b8.,∏.!8.-x.(∏.cTH8†(à8.`¯."∏.bx.+x.,x.%x.`∏.&x.(x.,x.%x.-à	âà[ô^›‹ûTõ›öY\ãòX›]ôTõ›öY\úÀú⁄^ôJH¬àò[\ùœ]ò[YKú‹]
+óàã[Z]LäBàò[Xô[œS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]ïëTïP–SBàXô[ÀòYöY] ^öY] \ Kò\H»^\\ù÷ÃN»^⁄^ôOLMôé»Ÿ]^€€‹ä€€‹ãï“UJN»Ÿ]\YòXŸJù[\YòXŸKêì”
+HJBàXô[ÀòYöY] ^öY] \ Kò\H¬à^\\ùÀôŸ]‹ë[ŸJJH»ààN»Ÿ]^€€‹ä€€‹ãï“UJN»X^[ô\œLBà[ôõ⁄Yò€‹ôKù⁄YŸ]ï^öY]–€€\]úŸ]]]‘⁄^ôU^\U[öYõ‹õU⁄]€€ôöY›\ò][€ä\ÀLãK[ôõ⁄Yù][ï\Yò[YKê””TV’SíU‘‘
+BàK[ôX\ì^[›]ì^[›]\ò[\ LKLäJBàõ›ÀòYöY] Xô[À[ôX\ì^[›]ì^[›]\ò[\ LãYäJBàH[ŸHõ›ÀòYöY] ^öY] \ Kò\H¬à^]ò[YN»^⁄^ôOLMôé»Ÿ]^€€‹ä€€‹ãï“UJN»Ÿ]\YòXŸJù[\YòXŸKêì”
+Bà‹ò]ö]OQ‹ò]ö]Kê—SïTó’ëTïP–Sà[\‹ù[ùõ‹êXÿŸ\‹⁄Xö[]OX[ôõ⁄YùöY]ÀïöY]ÀíST‘ïSï—ì‘ó–P–—T‘“PíSUW”ì¬àK[ôX\ì^[›]ì^[›]\ò[\ LãYäJBà\›òYöY] õ› BàBàYà
+⁄⁄XŸ\Àö\—[\J
+JH\›òYöY] ^öY] \ Kò\H¬à^Hº'‰ÎH8.(∏.,x.!¯.a8.(x.b8.(x.-x.(¯.,∏.(∏. x.,∏.(»é»^⁄^ôHHMôé»Ÿ]^€€‹äXŸJN»Ÿ]Y[ô 
+LäK
+LäJBàJBà[ô[òYöY] ^öY] \ Kò\H¬à^Hÿ[òŸ[»^⁄^ôHHMôé»Ÿ]^€€‹äXŸJN»‹ò]ö]HH‹ò]ö]Kê—SïTÇàZ[íZY⁄H
+
+N»òX⁄Ÿ‹õ›[ôHòX⁄Ÿõ‹
+€€‹ãúôÿäÕãÕã
+K€€‹ãúôÿäééÃäJBà\—õÿ›\ÿXõHHùYN»Ÿ]€ê€X⁄”\›[ô\à»X[ŸÀô\€Z\‹ 
+N»€êÿ[òŸ[Àö[ùõ⁄ŸJ
+HBàJBàX[ŸÀúŸ]€êÿ[òŸ[\›[ô\à»€êÿ[òŸ[Àö[ùõ⁄ŸJ
+HBàX[ŸÀú⁄› 
+BàX[ŸÀù⁄[ô›œÀúŸ]òX⁄Ÿ‹õ›[ôò]ÿXõJ[ôõ⁄Yô‹ò\X‹Àôò]ÿXõKê€€‹ëò]ÿXõJ€€‹ãïêSî‘TëSï
+JBàX[ŸÀù⁄[ô›œÀúŸ]^[›]
+ô\€›\òŸ\Àô\‹^SY]öX‹Àù⁄Y^[»H
+ç
+KLäBà[ô[ú‹›¬àò[X^[][HH
+ô\€›\òŸ\Àô\‹^SY]öX‹ÀöZY⁄^[»
+àéYäKù“[ù
+
+Bàò[]òZ[XõHHX^[][HH
+[ô[öZY⁄Hÿ‹õ€öZY⁄
+BàYà
+ÿ‹õ€öZY⁄à]òZ[XõJHÿ‹õ€õ^[›]\ò[\»H[ôX\ì^[›]ì^[›]\ò[\ LK]òZ[XõKò€Ÿ\òŸP]X\›
+
+
+JJBàBàBàö]ò]Hò[YÿXﬁPÿ]Y€‹öY\»H\›ŸäàïHúõ⁄Ÿ[àõ›‹»8.&∏.,x.&x.%¯.-∏. x.(¯.+x.(∏.(¯.bx.,∏.)¯."∏.-x.)¯.-8.%x.!8..x.bãàî›ŸY]ô]ô[ôŸH8.`8. x.(x.(¯.,x. x."¯.b8.+x.&x.)x.)¯.!»8.&∏.%¯.`8.(¯.-x.(∏.&x.(¯.*∏.`x."¯.b8.&àãàëò[Z[HŸX‹ô]»8.!8.)¯.,∏.(x.)x.,x.&∏.`¯.%x.bx."∏.,∏.(∏.!8.,ããã∏.%¯.-x.b8.a8.(x.b8.(x.-x.`¯.!8.(¯. x.)x.bx.,∏.'∏..x.%ãàï⁄\›Yù]8.'∏.)x.a¯.+x.%x.*¯.,x. x.(x..8.(Kãã∏.!8.)¯.,∏.(x."8.(¯.-8.!¯.`¯.%x.bx.`8.%x.-x.(∏.!»ãàíX[[ô»X\ù»8."¯.b8.+x.(x.(¯.,x. x.*¯.)x.,x.!¯.&∏.bx.,∏.&H8."¯.-x.(¯.-x.*∏.c8.+∏.-x.)x.`¯."äBàö]ò]Hò[ÿ]Y€‹öY\»H⁄[õô[ÿ][ŸÀò[ÿ]Y€‹öY\ÀõX\»]õXô[Bàö]ò]Hò\àX\›\î€›à›ö[ôœ¬àŸ]
+
+HHôYúÀôŸ]›ö[ô õX\›\ó‹€›ãù[
+BàŸ]
+ò[YJH»ôYúÀôY]
+
+Kú]›ö[ô õX\›\ó‹€›ãò[YJKò\J
+HBàö]ò]Hò[X\›\îX⁄Ÿ\àHôY⁄\›\ëõ‹êX›]ö]Tô\›[
+X›]ö]Tô\›[€€ùòX›Àì‹[ëÿ›[Y[ù
+
+JH»\öHOÇàò[€›HX\›\î€›àYà
+\öHOHù[	âà€›[à\›Ÿäôÿ]⁄[àãúö[õYHãõZ[ôäJH¬àûH¬àò[õ€\àHö[Jö[\—\ãò⁄\òX›\ó€X\›\ú»äKò\H»ZŸ\ú 
+HBàò[[\‹ò\ûHHö[Jõ€\ãâ€›ù\äBà€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J\öJHHKù\ŸH»[ú]Oà[\‹ò\ûKõ›]]›ôX[J
+Kù\ŸH»[ú]ò€‹U ]
+HHBàò[õ›[ô»H[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[íù\›X€ŸPõ›[ô»HùYHBà[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸQö[J[\‹ò\ûKú]õ›[ô Bàô\]Z\ôJõ›[ôÀõ›]⁄Yà	âàõ›[ôÀõ›]ZY⁄à
+H»∏.a8.'¯.)x.c8.&x.-x.bx.a8.(x.b8.`¯."∏.b8.(8.,∏.'∏.%¯.-x.b8.+x.b8.,∏.&x.a8.%8.bHàBàò[ô]ö[›\œQö[Jõ€\ãâ€›õX\›\àäN»Yäô]ö[›\Àô^\› 
+JHô]ö[›\Àò€‹U ö[Jõ€\ãâ€›úô]ö[›\»äK›ô\ù‹ö]O]ùYJBàô\]Z\ôJ[\‹ò\ûKúô[ò[YU ô]ö[›\ JH»∏.&∏.,x.&x.%¯.-∏. x.(8.,∏.'∏.a8.(x.b8.a8.%8.bHàBàõ›XŸJ∏.&∏.,x.&x.%¯.-∏. x.(8.,∏.'∏.`x.)x.bx.)»8.`8.&¯.-8.%8.`8.(x.&x..x.%x.(¯.)¯."8.(8.,∏.'àPT’Tà8.`8.'∏.-¯.b8.+x.`8.%¯.-x.(∏.&∏. x.,x.&∏.%x.bx.&x."x.&∏.,x.&∏. x.b8.+x.&x.`¯."∏.bx.!¯.,∏.&HäBàHÿ]⁄
+Nà^Ÿ\[€äH»õ›XŸJ∏.(¯.,x.&∏.(8.,∏.'∏.a8.(x.b8.*∏.,¯.`8.(¯.a¯."à	ŸKõY\‹ÿYŸ_HäHBàBàX\›\î€›Hù[àBàÀ»õŸHôYô\ô[òŸ\»\ôHõ›X›‹àY[ù]Y\Ààô]»X›‹ú»\ôHôY⁄\›\ôY€õHYù\à[XYŸHô]öY]ÀÇàö]ò]Hò[õŸU[\]Qö[\œ[\›ŸäòõŸWÃKúô»äBàö]ò]Hò[X›‹êÿ][Ÿ—ö[HŸ]
+
+HHö[Jö[\—\ãòX›‹óÿÿ][Ÿ◊›åãöú€€àäBàö]ò]Hù[àX›‹êÿ][Ÿ 
+Nàî””ê\úò^HHYäXX›‹êÿ][Ÿ—ö[Kô^\› 
+JHî””ê\úò^J
+H[ŸHî””ìÿöôX›
+X›‹êÿ][Ÿ—ö[KúôXY^
+
+JKôŸ]î””ê\úò^JúôX€‹ô»äBàö]ò]Hù[àò[ù\ﬁPÿ][Ÿ 
+Nàî””ê\úò^HHî””ìÿöôX›
+\‹Ÿ]Àõ‹[äôò[ù\ﬁW€X\›\úÀÿÿ][ŸÀöú€€àäKòùYôô\ôYôXY\ä
+Kù\ŸH»]úôXY^
+
+HJKôŸ]î””ê\úò^JúôX€‹ô»äBàÀ»[ò€YHHù[ôYYÿXﬁHôYô\ô[òŸ\»[ô\Ÿ\ãX‹ôX]YX›‹ú»⁄]›]⁄[ô⁄[ô»Z]\àÿ][ŸÀÇàö]ò]Hù[àÿ\›[ô–ÿ][Ÿ 
+Nàî””ê\úò^H¬àò[YÿXﬁORî””ìÿöôX›
+\‹Ÿ]Àõ‹[äõX\›\ó€Xúò\ûKÿÿ][ŸÀöú€€àäKòùYôô\ôYôXY\ä
+Kù\ŸH»]úôXY^
+
+HJKôŸ]î””ê\úò^JúôX€‹ô»äBàò[›\›€OXX›‹êÿ][Ÿ 
+Bàò[ô\›[Rî””ê\úò^J
+Bàò[Yœ[]]XõTŸ]Ÿè›ö[ôœä
+Bàõ‹à
+õ›‹»[à\›ŸäYÿXﬁK›\›€Kò[ù\ﬁPÿ][Ÿ 
+JJHõ‹à
+H[à[ù[õ›‹Àõ[ô›
+
+JH¬àò[õ›œRî””ìÿöôX›
+õ›‹ÀôŸ]î””ìÿöôX›
+JKù‘›ö[ô 
+JBàô\]Z\ôJYÀòY
+õ›ÀôŸ]›ö[ô öYäJJH»∏.(¯.*¯.,x.*àPT’Tà8."¯.bx.,¯.`¯.&x.!8.)x.,x.!Œà	‹õ›ÀôŸ]›ö[ô öYä_HàBàô\›[ú]
+õ› BàBàô]\õàô\›[àBàö]ò]Hò[XPX›‹íYHê“TóÃNNNNNNNNNHÇàö]ò]Hò[XRY[ù]Qö[HŸ]
+
+HHö[Jö[\—\ãúXW⁄Y[ù]W€X\›\ãö[XYŸHäBàö]ò]Hò[XRY[ù]TX⁄Ÿ\è\ôY⁄\›\ëõ‹êX›]ö]Tô\›[
+X›]ö]Tô\›[€€ùòX›Àì‹[ëÿ›[Y[ù
+
+JH»\öHOÇàYä\öHO[ù[
+Hù[êÿ]⁄[ô»¬àò[û]\œX€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J\öJOÀù\ŸH»]úôXYû]\ 
+HHŒà\úõ‹ä∏.`8.&¯.-8.%8.(8.,∏.'∏.a8.(x.b8.a8.%8.bHäBàò[õ›[ôœX[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[íù\›X€ŸPõ›[ôœ]ùYHBà[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸPû]P\úò^Jû]\Àû]\Àú⁄^ôKõ›[ô Bàô\]Z\ôJõ›[ôÀõ›]⁄Yå	âàõ›[ôÀõ›]ZY⁄å
+H»∏.a8.'¯.)x.c8.a8.(x.b8.`¯."∏.b8.(8.,∏.'∏.%¯.-x.b8.+x.b8.,∏.&x.a8.%8.bHàBàò[[ô[ôœQö[Jö[\—\ãúXW⁄Y[ù]W€X\›\ãú[ô[ô»äBàûH»[ô[ôÀù‹ö]Pû]\ û]\ N»⁄X⁄ [ô[ôÀúô[ò[YU XRY[ù]Qö[JJH»∏.&∏.,x.&x.%¯.-∏. HPT’Tà8.a8.(x.b8.*∏.,¯.`8.(¯.a¯."àHHö[ò[H»[ô[ôÀô[]J
+HBàõ›XŸJ∏.&∏.,x.&x.%¯.-∏. HPT’Tà8.&x.,∏.(∏.`8.&¯.-x.(∏.`x.)x.bx.)»8†(à8.`8.&¯.-8.%8.*¯.&x.bx.,∏.*∏.(¯.bx.,∏.!¯.`8.(¯.-¯.b8.+x.!¯.`¯.*¯.(x.b8.`8.'∏.-¯.b8.+x.%x.(¯.)¯."8.(8.,∏.'∏.`x.)x.,8.`8.)x.-¯.+x. x. x.(¯.+x.&∏.`¯.&∏.*¯.&x.bx.,∏.+x.-x. x.!8.(¯.,x.bx.!»äBàKõ€ëòZ[\ôH»õ›XŸJ∏.&∏.,x.&x.%¯.-∏. HPT’Tà8.a8.(x.b8.*∏.,¯.`8.(¯.a¯."à	⁄]õY\‹ÿYŸ_HäHBàBàö]ò]Hù[àXPÿ][Ÿ 
+Nàî””ê\úò^H¬àò[ZY‹ò][€îôYúœYŸ]⁄\ôYôYô\ô[òŸ\ úXW€X\›\ó›\]\»ãS—W‘íUêUJBàYä[ZY‹ò][€îôYúÀôŸ]õ€€X[äöY[ù]WÕÃHãò[ŸJJH¬àò[û]\œX\‹Ÿ]Àõ‹[äúXW⁄Y[ù]WÕÃKúô»äKù\ŸH»]úôXYû]\ 
+HBàXSX\›\ï\]Kö[ú›[
+XRY[ù]Qö[Kû]\ Bà⁄X⁄ ZY‹ò][€îôYúÀôY]
+
+Kú]õ€€X[äöY[ù]WÕÃHãùYJKò€€[Z]
+
+JH»∏.&∏.,x.&x.%¯.-∏. x.*∏.%∏.,∏.&x.,PT’Tà8.a8.(x.b8.*∏.,¯.`8.(¯.a¯."àBàBàò[ÿ][ŸœXÿ\›[ô–ÿ][Ÿ 
+Bàô\]Z\ôJ
+[ù[ÿ][ŸÀõ[ô›
+
+JKõõ€ôH»ÿ][ŸÀôŸ]î””ìÿöôX›
+]
+Kõ‹›ö[ô öYäOO\XPX›‹íYJH»∏.(¯.*¯.,x.*∏.%x.,x.)¯.)x.,8.!8.(¯.&x.,∏.(∏.`8.&¯.-x.(∏."¯.bx.,»àBàò[û]\œZYäXRY[ù]Qö[Kö\—ö[JHXRY[ù]Qö[KúôXYû]\ 
+H[ŸH\‹Ÿ]Àõ‹[äúXW€›]ö]ÀÃKúô»äKù\ŸH»]úôXYû]\ 
+HBàò[õ›œRî””ìÿöôX›
+
+Kú]
+öYãXPX›‹íY
+Kú]
+ô\‹^W€ò[YHã∏.&x.,∏.(∏.`8.&¯.-x.(à8.&∏.bx.,∏.&x.!8.)x.+x.!¯. ∏..8.%äBàú]
+ôö[HãîPW‘ëT—SïTãúô»äKú]
+ú⁄LçMàãX\›\ìXúò\ûKôYŸ\›
+û]\ JBàú]
+ò⁄\òX›\óÿYŸHãÕJKú]
+òYŸWÿò\⁄\»ãôöX›[€ò[ÿÿ\›[ô◊‹XŸZ€\ó€õ›‹ôX[ÿYŸHäBàú]
+ò⁄\òX›\óŸŸ[ô\àãõX[àäKú]
+òÿ\›[ô◊Ÿ\ÿ‹ö\[€àãï\ŸHH]X⁄Y‹öY⁄[ò[PT’Tàõ‹à\»ô\Ÿ[ù\àY[ù]KàäBàò[ô\›[Rî””ê\úò^J
+Kú]
+õ› Bàõ‹äH[à[ù[ÿ][ŸÀõ[ô›
+
+JHô\›[ú]
+ÿ][ŸÀôŸ]î””ìÿöôX›
+JJBàô]\õàô\›[àBàö]ò]Hù[à[ú›[XQYò][ 
+H¬àõ‹ä€›[àKãåL H¬àò[\ôŸ]\ô\Ÿ[ù\ì›]ö]ö[JXPX›‹íY€›
+BàYä]\ôŸ]ô^\› 
+JH¬à\ôŸ]ú\ô[ùö[HHKõZŸ\ú 
+Bàò[\Qö[J\ôŸ]ú\ô[ùö[Kâ€›ôYò][ú[ô[ô»äBàûH¬à\‹Ÿ]Àõ‹[äYä€›OLL HúXW€›]ö]ÀÃLÀùŸXúà[ŸHúXW€›]ö]À…Lôúô»ãôõ‹õX]
+€›
+JKù\ŸH»[ú]Oà\õ›]]›ôX[J
+Kù\ŸH»›]]Oà[ú]ò€‹U ›]]
+HHBà⁄X⁄ \úô[ò[YU \ôŸ]
+JH»∏.%x.-8.%8.%x.,x.bx.!¯.(8.,∏.'∏."∏..8.%8.&x.,∏.(∏.`8.&¯.-x.(∏.a8.(x.b8.*∏.,¯.`8.(¯.a¯."àBàHö[ò[H»\ô[]J
+HBàBàBàBàö]ò]Hù[àÿ\›[ô‘€›\òŸJõ›Œàî””ìÿöôX›
+Nàö[H¬àYäõ›Àõ‹›ö[ô ú€›\òŸW›\HäOOHôò[ù\ﬁWÿù[ôHäH¬àò[ö[[ò[YO\õ›ÀôŸ]›ö[ô ôö[HäBàô\]Z\ôJö[[ò[YKõX]⁄\ ôYŸ^
+ëêSïT÷W÷ÃNW^ÃüVÀó\ô»äJJH»∏."∏.-¯.b8.+x.a8.'¯.)x.cPT’Tà8.a8.(x.b8.%∏..x. x.%x.bx.+x.!»àBàò[û]\œX\‹Ÿ]Àõ‹[äôò[ù\ﬁW€X\›\úÀ…ö[[ò[YHäKù\ŸH»]úôXYû]\ 
+HBàô\]Z\ôJX\›\ìXúò\ûKôYŸ\›
+û]\ OO\õ›ÀôŸ]›ö[ô ú⁄LçMàäJH»∏.(8.,∏.'àPT’Tà8.a8.(x.b8.%x.(¯.!¯. x.,x.&∏.%¯.,8.`8.&∏.-x.(∏.&HàBàò[\ôŸ]Qö[Jö[\—\ãôò[ù\ﬁW€X\›\úÀ…ö[[ò[YHäBàYä]\ôŸ]ö\—ö[HX\›\ìXúò\ûKôYŸ\›
+\ôŸ]úôXYû]\ 
+JHO\õ›ÀôŸ]›ö[ô ú⁄LçMàäJH¬à\ôŸ]ú\ô[ùö[HHKõZŸ\ú 
+Bàò[[\Qö[J\ôŸ]ú\ô[ùö[K\ôŸ]õò[YJ»ãú[ô[ô»äBàûH»[\ù‹ö]Pû]\ û]\ N»⁄X⁄ [\úô[ò[YU \ôŸ]
+JH»∏.&∏.,x.&x.%¯.-∏. HPT’Tà8.a8.(x.b8.*∏.,¯.`8.(¯.a¯."àHHö[ò[H»[\ô[]J
+HBàBàô]\õà\ôŸ]àBàYäõ›ÀôŸ]›ö[ô öYäOO\XPX›‹íY
+H¬àYäXRY[ù]Qö[Kö\—ö[JH¬àô\]Z\ôJX\›\ìXúò\ûKôYŸ\›
+XRY[ù]Qö[KúôXYû]\ 
+JOO\õ›ÀôŸ]›ö[ô ú⁄LçMàäJH»ìPT’Tà8.&x.,∏.(∏.`8.&¯.-x.(∏.`8.&¯.)x.-x.b8.(∏.&x.(¯.,8.*¯.)¯.b8.,∏.!¯.`8.)x.-¯.+x. H8. x.(¯..8.$¯.,∏.`8.&¯.-8.%8.*¯.&x.bx.,∏.*∏.(¯.bx.,∏.!¯.`8.(¯.-¯.b8.+x.!¯.`¯.*¯.(x.bàBàô]\õàXRY[ù]Qö[BàBàò[û]\œX\‹Ÿ]Àõ‹[äúXW€›]ö]ÀÃKúô»äKù\ŸH»]úôXYû]\ 
+HBàò[\ôŸ]Qö[Jö[\—\ãúXW‹ô\Ÿ[ù\ó€X\›\ãúô»äBàYä]\ôŸ]ö\—ö[HX\›\ìXúò\ûKôYŸ\›
+\ôŸ]úôXYû]\ 
+JHOSX\›\ìXúò\ûKôYŸ\›
+û]\ JH\ôŸ]ù‹ö]Pû]\ û]\ Bàô]\õà\ôŸ]àBàò[[ùûO[X\›\ìXúò\ûKô[ùöY\ 
+Kôö\ú›‹ìù[»]öYO\õ›ÀôŸ]›ö[ô öYäHBàô]\õàYä[ùûHO[ù[
+HX\›\ìXúò\ûKú€›\òŸJ[ùûJH[ŸHö[Jö[\—\ãòX›‹ó€X\›\ó›åã»ä‹õ›ÀôŸ]›ö[ô ôö[HäJBàBàö]ò]Hù[àõŸU[\]Qö[J[ô^à[ù
+Nàö[H¬àò[\ôŸ]Qö[JÿX⁄Q\ãòõŸW›[\]W‹€›\òŸ\À…ÿõŸU[\]Qö[\÷⁄[ô^_HäBà\ôŸ]ú\ô[ùö[HHKõZŸ\ú 
+Bà\‹Ÿ]Àõ‹[äòõŸW›[\]\À»äÿõŸU[\]Qö[\÷⁄[ô^JKù\ŸH»[ú]Oà\ôŸ]õ›]]›ôX[J
+Kù\ŸH»[ú]ò€‹U ]
+HHBàô]\õà\ôŸ]àBàö]ò]Hò[X›‹í[XYŸTX⁄Ÿ\è\ôY⁄\›\ëõ‹êX›]ö]Tô\›[
+X›]ö]Tô\›[€€ùòX›Àì‹[ëÿ›[Y[ù
+
+JH»\öHOÇàò[[ô[ôœ\ôYúÀôŸ]›ö[ô õô]◊ÿX›‹ó‹[ô[ô»ãù[
+BàYä\öHO[ù[	âà[ô[ô»O[ù[
+Hù[êÿ]⁄[ô»¬àò[\ú€€èRî””ìÿöôX›
+[ô[ô Bàò[[ú]X€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J\öJHŒà\úõ‹ä∏.`8.&¯.-8.%8.(8.,∏.'∏.a8.(x.b8.a8.%8.bHäBàò[û]\œZ[ú]ù\ŸH»]úôXYû]\ 
+HBàò[õ›[ôœX[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[íù\›X€ŸPõ›[ôœ]ùYHBà[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸPû]P\úò^Jû]\Àû]\Àú⁄^ôKõ›[ô Bàô\]Z\ôJõ›[ôÀõ›]⁄Yå	âàõ›[ôÀõ›]ZY⁄å
+H»∏.a8.'¯.)x.c8.a8.(x.b8.`¯."∏.b8.(8.,∏.'ààBàò[^[ú⁄[€è]⁄[äõ›[ôÀõ›]Z[YU\JH»ö[XYŸK⁄úY»àOàöú»é»ö[XYŸK›ŸXúàOàùŸXúé»ö[XYŸK‹ô»àOàúô»é»[ŸHOà\úõ‹ä∏.(¯.+x.!¯.(¯.,x.&∏.(8.,∏.'àëÀî»8.*¯.(¯.-¯.+HŸXîäHBàò[ôX€‹ôœXX›‹êÿ][Ÿ 
+Bàô\]Z\ôJ
+[ù[ôX€‹ôÀõ[ô›
+
+JKõõ€ôH»ôX€‹ôÀôŸ]î””ìÿöôX›
+]
+KôŸ]›ö[ô ô\‹^W€ò[YHäOO\\ú€€ãôŸ]›ö[ô ô\‹^W€ò[YHäHJH»∏."∏.-¯.b8.+x.&x.-x.bx.(x.-x.`¯.&x.!8.)x.,x.!¯.`x.)x.bx.)»àBàò[ö[Sò[YO\\ú€€ãôŸ]›ö[ô öYäH
+»ãàà
+»^[ú⁄[€Çàò[\èQö[Jö[\—\ãòX›‹ó€X\›\ó›åàäKò\H»ZŸ\ú 
+HBàò[\ôŸ]Qö[J\ãö[Sò[YJBàô\]Z\ôJ]\ôŸ]ô^\› 
+JH»∏.(¯.*¯.,x.*∏.%x.,x.)¯.)x.,8.!8.(¯."¯.bx.,»8. x.(¯..8.$¯.,∏.`8.(¯.-8.b8.(x.`¯.*¯.(x.bàBàò[[\Qö[J\ãö[Sò[YJ»ãú[ô[ô»äBàûH¬à[\ù‹ö]Pû]\ û]\ Bà\ú€€ãú]
+ôö[Hãö[Sò[YJKú]
+õ‹öY⁄[ò[Ÿö[[ò[YHãö[Sò[YJKú]
+ú⁄LçMàãX\›\ìXúò\ûKôYŸ\›
+û]\ JKú]
+òYŸWÿò\⁄\»ãù\Ÿ\óÿ\‹⁄Y€ôYäBàôX€‹ôÀú]
+\ú€€äBà⁄X⁄ [\úô[ò[YU \ôŸ]
+JH»∏.&∏.,x.&x.%¯.-∏. x.(8.,∏.'∏.a8.(x.b8.a8.%8.bHàBàûH¬àò[ÿ][Ÿ’[\Qö[Jö[\—\ãòX›‹óÿÿ][Ÿ◊›åãú[ô[ô»äBàÿ][Ÿ’[\ù‹ö]U^
+î””ìÿöôX›
+
+Kú]
+úôX€‹ô»ãôX€‹ô Kù‘›ö[ô äJBà⁄X⁄ ÿ][Ÿ’[\úô[ò[YU X›‹êÿ][Ÿ—ö[JJH»∏.&∏.,x.&x.%¯.-∏. x.%¯.,8.`8.&∏.-x.(∏.&x.a8.(x.b8.a8.%8.bHàBàHÿ]⁄
+Nà^Ÿ\[€äH»\ôŸ]ô[]J
+N»õ›»HBàHö[ò[H»[\ô[]J
+HBàôYúÀôY]
+
+Kúô[[›ôJõô]◊ÿX›‹ó‹[ô[ô»äKò\J
+BàKõ€î›XÿŸ\‹»»õ›XŸJ∏.&∏.,x.&x.%¯.-∏. HPT’Tà8.%x.,x.)¯.)x.,8.!8.(¯.`¯.*¯.(x.b8.`x.)x.bx.)»8†(à8.%x.(¯.)¯."8.(8.,∏.'∏.`x.)x.,8. ∏.bx.+x.(x..x.)x.`¯.&x.!8.)x.,x.!¯.a8.%8.bHäHKõ€ëòZ[\ôH»õ›XŸJ]õY\‹ÿYŸHŒà∏.&∏.,x.&x.%¯.-∏. x.%x.,x.)¯.)x.,8.!8.(¯.a8.(x.b8.a8.%8.bHäHBàBàÀ»€ôHö]ò]H›]ö][XYŸH\à\ú€€à[ô›]ö]€›à^\›[ô»›‹öY\»ŸY\Z\à›€à€ò\⁄›Çàö]ò]Hù[àô\Ÿ[ù\ì›]ö]ö[JX›‹íYà›ö[ôÀ€›à[ù
+Nàö[H¬àô\]Z\ôJX›‹íYõX]⁄\ ôYŸ^
+ñ–KVòK^åNW◊J»äJH	âà€›[àKãåL Bàô]\õàö[Jö[\—\ãúô\Ÿ[ù\ó€›]ö]À…X›‹íY…€›ö[XYŸHäBàBàö]ò]Hò[ô\Ÿ[ù\ì›]ö]X⁄Ÿ\è\ôY⁄\›\ëõ‹êX›]ö]Tô\›[
+X›]ö]Tô\›[€€ùòX›Àì‹[ëÿ›[Y[ù
+
+JH»\öHOÇàò[X›‹è\ôYúÀôŸ]›ö[ô úô\Ÿ[ù\ó€›]ö]ÿX›‹àãàäKõ‹ë[\J
+Bàò[€›\ôYúÀôŸ][ù
+úô\Ÿ[ù\ó€›]ö]‹€›ã
+BàYä\öHO[ù[
+Hù[êÿ]⁄[ô»¬àò[[ú]X€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J\öJHŒà\úõ‹ä∏.`8.&¯.-8.%8.(8.,∏.'∏.a8.(x.b8.a8.%8.bHäBàò[û]\œZ[ú]ù\ŸH»]úôXYû]\ 
+HBàô\]Z\ôJû]\Àú⁄^ôH[àKãååÃÃ
+H»∏.(8.,∏.'∏.%x.bx.+x.!¯.(x.-x. ∏.&x.,∏.%8.a8.(x.b8.`8. x.-8.&HåPààBàò[[ôõœX[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[íù\›X€ŸPõ›[ôœ]ùYHBà[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸPû]P\úò^Jû]\Àû]\Àú⁄^ôK[ôõ Bàô\]Z\ôJ[ôõÀõ›]⁄Yå	âà[ôõÀõ›]ZY⁄å	âà[ôõÀõ›]Z[YU\H[à\›Ÿäö[XYŸK⁄úY»ãö[XYŸK‹ô»ãö[XYŸK›ŸXúäJH»∏. x.(¯..8.$¯.,∏.`8.)x.-¯.+x. x.(8.,∏.'àëÀî»8.*¯.(¯.-¯.+HŸXîàBàò[\ôŸ]\ô\Ÿ[ù\ì›]ö]ö[JX›‹ã€›
+N»\ôŸ]ú\ô[ùö[HHKõZŸ\ú 
+Bàò[\Qö[J\ôŸ]ú\ô[ùö[Kâ€›ú[ô[ô»äBàûH»\ù‹ö]Pû]\ û]\ N»⁄X⁄ \úô[ò[YU \ôŸ]
+JH»∏.&∏.,x.&x.%¯.-∏. x.(8.,∏.'∏."∏..8.%8.a8.(x.b8.a8.%8.bHàHHö[ò[H»\ô[]J
+HBàKõ€î›XÿŸ\‹»»õ›XŸJ∏.&∏.,x.&x.%¯.-∏. x.(8.,∏.'∏."∏..8.%8. x.,x.&∏.%x.,x.)¯.)x.,8.!8.(¯.`x.)x.bx.)»8†(à8.`8.)x.-¯.+x. x."∏..8.%8.&x.-x.bx.%x.+x.&x.*∏.(¯.bx.,∏.!¯.`8.(¯.-¯.b8.+x.!»äHKõ€ëòZ[\ôH»õ›XŸJ]õY\‹ÿYŸHŒà∏.&∏.,x.&x.%¯.-∏. x.(8.,∏.'∏.a8.(x.b8.a8.%8.bHäHBàôYúÀôY]
+
+Kúô[[›ôJúô\Ÿ[ù\ó€›]ö]ÿX›‹àäKúô[[›ôJúô\Ÿ[ù\ó€›]ö]‹€›äKò\J
+BàBàö]ò]Hù[àõŸU[\]SY[ùJ
+H¬à⁄⁄XŸSY[ùJ∏.`x.(x.b8.`x.&∏.&∏.(¯..x.&¯.(¯.b8.,∏.!»ã\›Ÿä∏.`x.(x.b8.`x.&∏.&àH8†(à8.'8..x.bx."∏.,∏.(àäJH»[ô^OÇàò[ö[O\ù[êÿ]⁄[ô»»õŸU[\]Qö[J[ô^
+HKôŸ]‹ë[ŸH»õ›XŸJ∏.`8.&¯.-8.%8.`x.(x.b8.`x.&∏.&∏.a8.(x.b8.a8.%8.bHäN»ô]\õê⁄⁄XŸSY[ùHBàò[[ô[S[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èLN»Ÿ]Y[ô 
+MäK
+
+K
+MäK
+
+JHBà[ô[òYöY] [XYŸUöY] \ Kò\H»Ÿ][XYŸPö]X\
+ô]öY]–ö]X\
+\öKôúõ€Qö[Jö[JJJN»Yù\›öY]–õ›[ôœ]ùYN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ LK
+ç
+JHJBàò[ò[YOQY]^
+\ Kò\H»[ùH∏."∏.-¯.b8.+x.&x.,x. x.`x.*∏.%8.!¯.`¯.*¯.(x.b
+8."∏.-¯.b8.+x.%∏.,∏.)¯.( Hé»[ô[òYöY] \ HBàò[YŸOQY]^
+\ Kò\H»[ùH∏.+x.,∏.(∏..8.*∏.(x.(x.%x.-8†$ÃK8.&¯.-Hé»[ú]\OX[ôõ⁄Yù^í[ú]\KïTW–”T‘◊”ïSPëTé»[ô[òYöY] \ HBàò[òXŸOQY]^
+\ Kò\H»[ùH∏.)x.,x. x.*x.$¯.,8.`¯.&∏.*¯.&x.bx.,∏.`x.)x.,8.%¯.(¯.!¯.'8.(x.`¯.*¯.(x.b
+8.a8.%¯.(∏.*¯.(¯.-¯.+x.+x.,x.!¯. x.)8.*JHé»[ô[òYöY] \ HBàò[›[[ôœQY]^
+\ Kò\H»[ùH∏.*∏.-x.'8.-8.)¯.`x.)x.,8.`8.*∏.-¯.bx.+x.'8.bx.,à
+8.a8.%¯.(∏.*¯.(¯.-¯.+x.+x.,x.!¯. x.)8.*JHé»[ô[òYöY] \ HBà[ô[òYöY] ^öY] \ Kò\H»^HåKà8.*∏.b8.!¯.!8.,¯.*∏.,x.b8.!¯.'∏.(¯.bx.+x.(x.`x.(x.b8.`x.&∏.&∏.a8.&¯.*∏.(¯.bx.,∏.!¯.`¯.&H⁄]‘8.*¯.(¯.-¯.+HŸ[Z[öWåãà8.%x.(¯.)¯."8.(8.,∏.'∏."8.(¯.-8.!»8.`x.)x.bx.)¯. x.)x.,x.&∏.(x.,∏.`8.)x.-¯.+x. H8.&x.,¯.`8. ∏.bx.,∏.(8.,∏.'∏.`8.'∏.-¯.b8.+x.&∏.,x.&x.%¯.-∏. HàJBàò[X[ŸœP[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.*∏.(¯.bx.,∏.!¯.%x.,x.)¯.)x.,8.!8.(¯."8.,∏. x.`x.(x.b8.`x.&∏.&à	⁄[ô^
+Ã_HäKúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] [ô[
+HJBàúŸ]‹⁄]]ôPù]€ä∏.*∏.b8.!¯.!8.,¯.*∏.,x.b8.!¯.*∏.(¯.bx.,∏.!¯.(8.,∏.'àãù[
+KúŸ]ô]]ò[ù]€ä∏.&x.,¯.`8. ∏.bx.,∏.(8.,∏.'∏.%¯.-x.b8.%x.(¯.)¯."8.`x.)x.bx.)»ãù[
+KúŸ]ôYÿ]]ôPù]€ä∏.&¯.-8.%ãù[
+Kú⁄›—\ôX›‹ä
+Bàù[àõŸö[J
+Nàî””ìÿöôX›»¬àò[è[ò[YKù^ù‘›ö[ô 
+Kùö[J
+N»ò[YX\úœXYŸKù^ù‘›ö[ô 
+Kù“[ù‹ìù[
+
+N»ò[\X\ò[òŸOYòXŸKù^ù‘›ö[ô 
+Kùö[J
+BàYäãö\—[\J
+HYX\úœO[ù[P⁄\òX›\êYŸKùò[Y
+YX\ú H\X\ò[òŸKö\—[\J
+JH»õ›XŸJ∏. x.(¯.+x. x."∏.-¯.b8.+H8.+x.,∏.(∏..8†$ÃK8.&¯.-H8.`x.)x.,8.)x.,x. x.*x.$¯.,8.`¯.&∏.*¯.&x.bx.,ã¯.%¯.(¯.!¯.'8.(HäN»ô]\õàù[BàYä
+[ù[X›‹êÿ][Ÿ 
+Kõ[ô›
+
+JKò[ûH»X›‹êÿ][Ÿ 
+KôŸ]î””ìÿöôX›
+]
+Kõ‹›ö[ô ô\‹^W€ò[YHäOO[àJH»õ›XŸJ∏."∏.-¯.b8.+x.&x.-x.bx.(x.-x.`¯.&x.!8.)x.,x.!¯.`x.)x.bx.)»äN»ô]\õàù[Bàò[YHê“Tó»ä ﬁ\›[Kò›\úô[ù[YSZ[\ 
+ILå
+Kù‘›ö[ô 
+Bàô]\õàî””ìÿöôX›
+
+Kú]
+öYãY
+Kú]
+ô\‹^W€ò[YHãäKú]
+ò⁄\òX›\óÿYŸHãYX\ú Kú]
+ò⁄\òX›\óŸŸ[ô\àãYä[ô^OL
+HõX[àà[ŸHù€€X[àäKú]
+òÿ\›[ô◊Ÿ\ÿ‹ö\[€àã\X\ò[òŸJKú]
+òõŸW›[\]Hã[ô^
+ÃJBàBàX[ŸÀôŸ]ù]€äLJKúŸ]€ê€X⁄”\›[ô\à¬àò[\õŸö[J
+HŒàô]\õêŸ]€ê€X⁄”\›[ô\Çàò[Ÿ[ô\è\ôŸ]›ö[ô ò⁄\òX›\óŸŸ[ô\àäBàò[\X\ò[òŸO\ôŸ]›ö[ô òÿ\›[ô◊Ÿ\ÿ‹ö\[€àäBàò[›[O\›[[ôÀù^ù‘›ö[ô 
+Kùö[J
+KöYêõ[ö»»õò]\ò[⁄⁄[à€ôH[ô[Yÿ[ù‹\]YH€›[ô»àBàò[€€[X[ôR[XYŸTõ€\€XﬁKùôYUöY]–⁄\òX›\äòHöX›[€ò[	Ÿ[ô\à⁄\òX›\à⁄]\‹⁄Y€ôYYŸH	‹ôŸ][ù
+ò⁄\òX›\óÿYŸHä_HYX\úÀYŸKX\õ‹öX]Hõ€úŸ^X[‹ùò^X[[ô›]ö]»õ‹à›\\õò]\ò[YŸHô\Ÿ\ùôHHôYô\ô[òŸH\X\ò[òŸKô]»òXŸH[ôZ\ú›[Nà	\X\ò[òŸK	›[KõŸH⁄[›Y]H[ôõ‹‹ù[€ú»ò\ŸY€àH]X⁄YôYô\ô[òŸH[XYŸHäBà⁄\ôR[XYŸP€€[X[ô
+€€[X[ô\›Ÿäêì—W’STUW…⁄[ô^
+Ã_Hà»ö[JKõŸS€õO]ùYJBàBàX[ŸÀôŸ]ù]€äL KúŸ]€ê€X⁄”\›[ô\à¬àò[\õŸö[J
+HŒàô]\õêŸ]€ê€X⁄”\›[ô\ÇàôYúÀôY]
+
+Kú]›ö[ô õô]◊ÿX›‹ó‹[ô[ô»ãù‘›ö[ô 
+JKò\J
+BàX›‹í[XYŸTX⁄Ÿ\ãõ][ò⁄
+\úò^SŸäö[XYŸK àäJBàBàBàBàö]ò]Hù[à[\‹ù⁄\òX›\ìX\›\ä
+H¬àò[Xô[œ[\›Ÿä∏.(x.&x..8.*x.(∏.cã∏.`8.%8.a¯. Hã∏.`8.%¯.'à»8.'8..x.bx.`¯."∏.bx.'∏.)x.,x.!»ã∏.+x.,x.*8.)¯.-8.&Hã∏.*∏.,x.%x.)¯.cã∏.+x.*∏..x.(»ã∏.+x.-¯.b8.&H8.aàã∏.&¯.-x.*8.,∏."ã∏.'8.-Hã∏.)¯.-8.#x.#x.,∏.$»ã∏.(8..x.%HäBàò[\\œ[\›Ÿäö[X[àãò⁄[ãôZ]Hãö€öY⁄ãò[ö[X[ãò‹ôX]\ôHãõ›\àãô[[€àãô⁄‹›ãú‹\ö]ãôòZ\ûHäBà⁄⁄XŸSY[ùJ∏.`8.)x.-¯.+x. x.&¯.(¯.,8.`8.(8.%¯.%x.,x.)¯.)x.,8.!8.(»ãXô[ H»[ô^OÇàò[[ô[S[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èLN»Ÿ]Y[ô 
+MäK
+
+K
+MäK
+
+JHBàò[ò[YOQY]^
+\ Kò\H»[ùH∏."∏.-¯.b8.+x.%x.,x.)¯.)x.,8.!8.(»é»[ô[òYöY] \ HBàò[YŸOQY]^
+\ Kò\H»[ùH∏.+x.,∏.(∏..8.*∏.(x.(x.%x.-8†$ÃK8.&¯.-H
+H8.%x.b8.,¯. x.)¯.b8.,àH8.&¯.-JHé»[ú]\OX[ôõ⁄Yù^í[ú]\KïTW–”T‘◊”ïSPëTé»[ô[òYöY] \ HBàò[\ÿ‹ö\[€èQY]^
+\ Kò\H»[ùH∏.)x.,x. x.*x.$¯.,8.*¯.(¯.-¯.+x.(¯.,∏.(∏.)x.,8.`8.+x.-x.(∏.%8.`8.'∏.-8.b8.(x.`8.%x.-8.(H
+8.a8.(x.b8.&∏.,x.!¯.!8.,x.&äHé»[ô[òYöY] \ HBàò[Ÿ[ô\èX[ôõ⁄Yù⁄YŸ]î‹[õô\ä\ Kò\H¬àY\\èX[ôõ⁄Yù⁄YŸ]ê\úò^PY\\ä\–›Y[–X›]ö]K[ôõ⁄Yîãõ^[›]ú⁄[\W‹‹[õô\óŸõ‹›€ó⁄][K\›Ÿä∏.a8.(x.b8.(¯.,8.&∏..8.`8.'∏.*ã∏."∏.,∏.(àã∏.*¯.#x.-8.!»äJBà[ô[òYöY] \ BàBà[ô[òYöY] ^öY] \ Kò\H»^H∏.`8.)x.-¯.+x. x.(8.,∏.'àPT’Tà8.%x.bx.&x."x.&∏.,x.&àH8.(8.,∏.'∏.%¯.-x.b8.(x.-H»8.(x..8.(H8.`x.+x.&¯.&∏.,x.&x.%¯.-∏. x.(8.,∏.'∏.`∏.%8.(∏.a8.(x.b8.*∏.(¯.bx.,∏.!¯.`¯.&∏.*¯.&x.bx.,∏.`¯.*¯.(x.bàJBàò[X[ŸœP[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.&x.,¯.`8. ∏.bx.,àPT’Tà8†(à	€Xô[÷⁄[ô^_HäBàúŸ]öY] [ô[
+KúŸ]‹⁄]]ôPù]€ä∏.`8.)x.-¯.+x. x.(8.,∏.'àãù[
+KúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàX[ŸÀôŸ]ù]€äLJKúŸ]€ê€X⁄”\›[ô\à¬àò[è[ò[YKù^ù‘›ö[ô 
+Kùö[J
+N»ò[YX\úœXYŸKù^ù‘›ö[ô 
+Kù“[ù‹ìù[
+
+BàYäãö\—[\J
+HYX\úœO[ù[P⁄\òX›\êYŸKùò[Y
+YX\ú JH»õ›XŸJ∏. x.(¯.+x. x."∏.-¯.b8.+x.`x.)x.,8.+x.,∏.(∏..8†$ÃK8.&¯.-HäN»ô]\õêŸ]€ê€X⁄”\›[ô\àBàYä\\÷⁄[ô^H[à\›Ÿäö[X[àãò⁄[ãôZ]Hãö€öY⁄äH	âàŸ[ô\ãúŸ[X›Y][T‹⁄][€èOL
+H»õ›XŸJ∏. x.(¯..8.$¯.,∏.`8.)x.-¯.+x. x.`8.'∏.*8.%x.,x.)¯.)x.,8.!8.(»8.`8.'∏.-¯.b8.+x. x.,¯.*¯.&x.%8.'8..x.bx.'∏..x.%8.`¯.*¯.bx.%∏..x. x.%x.bx.+x.!»äN»ô]\õêŸ]€ê€X⁄”\›[ô\àBàYä
+[ù[X›‹êÿ][Ÿ 
+Kõ[ô›
+
+JKò[ûH»X›‹êÿ][Ÿ 
+KôŸ]î””ìÿöôX›
+]
+Kõ‹›ö[ô ô\‹^W€ò[YHäOO[àJH»õ›XŸJ∏."∏.-¯.b8.+x.&x.-x.bx.(x.-x.`¯.&x.!8.)x.,x.!¯.`x.)x.bx.)»äN»ô]\õêŸ]€ê€X⁄”\›[ô\àBàò[YHê“Tó»ä ﬁ\›[Kò›\úô[ù[YSZ[\ 
+ILå
+Kù‘›ö[ô 
+Bàò[Rî””ìÿöôX›
+
+Kú]
+öYãY
+Kú]
+ô\‹^W€ò[YHãäKú]
+ò⁄\òX›\óÿYŸHãYX\ú Bàú]
+ò⁄\òX›\ó›\Hã\\÷⁄[ô^JKú]
+òÿ\›[ô◊Ÿ\ÿ‹ö\[€àã\ÿ‹ö\[€ãù^ù‘›ö[ô 
+Kùö[J
+JBàYäŸ[ô\ãúŸ[X›Y][T‹⁄][€èå
+Hú]
+ò⁄\òX›\óŸŸ[ô\àãYäŸ[ô\ãúŸ[X›Y][T‹⁄][€èOLJHõX[àà[ŸHù€€X[àäBàôYúÀôY]
+
+Kú]›ö[ô õô]◊ÿX›‹ó‹[ô[ô»ãù‘›ö[ô 
+JKò\J
+BàX[ŸÀô\€Z\‹ 
+BàX›‹í[XYŸTX⁄Ÿ\ãõ][ò⁄
+\úò^SŸäö[XYŸK àäJBàBàBàBàö]ò]Hù[àX›‹êÿ][Ÿ”Y[ùJ
+H¬àù[êÿ]⁄[ô»¬àò[ôX€‹ôœXX›‹êÿ][Ÿ 
+Bàò[⁄[õô[P⁄[õô[ÿ][ŸÀò›\úô[ù⁄[õô[
+[èÀõ‹›ö[ô ò⁄[õô[äKõ‹ë[\J
+JBàò[ò[ù\ﬁOP⁄[õô[ôX]\ôT€XﬁKö\—ò[ù\ﬁU€€ ⁄[õô[
+Bàò[XOX⁄[õô[OH∏.&x.,∏.(∏.`8.&¯.-x.(à8.&∏.bx.,∏.&x.!8.)x.+x.!¯. ∏..8.%Çàò[ö\⁄XõOJ[ù[ôX€‹ôÀõ[ô›
+
+JKôö[\à»HOà\XHôX€‹ôÀôŸ]î””ìÿöôX›
+JKõ‹›ö[ô ò⁄\òX›\ó›\HäHZ[àŸ]Ÿäö€öY⁄ãôZ]Hãò‹ôX]\ôHãô[[€àãô⁄‹›ãú‹\ö]ãôòZ\ûHäHBàò[ò\ŸOZYäò[ù\ﬁJH[ŸH¬àò[Y[ù\œ[\›Ÿäº'‰ÈH8.&x.,¯.`8. ∏.bx.,àPT’Tà8.%¯.-x.b8.(x.-x.+x.(∏..x.bã∏ß•H8.*∏.(¯.bx.,∏.!¯.%x.,x.)¯.)x.,8.!8.(¯."8.,∏. x.`x.(x.b8.`x.&∏.&àãº'‰Êà8.%8..HPT’Tà8.!8.)x.,x.!¯.`8.%8.-8.(HäH
+»Yäò[ù\ﬁJH\›Ÿä∏ß*8.%8..HPT’Tà8.`x.'¯.&x.%x.,∏."¯.-x.`x.)x.,8.(8..x.%x.'8.-HäH[ŸH[\S\›
+
+Bà⁄€‹ŸSò[YY⁄\òX›\ë‹öY
+∏.!8.)x.,x.!¯.%x.,x.)¯.)x.,8.!8.(»8†(à	ÿ⁄[õô[öYêõ[ö»»∏."∏.b8.+x.!¯.a8.(x.b8.(¯.,8.&∏..à_HãY[ù\ÀõX\»]»ù[J›ö\⁄XõKõX\»HOàôX€‹ôÀôŸ]î””ìÿöôX›
+JKõ]»
+â⁄]ôŸ]›ö[ô ô\‹^W€ò[YHä_H8†(à8.+x.,∏.(∏..	⁄]ôŸ][ù
+ò⁄\òX›\óÿYŸHä_H8.&¯.-HäH»ö[Jö[\—\ãòX›‹ó€X\›\ó›åã»ä⁄]ôŸ]›ö[ô ôö[HäJHHJH»[ô^OÇàYä[ô^OL
+H[\‹ù⁄\òX›\ìX\›\ä
+H[ŸHYä[ô^OLJHõŸU[\]SY[ùJ
+H[ŸHYä[ô^OLäHXúò\ûSY[ùJ
+H[ŸHYäò[ù\ﬁH	âà[ô^OL H¬àò[ò[ù\ﬁOYò[ù\ﬁPÿ][Ÿ 
+Bà⁄€‹ŸSò[YY⁄\òX›\ë‹öY
+ìPT’Tà8.`x.'¯.&x.%x.,∏."¯.-Hã
+[ù[ò[ù\ﬁKõ[ô›
+
+JKõX\»HOàò[[ùûOYò[ù\ﬁKôŸ]î””ìÿöôX›
+JN»[ùûKôŸ]›ö[ô ô\‹^W€ò[YHäH»ù[êÿ]⁄[ô»»ÿ\›[ô‘€›\òŸJ[ùûJHKôŸ]‹ìù[
+
+HJH»Ÿ[X›YOÇàò[õ›œYò[ù\ﬁKôŸ]î””ìÿöôX›
+Ÿ[X›Y
+Bàù[êÿ]⁄[ô»»ù[[XYŸJÿ\›[ô‘€›\òŸJõ› Kõ›ÀôŸ]›ö[ô ô\‹^W€ò[YHäJHKõ€ëòZ[\ôH»õ›XŸJ]õY\‹ÿYŸHŒà∏.`8.&¯.-8.%8.(8.,∏.'∏.a8.(x.b8.a8.%8.bHäHBàBàH[ŸH¬àò[X›X[[ô^]ö\⁄XõV⁄[ô^Xò\ŸWBàò[õ›œ\ôX€‹ôÀôŸ]î””ìÿöôX›
+X›X[[ô^
+Bàò[ö[OQö[Jö[\—\ãòX›‹ó€X\›\ó›åã»ä‹õ›ÀôŸ]›ö[ô ôö[HäJBà⁄⁄XŸSY[ùJõ›ÀôŸ]›ö[ô ô\‹^W€ò[YHäK\›Ÿä∏.%8..HPT’Tàã∏. x.,¯.*¯.&x.%8.&¯.(¯.,8.`8.(8.%¯.`x.)x.,8.`8.'∏.*ã∏.&x.,¯.+x.+x. x."8.,∏. x.!8.)x.,x.!¯.`8.(¯.-¯.b8.+x.!¯.`¯.*¯.(x.bäJH»X›[€àOÇàYäX›[€èOL
+H»Yäö[Kö\—ö[JHù[[XYŸJö[Kõ›ÀôŸ]›ö[ô ô\‹^W€ò[YHäJH[ŸHõ›XŸJ∏.a8.(x.b8.'∏.&∏.(8.,∏.'àPT’TàäHBà[ŸHYäX›[€èOLJH¬àò[\\œ[\›Ÿäö[X[àãò[ö[X[ãò‹ôX]\ôHãô[[€àãô⁄‹›ãú‹\ö]ãôòZ\ûHäBà⁄⁄XŸSY[ùJ∏.`8.)x.-¯.+x. x.&¯.(¯.,8.`8.(8.%¯.%x.,x.)¯.)x.,8.!8.(»ã\›Ÿä∏.(x.&x..8.*x.(∏.cã∏.*∏.,x.%x.)¯.cã∏.+x.*∏..x.(»ã∏.&¯.-x.*8.,∏."ã∏.'8.-Hã∏.)¯.-8.#x.#x.,∏.$»ã∏.(8..x.%HäJH»Ÿ[X›YOÇàù[àÿ]ôJŸ[ô\éà›ö[ô H¬àõ›Àú]
+ò⁄\òX›\ó›\Hã\\÷‹Ÿ[X›YJKú]
+ò⁄\òX›\óŸŸ[ô\àãŸ[ô\äBàò[[\Qö[Jö[\—\ãòX›‹óÿÿ][Ÿ◊›åãú[ô[ô»äBà[\ù‹ö]U^
+î””ìÿöôX›
+
+Kú]
+úôX€‹ô»ãôX€‹ô Kù‘›ö[ô äJBàYä[\úô[ò[YU X›‹êÿ][Ÿ—ö[JJHõ›XŸJ∏.&∏.,x.&x.%¯.-∏. x.&¯.(¯.,8.`8.(8.%¯.`x.)x.,8.`8.'∏.*8.`x.)x.bx.)»8†(à8.`¯."∏.bx. x.,x.&∏.`8.(¯.-¯.b8.+x.!¯.`¯.*¯.(x.bäH[ŸHõ›XŸJ∏.&∏.,x.&x.%¯.-∏. x.!8.)x.,x.!¯.a8.(x.b8.a8.%8.bHäBàBàYäŸ[X›YOL
+H⁄⁄XŸSY[ùJ∏.`8.)x.-¯.+x. x.`8.'∏.*8.%x.,x.)¯.)x.,8.!8.(»ã\›Ÿä∏."∏.,∏.(àã∏.*¯.#x.-8.!»äJH»»Oàÿ]ôJYäœOL
+HõX[àà[ŸHù€€X[àäHH[ŸHÿ]ôJàäBàBàBà[ŸH¬àò[ô\›Rî””ê\úò^J
+N»õ‹äH[à[ù[ôX€‹ôÀõ[ô›
+
+JHYäHOXX›X[[ô^
+Hô\›ú]
+ôX€‹ôÀôŸ]î””ìÿöôX›
+JJBàò[[\Qö[Jö[\—\ãòX›‹óÿÿ][Ÿ◊›åãú[ô[ô»äBà[\ù‹ö]U^
+î””ìÿöôX›
+
+Kú]
+úôX€‹ô»ãô\›
+Kù‘›ö[ô äJBàYä[\úô[ò[YU X›‹êÿ][Ÿ—ö[JJHõ›XŸJ∏.&x.,¯.+x.+x. x."8.,∏. x.!8.)x.,x.!¯.`x.)x.bx.)»8†(à8.`8.(¯.-¯.b8.+x.!¯.%¯.-x.b8.*∏.(¯.bx.,∏.!¯.a8.)¯.bx.(∏.,x.!¯.`¯."∏.bx.(8.,∏.'∏.`8.%8.-8.(HäH[ŸHõ›XŸJ∏.&∏.,x.&x.%¯.-∏. x.!8.)x.,x.!¯.a8.(x.b8.a8.%8.bHäBàBàBàBàBàKõ€ëòZ[\ôH»õ›XŸJ∏.+x.b8.,∏.&x.!8.)x.,x.!¯.a8.(x.b8.a8.%8.bNà	⁄]õY\‹ÿYŸ_HäHBàBàö]ò]Hò[X\›\ìXúò\ûHûH^ûH»X\›\ìXúò\ûJö[Jö[\—\ãõX\›\ó€Xúò\ûHäJH»\‹Ÿ]Àõ‹[ä]
+Kù\ŸH»›ôX[HOà›ôX[KúôXYû]\ 
+HHHBàö]ò]Hù[àXúò\ûSY[ùJ
+H¬àù[êÿ]⁄[ô»¬àò[[ùöY\œ[X\›\ìXúò\ûKô[ùöY\ 
+Bàò[[ô[S[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èLN»Ÿ]Y[ô 
+MäK
+
+K
+MäK
+
+JHBà[ô[òYöY] ^öY] \ Kò\H»^ZYä[ùöY\Àö\—[\J
+JH∏.!8.)x.,x.!¯.)¯.b8.,∏.!»8†(à8.`8.'∏.-8.b8.(x.(8.,∏.'∏.`¯.*¯.(x.b8.'8.b8.,∏.&x.`8.(x.&x..x.%x.,x.)¯.)x.,8.!8.(»à[ŸHâŸ[ùöY\Àú⁄^ô_H8.`x.'8.b8.&H8†(à8.*¯.&x.-∏.b8.!¯.`x.'8.b8.&x.%x.b8.+x.*¯.&x.-∏.b8.!¯.%x.,x.)¯.)x.,8.!8.(»àJBàò[ŸX\ò⁄QY]^
+\ Kò\H»[ùH∏.!8.bx.&x.*¯.,à“TóÃH8.*¯.(¯.-¯.+x."∏.-¯.b8.+x.a8.'¯.)x.cé»\‘⁄[ô€S[ôO]ùYN»[ô[òYöY] \ HBàò[\›S[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èLHBà[ô[òYöY] ÿ‹õ€öY] \ Kò\H»YöY] \›
+HK[ôX\ì^[›]ì^[›]\ò[\ LK
+å
+JJBàù[à⁄› ]Y\ûNà›ö[ô H¬à\›úô[[›ôP[öY]‹ 
+Bàò\àõ›Œà[ôX\ì^[›]œ[ù[à[ùöY\Àôö[\à»
+]öY
+»àä⁄]ô\‹^Sò[YJ»àä⁄]õ‹öY⁄[ò[
+Kò€€ùZ[ú ]Y\ûKY€õ‹ôPÿ\ŸO]ùYJHKôõ‹ëXX⁄[ô^Y»[ô^[ùûHOÇàYä[ô^	LèOL
+H»õ›œS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]í‘íVì”ïSN»\›òYöY] õ› HBàò[ö[O\ù[êÿ]⁄[ô»»X\›\ìXúò\ûKú€›\òŸJ[ùûJHKôŸ]‹ìù[
+
+Bàò[ÿ\ôS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]ïëTïP–S»Ÿ]Y[ô 
+
+K
+äK
+
+K
+äJN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ [ôX\ì^[›]ì^[›]\ò[\Àï‘êT–””ïSïYäHBàõ›œÀòYöY] ÿ\ô
+Bàò[Xô[HâŸ[ùûKô\‹^Sò[Y_WâŸ[ùûKöYHä Yäö[OÀö\—ö[OO]ùYJHàà[ŸHó∏.a8.(x.b8.'∏.&àPT’TàäBàYäö[OÀö\—ö[OO]ùYJHÿ\ôòYöY] [XYŸUöY] \ Kò\H»Ÿ][XYŸPö]X\
+ÿ\›[ô’[XõòZ[
+ö[JJN»Yù\›öY]–õ›[ôœ]ùYN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ LK
+M
+JN»€€ù[ù\ÿ‹ö\[€è[Xô[»Ÿ]€ê€X⁄”\›[ô\à»Xúò\ûQ[ùûJ[ùûJHHJBàÿ\ôòYöY] ù]€ä\ Kò\H»^[Xô[»Ÿ]€ê€X⁄”\›[ô\à»Xúò\ûQ[ùûJ[ùûJHHJBàBàBàŸX\ò⁄òY^⁄[ôŸY\›[ô\äÿöôX›à[ôõ⁄Yù^ï^ÿ]⁄\à¬à›ô\úöYHù[àôYõ‹ôU^⁄[ôŸY
+Œà⁄\îŸ\]Y[òŸOÀ›\ùà[ù€›[ùà[ùYù\éà[ù
+HﬂBà›ô\úöYHù[à€ï^⁄[ôŸY
+Œà⁄\îŸ\]Y[òŸOÀ›\ùà[ùôYõ‹ôNà[ù€›[ùà[ù
+H»⁄› œÀù‘›ö[ô 
+Kõ‹ë[\J
+JHBà›ô\úöYHù[àYù\ï^⁄[ôŸY
+Œà[ôõ⁄Yù^ëY]XõO HﬂBàJBà⁄› àäBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]Jº'„´H8.!8.)x.,x.!»PT’TàäKúŸ]öY] [ô[
+KúŸ]ôYÿ]]ôPù]€ä∏.&¯.-8.%ãù[
+Kú⁄›—\ôX›‹ä
+BàKõ€ëòZ[\ôH»õ›XŸJ∏.`8.&¯.-8.%8.!8.)x.,x.!¯.a8.(x.b8.a8.%8.bNà	⁄]õY\‹ÿYŸ_HäHBàBàö]ò]Hù[à⁄‹ùÿ][Ÿ”Xô[
+YÿXﬁNà›ö[ô Nà›ö[ôœ»Hù[êÿ]⁄[ô»¬àò[ö[OQö[Jö[\—\ãú⁄‹ùÿÿ][Ÿ◊⁄YÀöú€€àäBàYäö[Kö\—ö[JHî””ìÿöôX›
+ö[KúôXY^
+
+JKõ‹›ö[ô YÿXﬁJKùZŸRYà»]ö\”õ›õ[ö 
+HH[ŸHù[àKôŸ]‹ìù[
+
+Bàö]ò]Hù[àXúò\ûQ[ùûJ[ùûNàX\›\ìXúò\ûKë[ùûJH¬àù[êÿ]⁄[ô»¬àò[ö[O[X\›\ìXúò\ûKú€›\òŸJ[ùûJBàò[[ô[S[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èLN»Ÿ]Y[ô 
+LäK
+
+K
+LäK
+
+JHBà[ô[òYöY] [XYŸUöY] \ Kò\H»Ÿ][XYŸPö]X\
+ô]öY]–ö]X\
+\öKôúõ€Qö[Jö[JJJN»Yù\›öY]–õ›[ôœ]ùYN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ LK
+
+JN»Ÿ]€ê€X⁄”\›[ô\à»ù[[XYŸJö[K[ùûKöY
+HHJBà[ô[òYöY] ^öY] \ Kò\H»^Hâ‹⁄‹ùÿ][Ÿ”Xô[
+[ùûKöY
+HŒà[ùûKöYH8†(à	Ÿ[ùûKô\‹^Sò[Y_H8†(à8.+x.,∏.(∏..8.*∏.(x.(x.%x.-	Ÿ[ùûKò⁄\òX›\êYŸ_H8.&¯.-W∏.(8.,∏.'∏.%x.bx.&x."x.&∏.,x.&à»8.(x..8.(x.(x.+x.!»8.`x.%x.,8.(8.,∏.'∏.`8.'∏.-¯.b8.+x. ∏.(∏.,∏.(ààJBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]Jâ‹⁄‹ùÿ][Ÿ”Xô[
+[ùûKöY
+HŒà[ùûKöYH8†(à	Ÿ[ùûKô\‹^Sò[Y_HäKúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] [ô[
+HJBàúŸ]‹⁄]]ôPù]€ä∏.`¯."∏.bx. x.,x.&∏.`8.(¯.-¯.b8.+x.!¯.`¯.*¯.(x.bäH»À»OÇà⁄⁄XŸSY[ùJ∏. x.,¯.*¯.&x.%8.(8.,∏.'à	Ÿ[ùûKöYHã\›Ÿä∏.%x.,x.)¯.)x.,8.!8.(¯.*¯.)x.,x. Nà8. x.)¯.-8.&Hã∏.%x.,x.)¯.)x.,8.!8.(¯.*¯.)x.,x. Nà8.(¯.-8.&x.(¯.%8.,àã∏.%x.,x.)¯.)x.,8.!8.(¯.*¯.)x.,x. Nà8.`8.(x.(∏.cã∏.`8.'∏.-8.b8.(x.%x.,x.)¯.)x.,8.!8.(¯.`8.*∏.(¯.-8.(x.'∏.(¯.bx.+x.(x.%x.,x.bx.!¯."∏.-¯.b8.+HäJH»€›OÇàYä€›OL HYXúò\ûT›\‹ù
+[ùûJH[ŸHù[êÿ]⁄[ô»¬àò[Y[\›Ÿäôÿ]⁄[àãúö[õYHãõZ[ôäV‹€›BàX\›\ìXúò\ûKò\‹⁄Y€ä[ùûKö[Jö[\—\ãò⁄\òX›\ó€X\›\úÀ…YõX\›\àäJBàõ›XŸJ∏.`8.)x.-¯.+x. H	Ÿ[ùûKöYH8.*∏.,¯.*¯.(¯.,x.&∏.`8.(¯.-¯.b8.+x.!¯.`¯.*¯.(x.b8.`x.)x.bx.)»8†(à8.`8.(¯.-¯.b8.+x.!¯.`8.%8.-8.(x.`¯."∏.bx.(8.,∏.'∏.`8.%8.-8.(HäBàKõ€ëòZ[\ôH»õ›XŸJ]õY\‹ÿYŸHŒà∏.&∏.,x.&x.%¯.-∏. x.a8.(x.b8.a8.%8.bHäHBàBàKúŸ]ôYÿ]]ôPù]€ä∏.&¯.-8.%ãù[
+Kú⁄›—\ôX›‹ä
+BàKõ€ëòZ[\ôH»õ›XŸJ]õY\‹ÿYŸHŒà∏.`8.&¯.-8.%8.(8.,∏.'∏.a8.(x.b8.a8.%8.bHäHBàBàö]ò]Hù[àYXúò\ûT›\‹ù
+[ùûNàX\›\ìXúò\ûKë[ùûJH¬àYäôXY›\‹ù[ô–ÿ\›
+
+Kõ[ô›
+
+OèN
+H»õ›XŸJ∏.`8.)x.-¯.+x. x.%x.,x.)¯.)x.,8.!8.(¯.`8.*∏.(¯.-8.(x.a8.%8.bx.a8.(x.b8.`8. x.-8.&H8.!8.&x.%x.b8.+x.`8.(¯.-¯.b8.+x.!»8†(à8.&x.,¯.!8.&x.`8.%8.-8.(x.+x.+x. x. x.b8.+x.&HäN»ô]\õàBàò[[ú]QY]^
+\ Kò\H»[ùH∏."∏.-¯.b8.+x.%x.,x.)¯.)x.,8.!8.(¯.`¯.&x.`8.(¯.-¯.b8.+x.!»é»Ÿ]^
+[ùûKô\‹^Sò[YJHBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.`8.'∏.-8.b8.(H	Ÿ[ùûKöYH8.*∏.,¯.*¯.(¯.,x.&∏.`8.(¯.-¯.b8.+x.!¯.`¯.*¯.(x.bäKúŸ]öY] [ú]
+KúŸ]‹⁄]]ôPù]€ä∏.`8.'∏.-8.b8.(HäH»À»OÇàù[êÿ]⁄[ô»¬àò[ò[YOZ[ú]ù^ù‘›ö[ô 
+Kùö[J
+Bàò[õ‹›\è\ôXY›\‹ù[ô–ÿ\›
+
+Bàô\]Z\ôJò[YKö\”õ›õ[ö 
+H	âà›‹ûRY[ù]KöŸ^Qõ‹äò[YJOO[ù[	âà
+[ù[õ‹›\ãõ[ô›
+
+JKõõ€ôH»õ‹›\ãôŸ]î””ìÿöôX›
+]
+KôŸ]›ö[ô õò[YHäOO[ò[YHJH»∏.(¯.,8.&∏..8."∏.-¯.b8.+x.a8.(x.b8."¯.bx.,¯. x.,x.&∏.%x.,x.)¯.)x.,8.!8.(¯.%¯.-x.b8.(x.-x.+x.(∏..x.bàBàô\]Z\ôJ
+[ù[õ‹›\ãõ[ô›
+
+JKõõ€ôH»õ‹›\ãôŸ]î””ìÿöôX›
+]
+Kõ‹›ö[ô õXúò\ûW⁄YäOOY[ùûKöYJH»∏.`8.)x.-¯.+x. HPT’Tà8.&x.-x.bx.a8.)¯.bx.`x.)x.bx.)»àBàò[YHú›\‹ù»ä’URQúò[ô€UURQ
+
+Kù‘›ö[ô 
+KùZŸJ
+Bàò[\ú€€èRî””ìÿöôX›
+
+Kú]
+õò[YHãò[YJKú]
+õX\›\àãâ⁄Yù\\òÿ\ŸJ
+_W”PT’Tãúô»äBàú]
+õXúò\ûW⁄Yã[ùûKöY
+Kú]
+ò⁄\òX›\óŸŸ[ô\àã[ùûKôŸ[ô\äKú]
+ò⁄\òX›\ó›\Hã[ùûKò⁄\òX›\ï\JKú]
+ùö\›X[Ÿ\ÿ‹ö\[€àãX\›\ìXúò\ûKô\ÿ‹ö\[€ä[ùûKöY
+JBàõ‹›\ãú]
+\ú€€äBàô\]Z\ôJõ›–ÿ\›ö\‹›Y\ î””ìÿöôX›
+
+Kú]
+ú›\‹ù[ô◊ÿ⁄\òX›\ú»ãõ‹›\äJKö\—[\J
+JH»∏. ∏.bx.+x.(x..x.)x.%x.,x.)¯.)x.,8.!8.(¯.a8.(x.b8.%∏..x. x.%x.bx.+x.!»àBàX\›\ìXúò\ûKò\‹⁄Y€ä[ùûKö[Jö[\—\ãú›\‹ù[ô◊€X\›\úÀ…YõX\›\àäJBàÀ»ŸY\H^\›[ô»\úò^Hõ‹õX]€€ú›[YYûHYÿXﬁHõ⁄ôX›»[ôRKÇàò[\ôŸ]Qö[Jö[\—\ãú›\‹ù[ô◊ÿÿ\›öú€€àäBàò[[ô[ôœQö[Jö[\—\ãú›\‹ù[ô◊ÿÿ\›öú€€ãú[ô[ô»äBà[ô[ôÀù‹ö]U^
+õ‹›\ãù‘›ö[ô äJN»⁄X⁄ [ô[ôÀúô[ò[YU \ôŸ]
+JBàõ›XŸJ∏.`8.'∏.-8.b8.(H	ò[YH8."8.,∏. H	Ÿ[ùûKöYH8.`x.)x.bx.)»8†(à8.`¯."∏.bx.`8.(x.-¯.b8.+x.*∏.(¯.bx.,∏.!¯.`8.(¯.-¯.b8.+x.!¯.`¯.*¯.(x.bäBàKõ€ëòZ[\ôH»õ›XŸJ]õY\‹ÿYŸHŒà∏.`8.'∏.-8.b8.(x.a8.(x.b8.a8.%8.bHäHBàKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàBàö]ò]Hù[àŸ[X›YXYôYô\ô[òŸ\ 
+Nàî””ìÿöôX›¬àò[[ùöY\œ[X\›\ìXúò\ûKô[ùöY\ 
+Bàò[Ÿ[X›YRî””ìÿöôX›
+
+Bàõ›‘õŸX›[€îX⁄Àõò[Y\ÀöŸ^\Àôõ‹ëXX⁄»YOÇàò[ö[OQö[Jö[\—\ãò⁄\òX›\ó€X\›\úÀ…YõX\›\àäBàYäö[Kö\—ö[JH¬àò[\⁄SX\›\ìXúò\ûKôYŸ\›
+ö[KúôXYû]\ 
+JBà[ùöY\Àôö\ú›‹ìù[»]ú⁄LçMèOZ\⁄OÀõ]»Ÿ[X›Yú]
+Yî””ìÿöôX›
+
+Kú]
+õXúò\ûW⁄Yã]öY
+Kú]
+ùö\›X[Ÿ\ÿ‹ö\[€àãX\›\ìXúò\ûKô\ÿ‹ö\[€ä]öY
+JJHBàBàBàô]\õàŸ[X›YàBÇàö]ò]Hù[à⁄\òX›\ìX\›\ú 
+H»[öYöYYX\›\ìY[ùJ
+HBÇàö]ò]Hù[àô\Ÿ]X\›\äYà›ö[ôÀò[YNà›ö[ô H¬àò[ö[OQö[Jö[\—\ãò⁄\òX›\ó€X\›\úÀ…YõX\›\àäBà⁄⁄XŸSY[ùJò[YK\›Ÿä∏.%8..HPT’Tàã∏.`8.&¯.)x.-x.b8.(∏.&x.(8.,∏.'àPT’Tàã∏. ∏.bx.+x.(x..x.)x.`¯.&∏.*¯.&x.bx.,à8.'8.(H8.`x.)x.,8.(¯..x.&¯.(¯.b8.,∏.!»ã∏.`8.%x.(¯.-x.(∏.(HPT’Tà8.(x.,∏.%x.(¯.$8.,∏.&Hã∏.%x.(¯.)¯."8.(8.,∏.'àPT’TàäJH»X›[€àOà⁄[äX›[€äH¬àOàYäö[Kô^\› 
+JHù[[XYŸJö[Kò[YJH[ŸHõ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-HPT’TàäBàHOà»X\›\î€›ZY»X\›\îX⁄Ÿ\ãõ][ò⁄
+\úò^SŸäö[XYŸK àäJHBààOàY]⁄\òX›\ìY[[‹ûJYò[YKö[JBà»OàŸ[ôõŸX›[€ìX\›\äYò[YKö[JBàOàô]öY]”X\›\äYò[YKö[JBàHBàBàö]ò]H]H€\‹»[öYöYYX\›\í][Jò[ò[YNà›ö[ôÀò[Yà›ö[ôÀò[ÿ]Y€‹ûNà›ö[ôÀò[ö[Nàö[OÀò[‹[éà
+
+KOï[ö]
+Bàö]ò]Hù[à[öYöYYX\›\ìY[ùJ
+H¬àù[êÿ]⁄[ô»¬àò[[[]]XõS\›Ÿè[öYöYYX\›\í][Oä
+Bà\›Ÿäúö[õYHà»∏.(¯.-8.&x.(¯.%8.,àãõZ[ôà»∏.`8.(x.(∏.cäKôõ‹ëXX⁄»
+Yò[YJHOÇàò[ö[OQö[Jö[\—\ãò⁄\òX›\ó€X\›\úÀ…YõX\›\àäBà[òY
+[öYöYYX\›\í][Jò[YKYù\\òÿ\ŸJ
+J»ó”PT’Tàã∏.(x.&x..8.*x.(∏.cãö[K»ô\Ÿ]X\›\äYò[YJHJJBàBàò[ôX€‹ôœ\XPÿ][Ÿ 
+Bàò[€[ùöY\œ[X\›\ìXúò\ûKô[ùöY\ 
+Kò\‹€ÿ⁄X]PûH»]öYBàõ‹äH[à[ù[ôX€‹ôÀõ[ô›
+
+JH¬àò[][O\ôX€‹ôÀôŸ]î””ìÿöôX›
+JBàò[YZ][KôŸ]›ö[ô öYäBàò[ò[YOZ][Kõ‹›ö[ô ô\‹^W€ò[YHãY
+Bàò[\OZ][Kõ‹›ö[ô ò⁄\òX›\ó›\HäKõ›Ÿ\òÿ\ŸJ
+Bàò[ÿ]Y€‹ûO]⁄[ä\JH¬àö[X[ààOà∏.(x.&x..8.*x.(∏.cÇàò[ö[X[àOà∏.*∏.,x.%x.)¯.cÇàò‹ôX]\ôHãô[[€ààOà∏.+x.*∏..x.(¯.`x.)x.,8.*∏.,x.%x.)¯.c8.&¯.(¯.,8.*¯.)x.,∏.%ÇàôZ]Hãö€öY⁄àOà∏.`8.%¯.'∏.`x.)x.,8.'8..x.bx.'∏.-8.%¯.,x. x.*x.cÇàô⁄‹›ãú‹\ö]ãôòZ\ûHàOà∏.'8.-H8.)¯.-8.#x.#x.,∏.$»8.`x.)x.,8.(8..x.%HÇà[ŸHOàYä][Kõ‹›ö[ô ò⁄\òX›\óŸŸ[ô\àäKö\”õ›õ[ö 
+H	âà\Kö\–õ[ö 
+JH∏.(x.&x..8.*x.(∏.cà[ŸH∏.(∏.,x.!¯.a8.(x.b8.(¯.,8.&∏..8.&¯.(¯.,8.`8.(8.%»ÇàBàò[ö[O\ù[êÿ]⁄[ô»»ÿ\›[ô‘€›\òŸJ][JHKôŸ]‹ìù[
+
+Bàò[€[€[ùöY\÷⁄YBà[òY
+[öYöYYX\›\í][Jò[YKYÿ]Y€‹ûKö[K¬àYä€O[ù[
+HXúò\ûQ[ùûJ€
+Bà[ŸHYäö[OÀö\—ö[OO]ùYJHù[[XYŸJö[Kò[YJ»à8†(àä⁄Y
+Bà[ŸHõ›XŸJ∏.a8.(x.b8.'∏.&∏.(8.,∏.'àPT’Tà8. ∏.+x.!»	ò[YH8†(à	YäBàJJBàBà[ú›[XQYò][ 
+Bàò[õX⁄‘ôYô\ô[òŸO\ô\Ÿ[ù\ì›]ö]ö[JXPX›‹íYL Bà[òY
+[öYöYYX\›\í][J∏.&x.,∏.(∏.`8.&¯.-x.(à8†(à8."∏..8.%8.%8.,»»8.(x..8.(x.(x.+x.!»ãîPW–ìP“◊”’UíUã∏.(x.&x..8.*x.(∏.cãõX⁄‘ôYô\ô[òŸK¬àYäõX⁄‘ôYô\ô[òŸKö\—ö[JHù[[XYŸJõX⁄‘ôYô\ô[òŸK∏.&x.,∏.(∏.`8.&¯.-x.(à8†(à8."∏..8.%8.%8.,»»8.(x..8.(x.(x.+x.!»äH[ŸHõ›XŸJ∏.a8.(x.b8.'∏.&∏.(8.,∏.'∏.+x.bx.,∏.!¯.+x.-8.!¯."∏..8.%8.%8.,»äBàJJBàõ‹ÿ][ŸÀôõ‹ëXX⁄[ô^Y»[ô^ò[YHOÇàò[Y\õ‹Y
+[ô^
+Bàò[ö[O\ù[êÿ]⁄[ô»¬àò[\ôŸ]Qö[JÿX⁄Q\ãúõ‹€X\›\úÀ…Yúô»äBàYä]\ôŸ]ö\—ö[JH»\ôŸ]ú\ô[ùö[HHKõZŸ\ú 
+N»\‹Ÿ]Àõ‹[äúõ‹€X\›\úÀ…Yúô»äKù\ŸH»[ú]Oà\ôŸ]õ›]]›ôX[J
+Kù\ŸH»[ú]ò€‹U ]
+HHHBà\ôŸ]àKôŸ]‹ìù[
+
+Bà[òY
+[öYöYYX\›\í][Jò[YKY∏.+x.,∏.)¯..8.&8.`x.)x.,8.+x..8.&¯. x.(¯.$¯.cãö[K¬àYäö[OÀö\—ö[OO]ùYJHù[[XYŸJö[Kò[YJ»à8†(àä⁄Y
+H[ŸHõ›XŸJ∏.a8.(x.b8.'∏.&∏.(8.,∏.'àPT’Tà8. ∏.+x.!»	ò[YH8†(à	YäBàJJBàBàÀ»HõX⁄»›]ö]\»[õ›\àöY]»ŸàHô\Ÿ[ù\ãõ›[õ›\à\ú€€ãÇàù[àYÿXﬁRŸ^J][Nà[öYöYYX\›\í][JHHYä][KöYOHîPW–ìP“◊”’UíUäHXPX›‹íY[ŸH][KöYàò[⁄‹ùYœT⁄‹ùÿ][Ÿ“Y ö[Jö[\—\ãú⁄‹ùÿÿ][Ÿ◊⁄YÀöú€€àäJKò\‹⁄Y€ä[õX\»YÿXﬁRŸ^J]
+H»]òÿ]Y€‹ûHJBàò[ÿ]Y€‹öY\œ[\›Ÿä∏.%¯.,x.bx.!¯.*¯.(x.%ã∏.(x.&x..8.*x.(∏.cã∏.*∏.,x.%x.)¯.cã∏.+x.*∏..x.(¯.`x.)x.,8.*∏.,x.%x.)¯.c8.&¯.(¯.,8.*¯.)x.,∏.%ã∏.`8.%¯.'∏.`x.)x.,8.'8..x.bx.'∏.-8.%¯.,x. x.*x.cã∏.'8.-H8.)¯.-8.#x.#x.,∏.$»8.`x.)x.,8.(8..x.%Hã∏.+x.,∏.)¯..8.&8.`x.)x.,8.+x..8.&¯. x.(¯.$¯.cã∏.(∏.,x.!¯.a8.(x.b8.(¯.,8.&∏..8.&¯.(¯.,8.`8.(8.%»äBà⁄⁄XŸSY[ùJ∏.!8.)x.,x.!»PT’Tà8†(à8.`8.)x.-¯.+x. x.*¯.(x.)¯.%ãÿ]Y€‹öY\ €\›Ÿä∏ß•H8.`8.'∏.-8.b8.(x.%x.,x.)¯.)x.,8.!8.(»ãº'„´H8.%x.,x.)¯.)x.,8.!8.(¯. ∏.+x.!¯.`8.(¯.-¯.b8.+x.!¯.%¯.-x.b8.`8.&¯.-8.%äJH»Ÿ[X›YOÇàYäŸ[X›YOXÿ]Y€‹öY\Àú⁄^ôJH»X›‹êÿ][Ÿ”Y[ùJ
+N»ô]\õê⁄⁄XŸSY[ùHBàYäŸ[X›YOXÿ]Y€‹öY\Àú⁄^ôJÃJH»Yä[àO[ù[
+Hÿ\›Y[ùJ
+H[ŸHõ›XŸJ∏.`8.&¯.-8.%8.`8.(¯.-¯.b8.+x.!¯.%¯.-x.b8.(x.-x.&∏.%¯. x.b8.+x.&HäN»ô]\õê⁄⁄XŸSY[ùHBàò[ÿ]Y€‹ûOXÿ]Y€‹öY\÷‹Ÿ[X›YBàò[[ô[S[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]ïëTïP–S»Ÿ]Y[ô 
+LäK
+
+K
+LäK
+
+JHBàò[ŸX\ò⁄QY]^
+\ Kò\H»[ùH∏.!8.bx.&x.*¯.,∏."∏.-¯.b8.+x.*¯.(¯.-¯.+x.(¯.*¯.,x.*∏.*∏.,x.bx.&Hé»\‘⁄[ô€S[ôO]ùYHBàò[€›[ùU^öY] \ Bàò[‹öYS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]ïëTïP–SBà[ô[òYöY] ŸX\ò⁄
+N»[ô[òYöY] €›[ù
+Bà[ô[òYöY] ÿ‹õ€öY] \ Kò\H»YöY] ‹öY
+HK[ôX\ì^[›]ì^[›]\ò[\ LK
+å
+JJBàò[X[ŸœP[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.!8.)x.,x.!»PT’Tà8†(à	ÿ]Y€‹ûHäKúŸ]öY] [ô[
+KúŸ]ôYÿ]]ôPù]€ä∏.&¯.-8.%ãù[
+Kò‹ôX]J
+Bàù[à⁄› ]Y\ûNà›ö[ô H¬à‹öYúô[[›ôP[öY]‹ 
+Bàò[õ›[ôX[ôö[\à»
+ÿ]Y€‹ûOOH∏.%¯.,x.bx.!¯.*¯.(x.%à]òÿ]Y€‹ûOOXÿ]Y€‹ûJH	âà
+]õò[YJ»àä⁄]öY
+»àä‹⁄‹ùY÷€YÿXﬁRŸ^J]
+WKõ‹ë[\J
+JKò€€ùZ[ú ]Y\ûKY€õ‹ôPÿ\ŸO]ùYJHBà€›[ùù^ZYäõ›[ôö\—[\J
+JH∏.a8.(x.b8.'∏.&∏.(¯.,∏.(∏. x.,∏.(»8†(à8.`8.'∏.-8.b8.(x.*¯.(¯.-¯.+x.`8.)x.-¯.+x. x.*¯.(x.)¯.%8.+x.-¯.b8.&x.a8.%8.bHà[ŸH∏.'∏.&à	Ÿõ›[ôú⁄^ô_H8.(¯.,∏.(∏. x.,∏.(»8†(à8.`x.%x.,8.`8.'∏.-¯.b8.+x.%8..HÇàò\àõ›Œà[ôX\ì^[›]œ[ù[àõ›[ôôõ‹ëXX⁄[ô^Y»[ô^[ùûHOÇàYä[ô^	LèOL
+H»õ›œS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]í‘íVì”ïSN»‹öYòYöY] õ› HBàò[Ÿ[S[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]ïëTïP–S»Ÿ]Y[ô 
+
+K
+äK
+
+K
+äJHBàõ›œÀòYöY] Ÿ[[ôX\ì^[›]ì^[›]\ò[\ LãYäJBàò[Xô[\⁄‹ùY÷€YÿXﬁRŸ^J[ùûJWKõ‹ë[\J
+J»à8†(àäŸ[ùûKõò[YJ Yä[ùûKôö[OÀö\—ö[OO]ùYJHàà[ŸHó∏.a8.(x.b8.'∏.&àPT’TàäBàYä[ùûKôö[OÀö\—ö[OO]ùYJHŸ[òYöY] [XYŸUöY] \ Kò\H¬àŸ][XYŸPö]X\
+ÿ\›[ô’[XõòZ[
+[ùûKôö[JJN»Yù\›öY]–õ›[ôœ]ùYBà€€ù[ù\ÿ‹ö\[€è[Xô[»Ÿ]€ê€X⁄”\›[ô\à»X[ŸÀô\€Z\‹ 
+N»[ùûKõ‹[ä
+HBàK[ôX\ì^[›]ì^[›]\ò[\ LK
+M
+JJBàŸ[òYöY] ù]€ä\ Kò\H»^[Xô[»Ÿ]€ê€X⁄”\›[ô\à»X[ŸÀô\€Z\‹ 
+N»[ùûKõ‹[ä
+HHJBàBàBàŸX\ò⁄òY^⁄[ôŸY\›[ô\äÿöôX›à[ôõ⁄Yù^ï^ÿ]⁄\à¬à›ô\úöYHù[àôYõ‹ôU^⁄[ôŸY
+Œà⁄\îŸ\]Y[òŸOÀ›\ùà[ù€›[ùà[ùYù\éà[ù
+HﬂBà›ô\úöYHù[à€ï^⁄[ôŸY
+Œà⁄\îŸ\]Y[òŸOÀ›\ùà[ùôYõ‹ôNà[ù€›[ùà[ù
+H»⁄› œÀù‘›ö[ô 
+Kõ‹ë[\J
+JHBà›ô\úöYHù[àYù\ï^⁄[ôŸY
+Œà[ôõ⁄Yù^ëY]XõO HﬂBàJBà⁄› àäN»X[ŸÀú⁄› 
+BàBàKõ€ëòZ[\ôH»õ›XŸJ∏.`8.&¯.-8.%8.!8.)x.,x.!¯.a8.(x.b8.a8.%8.bNà	⁄]õY\‹ÿYŸ_HäHBàBàö]ò]Hù[àŸ[ôõŸX›[€ìX\›\äYà›ö[ôÀò[YNà›ö[ôÀö[Nàö[JH¬àYäYö[Kô^\› 
+JH»õ›XŸJ∏.`8.'∏.-8.b8.(HPT’Tà8. x.b8.+x.&HäN»ô]\õàBàò[€›\òŸO[X\›\ë^‹ùò[YJö[Kò[ŸJHŒàù[à»õ›XŸJ∏.+x.b8.,∏.&x.(8.,∏.'àPT’Tà8.a8.(x.b8.a8.%8.bHäN»ô]\õàBàò[€€[X[ôR[XYŸTõ€\€XﬁKúõŸX›[€ìX\›\äò[YK€›\òŸKõ€\õŸö[JYö[JJBà⁄›—õ›–€ŸJ∏.!8.,¯.*∏.,x.b8.!¯.`8.%x.(¯.-x.(∏.(HPT’Tà8.`¯.&Hõ›»ã€€[X[ôâ⁄Yù\\òÿ\ŸJ
+_W”PT’Tó–””SPSëùäBàBàö]ò]Hù[àô]öY]”X\›\äYà›ö[ôÀò[YNà›ö[ôÀö[Nàö[JH¬àYäYö[Kô^\› 
+JH»õ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-HPT’TàäN»ô]\õàBàò[õŸö[OX⁄\òX›\ìY[[‹ûKúôXY
+Yö[JBàò[[ô[S[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èLN»Ÿ]Y[ô 
+LäK
+LäK
+LäK
+LäJHBà[ô[òYöY] [XYŸUöY] \ Kò\H»Ÿ][XYŸPö]X\
+ô]öY]–ö]X\
+\öKôúõ€Qö[Jö[JJJN»Yù\›öY]–õ›[ôœ]ùYN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ LK
+Ãå
+JHJBà[ô[òYöY] ^öY] \ Kò\H»^H∏.%x.(¯.)¯."8.`8.%¯.-x.(∏.&∏.%x.bx.&x."x.&∏.,x.&éà8.`¯.&∏.*¯.&x.bx.,∏.`x.)x.,8.'8.(x.%x.(¯.!¯.(¯.,∏.(∏.!8.&H8†(à8.(¯..x.&¯.(¯.b8.,∏.!¯.a8.(x.b8.`8.&¯.)x.-x.b8.(∏.&x.`∏.%8.(∏.a8.(x.b8.%x.,x.bx.!¯.`¯."8†(à8.(x.-¯.+x.&¯. x.%x.-8†(à8."∏..8.%8.'∏.-¯.bx.&x.$8.,∏.&x."∏.,x.%8.`8."8.&H8†(à8.`x.*∏.!¯.`x.)x.,8.(8.,∏.'∏.!8.(x."∏.,x.%∏. x.,∏.(¯.(∏.-¯.&x.(∏.,x.&x.&x.-x.bx.`8.&¯.a¯.&x.'8.)x.%x.(¯.)¯."8. ∏.+x.!¯.'8..x.bx.`¯."∏.bH8.a8.(x.b8.`¯."∏.b8.'8.)x.(¯.,x.&∏.(¯.+x.!¯."8.,∏. x.(¯.,8.&∏.&∏.*∏.(¯.bx.,∏.!¯.(8.,∏.'ààJBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.%x.(¯.)¯."PT’Tà8†(à	ò[YHäKúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] [ô[
+HJBàúŸ]‹⁄]]ôPù]€ä∏.%x.(¯.)¯."8.`x.)x.bx.)»8.`¯."∏.bx.(8.,∏.'∏.&x.-x.bHäH»À»OàõŸö[Kú]
+úôYô\ô[òŸW‹ô]öY]ŸYÿ]ãﬁ\›[Kò›\úô[ù[YSZ[\ 
+JN»⁄\òX›\ìY[[‹ûKúÿ]ôJYö[KõŸö[JN»õ›XŸJ∏.&∏.,x.&x.%¯.-∏. x.'8.)x.%x.(¯.)¯."8. ∏.+x.!¯.(8.,∏.'∏.&x.-x.bx.`x.)x.bx.)»äHBàúŸ]ô]]ò[ù]€ä∏.`8.)x.-¯.+x. x.(8.,∏.'∏.`¯.*¯.(x.bäH»À»OàYäö[Kú\ô[ùö[OÀõò[YOOHò⁄\òX›\ó€X\›\ú»äH»X\›\î€›ZY»X\›\îX⁄Ÿ\ãõ][ò⁄
+\úò^SŸäö[XYŸK àäJHH[ŸH»ÿ\›\ôŸ][ò[YH»ö[N»ÿ\›X⁄Ÿ\ãõ][ò⁄
+\úò^SŸäö[XYŸK àäJHHBàúŸ]ôYÿ]]ôPù]€ä∏.&¯.-8.%ãù[
+Kú⁄›—\ôX›‹ä
+BàBàö]ò]Hù[àY]⁄\òX›\ìY[[‹ûJYà›ö[ôÀò[YNà›ö[ôÀö[Nàö[JH¬àYà
+Yö[Kô^\› 
+JH»õ›XŸJ∏.`8.'∏.-8.b8.(x.(8.,∏.'àPT’Tà8. x.b8.+x.&x.&∏.,x.&x.%¯.-∏. x.`∏.&¯.(¯.a8.'¯.)x.cäN»ô]\õàBàò[õŸö[OX⁄\òX›\ìY[[‹ûKúôXY
+Yö[JBàò[[ô[S[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èLN»Ÿ]Y[ô 
+LäK
+LäK
+LäK
+LäJHBà[ô[òYöY] ^öY] \ Kò\H»^H∏. ∏.bx.+x.(x..x.)x.&x.-x.bx.'8..x. x. x.,x.&∏.(8.,∏.'àPT’Tà8.&x.-x.bx.`8.%¯.b8.,∏.&x.,x.bx.&H8†(à8.&∏.,x.&x.%¯.-∏. x.`8."x.'∏.,∏.,8.*∏.-8.b8.!¯.%¯.-x.b8.`8.*¯.a¯.&H8."∏..8.%8.`x.)x.,8."x.,∏. x. x.,¯.*¯.&x.%8.`¯.&x.&∏.%»àJBà[ô[òYöY] [XYŸUöY] \ Kò\H»Ÿ][XYŸPö]X\
+ô]öY]–ö]X\
+\öKôúõ€Qö[Jö[JJJN»Yù\›öY]–õ›[ôœ]ùYN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ LK
+ç
+JHJBàò[öY[œ[\›ŸäôòXŸHà»∏.`¯.&∏.*¯.&x.bx.,∏.`x.)x.,8.%8.)¯.!¯.%x.,àãöZ\àà»∏.'8.(x.`x.)x.,8.*¯.&x.)¯.%8.`8.!8.(¯.,àäH
+»õŸTôYô\ô[òŸT€XﬁKôöY[»
+»
+òXÿŸ\‹€‹öY\»à»∏.`8.!8.(¯.-¯.b8.+x.!¯.&¯.(¯.,8.%8.,x.&∏.+x.bx.,∏.!¯.+x.-8.!»
+8.`8.&¯.)x.-x.b8.(∏.&x.%x.,∏.(x.&∏.%¯.a8.%8.bJHäBàò[[ú]œYöY[ÀõX\»
+Ÿ^KXô[
+HOàŸ^H»Y]^
+\ Kò\H»[ù[Xô[»Ÿ]^
+õŸö[Kõ‹›ö[ô Ÿ^JJN»[ô[òYöY] \ HHBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.!8.)¯.,∏.(x."8.,¯.%x.,x.)¯.)x.,8.!8.(»8†(à	ò[YHäKúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] [ô[
+HJBàúŸ]‹⁄]]ôPù]€ä∏.&∏.,x.&x.%¯.-∏. HäH»À»Oà[ú]Àôõ‹ëXX⁄»
+Ÿ^K[ú]
+HOàõŸö[Kú]
+Ÿ^K[ú]ù^ù‘›ö[ô 
+Kùö[J
+JHN»⁄\òX›\ìY[[‹ûKúÿ]ôJYö[KõŸö[JN»õ›XŸJ∏.&∏.,x.&x.%¯.-∏. x. ∏.bx.+x.(x..x.)x.+x.bx.,∏.!¯.+x.-8.!¯. ∏.+x.!»	ò[YH8.`x.)x.bx.)»äHBàúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàBàö]ò]Hò[›\ëŸ[úô\»H\›Ÿä∏.%8.(¯.,∏.(x.b8.,∏."∏.-x.)¯.-8.%Hã∏.!8.(¯.+x.&∏.!8.(¯.,x.)»ã∏.`∏.(¯.`x.(x.&x.%x.-8. Hã∏.%x.)x. Hã∏.*∏.-¯.&∏.*∏.)¯.&Hã∏.(¯.,8.%¯.-∏. x. ∏.)¯.,x.#Hã∏.*∏.(∏.+x.!¯. ∏.)¯.,x.#Hã∏.`x.'¯.&x.%x.,∏."¯.-Hã∏.`x.+x.a¯. x."∏.,x.&Hã∏.+x.&∏.+x..8.b8.&x.*¯.,x.)¯.`¯."äBàö]ò]Hò[€X\ù\ôX›‹àH∏.(¯.,8.&∏.&∏. x.,¯. x.,x.&∏.)x.,8.!8.(¯.+x.,x."8."x.(¯.-8.(∏.,Çàö]ò]Hò[Ÿ[úôSXô[»H\›Ÿäàº'„´H8.%8.(¯.,∏.(x.b8.,∏."∏.-x.)¯.-8.%W∏.%x.b8.+x.*∏..x.bx."∏.-x.)¯.-8.%x.`x.)x.,8. x.,∏.(¯.`8.(¯.-8.b8.(x.%x.bx.&x.`¯.*¯.(x.bãàº'„ËH8.!8.(¯.+x.&∏.!8.(¯.,x.)◊∏.!8.)¯.,∏.(x.(¯.,x. x.`x.)x.,8.!8.)¯.,∏.(x.'8..x. x.'∏.,x.&x.`¯.&x.&∏.bx.,∏.&Hãàº'‰•H8.`∏.(¯.`x.(x.&x.%x.-8. W∏.`8.(¯.-¯.b8.+x.!¯.(¯.,x. x.`x.)x.,8.!8.)¯.,∏.(x.*∏.,x.(x.'∏.,x.&x.&8.cãàº'Ê à8.%x.)x. W∏.`8.(¯.-¯.b8.+x.!¯.*∏.&x..8. H8."∏.)¯.&x.(∏.-8.bx.(x.`x.)x.,8.*¯.,x.)¯.`8.(¯.,∏.,ãàº'Â#à8.*∏.-¯.&∏.*∏.)¯.&W∏.%x.,∏.(x.`8.&∏.,∏.,8.`x.*à8.`8.&¯.-8.%8.`8.'8.(∏.!8.)¯.,∏.(x."8.(¯.-8.!»ãàº'Ê,H8.(¯.,8.%¯.-∏. x. ∏.)¯.,x.#W∏.)x..8.bx.&x.%¯..8. x."x.,∏. H8.&¯.(¯.-8.*8.&x.,∏.`x.)x.,8.+x.,x.&x.%x.(¯.,∏.(àãàº'‰n»8.*∏.(∏.+x.!¯. ∏.)¯.,x.#W∏.`8.(¯.-¯.b8.+x.!¯.)x.-x.bx.)x.,x.&∏.`x.)x.,8.!8.)¯.,∏.(x.&x.b8.,∏. x.)x.,x.)»ãà∏ß*8.`x.'¯.&x.%x.,∏."¯.-W∏.`∏.)x. x."8.-8.&x.%x.&x.,∏. x.,∏.(¯.`x.)x.,8.'∏.)x.,x.!¯.)¯.-8.`8.*8.*Hãàº'Â)H8.`x.+x.a¯. x."∏.,x.&W∏.(8.,∏.(¯. x.-8."8. x.,∏.(¯.a8.)x.b8.)x.b8.,∏.`x.)x.,8. x.,∏.(¯.%x.b8.+x.*∏..x.bHãàº'„-»8.+x.&∏.+x..8.b8.&x.*¯.,x.)¯.`¯."∏.!8.)¯.,∏.(x.*¯.)¯.,x.!»8. x.,∏.(¯."∏.b8.)¯.(∏.`8.*¯.)x.-¯.+x.`x.)x.,8. x.,¯.)x.,x.!¯.`¯."äBàö]ò]Hò[‹öY⁄[ò[⁄[õô[H⁄[õô[ÿ][ŸÀò⁄[õô[àö]ò]Hò[[îX⁄Ÿ\àHôY⁄\›\ëõ‹êX›]ö]Tô\›[
+X›]ö]Tô\›[€€ùòX›Àì‹[ëÿ›[Y[ù
+
+JH»\öHOÇàYà
+\öHOHù[
+HòX⁄Ÿ‹õ›[ô¬àò[^H€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J\öJHHKòùYôô\ôYôXY\ä
+Kù\ŸH»]úôXY^
+
+HBàò[ÿ[ôY]HHî””ìÿöôX›
+^úô[[›ôTôYö^
+óQëQëàäJBàò[Y]Jÿ[ôY]JBàò[YHURQúò[ô€UURQ
+
+Kù‘›ö[ô 
+Bàò[õ€\àHö[Jò\ŸKY
+Kò\H»ZŸ\ú 
+HBàö[Jõ€\ãú›‹ûKöú€€àäKù‹ö]U^
+ÿ[ôY]Kù‘›ö[ô äJBàôYúÀôY]
+
+Kú]›ö[ô úõ⁄ôX›ãY
+Kò€€[Z]
+
+BàBàBàö]ò]Hò[X⁄ÿYŸTX⁄Ÿ\àHôY⁄\›\ëõ‹êX›]ö]Tô\›[
+X›]ö]Tô\›[€€ùòX›Àì‹[ì][\Qÿ›[Y[ù 
+JH»\ö\»OÇàYà
+\ö\Àö\”õ›[\J
+JHôXŸZ]ôTX⁄ÿYŸJ\ö\ BàBàö]ò]Hù[àôXŸZ]ôTX⁄ÿYŸJŸ[X›Yà\›\öOã€€ôö\õYYàõ€€X[àHò[ŸJH¬à[\‹ù[ô»HùYBàò[X[Ÿ»H[\ùX[ŸÀêùZ[\ä\ KúŸ]Y\‹ÿYŸJ∏. x.,¯.)x.,x.!¯.%x.(¯.)¯."8.&∏.%¯.`x.)x.,8.(8.,∏.'∏†)àäKúŸ]ÿ[òŸ[XõJò[ŸJKú⁄›—\ôX›‹ä
+BàôXY¬àûH¬àö[JÿX⁄Q\ãú›‹ûW⁄[\‹ùäKô[]TôX›\ú⁄]ô[J
+Bàò[›Y⁄[ô»Hö[JÿX⁄Q\ãú›‹ûW⁄[\‹ù…’URQúò[ô€UURQ
+
+_HäKò\H»ZŸ\ú 
+HBàò[ö[\»H]]XõS\›Ÿè\öOä
+Bàò[òZ[Yö\[ùöY\»H]]XõS\›Ÿè›ö[ôœä
+Bàõ‹à
+\öH[àŸ[X›Y
+H¬àYà
+\‹^Sò[YJ\öJKô[ô’⁄]
+ãûö\ãùYJH€€ù[ùô\€€ô\ãôŸ]\J\öJH[à\›Ÿäò\Xÿ][€ãﬁö\ãò\Xÿ][€ãﬁ^ö\X€€\ô\‹ŸYäJH¬àò[\ò⁄]ôHHö[J›Y⁄[ôÀò\ò⁄]ôKIŸö[\Àú⁄^ô_Kûö\äBà€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J\öJHHKù\ŸH»[ú]Oà\ò⁄]ôKõ›]]›ôX[J
+Kù\ŸH»[ú]ò€‹U ]
+HHBàô\]Z\ôJ\ò⁄]ôKõ[ô›
+
+Hà	âà\ò⁄]ôKö[ú]›ôX[J
+Kù\ŸH»]úôXY
+
+HOH	‘	Àò€ŸH	âà]úôXY
+
+HOH	“…Àò€ŸHJH»∏.a8.'¯.)x.c8.%¯.-x.b8.`8.)x.-¯.+x. x.a8.(x.b8.`¯."∏.bíT8.%¯.-x.b8.*∏.(x.&∏..x.(¯.$¯.càBàò[[úX⁄ŸYH›‹ûQö[\Àù[úX⁄—ö[J\ò⁄]ôKö[J›Y⁄[ôÀù[úX⁄ŸYIŸö[\Àú⁄^ô_HäJBàö[\ÀòY[
+[úX⁄ŸYôö[\ÀõX\»\öKôúõ€Qö[J]
+HJBàòZ[Yö\[ùöY\ÀòY[
+[úX⁄ŸYôòZ[Y[ùöY\ BàH[ŸHö[\ÀòY
+\öJBàBàÀ»Húõ⁄Ÿ[à\ôŸHíTX^H[ôôYõ‹ôH›‹ûKöú€€ãàŸY\]»ò[Y[XYŸ\ÀàÀ»[à]]€X]Xÿ[HY\ôŸH[H⁄[àHŸ\\ò][H›€õÿYY›‹ûKöú€€à\úö]ô\ÀÇàò[Ÿ[X›Y\‘›‹ûHHö[\Àò[ûH»\‹^Sò[YJ]
+Kô\]X[ ú›‹ûKöú€€àãùYJHBàYà
+Ÿ[X›Y\‘›‹ûH	âà[ô[ô‘ôX€›ô\ûKö\—\ôX›‹ûJH¬àö[\ÀòY[
+[ô[ô‘ôX€›ô\ûKõ\›ö[\ 
+OÀôö[\à»]ö\—ö[H	âà]õò[YHOHúôX€›ô\ûKùàOÀõX\»\öKôúõ€Qö[J]
+HKõ‹ë[\J
+JBàBàò[ÿ‹ö\»Hö[\Àôö[\à»\‹^Sò[YJ]
+Kô\]X[ ú›‹ûKöú€€àãùYJHBàô\]Z\ôJÿ‹ö\Àú⁄^ôHHJH»∏.`8.)x.-¯.+x. H›‹ûKöú€€à8. ∏.+x.!¯.`8.(¯.-¯.b8.+x.!¯.`8.%8.-x.(∏.)¯.`8.%¯.b8.,∏.&x.,x.bx.&HàBàò[öY[‹»Hö[\Àôö[\à»\‹^Sò[YJ]
+Kô[ô’⁄]
+ãõ\ãùYJH€€ù[ùô\€€ô\ãôŸ]\J]
+OOHùöY[À€\àBàò[X›\ô\»Hö[\Àôö[\à»\‹^Sò[YJ]
+Kú›Xú›ö[ô–Yù\ì\›
+	Àâ Kõ›Ÿ\òÿ\ŸJ
+H[à\›Ÿäúô»ãöú»ãöúY»ãùŸXúäH€€ù[ùô\€€ô\ãôŸ]\J]
+OÀú›\ù’⁄]
+ö[XYŸK»äHOHùYHBàò[X\›\ú»HX›\ô\Àôö[\à»ôYŸ^
+óê“TêP’Tó◊
+◊àãôYŸ^‹[€ãíQ”ì‘ëW––T—JKò€€ùZ[ú”X]⁄[ä\‹^Sò[YJ]
+JHBàò[€›ô\ú»HX›\ô\Àôö[\à»›‹ûQö[\Àò€›ô\ìò[YJ\‹^Sò[YJ]
+JHOHù[Bàò[ÿŸ[ô\»HX›\ô\Àôö[\à»T›‹ûQö[\Àö\”X\›\ä\‹^Sò[YJ]
+JHHH€›ô\úÀù‘Ÿ]
+
+Bàô\]Z\ôJÿ‹ö\Àö\”õ›[\J
+HX›\ô\Àö\”õ›[\J
+HöY[‹Àö\”õ›[\J
+JH»∏.a8.(x.b8.'∏.&à›‹ûKöú€€à8.*¯.(¯.-¯.+x.(8.,∏.'∏.`¯.&x.a8.'¯.)x.c8.%¯.-x.b8.`8.)x.-¯.+x. H8. x.(¯..8.$¯.,∏.`8.)x.-¯.+x. HíT8."∏..8.%8.!¯.,∏.&H8.*¯.(¯.-¯.+Hî””ã‘ëÀ“î»àBàò[ÿ[ôY]HHÿ‹ö\Àôö\ú›‹ìù[
+
+OÀõ]»€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J]
+HHKòùYôô\ôYôXY\ä
+Kù\ŸH»ôXY\àOàî””ìÿöôX›
+ôXY\ãúôXY^
+
+Kúô[[›ôTôYö^
+óQëQëàäJHHBàYà
+ÿ[ôY]HOHù[	âà[àOHù[	âàX›\ô\Àö\”õ›[\J
+JH¬à[ô[ô‘ôX€›ô\ûKô[]TôX›\ú⁄]ô[J
+N»[ô[ô‘ôX€›ô\ûKõZŸ\ú 
+BàX›\ô\Àôõ‹ëXX⁄[ô^Y»[ô^\öHOÇàò[ÿYôSò[YHH\‹^Sò[YJ\öJKöYêõ[ö»»úôX€›ô\ôYI[ô^ö[Y»àBà€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J\öJHHKù\ŸH»[ú]Oàö[J[ô[ô‘ôX€›ô\ûKÿYôSò[YJKõ›]]›ôX[J
+Kù\ŸH»[ú]ò€‹U ]
+HHBàBàö[J[ô[ô‘ôX€›ô\ûKúôX€›ô\ûKùäKù‹ö]U^
+∏. x..x.bx.(8.,∏.'à	‹X›\ô\Àú⁄^ô_H8.a8.'¯.)x.càà
+»òZ[Yö\[ùöY\Àöõ⁄[ï‘›ö[ô óàäJBàù[ì€ïZUôXY¬à[\‹ù[ôœYò[ŸN»X[ŸÀô\€Z\‹ 
+N»ô[ô\ä
+Bàõ›XŸJ∏. x..x.bx.(8.,∏.'∏.%¯.-x.b8.*∏.(x.&∏..x.(¯.$¯.c8.a8.)¯.bx.`x.)x.bx.)»	‹X›\ô\Àú⁄^ô_H8.a8.'¯.)x.c8†(àíT8. ∏.,∏.%›‹ûKöú€€óó∏.&x.,¯.`8. ∏.bx.,à›‹ûKöú€€à8.'8.b8.,∏.&x.`8.(x.&x..x.&x.,¯.`8. ∏.bx.,∏.&∏.%¯.+x.-x. x.!8.(¯.,x.bx.!»8.`x.+x.&¯."8.,8.(¯.)¯.(x.(8.,∏.'∏.%¯.-x.b8. x..x.bx.a8.)¯.bx.`¯.*¯.bx.+x.,x.%x.`∏.&x.(x.,x.%x.-8.a8.(x.b8.%x.bx.+x.!¯.`8.)x.-¯.+x. HíT8."¯.bx.,»äBàBàô]\õêôXYàBàò[\›[ò][€î›‹ûHHÿ[ôY]HŒà[àŒà\úõ‹ä∏.(∏.,x.!¯.a8.(x.b8.(x.-x.&∏.%»8. x.(¯..8.$¯.,∏.&x.,¯.`8. ∏.bx.,à›‹ûKöú€€à8. x.b8.+x.&HäBàò[⁄X⁄ŸYöY[‹»HöY[‹ÀõX\»\öHOÇàò[ù[Xô\èT›‹ûQö[\ÀúÿŸ[ôSù[Xô\ä\‹^Sò[YJ\öJJHŒà\úõ‹ä∏.)¯.-8.%8.-x.`∏.+x.%x.bx.+x.!¯."∏.-¯.b8.+HTW‘–ÃKõ\à	Ÿ\‹^Sò[YJ\öJ_HäBàò[ÿŸ[ôO\õ›‹ \›[ò][€î›‹ûJKôö\ú›‹ìù[»]ôŸ][ù
+ô\äOO[ù[Xô\ãôö\ú›	âà]ôŸ][ù
+úÿŸ[ôHäOO[ù[Xô\ãúŸX€€ôHŒà\úõ‹ä∏.)¯.-8.%8.-x.`∏.+x.a8.(x.b8.%x.(¯.!¯. x.,x.&∏.&∏.%Œà	Ÿ\‹^Sò[YJ\öJ_HäBàò[[\Qö[J›Y⁄[ôÀò⁄X⁄ŸY›öY[‹À…⁄Ÿ^JÿŸ[ôJ_Kõ\äKò\H»\ô[ùö[HHKõZŸ\ú 
+HBà€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J\öJHHKù\ŸH»[ú]Oà[\õ›]]›ôX[J
+Kù\ŸH»[ú]ò€‹U ]
+HHBàò[ôXY\èX[ôõ⁄YõYYXKìYYXSY]Y]Tô]öY]ô\ä
+BàûH»ôXY\ãúŸ]]T€›\òŸJ[\ú]
+N»ô\]Z\ôJôXY\ãô^òX›Y]Y]J[ôõ⁄YõYYXKìYYXSY]Y]Tô]öY]ô\ãìQUQUW“—VW—TêUS”äOÀù”€ô”‹ìù[
+
+OÀõ]»]åOO]ùYJH»∏.)¯.-8.%8.-x.`∏.+x.+x.b8.,∏.&x.a8.(x.b8.a8.%8.bHàHHö[ò[H»ôXY\ãúô[X\ŸJ
+HBàŸ^JÿŸ[ôJH»[\àBàô\]Z\ôJ⁄X⁄ŸYöY[‹ÀõX\»]ôö\ú›Kô\›[ò›
+
+Kú⁄^ôOO]öY[‹Àú⁄^ôJH»∏.(x.-x.)¯.-8.%8.-x.`∏.+x."x.,∏. x."¯.bx.,»àBàò[⁄X⁄ŸY€›ô\ú»H€›ô\úÀõX\»\öHOÇàò[ò[YHH›‹ûQö[\Àò€›ô\ìò[YJ\‹^Sò[YJ\öJJHHBàô\]Z\ôJò[YH[à€›ô\ìò[Y\ \›[ò][€î›‹ûJJH»∏.&¯. H	ò[YH8.a8.(x.b8.%x.(¯.!¯. x.,x.&àT8.`¯.&x.`8.(¯.-¯.b8.+x.!»àBàò[[\Hö[J›Y⁄[ôÀò⁄X⁄ŸY…ò[YKö[Y»äKò\H»\ô[ùö[HHKõZŸ\ú 
+HBà€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J\öJHHKù\ŸH»[ú]Oà[\õ›]]›ôX[J
+Kù\ŸH»[ú]ò€‹U ]
+HHBàò[õ›[ô»H[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[íù\›X€ŸPõ›[ô»HùYHBà[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸQö[J[\ú]õ›[ô Bàò[ò][»HYà
+ò[YKô[ô’⁄]
+åMûHäJHMãå»H[ŸHKå»MÇàô\]Z\ôJõ›[ôÀõ›]ZY⁄à	âà€›[ãõX]òXú õ›[ôÀõ›]⁄Yù—›XõJ
+Kÿõ›[ôÀõ›]ZY⁄Hò][ Hå
+H»âò[YH8.%x.bx.+x.!¯.(x.-x.*∏.,x.%8.*∏.b8.)¯.&H	⁄Yà
+ò[YKô[ô’⁄]
+åMûHäJHåMééHà[ŸHéNåMàüHàBàò[YH»[\àBàô\]Z\ôJ⁄X⁄ŸY€›ô\úÀõX\»]ôö\ú›Kô\›[ò›
+
+Kú⁄^ôHOH€›ô\úÀú⁄^ôJH»∏.(x.-x.a8.'¯.)x.c8.&¯. x."¯.bx.,»8. x.(¯..8.$¯.,∏.`8.)x.-¯.+x. x.*¯.&x.-∏.b8.!¯.(8.,∏.'∏.%x.b8.+x.*∏.,x.%8.*∏.b8.)¯.&x.%x.b8.+HTàBàYà
+ÿ[ôY]HOHù[
+Hò[Y]Jÿ[ôY]JBàYà
+X€€ôö\õYY
+H¬àù[ì€ïZUôXY¬à[\‹ù[ôœYò[ŸN»X[ŸÀô\€Z\‹ 
+Bà⁄›‘X⁄ÿYŸTô]öY] \›[ò][€î›‹ûKö[\ÀòZ[Yö\[ùöY\ H»ôXŸZ]ôTX⁄ÿYŸJŸ[X›YùYJHBàBàô]\õêôXYàBàYà
+ÿ[ôY]HOHù[
+H¬àò[Y]Jÿ[ôY]JBàÀ»ôZ[\‹ù[ô»Hÿ[YH›‹ûH]\›ô]Z[à[XYŸ\»[ôXYHôXŸZ]ôYÇàò[ÿ[YT›‹ûHH[èÀõ]»€Oà€õ‹›ö[ô ù]HäHOHÿ[ôY]Kõ‹›ö[ô ù]HäH	âà€õ‹›ö[ô òÿ]Y€‹ûHäHOHÿ[ôY]Kõ‹›ö[ô òÿ]Y€‹ûHäH	âàõ›‹ €
+KõX\»]ù‘›ö[ô 
+HHOHõ›‹ ÿ[ôY]JKõX\»]ù‘›ö[ô 
+HHHOHùYBàò[õ€\àHYà
+ÿ[YT›‹ûJHõ⁄ôX›[ŸHö[Jò\ŸKURQúò[ô€UURQ
+
+Kù‘›ö[ô 
+JKò\H»ZŸ\ú 
+HBà[\‹ù‹öY⁄[ò[ôYô\ô[òŸ\ X›\ô\Àõ€\ãÿ[ôY]JBà[\‹ùô]”X\›\ú X\›\úÀõ€\ãÿ[ôY]JBàYà
+ÿ[ôY]Kõ‹›ö[ô ò⁄\òX›\ó€[ŸHãõ‹öY⁄[ò[äHOHõ‹öY⁄[ò[äH¬à\›Ÿäôÿ]⁄[àãúö[õYHãõZ[ôäKôõ‹ëXX⁄»YOÇàò[\ôŸ]Qö[Jõ€\ãõ‹öY⁄[ò[€X\›\úÀ…YõX\›\àäBàò[€›\òŸOQö[Jö[\—\ãò⁄\òX›\ó€X\›\úÀ…YõX\›\àäBàYä]\ôŸ]ô^\› 
+H	âà€›\òŸKô^\› 
+JH»\ôŸ]ú\ô[ùö[HHKõZŸ\ú 
+N»€›\òŸKò€‹U \ôŸ]
+HBàBàBàò[›‹ûQö[HHö[Jõ€\ãú›‹ûKöú€€àäBà›‹ûQö[Kù‹ö]U^
+ÿ[ôY]Kù‘›ö[ô äJBàô\]Z\ôJ›‹ûQö[Kö\—ö[H	âà›‹ûQö[Kõ[ô›
+
+Hà
+H»∏.&∏.,x.&x.%¯.-∏. H›‹ûKöú€€à8.a8.(x.b8.*∏.,¯.`8.(¯.a¯."àBàô\]Z\ôJôYúÀôY]
+
+Kú]›ö[ô úõ⁄ôX›ãõ€\ãõò[YJKò€€[Z]
+
+JH»∏.%x.,x.bx.!¯.!8.b8.,∏.`∏.!8.(¯.!¯. x.,∏.(¯.&¯.,x."8."8..8.&∏.,x.&x.a8.(x.b8.*∏.,¯.`8.(¯.a¯."àBàò[\ú⁄\›YHî””ìÿöôX›
+ö[Jõ⁄ôX›ú›‹ûKöú€€àäKúôXY^
+
+JBàò[Y]J\ú⁄\›Y
+Bà[àH\ú⁄\›Yàö[Jõ⁄ôX›úX⁄ÿYŸW⁄[\‹ùYäKù‹ö]U^
+ﬁ\›[Kò›\úô[ù[YSZ[\ 
+Kù‘›ö[ô 
+JBàH[ŸH¬àô\]Z\ôJ[àOHù[
+H»∏.(∏.,x.!¯.a8.(x.b8.(x.-x.&∏.%»8. x.(¯..8.$¯.,∏.&x.,¯.`8. ∏.bx.,à›‹ûKöú€€à8.*¯.(¯.-¯.+HíT8.%¯.-x.b8.(x.-x.&∏.%¯. x.b8.+x.&HàBà[\‹ù‹öY⁄[ò[ôYô\ô[òŸ\ X›\ô\Àõ⁄ôX›[àHJBà[\‹ùô]”X\›\ú X\›\ú BàBà⁄X⁄ŸYöY[‹Àôõ‹ëXX⁄»
+Y[\
+HOÇàò[\ôŸ]Qö[Jõ⁄ôX›ùöY[‹À…Yõ\äKò\H»\ô[ùö[HHKõZŸ\ú 
+HBàYä\ôŸ]ô^\› 
+JH\ò⁄]ôUô\ú⁄[€ä\ôŸ]õ⁄ôX›YùöY[»äBà[\ò€‹U \ôŸ]›ô\ù‹ö]O]ùYJBàBà⁄X⁄ŸY€›ô\úÀôõ‹ëXX⁄»
+ò[YK[\
+HOà€›ô\ëö[Jò[YJKò\H»\ô[ùö[HHKõZŸ\ú 
+HKõ]»Yä]ô^\› 
+JH\ò⁄]ôUô\ú⁄[€ä]õ⁄ôX›ò[YKò€›ô\àäN»[\ò€‹U ]›ô\ù‹ö]O]ùYJHHBàù[ì€ïZUôXY¬à[\‹ù[ô»Hò[ŸN»X[ŸÀô\€Z\‹ 
+N»ô[ô\ä
+BàYà
+ÿ[ôY]HOHù[	âà[àOHù[
+Hô]\õêù[ì€ïZUôXYõ›XŸJ∏.(¯.,x.&∏.a8.'¯.)x.c8.`x.)x.bx.)¯.`x.%x.b8.(∏.,x.!¯.`8.&¯.-8.%8.`∏.!8.(¯.!¯. x.,∏.(¯.a8.(x.b8.a8.%8.bH8. x.(¯..8.$¯.,∏.&x.,¯.`8. ∏.bx.,àíT8.+x.-x. x.!8.(¯.,x.bx.!»äBàYà
+ÿŸ[ô\Àö\”õ›[\J
+JH[\‹ù[XYŸ\ ÿŸ[ô\ Bà[ŸHYà
+öY[‹Àö\”õ›[\J
+JH⁄›“[\‹ùôXŸZ\
+
+Bà[ŸHYà
+€›ô\úÀö\”õ›[\J
+JH»[ô[ô‘ôX€›ô\ûKô[]TôX›\ú⁄]ô[J
+N»⁄›“[\‹ùôXŸZ\
+
+HBà[ŸHõ›XŸJYà
+òZ[Yö\[ùöY\Àö\”õ›[\J
+JH∏.(¯.,x.&∏.*∏.b8.)¯.&x.%¯.-x.b8.*∏.(x.&∏..x.(¯.$¯.c8.`x.)x.bx.)»8†(à8. ∏.bx.,∏.(x.a8.'¯.)x.c8.%¯.-x.b8.+x.b8.,∏.&x.a8.(x.b8.a8.%8.bH	ŸòZ[Yö\[ùöY\Àú⁄^ô_H8.a8.'¯.)x.c8. x.%8.%x.(¯.)¯."8.!¯.,∏.&x.%¯.-x.b8. ∏.,∏.%8.`8.'∏.-¯.b8.+x.`8.'∏.-8.b8.(x.`8."x.'∏.,∏.,8.a8.'¯.)x.cà[ŸHYà
+ÿ[ôY]HOHù[
+H∏.(¯.,x.&à›‹ûKöú€€à8.`x.)x.bx.)»8†(à8.&x.,¯.`8. ∏.bx.,àíT8.(8.,∏.'∏.`x.)x.,8.&¯. x. ∏.+x.!¯.`x.%x.b8.)x.,T8.'8.b8.,∏.&x.`8.(x.&x..Hà8.%x.b8.+x.a8.%8.bH8.a8.(x.b8.%x.bx.+x.!¯.`8.)x.-¯.+x. x.&∏.%¯."¯.bx.,»à[ŸH∏.(¯.,x.&∏.(8.,∏.'àPT’Tà8.`x.)x.bx.)»8.`8.'∏.-8.b8.(x.(8.,∏.'∏."x.,∏. x.`¯.&x. ∏.,x.bx.&x.%x.+x.&Hà8.a8.%8.bx.`8.)x.(àäBàBàHÿ]⁄
+Nà^Ÿ\[€äH»ù[ì€ïZUôXY»[\‹ù[ô»Hò[ŸN»X[ŸÀô\€Z\‹ 
+N»ô[ô\ä
+N»õ›XŸJ∏.&x.,¯.`8. ∏.bx.,∏.&∏.%¯.`x.)x.,8.(8.,∏.'∏.a8.(x.b8.*∏.,¯.`8.(¯.a¯."à	ŸKõY\‹ÿYŸ_HäHHBàKú›\ù
+
+BàBàö]ò]Hò[[XYŸ\‘X⁄Ÿ\àHôY⁄\›\ëõ‹êX›]ö]Tô\›[
+X›]ö]Tô\›[€€ùòX›Àì‹[ì][\Qÿ›[Y[ù 
+JH»\ö\»OÇàYà
+\ö\Àö\”õ›[\J
+JH[\‹ù[XYŸ\ \ö\ BàBàö]ò]Hò[ö\X⁄Ÿ\àHôY⁄\›\ëõ‹êX›]ö]Tô\›[
+X›]ö]Tô\›[€€ùòX›Àê‹ôX]Qÿ›[Y[ù
+ò\Xÿ][€ãﬁö\äJH»\öHOÇàYà
+\öHOHù[
+H»ò[òX⁄›\HòX⁄›\[ŸN»òX⁄›\[ŸHHò[ŸN»òX⁄Ÿ‹õ›[ô»Yà
+òX⁄›\
+H€€ù[ùô\€€ô\ãõ‹[ì›]]›ôX[J\öJHHKù\ŸH»›Y[–\ò⁄]ôKù‹ö]Jõ⁄ôX›]ö[Jö[\—\ãú⁄‹ùÿÿ][Ÿ◊⁄YÀöú€€àäJHH[ŸH^‹ù
+\öJHHBàBà›ô\úöYHù[à€ê‹ôX]Jÿ]ôY[ú›[òŸT›]Nàù[ôO H¬à›\\ãõ€ê‹ôX]Jÿ]ôY[ú›[òŸT›]JBà\›ŸäòõŸWÃãúô»ãòõŸWÃÀúô»äKôõ‹ëXX⁄»ö[JÿX⁄Q\ãòõŸW›[\]W‹€›\òŸ\À…]äKô[]J
+HBàY‹Ÿ[Z[öTõ⁄ôX›
+[ù[ù
+Bàò[X\›\ë\úõ‹àHù[êÿ]⁄[ô»»[ú›[⁄\òX›\ìX\›\ú 
+HKô^Ÿ\[€ì‹ìù[
+
+Bàô[ô\ä
+BàYà
+X\›\ë\úõ‹àOHù[
+Hõ›XŸJ∏.%x.-8.%8.%x.,x.bx.!»PT’Tà8.%x.,x.)¯.)x.,8.!8.(¯.a8.(x.b8.*∏.,¯.`8.(¯.a¯."8. x.(¯..8.$¯.,∏.`8.&¯.-8.%8.`x.+x.&¯.+x.-x. x.!8.(¯.,x.bx.!»äBàBàö]ò]Hù[àY‹Ÿ[Z[öTõ⁄ôX›
+[ò€€Z[ôŒà[ù[ù H¬àò[YZ[ò€€Z[ôœÀôŸ]›ö[ô—^òJôŸ[Z[öW‹õ⁄ôX›äHŒàô]\õÇàYäôYŸ^
+ñÿK^êKVåNKWJ»äKõX]⁄\ Y
+H	âàö[Jò\ŸKâYŸŸ[Z[öW⁄õÿã‹‹XÀöú€€àäKö\—ö[JHôYúÀôY]
+
+Kú]›ö[ô úõ⁄ôX›ãY
+Kò\J
+BàBà›ô\úöYHù[à€ìô]“[ù[ù
+[ò€€Z[ôŒà[ù[ù
+H¬à›\\ãõ€ìô]“[ù[ù
+[ò€€Z[ô N»Ÿ][ù[ù
+[ò€€Z[ô N»Y‹Ÿ[Z[öTõ⁄ôX›
+[ò€€Z[ô N»ô[ô\ä
+BàBàö]ò]Hù[à[ú›[⁄\òX›\ìX\›\ú 
+H¬àÀ»[ú›[^X⁄]H›\YYYò][»€õH⁄[àõ»\Ÿ\à[XYŸH^\›ÀÇàò[⁄\òX›\ë\èQö[Jö[\—\ãò⁄\òX›\ó€X\›\ú»äKò\H»ZŸ\ú 
+HBà\›Ÿäúö[õYHãõZ[ôäKôõ‹ëXX⁄»YOÇàò[\ôŸ]Qö[J⁄\òX›\ë\ãâYõX\›\àäBàYä]\ôŸ]ô^\› 
+JH¬àò[[\Qö[J⁄\òX›\ë\ãâYôYò][ú[ô[ô»äBàûH¬à\‹Ÿ]Àõ‹[äò⁄\òX›\óŸYò][À…Yöú»äKù\ŸH»[ú]Oà[\õ›]]›ôX[J
+Kù\ŸH»›]]Oà[ú]ò€‹U ›]]
+HHBàò[õ›[ôœX[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[íù\›X€ŸPõ›[ôœ]ùYHBà[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸQö[J[\ú]õ›[ô Bàô\]Z\ôJõ›[ôÀõ›]⁄Yå	âàõ›[ôÀõ›]ZY⁄å
+H»∏.(8.,∏.'àPT’Tà8. ∏.+x.!»	Y8.+x.b8.,∏.&x.a8.(x.b8.a8.%8.bHàBàYä]\ôŸ]ô^\› 
+JH⁄X⁄ [\úô[ò[YU \ôŸ]
+JH»∏.&∏.,x.&x.%¯.-∏. HPT’Tà8.a8.(x.b8.*∏.,¯.`8.(¯.a¯."àBàHö[ò[H»[\ô[]J
+HBàBàBàÀ»ô\Ÿ\ùôH^\›[ô»⁄\òX›\àXúò\öY\»[ôõ⁄ôX›€ò\⁄›»\ö[ô»\‹òY\ÀÇàÀ»ôYúô\⁄[à^\›[ô»ÿX⁄Y€‹HŸà‹ö]	‹»ôYô\ô[òŸHYù\àHù[ôY[XYŸH⁄[ôŸ\ÀÇàYäö[Jö[\—\ãõX\›\ó€Xúò\ûK–“TóÃMW◊ÃLÃéöú»äKö\—ö[JH¬àX\›\ìXúò\ûKô[ùöY\ 
+Kôö\ú›‹ìù[»]öYOHê“TóÃMHàOÀõ]»X\›\ìXúò\ûKú€›\òŸJ]
+HBàBàBà›ô\úöYHù[à€îô\›[YJ
+H¬à›\\ãõ€îô\›[YJ
+Bà[ô[ô‘›‹ûT⁄\ôO[ù[à[ô[ô‘ôXŸZ\[ù[àò[ôXŸZ\]\ôYúÀôŸ]›ö[ô ôŸ[Z[öW‹ôXŸZ\‹[ô[ô»ãù[
+BàYäôXŸZ\]O[ù[
+H¬àôYúÀôY]
+
+Kúô[[›ôJôŸ[Z[öW‹ôXŸZ\‹[ô[ô»äKò\J
+Bàò[ôXŸZ]ô\è\ôYúÀôŸ]›ö[ô ö[XYŸW‹ôXŸZ\ÿ\ãëŸ[Z[öHäHŒàëŸ[Z[öHÇà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.'8.)x. x.,∏.(¯.(¯.,x.&∏.a8.'¯.)x.c8.`¯.&H	ôXŸZ]ô\àäBàúŸ]Y\‹ÿYŸJ∏.%x.(¯.)¯."8.)¯.b8.,∏.(¯..x.&¯.`x.)x.,8.!8.,¯.*∏.,x.b8.!¯.`¯.&H	ôXŸZ]ô\à8.!8.(¯.&∏.*¯.(¯.-¯.+x.a8.(x.b8. x.,∏.(¯.`8.&¯.-8.%8.`x.+x.&¯.*∏.,¯.`8.(¯.a¯."8.(∏.,x.!¯.a8.(x.b8.(∏.-¯.&x.(∏.,x.&x.)¯.b8.,∏.(¯.,x.&∏.!8.(¯.&∏.*¯.(¯.-¯.+x.*∏.(¯.bx.,∏.!¯.(8.,∏.'∏.`x.)x.bx.)»äBàúŸ]‹⁄]]ôPù]€ä∏.(¯.,x.&∏.!8.(¯.&∏.`x.)x.bx.)»äH»À»OàôX€‹ôŸ[Z[öTôXŸZ\
+ôXŸZ\]ù\Ÿ\óÿ€€ôö\õYY‹ôXŸZ]ôYäHBàúŸ]ôYÿ]]ôPù]€ä∏.*∏.b8.!¯.(¯..x.&¯.+x.-x. x.!8.(¯.,x.bx.!»äH»À»OàôX€‹ôŸ[Z[öTôXŸZ\
+ôXŸZ\]ù\Ÿ\ó‹ô\‹ùY€Z\‹⁄[ô»äN»ô]ûS\›[XYŸJ
+HBàúŸ]ô]]ò[ù]€ä∏. x.)x.,x.&∏.(¯.,∏.(∏. x.,∏.(¯.(¯..x.&À¯."¯.-x.&HäH»À»OÇàôX€‹ôŸ[Z[öTôXŸZ\
+ôXŸZ\]ù[ùô\öYöYYäBàYä\ô]\õï“[XYŸS\›
+
+JHõ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-x.(¯.,∏.(∏. x.,∏.(¯.(¯..x.&À¯."¯.-x.&x.%¯.-x.b8.`8.&¯.-8.%8.a8.)¯.bx.`¯.&x.`8.(¯.-¯.b8.+x.!¯.&x.-x.bHäBàKú⁄›—\ôX›‹ä
+BàBà›‹ûUZR[ô\ãúô[[›ôPÿ[òX⁄‹ ›‹ûT€
+Bà›‹ûUZR[ô\ãú‹›
+›‹ûT€
+BàYäZ[\‹ù[ô»	âàQŸ[Z[öT›‹ûTŸ\ùöXŸKúù[õö[ô H\]\ãò⁄X⁄–]]€X]Xÿ[J
+BàBàö]ò]Hù[àôX€‹ôŸ[Z[öTôXŸZ\
+]à›ö[ôÀ›]\Œà›ö[ô H¬àò[ö[OQö[J]
+BàYäYö[Kòÿ[õ€öXÿ[]ú›\ù’⁄]
+ò\ŸKòÿ[õ€öXÿ[]
+»ã»äJHô]\õÇàù[êÿ]⁄[ô»»ò[ò[YORî””ìÿöôX›
+ö[KúôXY^
+
+JN»ò[YKú]
+úôXŸZ\‹›]\»ã›]\ Kú]
+úôXŸZ\ÿ]ãﬁ\›[Kò›\úô[ù[YSZ[\ 
+JN»ö[Kù‹ö]U^
+ò[YKù‘›ö[ô äJHBàBà›ô\úöYHù[à€î]\ŸJ
+H¬à›‹ûUZR[ô\ãúô[[›ôPÿ[òX⁄‹ ›‹ûT€
+Bà›\\ãõ€î]\ŸJ
+BàBàö]ò]Hù[àõ›‹ àî””ìÿöôX›
+Nà\›î””ìÿöôX›à¬àò[ô\›[H]]XõS\›Ÿèî””ìÿöôX›ä
+Bàò[\»HôŸ]î””ê\úò^Jô\\€Ÿ\»äBàõ‹à
+H[à[ù[\Àõ[ô›
+
+JH¬àò[\H\ÀôŸ]î””ìÿöôX›
+JBàò[ÿŸ[ô\»H\ôŸ]î””ê\úò^JúÿŸ[ô\»äBàõ‹à
+à[à[ù[ÿŸ[ô\Àõ[ô›
+
+JHô\›[òY
+ÿŸ[ô\ÀôŸ]î””ìÿöôX›
+äKú]
+ô\ã\ôŸ][ù
+ô\äJJBàBàô]\õàô\›[àBàö]ò]Hù[àŸ^JŒàî””ìÿöôX›
+HHëT	Lô‘–…LŸãôõ‹õX]
+ÀôŸ][ù
+ô\äKÀôŸ][ù
+úÿŸ[ôHäJBàö]ò]Hù[à[XYŸJŒàî””ìÿöôX›
+HHö[Jõ⁄ôX›ö[XYŸ\À…⁄Ÿ^J _Kö[Y»äBàö]ò]Hù[àò[Y]Jàî””ìÿöôX›
+H¬à⁄[õô[ÿ][ŸÀù\]SYÿXﬁP⁄[õô[
+
+Bàô\]Z\ôJôŸ]›ö[ô ù]HäKö\”õ›õ[ö 
+JH»∏.a8.(x.b8.(x.-x."∏.-¯.b8.+x.`8.(¯.-¯.b8.+x.!»àBàò[[ŸHHõ‹›ö[ô ò⁄\òX›\ó€[ŸHãõ‹öY⁄[ò[äBàYä[ŸOOHõ‹öY⁄[ò[äHô\]Z\ôJõ›–ÿ\›ö\‹›Y\ 
+Kö\—[\J
+JH»õ›–ÿ\›ö\‹›Y\ 
+Köõ⁄[ï‘›ö[ô óàäHBàô\]Z\ôJ[ŸH[à\›Ÿäõ‹öY⁄[ò[ãõô]»äJH»∏.(¯..x.&¯.`x.&∏.&∏.%x.,x.)¯.)x.,8.!8.(¯.a8.(x.b8.%∏..x. x.%x.bx.+x.!»àBàô\]Z\ôJôŸ]›ö[ô òÿ]Y€‹ûHäH[à
+Yà
+[ŸHOHõô]»äH›\ëŸ[úô\»[ŸH⁄[õô[ÿ][ŸÀòXÿŸ\Yÿ]Y€‹öY\»
+»YÿXﬁPÿ]Y€‹öY\ JH»∏.*¯.(x.)¯.%8.*¯.(x..x.b8.a8.(x.b8.%x.(¯.!¯. x.,x.&∏.(¯..x.&¯.`x.&∏.&∏."∏.b8.+x.!»àBàYà
+[ŸHOHõô]»äHô\]Z\ôJõ‹›ö[ô ò⁄[õô[äKö\”õ›õ[ö 
+JH»∏. x.(¯..8.$¯.,∏.(¯.,8.&∏..8."∏.-¯.b8.+x."∏.b8.+x.!¯.`¯.&x.&∏.%»àBàò[\»HôŸ]î””ê\úò^Jô\\€Ÿ\»äBàô\]Z\ôJ\Àõ[ô›
+
+Hà
+H»∏.a8.(x.b8.(x.-HTàBàYà
+õ‹[ù
+úÿ⁄[XW›ô\ú⁄[€àãJHèHäH¬àô\]Z\ôJõ‹›ö[ô ò⁄[õô[äKö\”õ›õ[ö 
+JH»∏.&∏.%¯. ∏.,∏.%8."∏.-¯.b8.+x."∏.b8.+x.!»àBàô\]Z\ôJõ‹›ö[ô ùY€[ôHäKö\”õ›õ[ö 
+JH»∏.&∏.%¯. ∏.,∏.%8.!8.,¯.`∏.&¯.(¯.(∏.`8.(¯.-¯.b8.+x.!»àBàô\]Z\ôJôŸ][ù
+ô\\€ŸWÿ€›[ùäHOH\Àõ[ô›
+
+JH»∏."8.,¯.&x.)¯.&HT8.a8.(x.b8.%x.(¯.!¯. x.,x.&∏.&∏.%»àBàô\]Z\ôJôŸ][ù
+úÿŸ[ôWÿ€›[ùäHOH
+[ù[\Àõ[ô›
+
+JKú›[SŸà»\ÀôŸ]î””ìÿöôX›
+]
+KôŸ]î””ê\úò^JúÿŸ[ô\»äKõ[ô›
+
+HJH»∏."8.,¯.&x.)¯.&x."¯.-x.&x.(¯.)¯.(x.a8.(x.b8.%x.(¯.!¯. x.,x.&∏.&∏.%»àBàBàõ‹à
+H[à[ù[\Àõ[ô›
+
+JH¬àò[\H\ÀôŸ]î””ìÿöôX›
+JBàô\]Z\ôJ\ôŸ][ù
+ô\äHOHH
+»Hõ‹›ö[ô ô^‹ù‹ÿ€‹HäHOHô\\€ŸHà	âà\Àõ[ô›
+
+HOHH	âà\ôŸ][ù
+ô\äHOHõ‹[ù
+ú€›\òŸWŸ\\€ŸHäJH»ëT8.%x.bx.+x.!¯.`8.(¯.-x.(∏.!¯."8.,∏. HHàBàò[ÿŸ[ô\»H\ôŸ]î””ê\úò^JúÿŸ[ô\»äBàô\]Z\ôJÿŸ[ô\Àõ[ô›
+
+Hà
+H»ëT8.a8.(x.b8.(x.-x."x.,∏. HàBàYà
+õ‹[ù
+úÿ⁄[XW›ô\ú⁄[€àãJHèHäH¬àô\]Z\ôJ\õ‹›ö[ô ù]HäKö\”õ›õ[ö 
+JH»ëT	⁄H
+»_H8. ∏.,∏.%8."∏.-¯.b8.+x.%x.+x.&HàBàô\]Z\ôJ\õ‹›ö[ô ùY€[ôHäKö\”õ›õ[ö 
+JH»ëT	⁄H
+»_H8. ∏.,∏.%8.!8.,¯.`∏.&¯.(¯.(ààBàô\]Z\ôJ\ôŸ][ù
+úÿŸ[ôWÿ€›[ùäHOHÿŸ[ô\Àõ[ô›
+
+JH»∏."8.,¯.&x.)¯.&x."¯.-x.&HT	⁄H
+»_H8.a8.(x.b8.%x.(¯.!¯. x.,x.&∏.&∏.%»àBàBàõ‹à
+à[à[ù[ÿŸ[ô\Àõ[ô›
+
+JH¬àò[»HÿŸ[ô\ÀôŸ]î””ìÿöôX›
+äBàô\]Z\ôJÀôŸ][ù
+úÿŸ[ôHäHOHà
+»JH»∏."x.,∏. x.%x.bx.+x.!¯.`8.(¯.-x.(∏.!¯."8.,∏. HH8.(8.,∏.(∏.`¯.&x.`x.%x.b8.)x.,TàBàYà
+õ‹[ù
+úÿ⁄[XW›ô\ú⁄[€àãJHèH H¬àô\]Z\ôJÀõ‹›ö[ô õÿÿ][€àäKö\”õ›õ[ö 
+H	âàÀõ‹›ö[ô ò€€ù[ùZ]WŸ‹õ›\äKö\”õ›õ[ö 
+JH»∏."x.,∏. x. ∏.,∏.%8.*∏.%∏.,∏.&x.%¯.-x.b8.*¯.(¯.-¯.+x.(¯.*¯.,x.*∏.`8.*¯.%x..8. x.,∏.(¯.$¯.c8.%x.b8.+x.`8.&x.-¯.b8.+x.!»àBàò[ÿ\›HÀôŸ]î””ê\úò^Jò⁄\òX›\ú»äBàô\]Z\ôJÿ\›õ[ô›
+
+Hà
+H»∏."x.,∏. x. ∏.,∏.%8.(¯.,∏.(∏. x.,∏.(¯.%x.,x.)¯.)x.,8.!8.(»àBàò[ò[Y\»H]]XõTŸ]Ÿè›ö[ôœä
+Bàõ‹à
+»[à[ù[ÿ\›õ[ô›
+
+JH¬àò[\ú€€àHÿ\›ôŸ]î””ìÿöôX›
+ Bàô\]Z\ôJ\ú€€ãõ‹›ö[ô õò[YHäKö\”õ›õ[ö 
+H	âàò[Y\ÀòY
+\ú€€ãôŸ]›ö[ô õò[YHäJJH»∏."∏.-¯.b8.+x.*¯.(¯.-¯.+x.(¯.,∏.(∏. x.,∏.(¯.%x.,x.)¯.)x.,8.!8.(¯.a8.(x.b8.%∏..x. x.%x.bx.+x.!»àBàô\]Z\ôJ\ú€€ãõ‹›ö[ô õ›]ö]äKö\”õ›õ[ö 
+JH»∏."x.,∏. x. ∏.,∏.%8."∏..8.%8. ∏.+x.!»	‹\ú€€ãõ‹›ö[ô õò[YHä_HàBàò[X\›\àH\ú€€ãõ‹›ö[ô õX\›\àäBàô\]Z\ôJYà
+[ŸHOHõ‹öY⁄[ò[äHõ›–ÿ\›õX]⁄\ \ú€€äH[ŸHôYŸ^
+óê“TêP’Tó÷ÃNWJ÷Àó\ô…äKõX]⁄\ X\›\äJH»ìPT’Tà8.a8.(x.b8.%x.(¯.!¯. x.,x.&∏.%x.,x.)¯.)x.,8.!8.(»	‹\ú€€ãõ‹›ö[ô õò[YHä_HàBàBàBàõ‹à
+öY[[à\›ŸäòX›[€àãö[XYŸW‹õ€\ãôõ›◊‹õ€\äJHô\]Z\ôJÀôŸ]›ö[ô öY[
+Kö\”õ›õ[ö 
+JH»∏."x.,∏. x. ∏.,∏.%	öY[àBàBàBàBàö]ò]Hù[àô[ô\ä
+H¬à[àHö[Jõ⁄ôX›ú›‹ûKöú€€àäKùZŸRYà»]ô^\› 
+HOÀõ]»⁄[õô[ÿ][ŸÀù\]SYÿXﬁP⁄[õô[
+î””ìÿöôX›
+]úôXY^
+
+JJHBàYà
+[èÀõ‹›ö[ô ò⁄\òX›\ó€[ŸHãõ‹öY⁄[ò[äHOHõ‹öY⁄[ò[äH¬à\›Ÿäôÿ]⁄[àãúö[õYHãõZ[ôäKôõ‹ëXX⁄»YOÇàò[\ôŸ]Qö[Jõ⁄ôX›õ‹öY⁄[ò[€X\›\úÀ…YõX\›\àäN»ò[€›\òŸOQö[Jö[\—\ãò⁄\òX›\ó€X\›\úÀ…YõX\›\àäBàYä]\ôŸ]ô^\› 
+H	âà€›\òŸKô^\› 
+JH»\ôŸ]ú\ô[ùö[HHKõZŸ\ú 
+N»€›\òŸKò€‹U \ôŸ]
+HBàBàBà⁄[ô›Àú›]\–ò\ê€€‹àHò]ûBà⁄[ô›Àõò]öYÿ][€êò\ê€€‹àHò]ûBàöY]–€€\]ôŸ]⁄[ô›“[úŸ]–€€ùõ€\ä⁄[ô›ÀôX€‹ïöY] OÀò\H¬à\–\X\ò[òŸSY⁄›]\–ò\ú»Hò[ŸBà\–\X\ò[òŸSY⁄ò]öYÿ][€êò\ú»Hò[ŸBàBàò[\—ò[ù\ﬁR€YO\[èÀõ]»⁄[õô[ôX]\ôT€XﬁKö\—ò[ù\ﬁU€€ ]õ‹›ö[ô ò⁄[õô[äJHHOHùYBàò[ÿ‹õ€Hÿ‹õ€öY] \ Kò\H»òX⁄Ÿ‹õ›[ôHòX⁄Ÿõ‹
+€€‹ãúôÿäL
+KYä\—ò[ù\ﬁR€YJH€€‹ãúôÿäçKçJH[ŸH€€‹ãúôÿäÃKçM JN»\—ö[öY]‹‹ùHùYN»€\‘Y[ô»Hò[ŸHBàõ€›H[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€àHN»Ÿ]Y[ô 
+MäK
+LäK
+MäK
+LäJHBàÿ‹õ€òYöY] õ€›
+Bàò[‹›H[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€àHN»Ÿ]òX⁄Ÿ‹õ›[ô€€‹äò]ûJHBà‹›òYöY] ÿ‹õ€[ôX\ì^[›]ì^[›]\ò[\ LKYäJBà‹›òYöY] ^öY] \ Kò\H¬à^Hïô[»ÀåH]H8†(à	‹[èÀõ‹[ù
+ô\ò][€ó‹ŸX€€ô»ã
+HŒàH8.)¯.-8.&x.,∏.%¯.-H8†(à	‹[èÀõ‹›ö[ô ò\‹X›‹ò][»ãéNåMàäHŒàéNåMàüW∏.'∏.,x.$∏.&x.,∏.`∏.%8.(àà8.&x.,∏.(∏.&¯.(¯.-8.#x.#x.,à8."8.,x.&x.%¯.(¯.c8."8.,x. x.*x..Çà^⁄^ôHHLYé»‹ò]ö]HH‹ò]ö]Kê—SïTé»Ÿ]^€€‹ä]]Y
+BàŸ]Y[ô 
+L
+K
+äK
+L
+K
+äJBàòX⁄Ÿ‹õ›[ôHòX⁄Ÿõ‹
+ò]ûKò]ûJBàJBàŸ]€€ù[ùöY] ‹›
+BàöY]–€€\]úŸ]€ê\U⁄[ô›“[úŸ]”\›[ô\ä‹›
+H»ã[úŸ]»OÇàò[ò\ú»H[úŸ]ÀôŸ][úŸ] ⁄[ô›“[úŸ]–€€\]ï\Kúﬁ\›[Pò\ú 
+JBàãúŸ]Y[ô ò\úÀõYùò\úÀù‹ò\úÀúöY⁄ò\úÀòõ›€JBà[úŸ]¬àBàöY]–€€\]úô\]Y\›\R[úŸ] ‹›
+Bàò[\õ»H[XYŸUöY] \ Kò\H¬àŸ][XYŸTô\€›\òŸJãôò]ÿXõKò⁄[ô[XW⁄XY\äBàÿÿ[U\OR[XYŸUöY]Àîÿÿ[U\KëíU–—SïTÇàYù\›öY]–õ›[ôœ]ùYBà€€ù[ù\ÿ‹ö\[€èHëTëP’‘à8†(à8.(8.,∏.'∏.'8..x.bx. x.,¯. x.,x.&∏.`¯.&x.`∏.(¯.!¯.(8.,∏.'∏.(∏.&x.%x.(¯.cÇàBàõ€›òYöY] \õÀ[ôX\ì^[›]ì^[›]\ò[\ LKLäJBàõ€›òYöY] ^öY] \ Kò\H¬à^HëTëP’‘àä‹X⁄ÿYŸSX[òYŸ\ãôŸ]X⁄ÿYŸR[ôõ X⁄ÿYŸSò[YK
+Kùô\ú⁄[€ìò[YBà^⁄^ôOLLôé»‹ò]ö]OQ‹ò]ö]KëSë»Ÿ]^€€‹ä€€
+BàJBààõ›“€YJ
+BàBàö]ò]Hù[à‹]X›[€ú Yùà›ö[ôÀöY⁄à›ö[ôÀYùX›[€éà
+
+HOà[ö]öY⁄X›[€éà
+
+HOà[ö]€€‹úŒà\›[ù\úò^OàH\›ŸäY[ùP€€‹ú÷ÃWKY[ùP€€‹ú÷ÃóJJH¬àò[õ›»H[ôX\ì^[›]
+\ Kò\H¬à‹öY[ù][€àH[ôX\ì^[›]í‘íVì”ïSà^[›]\ò[\»H[ôX\ì^[›]ì^[›]\ò[\ LKLäKò\H»‹X\ô⁄[àH
+ N»õ›€SX\ô⁄[àH
+ HBàBà\›ŸäYù»YùX›[€ãöY⁄»öY⁄X›[€äKôõ‹ëXX⁄[ô^Y»[ô^][HOÇàõ›ÀòYöY] ù]€ä\ Kò\H¬à^H][Kôö\ú›»\–[ÿ\»Hò[ŸN»^⁄^ôHHLôÇàŸ]^€€‹ä€€
+N»Ÿ]\YòXŸJù[\YòXŸKêì”
+N»‹ò]ö]HH‹ò]ö]Kê—SïTÇàZ[ï⁄YH»Z[ö[][U⁄YH»Z[íZY⁄H
+
+N»Z[ö[][RZY⁄H
+
+BàŸ]Y[ô 
+
+K
+JK
+
+K
+JJBàòX⁄Ÿ‹õ›[ô[ù\›Hù[àòX⁄Ÿ‹õ›[ôHòX⁄Ÿõ‹
+€€‹ãúôÿäçKçKé
+K€€‹ãúôÿäNKNKåäK€€‹ãúôÿäåÀMKŒJJBà^[›]\ò[\»H[ôX\ì^[›]ì^[›]\ò[\ LãYäKò\H»Yà
+[ô^OH
+HX\ô⁄[ë[ôH
+ H[ŸHX\ô⁄[î›\ùH
+ HBàŸ]€ê€X⁄”\›[ô\à»Yà
+Z[\‹ù[ô H][KúŸX€€ô
+
+HBàJBàBàõ€›òYöY] õ› BàBàö]ò]Hù[à\›[XYŸSY[ùJ
+H¬à⁄⁄XŸSY[ùJº'ÂØ;Ó#»8.%¯.%8.)x.+x.!¯.*∏.(¯.bx.,∏.!¯.(¯..x.&»H8.(8.,∏.'àã\›Ÿäº'„´H8.%x.,x.)¯.)x.,8.!8.(¯.`8.%8.-8.(H8†(à8.`8.)x.-¯.+x. x.!8.&x.%¯.-x.b8.%x.bx.+x.!¯. x.,∏.(»ã∏ß*8.%x.,x.)¯.)x.,8.!8.(¯.*∏.(x.(x..8.%x.-8†(à8.`¯."∏.bx.(¯..x.&¯.'8.(x.*¯.(¯.-¯.+x.*∏.(¯.bx.,∏.!¯.!8.&x.`¯.*¯.(x.bäJH»⁄⁄XŸHOÇàYà
+⁄⁄XŸHOH
+H⁄€‹ŸSò[YY⁄\òX›\ë‹öY
+º'„´H8.`8.)x.-¯.+x. x.%x.,x.)¯.)x.,8.!8.(¯.`¯.&x.(8.,∏.'àã\›Ÿäº'‰j8. x.)¯.-8.&H8†(à8.!8.&x.`8.%8.-x.(∏.)»à»ö[Jö[\—\ãò⁄\òX›\ó€X\›\úÀŸÿ]⁄[ãõX\›\àäKº'‰jH8.(¯.-8.&x.(¯.%8.,à8†(à8.!8.&x.`8.%8.-x.(∏.)»à»ö[Jö[\—\ãò⁄\òX›\ó€X\›\úÀ‹ö[õYKõX\›\àäKº'‰jH8.`8.(x.(∏.c8†(à8.!8.&x.`8.%8.-x.(∏.)»à»ö[Jö[\—\ãò⁄\òX›\ó€X\›\úÀ€Z[ôõX\›\àäKº'‰iH8.%¯.,x.bx.!»»8.!8.&x.`¯.&x.(8.,∏.'∏.`8.%8.-x.(∏.)»à»ù[
+JH»[ô^OÇàò[Ÿ^\»H\›Ÿäôÿ]⁄[àãúö[õYHãõZ[ôäBàò[Ÿ[X›YHYà
+[ô^OH HŸ^\»[ŸH\›ŸäŸ^\÷⁄[ô^JBà⁄⁄XŸSY[ùJº'ÂØ;Ó#»8.`8.)x.-¯.+x. x.)¯.-8.&8.-x.%¯.%8.*∏.+x.&àã\›Ÿäº'„´»8.!8.!¯.%x.,x.)¯.)x.,8.!8.(¯.`x.)x.,8."∏..8.%8.`8.%8.-8.(H8†(à8.*∏.%∏.,∏.&x.%¯.-x.b8.+x.,x.%x.`∏.&x.(x.,x.%x.-ãº'‰e»8.`8.&¯.)x.-x.b8.(∏.&x."∏..8.%8.`x.)x.,8."x.,∏. HäH
+»Yà
+Ÿ[X›Yú⁄^ôHOHJH\›Ÿäº'ÈÌH8.`8.&¯.)x.-x.b8.(∏.&x."∏..8.%8.+x.(∏.b8.,∏.!¯.`8.%8.-x.(∏.)»8†(à8.!8.!¯.%¯.b8.,∏.`x.)x.,8."x.,∏. HäH[ŸH[\S\›
+
+JH»[ŸHOÇàYä[ŸOOL
+HŸ[ô\›[XYŸJŸ[X›Yô\Ÿ\ùôSX\›\è]ùYJH[ŸH⁄⁄XŸSY[ùJ∏. x.-8."8. x.(¯.(¯.(x.*∏.,¯.*¯.(¯.,x.&∏.%¯.%8.*∏.+x.&àã\›Ÿä∏.&¯.(¯.,8."∏..8.(Hã∏.+x.(∏..x.b8.&∏.bx.,∏.&Hã∏.`8. ∏.bx.,∏.&x.+x.&Hã∏.%¯.b8.+x.!¯.`8.%¯.-x.b8.(∏.)»äJH»X›]ö]HOÇàŸ[ô\›[XYŸJŸ[X›Yô\Ÿ\ùôSX\›\èYò[ŸKÿ\ôõÿôS€õO[[ŸOOLã\›X›]ö]O[\›ŸäõYY][ô»ãö€YHãú€Y\ãòÿ\›X[äVÿX›]ö]WJBàBàBàBà[ŸH⁄⁄XŸSY[ùJ∏ß*8.%x.,x.)¯.)x.,8.!8.(¯.*∏.(x.(x..8.%x.-ã\›Ÿäº'‰j8.`¯."∏.bx.(¯..x.&¯.'8.(H8†(à8.`8.&¯.)x.-x.b8.(∏.&x."∏..8.%8.`x.)x.,8."x.,∏. x.+x.,x.%x.`∏.&x.(x.,x.%x.-ã∏ß*8.*∏.(¯.bx.,∏.!¯.!8.&x.`¯.*¯.(x.bäJH»[ŸHOÇàYà
+[ŸHOH
+H\ú€€ò[\›[XYŸSY[ùJ
+Bà[ŸHŸ[ôöX›[€ò[⁄\òX›\ï\›
+
+BàBàBàBàö]ò]Hù[àŸ[ôöX›[€ò[⁄\òX›\ï\›
+
+H¬àò[ôYô\ô[òŸ\»H\›Ÿäôÿ]⁄[àà»ë–U“Só”PT’Tàãúö[õYHà»îíSìQW”PT’TàãõZ[ôà»ìRSë”PT’TàäBàò[]òZ[XõHHôYô\ô[òŸ\Àôö[\à»ö[Jö[\—\ãò⁄\òX›\ó€X\›\úÀ…⁄]ôö\ú›KõX\›\àäKô^\› 
+HBàYà
+]òZ[XõKú⁄^ôHOHôYô\ô[òŸ\Àú⁄^ôJHô]\õàõ›XŸJ∏.(8.,∏.'àPT’Tà8.%¯.,x.bx.!»»8.!8.&x.(∏.,x.!¯.a8.(x.b8.!8.(¯.&à8. x.(¯..8.$¯.,∏.`8.'∏.-8.b8.(x.%x.bx.&x."x.&∏.,x.&∏.%x.,x.)¯.)x.,8.!8.(¯. x.b8.+x.&x.%¯.%8.*∏.+x.&àäBàò[\›HôYúÀôŸ][ù
+ôöX›[€ò[‹ôYô\ô[òŸW€\›ãLJBàò[ÿ[ôY]\»H]òZ[XõKö[ôXŸ\Àôö[\à»]OH\›Bàò[[ô^Hÿ[ôY]\Àúò[ô€J
+BàôYúÀôY]
+
+Kú][ù
+ôöX›[€ò[‹ôYô\ô[òŸW€\›ã[ô^
+Kò\J
+Bàò[
+Ÿ^KXô[
+HH]òZ[XõV⁄[ô^Bàò[ö[[ò[YHHX\›\ë^‹ùò[YJö[Jö[\—\ãò⁄\òX›\ó€X\›\úÀ…Ÿ^KõX\›\àäKò[ŸJHŒàô]\õàõ›XŸJ∏.+x.b8.,∏.&x.(8.,∏.'∏.%x.bx.&x.`x.&∏.&∏.a8.(x.b8.a8.%8.bHäBàò[ÿÿ][€àHô^\›ÿÿ][€ä
+Bàò[€€[X[ôH[XYŸTõ€\€XﬁKõô]–⁄\òX›\äâö[[ò[YH
+	Xô[
+Hãÿÿ][€äBà⁄\ôU^
+€€[X[ô\ŸSô]”X\›\úœYò[ŸKŸ[X›YX\›\íŸ^\œ[\›ŸäŸ^JJBàBàö]ò]Hò[\ú€€ò[\›X⁄Ÿ\àHôY⁄\›\ëõ‹êX›]ö]Tô\›[
+X›]ö]Tô\›[€€ùòX›Àì‹[ëÿ›[Y[ù
+
+JH»\öHOÇàYà
+\öHOHù[
+H¬àò[[\‹ò\ûHHö[Jö[\—\ãú\ú€€ò[›\›‹ôYô\ô[òŸKù\äBàûH¬à€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J\öJOÀù\ŸH»[ú]OÇà[\‹ò\ûKõ›]]›ôX[J
+Kù\ŸH»[ú]ò€‹U ]
+HBàHŒà\úõ‹ä∏.`8.&¯.-8.%8.(8.,∏.'∏.a8.(x.b8.a8.%8.bHäBàò[õ›[ô»H[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[íù\›X€ŸPõ›[ô»HùYHBà[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸQö[J[\‹ò\ûKú]õ›[ô Bàô\]Z\ôJõ›[ôÀõ›]⁄Yà	âàõ›[ôÀõ›]ZY⁄à
+H»∏.a8.'¯.)x.c8.&x.-x.bx.a8.(x.b8.`¯."∏.b8.(8.,∏.'∏.%¯.-x.b8.+x.b8.,∏.&x.a8.%8.bHàBàô\]Z\ôJ[\‹ò\ûKúô[ò[YU ö[Jö[\—\ãú\ú€€ò[›\›‹ôYô\ô[òŸKõX\›\àäJJH»∏.&∏.,x.&x.%¯.-∏. x.(8.,∏.'∏.a8.(x.b8.a8.%8.bHàBàŸ[ô\ú€€ò[\›[XYŸJ
+BàHÿ]⁄
+Nà^Ÿ\[€äH¬à[\‹ò\ûKô[]J
+Bàõ›XŸJ∏.(¯.,x.&∏.(¯..x.&¯.'8.(x.a8.(x.b8.*∏.,¯.`8.(¯.a¯."à	ŸKõY\‹ÿYŸ_HäBàBàBàBàö]ò]Hù[à\ú€€ò[\›[XYŸSY[ùJ
+H¬àò[ôYô\ô[òŸHHö[Jö[\—\ãú\ú€€ò[›\›‹ôYô\ô[òŸKõX\›\àäBàYà
+\ôYô\ô[òŸKô^\› 
+JH¬àûH¬à\‹Ÿ]Àõ‹[äù\›‹ôYô\ô[òŸ\À‘TíSñPW‘ëQëTëSê—Kúô»äKù\ŸH»[ú]OÇàôYô\ô[òŸKõ›]]›ôX[J
+Kù\ŸH»[ú]ò€‹U ]
+HBàBàHÿ]⁄
+Nà^Ÿ\[€äH¬àôYô\ô[òŸKô[]J
+Bàõ›XŸJ∏.`8.%x.(¯.-x.(∏.(x.(¯..x.&¯.`8.(¯.-8.b8.(x.%x.bx.&x.a8.(x.b8.*∏.,¯.`8.(¯.a¯."à	ŸKõY\‹ÿYŸ_HäBàô]\õÇàBàŸ[ô\ú€€ò[\›[XYŸJ
+Bàô]\õÇàBà⁄⁄XŸSY[ùJº'‰j8.(¯..x.&¯.'8.(x.*∏.,¯.*¯.(¯.,x.&∏.%¯.%8.*∏.+x.&àã\›Ÿäº'ÂØ;Ó#»8.`¯."∏.bx.(¯..x.&¯.%¯.-x.b8.&∏.,x.&x.%¯.-∏. x.a8.)¯.bH8†(à8.*∏.(¯.bx.,∏.!¯.(8.,∏.'∏.%¯.%8.*∏.+x.&àãº'‰Ì»8.`8.&¯.)x.-x.b8.(∏.&x.(¯..x.&¯.'8.(HäJH»⁄⁄XŸHOÇàYà
+⁄⁄XŸHOH
+HŸ[ô\ú€€ò[\›[XYŸJ
+Bà[ŸH\ú€€ò[\›X⁄Ÿ\ãõ][ò⁄
+\úò^SŸäö[XYŸK àäJBàBàBàö]ò]Hù[àŸ[ô\ú€€ò[\›[XYŸJ
+H¬àûH¬àò[ôYô\ô[òŸHHö[Jö[\—\ãú\ú€€ò[›\›‹ôYô\ô[òŸKõX\›\àäBàYà
+\ôYô\ô[òŸKô^\› 
+JH¬à\ú€€ò[\›X⁄Ÿ\ãõ][ò⁄
+\úò^SŸäö[XYŸK àäJBàô]\õÇàBàò[›]ö]»H\›Ÿä∏.`8.*∏.-¯.bx.+x.`∏.&¯.`∏.)x.*∏.-x. x.(¯.(x.%¯.b8.,∏.'∏.+x.%8.-x.%x.,x.)¯. x.,x.&∏. x.,∏.!¯.`8. x.!¯. ∏.,∏.(∏.,∏.)¯.*∏.-x.`8.&∏."ã∏.`8.*∏.-¯.bx.+x.`8."∏.-8.bx.%x.*∏.-x.`8.%¯.,∏.+x.b8.+x.&x.'∏.,x.&∏.`x. ∏.&x. x.,x.&∏. x.,∏.!¯.`8. x.!¯. ∏.,∏.(∏.,∏.)¯.*∏.-x.%8.,»ã∏.`8.*∏.-¯.bx.+x.(∏.-¯.%8.*∏.-x. ∏.,∏.)¯. x.,x.&∏.`8.*∏.-¯.bx.+x.!8.)x..8.(x.*∏.-x.&x.bx.,¯.%x.,∏.)x.`x.)x.,8. x.,∏.!¯.`8. x.!¯. ∏.,∏.(∏.,∏.)¯.*∏.-x.!8.(¯.-x.(HäBàò[\›HôYúÀôŸ][ù
+ú\ú€€ò[›\›€›]ö]€\›ãLJBàò[[ô^H›]ö]Àö[ôXŸ\Àôö[\à»]OH\›Kúò[ô€J
+BàôYúÀôY]
+
+Kú][ù
+ú\ú€€ò[›\›€›]ö]€\›ã[ô^
+Kò\J
+Bàò[ÿÿ][€àHô^\›ÿÿ][€ä
+Bàò[€€[X[ôH[XYŸTõ€\€XﬁKúÿŸ[ôJà∏.&¯.(¯.-8.#x.#x.,à8°§àTíSñPW‘ëQëTëSê—H8."∏..8.%à	€›]ö]÷⁄[ô^_Hãÿÿ][€ãà∏. x.,¯.)x.,x.!¯."8.,x.%8.'8.,x. x.*∏.%8.)x.!¯."∏.,∏.(x.&∏.&x.`∏.%x.b∏.,8.`8.%x.(¯.-x.(∏.(x.+x.,∏.*¯.,∏.(»8.*∏.-x.*¯.&x.bx.,∏.`8.&¯.a¯.&x.(x.-8.%x.(»ãà€›\òŸOH∏.(8.,∏.'àTíSñPW‘ëQëTëSê—H8.%¯.-x.b8.`x.&x.&àãúò[Z[ôœH∏.`8.*¯.a¯.&x.*8.-x.(¯.*x.,8.%∏.-∏.!¯.%x.bx.&x. ∏.,∏.`x.)x.,8.(x.-¯.+x.%¯.-x.b8. x.,¯.)x.,x.!¯.%¯.,¯.!¯.,∏.&HäBà⁄\ôU^
+€€[X[ô\ŸSô]”X\›\ú»Hò[ŸK[ò€YSX\›\ú»Hò[ŸKàôYô\ô[òŸR[XYŸ\»H\›ŸäîTíSñPW‘ëQëTëSê—Hà»ôYô\ô[òŸJJBàHÿ]⁄
+Nà^Ÿ\[€äH¬àõ›XŸJ∏.`8.%x.(¯.-x.(∏.(x.(8.,∏.'∏.+x.bx.,∏.!¯.+x.-8.!¯.a8.(x.b8.*∏.,¯.`8.(¯.a¯."à	ŸKõY\‹ÿYŸ_HäBàBàBàö]ò]Hù[àô^\›ÿÿ][€ä
+Nà›ö[ô»¬àò[XŸ\»H\›Ÿäà∏.!8.(¯.,x.)¯.&∏.bx.,∏.&x.*∏.a8.%x.)x.c8.#x.-x.b8.&¯..8.b8.&H8.%x..x.bx.a8.(x.bx.*∏.-x.+x.b8.+x.&H8.*¯.&x.bx.,∏.%x.b8.,∏.!¯."∏.(x.*∏.)¯.&x.*¯.-8.&H8.`x.*∏.!¯.`8."∏.bx.,àãà∏.(¯.,8.`8.&∏.-x.(∏.!¯.&∏.bx.,∏.&x.(¯.-8.(x.*∏.)¯.&H8.`∏.%x.b∏.,8.`8.%x.(¯.-x.(∏.(x.+x.,∏.*¯.,∏.(¯.a8.(x.bx.`x.)x.,8.`8.%x.,∏.'∏. x.'∏.,à8.(x.-x.%x.bx.&x.a8.(x.bx.`x.)x.,8.`x.*∏.!¯.&8.(¯.(¯.(x."∏.,∏.%x.-ãà∏.!8.(¯.,x.)¯.(¯.bx.,∏.&x. x.,∏.`x.'¯.`8.)x.a¯. H8.'8.&x.,x.!¯.+x.-8.$8."∏.,x.bx.&x.)¯.,∏.!¯.%∏.bx.)¯.(∏.`x.)x.,8.`8.!8.,∏.&x.c8.`8.%x.+x.(¯.c8.`8.%x.(¯.-x.(∏.(x.+x.,∏.*¯.,∏.(»ãà∏.*¯.bx.+x.!¯.`8.(¯.-x.(∏.&x.%¯.,¯.+x.,∏.*¯.,∏.(»8.`∏.%x.b∏.,8.*∏.`8.%x.&x.`8.)x.*à8.+x..8.&¯. x.(¯.$¯.c8.`8.(¯.-x.(∏.&∏.(¯.bx.+x.(à8.*¯.&x.bx.,∏.%x.b8.,∏.!¯.(¯.,x.&∏.`x.*∏.!¯. x.)x.,∏.!¯.)¯.,x.&Hãà∏.)x.,∏.&x.%¯.,¯.+x.,∏.*¯.,∏.(¯.`¯.&x.*∏.)¯.&x."∏.&x.&∏.%»8."¯..8.bx.(x.a8.(x.bH8.`∏.%x.b∏.,8.`8.%x.(¯.-x.(∏.(x.+x.,∏.*¯.,∏.(»8.(x.-x.`x.&¯.)x.!¯.'8.,x. x.%8.bx.,∏.&x.*¯.)x.,x.!»ãà∏.!8.(¯.,x.)¯.&∏.bx.,∏.&x.'∏.,x. x.(¯.-8.(x.%¯.,8.`8.)H8.%x..x.bx.*∏.-x. ∏.,∏.)»8.*¯.&x.bx.,∏.%x.b8.,∏.!¯.(x.+x.!¯.`8.*¯.a¯.&x.%¯.,8.`8.)H8.`x.*∏.!¯.&∏.b8.,∏.(∏.&x..8.b8.(Hãà∏.!8.(¯.,x.)¯. x.(¯.,8.%¯.b8.+x.(x.&∏.&x.(8..x.`8. ∏.,à8.`8.!8.,∏.&x.c8.`8.%x.+x.(¯.c8.a8.(x.bH8.*¯.&x.bx.,∏.%x.b8.,∏.!¯.(x.+x.!¯.`8.*¯.a¯.&x.%x.bx.&x.*∏.&H8.`x.*∏.!¯.&8.(¯.(¯.(x."∏.,∏.%x.-ãà∏.!8.(¯.,x.)¯.&∏.&x.%8.,∏.%8.'¯.bx.,∏.+x.,∏.!8.,∏.(»8.`∏.%x.b∏.,8.`8.%x.(¯.-x.(∏.(x.+x.,∏.*¯.,∏.(»8.`8.%x.,∏.'∏. x.'∏.,à8.(x.-x.*∏.)¯.&x. x.(¯.,8.%∏.,∏.!¯.`x.)x.,8.)¯.-8.)¯.`8.(x.-¯.+x.!»Çà
+Bàò[\›HôYúÀôŸ][ù
+ù\›€ÿÿ][€ó€\›ãLJBàò[\ŸYHôYúÀôŸ]›ö[ô‘Ÿ]
+ù\›€ÿÿ][€ó›\ŸYã[\TŸ]
+
+JKõ‹ë[\J
+BàõX\õ›ù[»]ù“[ù‹ìù[
+
+HKôö[\à»][àXŸ\Àö[ôXŸ\»Kù‘Ÿ]
+
+Bàò[]òZ[XõHHXŸ\Àö[ôXŸ\Àôö[\à»]Z[à\ŸYBàò[õ›[ôHYà
+]òZ[XõKö\—[\J
+JH[\TŸ][ùä
+H[ŸH\ŸYàò[⁄⁄XŸ\»H
+Yà
+]òZ[XõKö\—[\J
+JHXŸ\Àö[ôXŸ\Àù”\›
+
+H[ŸH]òZ[XõJKôö[\à»]OH\›Bàò[[ô^H⁄⁄XŸ\Àúò[ô€J
+BàôYúÀôY]
+
+Kú][ù
+ù\›€ÿÿ][€ó€\›ã[ô^
+Bàú]›ö[ô‘Ÿ]
+ù\›€ÿÿ][€ó›\ŸYã
+õ›[ô
+»[ô^
+KõX\»]ù‘›ö[ô 
+HKù‘Ÿ]
+
+JKò\J
+Bàô]\õàXŸ\÷⁄[ô^BàBàö]ò]Hù[àŸ[ô\›[XYŸJŸ[X›YŸ^\Œà\››ö[ôœãô\Ÿ\ùôSX\›\éàõ€€X[ãÿ\ôõÿôS€õNàõ€€X[àHò[ŸK\›X›]ö]Nà›ö[ô»Hö€YHäH¬àò[ÿ\›H\›Ÿäôÿ]⁄[àà»∏. x.)¯.-8.&Hãúö[õYHà»∏.(¯.-8.&x.(¯.%8.,àãõZ[ôà»∏.`8.(x.(∏.cäBàò[Ÿ[X›YHÿ\›ôö[\à»]ôö\ú›[àŸ[X›YŸ^\»Bàô\]Z\ôJŸ[X›Yö\”õ›[\J
+JBàYà
+Ÿ[X›Yò[ûH»Qö[Jö[\—\ãò⁄\òX›\ó€X\›\úÀ…⁄]ôö\ú›KõX\›\àäKô^\› 
+HJH¬à[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.`8.'∏.-8.b8.(x.(8.,∏.'àPT’Tà8. x.b8.+x.&x.%¯.%8.*∏.+x.&àäBàúŸ]Y\‹ÿYŸJ∏.%x.bx.+x.!¯.(x.-x.%x.bx.&x."x.&∏.,x.&∏. ∏.+x.!»	‹Ÿ[X›Yöõ⁄[ï‘›ö[ô»»]úŸX€€ô_H8.`8.'∏.-¯.b8.+x.+x.bx.,∏.!¯.+x.-8.!¯.`8.+x. x.)x.,x. x.*x.$¯.c8.`x.)x.,8.`¯.&∏.*¯.&x.bx.,àäBàúŸ]‹⁄]]ôPù]€ä∏.`8.'∏.-8.b8.(x.(8.,∏.'∏.%x.,x.)¯.)x.,8.!8.(»äH»À»Oà⁄\òX›\ìX\›\ú 
+HKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+Bàô]\õÇàBàò[ÿŸ[ôHHî””ìÿöôX›
+
+Kú]
+òX›]ö]Hã\›X›]ö]JKú]
+ú›‹ûWŸ^HãïT’—VLHäKú]
+ùÿ\ôõÿôWŸ]ô[ùãïT’…\›X›]ö]HäBàò[⁄\òX›\ú»Hî””ê\úò^J
+Bàò[X›[€ú»H]]XõS\›Ÿè›ö[ôœä
+Bàò[]Z[»H]]XõS\›Ÿè›ö[ôœä
+Bàò[ôYô\ô[òŸ\»H]]XõS\›ŸèZ\è›ö[ôÀö[Oèä
+Bàõ‹à
+
+Ÿ^Kò[YJH[àŸ[X›Y
+H¬àYà
+›‹ûRY[ù]KöŸ^Qõ‹äò[YJHOHŸ^JH»õ›XŸJ∏."8.,x.&∏.!8..x.b8.%x.,x.)¯.)x.,8.!8.(¯. x.,x.&àPT’Tà8.a8.(x.b8.a8.%8.bHäN»ô]\õàBàò[€›\òŸHHö[Jö[\—\ãò⁄\òX›\ó€X\›\úÀ…Ÿ^KõX\›\àäBàò[X\›\ìò[YHHX\›\ë^‹ùò[YJ€›\òŸKò[ŸJBàYà
+X\›\ìò[YHOHù[T›‹ûRY[ù]KõX]⁄\”X\›\äò[YKX\›\ìò[YJJH¬àõ›XŸJ∏.+x.b8.,∏.&x.(8.,∏.'àPT’Tà8. ∏.+x.!»	ò[YH8.a8.(x.b8.a8.%8.bH8. x.(¯..8.$¯.,∏.`8.'∏.-8.b8.(x.(8.,∏.'∏.%x.bx.&x."x.&∏.,x.&∏.`¯.*¯.(x.bäN»ô]\õÇàBàò[›]ö]HYà
+ô\Ÿ\ùôSX\›\äH∏.!8.!¯.`8.!8.(¯.-¯.b8.+x.!¯.`x.%x.b8.!¯. x.,∏.(∏."8.,∏. HPT’Tà8. ∏.+x.!¯.!8.&x.&x.-x.bHà[ŸHÿ\ôõÿôU[Y[[ôKúô\€€ôJÿ\ôõÿôPôX]
+Ÿ^KïT’—VLHãïT’…\›X›]ö]Hã\›X›]ö]KàãàäK[\S\›
+
+JBàò[X›[€àHYà
+ô\Ÿ\ùôSX\›\äHâò[YH8.!8.!¯.%¯.b8.,∏.%¯.,∏.!»8.*∏.-x.*¯.&x.bx.,à8.*∏.,∏.(∏.%x.,à8.`x.)x.,8. x.-8."8. x.(¯.(¯.(x.%x.,∏.(HPT’Tà8. ∏.+x.!¯.%x.&x.`8.+x.!»à[ŸH⁄[ä\›X›]ö]JH¬àõYY][ô»àOàâò[YH8.(∏.-¯.&x.%∏.-¯.+x.`x.'¯.bx.(x.`8.+x. x.*∏.,∏.(¯. ∏.bx.,∏.!¯.`∏.%x.b∏.,8.&¯.(¯.,8."∏..8.(H8.*∏.-x.*¯.&x.bx.,∏.%x.,x.bx.!¯.`¯."Çàú€Y\àOàâò[YH8.&x.,x.b8.!¯.&∏.&x. ∏.+x.&∏.`8.%x.-x.(∏.!¯.`8.%x.(¯.-x.(∏.(x.`8. ∏.bx.,∏.&x.+x.&H8.*∏.-x.*¯.&x.bx.,∏.'8.b8.+x.&x.!8.)x.,∏.(àÇàö€YHàOàâò[YH8.&x.,x.b8.!¯.'∏.,x. x.&∏.&x.`∏."¯.'¯.,à8.%∏.-¯.+x.`x. x.bx.)¯.&x.bx.,»Çà[ŸHOàâò[YH8.&x.,x.b8.!¯.'∏.,x. x.%¯.-x.b8.`∏.%x.b∏.,8.(¯.bx.,∏.&x.+x.,∏.*¯.,∏.(¯.(¯.-8.(x.%¯.,8.`8.)HÇàBà⁄\òX›\úÀú]
+î””ìÿöôX›
+
+Kú]
+õò[YHãò[YJKú]
+õX\›\àãX\›\ìò[YJKú]
+õ›]ö]ã›]ö]
+JBàX›[€úÀòY
+X›[€äBà]Z[ÀòY
+âò[YH8°§à	X\›\ìò[YH	‹õ€\õŸö[JŸ^K€›\òŸJ_H8."∏..8.%à	›]ö]äBàôYô\ô[òŸ\ÀòY
+X\›\ìò[YKú›Xú›ö[ô–ôYõ‹ôS\›
+	Àâ H»€›\òŸJBàBàÿŸ[ôKú]
+ò⁄\òX›\ú»ã⁄\òX›\ú Bàò[ÿÿ][€àHYäô\Ÿ\ùôSX\›\äHô^\›ÿÿ][€ä
+H[ŸH⁄[ä\›X›]ö]JH¬àõYY][ô»àOà∏.*¯.bx.+x.!¯.&¯.(¯.,8."∏..8.(x.*∏.,¯.&x.,x. x.!¯.,∏.&x.%¯.,x.&x.*∏.(x.,x.(∏.%x.+x.&x.`8."∏.bx.,àÇàú€Y\àOà∏.*¯.bx.+x.!¯.&x.+x.&x.%x.+x.&x. x.)x.,∏.!¯.!8.-¯.&H8.`x.*∏.!¯.`∏.!8.(x.a8.'¯.*¯.,x.)¯.`8.%x.-x.(∏.!»Çàö€YHàOà∏.*¯.bx.+x.!¯.&x.,x.b8.!¯.`8.)x.b8.&x.%x.+x.&x.&∏.b8.,∏.(àÇà[ŸHOà∏.(¯.bx.,∏.&x.+x.,∏.*¯.,∏.(¯.(¯.-8.(x.%¯.,8.`8.)x.%x.+x.&x.&∏.b8.,∏.(àÇàBàò[€€[X[ôH⁄[à¬àÿ\ôõÿôS€õHOà[XYŸTõ€\€XﬁKôY]
+∏.(8.,∏.'àPT’Tàã∏.`8.!8.(¯.-¯.b8.+x.!¯.`x.%x.b8.!¯. x.,∏.(∏.`8.&¯.a¯.&x."∏..8.%8.%x.b8.+x.a8.&¯.&x.-x.bH8.`∏.%8.(∏.`¯.*¯.bx.%¯.(¯.!¯."∏..8.%8.'∏.+x.%8.-x. x.,x.&∏.(¯..x.&¯.(¯.b8.,∏.!¯.`8.%8.-8.(WâŸ]Z[Àöõ⁄[ï‘›ö[ô óàä_Hãÿ\›\Ÿ[X›Yöõ⁄[ï‘›ö[ô»»]úŸX€€ôJBàô\Ÿ\ùôSX\›\à	âàŸ[X›Yú⁄^ôHOHHOà[XYŸTõ€\€XﬁKôY]
+∏.(8.,∏.'àPT’Tàã∏."x.,∏. x.*¯.)x.,x.!¯.`8.&¯.a¯.&H	ÿÿ][€àãÿ\›Y]Z[Àöõ⁄[ï‘›ö[ô óàäJBà[ŸHOà[XYŸTõ€\€XﬁKúÿŸ[ôJ]Z[Àöõ⁄[ï‘›ö[ô óàäKÿÿ][€ãàYà
+ô\Ÿ\ùôSX\›\äH∏."8.,x.%8.`x.%x.b8.)x.,8.!8.&x.`¯.&x.(8.,∏.'∏.`8.%8.-x.(∏.)»8.`¯.*¯.bx.%¯.,¯. x.-8."8. x.(¯.(¯.(x.%x.,∏.(HPT’Tà8.(¯.,∏.(∏.!8.&Hà[ŸHX›[€úÀöõ⁄[ï‘›ö[ô é»äKY⁄[ôœZYä\›X›]ö]OOHú€Y\äH∏.`x.*∏.!¯.&x..8.b8.(x."8.,∏. x.`∏.!8.(x.a8.'¯.`¯.&x.`8.)¯.)x.,∏. x.)x.,∏.!¯.!8.-¯.&Hà[ŸH∏.`x.*∏.!¯.&8.(¯.(¯.(x."∏.,∏.%x.-8.%x.,∏.(x.`8.)¯.)x.,∏.`¯.&x."x.,∏. Hã⁄[ôŸUÿ\ôõÿôOH\ô\Ÿ\ùôSX\›\äBàBà⁄\ôU^
+€€[X[ô[ò€YSX\›\úœYò[ŸKôYô\ô[òŸR[XYŸ\œ\ôYô\ô[òŸ\ BàBàö]ò]Hù[à›\ÿ\ô
+ù[Xô\éà[ùX€€éà›ö[ôÀ]Nà›ö[ôÀ]Z[à›ö[ôÀ[òXõYàõ€€X[àHùYK€€\]Yàõ€€X[àHò[ŸK›\úô[ù›\à[ù›]\’^à›ö[ôœ»Hù[X›[€éà
+
+HOà[ö]
+H¬àò[X›]ôHH[òXõY	âàX€€\]Y	âàù[Xô\àOH›\úô[ù›\àò[›]\»H›]\’^ŒàYà
+€€\]Y
+H∏.`8.*∏.(¯.a¯."8.`x.)x.bx.)»à[ŸHYà
+[òXõY
+H∏.'∏.(¯.bx.+x.(x.`¯."∏.bx.!¯.,∏.&Hà[ŸH∏.(¯.+x. ∏.bx.+x.(x..x.)x. ∏.,x.bx.&x.%x.+x.&x. x.b8.+x.&x.*¯.&x.bx.,àÇàò[õ›»H[ôX\ì^[›]
+\ Kò\H¬à‹öY[ù][€àH[ôX\ì^[›]í‘íVì”ïS»‹ò]ö]HH‹ò]ö]Kê—SïTó’ëTïP–Sà^[›]\ò[\»H[ôX\ì^[›]ì^[›]\ò[\ LKLäBàBàõ›ÀòYöY] ÿöôX›à[ôõ⁄YùöY]ÀïöY] \ H¬àö]ò]Hò[Z[ùH[ôõ⁄Yô‹ò\X‹ÀîZ[ù
+[ôõ⁄Yô‹ò\X‹ÀîZ[ùêSïW–SPT◊—ìQ Bà›ô\úöYHù[à€ëò] ÿ[ùò\Œà[ôõ⁄Yô‹ò\X‹Àêÿ[ùò\ H¬à›\\ãõ€ëò] ÿ[ùò\ Bàò[H⁄Y»ôé»ò[HHZY⁄»ôé»ò[òY]\»H
+M
+Kù—õÿ]
+
+BàZ[ùú›õ⁄ŸU⁄YH
+Yà
+ù[Xô\àH›\úô[ù›\
+H[ŸHäKù—õÿ]
+
+BàYà
+ù[Xô\ààJH»Z[ùò€€‹èZYäù[Xô\èX›\úô[ù›\
+H[X›öX–õYH[ŸH€€‹ãúôÿäÕÀL
+N»ÿ[ùò\Àôò]”[ôJãK\òY]\ÀZ[ù
+HBàYà
+ù[Xô\à H»Z[ùò€€‹èZYäù[Xô\è›\úô[ù›\
+H[X›öX–õYH[ŸH€€‹ãúôÿäÕÀL
+N»ÿ[ùò\Àôò]”[ôJJ‹òY]\ÀZY⁄ù—õÿ]
+
+KZ[ù
+HBàYà
+X›]ôJH»Z[ùò€€‹èP€€‹ãò\ôÿäÃãååçMJN»ÿ[ùò\Àôò]–⁄\ò€JK
+N
+Kù—õÿ]
+
+KZ[ù
+HBàZ[ùò€€‹àHYà
+€€\]YX›]ôJH[X›öX–õYH[ŸH€€‹ãúôÿäKLãLçJBàÿ[ùò\Àôò]–⁄\ò€JKòY]\ÀZ[ù
+BàZ[ùò€€‹àHYà
+X›]ôH€€\]Y
+H€€‹ãï“UH[ŸH]]YàZ[ùù^⁄^ôHH
+LäKù—õÿ]
+
+N»Z[ùù^[Y€àH[ôõ⁄Yô‹ò\X‹ÀîZ[ùê[Y€ãê—SïTÇàZ[ùù\YòXŸHH\YòXŸKò‹ôX]J\YòXŸKëQêUS\YòXŸKêì”
+Bàÿ[ùò\Àôò]’^
+ù[Xô\ãù‘›ö[ô 
+KKJZ[ùò\ÿŸ[ù
+
+J‹Z[ùô\ÿŸ[ù
+
+JKÃãZ[ù
+BàBàK[ôX\ì^[›]ì^[›]\ò[\ 
+Õ
+KLJKò\H»X\ô⁄[ë[ôH
+L
+HJBàò[ÿ\ôH[ôX\ì^[›]
+\ Kò\H¬à‹öY[ù][€àH[ôX\ì^[›]ïëTïP–SàŸ]Y[ô 
+MäK
+MJK
+MäK
+MJJBàòX⁄Ÿ‹õ›[ôHòX⁄Ÿõ‹
+Yà
+X›]ôJH€€‹ãúôÿäNLK
+H[ŸH€€‹ãúôÿäçÃK KYà
+X›]ôJH€€‹ãúôÿäéåÀç H[ŸH€€‹ãúôÿäMÀåÀÕ KYà
+X›]ôJHﬁX[à[ŸHYà
+€€\]Y
+H€€‹ãúôÿäMÀLLãMM H[ŸH€€‹ãúôÿäçÀÕãM
+JBà^[›]\ò[\»H[ôX\ì^[›]ì^[›]\ò[\ LãYäKò\H»‹X\ô⁄[àH
+äN»õ›€SX\ô⁄[àH
+äHBàZ[ö[][RZY⁄H
+L
+Bà\—[òXõYH[òXõY»\–€X⁄ÿXõHH[òXõY»\—õÿ›\ÿXõHH[òXõYàò[]öXù]HH[ôõ⁄Yù][ï\Yò[YJ
+Bà[YKúô\€€ôP]öXù]J[ôõ⁄Yîãò]ãúŸ[X›XõR][PòX⁄Ÿ‹õ›[ô]öXù]KùYJBàõ‹ôY‹õ›[ôHŸ]ò]ÿXõJ]öXù]Kúô\€›\òŸRY
+Bà€€ù[ù\ÿ‹ö\[€àH∏. ∏.,x.bx.&x.%x.+x.&H	ù[Xô\à	]H	›]\»	]Z[ÇàŸ]€ê€X⁄”\›[ô\à»Yà
+[òXõY	âàZ[\‹ù[ô HX›[€ä
+H[ŸHYà
+[\‹ù[ô Hÿ\›õXZŸU^
+\–›Y[–X›]ö]K∏. x.,¯.)x.,x.!¯.&x.,¯.`8. ∏.bx.,∏.(8.,∏.'à8. x.(¯..8.$¯.,∏.(¯.+x.*∏.,x. x.!8.(¯..x.bãÿ\›ìSë’‘“‘ï
+Kú⁄› 
+HBàBàÿ\ôòYöY] ^öY] \ Kò\H¬à^H∏. ∏.,x.bx.&x.%x.+x.&H	ù[Xô\à8†(à	›]\»é»^⁄^ôHHLÇàŸ]^€€‹äYä€€\]YX›]ôJHﬁX[à[ŸH]]Y
+BàŸ]\YòXŸJù[\YòXŸKêì”
+BàJBàÿ\ôòYöY] ^öY] \ Kò\H¬à^Hâ]H	⁄Yà
+€€\]Y
+H∏ß$»à[ŸHYà
+[òXõY
+H∏†.àà[ŸHº'Â$àüHé»^⁄^ôHHMôÇàŸ]\YòXŸJù[\YòXŸKêì”
+N»Ÿ]^€€‹äYä[òXõY€€\]Y
+HXŸH[ŸH]]Y
+BàŸ]Y[ô 
+ K
+BàJBàÿ\ôòYöY] ^öY] \ Kò\H¬à^H]Z[»^⁄^ôHHLôé»Ÿ]^€€‹äYä[òXõY€€\]Y
+H€€‹ãúôÿäNKNNåN
+H[ŸH€€‹ãúôÿäLLãLåLÕ JN»Ÿ]Y[ô 
+äK
+BàJBàõ›ÀòYöY] ÿ\ô
+Bàõ€›òYöY] õ› BàBàö]ò]Hù[à€€”Y[ùJ
+H¬à⁄⁄XŸSY[ùJ∏¶¶{Ó#»8.%x.,x.)¯.`8.)x.-¯.+x. Hã\›Ÿäº'„´H8.(8.,∏.'∏.%x.bx.&x."x.&∏.,x.&∏.%x.,x.)¯.)x.,8.!8.(»ãº'Â#à8.%8..x.(8.,∏.'∏.`x.)x.,8.&∏.%¯.`¯.&x.`8.(¯.-¯.b8.+x.!¯.&x.-x.bHãº'‰Êà8.`8.)x.-¯.+x. x.`8.(¯.-¯.b8.+x.!¯.%¯.-x.b8.&∏.,x.&x.%¯.-∏. Hãº'„´8.*∏.b8.!¯.!8.,¯.*∏.,x.b8.!¯.(8.,∏.'∏.%¯.,x.bx.!¯.`8.(¯.-¯.b8.+x.!»ãº'‰®H8.)¯.-8.&8.-x.`¯."∏.bx.!¯.,∏.&Hãº'‰ÁH8.!8.,¯.*∏.,x.b8.!¯.(8.,∏.'éà	⁄Yä]Z[Y[XYŸTõŸö[\ H∏.'∏.(¯.bx.+x.(x. ∏.bx.+x.(x..x.)x.)x.,8.`8.+x.-x.(∏.%à[ŸH∏. x.(¯.,8."∏.,x.&∏.%x.,∏.(x.%x.bx.&x.`x.&∏.&àüHäJH»[ô^OÇà⁄[à
+[ô^
+H¬àOà⁄\òX›\ìX\›\ú 
+BàHOàô]öY] 
+BààOà¬àò[õ€\ú»Hò\ŸKõ\›ö[\ 
+OÀôö[\à»ö[J]ú›‹ûKöú€€àäKô^\› 
+HHŒà[\S\›
+
+Bà⁄⁄XŸSY[ùJº'‰Êà8.`8.(¯.-¯.b8.+x.!¯. ∏.+x.!¯.!8..8.$»ãõ€\úÀõX\»º'‰Âàà
+»î””ìÿöôX›
+ö[J]ú›‹ûKöú€€àäKúôXY^
+
+JKôŸ]›ö[ô ù]HäHJH»HOàôYúÀôY]
+
+Kú]›ö[ô úõ⁄ôX›ãõ€\ú÷⁄WKõò[YJKò\J
+N»ô[ô\ä
+HBàBàHOà»ôYúÀôY]
+
+Kú]õ€€X[äô]Z[Y⁄[XYŸW‹õŸö[\»ãY]Z[Y[XYŸTõŸö[\ Kò\J
+N»õ›XŸJYä]Z[Y[XYŸTõŸö[\ H∏.`8.'∏.-8.b8.(x. ∏.bx.+x.(x..x.)x.`∏.&¯.(¯.a8.'¯.)x.c8.`¯.&x.!8.,¯.*∏.,x.b8.!¯.(8.,∏.'∏.`x.)x.bx.)»à[ŸH∏.`¯."∏.bx.!8.,¯.*∏.,x.b8.!¯.(8.,∏.'∏. x.(¯.,8."∏.,x.&∏.%x.,∏.(x.%x.bx.&x.`x.&∏.&∏.`x.)x.bx.)»äHBà»Oà⁄€T›‹ûP€€[X[ô 
+BàOàõ›XŸJåKà8.*∏.(¯.bx.,∏.!¯.`8.(¯.-¯.b8.+x.!Œà8.%x.(¯.)¯."PT’Tà8.`8.)x.-¯.+x. x."∏.b8.+x.!¯.`x.)x.,8.`x.&x.)»8.*∏.b8.!¯.!8.,¯.*∏.,x.b8.!¯.a8.&»⁄]‘8.`x.)x.bx.)¯.*∏.b8.!¯. ∏.bx.+x.!8.)¯.,∏.(x.`¯.&H⁄]‘8.`8.'∏.-¯.b8.+x.`8.(¯.-8.b8.(x.*∏.(¯.bx.,∏.!¯.&∏.%¯.`x.)x.,8.(8.,∏.'óóåãà8.(¯.,x.&∏.&∏.%¯.`x.)x.,8.(8.,∏.'éà8.%8.,∏.)¯.&x.c8.`∏.*¯.)x.%8.`x.)x.,8.&x.,¯.`8. ∏.bx.,à›‹ûKöú€€à8. x.b8.+x.&H8."8.,∏. x.&x.,x.bx.&x.&x.,¯.`8. ∏.bx.,àíT8.(8.,∏.'∏.`x.)x.,8.&¯. x. ∏.+x.!¯.`x.%x.b8.)x.,T8.'8.b8.,∏.&x.`8.(x.&x..Hà8.`8.'∏.-8.b8.(x.%x.b8.+x.%¯.-x.)x.,T8.a8.%8.bH8.a8.(x.b8.%x.bx.+x.!¯.`8.)x.-¯.+x. x.&∏.%¯."¯.bx.,»8.%x.(¯.)¯."8.!¯.,∏.&x.%¯.-x.b8. ∏.,∏.%8. x.b8.+x.&x.%¯.,¯.)¯.-8.%8.-x.`∏.+WóåÀà8.%¯.,¯.)¯.-8.%8.-x.`∏.+Nà8.`¯."∏.bx.(8.,∏.'∏."x.,∏. x.`x.)x.,8.!8.,¯.*∏.,x.b8.!¯.`¯.&Hõ›»»ô[»8.*∏.(¯.bx.,∏.!¯.!8.)x.-8.&¯.`8.+x.!»8.%8.,∏.)¯.&x.c8.`∏.*¯.)x.%T8.`x.)x.bx.)¯.&x.,¯.a8.&¯.%x.,x.%8.%x.b8.+x.`¯.&x.`∏.&¯.(¯.`x. x.(¯.(x.(8.,∏.(∏.&x.+x. Wó∏.`x.+x.&¯.`8.&¯.-8.%8.&∏.(¯.-8. x.,∏.(¯.(8.,∏.(∏.&x.+x. x.`x.)x.,8."8.,x.%8.a8.'¯.)x.c8.'8..x.bx.`¯."∏.bx.%x.bx.+x.!¯.*∏.b8.!¯. ∏.bx.+x.!8.)¯.,∏.(x.`¯.&H⁄]‘8.`x.)x.,8.+x.,x.&¯.`∏.*¯.)x.%8.(8.,∏.'∏.`¯.&Hõ›»8.`8.+x.!»äBàBàBàBÇàö]ò]Hù[àXô[
+ò[YNà›ö[ôÀ⁄^ôNà[ùõ€àõ€€X[àHò[ŸJH¬àõ€›òYöY] ^öY] \ Kò\H¬à^Hò[YN»^⁄^ôHH⁄^ôKù—õÿ]
+
+N»Ÿ]^€€‹äYà
+õ€
+H€€[ŸH]]Y
+BàŸ]Y[ô 
+
+K
+
+K
+
+K
+
+JN»Yà
+õ€
+HŸ]\YòXŸJù[\YòXŸKêì”
+BàJBàBàö]ò]Hù[àù]€äò[YNà›ö[ôÀö[X\ûNàõ€€X[àHùYKX›[€éà
+
+HOà[ö]
+H¬àò[€€‹ú»H⁄[à¬à\ö[X\ûHOàYà
+ò[YKò€€ùZ[ú ï\]HäJHY[ùP€€‹ú÷Ã◊H[ŸHYà
+ò[YKò€€ùZ[ú ∏.&¯. HäJHY[ùP€€‹ú÷ÃWH[ŸHY[ùP€€‹ú÷ÕBàò[YKú›\ù’⁄]
+∏§häHOà[ù\úò^SŸä€€‹ãúôÿäçMKåäK€€‹ãúôÿäçMKMÕŒ
+JBàò[YKú›\ù’⁄]
+∏§hHäHOà[ù\úò^SŸä€€‹ãúôÿäãMLÀçäK€€‹ãúôÿäçÀLKåLJJBàò[YKú›\ù’⁄]
+∏§hàäHOà[ù\úò^SŸä€€‹ãúôÿäMçMãçäK€€‹ãúôÿäLLKçKåJJBàò[YKú›\ù’⁄]
+∏§h»äHOà[ù\úò^SŸä€€‹ãúôÿäååMç
+K€€‹ãúôÿäLNÀLÃ JBàò[YKú›\ù’⁄]
+∏§iäHOà[ù\úò^SŸä€€‹ãúôÿäÕKåKåMäK€€‹ãúôÿäMMåÀNäJBà[ŸHOà[ù\úò^SŸä€€‹ãúôÿäçMKåÀJK€€‹ãúôÿäçMKMçãŒJJBàBàò[\ö’^H]ò[YKú›\ù’⁄]
+∏§hHäH	âà]ò[YKú›\ù’⁄]
+∏§hàäBàõ€›òYöY] ù]€ä\ Kò\H¬à^Hò[YN»\–[ÿ\»Hò[ŸN»^⁄^ôHHYà
+ö[X\ûJHMôà[ŸHMÇàŸ]\YòXŸJù[Yà
+ö[X\ûJH\YòXŸKêì”[ŸH\YòXŸKìì‘ìPS
+BàŸ]^€€‹äYà
+ö[X\ûJHò]ûH[ŸH€€
+BàòX⁄Ÿ‹õ›[ô[ù\›Hù[àòX⁄Ÿ‹õ›[ôHYà
+ö[X\ûJHòX⁄Ÿõ‹
+€€€€‹ãúôÿäåMLKM
+JH[ŸHòX⁄Ÿõ‹
+€€‹ãúôÿäçKçKé
+K€€‹ãúôÿäNKNKåäK€€‹ãúôÿäåÀMKŒJJBà[]ò][€àH
+Yà
+ö[X\ûJH»[ŸH
+Kù—õÿ]
+
+BàZ[íZY⁄H
+Yà
+ö[X\ûJHà[ŸHŒ
+N»Z[ö[][RZY⁄HZ[íZY⁄à^[›]\ò[\»H[ôX\ì^[›]ì^[›]\ò[\ LKLäKò\H»Ÿ]X\ô⁄[ú 
+
+K
+
+JHBàŸ]Y[ô 
+L
+K
+äK
+L
+K
+äJBàŸ]€ê€X⁄”\›[ô\à»Yà
+Z[\‹ù[ô HX›[€ä
+H[ŸHÿ\›õXZŸU^
+\–›Y[–X›]ö]K∏. x.,¯.)x.,x.!¯.&x.,¯.`8. ∏.bx.,∏.(8.,∏.'à8. x.(¯..8.$¯.,∏.(¯.+x.*∏.,x. x.!8.(¯..x.bãÿ\›ìSë’‘“‘ï
+Kú⁄› 
+HBàJBàBàö]ò]Hù[à⁄›‘X⁄ÿYŸTô]öY] ›‹ûNàî””ìÿöôX›ö[\Œà\›\öOãÿ\õö[ô‹Œà\››ö[ôœã€€ôö\õNà
+
+HOà[ö]
+H¬àò[[ô[H[ôX\ì^[›]
+\ Kò\H¬à‹öY[ù][€àH[ôX\ì^[›]ïëTïP–S»Ÿ]Y[ô 
+MäK
+MäK
+MäK
+LäJBàòX⁄Ÿ‹õ›[ôHòX⁄Ÿõ‹
+ò]ûK€€‹ãúôÿäÕKNMJK€€
+BàBàù[à^
+\ô[ùà[ôX\ì^[›]ò[YNà›ö[ôÀ€€‹éà[ùHXŸK⁄^ôNàõÿ]HLŸäNà^öY]»H^öY] \ Kò\H¬à\Àù^]ò[YN»^⁄^ôO\⁄^ôN»Ÿ]^€€‹ä€€‹äN»Ÿ]Y[ô 
+JK
+JJN»\ô[ùòYöY] \ BàBà^
+[ô[∏.%x.(¯.)¯."8."∏..8.%8.a8.'¯.)x.c8. x.b8.+x.&x.&x.,¯.`8. ∏.bx.,àã€€åäBà^
+[ô[›‹ûKõ‹›ö[ô ù]HäKXŸKMôäBàò[ò[Y\œYö[\ÀõX\»\‹^Sò[YJ]
+HBàò[ÿŸ[ôP€›[ù[ò[Y\Àò€›[ù»›‹ûQö[\ÀúÿŸ[ôSù[Xô\ä]
+HO[ù[	âàZ]ô[ô’⁄]
+ãõ\ãùYJHBàò[€›ô\ê€›[ù[ò[Y\Àò€›[ù»›‹ûQö[\Àò€›ô\ìò[YJ]
+HO[ù[Bà^
+[ô[∏.`8.)x.-¯.+x. x.!8.(¯.,x.bx.!¯.&x.-x.bH8†(à8.&∏.%»	€ò[Y\Àò€›[ù»]ô\]X[ ú›‹ûKöú€€àãùYJH_H8†(à8.(8.,∏.'à	ÿŸ[ôP€›[ù8†(à8.&¯. H	€›ô\ê€›[ùãﬁX[äBà^
+[ô[∏.%x.,∏.(x.&∏.%¯.%¯.,x.bx.!¯.*¯.(x.%8†(à	‹›‹ûKôŸ]î””ê\úò^Jô\\€Ÿ\»äKõ[ô›
+
+_HT8†(à	‹õ›‹ ›‹ûJKú⁄^ô_H8."x.,∏. H8†(à	ÿ€›ô\ìò[Y\ ›‹ûJKú⁄^ô_H8.&¯. Hã]]Y
+Bàò[\›S[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]ïëTïP–SBàò[ÿ‹õ€Tÿ‹õ€öY] \ Kò\H»\’ô\ùXÿ[ÿ‹õ€ò\ë[òXõY]ùYN»\‘ÿ‹õ€ò\ëòY[ô—[òXõYYò[ŸN»YöY] \›
+HBà[ô[òYöY] ÿ‹õ€[ôX\ì^[›]ì^[›]\ò[\ LKYäJBàò[\\€Ÿ\œ\›‹ûKôŸ]î””ê\úò^Jô\\€Ÿ\»äBàõ‹äH[à[ù[\\€Ÿ\Àõ[ô›
+
+JH¬àò[\Y\\€Ÿ\ÀôŸ]î””ìÿöôX›
+JN»ò[ù[Xô\èY\ôŸ][ù
+ô\äBàò[Ÿ[X›Y[ò[Y\Àôö[\à»›‹ûQö[\ÀúÿŸ[ôSù[Xô\ä]
+OÀôö\ú›O[ù[Xô\à›‹ûQö[\Àò€›ô\ìò[YJ]
+OÀú›\ù’⁄]
+ëT	Lô»ãôõ‹õX]
+ù[Xô\äJOO]ùYHBàò[ÿ\ôS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èLN»Ÿ]Y[ô 
+LäK
+
+K
+LäK
+
+JN»òX⁄Ÿ‹õ›[ôXòX⁄Ÿõ‹
+€€‹ãúôÿäåKãçJK€€‹ãúôÿäÃçM
+K€€‹ãúôÿäçKMLçäJN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ LKLäKò\H»õ›€SX\ô⁄[èY
+
+HHBàò[XY[ôœ]^
+ÿ\ôëT	Lô8†(à	\»8•Øàãôõ‹õX]
+ù[Xô\ã\õ‹›ö[ô ù]HäJK€€MYäBà^
+ÿ\ô∏.`8.)x.-¯.+x. H	‹Ÿ[X›Yú⁄^ô_H8.a8.'¯.)x.c8†(à8.&∏.%»	Ÿ\ôŸ]î””ê\úò^JúÿŸ[ô\»äKõ[ô›
+
+_H8."x.,∏. HäBàò[]Z[]^
+ÿ\ôŸ[X›Yöõ⁄[ï‘›ö[ô óàäKöYêõ[ö»»∏.(∏.,x.!¯.a8.(x.b8.a8.%8.bx.`8.)x.-¯.+x. x.a8.'¯.)x.c8. ∏.+x.!»T8.&x.-x.bHàJBà]Z[ùö\⁄Xö[]OX[ôõ⁄YùöY]ÀïöY]Àë””ëBàXY[ôÀö\—õÿ›\ÿXõO]ùYN»XY[ôÀúŸ]€ê€X⁄”\›[ô\à»]Z[ùö\⁄Xö[]OZYä]Z[ùö\⁄Xö[]OOX[ôõ⁄YùöY]ÀïöY]Àë””ëJH[ôõ⁄YùöY]ÀïöY]ÀïíT“PìH[ŸH[ôõ⁄YùöY]ÀïöY]Àë””ëHBà\›òYöY] ÿ\ô
+BàBàò[›\è[ò[Y\Àôö[\à»›‹ûQö[\ÀúÿŸ[ôSù[Xô\ä]
+OO[ù[	âà›‹ûQö[\Àò€›ô\ìò[YJ]
+OO[ù[BàYä›\ãö\”õ›[\J
+JH^
+\››\ãöõ⁄[ï‘›ö[ô óàäK]]Y
+BàYäÿ\õö[ô‹Àö\”õ›[\J
+JH^
+\›∏. ∏.bx.+x.!8.)¯.(¯.%x.(¯.)¯."àä›ÿ\õö[ô‹Àöõ⁄[ï‘›ö[ô óàäK€€
+Bà^
+\›∏.(8.,∏.'∏."x.,∏. x."¯.bx.,¯."8.,8.%∏.,∏.(x. x.b8.+x.&x.`x.%¯.&H8†(à8.&¯. x.%¯.-x.b8."¯.bx.,¯.`8. x.a¯.&∏.`8.)¯.+x.(¯.c8."∏.,x.&x.`8.%8.-8.(W∏.*¯.)x.,x.!¯.&∏.,x.&x.%¯.-∏. x."8.,8.%x.(¯.)¯."8."8.,¯.&x.)¯.&x.%¯.-x.b8.(∏.,x.!¯. ∏.,∏.%ã]]Y
+Bàò[X[ŸœP[\ùX[ŸÀêùZ[\ä\ KúŸ]öY] [ô[
+Kò‹ôX]J
+Bàò[X›[€úœS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èLBà\›Ÿä∏.(∏. x.`8.)x.-8. Hã∏.(∏.-¯.&x.(∏.,x.&x.&x.,¯.`8. ∏.bx.,àäKôõ‹ëXX⁄[ô^Y»[ô^Xô[OÇàX›[€úÀòYöY] ù]€ä\ Kò\H¬à^[Xô[»\–[ÿ\œYò[ŸN»Ÿ]^€€‹äYä[ô^OLJHò]ûH[ŸHXŸJN»òX⁄Ÿ‹õ›[ô[ù\›[ù[àòX⁄Ÿ‹õ›[ôZYä[ô^OLJHòX⁄Ÿõ‹
+€€€€‹ãúôÿäåMMMM
+JH[ŸHòX⁄Ÿõ‹
+ò]ûKò]ûK€€‹ãúôÿäMKLLLÕ JBà^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ LãYäKò\H»Ÿ]X\ô⁄[ú 
+ K
+
+K
+ K
+HBàŸ]€ê€X⁄”\›[ô\à»\—[òXõYYò[ŸN»X[ŸÀô\€Z\‹ 
+N»Yä[ô^OLJH€€ôö\õJ
+HBàJBàBà[ô[òYöY] X›[€ú BàX[ŸÀú⁄› 
+N»X[ŸÀù⁄[ô›œÀúŸ]òX⁄Ÿ‹õ›[ôò]ÿXõJ[ôõ⁄Yô‹ò\X‹Àôò]ÿXõKê€€‹ëò]ÿXõJ€€‹ãïêSî‘TëSï
+JBàX[ŸÀù⁄[ô›œÀúŸ]^[›]
+ô\€›\òŸ\Àô\‹^SY]öX‹Àù⁄Y^[ÀY
+ç
+K
+ô\€›\òŸ\Àô\‹^SY]öX‹ÀöZY⁄^[ åéäKù“[ù
+
+JBàBàö]ò]Hù[à⁄›“[\‹ùôXŸZ\
+ò]⁄›[[X\ûNà›ö[ô»HàäH¬àò[›‹ûO\[àŒàô]\õÇàò[\‹›Y\œQõ›‘õŸX›[€îX⁄Àö\‹›Y\ ›‹ûJBàò[^Xò]⁄›[[X\ûJ»ó∏.`8.(¯.-¯.b8.+x.!Œà	‹›‹ûKõ‹›ö[ô ù]Hä_Wâ‹›‹ûKôŸ]î””ê\úò^Jô\\€Ÿ\»äKõ[ô›
+
+_HT8†(à	‹õ›‹ ›‹ûJKú⁄^ô_H8."¯.-x.&Wàä¬àYä\‹›Y\Àö\—[\J
+JH∏.&∏.%¯.'∏.(¯.bx.+x.(x.*∏.b8.!¯.+x.+x. x.!8.,¯.*∏.,x.b8.!»õ›»8†(à8.a8.(x.b8.%x.bx.+x.!¯.(x.-x.(8.,∏.'∏."x.,∏. x. x.b8.+x.&Hà[ŸH∏.%x.(¯.)¯."8. ∏.bx.+x.(x..x.)x. x.b8.+x.&x.*∏.b8.!¯.+x.+x. Nóàä⁄\‹›Y\ÀùZŸJLäKöõ⁄[ï‘›ö[ô óàäBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.&x.,¯.`8. ∏.bx.,∏.a8.'¯.)x.c8.`x.)x.bx.)»äKúŸ]Y\‹ÿYŸJ^
+BàúŸ]‹⁄]]ôPù]€ä∏. x.)x.,x.&∏.*¯.&x.bx.,∏.*¯.)x.,x. HäH»À»Oàô[ô\ä
+HKú⁄›—\ôX›‹ä
+BàBàö]ò]Hù[àõ›XŸJ^à›ö[ô H»[\ùX[ŸÀêùZ[\ä\ KúŸ]X€€äãôò]ÿXõKú›Y[◊€[›öYJKúŸ]Y\‹ÿYŸJ^
+KúŸ]‹⁄]]ôPù]€ä∏.%x. x.)x.!»ãù[
+Kú⁄›—\ôX›‹ä
+HBàö]ò]Hù[àòX⁄Ÿ‹õ›[ô
+õÿ⁄Œà
+
+HOà[ö]
+H¬à[\‹ù[ô»HùYBàò[X[Ÿ»H[\ùX[ŸÀêùZ[\ä\ KúŸ]X€€äãôò]ÿXõKú›Y[◊€[›öYJKúŸ]Y\‹ÿYŸJ∏. x.,¯.)x.,x.!¯."8.,x.%8.a8.'¯.)x.c8†)àäKúŸ]ÿ[òŸ[XõJò[ŸJKú⁄›—\ôX›‹ä
+BàôXY¬àûH»õÿ⁄ 
+N»ù[ì€ïZUôXY»[\‹ù[ô»Hò[ŸN»X[ŸÀô\€Z\‹ 
+N»ô[ô\ä
+N»õ›XŸJ∏.`8.*∏.(¯.a¯."8.`8.(¯.-x.(∏.&∏.(¯.bx.+x.(àäHHBàÿ]⁄
+Nà^Ÿ\[€äH»ö[Jö[\—\ãõ\›Ÿ\úõ‹ãùäKù‹ö]U^
+â⁄ò]òKù][ë]J
+_WâŸKú›X⁄’òXŸU‘›ö[ô 
+_HäN»ù[ì€ïZUôXY»[\‹ù[ô»Hò[ŸN»X[ŸÀô\€Z\‹ 
+N»õ›XŸJ∏.%8.,¯.`8.&x.-8.&x. x.,∏.(¯.a8.(x.b8.*∏.,¯.`8.(¯.a¯."à	ŸKõY\‹ÿYŸ_HäHHBàKú›\ù
+
+BàBàö]ò]Hù[àX\›\ë^‹ùò[YJ€›\òŸNàö[K\ŸSô]”X\›\úŒàõ€€X[äNà›ö[ôœ»¬àYà
+\€›\òŸKö\—ö[JHô]\õàù[àò[õ›[ô»H[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[íù\›X€ŸPõ›[ô»HùYHBà[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸQö[J€›\òŸKú]õ›[ô BàYà
+õ›[ôÀõ›]⁄YHõ›[ôÀõ›]ZY⁄H
+Hô]\õàù[àò[^[ú⁄[€àH⁄[à
+õ›[ôÀõ›]Z[YU\JH»ö[XYŸK⁄úY»àOàöú»é»ö[XYŸK›ŸXúàOàùŸXúé»[ŸHOàúô»àBàò[ò[YHHYà
+\ŸSô]”X\›\ú H€›\òŸKõò[YU⁄]›]^[ú⁄[€à[ŸH€›\òŸKõò[YU⁄]›]^[ú⁄[€à
+»ó”PT’TàÇàô]\õàâ€ò[YKù\\òÿ\ŸJ
+_Kâ^[ú⁄[€àÇàBàö]ò]Hù[àŸôô\ëõ›’ò[ú€][€ä›‹ûNàî””ìÿöôX›ÿŸ[ôNàî””ìÿöôX›‹XŒàõ›‘ÿŸ[ôT‹XÀÿ[Y\òNà›ö[ôÀ⁄[[ùàõ€€X[äH¬àò[õ›öY\úœT›‹ûTõ›öY\ãô[Y⁄XõJ\ Kôö[\à»]ö\“Ÿ^J\ HBàò[öY[œT⁄‹ùõ›‘õ€\ù[ùò[ú€]YöY[ ‹XÀÿ[Y\òJKöõ⁄[ï‘›ö[ô à»äKöYêõ[ö»»∏.!8.,¯. x.,¯. x.,x.&∏."x.,∏. HàBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.`8.%x.(¯.-x.(∏.(x.!8.,¯.*∏.,x.b8.!»õ›»äBàúŸ]Y\‹ÿYŸJâöY[»8.(∏.,x.!¯.(x.-x.(8.,∏.*x.,∏.a8.%¯.(à8.%x.bx.+x.!¯.`x.&¯.)x.`8.&¯.a¯.&x.+x.,x.!¯. x.)8.*x. x.b8.+x.&x.!8.,x.%8.)x.+x. H8†(à8.&∏.%¯.'∏..x.%¯.&∏.(¯.(¯.(∏.,∏.(∏.(8.,∏.*x.,∏.a8.%¯.(∏.!8.!¯.`8.%8.-8.(Wó∏.`¯."∏.bHRH8.`x.&¯.)x.`8."x.'∏.,∏.,8.!8.,¯. x.,¯. x.,x.&à8.`x.)x.bx.)¯.%x.(¯.)¯."8.'8.)x. x.b8.+x.&x.!8.,x.%8.)x.+x. H
+8.`¯."∏.bx.`∏.!8.)¯.%x.,àTJH8.*¯.(¯.-¯.+x.`8.)x.-¯.+x. x.`x. x.bx.%8.bx.)¯.(∏.%x.&x.`8.+x.!»äBàúŸ]‹⁄]]ôPù]€ä∏.`¯.*¯.bHRH8.`x.&¯.)HäH»À»OÇàYäõ›öY\úÀö\—[\J
+JH»õ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-HTH8.%¯.-x.b8.`8.)x.-¯.+x. x.`x.)x.,8.%x.,x.bx.!¯.!8.-x.(∏.c8.a8.)¯.bH8. x.(¯..8.$¯.,∏.%x.,x.bx.!¯.!8.b8.,àTH8.*¯.(¯.-¯.+x.`x. x.bx."¯.-x.&x.%8.bx.)¯.(∏.%x.&x.`8.+x.!»äN»ô]\õêŸ]‹⁄]]ôPù]€àBàò[õ⁄ôX›Y\õ⁄ôX›õò[YN»ò[€ò\⁄›\ÿŸ[ôKù‘›ö[ô 
+Bàò[›‹YZò]òKù][ò€€ò›\úô[ùò]€ZXÀê]€ZX–õ€€X[äò[ŸJBàò[X›]ôOZò]òKù][ò€€ò›\úô[ùò]€ZXÀê]€ZX‘ôYô\ô[òŸO›‹ûU^€Y[ùœäù[
+Bàò[ÿY[ôœP[\ùX[ŸÀêùZ[\ä\ KúŸ]Y\‹ÿYŸJ∏. x.,¯.)x.,x.!¯.`x.&¯.)x.!8.,¯. x.,¯. x.,x.&∏."x.,∏. H8†(à8.&∏.%¯.'∏..x.%8.!8.!¯.`8.%8.-8.(HäKúŸ]ôYÿ]]ôPù]€ä∏.*¯.(∏..8.%ãù[
+Kú⁄›—\ôX›‹ä
+BàÿY[ôÀúŸ]€ë\€Z\‹”\›[ô\à»›‹YúŸ]
+ùYJN»X›]ôKôŸ]
+
+OÀòÿ[òŸ[
+
+HBàôXY¬àò\àò[YNàZ\èõ›‘ÿŸ[ôT‹XÀ›ö[ôœèœ[ù[àõ‹äõ›öY\à[àõ›öY\ú H¬àYä›‹YôŸ]
+
+JHúôXZ¬àò[[ú›Ÿ\è\ù[êÿ]⁄[ô»»ò[€Y[ùT›‹ûP€Y[ùòX›‹ûKò‹ôX]Jõ›öY\ãõ›öY\ãöŸ^J\ Kõ›öY\ãõ[Ÿ[
+\ K»›‹YôŸ]
+
+HK]]€X]X‘ô]ûOYò[ŸK€€ù^]\–›Y[–X›]ö]JN»X›]ôKúŸ]
+€Y[ù
+N»Yä›‹YôŸ]
+
+JHõ›»ò]òKù][ò€€ò›\úô[ùêÿ[òŸ[][€ë^Ÿ\[€ä
+N»€Y[ùôŸ[ô\ò]Jõ›—[ô€\⁄\ôX›[€úÀúõ€\
+‹X Kõ›—[ô€\⁄\ôX›[€úÀúÿ⁄[XJ
+JHKôŸ]‹ìù[
+
+HŒà€€ù[ùYBàò[ò[ú€]Y\ù[êÿ]⁄[ô»»õ›—[ô€\⁄\ôX›[€úÀò\J‹XÀ[ú›Ÿ\äHKôŸ]‹ìù[
+
+HŒà€€ù[ùYBàò[€€[X[ô\ù[êÿ]⁄[ô»»⁄‹ùõ›‘õ€\òùZ[
+ò[ú€]Yÿ[Y\òK⁄[[ù
+HKôŸ]‹ìù[
+
+HŒà€€ù[ùYBàò[YO]ò[ú€]Y»€€[X[ô»úôXZ¬àBàò[ô\›[]ò[YBàù[ì€ïZUôXY¬àYä›‹YôŸ]
+
+H\—ö[ö\⁄[ô»\—\›õﬁYY
+Hô]\õêù[ì€ïZUôXYàX›]ôKúŸ]
+ù[
+N»ÿY[ôÀô\€Z\‹ 
+BàYäõ⁄ôX›õò[YHO\õ⁄ôX›Y[àOO\›‹ûHÿŸ[ôKù‘›ö[ô 
+HO\€ò\⁄›
+H»õ›XŸJ∏."¯.-x.&x.`8.&¯.)x.-x.b8.(∏.&x.(¯.,8.*¯.)¯.b8.,∏.!¯.`x.&¯.)H8. x.(¯..8.$¯.,∏.)x.+x.!¯.`¯.*¯.(x.bäN»ô]\õêù[ì€ïZUôXYBàYäô\›[O[ù[
+H»õ›XŸJ∏.(∏.,x.!¯.`x.&¯.)x.!8.,¯. x.,¯. x.,x.&∏.a8.(x.b8.a8.%8.bH8†(à8.%x.(¯.)¯."TH8.*¯.(¯.-¯.+x. x.%8.`x. x.bx."¯.-x.&x.%8.bx.)¯.(∏.%x.&x.`8.+x.!»8†(à8.a8.(x.b8.(x.-x. x.,∏.(¯.`8.&¯.)x.-x.b8.(∏.&x.&∏.%»äN»ô]\õêù[ì€ïZUôXYBàò[^H∏.%x.(¯.)¯."8.!8.,¯.`x.&¯.)x.`8.%¯.-x.(∏.&∏. x.,x.&∏.&∏.%¯. x.b8.+x.&x.!8.,x.%8.)x.+x. H8†(à8. x.,∏.(¯.`x.&¯.)x.&x.-x.bx.a8.(x.b8.`x. x.bx.&∏.%¯.%¯.-x.b8.&∏.,x.&x.%¯.-∏. Wó∏. x.,∏.(¯. x.(¯.,8.%¯.,¯.`8.%8.-8.(Nà	‹‹XÀòX›[€üWó∏.!8.,¯.`x.&¯.)Nà	‹ô\›[ôö\ú›òX›[€üWó∏.%x.,¯.`x.*¯.&x.b8.!¯.`x.)x.,8.`8.*∏.-¯.bx.+x.'8.bx.,à
+8.%x.(¯.)¯."8.`¯.*¯.bx.%x.(¯.!¯. x.,x.&∏.(8.,∏.'äNà	‹ô\›[ôö\ú›òÿ\›õX\[ô^Y»KOàê⁄\òX›\à	⁄JÃ_Nà	‹ú‹⁄][€üK	‘⁄‹ùõ›‘õ€\ò€›[ô 
+KöYêõ[ö»»∏.a8.(x.b8.(¯.,8.&∏..8.`8.*∏.-¯.bx.+Hà_H
+8.`8.%8.-8.(Nà	‘⁄‹ùõ›‘õ€\ò€›[ô ‹XÀòÿ\›⁄WJKöYêõ[ö»»∏.a8.(x.b8.(¯.,8.&∏..à_JHàKöõ⁄[ï‘›ö[ô é»ä_Wó∏.`8.*∏.-x.(∏.!¯."x.,∏. Nà	‹ô\›[ôö\ú›ú€›[ôöYêõ[ö»»∏.a8.(x.b8.(x.-Hà_Wó∏.&∏.%¯.'∏..x.%¯.&∏.(¯.(¯.(∏.,∏.(∏.(8.,∏.*x.,∏.a8.%¯.(∏.!8.!¯.`8.%8.-8.(Wóâ‹ô\›[úŸX€€ôHÇà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.%x.(¯.)¯."8.!8.,¯.`x.&¯.)x. x.b8.+x.&x.!8.,x.%8.)x.+x. HäKúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] ^öY] €€ù^
+Kò\H»Ÿ]Y[ô 
+N
+K
+LäK
+N
+K
+LäJN»\Àù^]^»Ÿ]^\‘Ÿ[X›XõJùYJHJHJBàúŸ]‹⁄]]ôPù]€ä∏.!8.,x.%8.)x.+x. x.!8.,¯.*∏.,x.b8.!»õ›»äH»À»Oà€‹P€€[X[ô
+ô\›[úŸX€€ô
+HKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàBàKú›\ù
+
+BàKúŸ]ô]]ò[ù]€ä∏.`x. x.bx."¯.-x.&x.`8.+x.!»äH»À»OàY]ÿŸ[ôJÿŸ[ôJHKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàBàö]ò]Hù[àÿ\ôõÿôT€›\òŸRŸ^Jõ⁄ôX›ò[YNà›ö[ôÀYà›ö[ôÀYŸ\›à›ö[ôÀ\ú€€éàî””ìÿöôX›
+Nà›ö[ô»¬àò[›]ö]YŸ\›SX\›\ìXúò\ûKôYŸ\›
+\ú€€ãõ‹›ö[ô õ›]ö]äKùö[J
+Kù–û]P\úò^J⁄\úŸ]ÀïUóŒ
+JBàô]\õàùÿ\ôõÿôW‹€›\òŸW›åó…‹õ⁄ôX›ò[Y_W…‹ôYô\ô[òŸRY
+Y
+_W…ŸYŸ\›W…€›]ö]YŸ\›HÇàBàö]ò]Hù[àô]öY]“[XYŸTôYô\ô[òŸ\ \⁄Œà⁄[\TõŸX›[€ê€€[X[ôÀï\⁄ÀôYô\ô[òŸ\Œà\›Z\è›ö[ôÀö[OèãXô[ŒàX\›ö[ôÀ›ö[ôœäH¬àò[X\›\ëYŸ\›œ\ù[êÿ]⁄[ô»»ôYô\ô[òŸ\ÀùZŸJ\⁄ÀúôYô\ô[òŸ\Àú⁄^ôJKò\‹€ÿ⁄X]H»
+Yö[JHOàY»X\›\ìXúò\ûKôYŸ\›
+ö[KúôXYû]\ 
+JHHBàôŸ]‹ë[ŸH»õ›XŸJ∏.+x.b8.,∏.&HPT’Tà8.a8.(x.b8.a8.%8.bH8. x.(¯..8.$¯.,∏.%x.(¯.)¯."8.a8.'¯.)x.c8. x.b8.+x.&x.*∏.b8.!»äN»ô]\õàBàò[[ô[S[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èLN»Ÿ]Y[ô 
+LäK
+LäK
+LäK
+LäJHBàù[à›\Xô[
+ù[Xô\éà›ö[ôÀ]Nà›ö[ô HH^öY] \ Kò\H¬à^H∏ßm∏ßm¯ßnñ€ù[Xô\ãù“[ù
+
+KLWKù‘›ö[ô 
+J»àä›]Bà^⁄^ôOLNé»Ÿ]^€€‹ä€€‹ãúôÿäçMKNLÀéJJN»Ÿ]\YòXŸJù[\YòXŸKêì”
+BàŸ]Y[ô 
+LäK
+LäK
+LäK
+äJBàBàò[ôYô\ô[òŸS[ŸOT‹[õô\ä\ Kò\H¬àY\\èP\úò^PY\\ä\–›Y[–X›]ö]K[ôõ⁄Yîãõ^[›]ú⁄[\W‹‹[õô\óŸõ‹›€ó⁄][K\›Ÿä∏.(8.,∏.'∏.!8.(¯.+x.&¯.`¯.&∏.*¯.&x.bx.,à
+»8.(8.,∏.'∏.*∏.,∏.(x.(x..8.(x.(x.+x.!»ã∏.(8.,∏.'∏.!8.(¯.+x.&¯.`¯.&∏.*¯.&x.bx.,∏.+x.(∏.b8.,∏.!¯.`8.%8.-x.(∏.)»ãìPT’Tà
+»8.(8.,∏.'∏."x.,∏. x.%¯.-x.b8.%x.(¯.)¯."8.'8.b8.,∏.&HäJBàŸ]Ÿ[X›[€äôYúÀôŸ][ù
+ö[XYŸW‹ôYô\ô[òŸW€[ŸW…‹õ⁄ôX›õò[Y_Hã
+Kò€Ÿ\òŸR[ääJBàBàò[[XYŸS‹ô\èT‹[õô\ä\ Kò\H¬àY\\èP\úò^PY\\ä\–›Y[–X›]ö]K[ôõ⁄Yîãõ^[›]ú⁄[\W‹‹[õô\óŸõ‹›€ó⁄][K\›Ÿä∏.(8.,∏.'∏.*∏.,∏.(x.(x..8.(H8°§à8.(8.,∏.'∏.!8.(¯.+x.&»ã∏.(8.,∏.'∏.!8.(¯.+x.&»8°§à8.(8.,∏.'∏.*∏.,∏.(x.(x..8.(HäJBàŸ]Ÿ[X›[€äôYúÀôŸ][ù
+ö[XYŸWÿ]X⁄Y[ù€‹ô\àã
+Kò€Ÿ\òŸR[äJJBàBàò[ò[úŸô\ì‹ô\èT‹[õô\ä\ Kò\H¬àY\\èP\úò^PY\\ä\–›Y[–X›]ö]K[ôõ⁄Yîãõ^[›]ú⁄[\W‹‹[õô\óŸõ‹›€ó⁄][K\›Ÿä∏.!8.,¯.*∏.,x.b8.!»8°§à8.(8.,∏.'àã∏.(8.,∏.'à8°§à8.!8.,¯.*∏.,x.b8.!»äJBàŸ]Ÿ[X›[€äôYúÀôŸ][ù
+ö[XYŸW›ò[úŸô\ó€‹ô\àã
+Kò€Ÿ\òŸR[äJJBàBà[ô[òYöY] ›\Xô[
+åHã∏.`8.)x.-¯.+x. x.(8.,∏.'∏.+x.bx.,∏.!¯.+x.-8.!»äJN»[ô[òYöY] ôYô\ô[òŸS[ŸJBà[ô[òYöY] ›\Xô[
+åàã∏.`8.)x.-¯.+x. x.)x.,¯.%8.,x.&∏.(8.,∏.'àäJN»[ô[òYöY] [XYŸS‹ô\äBà[ô[òYöY] ›\Xô[
+å»ã∏.`8.)x.-¯.+x. x.)x.,¯.%8.,x.&∏.*∏.b8.!»äJN»[ô[òYöY] ò[úŸô\ì‹ô\äBàò[‹ô\î›[[X\ûOU^öY] \ Kò\H»Ÿ]Y[ô 
+LäK
+L
+K
+LäK
+L
+JN»Ÿ]^€€‹ä€€‹ãê÷PSäHBà[ô[òYöY] ‹ô\î›[[X\ûJBàò\àôYúô\⁄ÿ\ôŒà
+
+HOà[ö]HﬂBàù[àôYúô\⁄‹ô\ä
+H¬àôYúô\⁄ÿ\ô 
+Bà[XYŸS‹ô\ãö\—[òXõY\ôYô\ô[òŸS[ŸKúŸ[X›Y][T‹⁄][€èOLàò[ôYúœZYäôYô\ô[òŸS[ŸKúŸ[X›Y][T‹⁄][€èOLJH∏.!8.(¯.+x.&¯.`¯.&∏.*¯.&x.bx.,àà[ŸHYäôYô\ô[òŸS[ŸKúŸ[X›Y][T‹⁄][€èOLäHìPT’Tà
+»8.(8.,∏.'∏."x.,∏. Hà[ŸHYä[XYŸS‹ô\ãúŸ[X›Y][T‹⁄][€èOLJH∏.!8.(¯.+x.&»8°§à8.*∏.,∏.(x.(x..8.(Hà[ŸH∏.*∏.,∏.(x.(x..8.(H8°§à8.!8.(¯.+x.&»Çà‹ô\î›[[X\ûKù^ZYäò[úŸô\ì‹ô\ãúŸ[X›Y][T‹⁄][€èOLJHâôYú»8°§à8.!8.,¯.*∏.,x.b8.!»à[ŸH∏.!8.,¯.*∏.,x.b8.!»8°§à	ôYú»ÇàBàò[‹ô\ì\›[ô\è[ÿöôX›à[ôõ⁄Yù⁄YŸ]êY\\ïöY]Àì€í][TŸ[X›Y\›[ô\à¬à›ô\úöYHù[à€ìõ›[ô‘Ÿ[X›Y
+\ô[ùà[ôõ⁄Yù⁄YŸ]êY\\ïöY]œ
+èè HﬂBà›ô\úöYHù[à€í][TŸ[X›Y
+\ô[ùà[ôõ⁄Yù⁄YŸ]êY\\ïöY]œ
+èèÀöY]Œà[ôõ⁄YùöY]ÀïöY]œÀ‹⁄][€éà[ùYà€ô H»ôYúô\⁄‹ô\ä
+HBàBàôYô\ô[òŸS[ŸKõ€í][TŸ[X›Y\›[ô\è[‹ô\ì\›[ô\é»[XYŸS‹ô\ãõ€í][TŸ[X›Y\›[ô\è[‹ô\ì\›[ô\é»ò[úŸô\ì‹ô\ãõ€í][TŸ[X›Y\›[ô\è[‹ô\ì\›[ô\Çà[ô[òYöY] ^öY] \ Kò\H»^H∏.%x.(¯.)¯."8.(8.,∏.'∏.`x.)x.,8."∏.-¯.b8.+x. x.b8.+x.&x.*∏.b8.!»8†(à8.`x.+x.&¯.&¯.)x.,∏.(∏.%¯.,∏.!¯.+x.,∏."8."8.,x.%8.)x.,¯.%8.,x.&∏.%x.b8.,∏.!¯. x.,x.&HàJBàò[XQòXŸSÿ⁄œ\ù[êÿ]⁄[ô»»Ÿ[Z[öT›‹ûQö[\ÀúôXY
+ö[Jõ⁄ôX›ôŸ[Z[öW⁄õÿã‹‹XÀöú€€àäJKõ‹õ€€X[äúXWŸòXŸW€ÿ⁄»ãò[ŸJHKôŸ]‹ëYò][
+ò[ŸJH	âà[èÀõ‹›ö[ô ò⁄[õô[äOOH∏.&x.,∏.(∏.`8.&¯.-x.(à8.&∏.bx.,∏.&x.!8.)x.+x.!¯. ∏..8.%Çàò[òXŸS€õOX[ôõ⁄Yù⁄YŸ]ê⁄X⁄–õﬁ
+\ Kò\H»^H∏.`¯."∏.bx.`¯.&∏.*¯.&x.bx.,àPT’Tà8†(à8."∏..8.%8.%x.,∏.(x."x.,∏. Hé»\–⁄X⁄ŸY\XQòXŸSÿ⁄Œ»[ô[òYöY] \ HBàò[X\›\ê\X\ò[òŸO[[öŸYX\Ÿè›ö[ôÀ[ôõ⁄Yù⁄YŸ]ê⁄X⁄–õﬁä
+Bàò[‹õ‹œ[[öŸYX\Ÿè›ö[ôÀZ\è›ö[ôÀö[Oèä
+Bàò[‹õ‹YŸ\›œ[[öŸYX\Ÿè›ö[ôÀ›ö[ôœä
+Bàò[‹õ‹Xô[œ[[öŸYX\Ÿè›ö[ôÀ›ö[ôœä
+Bà[ô[òYöY] ^öY] \ Kò\H»^H∏.%x.(¯.)¯."8."∏.-¯.b8.+x. x.,x.&∏.(8.,∏.'àPT’Tà8.(¯.,∏.(∏.!8.&H8†(à8.(8.,∏.'∏.!8.(¯.+x.&¯.%¯.-x.b8.&∏.,x.&x.%¯.-∏. x.a8.)¯.bx."8.,8.`x.&x.&∏.+x.,x.%x.`∏.&x.(x.,x.%x.-8.'∏.(¯.bx.+x.(HPT’Tà8.`8.%8.-8.(H8.*¯.,∏. x.(∏.,x.!¯.a8.(x.b8.(x.-H8.`¯.*¯.bx.`8.)x.-¯.+x. x. x.(¯.+x.&∏.*¯.&x.bx.,∏.%x.(¯.!»àJBàò[‹õ‹›‹ôOQòXŸTôYô\ô[òŸT›‹ôJö[Jö[\—\ãõX\›\óŸòXŸW‹ôYô\ô[òŸ\»äJBà\⁄ÀúôYô\ô[òŸ\Àôõ‹ëXX⁄[ô^Y»[ô^\ú€€àOÇàò[
+Yö[JO\ôYô\ô[òŸ\÷⁄[ô^Bàò[‹⁄][€èZYä\⁄ÀöYò€€ùZ[ú ó–”’ëTó»äJH⁄[ä\⁄ÀúôYô\ô[òŸ\Àú⁄^ôJH»HOàòŸ[ù\àé»àOàYä[ô^OL
+HõYùà[ŸHúöY⁄é»»Oà\›ŸäõYùãòŸ[ù\àãúöY⁄äV⁄[ô^N»[ŸHOà∏.)x.,¯.%8.,x.&à	⁄[ô^
+Ã_HàH[ŸH\ú€€ãõ‹›ö[ô úÿ‹ôY[ó‹‹⁄][€àäBàò[⁄‹ùY\⁄‹ùÿ][Ÿ”Xô[
+\ú€€ãõ‹›ö[ô õXúò\ûW⁄YäKöYêõ[ö»»ôYô\ô[òŸRY
+Y
+HJBà[ô[òYöY] ^öY] \ Kò\H»^Hâ‹⁄‹ùYÀõ]»â]8†(ààKõ‹ë[\J
+_I‹\ú€€ãõ‹›ö[ô õò[YHä_H8†(à	‹⁄][€ó∏."∏..8.%8.%¯.-x.b8.(¯.,8.&∏..8.`¯.&x.&∏.%Œà	‹\ú€€ãõ‹›ö[ô õ›]ö]ä_Hé»Ÿ]\YòXŸJù[\YòXŸKêì”
+HJBàò[€›\òŸRŸ^O]ÿ\ôõÿôT€›\òŸRŸ^Jõ⁄ôX›õò[YKYX\›\ëYŸ\›÷⁄YKõ‹ë[\J
+K\ú€€äBàX\›\ê\X\ò[òŸV⁄YOX[ôõ⁄Yù⁄YŸ]ê⁄X⁄–õﬁ
+\ Kò\H¬à\–⁄X⁄ŸY\ôYúÀôŸ]õ€€X[ä€›\òŸRŸ^Kÿ\ôõÿôQ]öY[òŸKù\ŸSX\›\ì›]ö]
+\ú€€ãõ‹›ö[ô õ›]ö]äJJBàù[àôYúô\⁄€›\òŸSXô[
+
+H»^ZYä\–⁄X⁄ŸY
+H∏.`x.*¯.)x.b8.!¯."∏..8.%àPT’Tà8. ∏.+x.!¯.%x.,x.)¯.)x.,8.!8.(¯.&x.-x.bH8ß$◊∏.`x.%x.,8.`8.'∏.-¯.b8.+x.`8.&¯.)x.-x.b8.(∏.&x.`8.&¯.a¯.&x."∏..8.%8.%x.,∏.(x.&∏.%»à[ŸH∏.`x.*¯.)x.b8.!¯."∏..8.%à8.%x.,∏.(x.&∏.%»8ß$◊∏.`x.%x.,8.`8.'∏.-¯.b8.+x.`¯."∏.bx."∏..8.%8."8.,∏. HPT’TààBàôYúô\⁄€›\òŸSXô[
+
+BàŸ]€ê⁄X⁄ŸY⁄[ôŸS\›[ô\à»À»OàôYúô\⁄€›\òŸSXô[
+
+HBà[ô[òYöY] \ BàBàò[[XYŸTõ›œS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]í‘íVì”ïSBàò[‹õ‹€€[[èS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]ïëTïP–SBàò[X\›\ê€€[[èS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]ïëTïP–SBà[XYŸTõ›ÀòYöY] ‹õ‹€€[[ã[ôX\ì^[›]ì^[›]\ò[\ LãYäJN»[XYŸTõ›ÀòYöY] X\›\ê€€[[ã[ôX\ì^[›]ì^[›]\ò[\ LãYäJN»[ô[òYöY] [XYŸTõ› Bàò[›]\œU^öY] \ Kò\H»^H∏.!8.(¯.+x.&¯.`¯.&∏.*¯.&x.bx.,à8†(à8.(∏.,x.!¯.a8.(x.b8.a8.%8.bx.`8.)x.-¯.+x. Hé»‹õ‹€€[[ãòYöY] \ HBàò[‹õ‹ô]öY]œR[XYŸUöY] \ Kò\H»Yù\›öY]–õ›[ôœ]ùYN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ LK
+Må
+JN»‹õ‹€€[[ãòYöY] \ HBàò[X\›\î›]\œU^öY] \ Kò\H»^HìPT’Tà8†(à8.*∏.,∏.(x.(x..8.(x.(x.+x.!»é»X\›\ê€€[[ãòYöY] \ HBàò[ô]ö[›\‘ôYúô\⁄\ôYúô\⁄ÿ\ô¬àôYúô\⁄ÿ\ôœ^¬àô]ö[›\‘ôYúô\⁄
+
+Bàò[[ŸO\ôYô\ô[òŸS[ŸKúŸ[X›Y][T‹⁄][€Çàò[ŸôúŸ]Z[ô^
+»
+[ù[[ô^
+Kò€›[ù»ô]ö[›\»Oà[ŸOOL	âà‹õ‹Àò€€ùZ[ú“Ÿ^JôYô\ô[òŸ\÷‹ô]ö[›\◊Kôö\ú›
+HBàò[\–‹õ‹X‹õ‹Àò€€ùZ[ú“Ÿ^JY
+Bàò[‹õ‹ö\ú›Z[XYŸS‹ô\ãúŸ[X›Y][T‹⁄][€èOLBà›]\Àù^ZYäZ\–‹õ‹
+H∏.!8.(¯.+x.&¯.`¯.&∏.*¯.&x.bx.,à8†(à8.(∏.,x.!¯.a8.(x.b8.a8.%8.bx.`8.)x.-¯.+x. Hà[ŸHYä[ŸOOL
+H∏.!8.(¯.+x.&¯.`¯.&∏.*¯.&x.bx.,à8†(à8.*∏.b8.!»	€ŸôúŸ]
+⁄Yä‹õ‹ö\ú›
+HH[ŸHüHà[ŸHYä[ŸOOLJH∏.!8.(¯.+x.&¯.`¯.&∏.*¯.&x.bx.,à8†(à8.*∏.b8.!»	€ŸôúŸ]
+Ã_Hà[ŸH∏.!8.(¯.+x.&¯.`¯.&∏.*¯.&x.bx.,à8†(à8.a8.(x.b8.a8.%8.bx.*∏.b8.!»ÇàX\›\î›]\Àù^ZYä[ŸOOLJHìPT’Tà8†(à8.a8.(x.b8.a8.%8.bx.*∏.b8.!»à[ŸHìPT’Tà8†(à8.*∏.b8.!»	€ŸôúŸ]
+⁄Yä[ŸOOL	âà‹õ‹ö\ú›	âà\–‹õ‹
+Hà[ŸH_HÇàBàX\›\ê€€[[ãòYöY] [XYŸUöY] \ Kò\H»Ÿ][XYŸPö]X\
+ô]öY]–ö]X\
+\öKôúõ€Qö[Jö[JJJN»Yù\›öY]–õ›[ôœ]ùYN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ LK
+Må
+JN»Ÿ]€ê€X⁄”\›[ô\à»ù[[XYŸJö[K\ú€€ãõ‹›ö[ô õò[YHäJHHJBàù[à⁄›–‹õ‹
+\ôŸ]àö[JH¬àò[‹õ‹YHâ‹ôYô\ô[òŸRY
+Y
+_W—êP—W–‘ì‘Çà‹õ‹÷⁄YOX‹õ‹Y»\ôŸ]à‹õ‹YŸ\›÷⁄YOSX\›\ìXúò\ûKôYŸ\›
+\ôŸ]úôXYû]\ 
+JBà‹õ‹Xô[÷ÿ‹õ‹YOH∏.(8.,∏.'∏.!8.(¯.+x.&¯.`¯.&∏.*¯.&x.bx.,à	‹\ú€€ãõ‹›ö[ô õò[YHä_H8."8.,∏. HPT’Tà	YÇàôYúô\⁄‹ô\ä
+Bà‹õ‹ô]öY]ÀúŸ][XYŸPö]X\
+ô]öY]–ö]X\
+\öKôúõ€Qö[J\ôŸ]
+JJBà‹õ‹ô]öY]Àùö\⁄Xö[]OX[ôõ⁄YùöY]ÀïöY]ÀïíT“PìBà‹õ‹ô]öY]ÀúŸ]€ê€X⁄”\›[ô\à»ù[[XYŸJ\ôŸ]∏.%x.(¯.)¯."8.(8.,∏.'∏.!8.(¯.+x.&»8†(à	‹\ú€€ãõ‹›ö[ô õò[YHä_HäHBàBàù[êÿ]⁄[ô»»‹õ‹›‹ôKõ]\›
+ö[JOÀõ]»⁄›–‹õ‹
+]
+HHBà[ô[òYöY] ù]€ä\ Kò\H¬à^H∏.`8.)x.-¯.+x. x. x.(¯.+x.&∏.`¯.&∏.*¯.&x.bx.,∏."8.,∏. HPT’TàÇàŸ]€ê€X⁄”\›[ô\à¬àù[êÿ]⁄[ô»¬àò[‹õ‹öY]œQòXŸTôYô\ô[òŸP‹õ‹öY] \–›Y[–X›]ö]Kö[JBàò[^[›]S[ôX\ì^[›]
+\–›Y[–X›]ö]JKò\H»‹öY[ù][€èLN»YöY] ^öY] €€ù^
+Kò\H»^H∏.)x.,∏. x. x.(¯.+x.&∏.(¯.+x.&∏.`¯.&∏.*¯.&x.bx.,∏.(x..8.(x.%x.(¯.!¯. ∏.+x.!»	‹\ú€€ãõ‹›ö[ô õò[YHä_H8."8.,∏. x.(8.,∏.'∏.&x.-x.bH8.`x.)x.bx.)¯.%x.(¯.)¯."8."∏.-¯.b8.+x. x.b8.+x.&x.&∏.,x.&x.%¯.-∏. HàJN»YöY] ‹õ‹öY]À[ôX\ì^[›]ì^[›]\ò[\ LK
+Lå
+JJHBàò[X[ŸœP[\ùX[ŸÀêùZ[\ä\–›Y[–X›]ö]JKúŸ]]J∏.`8.)x.-¯.+x. x.`¯.&∏.*¯.&x.bx.,à8†(à	‹\ú€€ãõ‹›ö[ô õò[YHä_HäKúŸ]öY] ^[›]
+KúŸ]‹⁄]]ôPù]€ä∏.&∏.,x.&x.%¯.-∏. x. x.(¯.+x.&àãù[
+KúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàX[ŸÀôŸ]ù]€äLJKúŸ]€ê€X⁄”\›[ô\à¬àù[êÿ]⁄[ô»¬àò[\ôŸ]X‹õ‹›‹ôKõô]—ö[Jö[JBàò[[ô[ôœQö[J\ôŸ]ú\ô[ùö[K\ôŸ]õò[YJ»ãú[ô[ô»äBàûH»‹õ‹öY]Àúÿ]ôJ[ô[ô N»⁄X⁄ [ô[ôÀúô[ò[YU \ôŸ]
+JH»∏.&∏.,x.&x.%¯.-∏. x.(8.,∏.'∏.!8.(¯.+x.&¯.a8.(x.b8.a8.%8.bHàHHö[ò[H»[ô[ôÀô[]J
+HBà⁄›–‹õ‹
+\ôŸ]
+BàX[ŸÀô\€Z\‹ 
+BàKõ€ëòZ[\ôH»õ›XŸJ]õY\‹ÿYŸHŒà∏.&∏.,x.&x.%¯.-∏. x.(8.,∏.'∏.!8.(¯.+x.&¯.a8.(x.b8.a8.%8.bHäHBàBàKõ€ëòZ[\ôH»õ›XŸJ]õY\‹ÿYŸHŒà∏.`8.&¯.-8.%8.(8.,∏.'àPT’Tà8.a8.(x.b8.a8.%8.bHäHBàBàJBàBàò[^òP⁄X⁄‹œ[[öŸYX\Ÿè›ö[ôÀ[ôõ⁄Yù⁄YŸ]ê⁄X⁄–õﬁä
+BàôYô\ô[òŸ\Àôõ‹
+\⁄ÀúôYô\ô[òŸ\Àú⁄^ôJKôõ‹ëXX⁄»
+Yö[JHOÇà^òP⁄X⁄‹÷⁄YOX[ôõ⁄Yù⁄YŸ]ê⁄X⁄–õﬁ
+\ Kò\H»^[Xô[÷⁄YHŒà∏.(8.,∏.'∏.+x.bx.,∏.!¯.+x.-8.!¯.%¯.-x.b8.%x.(¯.)¯."8.`x.)x.bx.)»8†(à	Yé»\–⁄X⁄ŸYHZYú›\ù’⁄]
+ì’UíU‘PW‘—SP’Q»äHXTôYô\ô[òŸT€XﬁKõ›]ö][ö]X[TŸ[X›Y
+\⁄ÀöY
+N»[ô[òYöY] \ HBà[ô[òYöY] [XYŸUöY] \ Kò\H»Ÿ][XYŸPö]X\
+ô]öY]–ö]X\
+\öKôúõ€Qö[Jö[JJJN»Yù\›öY]–õ›[ôœ]ùYN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ LK
+N
+JN»Ÿ]€ê€X⁄”\›[ô\à»ù[[XYŸJö[KXô[÷⁄YHŒà∏.(8.,∏.'∏.+x.bx.,∏.!¯.+x.-8.!»äHHJBàBàò[[›—ò[ù\ﬁTõ‹œP⁄[õô[ôX]\ôT€XﬁKö\—ò[ù\ﬁU€€ [èÀõ‹›ö[ô ò⁄[õô[äKõ‹ë[\J
+JBàò[õ‹ò[Y\œ\õ‹ÿ][Ÿ¬àò[õ‹ôYô\ô[òŸOHúõ‹€X\›\ó…‹õ⁄ôX›õò[Y_W…›\⁄ÀöYHÇàò[ÿŸ[ôO\[èÀõ]»›‹ûHOàõ›‹ ›‹ûJKôö\ú›‹ìù[»Ÿ^J]
+OO]\⁄ÀöYHBàò[ò]–\‹⁄Y€õY[ùœ\ù[êÿ]⁄[ô»»î””ìÿöôX›
+ö[Jõ⁄ôX›úõ‹ÿ\‹⁄Y€õY[ùÀöú€€àäKúôXY^
+
+JKõ‹î””ê\úò^J\⁄ÀöY
+HKôŸ]‹ìù[
+
+Bàò[]]€X]XœZYäÿŸ[ôOO[ù[
+Hù[[ŸHÿŸ[ôTõ‹ö[ô[ôÀùò[Y
+ÿŸ[ôKò]–\‹⁄Y€õY[ù BàYäò]–\‹⁄Y€õY[ù»O[ù[	âà
+]]€X]XœÀõ[ô›
+
+HŒà
+Oò]–\‹⁄Y€õY[ùÀõ[ô›
+
+JH[ô[òYöY] ^öY] \ Kò\H¬à^H∏¶®;Ó#»8. ∏.bx.+x.`8.*∏.&x.+x.+x..8.&¯. x.(¯.$¯.c8.&∏.,∏.!¯.(¯.,∏.(∏. x.,∏.(¯.(∏.,x.!¯.a8.(x.b8.'8..x. x. x.,x.&∏.&∏.%¯.&¯.,x."8."8..8.&∏.,x.&x.*¯.(¯.-¯.+x.&∏.%¯.%∏..x. x.`x. x.bx.a8. à8†(à8.)¯.-8.`8.!8.(¯.,∏.,8.*¯.c8.`x.)x.,8.%x.(¯.)¯."8.(¯.,∏.(∏. x.,∏.(¯.`¯.*¯.(x.b8. x.b8.+x.&x.`¯."∏.bHÇàŸ]\YòXŸJù[\YòXŸKêì”
+BàJBàò[]]“YœJ[ù[
+]]€X]XœÀõ[ô›
+
+HŒà
+JKõX\õ›ù[»]]€X]XœÀõ‹î””ìÿöôX›
+]
+OÀõ‹›ö[ô úõ‹⁄YäHKù‘Ÿ]
+
+BàÀ»€õH[à^X⁄]€›ô\à[ò⁄Y[ùò[Z[ô»H^X›ÿ][Ÿ»][H\»]öY[òŸHõ‹àH€›ô\ãÇàò[€›ô\ë]öY[òŸOZYä\⁄ÀöYò€€ùZ[ú ó–”’ëTó»äJH[èÀõ‹î””ê\úò^Jô\\€Ÿ\»äOÀõ]»\\€Ÿ\»OÇà
+[ù[\\€Ÿ\Àõ[ô›
+
+JKõX\õ›ù[»\\€Ÿ\Àõ‹î””ìÿöôX›
+]
+HKôö[\à»\\€ŸHOÇà\⁄ÀöYú›\ù’⁄]
+î’‘ñW»äH\⁄ÀöYú›\ù’⁄]
+ëT	Lô»ãôõ‹õX]
+\\€ŸKõ‹[ù
+ô\äJJBàKöõ⁄[ï‘›ö[ô àäH»]õ‹›ö[ô ò€›ô\ó⁄[ò⁄Y[ùäHBàKõ‹ë[\J
+H[ŸHàÇàò[€›ô\íYœ\õ‹ÿ][ŸÀõX\[ô^Yõ›ù[»[ô^ò[YHOàYä€›ô\ë]öY[òŸKò€€ùZ[ú ò[YKùYJJHõ‹Y
+[ô^
+H[ŸHù[Kù‘Ÿ]
+
+Bàò[ÿ]ôYZYäôYúÀò€€ùZ[ú õ‹ôYô\ô[òŸJJHôYúÀôŸ]›ö[ô‘Ÿ]
+õ‹ôYô\ô[òŸK[\TŸ]
+
+JKõ‹ë[\J
+H[ŸH]]“Y ÿ€›ô\íY¬àò[⁄X⁄‹œ[[öŸYX\Ÿè›ö[ôÀ[ôõ⁄Yù⁄YŸ]ê⁄X⁄–õﬁä
+Bàò[^X⁄]õ‹œ\ÿŸ[ôOÀõ‹›ö[ô úõ‹»äOÀùö[J
+Kõ‹ë[\J
+Bàò[õ‘õ‹œY^X⁄]õ‹Àö\–õ[ö 
+H^X⁄]õ‹Àô\]X[ õõ€ôHãùYJH^X⁄]õ‹œOH∏.a8.(x.b8.(x.-HÇàò[ö\⁄XõTõ‹YœX]]“Y ÿ€›ô\íY¬àYä[õ‘õ‹»	âàö\⁄XõTõ‹YÀö\—[\J
+JH[ô[òYöY] ^öY] \ Kò\H¬à^H∏¶®;Ó#»8.&∏.%¯.(¯.,8.&∏..8.*∏.-8.b8.!¯. ∏.+x.!Œà	^X⁄]õ‹»8†(à8.(∏.,x.!¯.a8.(x.b8.'∏.&àPT’Tà8.%¯.-x.b8.'8..x. x. x.,x.&∏."x.,∏. H8.%x.(¯.)¯."8.*∏.-8.b8.!¯. ∏.+x.!¯.%x.,∏.(x.&∏.%¯. x.b8.+x.&x.*∏.b8.!»ÇàŸ]\YòXŸJù[\YòXŸKêì”
+BàJBàYäö\⁄XõTõ‹YÀö\”õ›[\J
+JH[ô[òYöY] ^öY] \ Kò\H»^HìPT’Tà8.+x..8.&¯. x.(¯.$¯.c8.%¯.-x.b8.'8..x. x. x.,x.&∏.&∏.%¯."x.,∏. x.&x.-x.bH8†(à8.%x.(¯.)¯."8.)¯.b8.,∏.&¯.(¯.,∏. x.#¯.`¯.&x.(8.,∏.'∏.`8.(¯.-8.b8.(x.%x.bx.&Hé»Ÿ]\YòXŸJù[\YòXŸKêì”
+HJBàõ‹ò[Y\Àôõ‹ëXX⁄[ô^Y»[ô^ò[YHOÇàò[YHîì‘…Lô”PT’Tàãôõ‹õX]
+[ô^
+ÃJBàYäYZ[àö\⁄XõTõ‹Y Hô]\õêõ‹ëXX⁄[ô^Yàò[⁄X⁄ÿõﬁX[ôõ⁄Yù⁄YŸ]ê⁄X⁄–õﬁ
+\ Kò\H»^Hâò[YH8†(à	Yé»\–⁄X⁄ŸYZY[àÿ]ôY
+\ôYúÀò€€ùZ[ú õ‹ôYô\ô[òŸJH	âàY[àö\⁄XõTõ‹Y HBà⁄X⁄‹÷⁄YOX⁄X⁄ÿõﬁà[ô[òYöY] ⁄X⁄ÿõﬁ
+Bàò[[XYŸOR[XYŸUöY] \ Kò\H»Yù\›öY]–õ›[ôœ]ùYN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ LK
+N
+JN»ö\⁄Xö[]OZYä⁄X⁄ÿõﬁö\–⁄X⁄ŸY
+H[ôõ⁄YùöY]ÀïöY]ÀïíT“PìH[ŸH[ôõ⁄YùöY]ÀïöY]Àë””ëHBàù[àõ‹ö[J
+Nàö[H¬àò[ö[OQö[JÿX⁄Q\ãúõ‹€X\›\úÀ…Yúô»äBàYà
+Yö[Kö\—ö[JH»ö[Kú\ô[ùö[HHKõZŸ\ú 
+N»\‹Ÿ]Àõ‹[äúõ‹€X\›\úÀ…Yúô»äKù\ŸH»[ú]Oàö[Kõ›]]›ôX[J
+Kù\ŸH»[ú]ò€‹U ]
+HHHBàô]\õàö[BàBàù[à⁄›‘õ‹
+
+H»ù[êÿ]⁄[ô»»ò[ö[O\õ‹ö[J
+N»[XYŸKúŸ][XYŸPö]X\
+ô]öY]–ö]X\
+\öKôúõ€Qö[Jö[JJJN»[XYŸKúŸ]€ê€X⁄”\›[ô\à»ù[[XYŸJö[Kò[YJHHKõ€ëòZ[\ôH»õ›XŸJ∏.`8.&¯.-8.%8.(8.,∏.'∏.+x..8.&¯. x.(¯.$¯.c8.a8.(x.b8.a8.%8.bNà	ò[YHäHHBàYä⁄X⁄ÿõﬁö\–⁄X⁄ŸY
+H⁄›‘õ‹
+
+Bà⁄X⁄ÿõﬁúŸ]€ê⁄X⁄ŸY⁄[ôŸS\›[ô\à»À⁄X⁄ŸYOà[XYŸKùö\⁄Xö[]OZYä⁄X⁄ŸY
+H[ôõ⁄YùöY]ÀïöY]ÀïíT“PìH[ŸH[ôõ⁄YùöY]ÀïöY]Àë””ëN»Yä⁄X⁄ŸY
+H⁄›‘õ‹
+
+HBà[ô[òYöY] [XYŸJBàBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.%x.(¯.)¯."PT’Tà8†(à	›\⁄ÀöYHäKúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] [ô[
+HJBàúŸ]‹⁄]]ôPù]€ä∏.`8.)x.-¯.+x. x.`x.+x.&¯.`x.)x.,8.*∏.b8.!»äH»À»OÇàò[›XõO\ù[êÿ]⁄[ô»»ôYô\ô[òŸ\ÀùZŸJ\⁄ÀúôYô\ô[òŸ\Àú⁄^ôJKò[»
+Yö[JHOàö[Kö\—ö[H	âàX\›\ìXúò\ûKôYŸ\›
+ö[KúôXYû]\ 
+JOO[X\›\ëYŸ\›÷⁄YHHKôŸ]‹ëYò][
+ò[ŸJBàYä\›XõJH»õ›XŸJ∏.(8.,∏.'àPT’Tà8.`8.&¯.)x.-x.b8.(∏.&x.*¯.(¯.-¯.+x.*¯.,∏.(∏.(¯.,8.*¯.)¯.b8.,∏.!¯.%x.(¯.)¯."8. x.(¯..8.$¯.,∏.`8.&¯.-8.%8.(¯.,∏.(∏. x.,∏.(¯.`x.)x.,8.%x.(¯.)¯."8.(8.,∏.'∏.+x.-x. x.!8.(¯.,x.bx.!»äN»ô]\õêŸ]‹⁄]]ôPù]€àBàò[[ŸO\ôYô\ô[òŸS[ŸKúŸ[X›Y][T‹⁄][€ÇàYä[ŸOOLH	âà\⁄ÀúôYô\ô[òŸ\Àö[ôXŸ\Àò[ûH»‹õ‹÷‹ôYô\ô[òŸ\÷⁄]Kôö\ú›OO[ù[JH»õ›XŸJ∏.`∏.*¯.(x.%8.!8.(¯.+x.&¯.*¯.&x.bx.,∏.+x.(∏.b8.,∏.!¯.`8.%8.-x.(∏.)¯.%x.bx.+x.!¯.(x.-x.(8.,∏.'∏.!8.(¯.+x.&¯. ∏.+x.!¯.%¯..8. x.%x.,x.)¯.)x.,8.!8.(»äN»ô]\õêŸ]‹⁄]]ôPù]€àBàYä[ŸOOLH	âàX\›\ê\X\ò[òŸKùò[Y\Àò[ûH»]ö\–⁄X⁄ŸYJH»õ›XŸJ∏.(8.,∏.'∏.!8.(¯.+x.&¯.a8.(x.b8.`8.*¯.a¯.&x."∏..8.%PT’Tà8†(à8.`∏.&¯.(¯.%8.`8.)x.-¯.+x. x.`¯."∏.bx.(8.,∏.'∏.*∏.,∏.(x.(x..8.(x.`8.(x.-¯.b8.+x.`¯."∏.bx."∏..8.%PT’TàäN»ô]\õêŸ]‹⁄]]ôPù]€àBàò[Ÿ[X›YZYä[ŸOOL
+H‹õ‹Àù”X\
+
+H[ŸH[\SX\
+
+Bàò[‹õ‹’’ô\öYûOZYä[ŸOOLJH‹õ‹»[ŸHŸ[X›Yàò[‹õ‹‘›XõO\ù[êÿ]⁄[ô»»‹õ‹’’ô\öYûKò[»
+Y‹õ‹
+HOà‹õ‹úŸX€€ôö\—ö[H	âàX\›\ìXúò\ûKôYŸ\›
+‹õ‹úŸX€€ôúôXYû]\ 
+JOOX‹õ‹YŸ\›÷⁄YHHKôŸ]‹ëYò][
+ò[ŸJBàYäX‹õ‹‘›XõJH»õ›XŸJ∏.(8.,∏.'∏.!8.(¯.+x.&¯.`¯.&∏.*¯.&x.bx.,∏.`8.&¯.)x.-x.b8.(∏.&x.*¯.(¯.-¯.+x.*¯.,∏.(à8. x.(¯..8.$¯.,∏.`8.)x.-¯.+x. x."8.,∏. HPT’Tà8.+x.-x. x.!8.(¯.,x.bx.!»äN»ô]\õêŸ]‹⁄]]ôPù]€àBàò[ö[ô[ô‹œ\Ÿ[X›Yô[ùöY\Àöõ⁄[ï‘›ö[ô óàäH»
+Y‹õ‹
+HOàê“TêP’Tà	€Xô[÷⁄YKõ‹ë[\J
+_H8†%êP—H‘ì‘	ÿ‹õ‹ôö\ú›H\»‹õ‹Yúõ€HPT’Tà	‹ôYô\ô[òŸRY
+Y
+_N»õ›⁄›»Hÿ[YH⁄\òX›\ãà\ŸHH‹õ‹õ‹àòX⁄X[Y[ù]H[ôH‹öY⁄[ò[PT’Tàõ‹àô\öYöXÿ][€ãàô]ô\à\ŸH\»‹õ‹õ‹à[õ›\à⁄\òX›\ãààBàò[ò]–€€[X[ôZYäòXŸS€õKö\–⁄X⁄ŸY[ŸOOLJH⁄[\TõŸX›[€ê€€[X[ôÀôòXŸS€õJ\⁄Àò€€[X[ô
+H[ŸH\⁄Àò€€[X[ôàò[[ŸP€€[X[ôZYä[ŸOOLJHò]–€€[X[ôúô\XŸJïHôYHöY]‹»⁄›»€ôH\ú€€é»\ŸHH\ôŸH€X\àúõ€ùöY]»õ‹àòX⁄X[]Z[ÀàãëXX⁄]X⁄Y⁄\òX›\àôYô\ô[òŸH\»H€‹ŸK]\Ÿà€ôH\ú€€ãàäKúô\XŸJïHôYHöY]‹»[àXX⁄PT’Tàô\ô\Ÿ[ù”ëH\ú€€é»ãëXX⁄]X⁄YòXŸHôYô\ô[òŸHô\ô\Ÿ[ù»”ëH\ú€€é»äH[ŸHò]–€€[X[ôàò[ò\ŸP€€[X[ô[[ŸP€€[X[ô
+ Yäö[ô[ô‹Àö\–õ[ö 
+JHàà[ŸHóóâö[ô[ô‹»äBàò[ÿ⁄ŸY]\⁄ÀúôYô\ô[òŸ\ÀõX\[ô^Yõ›ù[»[ô^\ú€€àOÇàò[Y\ôYô\ô[òŸ\÷⁄[ô^Kôö\ú›àYäX\›\ê\X\ò[òŸV⁄YOÀö\–⁄X⁄ŸYO]ùYJH\ú€€ãõ‹›ö[ô õò[YHäH»ôYô\ô[òŸRY
+Y
+H[ŸHù[àBàò[€€[X[ô\ù[êÿ]⁄[ô»»⁄[\TõŸX›[€ê€€[X[ôÀù⁄]ÿ\ôõÿôT€›\òŸ\ ò\ŸP€€[X[ô\⁄ÀúôYô\ô[òŸ\Àÿ⁄ŸYõX\»]úŸX€€ôKù‘Ÿ]
+
+JHKôŸ]‹ë[ŸH¬àõ›XŸJ]õY\‹ÿYŸHŒà∏.%x.(¯.)¯."8.`x.*¯.)x.b8.!¯."∏..8.%8.a8.(x.b8.*∏.,¯.`8.(¯.a¯."äN»ô]\õêŸ]‹⁄]]ôPù]€ÇàBàò[€›\òŸTôYúœ\ôYúÀôY]
+
+Bà\⁄ÀúôYô\ô[òŸ\Àôõ‹ëXX⁄[ô^Y»[ô^\ú€€àOÇàò[Y\ôYô\ô[òŸ\÷⁄[ô^Kôö\ú›à€›\òŸTôYúÀú]õ€€X[äÿ\ôõÿôT€›\òŸRŸ^Jõ⁄ôX›õò[YKYX\›\ëYŸ\›÷⁄YKõ‹ë[\J
+K\ú€€äKX\›\ê\X\ò[òŸV⁄YOÀö\–⁄X⁄ŸYO]ùYJBàBà€›\òŸTôYúÀò\J
+Bàò[⁄‹Ÿ[èX⁄X⁄‹Àôö[\ïò[Y\»»]ö\–⁄X⁄ŸYKöŸ^\¬àò[õ‹ôYúœ\ù[êÿ]⁄[ô»»⁄‹Ÿ[ãõX\»YOÇàò[ö[OQö[JÿX⁄Q\ãúõ‹€X\›\úÀ…Yúô»äBàYäYö[Kö\—ö[JH»ö[Kú\ô[ùö[HHKõZŸ\ú 
+N»\‹Ÿ]Àõ‹[äúõ‹€X\›\úÀ…Yúô»äKù\ŸH»[ú]Oàö[Kõ›]]›ôX[J
+Kù\ŸH»[ú]ò€‹U ]
+HHHBà⁄X⁄ ö[Kö\—ö[H	âàö[Kõ[ô›
+
+Oå
+H»∏.a8.(x.b8.'∏.&∏.(8.,∏.'à	YàBàY»ö[BàHKôŸ]‹ë[ŸH»õ›XŸJ]õY\‹ÿYŸHŒà∏.`8.&¯.-8.%PT’Tà8.+x..8.&¯. x.(¯.$¯.c8.a8.(x.b8.a8.%8.bHäN»ô]\õêŸ]‹⁄]]ôPù]€àBàYà
+ôYúÀò€€ùZ[ú õ‹ôYô\ô[òŸJH⁄‹Ÿ[àOHÿ]ôY
+HôYúÀôY]
+
+Kú]›ö[ô‘Ÿ]
+õ‹ôYô\ô[òŸK⁄‹Ÿ[ãù‘Ÿ]
+
+JKò\J
+Bàò[õ‹Xô[œ\õ‹ôYúÀò\‹€ÿ⁄X]H»
+Y HOàY»õ‹ò[Y\÷⁄Yú›Xú›ö[ô K Kù“[ù
+
+KLWHBàò[€›ô\ì›€ô\úœZYä\⁄ÀöYò€€ùZ[ú ó–”’ëTó»äJH\⁄ÀúôYô\ô[òŸ\ÀõX\õ›ù[»\ú€€àOà⁄\òX›\îõ‹
+\ú€€ãõ‹›ö[ô õX\›\àäJKùZŸRYà»]ö\”õ›õ[ö 
+H	âà][à⁄‹Ÿ[àOÀõ]»â‹\ú€€ãõ‹›ö[ô õò[YHä_H\»\‹€ÿ⁄X]Y⁄]	]»⁄›»]€õHYà\õ‹öX]H»\»€›ô\ãààHKöõ⁄[ï‘›ö[ô óàäH[ŸHàÇàò[›€ô\úœJ[ù[
+]]€X]XœÀõ[ô›
+
+HŒà
+JKõX\õ›ù[»]]€X]XœÀõ‹î””ìÿöôX›
+]
+HKôö[\à»]õ‹›ö[ô úõ‹⁄YäH[à⁄‹Ÿ[àKöõ⁄[ï‘›ö[ô óàäH»â⁄]õ‹›ö[ô ö€\àäKöYêõ[ö»»í€\à[ú‹X⁄YöYYà_H\»\‹€ÿ⁄X]Y⁄]	⁄]õ‹›ö[ô úõ‹⁄Yä_H[à\»ÿŸ[ôKà›\ùYúò[YHõ‹›]Nà	⁄]õ‹›ö[ô ú›\ù‹õ‹‹›]HäKöYêõ[ö»»ù[ú‹X⁄YöYY»õ€›»H›‹ûK»õ›\‹›[YH]\»[à_Kàõ€›»H›\ù›]H[ôX›[€ãààBàò[õ‹[ú›ùX›[€èZYäõ‹ôYúÀö\—[\J
+JHàà[ŸHóóîì‘PT’TàëQëTëSê—TŒàXX⁄Ÿ[X›Y[XYŸH⁄›‹»][\HöY]‹»Ÿà”ëHÿöôX›àX]⁄XX⁄ò[YYÿöôX›»]»›€à]X⁄YPT’Tãàô\Ÿ\ùôH]»\›[ò›]ôH⁄[›Y]Kõ‹‹ù[€úÀX]\öX[À€€‹úÀX\ö⁄[ô‹ÀŸ[\À›X\ô[ô[ôHX‹õ‹‹»ÿŸ[ô\Àà»õ›[ùô[ùHô\XŸ[Y[ù‹àZ^Yôô\ô[ùÿöôX›Àà\X›€õHHŸ[X›Yõ‹»\õ‹öX]H»\»ÿŸ[ôN»õ€›»H[õôYX›[€à[ôXŸ[Y[ùàõ€›»Hõ›öYY[XYŸH‹ô\à[ôŸ[ô\ò]H\ôX›Kà⁄[Z[\ö]H\»H\ôŸ][ôÿ[õõ›ôH›X\ò[ùYYóàä‹õ‹Xô[Àô[ùöY\Àöõ⁄[ï‘›ö[ô óàäH»â⁄]ùò[Y_HPT’TàQà	⁄]öŸ^_HàBàò[^ò\œ\ôYô\ô[òŸ\Àôõ‹
+\⁄ÀúôYô\ô[òŸ\Àú⁄^ôJKôö[\à»^òP⁄X⁄‹¸Ôùv∂âûÀk∫wµÁx.(¯. x.b8.+x.&HàBàYä⁄[õô[ÿ][ŸÀò[ÿ]Y€‹öY\÷⁄[ô^KöYOHû[›[ôŸ\ó€X[ó€€\ó›€€X[àäH¬àò[ÿ[ôY]\œJ[ù[ÿ][ŸÀõ[ô›
+
+JKõX\»ÿ][ŸÀôŸ]î””ìÿöôX›
+]
+HBàò[Y[èXÿ[ôY]\Àôö[\à»]]–ÿ\›òY[õ€X[òŸQ[Y⁄XõJ]
+H	âà]õ‹›ö[ô ò⁄\òX›\óŸŸ[ô\àäOOHõX[àà	âà]õ‹[ù
+ò⁄\òX›\óÿYŸHäH[àçKãåÃBàò[€€Y[èXÿ[ôY]\Àôö[\à»]]–ÿ\›òY[õ€X[òŸQ[Y⁄XõJ]
+H	âà]õ‹›ö[ô ò⁄\òX›\óŸŸ[ô\àäOOHù€€X[àà	âà]õ‹[ù
+ò⁄\òX›\óÿYŸHäH[àKãçMHBàô\]Z\ôJY[ãò[ûH»X[àOà€€Y[ãò[ûH»€€X[àOà€€X[ãõ‹[ù
+ò⁄\òX›\óÿYŸHäK[X[ãõ‹[ù
+ò⁄\òX›\óÿYŸHäOèLMHHJH¬à∏.*¯.(x.)¯.%8.&x.-x.bx.%x.bx.+x.!¯.(x.-x.'8..x.bx."∏.,∏.(∏.+x.,∏.(∏..çx†$ÃÃ8.`x.)x.,8.'8..x.bx.*¯.#x.-8.!¯.+x.,∏.(∏..x†$ÕMH8.*¯.b8.,∏.!¯. x.,x.&x.+x.(∏.b8.,∏.!¯.&x.bx.+x.(àMH8.&¯.-H8.`¯.&x.!8.)x.,x.!»PT’Tà8†(à8.'∏.&∏."∏.,∏.(à	€Y[ãú⁄^ô_H8.!8.&H8.*¯.#x.-8.!»	›€€Y[ãú⁄^ô_H8.!8.&H8. x.(¯..8.$¯.,∏.%x.(¯.)¯."8. ∏.bx.+x.(x..x.)x.`¯.&x.!8.)x.,x.!¯.*¯.(¯.-¯.+x.`8.)x.-¯.+x. x.`x.&x.)¯.%¯.,x.b8.)¯.a8.&»ÇàBàBàYä⁄[õô[ÿ][ŸÀò[ÿ]Y€‹öY\÷⁄[ô^KöYOHõ€\ó€X[óﬁ[›[ôŸ\ó›€€X[àäH¬àò[ÿ[ôY]\œJ[ù[ÿ][ŸÀõ[ô›
+
+JKõX\»ÿ][ŸÀôŸ]î””ìÿöôX›
+]
+HBàò[Y[èXÿ[ôY]\Àôö[\à»]]–ÿ\›òY[õ€X[òŸQ[Y⁄XõJ]
+H	âà]õ‹›ö[ô ò⁄\òX›\óŸŸ[ô\àäOOHõX[àà	âà]õ‹[ù
+ò⁄\òX›\óÿYŸHäH[àKãçåBàò[€€Y[èXÿ[ôY]\Àôö[\à»]]–ÿ\›òY[õ€X[òŸQ[Y⁄XõJ]
+H	âà]õ‹›ö[ô ò⁄\òX›\óŸŸ[ô\àäOOHù€€X[àà	âà]õ‹[ù
+ò⁄\òX›\óÿYŸHäH[àçKãåÕHBàô\]Z\ôJY[ãò[ûH»X[àOà€€Y[ãò[ûH»€€X[àOàX[ãõ‹[ù
+ò⁄\òX›\óÿYŸHäK]€€X[ãõ‹[ù
+ò⁄\òX›\óÿYŸHäOèLMHHJH¬à∏.`x.&x.)¯.&x.-x.bx.%x.bx.+x.!¯.(x.-HPT’Tà8.'8..x.bx."∏.,∏.(∏.+x.,∏.(∏..x†$Õå8.&¯.-H8.`x.)x.,8.'8..x.bx.*¯.#x.-8.!¯.+x.,∏.(∏..çx†$ÃÕH8.&¯.-H8.`∏.%8.(∏.'8..x.bx."∏.,∏.(∏.+x.,∏.(∏..8.(x.,∏. x. x.)¯.b8.,∏.+x.(∏.b8.,∏.!¯.&x.bx.+x.(àMH8.&¯.-H8. x.(¯..8.$¯.,∏.%x.(¯.)¯."8.!8.)x.,x.!¯.%x.,x.)¯.)x.,8.!8.(»ÇàBàBàò[õ€\èQö[Jò\ŸKURQúò[ô€UURQ
+
+Kù‘›ö[ô 
+JKò\H»ZŸ\ú 
+HBàõ‹äà[à[ù[ÿ][ŸÀõ[ô›
+
+JH¬àò[õ›œXÿ][ŸÀôŸ]î””ìÿöôX›
+äN»ò[\ôŸ]Qö[Jõ€\ãõX\›\óÿÿ[ôY]\À»ä‹õ›ÀôŸ]›ö[ô ôö[HäJN»\ôŸ]ú\ô[ùö[HHKõZŸ\ú 
+Bàò[‹öY⁄[ò[Xÿ\›[ô‘€›\òŸJõ› N»ô\]Z\ôJ‹öY⁄[ò[ö\—ö[H	âàX\›\ìXúò\ûKôYŸ\›
+‹öY⁄[ò[úôXYû]\ 
+JOO\õ›ÀôŸ]›ö[ô ú⁄LçMàäJH»∏.(8.,∏.'àPT’Tà8. ∏.+x.!»	‹õ›Àõ‹›ö[ô ô\‹^W€ò[YHä_H8.*∏..x.#x.*¯.,∏.(∏.*¯.(¯.-¯.+x.`8.&¯.)x.-x.b8.(∏.&x.a8.&»àBàò[›]ö][XYŸOZYäõ›ÀôŸ]›ö[ô öYäOO\ô\Ÿ[ù\íY	âàô\Ÿ[ù\ì›]ö]úŸ[X›Y][T‹⁄][€èå
+Hô\Ÿ[ù\ì›]ö]ö[Jô\Ÿ[ù\íYô\Ÿ[ù\ì›]ö]úŸ[X›Y][T‹⁄][€äH[ŸHù[àXTôYô\ô[òŸT€XﬁKòÿ\\ôJ‹öY⁄[ò[›]ö][XYŸK\ôŸ]ö[Jõ€\ãúô\Ÿ[ù\ó€›]ö]‹ôYô\ô[òŸKö[XYŸHäJBàBàò[€›[ùZYäõ‹õX]OHú⁄‹ùäHH[ŸH⁄[ä\\€Ÿ\ÀúŸ[X›Y][T‹⁄][€äH»OàN»HOà»[ŸHOà\\€Ÿ\ÀúŸ[X›Y][T‹⁄][€äÃHBàò[ô]öY]ŸYõ‹ôX€‹ôœRî””ê\úò^J
+Kò\H»Ÿ[X›Yõ‹Àôõ‹ëXX⁄»
+Y›€ô\äHOÇàò[è\õ‹ÿ][ŸÀö[ôXŸ\Àôö\ú›»õ‹Y
+]
+OOZYBà]
+î””ìÿöôX›
+
+Kú]
+úõ‹⁄YãY
+Kú]
+õò[YHãõ‹ÿ][Ÿ÷€óJKú]
+õ›€ô\ó€Xúò\ûW⁄Yã›€ô\äJBàHBàŸ[Z[öT›‹ûQö[\Àù‹ö]Jö[Jõ€\ãôŸ[Z[öW⁄õÿã‹‹XÀöú€€àäK›‹ûTõ›öY\ãò€€ôöY›\ôJ\À€\[ãò\Jî””ìÿöôX›
+
+Kõ‹õX]ŸX€€ô Kú]
+òÿ]Y€‹ûHãÿ]Y€‹öY\÷⁄[ô^JKú]
+ò⁄[õô[ã⁄‹Ÿ[ê⁄[õô[
+Kú]
+úô\Ÿ[ù\ó€Xúò\ûW⁄Yãô\Ÿ[ù\íY
+Bàú]
+úŸX€€ô\ûWŸŸ[úôHãYäôYY—òX› Hàà[ŸHZ^YŸ[úôRY÷€Z^YŸ[úôKúŸ[X›Y][T‹⁄][€óJKú]
+úXWŸòXŸW€ÿ⁄»ã⁄‹Ÿ[ê⁄[õô[OH∏.&x.,∏.(∏.`8.&¯.-x.(à8.&∏.bx.,∏.&x.!8.)x.+x.!¯. ∏..8.%à	âàXQòXŸSÿ⁄Àö\–⁄X⁄ŸY
+Kú]
+úô\]Z\ôYÿÿ\›⁄Y»ãî””ê\úò^JŸ[X›YX›‹úÀù”\›
+
+JJKú]
+úŸ[X›Y‹õ‹€X\›\ú»ãô]öY]ŸYõ‹ôX€‹ô Kú]
+úô\Ÿ[ù\ó€›]ö]ãYä⁄‹Ÿ[ê⁄[õô[OH∏.&x.,∏.(∏.`8.&¯.-x.(à8.&∏.bx.,∏.&x.!8.)x.+x.!¯. ∏..8.%à	âàô\Ÿ[ù\ì›]ö]úŸ[X›Y][T‹⁄][€èå
+Hô\Ÿ[ù\ì›]ö]÷‹ô\Ÿ[ù\ì›]ö]úŸ[X›Y][T‹⁄][€óH[ŸHàäKú]
+ò€€ù[ù‹õŸö[HãYä]]—\ôX›‹äH]]—\ôX›‹ê€€ù[ùúõŸö[H[ŸHàäKú]
+ò]]Ÿ\ôX›‹ó›ô\ú⁄[€àãYä]]—\ôX›‹äH]]—\ôX›‹ê€€ù[ùùô\ú⁄[€à[ŸH
+Kú]
+ú\ôõ‹õX[òŸW›ô\ú⁄[€àãJKú]
+ò]Y[◊›ô\ú⁄[€àãJKú]
+ò€€[X[ô›ô\ú⁄[€àãJKú]
+õ›][ôW‹ô]öY]◊‹ô\]Z\ôYãò[ŸJKú]
+ò‹ôX]]ôW‹ŸYYãURQúò[ô€UURQ
+
+Kù‘›ö[ô 
+JKú]
+ò]]◊ÿÿ\›ãùYJKú]
+òÿ\›[ô◊›ô\ú⁄[€àã Kú]
+úôXŸ[ùÿÿ\›»ã]]–ÿ\›úôXŸ[ùÿ\› ò\ŸKõ€\äJKú]
+õX\›\óÿÿ][Ÿ»ãÿ][Ÿ Kú]
+ú›\‹ù[ô◊ÿ⁄\òX›\ú»ãî””ê\úò^J
+JKú]
+õXY‹ôYô\ô[òŸ\»ãî””ìÿöôX›
+
+JKú]
+ú›‹ûW‹⁄]X][€àãŸ[X›Y›‹ûU‹X Kú]
+úô[Z\ŸHã›‹ûTô[Z\ŸJKú]
+ô\\€Ÿ\»ã€›[ù
+JJBàôYúÀôY]
+
+Kú]›ö[ô úõ⁄ôX›ãõ€\ãõò[YJKò\J
+N»‹ôX]QX[ŸÀô\€Z\‹ 
+N»ô[ô\ä
+N»›\ùŸ[Z[öRõÿäõ€\äBàKõ€ëòZ[\ôH»õ›XŸJ]õY\‹ÿYŸHŒà∏.`8.(¯.-8.b8.(x.!¯.,∏.&x.a8.(x.b8.a8.%8.bHäHBàBàBàBà⁄€‹ŸT›‹ûP⁄[õô[»⁄[õô[Oà⁄‹Ÿ[ê⁄[õô[X⁄[õô[»⁄€‹ŸP⁄[õô[‹X ⁄[õô[€€ôöY›\ôJHBàBàö]ò]Hù[àõ›‘[õö[ô‘⁄\ôJ
+H¬à⁄€‹ŸT›‹ûP⁄[õô[»⁄[õô[OÇàYä⁄[õô[OH∏.&x.,∏.(∏.`8.&¯.-x.(à8.&∏.bx.,∏.&x.!8.)x.+x.!¯. ∏..8.%äH»õ›XŸJ∏."∏.b8.+x.!¯.&x.-x.bx.%x.bx.+x.!¯.`8.)x.-¯.+x. HPT’Tà8.'8..x.bx.%8.,¯.`8.&x.-8.&x.`8.(¯.-¯.b8.+x.!¯.'8.b8.,∏.&x.`8.(x.&x..x.*∏.(¯.bx.,∏.!¯.&∏.%¯.`¯.&x.`x.+x.&»äN»ô]\õê⁄€‹ŸT›‹ûP⁄[õô[Bà⁄€‹ŸP⁄[õô[‹X ⁄[õô[
+H»[ô^OÇà⁄€‹ŸP€\»õ‹õX]ŸX€€ô»OÇàò[ô[Z\ŸOQY]^
+\ Kò\H»[ùH∏.`x.&x.)¯.!8.-8.%8.`8.(¯.-¯.b8.+x.!»
+8.`8.)¯.bx.&x.)¯.b8.,∏.!¯.`¯.*¯.bx.!8.-8.%8.`¯.*¯.(x.b
+HàBàù[àô\\ôJ
+Nà›ö[ô»¬àò[€ŸOQõ›‘õŸX›[€îX⁄ÀõX\›\ê€€[X[ô
+ÿ]Y€‹öY\÷⁄[ô^K⁄[õô[
+J»óàä–⁄[õô[ÿ][ŸÀô\ôX›[€äÿ]Y€‹öY\÷⁄[ô^JJ»óàä Yäõ‹õX]OHú⁄‹ùäH⁄[õô[ÿ][ŸÀú⁄‹ù\ôX›[€äÿ]Y€‹öY\÷⁄[ô^K€\[ãúÿŸ[ô\ ŸX€€ô JH[ŸH⁄[õô[ÿ][ŸÀõ€ô—\ôX›[€äJ»óàä–⁄[õô[ÿ][ŸÀú›‹ûP€€ú⁄\›[òﬁJ»óïT—TàTêUS”à’ëTîíQNà	⁄Yäõ‹õX]OHú⁄‹ùäHì€ôH›[ô[€ôH\\€ŸH€õN»ôY⁄[õö[ôÀZYH[ô[ô[ô»⁄][à\»€ôH€\àà[ŸHàüI–€\[ãúÿŸ[ô\ ŸX€€ô _HÿŸ[ô\»\àTŸX€€ô»XX⁄	–€\[ãù[YJ€\[ãúÿŸ[ô\ ŸX€€ô Jé
+_H€€ù[ù\àTà›\\úŸY\»Yò][çÿŸ[ô\»[ôN\ŸX€€ôZ[ö[][HXõ›ôKàŸ]€\‹[ó›ô\ú⁄[€èLK€\Ÿõ‹õX]Iõ‹õX]\ôŸ]‹ŸX€€ôœIŸX€€ôÀÿŸ[ô\◊‹\óŸ\\€ŸOI–€\[ãúÿŸ[ô\ ŸX€€ô _H[à›‹ûKöú€€ãó∏.`x.&x.)¯.(∏.b8.+x.(éàä‹Ÿ[X›Y›‹ûU‹X »ó∏.`x.&x.)¯.!8.-8.%àä‹ô[Z\ŸKù^ù‘›ö[ô 
+KöYêõ[ö»»∏.!8.-8.%8.`8.(¯.-¯.b8.+x.!¯.`¯.*¯.(x.b8.+x.,x.%x.`∏.&x.(x.,x.%x.-àBàö[Jõ⁄ôX›ôõ›◊‹›‹ûWÿ€€[X[ôùäKù‹ö]U^
+€ŸJBàô[ô\ä
+Bàô]\õà€ŸBàBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.*∏.b8.!¯. ∏.bx.+x.(x..x.)x.`¯.*¯.bHRH8.)¯.,∏.!¯.&∏.%»äBàúŸ]Y\‹ÿYŸJ∏.`x.+x.&¯.`x.&x.&∏.!8.,¯.*∏.,x.b8.!¯.`x.)x.,PT’Tà»8.(8.,∏.'∏.`¯.*¯.bx.`8.+x.!»8.`8.)x.-¯.+x. x.`x.+x.&»RH8.%¯.-x.b8.(¯.,x.&∏.a8.'¯.)x.c8.`x.)x.bx.)¯.%x.(¯.)¯."8.a8.'¯.)x.c8.`x.&x.&∏.`x.)x.,8. x.%8.*∏.b8.!¯.`¯.&x.`x.+x.&¯.&x.,x.bx.&H8.'8.)x.)x.,x.'∏.&8.c8.%¯.-x.b8.%x.bx.+x.!¯.(¯.,x.&∏. x.)x.,x.&éà›‹ûKöú€€à»íT8.&∏.%»8.`8.'∏.-¯.b8.+x.&x.,¯.`8. ∏.bx.,∏. ∏.,x.bx.&x.%x.+x.&Hà8†(à8.(∏.,x.!¯.a8.(x.b8.`¯."∏.b8. x.,∏.(¯.`8.(¯.-x.(∏. HTH8.+x.,x.%x.`∏.&x.(x.,x.%x.-äBàúŸ]öY] ô[Z\ŸJKúŸ]‹⁄]]ôPù]€ä∏.*∏.b8.!¯.!8.,¯.*∏.,x.b8.!»
+»PT’TàäH»À»OàŸ[ô›‹ûTX⁄ÿYŸJô\\ôJ
+JHBàúŸ]ô]]ò[ù]€ä∏.%8..x.!8.,¯.*∏.,x.b8.!¯. x.b8.+x.&HäH»À»Oà⁄›—õ›–€ŸJ∏.!8.,¯.*∏.,x.b8.!¯.)¯.,∏.!¯.&∏.%»ãô\\ôJ
+Këì’◊‘’‘ñW–””SPSëùäHBàúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàBàBàBàBàö]ò]Hù[àõ›’\›Y[ùJ
+H¬àò[YœQõ›‘õŸX›[€îX⁄Àõò[Y\ÀöŸ^\Àù”\›
+
+N»ò[⁄X⁄ŸYPõ€€X[ê\úò^JYÀú⁄^ôJBàò[‹öYS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]ïëTïP–S»Ÿ]Y[ô 
+LäK
+
+K
+LäK
+
+JHBàò\àõ›Œà[ôX\ì^[›]œ[ù[àYÀôõ‹ëXX⁄[ô^Y»KYOÇàYäILèOL
+H»õ›œS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]í‘íVì”ïSN»‹öYòYöY] õ› HBàò[ö[OQö[Jö[\—\ãò⁄\òX›\ó€X\›\úÀ…YõX\›\àäBàò[ÿ\ôS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]ïëTïP–S»Ÿ]Y[ô 
+
+K
+äK
+
+K
+äJN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ [ôX\ì^[›]ì^[›]\ò[\Àï‘êT–””ïSïYäHBàõ›œÀòYöY] ÿ\ô
+BàYäö[Kö\—ö[JHÿ\ôòYöY] [XYŸUöY] \ Kò\H»Ÿ][XYŸPö]X\
+ÿ\›[ô’[XõòZ[
+ö[JJN»Yù\›öY]–õ›[ôœ]ùYN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ LK
+M
+JN»€€ù[ù\ÿ‹ö\[€èQõ›‘õŸX›[€îX⁄Àõò[Y\ÀôŸ]ò[YJY
+N»Ÿ]€ê€X⁄”\›[ô\à»ù[[XYŸJö[Kõ›‘õŸX›[€îX⁄Àõò[Y\ÀôŸ]ò[YJY
+JHHJBàÿ\ôòYöY] [ôõ⁄Yù⁄YŸ]ê⁄X⁄–õﬁ
+\ Kò\H»^Qõ›‘õŸX›[€îX⁄Àõò[Y\ÀôŸ]ò[YJY
+J Yäö[Kö\—ö[JHàà[ŸHó∏.a8.(x.b8.'∏.&àPT’TàäN»\—[òXõYYö[Kö\—ö[N»Ÿ]€ê⁄X⁄ŸY⁄[ôŸS\›[ô\à»Àò[YHOà⁄X⁄ŸY⁄WO]ò[YHHJBàBàò[X[ŸœP[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.`8.)x.-¯.+x. x.%x.,x.)¯.)x.,8.!8.(¯.%¯.%8.*∏.+x.&∏.)¯.-8.%8.-x.`∏.+HäBàúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] ‹öY
+HJBàúŸ]‹⁄]]ôPù]€ä∏.%x.,x.bx.!¯.!8.b8.,∏."x.,∏. Hãù[
+KúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kò‹ôX]J
+BàX[ŸÀúŸ]€î⁄›”\›[ô\à»X[ŸÀôŸ]ù]€ä[\ùX[ŸÀêïU”ó‘‘“UUëJKúŸ]€ê€X⁄”\›[ô\à¬àò[Ÿ[X›YZYÀôö[\í[ô^Y»K»Oà⁄X⁄ŸY⁄WHBàYäŸ[X›Yö\—[\J
+JHÿ\›õXZŸU^
+\À∏.`8.)x.-¯.+x. x.+x.(∏.b8.,∏.!¯.&x.bx.+x.(àH8.!8.&Hãÿ\›ìSë’‘“‘ï
+Kú⁄› 
+Bà[ŸH»X[ŸÀô\€Z\‹ 
+N»õ›’\›Ÿ]\
+Ÿ[X›Y
+HBàHN»X[ŸÀú⁄› 
+BàBàö]ò]Hù[àõ›’\›Ÿ]\
+YŒà\››ö[ôœäH¬àò[[ô[S[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èLN»Ÿ]Y[ô 
+MäK
+
+K
+MäK
+
+JHBà[ô[òYöY] ^öY] \ Kò\H»^H∏.`x.&x.&∏.(8.,∏.'∏.%x.,x.)¯.)x.,8.!8.(¯.%¯.-x.b8.`8.)x.-¯.+x. x.%x.,∏.(x.(¯.*¯.,x.*∏.+x.bx.,∏.!¯.+x.-8.!¯.%8.bx.,∏.&x.&∏.&x.!8.,¯.*∏.,x.b8.!»8.a8.(x.b8.%x.bx.+x.!¯.`8.&¯.)x.-x.b8.(∏.&x."∏.-¯.b8.+x.a8.'¯.)x.c8.*¯.(¯.-¯.+x. x.(¯.+x. x.&x.,∏.(x.*∏. x..8.)HàJBàò[X›]ö]OT‹[õô\ä\ Kò\H»Y\\èP\úò^PY\\ä\–›Y[–X›]ö]K[ôõ⁄Yîãõ^[›]ú⁄[\W‹‹[õô\óŸõ‹›€ó⁄][K\›Ÿä∏.)x.,¯.)x.+x.!»»8.+x.(∏..x.b8.&∏.bx.,∏.&Hã∏.&¯.(¯.,8."∏..8.(H»8.%¯.,¯.!¯.,∏.&Hã∏."∏..8.%8.&x.+x.&HäJHBà[ô[òYöY] X›]ö]JBàò[ÿÿ][€èQY]^
+\ Kò\H»[ùH∏.*∏.%∏.,∏.&x.%¯.-x.b8.`x.)x.,8.`8.)¯.)x.,àé»Ÿ]^
+∏.*¯.bx.+x.!¯.&x.,x.b8.!¯.`8.)x.b8.&x.%x.+x.&x.&∏.b8.,∏.(à8.`x.*∏.!¯.&8.(¯.(¯.(x."∏.,∏.%x.-äN»[ô[òYöY] \ HBàò[X›[€èQY]^
+\ Kò\H»[ùH∏.%¯.b8.,∏.%¯.,∏.!»»8. x.,∏.(¯. x.(¯.,8.%¯.,»é»Ÿ]^
+∏.(∏.-¯.&x. ∏.bx.,∏.!¯.`∏.%x.b∏.,8.%∏.-¯.+x.`x. x.bx.)¯.&x.bx.,¯.+x.(∏.b8.,∏.!¯.'8.b8.+x.&x.!8.)x.,∏.(àäN»[ô[òYöY] \ HBàò[›]ö]QY]^
+\ Kò\H»[ùH∏."∏..8.%8.%¯.-x.b8.%x.bx.+x.!¯. x.,∏.(»
+8.)¯.b8.,∏.!»H8.`8.)x.-¯.+x. x.%x.,∏.(x. x.-8."8. x.(¯.(¯.(JHé»[ô[òYöY] \ HBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.%¯.%8.*∏.+x.&∏.*∏.(¯.bx.,∏.!¯.)¯.-8.%8.-x.`∏.+H8†(à	⁄YÀöõ⁄[ï‘›ö[ô»»õ›‘õŸX›[€îX⁄Àõò[Y\ÀôŸ]ò[YJ]
+H_HäBàúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] [ô[
+HJKúŸ]‹⁄]]ôPù]€ä∏.*∏.(¯.bx.,∏.!¯.!8.,¯.*∏.,x.b8.!»äH»À»OÇàò[ö[\œZYÀò\‹€ÿ⁄X]U⁄]»YOàö[Jö[\—\ãò⁄\òX›\ó€X\›\úÀ…YõX\›\àäHBàù[êÿ]⁄[ô»¬àô\]Z\ôJö[\Àùò[Y\Àò[»]ö\—ö[H	âà]õ[ô›
+
+OåJH»∏. ∏.,∏.%8.(8.,∏.'àPT’Tà8. ∏.+x.!¯.%x.,x.)¯.)x.,8.!8.(¯.%¯.-x.b8.`8.)x.-¯.+x. HàBàõ›’\›õ€\òùZ[
+YÀ\›Ÿäö€YHãõYY][ô»ãú€Y\äVÿX›]ö]KúŸ[X›Y][T‹⁄][€óKÿÿ][€ãù^ù‘›ö[ô 
+KX›[€ãù^ù‘›ö[ô 
+K›]ö]ù^ù‘›ö[ô 
+JHBàõ€î›XÿŸ\‹»»€ŸHOÇà⁄›—õ›–€ŸJ∏.!8.,¯.*∏.,x.b8.!¯.%¯.%8.*∏.+x.&∏.*∏.(¯.bx.,∏.!¯.)¯.-8.%8.-x.`∏.+H8†(à8.`x.&x.&àPT’Tà8.%¯.-x.b8.`8.)x.-¯.+x. Hã€ŸKëì’◊’íQS◊’T’…⁄YÀöõ⁄[ï‘›ö[ô ó»ä_KùäBàBàõ€ëòZ[\ôH»õ›XŸJ]õY\‹ÿYŸHŒà∏.%x.(¯.)¯."8. ∏.bx.+x.(x..x.)x.%¯.%8.*∏.+x.&àäHBàKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàBàö]ò]Hù[àõ›‘ÿŸ[ôSY[ùJŒàî””ìÿöôX›
+H¬àYä[èÀõ‹›ö[ô ò\‹X›‹ò][»ãåMééHäHOHéNåMàäH»[ôÿÿ\P€‹SY[ùJ
+N»ô]\õàBà⁄⁄XŸSY[ùJâ⁄Ÿ^J _H8†(à	⁄YäÿŸ[ôQúò[YP\õ›ôY
+ JH∏.(8.,∏.'∏.'8.b8.,∏.&x.`x.)x.bx.)»à[ŸH∏.(¯.+x.%x.(¯.)¯."8.(8.,∏.'àüHã\›ŸäåKà8.*∏.(¯.bx.,∏.!¯.(8.,∏.'∏."x.,∏. x."8.,∏. HPT’TàãåÀà8.*∏.(¯.bx.,∏.!¯.)¯.-8.%8.-x.`∏.+x."8.,∏. x.(8.,∏.'∏.%¯.-x.b8.'8.b8.,∏.&Hã∏.`x. x.bx.&∏.%»»8."∏..8.%»8.*∏.%∏.,∏.&x.%¯.-x.bã∏.&x.,¯.`8. ∏.bx.,∏.(8.,∏.'∏."8.,∏. HŸ[Z[öH»õ›»ã∏.&x.,¯.`8. ∏.bx.,∏.!8.)x.-8.&»Tãåãà8.`8.%¯.-x.(∏.&àPT’Tà»8.(∏.-¯.&x.(∏.,x.&x.(8.,∏.'àã∏.%8..x.!8.)x.-8.&»ã∏.`8.)¯.+x.(¯.c8."∏.,x.&x.a8.'¯.)x.cã∏.`8.*∏.&x.+x. ∏.(∏.,∏.(∏.&∏.%¯.*∏.,x.bx.&H8†(à8.%x.(¯.)¯."8.(∏.-¯.&x.(∏.,x.&x. x.b8.+x.&x.&∏.,x.&x.%¯.-∏. HäJH»HOà⁄[äJH¬àOàYä[èÀõ‹›ö[ô ò€€ù[ù‹õŸö[HäOOP]]—\ôX›‹ê€€ù[ùúõŸö[JH¬àò[\‹›Y\œP]]—\ôX›‹ïÿ\ôõÿôKö\‹›Y\ ]]—\ôX›‹ïÿ\ôõÿôKú⁄› [àHJJBàYä\‹›Y\Àö\”õ›[\J
+JHõ›XŸJ\‹›Y\ÀùZŸJLäKöõ⁄[ï‘›ö[ô óàäJH[ŸH⁄›—õ›–€ŸJíSPQ—Hì”T8†(àŸ[Z[öHã]]—\ôX›‹ê€€ù[ùúÿŸ[ôR[XYŸJ[àHK KêQ…⁄Ÿ^J _W“SPQ—W——SRSíKùäBàBà[ŸH⁄›—õ›–€ŸJíSPQ—Hì”Tãõ›‘ôYô\ô[òŸTõ€\úÿŸ[ôJÀÀõ‹[ù
+ô\ãJKö[XYŸHäKâ⁄Ÿ^J _W“SPQ—KùäBàHOàô]öY]ŸYöY[–€€[X[ô
+ BààOàY]ÿŸ[ôJ Bà»Oà»YYXT€›ZŸ^J N»YYXR⁄[ôHö[XYŸHé»YYXTõ⁄ôX›\õ⁄ôX›õò[YN»ÿŸ[ôSYYXTX⁄Ÿ\ãõ][ò⁄
+\úò^SŸäö[XYŸK àäJHBàOà»YYXT€›ZŸ^J N»YYXR⁄[ôHùöY[»é»YYXTõ⁄ôX›\õ⁄ôX›õò[YN»ÿŸ[ôSYYXTX⁄Ÿ\ãõ][ò⁄
+\úò^SŸäùöY[À€\äJHBàHOà€€\\ôTÿŸ[ôJ BààOà^UöY[  Bà»Oàô\ú⁄[€ú”Y[ùJ BàOà›YŸŸ\›€ôŸ\î‹YX⁄
+ BàHBàBÇàö]ò]Hù[à›YŸŸ\›€ôŸ\î‹YX⁄
+ÿŸ[ôNàî””ìÿöôX›
+H¬àYäõŸX›[€ê€€[X[ô⁄X⁄ÀôX[Ÿ›YU\õú ÿŸ[ôJKö\”õ›[\J
+JHô]\õàõ›XŸJ∏. ∏.$¯.,8.&x.-x.bx.`¯.*¯.bx.`x. x.bx.&∏.%¯.*¯.)x.,∏.(∏.!8.&x.`¯.&x.`8.(x.&x..x.`x. x.bx.&∏.%¯.%¯.-x.)x.,8."∏.b8.)¯.!¯. x.b8.+x.&HäBàò[öY[ZYäÿŸ[ôKõ‹›ö[ô ôX[Ÿ›YHäKùö[J
+Kõ]»]ö\”õ›õ[ö 
+H	âà]Z[à\›Ÿä∏.a8.(x.b8.(x.-Hãõõ€ôHäHJHôX[Ÿ›YHà[ŸHõò\úò][€àÇàò[‹öY⁄[ò[\ÿŸ[ôKõ‹›ö[ô öY[
+Kùö[J
+BàYä‹öY⁄[ò[ö\–õ[ö 
+H‹öY⁄[ò[[à\›Ÿä∏.a8.(x.b8.(x.-Hãõõ€ôHã∏.a8.(x.b8.(x.-x.`8.*∏.-x.(∏.!¯.&∏.(¯.(¯.(∏.,∏.(àäJHô]\õàõ›XŸJ∏."x.,∏. x.&x.-x.bx.a8.(x.b8.(x.-x.&∏.%¯.'∏..x.%8.*¯.(¯.-¯.+x.&∏.(¯.(¯.(∏.,∏.(∏.`¯.*¯.bx. ∏.(∏.,∏.(àäBàò[õ›öY\úœT›‹ûTõ›öY\ãô[Y⁄XõJ\ Kôö[\à»]ö\“Ÿ^J\ HBàYäõ›öY\úÀö\—[\J
+JHô]\õàõ›XŸJ∏.%x.,x.bx.!¯.!8.b8.,àTH8.`8. ∏.-x.(∏.&x.&∏.%¯. x.b8.+x.&x.`¯."∏.bx.(¯.,8.&∏.&∏.`8.*∏.&x.+x. ∏.(∏.,∏.(∏.&∏.%»äBàò[€ò\⁄›\ÿŸ[ôKù‘›ö[ô 
+Bàò[õ⁄ôX›Y\õ⁄ôX›õò[YBàò[ÿŸ[ôRYZŸ^JÿŸ[ôJBàò[ÿŸ[ôP€€ù^Rî””ìÿöôX›
+
+Kú]
+òX›[€àãÿŸ[ôKõ‹›ö[ô òX›[€àäJKú]
+ú‹XZŸ\àãÿŸ[ôKõ‹›ö[ô ú‹XZŸ\àäJKú]
+õÿÿ][€àãÿŸ[ôKõ‹›ö[ô õÿÿ][€àäJKú]
+ú‹YX⁄ã‹öY⁄[ò[
+Bàõ›XŸJ∏. x.,¯.)x.,x.!¯.`8.*∏.&x.+x. ∏.(∏.,∏.(∏.&∏.%»8†(à8.&∏.%¯.`8.%8.-8.(x.(∏.,x.!¯.a8.(x.b8.`8.&¯.)x.-x.b8.(∏.&HäBàôXY¬àò[ÿ⁄[XORî””ìÿöôX›
+
+Kú]
+ù\HãõÿöôX›äKú]
+úõ‹\ùY\»ãî””ìÿöôX›
+
+Kú]
+ù^ãî””ìÿöôX›
+
+Kú]
+ù\Hãú›ö[ô»äJJKú]
+úô\]Z\ôYãî””ê\úò^J
+Kú]
+ù^äJBàò[õ€\Hààî›YŸŸ\›Hò]\ò[ZH	⁄YäöY[OHôX[Ÿ›YHäHôX[Ÿ›YH[ôHà[ŸHõò\úò][€àüHõ‹à[àZY⁄\ŸX€€ôÿŸ[ôHò\ŸY€õH€àH›\YYÿŸ[ôKà^[ôH‹öY⁄[ò[€õH⁄\ôHHYX[ö[ô»[ô]ô[ù»›\‹ù]»»õ›YòX›À⁄\òX›\úÀ›]ô[ù»‹à›YŸH\ôX›[€úÀàŸY\]ò]\ò[H‹XZÿXõH⁄]›]ù\⁄[ôÀàô]\õàî””à⁄]H⁄[ô€H^öY[àH\Ÿ\à]\›ô]öY]»]ôYõ‹ôHÿ]ö[ôÀàÿŸ[ôNà	ÿŸ[ôP€€ù^ààÇàò\àô\›[à›ö[ôœœ[ù[àõ‹äõ›öY\à[àõ›öY\ú H¬àô\›[\ù[êÿ]⁄[ô»»›‹ûP€Y[ùòX›‹ûKò‹ôX]Jõ›öY\ãõ›öY\ãöŸ^J\ Kõ›öY\ãõ[Ÿ[
+\ K»ò[ŸHK]]€X]X‘ô]ûOYò[ŸK€€ù^]\–›Y[–X›]ö]JKôŸ[ô\ò]Jõ€\ÿ⁄[XJKõ‹›ö[ô ù^äKùö[J
+HKôŸ]‹ìù[
+
+OÀùZŸRYà»]ö\”õ›õ[ö 
+HBàYäô\›[O[ù[
+HúôXZ¬àBàò[õ‹‹ÿ[\ô\›[àù[ì€ïZUôXY¬àYä\—ö[ö\⁄[ô»\—\›õﬁYY
+Hô]\õêù[ì€ïZUôXYàYäõ‹‹ÿ[O[ù[
+H»õ›XŸJ∏.a8.(x.b8.*∏.,∏.(x.,∏.(¯.%∏. ∏.+x. ∏.bx.+x.`8.*∏.&x.+x.&∏.%¯.a8.%8.bH8. x.(¯..8.$¯.,∏.%x.(¯.)¯."TH8.`x.)x.bx.)¯.)x.+x.!¯.`¯.*¯.(x.bäN»ô]\õêù[ì€ïZUôXYBàYäõ⁄ôX›õò[YHO\õ⁄ôX›YÿŸ[ôKù‘›ö[ô 
+HO\€ò\⁄›[èÀõ]»›\úô[ùOàõ›‹ ›\úô[ù
+Kõõ€ôH»]OO\ÿŸ[ôHHHOHò[ŸJH»õ›XŸJ∏."¯.-x.&x.`8.&¯.)x.-x.b8.(∏.&x.(¯.,8.*¯.)¯.b8.,∏.!¯. ∏.+x. ∏.bx.+x.`8.*∏.&x.+H8. x.(¯..8.$¯.,∏.`8.&¯.-8.%8.`¯.*¯.(x.bäN»ô]\õêù[ì€ïZUôXYBàò[[ô[S[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èLN»Ÿ]Y[ô 
+MäK
+LäK
+MäK
+LäJHBà[ô[òYöY] ^öY] \ Kò\H»^H∏.&∏.%¯.`8.%8.-8.(Nóâ‹öY⁄[ò[ó∏.%x.(¯.)¯."8.!8.)¯.,∏.(x.*¯.(x.,∏.(à8.`8.*¯.%x..8. x.,∏.(¯.$¯.c8.`x.)x.,8.%¯.%8.)x.+x.!¯.+x.b8.,∏.&x.`¯.*¯.bx.`8.*¯.(x.,∏.,8. x.,x.&à8.)¯.-8.&x.,∏.%¯.-H8. x.b8.+x.&x.(∏.-¯.&x.(∏.,x.&HàJBàò[Y]QY]^
+\ Kò\H»Ÿ]^
+õ‹‹ÿ[
+N»Z[ì[ô\œLŒ»[ô[òYöY] \ HBàò[X[ŸœP[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.%x.(¯.)¯."8. ∏.bx.+x.`8.*∏.&x.+x.&∏.%»8†(à	ÿŸ[ôRYäKúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] [ô[
+HJKúŸ]‹⁄]]ôPù]€ä∏.(∏.-¯.&x.(∏.,x.&x.`x.)x.,8.&∏.,x.&x.%¯.-∏. Hãù[
+KúŸ]ôYÿ]]ôPù]€ä∏.`¯."∏.bx.&∏.%¯.`8.%8.-8.(Hãù[
+Kú⁄›—\ôX›‹ä
+BàX[ŸÀôŸ]ù]€äLJKúŸ]€ê€X⁄”\›[ô\à¬àò[ò[YOYY]ù^ù‘›ö[ô 
+Kùö[J
+BàYäò[YKö\–õ[ö 
+JH»õ›XŸJ∏. x.(¯..8.$¯.,∏.(¯.,8.&∏..8.&∏.%¯.*¯.(¯.-¯.+x.`8.)x.-¯.+x. x.`¯."∏.bx.&∏.%¯.`8.%8.-8.(HäN»ô]\õêŸ]€ê€X⁄”\›[ô\àBàYäõ⁄ôX›õò[YHO\õ⁄ôX›YÿŸ[ôKù‘›ö[ô 
+HO\€ò\⁄›[èÀõ]»›\úô[ùOàõ›‹ ›\úô[ù
+Kõõ€ôH»]OO\ÿŸ[ôHHHOHò[ŸJH»X[ŸÀô\€Z\‹ 
+N»õ›XŸJ∏."¯.-x.&x.`8.&¯.)x.-x.b8.(∏.&x.`x.)x.bx.)»8. x.(¯..8.$¯.,∏. ∏.+x. ∏.bx.+x.`8.*∏.&x.+x.`¯.*¯.(x.bäN»ô]\õêŸ]€ê€X⁄”\›[ô\àBàÿŸ[ôKú]
+öY[ò[YJN»ÿŸ[ôKú]
+ù\Ÿ\ó‹ô]öY]»ãõôYY◊‹ô]ö\⁄[€àäN»ÿŸ[ôKúô[[›ôJôõ›◊⁄[XYŸW‹ô]ö\⁄[€àäBàÿ]ôT›‹ûJ
+N»X[ŸÀô\€Z\‹ 
+N»ô[ô\ä
+N»õ›XŸJ∏.&∏.,x.&x.%¯.-∏. x.&∏.%¯.%¯.-x.b8.(∏.-¯.&x.(∏.,x.&x.`x.)x.bx.)»8†(à8.`∏.&¯.(¯.%8.%x.(¯.)¯."8.(8.,∏.'∏.`x.)x.,8.!8.,¯.*∏.,x.b8.!»õ›»8.+x.-x. x.!8.(¯.,x.bx.!»äBàBàBàKò\H»ò[YOHô\ôX›‹ãYX[Ÿ›YK\›YŸŸ\›[€àé»›\ù
+
+HBàBÇàö]ò]Hù[à[õö[ô 
+H¬àò[[ô[H[ôX\ì^[›]
+\ Kò\H¬à‹öY[ù][€àH[ôX\ì^[›]ïëTïP–SàŸ]Y[ô 
+N
+K
+N
+K
+N
+K
+L
+JBàòX⁄Ÿ‹õ›[ôHòX⁄Ÿõ‹
+ò]ûK€€‹ãúôÿäçÀçM JBàBà[ô[òYöY] ^öY] \ Kò\H¬à^Hº'„´8.`8.)x.-¯.+x. x."∏.b8.+x.!¯.*∏.(¯.bx.,∏.!¯.*¯.&x.,x.!»é»^⁄^ôHHåÇàŸ]^€€‹ä€€
+N»Ÿ]\YòXŸJù[\YòXŸKêì”
+Bà‹ò]ö]HH‹ò]ö]Kê—SïTé»Ÿ]Y[ô 
+M
+JBàJBàò[X[Ÿ»H[\ùX[ŸÀêùZ[\ä\ KúŸ]X€€äãôò]ÿXõKú›Y[◊€[›öYJKúŸ]öY] [ô[
+Kò‹ôX]J
+Bàù[à‹[€äXZ[ê⁄[õô[àõ€€X[ã]Nà›ö[ôÀ€€‹úŒà[ù\úò^KX›[€éà
+
+HOà[ö]
+H¬àò[ÿ\ôH[ôX\ì^[›]
+\ Kò\H¬à‹öY[ù][€àH[ôX\ì^[›]ïëTïP–SàòX⁄Ÿ‹õ›[ôHòX⁄Ÿõ‹
+€€‹ú÷ÃK€€‹ú÷ÃWK€€‹ãò\ôÿäMLçMKçMKçMJJBà€\”›][ôHHùYN»[]ò][€àH
+JKù—õÿ]
+
+Bà^[›]\ò[\»H[ôX\ì^[›]ì^[›]\ò[\ LKLäKò\H»õ›€SX\ô⁄[àH
+M
+HBà\–€X⁄ÿXõHHùYN»\—õÿ›\ÿXõHHùYBà€€ù[ù\ÿ‹ö\[€àH]Kúô\XŸJóàãàäBàŸ]€ê€X⁄”\›[ô\à»X[ŸÀô\€Z\‹ 
+N»X›[€ä
+HBàBàÿ\ôòYöY] [XYŸUöY] \ Kò\H¬àŸ][XYŸTô\€›\òŸJãôò]ÿXõKú›Y[◊€[›öYJBàYù\›öY]–õ›[ô»HùYBàÿÿ[U\HH[XYŸUöY]Àîÿÿ[U\KëíU–—SïTÇà^[›]\ò[\»H[ôX\ì^[›]ì^[›]\ò[\ LKLäBà€€ù[ù\ÿ‹ö\[€àH∏.*∏.%x..x.%8.-8.`∏.+H8†(à8.`8.'∏.-8.b8.(x.%x.,x.)¯.)x.,8.!8.(¯.`¯.*¯.(x.b8. ∏.+x.!¯.!8..8.$»ÇàJBàÿ\ôòYöY] ^öY] \ Kò\H¬à^H]N»^⁄^ôHHNé»Ÿ]^€€‹äò]ûJBàŸ]\YòXŸJù[\YòXŸKêì”
+N»‹ò]ö]HH‹ò]ö]Kê—SïTÇàŸ]Y[ô 
+L
+K
+LäK
+L
+K
+M
+JBà^[›]\ò[\»H[ôX\ì^[›]ì^[›]\ò[\ LKLäBàŸ]⁄[ô€S[ôJò[ŸJN»X^[ô\»HÇàŸ]]]‘⁄^ôU^\U[öYõ‹õU⁄]€€ôöY›\ò][€äMNK[ôõ⁄Yù][ï\Yò[YKê””TV’SíU‘‘
+BàJBà[ô[òYöY] ÿ\ô
+BàBà[ô[òYöY] ù]€ä\ Kò\H¬à^Hº'„´H8.%x.(¯.)¯."»8.`8.&¯.)x.-x.b8.(∏.&HPT’Tà8. x.b8.+x.&x.*∏.(¯.bx.,∏.!¯.`8.(¯.-¯.b8.+x.!»é»\–[ÿ\»Hò[ŸBàŸ]€ê€X⁄”\›[ô\à»X[ŸÀô\€Z\‹ 
+N»⁄\òX›\ìX\›\ú 
+HBàJBà[ô[òYöY] ^öY] \ Kò\H¬à^H∏.%x.(¯.)¯."8.(8.,∏.'∏.%x.bx.&x."x.&∏.,x.&∏. x.b8.+x.&x.*∏.b8.!»8†(à8.`8.)x.-¯.+x. x."∏.b8.+x.!¯.%8.bx.,∏.&x.)x.b8.,∏.!¯.`8.(x.-¯.b8.+x.'∏.(¯.bx.+x.(Hé»^⁄^ôHHLôÇàŸ]^€€‹äXŸJN»Ÿ]Y[ô 
+äK
+L
+JBàJBà‹[€äùYKº'„´8.(¯.bx.+x.(∏."x.,∏. W∏."¯.-x.(¯.-x.*∏.c8.*∏.,x.bx.&x.*¯.)x.,∏. x."∏.-x.)¯.-8.%Hã[ù\úò^SŸä€€‹ãúôÿäçMKåäK€€‹ãúôÿäçMKMÕŒ
+JJH¬à⁄€‹ŸQŸ[úôJ‹öY⁄[ò[⁄[õô[õ‹öY⁄[ò[äBàBà‹[€äò[ŸKº'„´8.(¯.,8.&∏.&∏. x.,¯. x.,x.&∏.)x.,8.!8.(¯.+x.,x."8."x.(¯.-8.(∏.,∏.*∏.(¯.bx.,∏.!¯.)x.,8.!8.(¯.!8.(¯.&∏.%¯..8. x.`x.&x.)»ã[ù\úò^SŸä€€‹ãúôÿäÃÀåNçäK€€‹ãúôÿäÃãMéKåé
+JJH¬à⁄€‹ŸQŸ[úôJôYúÀôŸ]›ö[ô õ›\óÿ⁄[õô[ãàäOÀùZŸRYà»]ö\”õ›õ[ö 
+HHŒà€X\ù\ôX›‹ãõô]»äBàBà[ô[òYöY] ^öY] \ Kò\H¬à^H∏.(∏. x.`8.)x.-8. Hé»^⁄^ôHHMé»Ÿ]^€€‹ä]]Y
+Bà‹ò]ö]HH‹ò]ö]Kê—SïTé»Z[íZY⁄H
+
+BàŸ]€ê€X⁄”\›[ô\à»X[ŸÀô\€Z\‹ 
+HBàJBàX[ŸÀú⁄› 
+BàX[ŸÀù⁄[ô›œÀúŸ]òX⁄Ÿ‹õ›[ôò]ÿXõJ[ôõ⁄Yô‹ò\X‹Àôò]ÿXõKê€€‹ëò]ÿXõJ€€‹ãïêSî‘TëSï
+JBàX[ŸÀù⁄[ô›œÀúŸ]^[›]
+ô\€›\òŸ\Àô\‹^SY]öX‹Àù⁄Y^[»H
+ç
+KLäBàBàö]ò]Hù[à⁄€‹ŸQŸ[úôJ⁄[õô[à›ö[ôÀ[ŸNà›ö[ô H¬àYä[ŸOOHõ‹öY⁄[ò[äH»õ›‘[õö[ô 
+N»ô]\õàBàò[⁄⁄XŸ\»HYà
+[ŸHOHõ‹öY⁄[ò[äHÿ]Y€‹öY\»[ŸH›\ëŸ[úô\¬àò[Xô[»HYà
+[ŸHOHõ‹öY⁄[ò[äH⁄⁄XŸ\ÀõX\[ô^Y»[ô^ÿ]Y€‹ûHOàâ€Y[ùRX€€ä[ô^
+_H	ÿ]Y€‹ûHàH[ŸHŸ[úôSXô[¬àò[]HHYà
+[ŸHOHõ‹öY⁄[ò[äHº'„´8.`8.)x.-¯.+x. x.*¯.(x.)¯.%8.*¯.(x..x.bâ⁄[õô[à[ŸHº'„´	€X\ù\ôX›‹ó∏.`8.)x.-¯.+x. x.`x.&x.)¯.)x.,8.!8.(»8†(àL8.`x.&x.)»Çà⁄⁄XŸSY[ùJ]KXô[ H»[ô^OÇà[õö[ô—õ‹êÿ]Y€‹ûJ⁄⁄XŸ\÷⁄[ô^K⁄[õô[[ŸJBàBàBàö]ò]Hù[à[õö[ô—õ‹êÿ]Y€‹ûJÿ]Y€‹ûNà›ö[ôÀ⁄[õô[à›ö[ôÀ[ŸNà›ö[ô H¬àò[YXHHY]^
+\ Kò\H»[ùH∏.`x.&x.)¯.!8.-8.%8.`8.(¯.-¯.b8.+x.!»
+8.`8.)¯.bx.&x.)¯.b8.,∏.!¯.`¯.*¯.bx.!8.-8.%8.+x.,x.%x.`∏.&x.(x.,x.%x.-
+HàBà[\ùX[ŸÀêùZ[\ä\ KúŸ]X€€äãôò]ÿXõKú›Y[◊€[›öYJKúŸ]]Jÿ]Y€‹ûJKúŸ]Y\‹ÿYŸJ∏.*∏.(¯.bx.,∏.!¯.`8.(¯.-¯.b8.+x.!¯."8.&x."8.&∏.!8.(¯.&∏.%¯..8. HT∏.`8.)¯.bx.&x.`x.&x.)¯.!8.-8.%8.)¯.b8.,∏.!¯.a8.%8.bH8.(¯.,8.&∏.&∏."8.,8.!8.-8.%8.`8.(¯.-¯.b8.+x.!¯.`¯.&x.*¯.(x.)¯.%8.%¯.-x.b8.`8.)x.-¯.+x. HäKúŸ]öY] YXJKúŸ]‹⁄]]ôPù]€ä∏.*∏.b8.!¯.!8.,¯.*∏.,x.b8.!»äH»À»OÇà⁄\ôU^
+àà∏.)¯.,∏.!¯.&∏.%¯.*¯.&x.,x.!À¯.)x.,8.!8.(¯.`¯.*¯.bx."∏.b8.+x.!»	⁄[õô[8."8.&x."8.&∏.!8.(¯.&∏.%¯..8. HT8.%x.,∏.(x.`x.&x.)¯.%¯.-x.b8.`8.)x.-¯.+x. B∏.`x.&x.)¯.!8.-8.%à	⁄YXKù^ù‘›ö[ô 
+KöYêõ[ö»»∏.!8.-8.%8.`8.(¯.-¯.b8.+x.!¯.`¯.*¯.(x.b8.+x.,x.%x.`∏.&x.(x.,x.%x.-à_B∏.*¯.(x.)¯.%8.*¯.(x..x.b8.%¯.-x.b8.'8..x.bx.`¯."∏.bx.`8.)x.-¯.+x. Nà	ÿ]Y€‹ûB∏. ∏.bx.+x.(x..x.)x.+x.bx.,∏.!¯.+x.-8.!¯.%x.,x.)¯.)x.,8.!8.(¯."8.,∏. HPT’Tà8.&¯.,x."8."8..8.&∏.,x.&H
+8."∏..8.%8.`¯.*¯.bx. x.,¯.*¯.&x.%8.%x.,∏.(x.)¯.,x.&x.`8.)¯.)x.,∏.`x.)x.,8. x.-8."8. x.(¯.(¯.(JNÇâ⁄Yä[ŸOOHõ‹öY⁄[ò[äH\›Ÿäôÿ]⁄[àà»∏. x.)¯.-8.&Hãúö[õYHà»∏.(¯.-8.&x.(¯.%8.,àãõZ[ôà»∏.`8.(x.(∏.cäKöõ⁄[ï‘›ö[ô óàäH»
+Yò[YJHOàò[€›\òŸOQö[Jö[\—\ãò⁄\òX›\ó€X\›\úÀ…YõX\›\àäN»âò[YH8°§à	€X\›\ë^‹ùò[YJ€›\òŸKò[ŸJHŒà∏. ∏.,∏.%PT’TàüI‹õ€\õŸö[JY€›\òŸJKùZŸRYà»]ö\”õ›õ[ö 
+HOÀõ]»éà	]àKõ‹ë[\J
+_HàH[ŸH∏.+x.+x. x.`x.&∏.&∏.%x.,x.)¯.)x.,8.!8.(¯.`¯.*¯.(x.b8.`x.(∏. x.(¯.,∏.(∏.!8.&H8.a8.(x.b8.`¯."∏.bx.`¯.&∏.*¯.&x.bx.,∏. ∏.+x.!¯.`∏.&¯.(¯.a8.'¯.)x.c8.`8.%8.-8.(HüB∏. x.b8.+x.&x.`8.(¯.-8.b8.(x.*∏.(¯.bx.,∏.!¯.(8.,∏.'à8.%x.bx.+x.!¯.`x.*∏.%8.!¯. ∏.bx.+x.(x..x.)x.`∏.!8.(¯.!¯. x.,∏.(¯.`¯.&x.`x."∏.%x.`¯.*¯.bx.!8.(¯.&à8.*¯.bx.,∏.(x. ∏.bx.,∏.(Nà8."∏.-¯.b8.+x."∏.b8.+x.!»â⁄[õô[ã8."∏.-¯.b8.+x.*¯.(x.)¯.%âÿ]Y€‹ûHã8."∏.-¯.b8.+x.`8.(¯.-¯.b8.+x.!¯.(8.,∏.*x.,∏.a8.%¯.(ã8.!8.,¯.`∏.&¯.(¯.(∏.`8.(¯.-¯.b8.+x.!¯.*∏.,x.bx.&Hx†$Ãà8.&¯.(¯.,8.`∏.(∏.!8."8.,¯.&x.)¯.&HT8.%¯.,x.bx.!¯.*¯.(x.%8.`8.*¯.%x..8.'8.)x.%¯.-x.b8.`8.)x.-¯.+x. x."8.,¯.&x.)¯.&HT8.*¯.&x.-∏.b8.!¯.&¯.(¯.,8.`∏.(∏.!8.`x.)x.,8."8.,¯.&x.)¯.&x."¯.-x.&x.(¯.)¯.(B∏.%x.,∏.(x.%8.bx.)¯.(∏.%x.,∏.(¯.,∏.!¯.%¯..8. HTà8.`8.)x. àT8."∏.-¯.b8.+x.%x.+x.&x.(8.,∏.*x.,∏.a8.%¯.(à8.!8.,¯.`∏.&¯.(¯.(∏.%x.+x.&x.*∏.,x.bx.&H8."8.,¯.&x.)¯.&x."¯.-x.&H8.`8.)¯.)x.,∏.(¯.)¯.(H
+8."8.,¯.&x.)¯.&x."¯.-x.&H0Â»8.)¯.-8.&x.,∏.%¯.-JH8.%x.bx.+x.!¯.(¯.,8.&∏..8."8.,¯.&x.)¯.&x."8.(¯.-8.!»8.a8.(x.b8.`¯."∏.bx.!8.,¯.)¯.b8.,∏.`x.)x.bx.)¯.`x.%x.b8.`8.&x.-¯.bx.+x.*¯.,∏.`x.%¯.&x.%x.,x.)¯.`8.)x. Ç∏."∏.-¯.b8.+x."∏.b8.+x.!¯.`x.)x.,8.*¯.(x.)¯.%8.`¯."∏.bx.!8.b8.,∏."8.,∏. x.`x.+x.&¯.%x.(¯.!¯.%x.,∏.(x.&x.-x.bH8.a8.(x.b8.`8.&¯.)x.-x.b8.(∏.&x."∏.-¯.b8.+x."∏.b8.+x.!¯.`8.+x.!»8.%x.,x.bx.!¯."∏.-¯.b8.+x.`8.(¯.-¯.b8.+x.!¯.`x.)x.,8."∏.-¯.b8.+x.%¯..8. HT8.`¯.*¯.(x.b8.`¯.*¯.bx.`8. ∏.bx.,∏. x.,x.&∏.`8.&x.-¯.bx.+x.*¯.,à	⁄Yà
+[ŸHOHõ‹öY⁄[ò[äH∏.(¯..x.&¯.`x.&∏.&∏.(¯.bx.+x.(∏."x.,∏. H8."¯.-x.(¯.-x.*∏.c8.*∏.,x.bx.&x.*¯.)x.,∏. x."∏.-x.)¯.-8.%H8.(x.-x."8..8.%8.`8.&¯.-8.%8.`8.(¯.-¯.b8.+x.!»8.&¯.(x.`x.)x.,8."8..8.%8."8.&∏."∏.,x.%8.`8."8.&x.`x.%x.b8.)x.,T8.'∏.(¯.bx.+x.(x.`8.*∏.bx.&x.`8.(¯.-¯.b8.+x.!¯.%x.b8.+x.`8.&x.-¯.b8.+x.!»à[ŸH∏.(¯..x.&¯.`x.&∏.&∏.*¯.&x.,x.!À¯.)x.,8.!8.(¯.*¯.)x.,∏.(∏.`x.&x.)»8.`¯.*¯.bx.`∏.%¯.&x.`8.(¯.-¯.b8.+x.!»8."8.,x.!¯.*¯.)¯.,8.!8.)¯.,∏.(x.*∏.,x.(x.'∏.,x.&x.&8.c8.`x.)x.,8.&∏.%¯.*∏.(¯..8.&¯.%x.(¯.!¯. x.,x.&∏.`x.&x.)¯.%¯.-x.b8.`8.)x.-¯.+x. H8.%∏.bx.,∏.`8.(¯.-¯.b8.+x.!¯."8.&∏.`¯.&x.%x.+x.&x.`8.%8.-x.(∏.)¯.`¯."∏.bHHT8.%∏.bx.,∏.%x.bx.+x.!¯.%x.b8.+x.`8.&x.-¯.b8.+x.!¯.`x.&∏.b8.!¯.*¯.)x.,∏.(àT8.+x.(∏.b8.,∏.!¯.(x.-x.`8.*¯.%x..8.'8.)HüB∏.)¯.,∏.!¯.&∏.%¯.!8.(¯.&∏.%¯..8. HT8. x.b8.+x.&x.*∏.(¯.bx.,∏.!¯.(8.,∏.'à8.`8. x.a¯.&∏. ∏.bx.+x.(x..x.)x.*∏.(¯..8.&¯.`8.%8.-x.(∏.)¯. x.,x.&x.`¯.&H›‹ûKöú€€à8.`x.)x.,8.%x.(¯.)¯."8.%x.,x.)¯.`8.)x. ∏.`¯.*¯.bx.%x.(¯.!¯. x.,x.&∏."8.,¯.&x.)¯.&x.*∏.(x.,∏."∏.-8. H\\€Ÿ\»8.`x.)x.,ÿŸ[ô\»8."8.(¯.-8.!»8.*¯.bx.,∏.(x.*∏.b8.!»î””à8.%x.,x.)¯.+x.(∏.b8.,∏.!¯.%¯.-x.b8.(x.-x.`x.!8.b8."x.,∏. x.`8.%8.-x.(∏.)¯.`x.%¯.&x.&∏.%¯.`8.%x.a¯.(B∏.%x.,x.bx.!¯."∏.-¯.b8.+x.`8.(¯.-¯.b8.+x.!¯.`8.&¯.a¯.&x.(8.,∏.*x.,∏.a8.%¯.(∏.`8.%¯.b8.,∏.&x.,x.bx.&H8.`¯.*∏.b8."∏.-¯.b8.+x.(8.,∏.*x.,∏.a8.%¯.(∏.`¯.&x.!8.b8.,à]H8. ∏.+x.!»›‹ûKöú€€à8.`x.)x.,8.%x.,x.bx.!¯."∏.-¯.b8.+x.a8.'¯.)x.cíT8.`8.&¯.a¯.&x."∏.-¯.b8.+x.`8.(¯.-¯.b8.+x.!¯.(8.,∏.*x.,∏.a8.%¯.(ãûö\8.*¯.bx.,∏.(x.`¯."∏.bx."∏.-¯.b8.+x.*¯.(x.)¯.%8.(8.,∏.*x.,∏.+x.,x.!¯. x.)8.*x.`8.&¯.a¯.&x."∏.-¯.b8.+x.`8.(¯.-¯.b8.+x.!¯.*¯.(¯.-¯.+x."∏.-¯.b8.+HíT∏.*∏.(¯.bx.,∏.!¯."∏.-¯.b8.+x.`8.(¯.-¯.b8.+x.!¯.`x.)x.,8.'∏.)x.a¯.+x.%x.`¯.*¯.bx.%x.(¯.!¯.*¯.(x.)¯.%8.&x.-x.bH8.`¯."∏.bx.!8.b8.,àÿ]Y€‹ûH8.`¯.&H›‹ûKöú€€à8.`8.&¯.a¯.&Hâÿ]Y€‹ûHà8.%x.(¯.!¯.%¯..8. x.%x.,x.)¯.+x.,x. x.*x.(¬∏.`8. x.$¯.$x.c]]»Tà8.*¯.bx.,∏.(x.`¯."∏.bH»T8.`8.&¯.a¯.&x.!8.b8.,∏.`8.(¯.-8.b8.(x.%x.bx.&x."¯.bx.,¯.`∏.%8.(∏.a8.(x.b8.(x.-x.`8.*¯.%x..8.'8.)H8.`8.(¯.-¯.b8.+x.!¯.*∏.,x.bx.&x.&¯.(x.`8.%8.-x.(∏.)¯.`¯."∏.bHx†$ÃàT8.`8.(¯.-¯.b8.+x.!¯.(¯.,8.%8.,x.&∏. x.)x.,∏.!¯.(x.-x."8..8.%8.'∏.)x.-8. x.`¯."∏.bH¯†$ÕT8.`8.(¯.-¯.b8.+x.!¯."¯.,x.&∏."¯.bx.+x.&x.*¯.)x.,∏.(∏.!8.)¯.,∏.(x.*∏.,x.(x.'∏.,x.&x.&8.c8.*¯.(¯.-¯.+x.*¯.)x.,∏.(∏.&¯.(x.`¯."∏.bHx†$ÕàT8.`8.)x.-¯.+x. x.`8.%¯.b8.,∏.%¯.-x.b8."8.,¯.`8.&¯.a¯.&x.`8.'∏.-¯.b8.+x.`8.)x.b8.,∏."8.&à8.a8.(x.b8.(∏.-¯.%8.`8.(¯.-¯.b8.+x.!»8.`x.)x.,8.+x.&8.-8.&∏.,∏.(∏.`8.*¯.%x..8.'8.)x.*¯.&x.-∏.b8.!¯.&¯.(¯.,8.`∏.(∏.!8. x.b8.+x.&x.%x.,∏.(¯.,∏.!»8.*¯.,∏. x.!8.b8.,∏.%x.,x.bx.!¯.%x.bx.&x.'8..x.bx.`¯."∏.bx. x.,¯.*¯.&x.%8.%x.,x.)¯.`8.)x. àT8.`¯.*¯.bx.`¯."∏.bx.%x.,x.)¯.`8.)x. ∏.&x.,x.bx.&x.`x.%¯.&x.`8. x.$¯.$x.c]]»8.&∏.,x.&x.%¯.-∏. x.`8.*¯.%x..8.'8.)x.`8.%8.-x.(∏.)¯. x.,x.&x.`¯.&H›‹ûKöú€€à8.%8.bx.)¯.(∏.'¯.-8.)x.%8.c\\€ŸW‹ôX\€€Ç∏.&¯.(¯.,8.`8.(x.-8.&x."8.,¯.&x.)¯.&HT8.`x.)x.,8."x.,∏. x.%x.,∏.(x.`8.&x.-¯.bx.+x.*¯.,∏.`8.+x.!»8.*∏.,¯.*¯.(¯.,x.&àõ›»»ô[»ÀåH]H8.%¯..8. x."x.,∏. H8.)¯.-8.&x.,∏.%¯.-H8.`x.&x.)¯.%x.,x.bx.!»NåMàÿ⁄ŸY[Ÿôà›]X»ÿ[Y\òH	⁄Yà
+[ŸHOHõ‹öY⁄[ò[äH∏.%x.,x.)¯.)x.,8.!8.(¯.*¯.)x.,x. H8. x.)¯.-8.&H8.(¯.-8.&x.(¯.%8.,à8.`8.(x.(∏.c8.+x.bx.,∏.!¯.+x.-8.!»PT’Tà8. ∏.+x.!¯.`x.%x.b8.)x.,8.!8.&x.`8.'∏.-¯.b8.+x.(¯.,x. x.*x.,∏.`8.+x. x.)x.,x. x.*x.$¯.c8.`¯.&∏.*¯.&x.bx.,à8.%¯.(¯.!¯.'8.(H8."∏.b8.)¯.!¯.)¯.,x.(à8.`x.)x.,8.&∏..8.!8.)x.-8. x.%x.(¯.!¯.(¯.,∏.(∏.!8.&Hà[ŸH∏.*∏.(¯.bx.,∏.!¯."∏.-¯.b8.+H8.`¯.&∏.*¯.&x.bx.,à8.`x.)x.,8.%¯.(¯.!¯.'8.(x.`¯.*¯.(x.b8.*∏.,¯.*¯.(¯.,x.&∏.%x.,x.)¯.)x.,8.!8.(¯. ∏.+x.!¯.`8.(¯.-¯.b8.+x.!¯.&x.-x.bH8. x.b8.+x.&x.*∏.(¯.bx.,∏.!¯.`x.%x.b8.)x.,“TêP’TàPT’Tà8.`¯.*¯.bx.`8.)x.-¯.+x. H–U“Só”PT’TãíSìQW”PT’Tà8.*¯.(¯.-¯.+HRSë”PT’Tà8.*¯.&x.-∏.b8.!¯.(8.,∏.'∏.`8.&¯.a¯.&H\⁄Y€ó‹ôYô\ô[òŸH8.%8.bx.,∏.&x.*∏.a8.%x.)x.c8.(8.,∏.'à8.!8.)¯.,∏.(x.*∏.(x."8.(¯.-8.!»8.`x.)x.,8. x.,∏.(¯."8.,x.%8.`8.'¯.(¯.(H8. x.(¯.,8."8.,∏.(∏. x.,∏.(¯.`8.)x.-¯.+x. x.`¯.*¯.bx.`8.*¯.(x.,∏.,8. x.,x.&∏.%x.,x.)¯.)x.,8.!8.(¯.`¯.*¯.(x.b8.&∏.,x.&x.%¯.-∏. x."∏.-¯.b8.+H\⁄Y€ó‹ôYô\ô[òŸH8.a8.)¯.bx.`¯.&HöXõH8.`x.)x.bx.)¯.*∏.(¯.bx.,∏.!»“TêP’TóÃKúôÀ“TêP’TóÃãúô»8.%x.,∏.(x."8.,¯.&x.)¯.&x.%¯.-x.b8.%x.bx.+x.!¯.`¯."∏.bH8.`¯."∏.bH“TêP’TàPT’Tà8.`¯.*¯.(x.b8.`8.%8.-8.(x.+x.(∏.b8.,∏.!¯.%x.b8.+x.`8.&x.-¯.b8.+x.!¯.%¯..8. x."x.,∏. HüWâ‹›‹ûUö\›X[›ZYJ[ŸJ_W∏.`¯."∏.bx.)¯.-8.&8.-x.`8.%8.-x.(∏.)¯. x.,x.&∏. x.,∏.(¯.%¯.%8.*∏.+x.&∏.*∏.(¯.bx.,∏.!¯.(8.,∏.'éàPT’Tà8.(¯.,∏.(∏.!8.&x.`8.&¯.a¯.&x.%x.bx.&x."x.&∏.,x.&∏. ∏.+x.!¯.%x.,x.)¯.)x.,8.!8.(»8."∏..8.%8.*∏.%∏.,∏.&x.%¯.-x.b8.`x.)x.,8. x.,∏.(¯. x.(¯.,8.%¯.,¯.`8.&¯.a¯.&x. ∏.bx.+x.(x..x.)x.`¯.*¯.(x.b8.%x.,∏.(x.&∏.%»8.`8. ∏.-x.(∏.&H[XYŸW‹õ€\8.'∏.(¯.bx.+x.(x.`¯."∏.bx. ∏.+x.!¯.`x.%x.b8.)x.,8."x.,∏. x.+x.(∏.b8.,∏.!¯. x.(¯.,8."∏.,x.&éà8.%x.,x.)¯.)x.,8.!8.(¯.`x.)x.,PT’Tà8.(¯.,∏.(∏.!8.&H8°§à8."∏..8.%8.(¯.,∏.(∏.!8.&H8°§à8.*∏.%∏.,∏.&x.%¯.-x.b8.`x.)x.,8.*∏.-8.b8.!¯. ∏.+x.!»8°§à8. x.,∏.(¯. x.(¯.,8.%¯.,»8°§à8.*∏.-x.*¯.&x.bx.,∏.`x.)x.,8.*∏.,∏.(∏.%x.,à8.(¯.,8.&∏..8."∏.&x.-8.%8.*∏.-H8.`x.)x.,8.%¯.(¯.!¯."∏..8.%8.`¯.*¯.bx.`8.*¯.(x.,∏.,8. x.,x.&∏.&∏.%¯.&∏.,∏.%»8.(¯.)¯.(x.%¯.,x.bx.!¯.*∏.%∏.,∏.&x.%¯.-x.b8."8.(¯.-8.!¯.`¯.&x.`x.%x.b8.)x.,8."x.,∏. x.`8.'∏.-¯.b8.+x.*∏.(¯.bx.,∏.!¯."¯.bx.,¯.a8.%8.bH8."∏..8.%8.`8.&¯.)x.-x.b8.(∏.&x.%x.,∏.(x.)¯.,x.&x.*¯.(¯.-¯.+x.`8.*¯.%x..8. x.,∏.(¯.$¯.c8.`x.)x.,8.!8.!¯.`8.%8.-8.(x.`¯.&x.`8.*¯.%x..8. x.,∏.(¯.$¯.c8.%x.b8.+x.`8.&x.-¯.b8.+x.!»8.`¯."∏.bx.!8.,¯.*∏.,x.b8.!¯.*∏.,x.bx.&x.`x.&∏.&à8.%x.,x.)¯.)x.,8.!8.(¯.+x.bx.,∏.!¯.+x.-8.!»8°§à8."∏..8.%8°§à8.*∏.%∏.,∏.&x.%¯.-x.b8°§à8. x.,∏.(¯. x.(¯.,8.%¯.,»8°§à8.(¯..x.&¯.`x.&∏.&∏.(8.,∏.'à8.(¯.,8.&∏..8.)x.,x. x.*x.$¯.,8.`¯.&∏.*¯.&x.bx.,à8.'8.(x.`x.)x.,8.`8.!8.(¯.-¯.b8.+x.!¯.&¯.(¯.,8.%8.,x.&∏.`8."x.'∏.,∏.,8.%¯.-x.b8.`8.*¯.a¯.&x."8.,∏. HPT’Tà8.a8.(x.b8.`x.%x.b8.!¯.(¯.,∏.(∏.)x.,8.`8.+x.-x.(∏.%8.%¯.-x.b8.a8.(x.b8.%¯.(¯.,∏.&à8.a8.(x.b8.+x.bx.,∏.!¯.)¯.b8.,∏.)x.a¯.+x. x.!8.)¯.,∏.(x.`8.*¯.(x.-¯.+x.&x.`8.&¯.a¯.&x.`8.&¯.+x.(¯.c8.`8."¯.a¯.&x.%x.c8.`8.)x.-¯.+x. x.(¯.,8.(∏.,8.(8.,∏.'∏.`x.)x.,8.`x.*∏.!¯.%x.,∏.(x. x.-8."8. x.(¯.(¯.(H8.a8.(x.b8. x.,¯.*¯.&x.%8.`8.+x.)¯. ∏.-∏.bx.&x.a8.&¯.%¯..8. x."x.,∏. H8.`¯."∏.bx.!8.,¯.+x.&8.-8.&∏.,∏.(∏.`8."∏.-8.!¯.&∏.)¯. x.*∏.,x.bx.&H8.aà8.`8.*¯.%x..8. x.,∏.(¯.$¯.c8.%¯..8. x."x.,∏. x.(x.,∏."8.,∏. x.&∏.%¯. ∏.+x.!¯.`8.(¯.-¯.b8.+x.!¯.&x.-x.bH8."8.&∏.&¯.(x.!8.(¯.&∏.%¯..8. x.`8.(¯.-¯.b8.+x.!»8.'8..x.bx.'∏..x.%8.`x.%x.b8.)x.,8."x.,∏. x."∏.,x.%8.`8."8.&H8.`x.(∏. H‹XZŸ\à8.`x.)x.,ò\úò][€à8.'8..x.bx.&∏.(¯.(¯.(∏.,∏.(∏."∏.,∏.(∏.`8.&¯.a¯.&x.`8.*∏.-x.(∏.!¯.&x.+x. x.(8.,∏.'à8.%x.,x.)¯.)x.,8.!8.(¯.a8.(x.b8. ∏.(∏.,x.&∏.&¯.,∏. x.%x.,∏.(x.`8.*∏.-x.(∏.!¯.&∏.(¯.(¯.(∏.,∏.(Ç∏.`x.'8.&x.!8.)¯.,∏.(x.%x.b8.+x.`8.&x.-¯.b8.+x.!¯. ∏.+x.!¯.%x.,x.)¯.)x.,8.!8.(Œà8.`8. x.a¯.&∏."∏.-¯.b8.+H8°§à8.a8.'¯.)x.cPT’Tà8.%x.,∏.(∏.%x.,x.)¯.`¯.&HöXõNà8. x.)¯.-8.&H8°§à–U“Só”PT’Tã8.(¯.-8.&x.(¯.%8.,à8°§àíSìQW”PT’Tã8.`8.(x.(∏.c8°§àRSë”PT’Tà8.`¯."∏.bx.&x.,∏.(x.*∏. x..8.)HúôÀÀöúÀÀùŸXú8.%x.,∏.(x.a8.'¯.)x.c8.(8.,∏.'∏.%¯.-x.b8.`x.&x.&à8.`∏.%8.(∏."∏.-¯.b8.+x.$8.,∏.&x."8.,x.&∏.!8..x.b8.%x.(¯.!¯.!8.&H8.*∏.,¯.*¯.(¯.,x.&∏."∏.b8.+x.!¯.%x.,x.)¯.)x.,8.!8.(¯.`¯.*¯.(x.b8.`¯."∏.bx."∏.-¯.b8.+x.`¯.*¯.(x.b8°§à“TêP’TóÃKúô»8.%x.,∏.(x.%¯.-x.b8.*∏.(¯.bx.,∏.!»8.`x.%x.b8.)x.,8."x.,∏. x.(x.-H⁄\òX›\ú»8.`8."x.'∏.,∏.,8.!8.&x.%¯.-x.b8.&¯.(¯.,∏. x.#»8.'∏.(¯.bx.+x.(Hò[YKX\›\ã›]ö]8.(¯.,8.&∏..ÿÿ][€à8.`x.)x.,€€ù[ùZ]WŸ‹õ›\8.`8.*¯.%x..8. x.,∏.(¯.$¯.c8.`8.%8.-x.(∏.)¯. x.,x.&x.`¯."∏.bx.(¯.*¯.,x.*∏. x.)x..8.b8.(x.`8.%8.-x.(∏.)¯. x.,x.&H8."∏..8.%8.`x.)x.,8.(¯.,∏.(∏.)x.,8.`8.+x.-x.(∏.%8.*∏.%∏.,∏.&x.%¯.-x.b8.`8.*¯.(x.-¯.+x.&x.`8.%8.-8.(H8.`8.(x.-¯.b8.+x.`8.&¯.)x.-x.b8.(∏.&x.)¯.,x.&x.*¯.(¯.-¯.+x.`8.*¯.%x..8. x.,∏.(¯.$¯.c8."8.-∏.!¯.`8.&¯.)x.-x.b8.(∏.&x. x.)x..8.b8.(B∏.(¯.,8.&∏.&∏.%x.,x.)¯.)x.,8.!8.(¯. x.,x.&∏."∏..8.%àPT’Tà8.`¯."∏.bx.`¯.&∏.*¯.&x.bx.,à8.'8.(H8.*∏.-x.'8.-8.)¯.`x.)x.,8.(¯..x.&¯.(¯.b8.,∏.!¯.(¯.,∏.(∏.!8.&H8.`8.*∏.-¯.bx.+x.'8.bx.,∏.`¯.&HPT’Tà8.`8.&¯.a¯.&x.`8.'∏.-x.(∏.!¯."∏..8.%8.`¯.&x.(8.,∏.'∏.+x.bx.,∏.!¯.+x.-8.!»8.%¯..8. x."x.,∏. x.%x.bx.+x.!¯.(x.-H›‹ûWŸ^K›‹ûW›[YKX›]ö]H8.`x.)x.,ÿ\ôõÿôWŸ]ô[ù8.`8.(x.-¯.b8.+x.&¯.(¯.,8."∏..8.(x.`¯.*¯.bx.`¯."∏.bx."∏..8.%8.&¯.(¯.,8."∏..8.(H8. x.)x.,x.&∏.&∏.bx.,∏.&x.`8.&¯.)x.-x.b8.(∏.&x."∏..8.%8.+x.(∏..x.b8.&∏.bx.,∏.&H8.`8. ∏.bx.,∏.&x.+x.&x.`8.&¯.)x.-x.b8.(∏.&x."∏..8.%8.&x.+x.&H8.`8.&¯.)x.-x.b8.(∏.&x.)¯.,x.&x.`¯.*¯.bx.`8.)x.-¯.+x. x."∏..8.%8.`¯.*¯.(x.b8.%x.,∏.(x.&∏.%»
+8.(∏. x.`8.)¯.bx.&x."∏..8.%8.%¯.,¯.!¯.,∏.&x.%¯.-x.b8.%x.bx.+x.!¯.`8.*¯.(x.-¯.+x.&x.`8.%8.-8.(JH8.`8.*¯.%x..8. x.,∏.(¯.$¯.c8.%x.b8.+x.`8.&x.-¯.b8.+x.!¯.`¯.&x.)¯.,x.&x.`8.%8.-x.(∏.)¯. x.,x.&x.`x.)x.,8. x.-8."8. x.(¯.(¯.(x.`8.%8.-x.(∏.)¯. x.,x.&x.`¯.*¯.bx.!8.!¯."∏..8.%8.`8.%8.-8.(H8.`8.&¯.)x.-x.b8.(∏.&x.)¯.,x.&x.*¯.(¯.-¯.+x.`8.&¯.)x.-x.b8.(∏.&x. x.-8."8. x.(¯.(¯.(x.`¯.*¯.bx. ∏.-∏.bx.&Hÿ\ôõÿôWŸ]ô[ù8.`¯.*¯.(x.b8. x.,¯.*¯.&x.%›]ö]8.(¯.,∏.(∏.!8.&x.`x.)x.,ÿ\ôõÿôWÿ⁄[ôŸO]ùYH8.`8.(x.-¯.b8.+x.`8.&¯.)x.-x.b8.(∏.&x."∏..8.%8."8.(¯.-8.!»8."∏..8.%8.%¯.-x.b8.'8..x.bx.`¯."∏.bx.(¯.,8.&∏..8.(x.-x.)x.,¯.%8.,x.&∏.*∏..x.!¯.*∏..8.%8.`x.(∏. x.`8.*∏.-x.(∏.!¯.'8..x.bx.'∏..x.%8.+x.+x. x."8.,∏. x.(¯..x.&¯.(¯.b8.,∏.!¯.`x.)x.,8.`8.*∏.-¯.bx.+x.'8.bx.,Ç∏. x.,∏.(¯.%x.b8.+x."x.,∏. Nà8.(¯.,8.&∏..›\ù‹›]H8.`x.)x.,[ô‹›]H8.%¯..8. x."x.,∏. H8.`¯.*¯.bx.*∏.%∏.,∏.&x.,8.%x.bx.&x."x.,∏. x.%x.b8.+x."8.,∏. x.%¯.bx.,∏.(∏."x.,∏. x. x.b8.+x.&H8.(¯.)¯.(x.'8..x.bx.%∏.-¯.+x.`x.)x.,8.%x.,¯.`x.*¯.&x.b8.!¯.+x..8.&¯. x.(¯.$¯.c8. x.,∏.(¯.`8. ∏.bx.,∏.+x.+x. x. ∏.+x.!¯.%x.,x.)¯.)x.,8.!8.(»8.)¯.,x.&x.`8.)¯.)x.,∏.`x.)x.,8.*∏.%∏.,∏.&x.%¯.-x.b8.*¯.bx.,∏.(x.(∏.bx.,∏.(∏."¯.+x.!»8.`8.+x. x.*∏.,∏.(»8.*¯.(¯.-¯.+x.!8.&x.`∏.%8.(∏.a8.(x.b8.(x.-x."8.,x.!¯.*¯.)¯.,8.*∏.b8.!¯.%x.b8.+H8. ∏.bx.,∏.(HT8.%x.b8.+x.`8.*¯.%x..8. x.,∏.(¯.$¯.c8.`8.%8.-8.(x.`¯.*¯.bx.`¯."∏.bx.*∏.%∏.,∏.&x.,8.`8.%8.-8.(H8.&¯.-8.%8.!8.,¯.%∏.,∏.(x.%¯.-x.b8.`8.&¯.-8.%8.a8.)¯.bH8.`8."∏.b8.&H8.`8.*¯.%x..8.'8.)x. x.,∏.(¯.`∏.+x.&x.`8.!¯.-8.&H8. x.b8.+x.&x."8.&∏.`8.(¯.-¯.b8.+x.!¬∏. x.,∏.(¯. x.,¯.*¯.&x.%8.!8.&x.'∏..x.%à⁄\òX›\ú»8.%¯..8. x.!8.&x.%x.bx.+x.!¯.(x.-Hö\›X[Ÿ\ÿ‹ö\[€à
+8.%¯.(¯.!¯.'8.(x.`x.)x.,8.)x.,x. x.*x.$¯.,8.`8.%8.b8.&JH8.`x.)x.,ÿ‹ôY[ó‹‹⁄][€à8.%x.,∏.(x.+x.!¯.!8.c8.&¯.(¯.,8. x.+x.&∏.(8.,∏.'∏.%¯.-x.b8.)¯.,∏.!¯.`x.'8.&H8."∏.-¯.b8.+x.+x.(∏.b8.,∏.!¯.`8.%8.-x.(∏.)¯.a8.(x.b8.'∏.+H8.*¯.)x.,x.!¯.`8.*¯.a¯.&x.(8.,∏.'∏."8.(¯.-8.!¯.%x.bx.+x.!¯.%x.(¯.)¯."8.%x.,¯.`x.*¯.&x.b8.!¯.+x.-x. x.!8.(¯.,x.bx.!»8.a8.(x.b8.`8.%8.,∏."¯.bx.,∏.(∏. ∏.)¯.,à8.`8. ∏.-x.(∏.&Hõ›◊‹õ€\8.`8.&¯.a¯.&H“TêP’TàPT8."∏.-¯.b8.+H
+»8.)x.,x. x.*x.$¯.,
+»8."∏..8.%
+»8.%x.,¯.`x.*¯.&x.b8.!»8.`x.)x.bx.)¯.(¯.,8.&∏..8.'8..x.bx.'∏..x.%8.`8.'∏.-x.(∏.!¯.*¯.&x.-∏.b8.!¯.!8.&x. x.,x.&∏.&∏.%¯.'∏..x.%8.*¯.&x.-∏.b8.!¯.!8.(¯.,x.bx.!»8.'8..x.bx.'¯.,x.!¯.%¯..8. x.!8.&x.&¯.-8.%8.&¯.,∏. x.`x.)x.,8.`x.*∏.%8.!¯.&¯.#¯.-8. x.-8.(¯.-8.(∏.,∏.`8.!¯.-x.(∏.&à8.`x.(∏. x."x.,∏. x.&∏.%¯.'∏..x.%8."8.,∏. x.`8.*∏.-x.(∏.!¯.&∏.(¯.(¯.(∏.,∏.(à8.'8..x.bx.&∏.(¯.(¯.(∏.,∏.(∏.`8.&¯.a¯.&x.`8.*∏.-x.(∏.!¯.&x.+x. x.(8.,∏.'∏.`x.)x.,8.a8.(x.b8.(x.-x.`¯.!8.(¯. ∏.(∏.,x.&∏.&¯.,∏. x.%x.,∏.(H8.(¯.,8.(∏.,8.`8.)¯.)x.,∏.%x.bx.+x.!¯.'∏.+x. x.,x.&∏.&∏.%»8.*¯.,∏. x.(∏.,∏.)¯.`¯.*¯.bx.(∏.b8.+x.*¯.(¯.-¯.+x.`x.(∏. x."x.,∏. H8.a8.(x.b8.`¯.*¯.bx.`x.(∏.b8.!¯. x.,x.&x.'∏..x.%∏.!8.,¯.*∏.,x.b8.!¯.(8.,∏.'∏.`x.%x.b8.)x.,8."x.,∏. x.`¯."∏.bx.%x.bx.&x.`x.&∏.&∏.*∏.,x.bx.&Nà8.*∏.(¯.bx.,∏.!¯.(8.,∏.'∏."x.,∏. x.)x.,8.!8.(¯."8.,∏. x.a8.'¯.)x.c8.+x.bx.,∏.!¯.+x.-8.!¯.%¯.-x.b8.`x.&x.&à8.!8.!¯.`¯.&∏.*¯.&x.bx.,à8.%¯.(¯.!¯.'8.(H8.*∏.-x.'8.-8.)»8.`x.)x.,8.*∏.,x.%8.*∏.b8.)¯.&x.(¯..x.&¯.(¯.b8.,∏.!¯.`∏.%8.(∏.(¯.)¯.(x.%x.,∏.(HPT’Tà8.a8.(x.b8.`8.'∏.-8.b8.(x.*¯.(¯.-¯.+x.)x.%8.`8.+x.!»	“[XYŸTõ€\€XﬁKúôYô\ô[òŸP\X[H8.`¯."∏.bx."∏..8.%8.%¯.-x.b8.(¯.,8.&∏..8.`¯.&x."x.,∏. H8.)¯.,x.&x.`x.)x.,8.`8.*¯.%x..8. x.,∏.(¯.$¯.c8.%x.b8.+x.`8.&x.-¯.b8.+x.!¯.`¯."∏.bx."∏..8.%8.`8.%8.-8.(H8.`8.&¯.)x.-x.b8.(∏.&x.`8.(x.-¯.b8.+x.)¯.,x.&x.`8.)¯.)x.,à8. x.-8."8. x.(¯.(¯.(H8.*¯.(¯.-¯.+x.&∏.%¯. x.,¯.*¯.&x.%8.`x.&x.)¯.%x.,x.bx.!¯.%x.,∏.(H\‹X›‹ò][»8.`x.)x.bx.)¯.`8.%x.-8.(x."∏.-¯.b8.+x.`x.)x.,PT’Tà8.%x.(¯.!¯.(¯.,∏.(∏.!8.&H8."∏..8.%8.*∏.%∏.,∏.&x.%¯.-x.b8. x.,∏.(¯. x.(¯.,8.%¯.,»8.`x.)x.,8.!8.)¯.,∏.(x.%x.b8.+x.`8.&x.-¯.b8.+x.!¯. ∏.+x.!¯."x.,∏. H8.a8.(x.b8.`8.'∏.-8.b8.(x.(¯.,∏.(∏. x.,∏.(¯. x.,¯. x.,x.&∏.*∏.(¯.-x.(¯.,8.(∏.,∏.)¯."¯.bx.,¯.%¯..8. x."x.,∏. H8.a8.(x.b8.*∏.(¯.bx.,∏.!¯.(8.,∏.'∏.%¯.%8.*∏.+x.&∏.`8.'∏.-8.b8.(x.`8.&¯.a¯.&x. ∏.,x.bx.&x.&∏.,x.!¯.!8.,x.&à8.'8..x.bx.`¯."∏.bx.`8.)x.-¯.+x. x.%¯.%8.*∏.+x.&∏.(¯.,∏.(∏.!8.&x.a8.%8.bx.`8.(x.-¯.b8.+x."8.,¯.`8.&¯.a¯.&W∏. x.b8.+x.&x.`¯."∏.bx.`8.!8.(¯.-¯.b8.+x.!¯.(x.-¯.+x.*∏.(¯.bx.,∏.!¯.(8.,∏.'∏.`x.%x.b8.)x.,8."x.,∏. H8.+x.bx.,∏.!¯.+x.-8.!»PT’Tà8.%x.bx.&x."x.&∏.,x.&∏.%x.(¯.!¯.(¯.,∏.(∏.!8.&x.+x.-x. x.!8.(¯.,x.bx.!»8.`¯."∏.bx.(8.,∏.'∏."x.,∏. x. x.b8.+x.&x.*¯.&x.bx.,∏.`¯.&x. x.)x..8.b8.(x.`8.%8.-x.(∏.)¯. x.,x.&x.`8.&¯.a¯.&x.%x.,x.)¯."∏.b8.)¯.(∏.`8.(¯.-¯.b8.+x.!¯.*∏.%∏.,∏.&x.%¯.-x.b8.`x.)x.,8.*∏.-8.b8.!¯. ∏.+x.!»8."∏..8.%8.(∏.-∏.%8. ∏.bx.+x.(x..x.)x."x.,∏. x.&¯.,x."8."8..8.&∏.,x.&x.`8.&¯.a¯.&x.*¯.)x.,x. x.`x.)x.,8.`¯."∏.bx.(8.,∏.'∏. x.b8.+x.&x.*¯.&x.bx.,∏.(¯.,x. x.*x.,∏.(¯.,∏.(∏.)x.,8.`8.+x.-x.(∏.%8.`8.(x.-¯.b8.+x.`8.&¯.a¯.&x."∏..8.%8.`8.%8.-x.(∏.)¯. x.,x.&H8.`∏.%8.(∏.`¯.&∏.*¯.&x.bx.,∏.`x.)x.,8.(¯..x.&¯.(¯.b8.,∏.!¯.(∏.-∏.%PT’Tà8.`8.&¯.a¯.&x.*¯.)x.,x. H8.%x.(¯.)¯."8."∏.-¯.b8.+x.`x.)x.,8."∏..8.%8. ∏.+x.!¯.`x.%x.b8.)x.,8.!8.&x. x.b8.+x.&x.*∏.b8.!¯.*∏.(¯.bx.,∏.!»8.a8.(x.b8.`¯."∏.bx.(8.,∏.'∏.%¯.-x.b8.!8.)x.,∏.%8.`8.!8.)x.-¯.b8.+x.&x.`x.%¯.&HPT’Tà8.*¯.,∏. x. ∏.,∏.%8.%x.bx.&x."x.&∏.,x.&∏.`¯.*¯.bx.`x."8.bx.!¯. x.b8.+x.&x.*∏.(¯.bx.,∏.!¬∏.*∏.b8.!¯.a8.'¯.)x.c›‹ûKöú€€à8.`8.&¯.a¯.&Hî””à8.a8.(x.b8.(x.-HX\öŸ›€à8.`∏.!8.(¯.!¯.*∏.(¯.bx.,∏.!ŒÇû»úÿ⁄[XW›ô\ú⁄[€àéåÀò⁄[õô[éâ“î””ìÿöôX›ú][›J⁄[õô[
+_Kò⁄\òX›\ó€[ŸHéàâ[ŸHãù]Héà∏."∏.-¯.b8.+x.`8.(¯.-¯.b8.+x.!»ãòÿ]Y€‹ûHéâ“î””ìÿöôX›ú][›Jÿ]Y€‹ûJ_KùY€[ôHéà∏.!8.,¯.`∏.&¯.(¯.(∏.`8.(¯.-¯.b8.+x.!»ãô\\€ŸWÿ€›[ùéåKúÿŸ[ôWÿ€›[ùéåKòöXõHéà∏.!8.)¯.,∏.(x.*∏.,x.(x.'∏.,x.&x.&8.c8.`x.)x.,8.'∏.)x.a¯.+x.%Hãô\\€Ÿ\»éñﬁ»ô\éåKù]Héà∏."∏.-¯.b8.+x.%x.+x.&x.(8.,∏.*x.,∏.a8.%¯.(àãùY€[ôHéà∏.!8.,¯.`∏.&¯.(¯.(∏.%x.+x.&HãúÿŸ[ôWÿ€›[ùéåKúÿŸ[ô\»éñﬁ»úÿŸ[ôHéåKò⁄\òX›\ú»éñﬁ»õò[YHéà∏."∏.-¯.b8.+x.%x.,x.)¯.)x.,8.!8.(¯.%¯.-x.b8.+x.(∏..x.b8.`¯.&x."x.,∏. HãõX\›\àéà∏."∏.-¯.b8.+x.a8.'¯.)x.cPT’Tà8.%x.(¯.!¯.(¯.,∏.(∏.!8.&Hãõ›]ö]éà∏."∏..8.%8.%x.,∏.(x.)¯.,x.&x.`8.)¯.)x.,∏.`x.)x.,8. x.-8."8. x.(¯.(¯.(H8.(¯.,8.&∏..8."∏.&x.-8.%8.`x.)x.,8.*∏.-Hãùÿ\ôõÿôWÿ⁄[ôŸHéôò[ŸKòXÿŸ\‹€‹öY\»éà∏.`8.!8.(¯.-¯.b8.+x.!¯.&¯.(¯.,8.%8.,x.&∏.%x.,∏.(x.&∏.%»8.*¯.(¯.-¯.+x.)¯.b8.,∏.!¯.`8.(x.-¯.b8.+x.a8.(x.b8.`¯.*∏.bãùö\›X[Ÿ\ÿ‹ö\[€àéà∏.%¯.(¯.!¯.'8.(x.`x.)x.,8.)x.,x. x.*x.$¯.,8.`8.%8.b8.&x."8.,∏. HPT’Tà8.(¯.,∏.(∏.!8.&Hãúÿ‹ôY[ó‹‹⁄][€àéà∏.%x.,¯.`x.*¯.&x.b8.!¯.%¯.-x.b8.)¯.,∏.!¯.`x.'8.&x.`¯.&x.(8.,∏.'à8.%x.bx.+x.!¯.(∏.-¯.&x.(∏.,x.&x. x.,x.&∏.(8.,∏.'∏."8.(¯.-8.!¯. x.b8.+x.&x.`¯."∏.bHõ›»üWKú›‹ûWŸ^HéàëVLHãòX›]ö]HéàõYY][ô»»€‹ö»»€YH»€Y\»^\ò⁄\ŸH»ÿ\›X[»õ‹õX[ãùÿ\ôõÿôWŸ]ô[ùéàëVLW”QQUSë»ãú›‹ûW›[YHéà∏.`8.)¯.)x.,∏.`¯.&x.`8.(¯.-¯.b8.+x.!»ãõÿÿ][€àéà∏.*∏.%∏.,∏.&x.%¯.-x.b8.`x.)x.,8.*∏.-8.b8.!¯. ∏.+x.!¯.*¯.)x.,x. Hãôúò[Z[ô»éà∏.(¯.,8.(∏.,8.(8.,∏.'∏.%¯.-x.b8.`8.*¯.a¯.&x. x.-8."8. x.(¯.(¯.(x.!8.(¯.&à8.`8."∏.b8.&H8.*8.-x.(¯.*x.,8.%∏.-∏.!¯.`8. ∏.b8.,∏.*¯.(¯.-¯.+x.`8.%x.a¯.(x.%x.,x.)¯.%x.,∏.(x.&∏.%»ãõY⁄[ô»éà∏.`x.*∏.!¯.%x.,∏.(x.`8.)¯.)x.,∏.`x.)x.,8.*∏.%∏.,∏.&x.%¯.-x.bãò€€ù[ùZ]WŸ‹õ›\éàëVLW”––US”åW—UëSïHãú›\ù‹›]Héà∏.*∏.%∏.,∏.&x.,8.%x.b8.+x."8.,∏. x.%¯.bx.,∏.(∏."x.,∏. x. x.b8.+x.&H8.(¯.)¯.(x.%x.,¯.`x.*¯.&x.b8.!¯.!8.&x.`x.)x.,8.*∏.-8.b8.!¯. ∏.+x.!»ãô[ô‹›]Héà∏.*∏.%∏.,∏.&x.,8.%¯.-x.b8.*∏.b8.!¯.%x.b8.+x."x.,∏. x.%∏.,x.%8.a8.&»ãôõ›◊ÿX›[€àéàì€ôHö\⁄XõHX›[€à[à[ô€\⁄ãòX›[€àéà∏.`8.*¯.%x..8. x.,∏.(¯.$¯.cãôX[Ÿ›YHéà∏.&∏.%¯.'∏..x.%8.(8.,∏.*x.,∏.a8.%¯.(àãú‹XZŸ\àéà∏."∏.-¯.b8.+x.'8..x.bx.'∏..x.%8.*¯.(¯.-¯.+x.)¯.b8.,∏.!¯.`8.(x.-¯.b8.+x.a8.(x.b8.(x.-x.&∏.%¯.'∏..x.%ãõò\úò][€àéà∏.`8.*∏.-x.(∏.!¯.&∏.(¯.(¯.(∏.,∏.(∏."∏.,∏.(∏.*¯.(¯.-¯.+x.)¯.b8.,∏.!»ãö[XYŸW‹õ€\éà∏.%x.,x.)¯.)x.,8.!8.(¯.`x.)x.,PT’Tà8.%x.(¯.!¯.(¯.,∏.(∏.!8.&H8.!8.!¯.`¯.&∏.*¯.&x.bx.,à8.'8.(H8.*∏.-x.'8.-8.)¯.`x.)x.,8.(¯..x.&¯.(¯.b8.,∏.!¯.%x.,∏.(x.(8.,∏.'∏.+x.bx.,∏.!¯.+x.-8.!Œ»8."∏..8.%8.%x.,∏.(x."x.,∏. x.&¯.,x."8."8..8.&∏.,x.&x.(¯.,8.&∏..8."∏.&x.-8.%8.`x.)x.,8.*∏.-N»8.*∏.%∏.,∏.&x.%¯.-x.b8.`x.)x.,8.*∏.-8.b8.!¯. ∏.+x.!Œ»8. x.,∏.(¯. x.(¯.,8.%¯.,»8.*∏.-x.*¯.&x.bx.,∏.`x.)x.,8.*∏.,∏.(∏.%x.,∏.%x.,∏.(x.&∏.%Œ»8.(8.,∏.'∏.)x.,8.!8.(¯.a8.%¯.(∏.*∏.(x."8.(¯.-8.!»NåMà8.`8.*¯.a¯.&x. x.,∏.(¯. x.(¯.,8.%¯.,¯.!8.(¯.&à8.a8.(x.b8.(x.-x. ∏.bx.+x.!8.)¯.,∏.(Hãôõ›◊‹õ€\éàëõ›»»ô[»ÀåH]Nà[ô€\⁄õ€\
+»ZH‹YX⁄ŸX€€ôÀNåMãÿ⁄ŸY[Ÿôà›]X»ÿ[Y\òHüW_W_B∏. x.,∏.(¯.*∏.b8.!¯."∏..8.%8.!¯.,∏.&x.*∏..8.%8.%¯.bx.,∏.(éà8.*∏.b8.!»›‹ûKöú€€à8.`8.&¯.a¯.&x.a8.'¯.)x.c8.`x.(∏. H8.`x.)x.,8.*∏.b8.!¯.(8.,∏.'∏."x.,∏. x. x.,x.&∏.&¯. x.`8.&¯.a¯.&HíT8.`x.(∏. x.(¯.,∏.(àT8.`¯."∏.bHPT’Tà8.`8.&¯.a¯.&x.(8.,∏.'∏.+x.bx.,∏.!¯.+x.-8.!¯.(¯.,8.*¯.)¯.b8.,∏.!¯.*∏.(¯.bx.,∏.!»8.`x.%x.b8.a8.(x.b8.`¯.*∏.b8.a8.'¯.)x.c8.(8.,∏.'àPT’Tà8.*¯.(¯.-¯.+x.`∏.'¯.)x.`8.%8.+x.(¯.cPT’Tãÿ⁄\òX›\ú»8.)x.!¯.`¯.&HíT8.!8.,¯.*∏.,x.b8.!»õ›»8.(¯.)¯.(x.*¯.&x.-∏.b8.!¯.a8.'¯.)x.c8.%x.b8.+HTàTW—ì’ÀùTó—ì’Àù8.%x.,∏.(x."8.,¯.&x.)¯.&x.%x.+x.&x."8.(¯.-8.!»8.`x.%x.b8.)x.,8.a8.'¯.)x.c8.(x.-x."∏.-¯.b8.+x.%x.+x.&x.`x.)x.,8.%¯..8. x."¯.-x.&x.`8.(¯.-x.(∏.!¯.`8.)x. à8.`x.%x.b8.)x.,8."¯.-x.&x.`x.*∏.%8.!¯.`8.)x. ∏."x.,∏. H8.`8.*¯.%x..8. x.,∏.(¯.$¯.c8.&∏.%¯.'∏..x.%8.`x.)x.,8.!8.,¯.*∏.,x.b8.!»õ›»8.`x.(∏. x.`8.&¯.a¯.&x.&∏.)x.a¯.+x. x.*∏.,¯.*¯.(¯.,x.&∏.!8.,x.%8.)x.+x. x.%¯.-x.)x.,8."¯.-x.&H8.a8.(x.b8.`x.(∏. x.`8.&¯.a¯.&x.a8.'¯.)x.cõ›»8.(¯.,∏.(∏."¯.-x.&H8.!8.,¯.*∏.,x.b8.!»õ›◊‹õ€\8.`¯.&H›‹ûKöú€€à8.(∏.,x.!¯.%x.bx.+x.!¯.!8.(¯.&∏.%¯..8. x."¯.-x.&x.%x.,∏.(x.`8.%8.-8.(B∏.%x.,x.)¯.`8.)x. àH8.`¯.&x.%x.,x.)¯.+x.(∏.b8.,∏.!¯.`8.&¯.a¯.&x.`8.'∏.-x.(∏.!¯.(¯..x.&¯.`x.&∏.&à8.%x.bx.+x.!¯.`x.%¯.&x.%8.bx.)¯.(∏."8.,¯.&x.)¯.&x."8.(¯.-8.!¯. ∏.+x.!¯.&∏.%¯.`8.%x.a¯.(H8.`8.'∏.-8.b8.(HT8.`x.)x.,8."x.,∏. x.`8.%¯.b8.,∏.%¯.-x.b8.`8.(¯.-¯.b8.+x.!¯.%x.bx.+x.!¯.`¯."∏.bH8.`8.(¯.-x.(∏.!¯.`8.)x. ∏."8.,∏. HH8.a8.(x.b8. x.,¯.*¯.&x.%8."8.,¯.&x.)¯.&x.%x.,∏.(∏.%x.,x.)»8.*¯.)x.,x.!¯.)¯.,∏.!¯.&∏.%¯.%¯.,x.bx.!¯.`8.(¯.-¯.b8.+x.!»8.%x.bx.+x.!¯.*∏.b8.!»›‹ûKöú€€à8.`8.&¯.a¯.&x.a8.'¯.)x.c8.%8.,∏.)¯.&x.c8.`∏.*¯.)x.%8.`x.(∏. x.%¯.,x.&x.%¯.-H8. x.b8.+x.&x.`8.(¯.-8.b8.(x.*∏.(¯.bx.,∏.!¯.(8.,∏.'à8.*¯.bx.,∏.(x.(¯.+x.`¯.*∏.b›‹ûKöú€€à8.a8.)¯.bx.%¯.bx.,∏.(àíT8.`8.%¯.b8.,∏.&x.,x.bx.&H8."8.,∏. x.&x.,x.bx.&x.`¯."∏.bx.`8.!8.(¯.-¯.b8.+x.!¯.(x.-¯.+x.*∏.(¯.bx.,∏.!¯.(8.,∏.'∏.`x.)x.,8.`x.*∏.%8.!¯.(8.,∏.'∏."8.(¯.-8.!¯.`¯.&x.`x."∏.%x.`x.(∏. x.*¯.&x.-∏.b8.!¯."x.,∏. x.*¯.&x.-∏.b8.!¯.a8.'¯.)x.c8.%x.,∏.(x.)x.,¯.%8.,x.&∏.!8.(¯.&∏.%¯..8. HT8."8.&x."8.&à8.%x.,x.bx.!¯."∏.-¯.b8.+HTW‘–ÃKúô»8.%x.,∏.(x.`8.)x. àT8.`x.)x.,8."x.,∏. H8.a8.(x.b8.%¯.,¯.(8.,∏.'∏.(¯.)¯.(x.*¯.)x.,∏.(∏."x.,∏. H	⁄Yà
+[ŸHOHõ‹öY⁄[ò[äH∏.`¯."∏.bHPT’Tà8.%¯.-x.b8.`x.&x.&∏.`¯.*¯.bx.%x.(¯.!¯.(¯.,∏.(∏.!8.&Hà[ŸH∏.`¯."∏.bH“TêP’TàPT’Tà8.`¯.*¯.(x.b8.%¯.-x.b8.*∏.(¯.bx.,∏.!¯.*∏.,¯.*¯.(¯.,x.&∏.`8.(¯.-¯.b8.+x.!¯.&x.-x.bx.%x.(¯.!¯.(¯.,∏.(∏.!8.&HüH8.'∏.(¯.bx.+x.(x.!8.,¯.*∏.,x.b8.!¯.*∏.,¯.*¯.(¯.,x.&àõ›»»ô[»ÀåH]H8.%¯..8. x."x.,∏. H8.'8..x.bx.`¯."∏.bx.%x.bx.+x.!¯. x.,∏.(¯.&∏.%¯.`x.)x.,8.(8.,∏.'∏.'∏.(¯.bx.+x.(x.&x.,¯.a8.&¯.%¯.,¯.)¯.-8.%8.-x.`∏.+B∏.`8.'∏.-¯.b8.+x.&¯.bx.+x.!¯. x.,x.&x.a8.'¯.)x.c8. ∏.&x.,∏.%8.`¯.*¯.#x.b8.%∏..x. x.%x.,x.%8.`¯.*¯.bx.*∏.b8.!»íT8.`x.(∏. x.*¯.&x.-∏.b8.!¯.a8.'¯.)x.c8.%x.b8.+HT8."∏.-¯.b8.+HTW“SPQ—TÀûö\Tó“SPQ—TÀûö\8.%x.,∏.(x."8.(¯.-8.!»8.`x.%x.b8.)x.,íT8.`¯.*∏.b8.`8."x.'∏.,∏.,8.(8.,∏.'∏."x.,∏. x.`x.)x.,8.&¯. x. ∏.+x.!»T8.&x.,x.bx.&H8.*¯.)x.,x.!¯.*∏.(¯.bx.,∏.!»íT8.`x.%x.b8.)x.,T8.`¯.*¯.bx.`8.&¯.-8.%8.%x.(¯.)¯."8.)¯.b8.,∏.+x.b8.,∏.&x.a8.%8.bH8.%x.(¯.)¯."8."8.,¯.&x.)¯.&x.(8.,∏.'∏."x.,∏. x.`x.)x.,8.&¯. H8.`x.)x.bx.)¯.(¯.,∏.(∏.!¯.,∏.&x."8.,¯.&x.)¯.&x.%¯.-x.b8.%x.(¯.)¯."8."8.(¯.-8.!»8.*¯.bx.,∏.(x.`x."8.bx.!¯.)¯.b8.,∏.!8.(¯.&∏."8.,∏. x.`x.'8.&x.`∏.%8.(∏.a8.(x.b8.%x.(¯.)¯."8.a8.'¯.)x.c8.*¯.bx.,∏.(x.(¯.)¯.(x.(8.,∏.'∏.%¯..8. HT8.`8.&¯.a¯.&HíT8. x.bx.+x.&x.`¯.*¯.#x.b8.a8.'¯.)x.c8.`8.%8.-x.(∏.)¬∏.*¯.)x.,x.!¯.*∏.(¯.bx.,∏.!¯."x.,∏. x.*∏..8.%8.%¯.bx.,∏.(∏. ∏.+x.!¯.`x.%x.b8.)x.,T8.`¯.*¯.bx.*∏.(¯.bx.,∏.!¯.&¯. x.`x.&x.)¯.%x.,x.bx.!¯.*¯.&x.-∏.b8.!¯.a8.'¯.)x.c8.%¯.,x.&x.%¯.-NàTW–”’ëTóŒ^Mãúô»8. ∏.&x.,∏.%NåMà8.`8.&¯.)x.-x.b8.(∏.&x.`8.)x. ∏.%x.,∏.(HT8."8.,x.%8.+x.!¯.!8.c8.&¯.(¯.,8. x.+x.&∏.`x.%x.b8.)x.,8.*∏.,x.%8.*∏.b8.)¯.&x.`¯.*¯.(x.b8.`¯."∏.bx.%x.,x.)¯.)x.,8.!8.(¯."8.,∏. HPT’Tà8.(¯.,∏.(∏.!8.&H8.*∏.-¯.b8.+x.`8.*¯.%x..8. x.,∏.(¯.$¯.c8.`8.%8.b8.&x. ∏.+x.!¯.%x.+x.&x.&x.,x.bx.&H8. ∏.bx.+x.!8.)¯.,∏.(x.(8.,∏.*x.,∏.a8.%¯.(à»8.&∏.(¯.(¯.%¯.,x.%8."8.,x.%8. x.-∏.b8.!¯. x.)x.,∏.!¯.`¯.&x.'∏.-¯.bx.&x.%¯.-x.b8. x.)x.,∏.!¯.(8.,∏.'à8.`8.)¯.bx.&x. ∏.+x.&∏."¯.bx.,∏.(∏. ∏.)¯.,∏.+x.(∏.b8.,∏.!¯.&x.bx.+x.(àL	H8.`x.)x.,8. ∏.+x.&∏.&∏.&x.)x.b8.,∏.!»å	Nà8.&∏.(¯.(¯.%¯.,x.%H8."∏.-¯.b8.+x."∏.b8.+x.!»
+8.`8.)x.a¯. x. x.)¯.b8.,äK8.&∏.(¯.(¯.%¯.,x.%à8."∏.-¯.b8.+x.`8.(¯.-¯.b8.+x.!»
+8.`¯.*¯.#x.b8.%¯.-x.b8.*∏..8.%
+K8.&∏.(¯.(¯.%¯.,x.%»TH8†(à8."∏.-¯.b8.+x.%x.+x.&H
+8. ∏.&x.,∏.%8.(¯.+x.! H8.&¯.(¯.,x.&∏. ∏.&x.,∏.%8.+x.,x. x.*x.(¯.`¯.*¯.bx.!8.(¯.&∏.%¯.,x.bx.!¯.&∏.(¯.(¯.%¯.,x.%8.+x.b8.,∏.&x."∏.,x.%8.&∏.&x.(x.-¯.+x.%∏.-¯.+H8.a8.(x.b8.%¯.,x.&∏.`¯.&∏.*¯.&x.bx.,à8."∏.-¯.b8.+x.`8.(¯.-¯.b8.+x.!¯.`x.)x.,8."∏.-¯.b8.+x.%x.+x.&x.%x.bx.+x.!¯.%x.(¯.!»›‹ûKöú€€à8.(¯.)¯.(x.&¯. x.a8.)¯.bx.`¯.&HíT8.(¯.,∏.(àT8.%¯.-x.b8.%x.(¯.!¯. x.,x.&∏.`8.)x. ∏.%x.+x.&x.%8.bx.)¯.(àààãÿ⁄–‹ôX][€àHùYK[ò€YSX\›\úœYò[ŸKôYô\ô[òŸR[XYŸ\œ[\›Ÿäôÿ]⁄[àãúö[õYHãõZ[ôäKõX\»YOàò[ö[OQö[Jö[\—\ãò⁄\òX›\ó€X\›\úÀ…YõX\›\àäN»â⁄Yù\\òÿ\ŸJ
+_W”PT’Tàà»ö[HJBàKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàBàö]ò]Hù[àÿŸ[ôP€€[X[ô 
+H¬àò[H[àŒàô]\õàõ›XŸJ∏.&x.,¯.`8. ∏.bx.,∏.`x.'8.&x.`8.(¯.-¯.b8.+x.!¯. x.b8.+x.&x.!8.(¯.,x.&àäBàò[ÿŸ[ô\»Hõ›‹ 
+Bà⁄⁄XŸSY[ùJº'„´8.`8.)x.-¯.+x. x."x.,∏. x.`8.'∏.-¯.b8.+x.*∏.b8.!¯.!8.,¯.*∏.,x.b8.!¯.(8.,∏.'àãÿŸ[ô\ÀõX\»º'„ßªÓ#»à
+»Ÿ^J]
+HJH»[ô^OÇàò[»HÿŸ[ô\÷⁄[ô^BàŸ[ôÿŸ[ôR[XYŸJ BàBàBà\ôXÿ]Y
+ê[ôõ⁄YYÿXﬁHòX⁄»ÿ[òX⁄»äBà›ô\úöYHù[à€êòX⁄‘ô\‹ŸY
+
+H»Yà
+Z[\‹ù[ô H›\\ãõ€êòX⁄‘ô\‹ŸY
+
+HBàö]ò]Hù[à\‹^Sò[YJ\öNà\öJNà›ö[ô»HYà
+\öKúÿ⁄[YHOHôö[HäHö[J\öKú]HJKõò[YH[ŸH€€ù[ùô\€€ô\ãú]Y\ûJ\öK\úò^SŸä‹[òXõP€€[[úÀëT‘VW”êSQJKù[ù[ù[
+OÀù\ŸH»Yà
+]õ[›ôU—ö\ú›
+
+JH]ôŸ]›ö[ô 
+H[ŸHààHŒààÇàö]ò]Hù[à[\‹ù‹öY⁄[ò[ôYô\ô[òŸ\ X›\ô\Œà\›\öOãõ€\éàö[K›‹ûNàî””ìÿöôX›
+H¬àYä›‹ûKõ‹›ö[ô ò⁄\òX›\ó€[ŸHãõ‹öY⁄[ò[äHOHõ‹öY⁄[ò[äHô]\õÇàõ›–ÿ\›ôYö[ö][€ú ›‹ûJKôõ‹ëXX⁄»\ú€€àOÇàò[YQõ›–ÿ\›öY
+\ú€€äHŒàô]\õêõ‹ëXX⁄àò[€›\òŸO\X›\ô\Àôö\ú›‹ìù[»\‹^Sò[YJ]
+Kú›Xú›ö[ô–ôYõ‹ôS\›
+	Àâ Kô\]X[ â⁄Yù\\òÿ\ŸJ
+_W”PT’TàãùYJHHŒàô]\õêõ‹ëXX⁄àò[\ôŸ]Qö[Jõ€\ãõ‹öY⁄[ò[€X\›\úÀ…YõX\›\àäN»\ôŸ]ú\ô[ùö[HHKõZŸ\ú 
+Bàò[[\Qö[J\ôŸ]ú\ô[ùö[K\ôŸ]õò[YJ»ãú[ô[ô»äBàûH¬à€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J€›\òŸJHHKù\ŸH»[ú]Oà[\õ›]]›ôX[J
+Kù\ŸH»[ú]ò€‹U ]
+HHBàô\]Z\ôJX\›\ë^‹ùò[YJ[\ò[ŸJHO[ù[
+H»∏.+x.b8.,∏.&x.(8.,∏.'∏.+x.bx.,∏.!¯.+x.-8.!¯. ∏.+x.!»	‹\ú€€ãôŸ]›ö[ô õò[YHä_H8.a8.(x.b8.a8.%8.bHàBà⁄X⁄ [\úô[ò[YU \ôŸ]
+JH»∏.&∏.,x.&x.%¯.-∏. x.(8.,∏.'∏.+x.bx.,∏.!¯.+x.-8.!¯.a8.(x.b8.a8.%8.bHàBàHö[ò[H»[\ô[]J
+HBàBàBàö]ò]Hù[à[\‹ùô]”X\›\ú \ö\Œà\›\öOãõ€\éàö[HHõ⁄ôX››‹ûNàî””ìÿöôX›»H[äH¬àYà
+\ö\Àö\—[\J
+JHô]\õÇàô\]Z\ôJ›‹ûOÀõ‹›ö[ô ò⁄\òX›\ó€[ŸHäHOHõô]»äH»∏.(8.,∏.'à“TêP’Tà8.`¯."∏.bx. x.,x.&∏."∏.b8.+x.!¯.+x.-¯.b8.&x.`8.%¯.b8.,∏.&x.,x.bx.&HàBàò[\àHö[Jõ€\ãõX\›\ú»äKò\H»ZŸ\ú 
+HBàõ‹à
+\öH[à\ö\ H¬àò[[ô^HôYŸ^
+óê“TêP’Tó 
+ WàãôYŸ^‹[€ãíQ”ì‘ëW––T—JKôö[ô
+\‹^Sò[YJ\öJJHHKô‹õ›\ò[Y\÷ÃWBàò[[\‹ò\ûHHö[J\ãê“TêP’Tó…[ô^ù\äBà€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J\öJHHKù\ŸH»[ú]Oà[\‹ò\ûKõ›]]›ôX[J
+Kù\ŸH»[ú]ò€‹U ]
+HHBàò[õ›[ô»H[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[íù\›X€ŸPõ›[ô»HùYHBà[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸQö[J[\‹ò\ûKú]õ›[ô Bàô\]Z\ôJõ›[ôÀõ›]⁄Yà	âàõ›[ôÀõ›]ZY⁄à
+H»∏.a8.'¯.)x.cPT’Tà8.a8.(x.b8.`¯."∏.b8.(8.,∏.'ààBàò[\ôŸ]Qö[J\ãê“TêP’Tó…[ô^úô»äBàYä\ôŸ]ô^\› 
+JH\ò⁄]ôUô\ú⁄[€ä\ôŸ]õ€\ãê“TêP’Tó…[ô^ãõX\›\àäBàô\]Z\ôJ[\‹ò\ûKúô[ò[YU \ôŸ]
+JH»∏.&∏.,x.&x.%¯.-∏. HPT’Tà8.a8.(x.b8.*∏.,¯.`8.(¯.a¯."àBàBàBàö]ò]Hù[à[\‹ù[XYŸ\ \ö\Œà\›\öOã€€ôö\õYY‹ô\éàõ€€X[àHò[ŸJH¬àò[ÿŸ[ô\»Hõ›‹ [àHJBàò[\‹⁄Y€õY[ù»H[öŸYX\Ÿè\öKî””ìÿöôX›ä
+Bàò[[ö€õ›€àH]]XõS\›Ÿè\öOä
+Bàõ‹à
+\öH[à\ö\ H¬àò[X]⁄H›‹ûQö[\ÀúÿŸ[ôSù[Xô\ä\‹^Sò[YJ\öJJBàò[õ›[ôHX]⁄Àõ]»HOàÿŸ[ô\Àôö[ô»]ôŸ][ù
+ô\äHOHKôö\ú›	âà]ôŸ][ù
+úÿŸ[ôHäHOHKúŸX€€ôHBàYà
+X]⁄OHù[	âàõ›[ôOHù[
+Hô]\õàõ›XŸJâŸ\‹^Sò[YJ\öJ_H8.a8.(x.b8.%x.(¯.!¯. x.,x.&∏."x.,∏. x.`¯.&x.`8.(¯.-¯.b8.+x.!¯.&x.-x.bH8. x.(¯..8.$¯.,∏.`8.)x.-¯.+x. x.(8.,∏.'∏. ∏.+x.!¯.`8.(¯.-¯.b8.+x.!¯.&¯.,x."8."8..8.&∏.,x.&HäBàYà
+õ›[ôOHù[
+H[ö€õ›€ãòY
+\öJH[ŸH\‹⁄Y€õY[ù÷›\öWHHõ›[ôàBàYà
+\‹⁄Y€õY[ùÀùò[Y\ÀõX\»Ÿ^J]
+HKô\›[ò›
+
+Kú⁄^ôHOH\‹⁄Y€õY[ùÀú⁄^ôJHô]\õàõ›XŸJ∏.(x.-x.a8.'¯.)x.c8."∏.-¯.b8.+x."x.,∏. x."¯.bx.,¯.`¯.&x."∏..8.%8.%¯.-x.b8.`8.)x.-¯.+x. H8. x.(¯..8.$¯.,∏.`8.)x.-¯.+x. x.*¯.&x.-∏.b8.!¯.(8.,∏.'∏.%x.b8.+x."x.,∏. x.!8.(¯.,x.&àäBàò[ÿÿ›\YYH\‹⁄Y€õY[ùÀùò[Y\ÀõX\»Ÿ^J]
+HKù‘Ÿ]
+
+Bàò[]òZ[XõHHÿŸ[ô\Àôö[\à»Ÿ^J]
+HZ[àÿÿ›\YY	âàZ[XYŸJ]
+Kô^\› 
+HBàYà
+[ö€õ›€ãú⁄^ôHà]òZ[XõKú⁄^ôJH¬àò[ò[YYH\ö\Àôö[\à»›‹ûQö[\ÀúÿŸ[ôSù[Xô\ä\‹^Sò[YJ]
+JHOHù[Bàò[⁄⁄\YH[ö€õ›€ãöõ⁄[ï‘›ö[ô óàäH»\‹^Sò[YJ]
+HBàYà
+ò[YYö\—[\J
+JHô]\õàõ›XŸJ∏.(∏.,x.!¯."8.,x.&∏.!8..x.b8.(8.,∏.'∏.a8.(x.b8.a8.%8.bH8. x.(¯..8.$¯.,∏.`¯."∏.bx."∏.-¯.b8.+HTW‘–ÃKúô»8.*¯.(¯.-¯.+x.`∏.'¯.)x.`8.%8.+x.(¯.cTK‘–ÃKúô◊∏.a8.'¯.)x.c8.%¯.-x.b8.%x.bx.+x.!¯.%x.(¯.)¯."óâ⁄⁄\YäBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.'∏.&∏.(8.,∏.'∏.+x.-¯.b8.&x.`¯.&x."∏..8.%8.!¯.,∏.&HäBàúŸ]Y\‹ÿYŸJ∏.&x.,¯.`8. ∏.bx.,∏.(8.,∏.'∏.%¯.-x.b8.%x.(¯.!¯.`8.)x. ∏."x.,∏. x.a8.%8.bH	€ò[YYú⁄^ô_H8.a8.'¯.)x.c8.*∏.b8.)¯.&H	›[ö€õ›€ãú⁄^ô_H8.a8.'¯.)x.c8.%x.b8.+x.a8.&¯.&x.-x.bx.(∏.,x.!¯."8.,x.&∏.!8..x.b8.a8.(x.b8.a8.%8.bH8."8.,8.`8.)¯.bx.&x.a8.)¯.bx.`8.'∏.-¯.b8.+x.a8.(x.b8.`¯.*∏.b8.'8.-8.%8."x.,∏. Nóâ⁄⁄\YäBàúŸ]‹⁄]]ôPù]€ä∏.&x.,¯.`8. ∏.bx.,∏.(8.,∏.'∏.%¯.-x.b8."8.,x.&∏.!8..x.b8.a8.%8.bHäH»À»Oà[\‹ù[XYŸ\ ò[YY
+HBàúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+Bàô]\õÇàBà[ö€õ›€ãôõ‹ëXX⁄[ô^Y»K\öHOà\‹⁄Y€õY[ù÷›\öWHH]òZ[XõV⁄WHBàYà
+[ö€õ›€ãö\”õ›[\J
+H	âàX€€ôö\õYY‹ô\äH¬àò[\›H\ö\Àöõ⁄[ï‘›ö[ô óàäH»âŸ\‹^Sò[YJ]
+_H8°§à	⁄Ÿ^J\‹⁄Y€õY[ùÀôŸ]ò[YJ]
+J_HàBàò[€€ù[ùH^öY] \ Kò\H»^H∏.&∏.,∏.!¯.(8.,∏.'∏.a8.(x.b8.(x.-x.`8.)x. ∏."x.,∏. H8.`x.+x.&¯.`8.*∏.&x.+x.`8.(¯.-x.(∏.!¯.%x.,∏.(x.)x.,¯.%8.,x.&∏.a8.'¯.)x.c8.%¯.-x.b8.`8.)x.-¯.+x. H8. x.(¯..8.$¯.,∏.%x.(¯.)¯."8.`¯.*¯.bx.%x.(¯.!¯. x.b8.+x.&x.&x.,¯.`8. ∏.bx.,óóâ\›é»Ÿ]Y[ô 
+MäK
+LäK
+MäK
+LäJHBà[\ùX[ŸÀêùZ[\ä\ KúŸ]X€€äãôò]ÿXõKú›Y[◊€[›öYJKúŸ]]J∏.%x.(¯.)¯."8.)x.,¯.%8.,x.&∏.(8.,∏.'∏.!8.(¯.,x.bx.!¯.`8.%8.-x.(∏.)»äKúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] €€ù[ù
+HJKúŸ]‹⁄]]ôPù]€ä∏.)x.,¯.%8.,x.&∏.%∏..x. x.%x.bx.+x.!»äH»À»Oà[\‹ù[XYŸ\ \ö\ÀùYJHKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+Bàô]\õÇàBàò[[\‹ùõ€\àHõ⁄ôX›à[\‹ù[ô»HùYBàò[ô[XZ[ö[ô»H\ö\Àù”]]XõS\›
+
+Bàò\àÿ]ôY€›[ùL»ò\à⁄⁄\Y€›[ùLàò[òZ[\ô\œ[]]XõS\›Ÿè›ö[ôœä
+Bàò[õŸ‹ô\‹—X[ŸœP[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏. x.,¯.)x.,x.!¯.&∏.,x.&x.%¯.-∏. x.(8.,∏.'àäKúŸ]Y\‹ÿYŸJå…›\ö\Àú⁄^ô_H8.a8.'¯.)x.cäKúŸ]ÿ[òŸ[XõJò[ŸJKú⁄›—\ôX›‹ä
+Bàù[àô^
+
+H¬àYà
+ô[XZ[ö[ôÀö\—[\J
+JH¬à[\‹ù[ô»Hò[ŸN»[ô[ô‘ôX€›ô\ûKô[]TôX›\ú⁄]ô[J
+N»ô[ô\ä
+BàõŸ‹ô\‹—X[ŸÀô\€Z\‹ 
+Bà⁄›“[\‹ùôXŸZ\
+∏.!8.(¯.,x.bx.!¯.&x.-x.bH8†(à8.&∏.,x.&x.%¯.-∏. x.(8.,∏.'à	ÿ]ôY€›[ù8†(à8. ∏.bx.,∏.(H	⁄⁄\Y€›[ù8†(à8.)x.bx.(x.`8.*¯.)x.)»	ŸòZ[\ô\Àú⁄^ô_Hà
+»YäòZ[\ô\Àö\—[\J
+JHàà[ŸHóàäŸòZ[\ô\Àöõ⁄[ï‘›ö[ô óàäJBàô]\õÇàBàõŸ‹ô\‹—X[ŸÀúŸ]Y\‹ÿYŸJ∏. x.,¯.)x.,x.!¯.&∏.,x.&x.%¯.-∏. H	›\ö\Àú⁄^ôK\ô[XZ[ö[ôÀú⁄^ôJÃ_K…›\ö\Àú⁄^ô_H8.a8.'¯.)x.cäBàò[\öHHô[XZ[ö[ôÀúô[[›ôP]
+
+Bàò[ò[YHH\‹^Sò[YJ\öJBàò[X]⁄H›‹ûQö[\ÀúÿŸ[ôSù[Xô\äò[YJBàò[õ›[ôHX]⁄Àõ]»HOàÿŸ[ô\Àôö[ô»]ôŸ][ù
+ô\äHOHKôö\ú›	âà]ôŸ][ù
+úÿŸ[ôHäHOHKúŸX€€ôHBàù[àÿ]ôJŒàî””ìÿöôX›
+H¬àôXY¬àûH¬àò[\ôŸ]Hö[J[\‹ùõ€\ãö[XYŸ\À…⁄Ÿ^J _Kö[Y»äN»\ôŸ]ú\ô[ùö[HHKõZŸ\ú 
+Bàò[\Hö[J\ôŸ]ú\ô[ùö[Kâ›\ôŸ]õò[Y_Kù\äBà€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J\öJHHKù\ŸH»‹ò»Oà\õ›]]›ôX[J
+Kù\ŸH»‹òÀò€‹U ]
+HHBàô\]Z\ôJ\õ[ô›
+
+Hà
+H»∏.a8.'¯.)x.c8.(8.,∏.'∏.)¯.b8.,∏.!»àBàò[õ›[ô»H[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[íù\›X€ŸPõ›[ô»HùYHBà[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸQö[J\ú]õ›[ô Bàô\]Z\ôJõ›[ôÀõ›]⁄Yà
+H»∏.+x.b8.,∏.&x.(8.,∏.'∏.a8.(x.b8.a8.%8.bHàBàYà
+\ôŸ]ô^\› 
+JH\ò⁄]ôUô\ú⁄[€ä\ôŸ][\‹ùõ€\ãŸ^J Kö[XYŸHäBà⁄X⁄ \úô[ò[YU \ôŸ]
+JH»∏.&∏.,x.&x.%¯.-∏. x.(8.,∏.'∏.a8.(x.b8.a8.%8.bHàBàù[ì€ïZUôXY»ÿ]ôY€›[ù
+ Œ»ô^
+
+HBàHÿ]⁄
+Nà^Ÿ\[€äH»ù[ì€ïZUôXY»òZ[\ô\ÀòY
+âò[YNà	ŸKõY\‹ÿYŸ_HäN»ô^
+
+HHBàKú›\ù
+
+BàBàù[à\‹⁄Y€äŒàî””ìÿöôX›
+H¬àYà
+[XYŸJ Kô^\› 
+JH[\ùX[ŸÀêùZ[\ä\ KúŸ]X€€äãôò]ÿXõKú›Y[◊€[›öYJKúŸ]Y\‹ÿYŸJâ⁄Ÿ^J _H8.(x.-x.(8.,∏.'∏.`x.)x.bx.)»8.`x.%¯.&x.%8.bx.)¯.(à	ò[YH8.*¯.(¯.-¯.+x.a8.(x.b»äKúŸ]‹⁄]]ôPù]€ä∏.`x.%¯.&x.(8.,∏.'àäH»À»Oàÿ]ôJ HKúŸ]ôYÿ]]ôPù]€ä∏. ∏.bx.,∏.(HäH»À»Oà⁄⁄\Y€›[ù
+ Œ»ô^
+
+HKúŸ]ÿ[òŸ[XõJò[ŸJKú⁄›—\ôX›‹ä
+Bà[ŸHÿ]ôJ BàBàYà
+\‹⁄Y€õY[ù÷›\öWHOHù[
+H\‹⁄Y€ä\‹⁄Y€õY[ùÀôŸ]ò[YJ\öJJBà[ŸH⁄⁄XŸSY[ùJº'ÈÍH8."8.,x.&∏.!8..x.b8.(8.,∏.'éà	ò[YHãÿŸ[ô\ÀõX\»º'„ßªÓ#»à
+»Ÿ^J]
+H
+»Yà
+[XYŸJ]
+Kô^\› 
+JHà8ß$»à[ŸHà8†(à8. ∏.,∏.%8.(8.,∏.'ààKÿ[òŸ[H∏£Î{Ó#»8. ∏.bx.,∏.(Hãÿ[òŸ[XõHHò[ŸK€êÿ[òŸ[H»ô^
+
+HJH»HOà\‹⁄Y€äÿŸ[ô\÷⁄WJHBàBàô^
+
+BàBàö]ò]Hù[àÿ\›[ô’[XõòZ[
+€›\òŸNàö[JNà[ôõ⁄Yô‹ò\X‹Àêö]X\»Hù[êÿ]⁄[ô»¬àò[õ›[ôœX[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[íù\›X€ŸPõ›[ôœ]ùYHBà[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸQö[J€›\òŸKú]õ›[ô Bàò[‹[€úœX[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[îÿ[\T⁄^ôOLHBà⁄[Jõ›[ôÀõ›]⁄Y€‹[€úÀö[îÿ[\T⁄^ôOåçMàõ›[ôÀõ›]ZY⁄€‹[€úÀö[îÿ[\T⁄^ôOåŒ
+H‹[€úÀö[îÿ[\T⁄^ôH
+èHÇà[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸQö[J€›\òŸKú]‹[€ú BàKôŸ]‹ìù[
+
+Bàö]ò]Hù[àô]öY]–ö]X\
+\öNà\öJNà[ôõ⁄Yô‹ò\X‹Àêö]X\»¬àô]\õàù[êÿ]⁄[ô»¬àò[õ›[ôœX[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[íù\›X€ŸPõ›[ôœ]ùYHBà€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J\öJHHKù\ŸH»[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸT›ôX[J]ù[õ›[ô HBàò[‹[€úœX[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[îÿ[\T⁄^ôOLHBà⁄[Jõ›[ôÀõ›]⁄Y€‹[€úÀö[îÿ[\T⁄^ôOåLåõ›[ôÀõ›]ZY⁄€‹[€úÀö[îÿ[\T⁄^ôOåMå
+H‹[€úÀö[îÿ[\T⁄^ôH
+èHÇà€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J\öJHHKù\ŸH»[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸT›ôX[J]ù[‹[€ú HBàKôŸ]‹ìù[
+
+BàBàö]ò]Hù[à€‹P€€[X[ô
+^à›ö[ô H¬àù[êÿ]⁄[ô»¬à
+Ÿ]ﬁ\›[TŸ\ùöXŸJ”Tì–Të‘—TïíP—JH\»[ôõ⁄Yò€€ù[ùê€\õÿ\ôX[òYŸ\äBàúŸ]ö[X\ûP€\
+€\]Kõô]‘Z[ï^
+ëTëP’‘àã^
+JBàKõ€î›XÿŸ\‹»»õ›XŸJ∏.!8.,x.%8.)x.+x. x.!8.,¯.*∏.,x.b8.!¯.`x.)x.bx.)»8†(à8.&x.,¯.a8.&¯.)¯.,∏.!¯.`¯.&x.`8.!8.(¯.-¯.b8.+x.!¯.(x.-¯.+x.%¯.-x.b8.%x.bx.+x.!¯. x.,∏.(»äHBàõ€ëòZ[\ôH»õ›XŸJ∏.!8.,x.%8.)x.+x. x.a8.(x.b8.a8.%8.bx.*¯.(¯.-¯.+x. ∏.bx.+x.!8.)¯.,∏.(x.(∏.,∏.)¯.`8. x.-8.&x.!8.)x.-8.&¯.&∏.+x.(¯.c8.%8†(à8.`8.)x.-¯.+x. x.&∏.,x.&x.%¯.-∏. x.a8.'¯.)x.c8.`x.)x.bx.)¯.`x.&x.&∏.`¯.&HŸ[Z[öH8.*¯.(¯.-¯.+x.`8.)x.-¯.+x. x.`8."x.'∏.,∏.,TäHBàBàö]ò]Hù[àÿ]ôT›‹ûJ
+H¬àò[H[àŒàô]\õÇàò[\ôŸ]Hö[Jõ⁄ôX›ú›‹ûKöú€€àäBàYà
+\ôŸ]ô^\› 
+JH\ôŸ]ò€‹U ö[Jõ⁄ôX›ú›‹ûKúô]ö[›\Àöú€€àäK›ô\ù‹ö]O]ùYJBàò[\Hö[Jõ⁄ôX›ú›‹ûKú[ô[ô»äBà\ù‹ö]U^
+ù‘›ö[ô äJN»⁄X⁄ \úô[ò[YU \ôŸ]
+JH»∏.&∏.,x.&x.%¯.-∏. x.&∏.%¯.a8.(x.b8.a8.%8.bHàBàBàö]ò]Hù[àô[Y[Xô\îÿŸ[ôJŒàî””ìÿöôX›
+H¬àôYúÀôY]
+
+Kú]›ö[ô õ\›‹ÿŸ[ôW…‹õ⁄ôX›õò[Y_HãŸ^J JKò\J
+Bàö[Jõ⁄ôX›õ\›‹ÿŸ[ôKùäKù‹ö]U^
+Ÿ^J JBàBàö]ò]Hù[àöY[ Œàî””ìÿöôX›
+HHö[Jõ⁄ôX›ùöY[‹À…⁄Ÿ^J _Kõ\äBàö]ò]Hù[à\ò⁄]ôUô\ú⁄[€ä€›\òŸNàö[Kõ€\éàö[KYà›ö[ôÀ⁄[ôà›ö[ô H¬àò[›Hö[Jõ€\ãùô\ú⁄[€úÀ…Y…⁄[ô…‘ﬁ\›[Kò›\úô[ù[YSZ[\ 
+_W…’URQúò[ô€UURQ
+
+_Kâ‹€›\òŸKô^[ú⁄[€üHäBà›ú\ô[ùö[HHKõZŸ\ú 
+N»€›\òŸKò€‹U ›
+BàBàö]ò]Hù[àô\›[YTÿŸ[ôJ
+H¬àò[H[àŒàô]\õàõ›XŸJ∏.*∏.(¯.bx.,∏.!¯.*¯.(¯.-¯.+x.&x.,¯.`8. ∏.bx.,∏.&∏.%¯. x.b8.+x.&x.!8.(¯.,x.&àäBàò[ÿŸ[ô\»Hõ›‹ 
+Bàò[\›HôYúÀôŸ]›ö[ô õ\›‹ÿŸ[ôW…‹õ⁄ôX›õò[Y_Hãù[
+HŒàö[Jõ⁄ôX›õ\›‹ÿŸ[ôKùäKùZŸRYà»]ô^\› 
+HOÀúôXY^
+
+Kõ‹ë[\J
+BàÿŸ[ôSY[ùJÿŸ[ô\Àôö\ú›‹ìù[»Ÿ^J]
+HOH\›HŒàÿŸ[ô\Àôö\ú›‹ìù[»Z[XYŸJ]
+Kô^\› 
+HHŒàÿŸ[ô\Àôö\ú›
+
+JBàBàö]ò]Hù[à\\€Ÿ\”Y[ùJ
+H¬àò[H[àŒàô]\õàõ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-x.&∏.%»8†(à8.`8.(¯.-8.b8.(x.`8.(¯.-¯.b8.+x.!¯.`¯.*¯.(x.b8.*¯.(¯.-¯.+x.(¯.,x.&à›‹ûKöú€€àäBàò[\\€Ÿ\»HôŸ]î””ê\úò^Jô\\€Ÿ\»äBà⁄⁄XŸSY[ùJº'„ßªÓ#»	‹õ‹›ö[ô ù]Hä_Hã
+[ù[\\€Ÿ\Àõ[ô›
+
+JKõX\»HOÇàò[\H\\€Ÿ\ÀôŸ]î””ìÿöôX›
+JN»ò[ÿŸ[ô\»Hõ›‹ 
+Kôö[\à»]ôŸ][ù
+ô\äHOH\ôŸ][ù
+ô\äHBàëT	Ÿ\ôŸ][ù
+ô\ä_H8†(à	Ÿ\õ‹›ö[ô ù]Hä_W∏.(8.,∏.'à	‹ÿŸ[ô\Àò€›[ù»[XYŸJ]
+Kô^\› 
+H_K…‹ÿŸ[ô\Àú⁄^ô_H8†(à8.)¯.-8.%8.-x.`∏.+H	‹ÿŸ[ô\Àò€›[ù»öY[ ]
+Kô^\› 
+H_K…‹ÿŸ[ô\Àú⁄^ô_HÇàJH»[ô^OÇàò[\H\\€Ÿ\ÀôŸ]î””ìÿöôX›
+[ô^
+KôŸ][ù
+ô\äBàò[ÿŸ[ô\»Hõ›‹ 
+Kôö[\à»]ôŸ][ù
+ô\äHOH\Bà⁄⁄XŸSY[ùJëT	\8†(à8.`8.)x.-¯.+x. x."x.,∏. HãÿŸ[ô\ÀõX\»â⁄Ÿ^J]
+_H8†(à	⁄Yà
+[XYŸJ]
+Kô^\› 
+JH∏.(x.-x.(8.,∏.'àà[ŸH∏. ∏.,∏.%8.(8.,∏.'àüH8†(à	⁄Yà
+öY[ ]
+Kô^\› 
+JH∏.(x.-x.)¯.-8.%8.-x.`∏.+Hà[ŸH∏.(¯.+x.)¯.-8.%8.-x.`∏.+HüHàH
+»º'‰Èà8.*∏.b8.!¯.+x.+x. HíT8.!8.,¯.*∏.,x.b8.!¯.%¯.,x.bx.!¯.`8.(¯.-¯.b8.+x.!»äH»HOÇàYà
+HOHÿŸ[ô\Àú⁄^ôJH»ò[\‹›Y\œQõ›‘õŸX›[€îX⁄Àö\‹›Y\ 
+N»Yä\‹›Y\Àö\”õ›[\J
+JHõ›XŸJ\‹›Y\ÀùZŸJÃ
+Köõ⁄[ï‘›ö[ô óàäJH[ŸH»›\ù\ëõ›‘X⁄œYò[ŸN»õ›‘X⁄‘X⁄Ÿ\ãõ][ò⁄
+›‹ûQö[\Àûö\ò[YJ[èÀõ‹›ö[ô ù]HäKõ‹ë[\J
+JJHHBà[ŸHÿŸ[ôSY[ùJÿŸ[ô\÷⁄WJBàBàBàBàö]ò]Hù[àõ›‘‹X Œàî””ìÿöôX›
+Nàõ›‘ÿŸ[ôT‹X»¬àò[ÿ\›HÀõ‹î””ê\úò^Jò⁄\òX›\ú»äHŒàî””ê\úò^J
+Bàô]\õàõ›‘ÿŸ[ôT‹X 
+[ù[ÿ\›õ[ô›
+
+JKõX\»HOÇàò[\ú€€àHÿ\›ôŸ]î””ìÿöôX›
+JBàõ›‘\ú€€ä\ú€€ãõ‹›ö[ô õò[YHäK\ú€€ãõ‹›ö[ô ùö\›X[Ÿ\ÿ‹ö\[€àäK\ú€€ãõ‹›ö[ô úÿ‹ôY[ó‹‹⁄][€àäKÿŸ[ôUÿ\ôõÿôJÀ\ú€€äK\ôõ‹õX[òŸQ\ôX›[€ãù^
+\ú€€äJBàKÀõ‹›ö[ô ú‹XZŸ\àäKÀõ‹›ö[ô ôX[Ÿ›YHäKÀõ‹›ö[ô õò\úò][€àäKàÀõ‹›ö[ô ôõ›◊ÿX›[€àäKöYêõ[ö»»Àõ‹›ö[ô òX›[€àäHKÀõ‹›ö[ô õÿÿ][€àäKàÀõ‹›ö[ô ú›\ù‹›]HäKÀõ‹›ö[ô ô[ô‹›]HäKà[èÀõ‹[ù
+ô\ò][€ó‹ŸX€€ô»ã
+HŒà[èÀõ‹›ö[ô ò\‹X›‹ò][»ãéNåMàäHŒàéNåMàã€›[ô\⁄Y€ãõõ›\  KõŸX›[€ê€€[X[ô⁄X⁄ÀõŸôúÿ‹ôY[ä KõŸX›[€ê€€[X[ô⁄X⁄ÀôX[Ÿ›YU\õú  JBàBàö]ò]Hù[àõ›”X\[ô–›\úô[ù
+Œàî””ìÿöôX›
+Nàõ€€X[àH[XYŸJ Kô^\› 
+H	âÇàÀõ‹€ô ôõ›◊⁄[XYŸW‹ô]ö\⁄[€àãLS
+HOH[XYŸJ Kõ\›[ŸYöYY
+
+Bàö]ò]Hù[àõ›–€€[X[ô
+Œàî””ìÿöôX›
+Nà›ö[ô»¬àYà
+\ÿŸ[ôQúò[YP\õ›ôY
+ Hõ›‘ÿŸ[ôTõ€\ö\‹›Y\ õ›‘‹X  JKö\”õ›[\J
+JHô]\õà∏.(∏.,x.!¯.a8.(x.b8.'∏.(¯.bx.+x.(x.*∏.b8.!»õ›»8†(à8.`8.&¯.-8.%8.(8.,∏.'à	⁄Ÿ^J _H8.`x.)x.,8.(∏.-¯.&x.(∏.,x.&x.)x.,x. x.*x.$¯.,¯.%x.,¯.`x.*¯.&x.b8.!¯.'8..x.bx.'∏..x.%8.`¯.&x.`8.(x.&x..x. x.,¯.*¯.&x.%8.%x.,x.)¯.)x.,8.!8.(¯. x.b8.+x.&H8.a8.(x.b8.`8.%8.,∏.%x.,¯.`x.*¯.&x.b8.!¯."8.,∏. x. ∏.bx.+x.!8.)¯.,∏.(x.&∏.%»Çàô]\õà⁄‹ùõ›‘õ€\òùZ[
+õ›‘‹X  Kî€›»Ÿ[ùH[ãàäBàBàö]ò]Hù[à[ôÿÿ\TÿŸ[ôR[XYŸJö[Nàö[JNàõ€€X[à¬àò[õ›[ôœX[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[íù\›X€ŸPõ›[ôœ]ùYHBà[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸQö[Jö[Kú]õ›[ô Bàô]\õàõ›[ôÀõ›]ZY⁄å	âà€›[ãõX]òXú õ›[ôÀõ›]⁄Yù—›XõJ
+Kÿõ›[ôÀõ›]ZY⁄NKåÃMäOåàBàö]ò]Hù[àúò[YTô]öY]—òX› ÿŸ[ôNàî””ìÿöôX›
+Nà›ö[ô»¬àò[ò\ŸOYõ›‘‹X ÿŸ[ôJKù‘›ö[ô 
+Bàò[Ÿ[X›YQõ›‘ôYô\ô[òŸTõ€\ú[‹JÿŸ[ôJKõX\õ›ù[»\ú€€àOÇàò[Y\ôYô\ô[òŸRY
+\ú€€ãõ‹›ö[ô õX\›\àäJBàò[X\›\è\ù[êÿ]⁄[ô»»X\›\ëõ‹ä\ú€€äHKôŸ]‹ìù[
+
+HŒàô]\õêX\õ›ù[ù[àò[YŸ\›\ù[êÿ]⁄[ô»»X\›\ìXúò\ûKôYŸ\›
+X\›\ãúôXYû]\ 
+JHKôŸ]‹ìù[
+
+HŒàô]\õêX\õ›ù[ù[àò[Ÿ^O]ÿ\ôõÿôT€›\òŸRŸ^Jõ⁄ôX›õò[YKYYŸ\›\ú€€äBàYäôYúÀôŸ]õ€€X[äŸ^Kÿ\ôõÿôQ]öY[òŸKù\ŸSX\›\ì›]ö]
+\ú€€ãõ‹›ö[ô õ›]ö]äJJJHY[ŸHù[àKú€‹ùY
+
+Bàô]\õàYäŸ[X›Yö\—[\J
+JHò\ŸH[ŸHò\ŸJ»üÿ\ôõÿôW€X\›\èHä‹Ÿ[X›Yöõ⁄[ï‘›ö[ô ãäBàBàö]ò]Hù[àÿŸ[ôQúò[YP\õ›ôY
+Œàî””ìÿöôX›
+Nàõ€€X[àH[ôÿÿ\TÿŸ[ôR[XYŸJ[XYŸJ JH	âàÿŸ[ôQúò[YTô]öY]Àò›\úô[ù
+À[XYŸJ Kõ›‘ôYô\ô[òŸTõ€\ú[‹J KõX\»X\›\ëõ‹ä]
+HKúò[YTô]öY]—òX›  JBàö]ò]Hù[àô]öY]ŸYöY[–€€[X[ô
+Œàî””ìÿöôX›€‹Nàõ€€X[èYò[ŸJH¬àYä[èÀõ‹›ö[ô ò\‹X›‹ò][»ãåMééHäHOHéNåMàäH»[ôÿÿ\P€‹SY[ùJ
+N»ô]\õàBàYä[èÀõ‹›ö[ô ò€€ù[ù‹õŸö[HäOOP]]—\ôX›‹ê€€ù[ùúõŸö[JH¬àò[\‹›Y\œP]]—\ôX›‹ïÿ\ôõÿôKö\‹›Y\ ]]—\ôX›‹ïÿ\ôõÿôKú⁄› [àHJJBàYä\‹›Y\Àö\”õ›[\J
+JH»õ›XŸJ\‹›Y\ÀùZŸJLäKöõ⁄[ï‘›ö[ô óàäJN»ô]\õàBàBàYäZ[XYŸJ Kö\—ö[JH»õ›XŸJ∏.*∏.(¯.bx.,∏.!¯.(8.,∏.'∏."x.,∏. x.`¯.&HŸ[Z[öH»õ›»8.`x.)x.bx.)¯.&x.,¯.`8. ∏.bx.,∏.(8.,∏.'∏. x.b8.+x.&H8."8.,∏. x.&x.,x.bx.&x.`8.%¯.-x.(∏.&àPT’Tà8.`x.)x.,8.(∏.-¯.&x.(∏.,x.&x.(8.,∏.'àäN»ô]\õàBàYä\ÿŸ[ôQúò[YP\õ›ôY
+ Hõ›‘ÿŸ[ôTõ€\ö\‹›Y\ õ›‘‹X  JKö\”õ›[\J
+JH»€€\\ôTÿŸ[ôJ N»ô]\õàBàò[€ŸO\ù[êÿ]⁄[ô»»⁄‹ùõ›‘õ€\òùZ[
+õ›‘‹X  Kî€›»Ÿ[ùH[ãàäHKôŸ]‹ë[ŸH»õ›XŸJ]õY\‹ÿYŸHŒà∏.%x.(¯.)¯."8.!8.,¯.*∏.,x.b8.!»õ›»äN»ô]\õàBàYä€‹JH€‹P€€[X[ô
+€ŸJH[ŸH⁄›—õ›–€ŸJ∏.)¯.-8.%8.-x.`∏.+x."8.,∏. x.(8.,∏.'∏.%¯.-x.b8.(∏.-¯.&x.(∏.,x.&x.`x.)x.bx.)»ã€ŸKâ⁄Ÿ^J _W’íQSÀùäBàBàö]ò]Hù[à€‹Qõ›–€€[X[ô
+Œàî””ìÿöôX›
+H»ô]öY]ŸYöY[–€€[X[ô
+ÀùYJHBàö]ò]Hù[àX\õ›–⁄\òX›\ú Œàî””ìÿöôX›
+H¬àYà
+Z[XYŸJ Kô^\› 
+JH»õ›XŸJ∏.&x.,¯.`8. ∏.bx.,∏.(8.,∏.'∏."x.,∏. x.&x.-x.bx. x.b8.+x.&x. x.,¯.*¯.&x.%8.%x.,x.)¯.)x.,8.!8.(»äN»ô]\õàBàYä[[ôÿÿ\TÿŸ[ôR[XYŸJ[XYŸJ JJH»õ›XŸJ∏.(8.,∏.'∏."x.,∏. x.%x.bx.+x.!¯.`8.&¯.a¯.&x.`x.&x.)¯.%x.,x.bx.!»NåMà8. x.b8.+x.&x.(∏.-¯.&x.(∏.,x.&H8†(à8.*∏.(¯.bx.,∏.!¯.(8.,∏.'∏.`¯.*¯.(x.b8.`¯.&HŸ[Z[öH8.`x.)x.bx.)¯.&x.,¯.`8. ∏.bx.,∏.+x.-x. x.!8.(¯.,x.bx.!»äN»ô]\õàBàò[ÿ\›HÀõ‹î””ê\úò^Jò⁄\òX›\ú»äHŒàî””ê\úò^J
+BàYà
+ÿ\›õ[ô›
+
+HOH
+H»õ›XŸJ∏.&∏.%¯."x.,∏. x.&x.-x.bx. ∏.,∏.%8.(¯.,∏.(∏. x.,∏.(¯.%x.,x.)¯.)x.,8.!8.(»8. x.(¯..8.$¯.,∏.`x. x.bx.&∏.%¯. x.b8.+x.&x.(∏.-¯.&x.(∏.,x.&x.(8.,∏.'àäN»ô]\õàBàò[[ô[H[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èLN»Ÿ]Y[ô 
+LäK
+LäK
+LäK
+LäJHBà[ô[òYöY] ^öY] \ Kò\H»^H∏.`8.%¯.-x.(∏.&∏.(8.,∏.'∏."8.(¯.-8.!Œà8.(¯.,8.&∏..8.%¯.(¯.!¯.'8.(K¯.)x.,x. x.*x.$¯.,8.`8.%8.b8.&H8.`x.)x.,8.%x.,¯.`x.*¯.&x.b8.!¯. ∏.+x.!¯.`x.%x.b8.)x.,8.!8.&H8.a8.(x.b8.`8.%8.,∏."8.,∏. x."∏.-¯.b8.+H8.*¯.,∏. x.&∏.%¯.'∏..x.%8. x.,x.&∏.`8.*∏.-x.(∏.!¯.&∏.(¯.(¯.(∏.,∏.(∏.(x.-x.'∏.(¯.bx.+x.(x. x.,x.&x.`¯.*¯.bx.`x. x.bx.&∏.%¯.`x.(∏. x. x.b8.+x.&HàJBà[ô[òYöY] [XYŸUöY] \ Kò\H»Ÿ][XYŸPö]X\
+ô]öY]–ö]X\
+\öKôúõ€Qö[J[XYŸJ JJJN»Yù\›öY]–õ›[ôœ]ùYN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ LK
+é
+JHJBàò[\ÿ‹ö\[€úœJ[ù[ÿ\›õ[ô›
+
+JKõX\»HOÇàò[\ú€€èXÿ\›ôŸ]î””ìÿöôX›
+JBàò[X\›\è\ù[êÿ]⁄[ô»»X\›\ëõ‹ä\ú€€äHKôŸ]‹ìù[
+
+Bàò[€›\òŸRY\ôYô\ô[òŸRY
+\ú€€ãõ‹›ö[ô õX\›\àäJBàò[YŸ\›[X\›\èÀùZŸRYà»]ö\—ö[HOÀõ]»ù[êÿ]⁄[ô»»X\›\ìXúò\ûKôYŸ\›
+]úôXYû]\ 
+JHKôŸ]‹ìù[
+
+HBàò[€›\òŸRŸ^O]ÿ\ôõÿôT€›\òŸRŸ^Jõ⁄ôX›õò[YK€›\òŸRYYŸ\›õ‹ë[\J
+K\ú€€äBàò[úõ€SX\›\èYYŸ\›O[ù[	âàôYúÀôŸ]õ€€X[ä€›\òŸRŸ^Kÿ\ôõÿôQ]öY[òŸKù\ŸSX\›\ì›]ö]
+\ú€€ãõ‹›ö[ô õ›]ö]äJJBà[ô[òYöY] ^öY] \ Kò\H»^Hâ‹\ú€€ãõ‹›ö[ô õò[YHä_H8†(à8.`x.*¯.)x.b8.!¯."∏..8.%à	⁄Yäúõ€SX\›\äHìPT’Tàà[ŸH∏.%x.,∏.(x.&∏.%»üWâ⁄Yäúõ€SX\›\äH∏.`8.%¯.-x.(∏.&∏."∏..8.%8. x.,x.&∏.(8.,∏.'àPT’Tà8.%8.bx.,∏.&x.)x.b8.,∏.!»à[ŸH∏."∏..8.%8.`¯.&x.&∏.%Œà	‹\ú€€ãõ‹›ö[ô õ›]ö]ä_HüHé»Ÿ]\YòXŸJù[\YòXŸKêì”
+HJBàYäX\›\èÀö\—ö[OO]ùYJH[ô[òYöY] [XYŸUöY] \ Kò\H¬àŸ][XYŸPö]X\
+ô]öY]–ö]X\
+\öKôúõ€Qö[JX\›\äJJN»Yù\›öY]–õ›[ôœ]ùYBà€€ù[ù\ÿ‹ö\[€èHìPT’Tà8. ∏.+x.!»	‹\ú€€ãõ‹›ö[ô õò[YHä_H8†(à8.`x.%x.,8.`8.'∏.-¯.b8.+x. ∏.(∏.,∏.(àÇàŸ]€ê€X⁄”\›[ô\à»ù[[XYŸJX\›\ãìPT’Tà8†(à	‹\ú€€ãõ‹›ö[ô õò[YHä_HäHBàK[ôX\ì^[›]ì^[›]\ò[\ LK
+ML
+JJBàò[\X\ò[òŸOQY]^
+\ Kò\H»[ùH∏.)x.,x. x.*x.$¯.,8."8.,∏. x.(8.,∏.'à8.`8."∏.b8.&H8.'8..x.bx.*¯.#x.-8.!¯.'8.(x.*∏.,x.bx.&x.&¯.(¯.,8.&∏.b8.,àé»Ÿ]^
+\ú€€ãõ‹›ö[ô ùö\›X[Ÿ\ÿ‹ö\[€àäJN»[ô[òYöY] \ HBàò[‹⁄][€èQY]^
+\ Kò\H»[ùH∏.%x.,¯.`x.*¯.&x.b8.!¯."8.,∏. x.(8.,∏.'à8.`8."∏.b8.&H8."¯.bx.,∏.(à»8. x.)x.,∏.!»»8. ∏.)¯.,àé»Ÿ]^
+\ú€€ãõ‹›ö[ô úÿ‹ôY[ó‹‹⁄][€àäJN»[ô[òYöY] \ HBà\X\ò[òŸH»‹⁄][€ÇàBàò[⁄X⁄‹œ[\›Ÿä∏.%x.(¯.)¯."8.`¯.&∏.*¯.&x.bx.,à8.'8.(H8.`x.)x.,8.%x.,x.)¯.%x.&x.%x.(¯.!»PT’Tà8.(¯.,∏.(∏.!8.&x.`x.)x.bx.)»ã∏.%x.(¯.)¯."8.(¯..x.&¯.(¯.b8.,∏.!»8.*¯.&x.bx.,∏.+x. H8.`8.+x.)»8.*∏.,8.`∏.'∏. H8.`x.)x.,8.`x. ∏.&x.%x.,∏.(x.%x.bx.&x."x.&∏.,x.&∏.`x.)x.bx.)»ã∏.%x.(¯.)¯."8."∏..8.%8.*∏.-x.(8.,∏.'à8.(x.-¯.+H8.`x.)x.,8.+x..8.&¯. x.(¯.$¯.c8.`x.)x.bx.)»ã∏.%x.(¯.)¯."8.%x.,¯.`x.*¯.&x.b8.!¯.`x.)x.,8.'8..x.bx.'∏..x.%8.`¯.&x.(8.,∏.'∏."8.(¯.-8.!¯.`x.)x.bx.)»äKõX\»Xô[Oà⁄X⁄–õﬁ
+\ Kò\H»^[Xô[»[ô[òYöY] \ HHBàò[‹XZŸ\èQY]^
+\ Kò\H»[ùH∏.'8..x.bx.'∏..x.%8.*¯.&x.-∏.b8.!¯.!8.&H
+8."∏.-¯.b8.+x.`¯.&x.(¯.,∏.(∏. x.,∏.( H8.*¯.(¯.-¯.+x.)¯.b8.,∏.!¯.`8.(x.-¯.b8.+x.a8.(x.b8.(x.-x.&∏.%¯.'∏..x.%é»Ÿ]^
+Àõ‹›ö[ô ú‹XZŸ\àäJN»[ô[òYöY] \ HBàò[X[ŸœP[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.(∏.-¯.&x.(∏.,x.&x.(8.,∏.'∏."x.,∏. H8†(à	⁄Ÿ^J _HäBàúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] [ô[
+HJKúŸ]‹⁄]]ôPù]€ä∏.(∏.-¯.&x.(∏.,x.&x.(8.,∏.'∏.`x.)x.,8.`8.&¯.-8.%8.!8.,¯.*∏.,x.b8.!»ãù[
+KúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kò‹ôX]J
+BàX[ŸÀúŸ]€î⁄›”\›[ô\à»X[ŸÀôŸ]ù]€ä[\ùX[ŸÀêïU”ó‘‘“UUëJKúŸ]€ê€X⁄”\›[ô\à¬àYä⁄X⁄‹Àò[ûH»Z]ö\–⁄X⁄ŸYJH»õ›XŸJ∏.%x.(¯.)¯."8.(8.,∏.'∏.`x.)x.,8.%¯.,¯.`8.!8.(¯.-¯.b8.+x.!¯.*¯.(x.,∏.(∏.`¯.*¯.bx.!8.(¯.&∏. x.b8.+x.&x.(∏.-¯.&x.(∏.,x.&HäN»ô]\õêŸ]€ê€X⁄”\›[ô\àBàò[ÿ[ôY]ORî””ìÿöôX›
+Àù‘›ö[ô 
+JBàò[[‹OXÿ[ôY]KôŸ]î””ê\úò^Jò⁄\òX›\ú»äBà\ÿ‹ö\[€úÀôõ‹ëXX⁄[ô^Y»KöY[»Oà[‹KôŸ]î””ìÿöôX›
+JKú]
+ùö\›X[Ÿ\ÿ‹ö\[€àãöY[Àôö\ú›ù^ù‘›ö[ô 
+Kùö[J
+JKú]
+úÿ‹ôY[ó‹‹⁄][€àãöY[ÀúŸX€€ôù^ù‘›ö[ô 
+Kùö[J
+JHBàÿ[ôY]Kú]
+ú‹XZŸ\àã‹XZŸ\ãù^ù‘›ö[ô 
+Kùö[J
+JBàò[\‹›Y\œQõ›‘ÿŸ[ôTõ€\ö\‹›Y\ õ›‘‹X ÿ[ôY]JJBàYà
+\‹›Y\Àö\”õ›[\J
+JHõ›XŸJ\‹›Y\Àöõ⁄[ï‘›ö[ô óàäJH[ŸH¬àÀú]
+ò⁄\òX›\ú»ã[‹JKú]
+ú‹XZŸ\àãÿ[ôY]Kõ‹›ö[ô ú‹XZŸ\àäJKú]
+ôõ›◊⁄[XYŸW‹ô]ö\⁄[€àã[XYŸJ Kõ\›[ŸYöYY
+
+JBàò[\õ›ôY\ù[êÿ]⁄[ô»»ÿŸ[ôQúò[YTô]öY]Àò\õ›ôJÀ[XYŸJ Kõ›‘ôYô\ô[òŸTõ€\ú[‹J KõX\»X\›\ëõ‹ä]
+HKúò[YTô]öY]—òX›  JHBàYä\õ›ôYö\—òZ[\ôJH»õ›XŸJ\õ›ôYô^Ÿ\[€ì‹ìù[
+
+OÀõY\‹ÿYŸHŒà∏.(∏.-¯.&x.(∏.,x.&x.(8.,∏.'∏.a8.(x.b8.a8.%8.bHäN»ô]\õêŸ]€ê€X⁄”\›[ô\àBàÿ]ôT›‹ûJ
+N»X[ŸÀô\€Z\‹ 
+N»ô]öY]ŸYöY[–€€[X[ô
+ BàBàHBàX[ŸÀú⁄› 
+BàBàö]ò]Hù[àÿŸ[ôSY[ùJŒàî””ìÿöôX›
+H¬àô[Y[Xô\îÿŸ[ôJ Bàõ›‘ÿŸ[ôSY[ùJ BàBàö]ò]Hù[à[XYŸTô\]Y\›ô\›[
+ÿŸ[ôNàî””ìÿöôX›
+H¬àò[ô\]Y\›œQö[Jõ⁄ôX›ö[XYŸW‹ô\]Y\›»äKõ\›ö[\ 
+OÀôö[\à»]ô^[ú⁄[€èOHöú€€ààOÀõX\õ›ù[»ö[HOÇàù[êÿ]⁄[ô»»ö[H»î””ìÿöôX›
+ö[KúôXY^
+
+JHKôŸ]‹ìù[
+
+BàOÀôö[\à»]úŸX€€ôõ‹›ö[ô úÿŸ[ôHäOOZŸ^JÿŸ[ôJHHŒà[\S\›
+
+Bàò[]\›\ô\]Y\›ÀõX^ûS‹ìù[»]úŸX€€ôõ‹€ô ò‹ôX]Yÿ]äHHŒàô]\õàõ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-x.!8.,¯.*∏.,x.b8.!¯.%¯.-x.b8.*∏.b8.!¯."8.,∏. x.(¯..8.b8.&x.&x.-x.bx.*∏.,¯.*¯.(¯.,x.&∏."x.,∏. x.&x.-x.bHäBàò[
+ö[Kô\]Y\›
+O[]\›àò[[ô[S[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èLN»Ÿ]Y[ô 
+MäK
+LäK
+MäK
+LäJHBà[ô[òYöY] ^öY] \ Kò\H»^H∏.!8.,¯.*∏.,x.b8.!¯.%¯.-x.b8.`8.&¯.-8.%8.*∏.b8.!¯.)x.b8.,∏.*∏..8.%â‹ô\]Y\›õ‹î””ê\úò^Jò]X⁄Y[ù»ä_Wâ‹ô\]Y\›õ‹›ö[ô ù^ä_W∏.'8.)x.%¯.-x.b8.'8..x.bx.`¯."∏.bx.&∏.,x.&x.%¯.-∏. Nà	‹ô\]Y\›õ‹›ö[ô úô\›[ã∏.(∏.,x.!¯.a8.(x.b8.a8.%8.bx.&∏.,x.&x.%¯.-∏. Hä_Wâ‹ô\]Y\›õ‹›ö[ô úõ›öY\ó€Y\‹ÿYŸHä_Hé»Ÿ]^\‘Ÿ[X›XõJùYJHJBàò[Y\‹ÿYŸOQY]^
+\ Kò\H»[ùH∏.)¯.,∏.!¯. ∏.bx.+x.!8.)¯.,∏.(x.%x.+x.&∏. x.)x.,x.&∏.*¯.(¯.-¯.+x. ∏.bx.+x.'8.-8.%8.'∏.)x.,∏.%8."8.(¯.-8.!¯."8.,∏. H⁄]‘é»Ÿ]^
+ô\]Y\›õ‹›ö[ô úõ›öY\ó€Y\‹ÿYŸHäJN»Z[ì[ô\œL»Bà[ô[òYöY] Y\‹ÿYŸJBàù[àôX€‹ô
+ô\›[à›ö[ô H¬àô\]Y\›ú]
+úô\›[ãô\›[
+Kú]
+úõ›öY\ó€Y\‹ÿYŸHãY\‹ÿYŸKù^ù‘›ö[ô 
+JKú]
+úô\‹ùYÿûHãù\Ÿ\àäKú]
+úô\‹ùYÿ]ãﬁ\›[Kò›\úô[ù[YSZ[\ 
+JBàö[Kù‹ö]U^
+ô\]Y\›ù‘›ö[ô äJN»õ›XŸJ∏.&∏.,x.&x.%¯.-∏. x.'8.)x.`x.)x.bx.)»8†(à8.&∏.%»8."∏..8.%8.`x.)x.,PT’Tà8.(∏.,x.!¯.!8.!¯.`8.%8.-8.(HäBàBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.'8.)x."8.,∏. H⁄]‘8†(à	⁄Ÿ^JÿŸ[ôJ_HäBàúŸ]Y\‹ÿYŸJ∏.`x.+x.&¯.a8.(x.b8.*∏.,∏.(x.,∏.(¯.%∏.+x.b8.,∏.&x.'8.)x."8.,∏. x.*¯.&x.bx.,∏.`x."∏.(¯.c8.+x.,x.%x.`∏.&x.(x.,x.%x.-8. x.(¯..8.$¯.,∏.&∏.,x.&x.%¯.-∏. x.%x.,∏.(x.%¯.-x.b8.`8.*¯.a¯.&H8.a8.(x.b8.(¯.,8.&∏..8.*∏.,∏.`8.*¯.%x..8.`x.%¯.&x.(¯.,8.&∏.&àäBàúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] [ô[
+HJBàúŸ]‹⁄]]ôPù]€ä∏.*∏.(¯.bx.,∏.!¯.a8.%8.bHäH»À»OàôX€‹ô
+ò‹ôX]Y‹ô\‹ùYäHBàúŸ]ô]]ò[ù]€ä∏.*∏.(¯.bx.,∏.!¯.a8.(x.b8.a8.%8.bHäH»À»OàôX€‹ô
+ôòZ[Y‹ô\‹ùYäHBàúŸ]ôYÿ]]ôPù]€ä∏.&¯.-8.%ãù[
+Kú⁄›—\ôX›‹ä
+BàBàö]ò]Hù[àõŸTô]öY]‘›]\ Œàî””ìÿöôX›\ú€€éàî””ìÿöôX›
+Nà›ö[ô»¬àò[ö[OZ[XYŸJ N»ò[X\›\è[X\›\ëõ‹ä\ú€€äBàYäYö[Kô^\› 
+H[X\›\ãô^\› 
+JHô]\õà∏.(∏.,x.!¯.a8.(x.b8.(x.-x.(8.,∏.'∏.!8.(¯.&∏.*∏.,¯.*¯.(¯.,x.&∏.%x.(¯.)¯."Çàò[ôX€‹ô\Àõ‹î””ìÿöôX›
+òõŸW‹ô]öY]‹»äOÀõ‹î””ìÿöôX›
+Y[[‹ûRY
+\ú€€äJHŒàô]\õà∏.(∏.,x.!¯.a8.(x.b8.%x.(¯.)¯."8.(¯..x.&¯.(¯.b8.,∏.!»Çàò[›[\PõŸTô]öY]‘›[\
+ôX€‹ôõ‹›ö[ô úÿŸ[ôW⁄\⁄äKôX€‹ôõ‹›ö[ô õX\›\ó⁄\⁄äKôX€‹ôõ‹›ö[ô õ›]ö]äJBàô]\õàYä›[\õX]⁄\ \\€ŸSYYXKôYŸ\›
+ö[JK\\€ŸSYYXKôYŸ\›
+X\›\äKÿŸ[ôUÿ\ôõÿôJÀ\ú€€äJJBàâ‹ôX€‹ôõ‹›ö[ô úô\›[ä_H8†(à	‹ôX€‹ôõ‹›ö[ô õõ›Hä_Hà[ŸH∏.'8.)x.%x.(¯.)¯."8.`8. x.b8.,à8†(à8.(8.,∏.'àPT’Tà8.*¯.(¯.-¯.+x."∏..8.%8.`8.&¯.)x.-x.b8.(∏.&H8.%x.bx.+x.!¯.%x.(¯.)¯."8.`¯.*¯.(x.bÇàBàö]ò]Hù[àÿŸ[ôPõŸP⁄X⁄ Œàî””ìÿöôX›ô]öY]Œàõ€€X[äH¬àò[ÿ\›\Àõ‹î””ê\úò^Jò⁄\òX›\ú»äHŒàô]\õàõ›XŸJ∏."x.,∏. x.&x.-x.bx.(∏.,x.!¯.a8.(x.b8.(x.-x. ∏.bx.+x.(x..x.)x.%x.,x.)¯.)x.,8.!8.(»äBàYäÿ\›õ[ô›
+
+OOL
+Hô]\õàõ›XŸJ∏."x.,∏. x.&x.-x.bx.(∏.,x.!¯.a8.(x.b8.(x.-x. ∏.bx.+x.(x..x.)x.%x.,x.)¯.)x.,8.!8.(»äBà⁄⁄XŸSY[ùJYäô]öY] H∏.%x.(¯.)¯."8.(¯..x.&¯.(¯.b8.,∏.!¯.`8.%¯.-x.(∏.&àPT’Tàà[ŸH∏.%¯.%8.*∏.+x.&∏.(¯.,∏.(∏.!8.&x. x.b8.+x.&x.*∏.(¯.bx.,∏.!¯."x.,∏. Hã
+[ù[ÿ\›õ[ô›
+
+JKõX\»ÿ\›ôŸ]î””ìÿöôX›
+]
+Kõ‹›ö[ô õò[YHäHJH»HOÇàò[\ú€€èXÿ\›ôŸ]î””ìÿöôX›
+JN»ò[X\›\è[X\›\ëõ‹ä\ú€€äN»ò[ò[YO\\ú€€ãõ‹›ö[ô õò[YHäBàYä[X\›\ãô^\› 
+JH»õ›XŸJ∏. ∏.,∏.%PT’Tà8. ∏.+x.!»	ò[YHäN»ô]\õê⁄⁄XŸSY[ùHBàYä\ô]öY] H¬àò[^‹ùY[X\›\ë^‹ùò[YJX\›\ã\ú€€ãõ‹›ö[ô õX\›\àäKú›\ù’⁄]
+ê“TêP’TàãùYJJHŒàô]\õê⁄⁄XŸSY[ùBàò[€€[X[ôPõŸTôYô\ô[òŸT€XﬁKú⁄[ô€P⁄X⁄ ò[YK^‹ùYYä]Z[Y[XYŸTõŸö[\ HY[[‹ûPúöYYä\ú€€äH[ŸHàãÿŸ[ôUÿ\ôõÿôJÀ\ú€€äK[èÀõ‹›ö[ô ò\‹X›‹ò][»ãéNåMàäHŒàéNåMàäBà⁄\ôU^
+€€[X[ô[ò€YSX\›\úœYò[ŸKôYô\ô[òŸR[XYŸ\œ[\›Ÿä^‹ùYú›Xú›ö[ô–ôYõ‹ôS\›
+	Àâ H»X\›\äJBàH[ŸH¬àYäZ[XYŸJ Kô^\› 
+JH»õ›XŸJ∏.&x.,¯.`8. ∏.bx.,∏.(8.,∏.'∏."x.,∏. x. x.b8.+x.&x.%x.(¯.)¯."äN»ô]\õê⁄⁄XŸSY[ùHBàò[ÿŸ[ôR\⁄Q\\€ŸSYYXKôYŸ\›
+[XYŸJ JN»ò[X\›\í\⁄Q\\€ŸSYYXKôYŸ\›
+X\›\äN»ò[›]ö]\ÿŸ[ôUÿ\ôõÿôJÀ\ú€€äBàò[[ô[S[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èLN»Ÿ]Y[ô 
+LäK
+LäK
+LäK
+LäJHBà\›ŸäìPT’Tà8†(à	ò[YHà»X\›\ã∏.(8.,∏.'∏."x.,∏. H8†(à	⁄Ÿ^J _Hà»[XYŸJ JKôõ‹ëXX⁄»
+Xô[ö[JHOÇà[ô[òYöY] ^öY] \ Kò\H»^[Xô[JBà[ô[òYöY] [XYŸUöY] \ Kò\H»Ÿ][XYŸPö]X\
+ô]öY]–ö]X\
+\öKôúõ€Qö[Jö[JJJN»Yù\›öY]–õ›[ôœ]ùYN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ LK
+Ãå
+JN»Ÿ]€ê€X⁄”\›[ô\à»ù[[XYŸJö[KXô[
+HHJBàBà[ô[òYöY] ^öY] \ Kò\H»^H∏.`8.%¯.-x.(∏.&∏.a8.*¯.)x.b8.%¯.(¯.)¯.!¯.+x. x†$¯.`8.+x.)»8.*∏.,8.`∏.'∏. H8.!8.)¯.,∏.(x.(∏.,∏.)¯.)x.,¯.%x.,x.)¯.`x.)x.,8.`x. ∏.&x. ∏.,∏.%¯.-x.b8.`8.*¯.a¯.&H8.`∏.%8.(∏.!8.,¯.&x.-∏.!¯.%∏.-∏.!¯."∏..8.%8.%¯.b8.,∏.%¯.,∏.!¯.`x.)x.,8.(x..8.(x. x.)x.bx.+x.!»8.a8.(x.b8.&¯.(¯.,8.`8.(x.-8.&x."8.,∏. x. ∏.&x.,∏.%8.`¯.&x.`8.'¯.(¯.(x.+x.(∏.b8.,∏.!¯.`8.%8.-x.(∏.)◊âÿõŸTô]öY]‘›]\ À\ú€€ä_HàJBàò[õ›OQY]^
+\ Kò\H»[ùH∏."8..8.%8.%¯.-x.b8.!8.)x.,∏.%8.`8.!8.)x.-¯.b8.+x.&x.*¯.(¯.-¯.+x.(x.+x.!¯.a8.(x.b8.`8.*¯.a¯.&H8.`8."∏.b8.&H8.`8.+x.)¯.`8.&¯.)x.-x.b8.(∏.&H»8.`x. ∏.&x.&∏.,x.!¯.)x.,¯.%x.,x.)»é»[ô[òYöY] \ HBàù[àÿ]ôJô\›[à›ö[ô H¬àYä\\€ŸSYYXKôYŸ\›
+[XYŸJ JHO\ÿŸ[ôR\⁄\\€ŸSYYXKôYŸ\›
+X\›\äHO[X\›\í\⁄ÿŸ[ôUÿ\ôõÿôJÀ\ú€€äHO[›]ö]
+H»õ›XŸJ∏. ∏.bx.+x.(x..x.)x.`8.&¯.)x.-x.b8.(∏.&H8. x.(¯..8.$¯.,∏.`8.&¯.-8.%8.%x.(¯.)¯."8.`¯.*¯.(x.bäN»ô]\õàBàò[ôX€‹ôœ\Àõ‹î””ìÿöôX›
+òõŸW‹ô]öY]‹»äHŒàî””ìÿöôX›
+
+BàôX€‹ôÀú]
+Y[[‹ûRY
+\ú€€äKî””ìÿöôX›
+
+Kú]
+úÿŸ[ôW⁄\⁄ãÿŸ[ôR\⁄
+Kú]
+õX\›\ó⁄\⁄ãX\›\í\⁄
+Kú]
+õ›]ö]ã›]ö]
+Kú]
+úô\›[ãô\›[
+Kú]
+õõ›Hãõ›Kù^ù‘›ö[ô 
+Kùö[J
+JKú]
+úô]öY]ŸYÿ]ãﬁ\›[Kò›\úô[ù[YSZ[\ 
+JJBàÀú]
+òõŸW‹ô]öY]‹»ãôX€‹ô BàYäô\›[OH∏.'8..x.bx.`¯."∏.bx.%x.(¯.)¯."8.)¯.b8.,∏.%x.(¯.!»äH»Àú]
+ù\Ÿ\ó‹ô]öY]»ãõôYY◊‹ô]ö\⁄[€àäN»Àúô[[›ôJôõ›◊⁄[XYŸW‹ô]ö\⁄[€àäHBàÿ]ôT›‹ûJ
+N»õ›XŸJ∏.&∏.,x.&x.%¯.-∏. x.'8.)x.%x.(¯.)¯."8. ∏.+x.!»	ò[YH8.`x.)x.bx.)»äBàBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.(¯..x.&¯.(¯.b8.,∏.!»8†(à	ò[YHäKúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] [ô[
+HJBàúŸ]‹⁄]]ôPù]€ä∏.%x.(¯.!¯.%x.,∏.(x.+x.bx.,∏.!¯.+x.-8.!»äH»À»Oàÿ]ôJ∏.'8..x.bx.`¯."∏.bx.%x.(¯.)¯."8.)¯.b8.,∏.%x.(¯.!»äHBàúŸ]ôYÿ]]ôPù]€ä∏.%x.bx.+x.!¯.`x. x.bHäH»À»Oàÿ]ôJ∏.%x.bx.+x.!¯.`x. x.bHäHBàúŸ]ô]]ò[ù]€ä∏.(x.+x.!¯.a8.(x.b8."∏.,x.%äH»À»Oàÿ]ôJ∏.(∏.,x.!¯.&¯.(¯.,8.`8.(x.-8.&x.a8.(x.b8.a8.%8.bHäHKú⁄›—\ôX›‹ä
+BàBàBàBàö]ò]Hù[à€€\\ôTÿŸ[ôJŒàî””ìÿöôX›
+H¬àò[[ô[H[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€àHN»Ÿ]Y[ô 
+LäK
+LäK
+LäK
+LäJHBàù[àX›\ôJ]Nà›ö[ôÀö[Nàö[JH¬à[ô[òYöY] ^öY] \ Kò\H»^H]N»^⁄^ôHHMYé»Ÿ]\YòXŸJù[\YòXŸKêì”
+HJBàYà
+ö[Kô^\› 
+JH[ô[òYöY] [XYŸUöY] \ Kò\H¬àŸ][XYŸPö]X\
+ô]öY]–ö]X\
+\öKôúõ€Qö[Jö[JJJN»Yù\›öY]–õ›[ô»HùYBà^[›]\ò[\»H[ôX\ì^[›]ì^[›]\ò[\ LK
+é
+JBàŸ]€ê€X⁄”\›[ô\à»ù[[XYŸJö[K]JHBàJH[ŸH[ô[òYöY] ^öY] \ Kò\H»^H∏.(∏.,x.!¯.a8.(x.b8.(x.-x.a8.'¯.)x.càJBàBàò[ÿ\›HÀõ‹î””ê\úò^Jò⁄\òX›\ú»äHŒàî””ê\úò^J
+Bàõ‹à
+H[à[ù[ÿ\›õ[ô›
+
+JH¬àò[\ú€€àHÿ\›ôŸ]î””ìÿöôX›
+JN»X›\ôJìPT’Tà8†(à	‹\ú€€ãõ‹›ö[ô õò[YHä_H8†(à	ÿõŸTô]öY]‘›]\ À\ú€€ä_HãX\›\ëõ‹ä\ú€€äJBàBàX›\ôJ∏.'8.)x.)x.,x.'∏.&8.c8†(à	⁄Ÿ^J _H8†(à	‹Àõ‹›ö[ô ù\Ÿ\ó‹ô]öY]»ã∏.(¯.+x.%x.(¯.)¯."ä_Hã[XYŸJ JBà[ô[òYöY] ^öY] \ Kò\H»^H∏.%x.(¯.)¯."8.`¯.&∏.*¯.&x.bx.,à8.'8.(H8.(¯..x.&¯.(¯.b8.,∏.!»8."∏..8.%8.`x.)x.,8.(x.-¯.+x.`8.%¯.-x.(∏.&àPT’Tà8†(à8.`¯.*¯.bx.'8..x.bx.`¯."∏.bx.&¯.(¯.,8.`8.(x.-8.&x."8.,∏. x.(8.,∏.'∏."8.(¯.-8.!◊â‹ÿŸ[ôPÿ\›\ÿ‹ö\[€ä _Wâ‹Àõ‹›ö[ô òX›[€àä_Wâ‹Àõ‹›ö[ô ôX[Ÿ›YHä_HàJBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.`8.&¯.(¯.-x.(∏.&∏.`8.%¯.-x.(∏.&∏.%x.bx.&x."x.&∏.,x.&àäKúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] [ô[
+HJKúŸ]‹⁄]]ôPù]€ä∏.%x.(¯.)¯."8.`x.)x.bx.)»»8.(∏.-¯.&x.(∏.,x.&x.(8.,∏.'àäH»À»OàX\õ›–⁄\òX›\ú  HKúŸ]ô]]ò[ù]€ä∏.`x. x.bx.%x.,x.)¯.)x.,8.!8.(¯.(¯.,∏.(∏.!8.&HäH»À»Oàô\Z\îÿŸ[ôP⁄\òX›\ä HKúŸ]ôYÿ]]ôPù]€ä∏.&¯.-8.%ãù[
+Kú⁄›—\ôX›‹ä
+BàBàö]ò]Hù[àù[[XYŸJö[Nàö[K]Nà›ö[ô H¬àò[[XYŸUöY]»H[XYŸUöY] \ Kò\H»Ÿ][XYŸPö]X\
+ô]öY]–ö]X\
+\öKôúõ€Qö[Jö[JJJN»Yù\›öY]–õ›[ô»HùYN»ÿÿ[U\HH[XYŸUöY]Àîÿÿ[U\KëíU–—SïTàBàò[X[Ÿ»H[\ùX[ŸÀêùZ[\ä\ KúŸ]]J]JKúŸ]öY] [XYŸUöY] KúŸ]‹⁄]]ôPù]€ä∏.&¯.-8.%ãù[
+Kò‹ôX]J
+BàX[ŸÀú⁄› 
+N»X[ŸÀù⁄[ô›œÀúŸ]^[›]
+LKLJBàBàö]ò]Hù[àY]ÿŸ[ôJŒàî””ìÿöôX›
+H¬àò[òYùö[OQö[Jõ⁄ôX›ôòYùÀ…⁄Ÿ^J _Köú€€àäBàò[òYù\ù[êÿ]⁄[ô»»YäòYùö[Kô^\› 
+JHî””ìÿöôX›
+òYùö[KúôXY^
+
+JH[ŸH»KôŸ]‹ëYò][
+ Bàò[ô]ö[›\—‹õ›\\Àõ‹›ö[ô ò€€ù[ùZ]WŸ‹õ›\äBàò[öY[»H\›ŸäòX›[€àà»∏.`8.*¯.%x..8. x.,∏.(¯.$¯.cãôX[Ÿ›YHà»∏.&∏.%¯.'∏..x.%ãú‹XZŸ\àà»∏.'8..x.bx.'∏..x.%ãõò\úò][€àà»∏.`8.*∏.-x.(∏.!¯.&∏.(¯.(¯.(∏.,∏.(àãõÿÿ][€àà»∏.*∏.%∏.,∏.&x.%¯.-x.bãò€€ù[ùZ]WŸ‹õ›\à»∏. x.)x..8.b8.(x.!8.)¯.,∏.(x.%x.b8.+x.`8.&x.-¯.b8.+x.!»ãúõ‹»à»∏.+x..8.&¯. x.(¯.$¯.cãú›‹ûW›[YHà»∏.`8.)¯.)x.,∏.`¯.&x.`8.(¯.-¯.b8.+x.!»ãú›‹ûWŸ^Hà»∏.)¯.,x.&x.`¯.&x.`8.(¯.-¯.b8.+x.!»8.`8."∏.b8.&HVLHãòX›]ö]Hà»∏. x.-8."8. x.(¯.(¯.(H8.`8."∏.b8.&HYY][ô»»€YH»€Y\ãùÿ\ôõÿôWŸ]ô[ùà»∏."∏.b8.)¯.!¯."∏..8.%8.`8."∏.b8.&HVLW”QQUSë»ãö[XYŸW‹õ€\à»∏.!8.,¯.*∏.,x.b8.!¯.(8.,∏.'àãôúò[Z[ô»à»∏.(¯.,8.(∏.,8.(8.,∏.'à
+8.)¯.b8.,∏.!»H8.%x.,∏.(x. x.,∏.(¯. x.(¯.,8.%¯., HãõY⁄[ô»à»∏.`x.*∏.!¯.%x.,∏.(x."x.,∏. Hãôõ›◊‹õ€\à»ïíQS»ì”T
+8.`x. x.bx.`¯.*¯.bx.%x.(¯.!¯. x.,x.&∏.&∏.%¯.`x.)x.,8."∏..8.%8.&¯.,x."8."8..8.&∏.,x.&JHãôõ›◊ÿX›[€àà»∏. x.,∏.(¯. x.(¯.,8.%¯.,¯.*∏.,¯.*¯.(¯.,x.&∏.)¯.-8.%8.-x.`∏.+H
+[ô€\⁄
+Hãú›\ù‹›]Hà»∏.*∏.%∏.,∏.&x.,8.%x.bx.&x."x.,∏. Hãô[ô‹›]Hà»∏.*∏.%∏.,∏.&x.,8.%¯.bx.,∏.(∏."x.,∏. HäBàò[[ô[H[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€àHN»Ÿ]Y[ô 
+LäK
+LäK
+LäK
+LäJHBàò[[ú]»HöY[ÀõX\»
+Ÿ^KXô[
+HOàŸ^H»Y]^
+\ Kò\H»[ùHXô[»Ÿ]^
+òYùõ‹›ö[ô Ÿ^KÀõ‹›ö[ô Ÿ^JJJN»[ô[òYöY] \ HHBàò[\õí[ú]QY]^
+\ Kò\H¬à[ùH∏.&∏.%¯.*∏.&x.%¯.&x.,∏.*¯.)x.,∏.(∏.!8.&Nà8."∏.-¯.b8.+x.'8..x.bx.'∏..x.%à8. ∏.bx.+x.!8.)¯.,∏.(H
+8.*¯.&x.-∏.b8.!¯.&∏.(¯.(¯.%¯.,x.%8.%x.b8.+x.*¯.&x.-∏.b8.!¯."∏.b8.)¯.! H8†(à8.`8.)¯.bx.&x.&∏.%¯.`8.%8.-x.b8.(∏.)¯.`x.)x.,8.&∏.(¯.(¯.(∏.,∏.(∏.`¯.*¯.bx.)¯.b8.,∏.!»ÇàŸ]^
+òYùõ‹›ö[ô ôX[Ÿ›YW›\õú◊ŸòYùäKöYêõ[ö»»õŸX›[€ê€€[X[ô⁄X⁄ÀôX[Ÿ›YU\õú òYù
+Köõ⁄[ï‘›ö[ô óàäH»â⁄]ú‹XZŸ\üNà	⁄]ù^HàHJBàZ[ì[ô\œLé»[ô[òYöY] \ BàBàò[ÿ\›HÀõ‹î””ê\úò^Jò⁄\òX›\ú»äHŒàî””ê\úò^J
+Bàò[›]ö]»H
+[ù[ÿ\›õ[ô›
+
+JKõX\»HOàH»Y]^
+\ Kò\H¬à[ùH∏."∏..8.%	ÿÿ\›ôŸ]î””ìÿöôX›
+JKõ‹›ö[ô õò[YHä_Hé»Ÿ]^
+òYùõ‹î””ê\úò^Jò⁄\òX›\ú»äOÀõ‹î””ìÿöôX›
+JOÀõ‹›ö[ô õ›]ö]äHŒàÿ\›ôŸ]î””ìÿöôX›
+JKõ‹›ö[ô õ›]ö]äJN»[ô[òYöY] \ BàHBàò[‹⁄][€úœJ[ù[ÿ\›õ[ô›
+
+JKõX\»HOàH»Y]^
+\ Kò\H¬à[ùH∏.%x.,¯.`x.*¯.&x.b8.!»	ÿÿ\›ôŸ]î””ìÿöôX›
+JKõ‹›ö[ô õò[YHä_H8.`8."∏.b8.&HYù»Ÿ[ù\à»öY⁄ÇàŸ]^
+òYùõ‹î””ê\úò^Jò⁄\òX›\ú»äOÀõ‹î””ìÿöôX›
+JOÀõ‹›ö[ô úÿ‹ôY[ó‹‹⁄][€àäHŒàÿ\›ôŸ]î””ìÿöôX›
+JKõ‹›ö[ô úÿ‹ôY[ó‹‹⁄][€àäJN»[ô[òYöY] \ BàHBàò[€›[ô[ú]œ[\›Ÿäò[XöY[òŸHãúŸûãõ]\⁄X»äKõX\»öY[OàöY[»Y]^
+\ Kò\H¬à[ùH∏.`8.*∏.-x.(∏.!»	öY[
+8.(¯.,8.&∏..õ€ôH8.`8.(x.-¯.b8.+x.a8.(x.b8.(x.-JHé»Ÿ]^
+òYùõ‹î””ìÿöôX›
+ú€›[ôŸ\⁄Y€àäOÀõ‹›ö[ô öY[
+Kõ‹ë[\J
+JN»[ô[òYöY] \ BàHBàù[à\ú⁄\›òYù
+
+H¬àò[€‹ORî””ìÿöôX›
+Àù‘›ö[ô 
+JBà[ú]Àôõ‹ëXX⁄»
+Ÿ^K[ú]
+HOà€‹Kú]
+Ÿ^K[ú]ù^ù‘›ö[ô 
+JHBà€‹Kú]
+ôX[Ÿ›YW›\õú◊ŸòYùã\õí[ú]ù^ù‘›ö[ô 
+JBàò[[‹OX€‹Kõ‹î””ê\úò^Jò⁄\òX›\ú»äBà›]ö]Àôõ‹ëXX⁄»
+K[ú]
+HOà[‹OÀõ‹î””ìÿöôX›
+JOÀú]
+õ›]ö]ã[ú]ù^ù‘›ö[ô 
+JHBà‹⁄][€úÀôõ‹ëXX⁄»
+K[ú]
+HOà[‹OÀõ‹î””ìÿöôX›
+JOÀú]
+úÿ‹ôY[ó‹‹⁄][€àã[ú]ù^ù‘›ö[ô 
+JHBàYä€›[ô[ú]Àò[ûH»]úŸX€€ôù^ö\”õ›õ[ö 
+HJH€‹Kú]
+ú€›[ôŸ\⁄Y€àãî””ìÿöôX›
+
+Kò\H»€›[ô[ú]Àôõ‹ëXX⁄»
+öY[[ú]
+HOà]
+öY[[ú]ù^ù‘›ö[ô 
+KöYêõ[ö»»õõ€ôHàJHHJBàòYùö[Kú\ô[ùö[HHKõZŸ\ú 
+N»òYùö[Kù‹ö]U^
+€‹Kù‘›ö[ô äJBàBàò[ÿ]⁄\è[ÿöôX›à[ôõ⁄Yù^ï^ÿ]⁄\à¬à›ô\úöYHù[àôYõ‹ôU^⁄[ôŸY
+^à⁄\îŸ\]Y[òŸOÀ›\ùà[ù€›[ùà[ùYù\éà[ù
+HﬂBà›ô\úöYHù[à€ï^⁄[ôŸY
+^à⁄\îŸ\]Y[òŸOÀ›\ùà[ùôYõ‹ôNà[ù€›[ùà[ù
+H»\ú⁄\›òYù
+
+HBà›ô\úöYHù[àYù\ï^⁄[ôŸY
+^à[ôõ⁄Yù^ëY]XõO HﬂBàBà
+[ú]ÀõX\»]úŸX€€ôJ€›]ö]ÀõX\»]úŸX€€ôJ‹‹⁄][€úÀõX\»]úŸX€€ôJ‹€›[ô[ú]ÀõX\»]úŸX€€ôJ›\õí[ú]
+Kôõ‹ëXX⁄»]òY^⁄[ôŸY\›[ô\äÿ]⁄\äHBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.`x. x.bx.&∏.%»	⁄Ÿ^J _H8†(à8.`8. x.a¯.&∏.(¯.b8.,∏.!¯.+x.,x.%x.`∏.&x.(x.,x.%x.-äBàúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] [ô[
+HJBàúŸ]‹⁄]]ôPù]€ä∏.&∏.,x.&x.%¯.-∏. HäH»À»OÇàYä[ú]Àò[ûH»]ôö\ú›[à\›ŸäòX›[€àãö[XYŸW‹õ€\ãôõ›◊‹õ€\äH	âà]úŸX€€ôù^ö\–õ[ö 
+HJH»õ›XŸJ∏.`8.*¯.%x..8. x.,∏.(¯.$¯.c8.!8.,¯.*∏.,x.b8.!¯.(8.,∏.'à8.`x.)x.,8.!8.,¯.*∏.,x.b8.!»õ›»8.%x.bx.+x.!¯.a8.(x.b8.)¯.b8.,∏.!»äN»ô]\õêŸ]‹⁄]]ôPù]€àBàò[\õì[ô\œ]\õí[ú]ù^ù‘›ö[ô 
+Kõ[ô\ 
+KõX\»]ùö[J
+HKôö[\à»]ö\”õ›õ[ö 
+HBàYä\õì[ô\Àò[ûH»	Œâ»Z[à]]ú›Xú›ö[ô–ôYõ‹ôJ	Œâ Kö\–õ[ö 
+H]ú›Xú›ö[ô–Yù\ä	Œâ Kö\–õ[ö 
+HJH»õ›XŸJ∏.`x.%x.b8.)x.,8.&∏.(¯.(¯.%¯.,x.%8.%x.bx.+x.!¯.`8.&¯.a¯.&H8."∏.-¯.b8.+x.'8..x.bx.'∏..x.%à8. ∏.bx.+x.!8.)¯.,∏.(HäN»ô]\õêŸ]‹⁄]]ôPù]€àBàò[\õúœRî””ê\úò^J
+Kò\H»\õì[ô\Àôõ‹ëXX⁄»[ôHOà]
+î””ìÿöôX›
+
+Kú]
+ú‹XZŸ\àã[ôKú›Xú›ö[ô–ôYõ‹ôJ	Œâ Kùö[J
+JKú]
+ù^ã[ôKú›Xú›ö[ô–Yù\ä	Œâ Kùö[J
+JJHHBàò[ÿ[ôY]ORî””ìÿöôX›
+Àù‘›ö[ô 
+JBà[ú]Àôõ‹ëXX⁄»
+Ÿ^K[ú]
+HOàÿ[ôY]Kú]
+Ÿ^K[ú]ù^ù‘›ö[ô 
+Kùö[J
+JHBàÿ[ôY]Kú]
+ôX[Ÿ›YW›\õú»ã\õú BàYä\õì[ô\Àö\”õ›[\J
+JH¬àò[\õí\‹›Y\œQõ›‘ÿŸ[ôTõ€\ö\‹›Y\ õŸX›[€ê€€[X[ô⁄X⁄Àú‹X ÿ[ôY]JJKôö[\à»]ò€€ùZ[ú ∏.&∏.%¯.*∏.&x.%¯.&x.,àäH]ò€€ùZ[ú ∏.'8..x.bx.'∏..x.%8.)x.,¯.%8.,x.&àäHBàYä\õí\‹›Y\Àö\”õ›[\J
+JH»õ›XŸJ\õí\‹›Y\Àöõ⁄[ï‘›ö[ô óàäJN»ô]\õêŸ]‹⁄]]ôPù]€àBàBà[ú]Àôõ‹ëXX⁄»
+Ÿ^K[ú]
+HOàÀú]
+Ÿ^K[ú]ù^ù‘›ö[ô 
+Kùö[J
+JHBàYä\õúÀõ[ô›
+
+Oå
+H¬àÀú]
+ôX[Ÿ›YW›\õú»ã\õú Bàò[‹XZŸ\úœTõŸX›[€ê€€[X[ô⁄X⁄ÀôX[Ÿ›YU\õú  KõX\»]ú‹XZŸ\àKù‘Ÿ]
+
+Bàõ›‘ôYô\ô[òŸTõ€\ú[‹J Kôö[\à»]õ‹›ö[ô õò[YHäH[à‹XZŸ\ú»Kôõ‹ëXX⁄»\ú€€àOÇà\ú€€ãõ‹î””ìÿöôX›
+ú\ôõ‹õX[òŸHäOÀõ]»\ôõ‹õX[òŸHOàYä\ôõ‹õX[òŸKõ‹›ö[ô ùõ⁄XŸHäOOHú⁄[[ùäH\ôõ‹õX[òŸKú]
+ùõ⁄XŸHãõò]\ò[ZHX[Ÿ›YHäHBàBàH[ŸHÀúô[[›ôJôX[Ÿ›YW›\õú»äBà›]ö]Àôõ‹ëXX⁄»
+K[ú]
+HOàÿ\›ôŸ]î””ìÿöôX›
+JKú]
+õ›]ö]ã[ú]ù^ù‘›ö[ô 
+Kùö[J
+JHBà\ôõ‹õX[òŸQ\ôX›[€ãõõ‹õX[^ôT⁄[[ùõ⁄XŸ\  Bà‹⁄][€úÀôõ‹ëXX⁄»
+K[ú]
+HOàÿ\›ôŸ]î””ìÿöôX›
+JKú]
+úÿ‹ôY[ó‹‹⁄][€àã[ú]ù^ù‘›ö[ô 
+Kùö[J
+JHBàYä€›[ô[ú]Àò[ûH»]úŸX€€ôù^ö\”õ›õ[ö 
+HJHÀú]
+ú€›[ôŸ\⁄Y€àãî””ìÿöôX›
+
+Kò\H»€›[ô[ú]Àôõ‹ëXX⁄»
+öY[[ú]
+HOà]
+öY[[ú]ù^ù‘›ö[ô 
+Kùö[J
+KöYêõ[ö»»õõ€ôHàJHHJBàò[‹õ›\HÀõ‹›ö[ô ò€€ù[ùZ]WŸ‹õ›\äBàò[YôôX›YHõ›‹ [àHJKôö[\à»Ÿ^J]
+HOHŸ^J H
+‹õ›\ö\”õ›õ[ö 
+H	âà]õ‹›ö[ô ò€€ù[ùZ]WŸ‹õ›\äHOH‹õ›\ô]ö[›\—‹õ›\ö\”õ›õ[ö 
+H	âà]õ‹›ö[ô ò€€ù[ùZ]WŸ‹õ›\äHOHô]ö[›\—‹õ›\
+HBàYôôX›Yôõ‹ëXX⁄»]ú]
+ù\Ÿ\ó‹ô]öY]»ãõôYY◊‹ô]ö\⁄[€àäN»]úô[[›ôJôõ›◊⁄[XYŸW‹ô]ö\⁄[€àäHN»ÿ]ôT›‹ûJ
+N»òYùö[Kô[]J
+N»ô[ô\ä
+Bàõ›XŸJ∏.&∏.,x.&x.%¯.-∏. x.`x.)x.bx.)»8†(à8.%x.(¯.)¯."8.!8.)¯.,∏.(x.%x.b8.+x.`8.&x.-¯.b8.+x.!»	ÿYôôX›Yöõ⁄[ï‘›ö[ô»»Ÿ^J]
+H_W∏.`8. x.a¯.&∏.(8.,∏.'∏.`x.)x.,8.)¯.-8.%8.-x.`∏.+x.`8.%8.-8.(x.a8.)¯.bx.`x.)x.bx.)»8.%x.bx.+x.!¯.%x.(¯.)¯."8.!8.,¯.*∏.,x.b8.!»õ›»8.`¯.*¯.bx.%x.(¯.!¯.&∏.%¯.%¯.-x.b8.`x. x.bHäBàKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàBàö]ò]Hù[àX\›\ëõ‹ä\ú€€éàî””ìÿöôX›
+Nàö[H¬àYà
+\ú€€ãõ‹›ö[ô õX\›\àäKú›\ù’⁄]
+ê“TêP’TàãùYJJH¬àò[ô\]Y\›Y\\ú€€ãõ‹›ö[ô õX\›\àäN»ò[^X›Qö[Jõ⁄ôX›õX\›\úÀ…ô\]Y\›YäBàô]\õàYä^X›ô^\› 
+JH^X›[ŸHö[Jõ⁄ôX›õX\›\ú»äKõ\›ö[\ 
+OÀôö\ú›‹ìù[»]õò[YU⁄]›]^[ú⁄[€ãô\]X[ ô\]Y\›Yú›Xú›ö[ô–ôYõ‹ôS\›
+	Àâ KùYJHHŒà^X›àBàò[YHõ›–ÿ\›öY
+\ú€€äHŒàô]\õàö[Jõ⁄ôX›õZ\‹⁄[ôÀõX\›\àäBàò[€ò\⁄›Qö[Jõ⁄ôX›õ‹öY⁄[ò[€X\›\úÀ…YõX\›\àäBàò[úõﬁô[èQõ›–ÿ\›ú›\‹ù[ô [äKò[ûH»]õ‹õ€€X[äò]]◊ÿÿ\›äH	âàõ›–ÿ\›öY
+]
+OOZYBàô]\õàYäúõﬁô[à€ò\⁄›ö\—ö[JH€ò\⁄›[ŸHö[Jö[\—\ãò⁄\òX›\ó€X\›\úÀ…YõX\›\àäBàBàö]ò]Hù[à⁄€‹ŸSò[YY⁄\òX›\ë‹öY
+]Nà›ö[ôÀ][\Œà\›Z\è›ö[ôÀö[Oœèã€îŸ[X›à
+[ù
+HOà[ö]
+H¬àò[‹öYS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]ïëTïP–S»Ÿ]Y[ô 
+LäK
+
+K
+LäK
+
+JHBàò[X[ŸœP[\ùX[ŸÀêùZ[\ä\ KúŸ]]J]JKúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] ‹öY
+HJKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kò‹ôX]J
+Bàò\àõ›Œà[ôX\ì^[›]œ[ù[à][\Àôõ‹ëXX⁄[ô^Y»[ô^
+ò[YKö[JHOÇàYä[ô^	LèOL
+H»õ›œS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]í‘íVì”ïSN»‹öYòYöY] õ› HBàò[ÿ\ôS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]ïëTïP–S»Ÿ]Y[ô 
+
+K
+äK
+
+K
+äJN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ [ôX\ì^[›]ì^[›]\ò[\Àï‘êT–””ïSïYäHBàõ›œÀòYöY] ÿ\ô
+BàYäö[OÀö\—ö[OO]ùYJHÿ\ôòYöY] [XYŸUöY] \ Kò\H»Ÿ][XYŸPö]X\
+ÿ\›[ô’[XõòZ[
+ö[JJN»Yù\›öY]–õ›[ôœ]ùYN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ LK
+M
+JN»€€ù[ù\ÿ‹ö\[€è[ò[YN»Ÿ]€ê€X⁄”\›[ô\à»ù[[XYŸJö[Kò[YJHHJBàÿ\ôòYöY] ù]€ä\ Kò\H»^[ò[YJ Yäö[HO[ù[	âàYö[Kö\—ö[JHó∏.a8.(x.b8.'∏.&àPT’Tàà[ŸHàäN»Ÿ]€ê€X⁄”\›[ô\à»X[ŸÀô\€Z\‹ 
+N»€îŸ[X›
+[ô^
+HHJBàBàX[ŸÀú⁄› 
+BàBàö]ò]Hù[à⁄€‹ŸT›‹ûP⁄\òX›\ë‹öY
+]Nà›ö[ôÀ[‹Nà\›î””ìÿöôX›ã€îŸ[X›à
+[ù
+HOà[ö]
+H¬àò[‹öYS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]ïëTïP–S»Ÿ]Y[ô 
+LäK
+
+K
+LäK
+
+JHBàò[X[ŸœP[\ùX[ŸÀêùZ[\ä\ KúŸ]]J]JKúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] ‹öY
+HJKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kò‹ôX]J
+Bàò\àõ›Œà[ôX\ì^[›]œ[ù[à[‹Kôõ‹ëXX⁄[ô^Y»[ô^\ú€€àOÇàYä[ô^	LèOL
+H»õ›œS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]í‘íVì”ïSN»‹öYòYöY] õ› HBàò[ö[O\ù[êÿ]⁄[ô»»X\›\ëõ‹ä\ú€€äHKôŸ]‹ìù[
+
+Bàò[Xô[\\ú€€ãõ‹›ö[ô õò[YHäJ»óàä‹\ú€€ãõ‹›ö[ô õX\›\àäJ Yäö[OÀö\—ö[OO]ùYJHàà[ŸHó∏.a8.(x.b8.'∏.&àPT’TàäBàò[ÿ\ôS[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èS[ôX\ì^[›]ïëTïP–S»Ÿ]Y[ô 
+
+K
+äK
+
+K
+äJN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ [ôX\ì^[›]ì^[›]\ò[\Àï‘êT–””ïSïYäHBàõ›œÀòYöY] ÿ\ô
+BàYäö[OÀö\—ö[OO]ùYJHÿ\ôòYöY] [XYŸUöY] \ Kò\H»Ÿ][XYŸPö]X\
+ÿ\›[ô’[XõòZ[
+ö[JJN»Yù\›öY]–õ›[ôœ]ùYN»^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ LK
+M
+JN»€€ù[ù\ÿ‹ö\[€è[Xô[JBàÿ\ôòYöY] ù]€ä\ Kò\H»^[Xô[»Ÿ]€ê€X⁄”\›[ô\à»X[ŸÀô\€Z\‹ 
+N»€îŸ[X›
+[ô^
+HHJBàBàX[ŸÀú⁄› 
+BàBàö]ò]Hù[àô\Z\îÿŸ[ôP⁄\òX›\äŒàî””ìÿöôX›
+H¬àYà
+Z[XYŸJ Kö\—ö[JHô]\õàõ›XŸJ∏.&x.,¯.`8. ∏.bx.,∏.(8.,∏.'∏."x.,∏. x. x.b8.+x.&x.`x. x.bx.%x.,x.)¯.)x.,8.!8.(»äBàò[[‹OQõ›‘ôYô\ô[òŸTõ€\ú[‹J BàYä[‹Kö\—[\J
+JHô]\õàõ›XŸJ∏."x.,∏. x.&x.-x.bx.a8.(x.b8.(x.-x.%x.,x.)¯.)x.,8.!8.(»äBà⁄€‹ŸT›‹ûP⁄\òX›\ë‹öY
+∏.`8.)x.-¯.+x. x.%x.,x.)¯.)x.,8.!8.(¯.%¯.-x.b8.%x.bx.+x.!¯. x.,∏.(¯.`x. x.bHã[‹JH»[ô^OÇàò[\ú€€è\[‹V⁄[ô^N»ò[X\›\è[X\›\ëõ‹ä\ú€€äN»ò[ò[YO\\ú€€ãõ‹›ö[ô õò[YHäBàYä[X\›\ãö\—ö[JH»õ›XŸJ∏. ∏.,∏.%PT’Tà8. ∏.+x.!»	ò[YHäN»ô]\õê⁄€‹ŸT›‹ûP⁄\òX›\ë‹öYBàò[[ú]QY]^
+\ Kò\H»[ùH∏.`8."∏.b8.&H8.&¯.(¯.,x.&∏.%¯.(¯.!¯.'8.(x.`¯.*¯.bx.%x.(¯.!»PT’TààBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.`x. x.bx.`8."x.'∏.,∏.,	ò[YH8†(à	⁄Ÿ^J _HäKúŸ]öY] [ú]
+BàúŸ]‹⁄]]ôPù]€ä∏.`8.)x.-¯.+x. x.`x.+x.&¯.`x.)x.,8.*∏.b8.!»äH»À»OÇàò[⁄[ôŸOZ[ú]ù^ù‘›ö[ô 
+Kùö[J
+BàYä⁄[ôŸKö\–õ[ö 
+JH»õ›XŸJ∏.(¯.,8.&∏..8.*∏.-8.b8.!¯.%¯.-x.b8.%x.bx.+x.!¯. x.,∏.(¯.`x. x.bx. x.b8.+x.&HäN»ô]\õêŸ]‹⁄]]ôPù]€àBàò[Y\ôYô\ô[òŸRY
+\ú€€ãôŸ]›ö[ô õX\›\àäJBàò[ÿŸ[ôRYZŸ^J Bàò[€€[X[ôHààëY]H]X⁄YÿŸ[ôH[XYŸH	ÿŸ[ôRYàH]X⁄YôYô\ô[òŸH	Y\»HPT’TàŸà	ò[YK‹⁄][€ôY	‹\ú€€ãõ‹›ö[ô úÿ‹ôY[ó‹‹⁄][€àä_KÇê⁄[ôŸH€õH	ò[YNà	⁄[ôŸKàX]⁄]\ú€€â‹»òXŸKZ\ú›[K⁄⁄[à€ôH[ôõŸHõ‹‹ù[€ú»»Z\àPT’Tãàô\Ÿ\ùôH[›\à[‹KZ\à\X\ò[òŸH[ô‹⁄][€úÀ€›[ôÀòX⁄Ÿ‹õ›[ôY⁄[ôÀ^[ô€€\‹⁄][€ãàŸY\H^\›[ô»ÿŸ[ôH[ôõ‹Ààô]\õà€ôHY]Y[XYŸKàô]öY]»HX›X[ô\›[»Y[ù]HX]⁄[ô»\»õ››X\ò[ùYYàààãùö[R[ô[ù
+
+Bà⁄\ôR[XYŸP€€[X[ô
+€€[X[ô\›ŸäY»X\›\ãÿŸ[ôRY»[XYŸJ JKX\ŸäY»ò[YKÿŸ[ôRY»∏.(8.,∏.'∏."x.,∏. x.`8.%8.-8.(HäJBàKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàBàBàö]ò]Hù[àô\Z\îÿŸ[ôJŒàî””ìÿöôX›
+H¬àYà
+Z[XYŸJ Kô^\› 
+JHô]\õàõ›XŸJ∏.%x.bx.+x.!¯.&x.,¯.`8. ∏.bx.,∏.(8.,∏.'∏."x.,∏. x. x.b8.+x.&x.`x. x.bx.(8.,∏.'àäBàò[[ú]HY]^
+\ Kò\H»[ùH∏.*∏.b8.)¯.&x.%¯.-x.b8.%x.bx.+x.!¯.`x. x.bH8.`8."∏.b8.&H8."∏..8.%8.`¯.*¯.(x.b»8."x.,∏. x.*¯.)x.,x.!»»8.`x.*∏.!¯.`x.)x.,8.*∏.-HàBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.`x. x.bx.`8."x.'∏.,∏.,8.*∏.b8.)¯.&H	⁄Ÿ^J _HäKúŸ]öY] [ú]
+KúŸ]‹⁄]]ôPù]€ä∏.%x.(¯.)¯."8.`x.)x.,8.*∏.b8.!»äH»À»OÇàò[⁄[ôŸHH[ú]ù^ù‘›ö[ô 
+Kùö[J
+BàYà
+⁄[ôŸKö\–õ[ö 
+JH»õ›XŸJ∏.(¯.,8.&∏..8.*∏.b8.)¯.&x.%¯.-x.b8.%x.bx.+x.!¯.`x. x.bx. x.b8.+x.&HäN»ô]\õêŸ]‹⁄]]ôPù]€àBàò[ÿ\›HÀõ‹î””ê\úò^Jò⁄\òX›\ú»äHŒàî””ê\úò^J
+Bàò[ôYú»H
+[ù[ÿ\›õ[ô›
+
+JKõX\»ÿ\›ôŸ]î””ìÿöôX›
+]
+HKõX\»
+X\›\ë^‹ùò[YJX\›\ëõ‹ä]
+K]õ‹›ö[ô õX\›\àäKú›\ù’⁄]
+ê“TêP’TàãùYJJHŒà]õ‹›ö[ô õX\›\àäJKú›Xú›ö[ô–ôYõ‹ôS\›
+	Àâ H»X\›\ëõ‹ä]
+HH
+»
+Ÿ^J H»[XYŸJ JBà⁄\ôU^
+[XYŸTõ€\€XﬁKôY]
+∏.(8.,∏.'∏."x.,∏. H	⁄Ÿ^J _Hã⁄[ôŸK[èÀõ‹›ö[ô ò\‹X›‹ò][»ãéNåMàäHŒàéNåMàãàÿŸ[ôPÿ\›\ÿ‹ö\[€ä Kâ⁄Ÿ^J _Kúô»äK[ò€YSX\›\úœYò[ŸKôYô\ô[òŸR[XYŸ\œ\ôYú BàKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàBàö]ò]Hò\àYYXT€›à›ö[ôœ¬àŸ]
+
+HHôYúÀôŸ]›ö[ô õYYXW‹€›ãù[
+BàŸ]
+ò[YJH»ôYúÀôY]
+
+Kú]›ö[ô õYYXW‹€›ãò[YJKò\J
+HBàö]ò]Hò\àYYXR⁄[ôà›ö[ô¬àŸ]
+
+HHôYúÀôŸ]›ö[ô õYYXW⁄⁄[ôãö[XYŸHäHHBàŸ]
+ò[YJH»ôYúÀôY]
+
+Kú]›ö[ô õYYXW⁄⁄[ôãò[YJKò\J
+HBàö]ò]Hò\àYYXTõ⁄ôX›à›ö[ô¬àŸ]
+
+HHôYúÀôŸ]›ö[ô õYYXW‹õ⁄ôX›ãõ⁄ôX›õò[YJHHBàŸ]
+ò[YJH»ôYúÀôY]
+
+Kú]›ö[ô õYYXW‹õ⁄ôX›ãò[YJKò\J
+HBàö]ò]Hò[ÿŸ[ôSYYXTX⁄Ÿ\àHôY⁄\›\ëõ‹êX›]ö]Tô\›[
+X›]ö]Tô\›[€€ùòX›Àì‹[ëÿ›[Y[ù
+
+JH»\öHOÇàò[YHYYXT€›àYà
+\öHOHù[	âàYOHù[
+H¬àò[õ€\àHö[Jò\ŸKYYXTõ⁄ôX›
+N»ò[⁄[ôHYYXR⁄[ôàò[\ôŸ]Hö[Jõ€\ãYä⁄[ôOHùöY[»äHùöY[‹À…Yõ\à[ŸHö[XYŸ\À…Yö[Y»äBàù[àXÿŸ\
+
+H»òX⁄Ÿ‹õ›[ô¬à\ôŸ]ú\ô[ùö[HHKõZŸ\ú 
+N»ò[[\Hö[J\ôŸ]ú\ô[ùö[K\ôŸ]õò[YJ»ãú[ô[ô»äBàûH¬à€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J\öJHHKù\ŸH»[ú]Oà[\õ›]]›ôX[J
+Kù\ŸH»[ú]ò€‹U ]
+HHBàô\]Z\ôJ[\õ[ô›
+
+Hà
+H»∏.a8.'¯.)x.c8.)¯.b8.,∏.!»àBàYà
+⁄[ôOHö[XYŸHäH¬àò[õ›[ô»H[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[íù\›X€ŸPõ›[ôœ]ùYHBà[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸQö[J[\ú]õ›[ô N»ô\]Z\ôJõ›[ôÀõ›]⁄Yà
+H»∏.+x.b8.,∏.&x.(8.,∏.'∏.a8.(x.b8.a8.%8.bHàBàH[ŸH¬àò[ô]öY]ô\àH[ôõ⁄YõYYXKìYYXSY]Y]Tô]öY]ô\ä
+BàûH»ô]öY]ô\ãúŸ]]T€›\òŸJ[\ú]
+N»ô\]Z\ôJô]öY]ô\ãô^òX›Y]Y]J[ôõ⁄YõYYXKìYYXSY]Y]Tô]öY]ô\ãìQUQUW“—VW—TêUS”äOÀù”€ô”‹ìù[
+
+OÀõ]»]àHOHùYJH»∏.+x.b8.,∏.&x.)¯.-8.%8.-x.`∏.+x.a8.(x.b8.a8.%8.bHàHHö[ò[H»ô]öY]ô\ãúô[X\ŸJ
+HBàBàYà
+\ôŸ]ô^\› 
+JH\ò⁄]ôUô\ú⁄[€ä\ôŸ]õ€\ãY⁄[ô
+Bà⁄X⁄ [\úô[ò[YU \ôŸ]
+JH»∏.&∏.,x.&x.%¯.-∏. x.a8.(x.b8.a8.%8.bHàBàò[›‹ûQö[HHö[Jõ€\ãú›‹ûKöú€€àäBàò[›‹ûHHî””ìÿöôX›
+›‹ûQö[KúôXY^
+
+JN»õ›‹ ›‹ûJKôö\ú›‹ìù[»Ÿ^J]
+HOHYOÀú]
+ù\Ÿ\ó‹ô]öY]»ãú[ô[ô»äBà›‹ûQö[Kù‹ö]U^
+›‹ûKù‘›ö[ô äJBàHö[ò[H»[\ô[]J
+HBàHBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.%x.(¯.)¯."8.a8.'¯.)x.c8. x.b8.+x.&x.&x.,¯.`8. ∏.bx.,àäKúŸ]Y\‹ÿYŸJâŸ\‹^Sò[YJ\öJ_H8°§à	Y∏."∏.&x.-8.%à	⁄[ôâ⁄Yä\ôŸ]ô^\› 
+JH∏.a8.'¯.)x.c8.`8.%8.-8.(x."8.,8.`8. x.a¯.&∏.`8.&¯.a¯.&x.`8.)¯.+x.(¯.c8."∏.,x.&x. x.b8.+x.&x.`x.%¯.&Hà[ŸH∏.`8.'∏.-8.b8.(x.a8.'¯.)x.c8.`¯.*¯.(x.büHäBàúŸ]‹⁄]]ôPù]€ä∏.&x.,¯.`8. ∏.bx.,àäH»À»OàXÿŸ\
+
+HKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàBàYYXT€›Hù[àBàö]ò]Hù[à^UöY[ Œàî””ìÿöôX›
+H¬àò[ö[HHöY[  N»Yà
+Yö[Kô^\› 
+JHô]\õàõ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-x.)¯.-8.%8.-x.`∏.+x."x.,∏. x.&x.-x.bH8†(à8.*∏.(¯.bx.,∏.!¯.`¯.&Hõ›»8.`x.)x.bx.)¯.&x.,¯.`8. ∏.bx.,∏. x.)x.,x.&àäBàò[öY]»HöY[’öY] \ Kò\H¬àŸ]öY[‘]
+ö[Kú]
+N»ò[€€ùõ€»HYYXP€€ùõ€\ä\–›Y[–X›]ö]JN»€€ùõ€ÀúŸ][ò⁄‹ïöY] \ N»Ÿ]YYXP€€ùõ€\ä€€ùõ€ BàŸ]€îô\\ôY\›[ô\à»›\ù
+
+HN»Ÿ]€ë\úõ‹ì\›[ô\à»ÀÀ»Oàõ›XŸJ∏.`8.)x.b8.&x.a8.'¯.)x.c8.&x.-x.bx.a8.(x.b8.a8.%8.bH8. x.(¯..8.$¯.,∏.&x.,¯.`8. ∏.bx.,∏.)¯.-8.%8.-x.`∏.+HT8.%¯.-x.b8.(¯.+x.!¯.(¯.,x.&àäN»ùYHBàBàò[X[Ÿ»H[\ùX[ŸÀêùZ[\ä\ KúŸ]]JŸ^J JKúŸ]öY] öY] KúŸ]‹⁄]]ôPù]€ä∏.&¯.-8.%ãù[
+Kò‹ôX]J
+BàX[ŸÀúŸ]€ë\€Z\‹”\›[ô\à»öY]Àú›‹^XòX⁄ 
+HN»X[ŸÀú⁄› 
+N»X[ŸÀù⁄[ô›œÀúŸ]^[›]
+LK
+Må
+JBàBàö]ò]Hù[àô\ú⁄[€ú”Y[ùJŒàî””ìÿöôX›
+H¬à⁄⁄XŸSY[ùJ∏.`8.)¯.+x.(¯.c8."∏.,x.&H	⁄Ÿ^J _Hã\›Ÿä∏.(8.,∏.'àã∏.)¯.-8.%8.-x.`∏.+HäJH»⁄⁄XŸHOÇàò[⁄[ôHYä⁄⁄XŸHOH
+Hö[XYŸHà[ŸHùöY[»Çàò[ö[\»Hö[Jõ⁄ôX›ùô\ú⁄[€úÀ…⁄Ÿ^J _K…⁄[ôäKõ\›ö[\ 
+OÀú€‹ùYûQ\ÿŸ[ô[ô»»]õ\›[ŸYöYY
+
+HKõ‹ë[\J
+Bà⁄⁄XŸSY[ùJ∏.`8.)x.-¯.+x. x.`8.)¯.+x.(¯.c8."∏.,x.&H	⁄[ôãö[\ÀõX\»ò]òKù^ë]Qõ‹õX]ôŸ]]U[YR[ú›[òŸJ
+Kôõ‹õX]
+ò]òKù][ë]J]õ\›[ŸYöYY
+
+JJHJH»HOÇàò[€›\òŸHHö[\÷⁄WN»ò[\ôŸ]HYä⁄[ôOHö[XYŸHäH[XYŸJ H[ŸHöY[  Bà[\ùX[ŸÀêùZ[\ä\ KúŸ]Y\‹ÿYŸJ∏.`¯."∏.bx.`8.)¯.+x.(¯.c8."∏.,x.&x.&x.-x.bO»8.`8.)¯.+x.(¯.c8."∏.,x.&x.&¯.,x."8."8..8.&∏.,x.&x."8.,8.`8. x.a¯.&∏.a8.)¯.bHäBàúŸ]‹⁄]]ôPù]€ä∏.`¯."∏.bx.`8.)¯.+x.(¯.c8."∏.,x.&x.&x.-x.bHäH»À»OÇàYä\ôŸ]ô^\› 
+JH\ò⁄]ôUô\ú⁄[€ä\ôŸ]õ⁄ôX›Ÿ^J K⁄[ô
+Bà\ôŸ]ú\ô[ùö[HHKõZŸ\ú 
+N»€›\òŸKò€‹U \ôŸ]›ô\ù‹ö]O]ùYJN»Àú]
+ù\Ÿ\ó‹ô]öY]»ãú[ô[ô»äN»ÿ]ôT›‹ûJ
+N»ô[ô\ä
+BàKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàBàBàBàö]ò]Hù[à]Y]›‹ûJ
+H¬àò[H[àŒàô]\õàõ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-x.&∏.%»äBàò[ô\‹ùHõ›‹ 
+KõX\»»OÇàò[ÿ\›HÀõ‹î””ê\úò^Jò⁄\òX›\ú»äHŒàî””ê\úò^J
+Bàò[XúŸ[ùH
+[ù[ÿ\›õ[ô›
+
+JKõX\»ÿ\›ôŸ]î””ìÿöôX›
+]
+HKôö[\à»[X\›\ëõ‹ä]
+Kô^\› 
+HKõX\»]õ‹›ö[ô õò[YHäHBàâ⁄Ÿ^J _H8†(à8.(8.,∏.'à	⁄Yä[XYŸJ Kô^\› 
+JH∏ß$»à[ŸH∏. ∏.,∏.%üH8†(à8.)¯.-8.%8.-x.`∏.+H	⁄YäöY[  Kô^\› 
+JH∏ß$»à[ŸH∏. ∏.,∏.%üH8†(à8.%x.(¯.)¯."8.(¯.,x.&à	‹Àõ‹›ö[ô ù\Ÿ\ó‹ô]öY]»ã∏.(¯.+x.%x.(¯.)¯."ä_Wàà
+¬à
+YäXúŸ[ùö\—[\J
+JHàà[ŸH∏. ∏.,∏.%PT’Téà	ÿXúŸ[ùöõ⁄[ï‘›ö[ô 
+_WàäH
+¬à
+YäÀõ‹›ö[ô ôX[Ÿ›YHäKõ[ô›àMJH∏.%x.(¯.)¯."8.&∏.%¯.'∏..x.%à8.+x.,∏."8.(∏.,∏.)¯.`8. x.-8.&H8.)¯.-8.&x.,∏.%¯.-Wàà[ŸHàäBàKöõ⁄[ï‘›ö[ô óàäBàò[^H^öY] \ Kò\H»\Àù^Hô\‹ù»Ÿ]^\‘Ÿ[X›XõJùYJN»Ÿ]Y[ô 
+MäK
+LäK
+MäK
+LäJHBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.%x.(¯.)¯."8.!¯.,∏.&H8†(à	‹õ‹›ö[ô ù]Hä_HäKúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] ^
+HJKúŸ]‹⁄]]ôPù]€ä∏.&¯.-8.%ãù[
+KúŸ]ô]]ò[ù]€ä∏.!8.,x.%8.)x.+x. HäH»À»Oà€‹P€€[X[ô
+ô\‹ù
+HKú⁄›—\ôX›‹ä
+BàBàö]ò]Hù[à›‹öY\”Y[ùJ
+H¬àò[õ€\ú»Hò\ŸKõ\›ö[\ 
+OÀôö[\à»ö[J]ú›‹ûKöú€€àäKô^\› 
+Hö[J]ôŸ[Z[öW⁄õÿã‹‹XÀöú€€àäKô^\› 
+HOÀú€‹ùYûQ\ÿŸ[ô[ô»»X^Ÿäö[J]ú›‹ûKöú€€àäKõ\›[ŸYöYY
+
+Kö[J]ôŸ[Z[öW⁄õÿã‹›]\Àöú€€àäKõ\›[ŸYöYY
+
+JHKõ‹ë[\J
+Bàù[à⁄[õô[Ÿäõ€\éàö[JNà›ö[ô»Hù[êÿ]⁄[ô»»î””ìÿöôX›
+ö[Jõ€\ãú›‹ûKöú€€àäKúôXY^
+
+JKõ‹›ö[ô ò⁄[õô[äKùö[J
+HKôŸ]‹ëYò][
+àäKöYêõ[ö»¬àù[êÿ]⁄[ô»»Ÿ[Z[öT›‹ûQö[\ÀúôXY
+ö[Jõ€\ãôŸ[Z[öW⁄õÿã‹‹XÀöú€€àäJKõ‹›ö[ô ò⁄[õô[äKùö[J
+HKôŸ]‹ëYò][
+àäBàKõ]»ò[YHOÇà⁄[à¬àò[YKö\–õ[ö 
+HOà∏.a8.(x.b8.(¯.,8.&∏..8."∏.-¯.b8.+x."∏.b8.+x.!»Çàò[YKúô\XŸJàãàäOOH∏.&x.,∏.(∏.`8.&¯.-x.(∏.&∏.bx.,∏.&x.!8.)x.+x.!¯. ∏..8.%àOà∏.&x.,∏.(∏.`8.&¯.-x.(à8.&∏.bx.,∏.&x.!8.)x.+x.!¯. ∏..8.%Çà[ŸHOà⁄[õô[ÿ][ŸÀò›\úô[ù⁄[õô[
+ò[YJBàBàBàYäõ€\úÀö\—[\J
+JH»õ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-x.`8.(¯.-¯.b8.+x.!¯.%¯.-x.b8.&∏.,x.&x.%¯.-∏. HäN»ô]\õàBàò[⁄[õô[œYõ€\úÀõX\»⁄[õô[Ÿä]
+HKô\›[ò›
+
+Kú€‹ùY
+
+Bà⁄⁄XŸSY[ùJº'‰Êà8.`8.)x.-¯.+x. x."∏.-¯.b8.+x."∏.b8.+x.!»ã⁄[õô[ÀõX\»⁄[õô[Oàâ⁄[õô[8†(à	Ÿõ€\úÀò€›[ù»⁄[õô[Ÿä]
+OOX⁄[õô[_H8.`8.(¯.-¯.b8.+x.!»àJH»Ÿ[X›YOÇàò[⁄‹Ÿ[èX⁄[õô[÷‹Ÿ[X›YN»ò[‹õ›\YYõ€\úÀôö[\à»⁄[õô[Ÿä]
+OOX⁄‹Ÿ[àBà⁄⁄XŸSY[ùJº'‰Êà	⁄‹Ÿ[àã‹õ›\YõX\»àOÇàù[êÿ]⁄[ô»»î””ìÿöôX›
+ö[Jãú›‹ûKöú€€àäKúôXY^
+
+JKõ‹›ö[ô ù]HäHKôŸ]‹ë[ŸH»ù[êÿ]⁄[ô»»Ÿ[Z[öT›‹ûQö[\ÀúôXY
+ö[JãôŸ[Z[öW⁄õÿã€›][ôKöú€€àäJKôŸ]›ö[ô ù]HäJ»à8†(à8.(∏.,x.!¯.`8. ∏.-x.(∏.&x.a8.(x.b8."8.&ààKôŸ]‹ëYò][
+∏.!¯.,∏.&x.`8. ∏.-x.(∏.&x.&∏.%¯.%¯.-x.b8.(∏.,x.!¯.a8.(x.b8."8.&àäHH
+»Yäö[Jãò\ò⁄]ôYäKô^\› 
+JHà8†(à8.`8. x.a¯.&∏.`x.)x.bx.)»à[ŸHàÇàJH»HOÇàôYúÀôY]
+
+Kú]›ö[ô úõ⁄ôX›ã‹õ›\Y⁄WKõò[YJKò\J
+N»ô[ô\ä
+BàYä[èO[ù[
+H»Ÿ[Z[öRõÿìY[ùJ
+N»ô]\õê⁄⁄XŸSY[ùHBà⁄⁄XŸSY[ùJ∏."8.,x.%8. x.,∏.(¯.`8.(¯.-¯.b8.+x.!»ã\›Ÿä∏•≠à8.%¯.,¯.%x.b8.+Hã∏ß#˚Ó#»8.`8.&¯.)x.-x.b8.(∏.&x."∏.-¯.b8.+Hãº'‰‰H8.%¯.,¯.*∏.,¯.`8.&x.,àãº'‰‡H8.`8. x.a¯.&à»8.`8.&¯.-8.%8.`¯."∏.bx.!¯.,∏.&Hãº'Â‰{Ó#»8.)x.&∏.`8.(¯.-¯.b8.+x.!»äJH»X›[€àOà⁄[äX›[€äH¬àOàô\›[YTÿŸ[ôJ
+BàHOà»ò[[ú]HY]^
+\ Kò\H»Ÿ]^
+[èÀõ‹›ö[ô ù]HäJHBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏."∏.-¯.b8.+x.`8.(¯.-¯.b8.+x.!»äKúŸ]öY] [ú]
+KúŸ]‹⁄]]ôPù]€ä∏.&∏.,x.&x.%¯.-∏. HäH»À»OÇàYä[ú]ù^ö\”õ›õ[ö 
+JH»[èÀú]
+ù]Hã[ú]ù^ù‘›ö[ô 
+Kùö[J
+JN»ÿ]ôT›‹ûJ
+N»ô[ô\ä
+HBàKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+HBààOàòX⁄Ÿ‹õ›[ô»ò[€›\òŸHHõ⁄ôX›»ò[\ôŸ]Hö[Jò\ŸKURQúò[ô€UURQ
+
+Kù‘›ö[ô 
+JN»⁄X⁄ €›\òŸKò€‹TôX›\ú⁄]ô[J\ôŸ]
+JBàò[Hî””ìÿöôX›
+ö[J\ôŸ]ú›‹ûKöú€€àäKúôXY^
+
+JN»ú]
+ù]Hãõ‹›ö[ô ù]HäJ»à
+8.*∏.,¯.`8.&x.,äHäN»ö[J\ôŸ]ú›‹ûKöú€€àäKù‹ö]U^
+ù‘›ö[ô äJN»ôYúÀôY]
+
+Kú]›ö[ô úõ⁄ôX›ã\ôŸ]õò[YJKò€€[Z]
+
+HBà»Oà»ò[ö[HHö[Jõ⁄ôX›ò\ò⁄]ôYäN»Yäö[Kô^\› 
+JHö[Kô[]J
+H[ŸHö[Kù‹ö]U^
+ò\ò⁄]ôYäN»ô[ô\ä
+HBàOà»ò[õ€\àHõ⁄ôX›»[\ùX[ŸÀêùZ[\ä\ KúŸ]Y\‹ÿYŸJ∏.)x.&∏.`8.(¯.-¯.b8.+x.!¯.`x.)x.,8.a8.'¯.)x.c8.%¯.,x.bx.!¯.*¯.(x.%»8.*∏.,¯.(¯.+x.!»íT8. x.b8.+x.&x.)x.&àäBàúŸ]‹⁄]]ôPù]€ä∏.)x.&∏.`8.(¯.-¯.b8.+x.!»äH»À»Oàõ€\ãô[]TôX›\ú⁄]ô[J
+N»ôYúÀôY]
+
+Kú]›ö[ô úõ⁄ôX›ãURQúò[ô€UURQ
+
+Kù‘›ö[ô 
+JKò\J
+N»ô[ô\ä
+HBàúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+HBàHBàBàBàBàö]ò]Hù[àŸ][ô‹”Y[ùJ
+H¬à⁄⁄XŸSY[ùJ∏¶¶{Ó#»8.%x.,x.bx.!¯.!8.b8.,∏.`x.)x.,8.%8..x.`x.)x.!¯.,∏.&Hã\›Ÿäº'Â!8.+x.,x.&¯.`8.%8.%x.`x.+x.&»ãº'‰Èà8.*∏.b8.!¯.+x.+x. x.!¯.,∏.&x.%¯.,x.bx.!¯.*¯.(x.%»8.*∏.,¯.(¯.+x.!»ãº'‰ÈH8. x..x.bx.!8.-¯.&x."∏..8.%8.*∏.,¯.(¯.+x.!»ãº'„´H8.%x.,x.)¯.`8.)x.-¯.+x. x.`8.%8.-8.(H»PT’Tàãº'‰Øà8.'∏.-¯.bx.&x.%¯.-x.b8.`x.)x.,8. ∏.bx.+x.'8.-8.%8.'∏.)x.,∏.%ã∏°≠à8. x..x.bx.!8.-¯.&x.&∏.%¯. x.b8.+x.&x.`x. x.bx.)x.b8.,∏.*∏..8.%ãº'„¶˚Ó#»8.%x.,x.bx.!¯.!8.b8.,∏. x.,∏.(¯.*∏.(¯.bx.,∏.!¯.`8.(¯.-¯.b8.+x.!»ãº'ÊÁ»8.*∏.,¯.(¯.+x.!¯.%¯.,x.bx.!¯.`8.(¯.-¯.b8.+x.!»8.(¯.)¯.(HPT’Tà8.`x.)x.,8.`8.)¯.+x.(¯.c8."∏.,x.&Hã∏°•»8.*∏.b8.!¯.!8.,¯.*∏.,x.b8.!¯.)x.b8.,∏.*∏..8.%8."¯.bx.,»äJH»HOà⁄[äJH¬àOà\]\ãò⁄X⁄ 
+BàHOà»Yä[àOHù[
+Hõ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-x.&∏.%»äH[ŸH»^‹ù\\€ŸO[ù[»òX⁄›\[ŸOYò[ŸN»ö\X⁄Ÿ\ãõ][ò⁄
+›‹ûQö[\Àûö\ò[YJ[àHKõ‹›ö[ô ù]HäJJHHBààOàô\›‹ôTX⁄Ÿ\ãõ][ò⁄
+\úò^SŸäò\Xÿ][€ãﬁö\äJBà»Oà€€”Y[ùJ
+BàOà»ò[\ŸYHò\ŸKùÿ[’‹›€ä
+Kôö[\à»]ö\—ö[HKú›[SŸà»]õ[ô›
+
+HBàò[Y\‹ÿYŸHHëTëP’‘à	‹X⁄ÿYŸSX[òYŸ\ãôŸ]X⁄ÿYŸR[ôõ X⁄ÿYŸSò[YK
+Kùô\ú⁄[€ìò[Y_W∏.!¯.,∏.&x.%¯.,x.bx.!¯.*¯.(x.%	›\ŸYÃLçÃLçHPó∏.'∏.-¯.bx.&x.%¯.-x.b8.)¯.b8.,∏.!»	Ÿö[\—\ãù\ÿXõT‹XŸKÃLçÃLçHPó∏.`8.(¯.-¯.b8.+x.!»	‹[èÀõ‹›ö[ô ù]HäKõ‹ë[\J
+_Wâ—ö[Jö[\—\ãõ\›Ÿ\úõ‹ãùäKùZŸRYà»]ô^\› 
+HOÀúôXY^
+
+Kõ‹ë[\J
+_HÇà[\ùX[ŸÀêùZ[\ä\ KúŸ]Y\‹ÿYŸJY\‹ÿYŸJKúŸ]‹⁄]]ôPù]€ä∏.&¯.-8.%ãù[
+KúŸ]ô]]ò[ù]€ä∏.!8.,x.%8.)x.+x. HäH»À»Oà€‹P€€[X[ô
+Y\‹ÿYŸJHKú⁄›—\ôX›‹ä
+HBàHOà»ò[ô]ö[›\œQö[Jõ⁄ôX›ú›‹ûKúô]ö[›\Àöú€€àäN»Yä\ô]ö[›\Àô^\› 
+JHõ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-x.&∏.%¯. x.b8.+x.&x.`x. x.bHäH[ŸH[\ùX[ŸÀêùZ[\ä\ KúŸ]Y\‹ÿYŸJ∏. x..x.bx.!8.-¯.&x.&∏.%¯. x.b8.+x.&x.`x. x.bx.)x.b8.,∏.*∏..8.%»8.a8.'¯.)x.c8.(8.,∏.'∏.(∏.,x.!¯.+x.(∏..x.bäBàúŸ]‹⁄]]ôPù]€ä∏. x..x.bx.!8.-¯.&HäH»À»Oàò[€\ô]ö[›\ÀúôXY^
+
+N»ÿ]ôT›‹ûJ
+N»ö[Jõ⁄ôX›ú›‹ûKöú€€àäKù‹ö]U^
+€
+N»ô[ô\ä
+HKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+HBààOà[õö[ô‘Ÿ][ô‹ 
+BàOàô]ûS\›€€[X[ô
+
+Bà»Oà»Yä[àOHù[
+Hõ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-x.&∏.%»äH[ŸH»òX⁄›\[ŸO]ùYN»ö\X⁄Ÿ\ãõ][ò⁄
+›‹ûQö[\Àûö\ò[YJ[àHKõ‹›ö[ô ù]HäJ»ó¯.*∏.,¯.(¯.+x.!»äJHHBàHBàBàö]ò]Hò[ô\›‹ôTX⁄Ÿ\àHôY⁄\›\ëõ‹êX›]ö]Tô\›[
+X›]ö]Tô\›[€€ùòX›Àì‹[ëÿ›[Y[ù
+
+JH»\öHOÇàYä\öHOHù[
+H[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏. x..x.bx.!8.-¯.&x."∏..8.%8.*∏.,¯.(¯.+x.!»äBàúŸ]Y\‹ÿYŸJâŸ\‹^Sò[YJ\öJ_W∏."8.,8. x..x.bx.!8.-¯.&x.`8.&¯.a¯.&x.`8.(¯.-¯.b8.+x.!¯.`¯.*¯.(x.b8.a8.(x.b8.`8. ∏.-x.(∏.&x.%¯.,x.&∏.`8.(¯.-¯.b8.+x.!¯.`8.%8.-8.(H8.(¯.)¯.(HPT’Tà8.(8.,∏.'à8.)¯.-8.%8.-x.`∏.+H8.`x.)x.,8.`8.)¯.+x.(¯.c8."∏.,x.&x.%¯.-x.b8.(x.-x.`¯.&x."∏..8.%8.*∏.,¯.(¯.+x.!»äBàúŸ]‹⁄]]ôPù]€ä∏. x..x.bx.!8.-¯.&HäH»À»OàòX⁄Ÿ‹õ›[ô¬àò[›Y⁄[ôœQö[JÿX⁄Q\ãúô\›‹ôW…’URQúò[ô€UURQ
+
+_HäBàûH¬à€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J\öJHHKù\ŸH»›Y[–\ò⁄]ôKúôXY
+]›Y⁄[ô HBàò[Rî””ìÿöôX›
+ö[J›Y⁄[ôÀú›‹ûKöú€€àäKúôXY^
+
+JN»ò[Y]J
+Bà⁄‹ùÿ][Ÿ“Y ö[Jö[\—\ãú⁄‹ùÿÿ][Ÿ◊⁄YÀöú€€àäJKõY\ôŸPòX⁄›\
+ö[J›Y⁄[ôÀó◊Ÿ\ôX›‹ó€Y]K‹⁄‹ùÿÿ][Ÿ◊⁄YÀöú€€àäJBàò[õ€\èQö[Jò\ŸKURQúò[ô€UURQ
+
+Kù‘›ö[ô 
+JN»⁄X⁄ ›Y⁄[ôÀò€‹TôX›\ú⁄]ô[Jõ€\äJBàôYúÀôY]
+
+Kú]›ö[ô úõ⁄ôX›ãõ€\ãõò[YJKò€€[Z]
+
+BàHö[ò[H»›Y⁄[ôÀô[]TôX›\ú⁄]ô[J
+HBàHKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàBàö]ò]Hù[àô]ûS\›[XYŸJ
+H¬àò[ö[OQö[Jõ⁄ôX›õ\›⁄[XYŸW‹^[ÿYöú€€àäBàYäYö[Kö\—ö[JHô]\õàõ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-x."∏..8.%8.*∏.(¯.bx.,∏.!¯.(8.,∏.'∏.)x.b8.,∏.*∏..8.%8. x.(¯..8.$¯.,∏.`8.)x.-¯.+x. x.(¯..x.&¯.&¯. x.*¯.(¯.-¯.+x."¯.-x.&x.`8.'∏.-¯.b8.+x.*∏.b8.!¯. x.b8.+x.&HäBàù[êÿ]⁄[ô»¬àò[^[ÿYRî””ìÿöôX›
+ö[KúôXY^
+
+JN»ò[[XYŸ\œ\^[ÿYôŸ]î””ê\úò^Jö[XYŸ\»äBàô\]Z\ôJ[XYŸ\Àõ[ô›
+
+Oå
+H»∏.a8.(x.b8.'∏.&∏.(8.,∏.'∏.+x.bx.,∏.!¯.+x.-8.!¯.`¯.&x."∏..8.%8.)x.b8.,∏.*∏..8.%8. x.(¯..8.$¯.,∏.`8.)x.-¯.+x. x.&¯. x.*¯.(¯.-¯.+x."¯.-x.&x.+x.-x. x.!8.(¯.,x.bx.!»àBàò[ôYô\ô[òŸ\œJ[ù[[XYŸ\Àõ[ô›
+
+JKõX\»HOÇàò[\öOU\öKú\úŸJ[XYŸ\ÀôŸ]›ö[ô JJBàô\]Z\ôJ\öKò]]‹ö]OOHâX⁄ÿYŸSò[YKôö[\õ›öY\àäH»∏.`x.*¯.)x.b8.!¯.(8.,∏.'∏.*∏.b8.!¯."¯.bx.,¯.a8.(x.b8.%∏..x. x.%x.bx.+x.!»àBàò[ô[]]ôO]\öKú]Àùö[T›\ù
+	À… HŒà\úõ‹ä∏.a8.(x.b8.(x.-x.`8.*∏.bx.&x.%¯.,∏.!¯.(8.,∏.'àäBàô\]Z\ôJô[]]ôKú›\ù’⁄]
+ò⁄\òX›\ó€X\›\óŸ^‹ùÀ»äHô[]]ôKú›\ù’⁄]
+úÿŸ[ôW‹ôYô\ô[òŸWŸ^‹ùÀ»äJH»∏.(8.,∏.'∏.a8.(x.b8.a8.%8.bx.+x.(∏..x.b8.`¯.&x.'∏.-¯.bx.&x.%¯.-x.b8.*∏.b8.!¯.+x.+x. HàBàò[€›\òŸOQö[JÿX⁄Q\ãô[]]ôJBàô\]Z\ôJ€›\òŸKòÿ[õ€öXÿ[]ú›\ù’⁄]
+ÿX⁄Q\ãòÿ[õ€öXÿ[]
+—ö[KúŸ\\ò]‹äH	âà€›\òŸKö\—ö[JH»∏.a8.'¯.)x.c8."∏.,x.b8.)¯.!8.(¯.,∏.)¯.*¯.(x.%8.+x.,∏.(∏..8. x.(¯..8.$¯.,∏.`8.)x.-¯.+x. x.&¯. x.*¯.(¯.-¯.+x."¯.-x.&x.`8.%8.-8.(x.`8.'∏.-¯.b8.+x.*∏.b8.!¯.`¯.*¯.(x.bàBà€›\òŸKõò[YU⁄]›]^[ú⁄[€à»€›\òŸBàBà⁄\ôR[XYŸP€€[X[ô
+^[ÿYôŸ]›ö[ô ù^äKôYô\ô[òŸ\ BàKõ€ëòZ[\ôH»õ›XŸJ]õY\‹ÿYŸHŒà∏.*∏.b8.!¯.(¯..x.&¯."¯.bx.,¯.a8.(x.b8.a8.%8.bHäHBàBàö]ò]Hù[àô]ûS\›€€[X[ô
+
+H¬àò[ö[OQö[Jõ⁄ôX›õ\›‹^[ÿYöú€€àäBàYäYö[Kô^\› 
+JHô]\õàõ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-x.!8.,¯.*∏.,x.b8.!¯.%¯.-x.b8.`8.%x.(¯.-x.(∏.(x.*∏.b8.!»äBàù[êÿ]⁄[ô»¬àò[^[ÿYRî””ìÿöôX›
+ö[KúôXY^
+
+JN»ò[[XYŸ\œ\^[ÿYôŸ]î””ê\úò^Jö[XYŸ\»äBàò[ôYô\ô[òŸ\œJ[ù[[XYŸ\Àõ[ô›
+
+JKõX\»HOÇàò[\öOU\öKú\úŸJ[XYŸ\ÀôŸ]›ö[ô JJBàÀ»ô\€€ôH€õHH\	‹»›€à^‹ùõ€›Àô]ô\à[à^\õò[]Çàô\]Z\ôJ\öKò]]‹ö]OOHâX⁄ÿYŸSò[YKôö[\õ›öY\àäH»∏.`x.*¯.)x.b8.!¯.(8.,∏.'∏.*∏.b8.!¯."¯.bx.,¯.a8.(x.b8.%∏..x. x.%x.bx.+x.!»àBàò[ô[]]ôO]\öKú]Àùö[T›\ù
+	À… HŒà\úõ‹ä∏.a8.(x.b8.(x.-x.`8.*∏.bx.&x.%¯.,∏.!¯.(8.,∏.'àäBàô\]Z\ôJô[]]ôKú›\ù’⁄]
+ò⁄\òX›\ó€X\›\óŸ^‹ùÀ»äHô[]]ôKú›\ù’⁄]
+úÿŸ[ôW‹ôYô\ô[òŸWŸ^‹ùÀ»äJH»∏.(8.,∏.'∏.a8.(x.b8.a8.%8.bx.+x.(∏..x.b8.`¯.&x.'∏.-¯.bx.&x.%¯.-x.b8.*∏.b8.!¯.+x.+x. HàBàò[€›\òŸOQö[JÿX⁄Q\ãô[]]ôJBàô\]Z\ôJ€›\òŸKòÿ[õ€öXÿ[]ú›\ù’⁄]
+ÿX⁄Q\ãòÿ[õ€öXÿ[]
+—ö[KúŸ\\ò]‹äH	âà€›\òŸKö\—ö[JH»∏.(8.,∏.'∏.*∏.b8.!¯."¯.bx.,¯.*¯.(x.%8.+x.,∏.(∏..8. x.(¯..8.$¯.,∏.*∏.b8.!¯."8.,∏. x.`8.(x.&x..x."x.,∏. x.+x.-x. x.!8.(¯.,x.bx.!»àBà€›\òŸKõò[YU⁄]›]^[ú⁄[€à»€›\òŸBàBà⁄\ôU^
+^[ÿYôŸ]›ö[ô ù^äKÿ⁄–‹ôX][€è\^[ÿYõ‹õ€€X[äò‹ôX][€àäK[ò€YSX\›\úœYò[ŸKôYô\ô[òŸR[XYŸ\œ\ôYô\ô[òŸ\ BàKõ€ëòZ[\ôH»õ›XŸJ]õY\‹ÿYŸHŒà∏.*∏.b8.!¯."¯.bx.,¯.a8.(x.b8.a8.%8.bHäHBàBàö]ò]Hù[à[õö[ô‘Ÿ][ô‹ 
+H¬àò[[ô[S[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èLN»Ÿ]Y[ô 
+MäK
+LäK
+MäK
+LäJHBàò[öY[œ[\›Ÿäô\\€Ÿ\»à»∏."8.,¯.&x.)¯.&HT
+8.)¯.b8.,∏.!»HRH8.&¯.(¯.,8.`8.(x.-8.&JHãúÿŸ[ô\»à»∏."x.,∏. x.%x.b8.+HT
+8.)¯.b8.,∏.!»HRH8.&¯.(¯.,8.`8.(x.-8.&JHãô\ò][€àà»∏.)¯.-8.&x.,∏.%¯.-x.%x.b8.+x."x.,∏. Hãúò][»à»∏.*∏.,x.%8.*∏.b8.)¯.&x.(8.,∏.'àNåMà8.`8.%¯.b8.,∏.&x.,x.bx.&HäBàò[[ú]œYöY[ÀõX\»
+YXô[
+HOàY»Y]^
+\ Kò\H»[ù[Xô[»Ÿ]^
+YäYOHúò][»äHéNåMàà[ŸHôYúÀôŸ]›ö[ô ú[ó…YãYäYOHô\ò][€àäHéà[ŸHàäJN»YäYOHúò][»äH\—[òXõYYò[ŸN»[ô[òYöY] \ HHBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.!8.b8.,∏.%x.,x.bx.!¯.%x.bx.&x.*∏.,¯.*¯.(¯.,x.&∏.`8.(¯.-¯.b8.+x.!¯.`¯.*¯.(x.bäKúŸ]öY] [ô[
+KúŸ]‹⁄]]ôPù]€ä∏.&∏.,x.&x.%¯.-∏. HäH»À»OÇàò[ò[Y\œZ[ú]Àò\‹€ÿ⁄X]H»]ôö\ú›»]úŸX€€ôù^ù‘›ö[ô 
+Kùö[J
+HBàYäò[Y\÷»úò][»óHZ[à\›ŸäéNåMàäHò[Y\÷»ô\ò][€àóOÀù“[ù‹ìù[
+
+OÀõ]»][àKãçåHOHùYH\›Ÿäô\\€Ÿ\»ãúÿŸ[ô\»äKò[ûH»ò[Y\÷⁄]HHKö\”õ›õ[ö 
+H	âàò[Y\÷⁄]OÀù“[ù‹ìù[
+
+OÀõ]»àOàà[àKãåLHOHùYHJHõ›XŸJ∏.%x.(¯.)¯."8."8.,¯.&x.)¯.&Hx†$ÃL8.(¯.,8.(∏.,8.`8.)¯.)x.,àx†$Õå8.`x.)x.,8.*∏.,x.%8.*∏.b8.)¯.&HNåMàäBà[ŸH»ò[Y]\ôYúÀôY]
+
+N»ò[Y\Àôõ‹ëXX⁄»
+ÀäHOàY]ú]›ö[ô ú[ó…»ãäHN»Y]ò\J
+N»õ›XŸJ∏.&∏.,x.&x.%¯.-∏. x.!8.b8.,∏.%x.,x.bx.!¯.%x.bx.&x.`x.)x.bx.)»8.`¯."∏.bx. x.,x.&∏.!8.,¯.*∏.,x.b8.!¯.*∏.(¯.bx.,∏.!¯.`8.(¯.-¯.b8.+x.!¯.`¯.*¯.(x.bäHBàKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàBàö]ò]Hò\àÿ\›\ôŸ]àZ\è›ö[ôÀö[Oè¬àŸ]
+
+H»ò[ò[YO\ôYúÀôŸ]›ö[ô òÿ\››\ôŸ]€ò[YHãù[
+HŒàô]\õàù[»ò[]\ôYúÀôŸ]›ö[ô òÿ\››\ôŸ]‹]ãù[
+HŒàô]\õàù[»ô]\õàò[YH»ö[J]
+HBàŸ]
+ò[YJH»ôYúÀôY]
+
+Kú]›ö[ô òÿ\››\ôŸ]€ò[YHãò[YOÀôö\ú›
+Kú]›ö[ô òÿ\››\ôŸ]‹]ãò[YOÀúŸX€€ôÀú]
+Kò\J
+HBàö]ò]Hò[ÿ\›X⁄Ÿ\àHôY⁄\›\ëõ‹êX›]ö]Tô\›[
+X›]ö]Tô\›[€€ùòX›Àì‹[ëÿ›[Y[ù
+
+JH»\öHOÇàò[\ôŸ]Xÿ\›\ôŸ]»ÿ\›\ôŸ][ù[àYä\öHO[ù[	âà\ôŸ]O[ù[
+HòX⁄Ÿ‹õ›[ô¬àò[ö[O]\ôŸ]úŸX€€ô»ö[Kú\ô[ùö[HHKõZŸ\ú 
+N»ò[[\Qö[Jö[Kú\ô[ùö[Kö[Kõò[YJ»ãú[ô[ô»äBàûH¬à€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J\öJHHKù\ŸH»[ú]Oà[\õ›]]›ôX[J
+Kù\ŸH»[ú]ò€‹U ]
+HHBàò[õ›[ôœX[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[íù\›X€ŸPõ›[ôœ]ùYHN»[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸQö[J[\ú]õ›[ô Bàô\]Z\ôJõ›[ôÀõ›]⁄Yå
+H»∏.+x.b8.,∏.&HPT’Tà8.a8.(x.b8.a8.%8.bHàBàYäö[Kô^\› 
+JH\ò⁄]ôUô\ú⁄[€äö[Kõ⁄ôX›\ôŸ]ôö\ú›õX\›\àäBà⁄X⁄ [\úô[ò[YU ö[JJBàò[YôôX›Y\õ›‹ [àHJKôö[\à»ÿŸ[ôHOàÿŸ[ôKõ‹î””ê\úò^Jò⁄\òX›\ú»äOÀõ]»HOà
+[ù[Kõ[ô›
+
+JKò[ûH»KôŸ]î””ìÿöôX›
+]
+Kõ‹›ö[ô õò[YHäOO]\ôŸ]ôö\ú›HHOHùYHBàYôôX›Yôõ‹ëXX⁄»]ú]
+ù\Ÿ\ó‹ô]öY]»ãõôYY◊‹ô]ö\⁄[€àäN»]úô[[›ôJôõ›◊⁄[XYŸW‹ô]ö\⁄[€àäHN»ÿ]ôT›‹ûJ
+BàHö[ò[H»[\ô[]J
+HBàBàBàö]ò]Hù[àôXY›\‹ù[ô–ÿ\›
+
+Nàî””ê\úò^HHù[êÿ]⁄[ô»»î””ê\úò^Jö[Jö[\—\ãú›\‹ù[ô◊ÿÿ\›öú€€àäKúôXY^
+
+JHKôŸ]‹ëYò][
+î””ê\úò^J
+JBàö]ò]Hò[›\‹ù[XYŸTX⁄Ÿ\è\ôY⁄\›\ëõ‹êX›]ö]Tô\›[
+X›]ö]Tô\›[€€ùòX›Àì‹[ëÿ›[Y[ù
+
+JH»\öHOÇàò[[ô[ôœ\ôYúÀôŸ]›ö[ô ú[ô[ô◊‹›\‹ùãù[
+N»ôYúÀôY]
+
+Kúô[[›ôJú[ô[ô◊‹›\‹ùäKò\J
+BàYä\öHO[ù[	âà[ô[ô»O[ù[
+Hù[êÿ]⁄[ô»¬àò[\ú€€èRî””ìÿöôX›
+[ô[ô N»ò[YQõ›–ÿ\›öY
+\ú€€äHHBàò[ö[OQö[Jö[\—\ãú›\‹ù[ô◊€X\›\úÀ…YõX\›\àäN»ö[Kú\ô[ùö[HHKõZŸ\ú 
+Bàò[[\Qö[Jö[Kú\ô[ùö[Kö[Kõò[YJ»ãú[ô[ô»äBàûH¬à€€ù[ùô\€€ô\ãõ‹[í[ú]›ôX[J\öJHHKù\ŸH»[ú]Oà[\õ›]]›ôX[J
+Kù\ŸH»[ú]ò€‹U ]
+HHBàô\]Z\ôJX\›\ë^‹ùò[YJ[\ò[ŸJHO[ù[
+H»∏.+x.b8.,∏.&x.(8.,∏.'∏.%x.,x.)¯.)x.,8.!8.(¯.`8.*∏.(¯.-8.(x.a8.(x.b8.a8.%8.bHàBà⁄X⁄ [\úô[ò[YU ö[JJBàò[\›\ôXY›\‹ù[ô–ÿ\›
+
+N»\›ú]
+\ú€€äBàô\]Z\ôJõ›–ÿ\›ö\‹›Y\ î””ìÿöôX›
+
+Kú]
+ú›\‹ù[ô◊ÿ⁄\òX›\ú»ã\›
+JKö\—[\J
+JH»∏."∏.-¯.b8.+x."¯.bx.,¯.*¯.(¯.-¯.+x. ∏.bx.+x.(x..x.)x.%x.,x.)¯.)x.,8.!8.(¯.`8.*∏.(¯.-8.(x.a8.(x.b8.%∏..x. x.%x.bx.+x.!»àBàö[Jö[\—\ãú›\‹ù[ô◊ÿÿ\›öú€€àäKù‹ö]U^
+\›ù‘›ö[ô äJBàHö[ò[H»[\ô[]J
+HBàKõ€î›XÿŸ\‹»»õ›XŸJ∏.&∏.,x.&x.%¯.-∏. x.%x.,x.)¯.)x.,8.!8.(¯.`8.*∏.(¯.-8.(x.`x.)x.bx.)»8†(à8.`¯."∏.bx. x.,x.&∏.`8.(¯.-¯.b8.+x.!¯.`¯.*¯.(x.b8.%¯.-x.b8.*∏.(¯.bx.,∏.!¯.%x.b8.+x."8.,∏. x.&x.-x.bHäHKõ€ëòZ[\ôH»õ›XŸJ]õY\‹ÿYŸHŒà∏.&∏.,x.&x.%¯.-∏. x.a8.(x.b8.a8.%8.bHäHBàBàö]ò]Hù[à›\‹ù[ô–ÿ\›Y[ùJ
+H¬àò[õ‹›\è\ôXY›\‹ù[ô–ÿ\›
+
+Bà⁄⁄XŸSY[ùJ∏.%x.,x.)¯.)x.,8.!8.(¯.`8.*∏.(¯.-8.(H8†(à8.`¯."∏.bx. x.,x.&∏.`8.(¯.-¯.b8.+x.!¯.`¯.*¯.(x.bã
+[ù[õ‹›\ãõ[ô›
+
+JKõX\»õ‹›\ãôŸ]î””ìÿöôX›
+]
+KôŸ]›ö[ô õò[YHäHJ»∏.`8.'∏.-8.b8.(x.%x.,x.)¯.)x.,8.!8.(¯.`8.*∏.(¯.-8.(HäH»[ô^OÇàYä[ô^O\õ‹›\ãõ[ô›
+
+JH¬àYäõ‹›\ãõ[ô›
+
+OèN
+H»õ›XŸJ∏.(¯.+x.!¯.(¯.,x.&∏.%x.,x.)¯.)x.,8.!8.(¯.`8.*∏.(¯.-8.(x.a8.(x.b8.`8. x.-8.&H8.!8.&HäN»ô]\õê⁄⁄XŸSY[ùHBàò[[ô[S[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èLN»Ÿ]Y[ô 
+MäK
+
+K
+MäK
+
+JHBàò[ò[YOQY]^
+\ Kò\H»[ùH∏."∏.-¯.b8.+x.%x.,x.)¯.)x.,8.!8.(¯.`8.*∏.(¯.-8.(Hé»[ô[òYöY] \ HBàò[\ÿ‹ö\[€èQY]^
+\ Kò\H»[ùH∏.'8..x.bx.`¯.*¯.#x.b8†(à8.&∏.%¯.&∏.,∏.%»»8.`¯.&∏.*¯.&x.bx.,à»8.'8.(H»8.(¯..x.&¯.(¯.b8.,∏.!¯.%¯.-x.b8.`8.*¯.a¯.&x."8.,∏. x.(8.,∏.'àé»[ô[òYöY] \ HBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.`8.'∏.-8.b8.(x.%x.,x.)¯.)x.,8.!8.(¯.`8.*∏.(¯.-8.(x.'∏.(¯.bx.+x.(x.(8.,∏.'∏.%x.bx.&x."x.&∏.,x.&àäKúŸ]öY] [ô[
+KúŸ]‹⁄]]ôPù]€ä∏.`8.)x.-¯.+x. x.(8.,∏.'àäH»À»OÇàò[ò[YO[ò[YKù^ù‘›ö[ô 
+Kùö[J
+BàYäò[YKö\–õ[ö 
+H\ÿ‹ö\[€ãù^ö\–õ[ö 
+H›‹ûRY[ù]KöŸ^Qõ‹äò[YJHO[ù[
+[ù[õ‹›\ãõ[ô›
+
+JKò[ûH»õ‹›\ãôŸ]î””ìÿöôX›
+]
+KôŸ]›ö[ô õò[YHäOO]ò[YHJHõ›XŸJ∏.(¯.,8.&∏..8."∏.-¯.b8.+x.a8.(x.b8."¯.bx.,¯.`x.)x.,8.!8.,¯.&∏.(¯.(¯.(∏.,∏.(∏."8.,∏. x.(8.,∏.'àäBà[ŸH¬àò[YUURQúò[ô€UURQ
+
+Kù‘›ö[ô 
+KùZŸJ
+Kù\\òÿ\ŸJ
+Bàò[\ú€€èRî””ìÿöôX›
+
+Kú]
+õò[YHãò[YJKú]
+õX\›\àãî’T‘ï…⁄YW”PT’Tãúô»äKú]
+ùö\›X[Ÿ\ÿ‹ö\[€àãòY[öX›[€ò[⁄\òX›\é»äŸ\ÿ‹ö\[€ãù^ù‘›ö[ô 
+JBàôYúÀôY]
+
+Kú]›ö[ô ú[ô[ô◊‹›\‹ùã\ú€€ãù‘›ö[ô 
+JKò\J
+N»›\‹ù[XYŸTX⁄Ÿ\ãõ][ò⁄
+\úò^SŸäö[XYŸK àäJBàBàKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàH[ŸH¬àò[\ú€€è\õ‹›\ãôŸ]î””ìÿöôX›
+[ô^
+N»ò[ö[OQö[Jö[\—\ãú›\‹ù[ô◊€X\›\úÀ…—õ›–ÿ\›öY
+\ú€€ä_KõX\›\àäBà⁄⁄XŸSY[ùJ\ú€€ãôŸ]›ö[ô õò[YHäK\›Ÿä∏.%8..x.(8.,∏.'∏.%x.bx.&x."x.&∏.,x.&àã∏.&x.,¯.+x.+x. x."8.,∏. x.`8.(¯.-¯.b8.+x.!¯.`¯.*¯.(x.bäJH»X›[€àOÇàYäX›[€èOL
+Hù[[XYŸJö[K\ú€€ãôŸ]›ö[ô õò[YHäJH[ŸH¬àò[ô[XZ[ö[ôœRî””ê\úò^J
+N»õ‹äH[à[ù[õ‹›\ãõ[ô›
+
+JHYäHOZ[ô^
+Hô[XZ[ö[ôÀú]
+õ‹›\ãôŸ]î””ìÿöôX›
+JJBàö[Jö[\—\ãú›\‹ù[ô◊ÿÿ\›öú€€àäKù‹ö]U^
+ô[XZ[ö[ôÀù‘›ö[ô äJN»õ›XŸJ∏.&x.,¯.+x.+x. x."8.,∏. x.(¯.,∏.(∏. x.,∏.(¯.`8.(¯.-¯.b8.+x.!¯.`¯.*¯.(x.b8.`x.)x.bx.)»8.`8.(¯.-¯.b8.+x.!¯.`8.%8.-8.(x.(∏.,x.!¯.`8. x.a¯.&∏.(8.,∏.'∏. ∏.+x.!¯.%x.,x.)¯.`8.+x.!»äBàBàBàBàBàBàö]ò]Hù[àÿ\›Y[ùJ
+H¬àò[\[àŒàô]\õà⁄\òX›\ìX\›\ú 
+Bàò[[‹O\õ›‹ 
+Kôõ]X\»ÿŸ[ôHOàÿŸ[ôKõ‹î””ê\úò^Jò⁄\òX›\ú»äOÀõ]»HOà
+[ù[Kõ[ô›
+
+JKõX\»KôŸ]î””ìÿöôX›
+]
+HHKõ‹ë[\J
+HKô\›[ò›ûH»]õ‹›ö[ô õò[YHäHBà⁄€‹ŸT›‹ûP⁄\òX›\ë‹öY
+º'„´H8.%x.,x.)¯.)x.,8.!8.(¯.`8.(¯.-¯.b8.+x.!¯.&x.-x.bHã[‹JH»HOÇàò[\ú€€è\[‹V⁄WN»ò[ò[YO\\ú€€ãõ‹›ö[ô õò[YHäBà⁄⁄XŸSY[ùJò[YK\›Ÿäº'ÂØ;Ó#»8.%8..HPT’Tàãº'‰Ì»8.`8.&¯.)x.-x.b8.(∏.&HPT’Tà8.(¯.,∏.(∏.`8.(¯.-¯.b8.+x.!»ã∏ß#˚Ó#»8.&∏.%¯.&∏.,∏.%¯.%x.,x.)¯.)x.,8.!8.(»ãº'ÈË8. ∏.bx.+x.(x..x.)x.`¯.&∏.*¯.&x.bx.,à8.'8.(H8.`x.)x.,8.(¯..x.&¯.(¯.b8.,∏.!»ã∏.`8.%x.(¯.-x.(∏.(HPT’Tà8.(x.,∏.%x.(¯.$8.,∏.&Hã∏.%x.(¯.)¯."8.(8.,∏.'àPT’TàäJH»X›[€àOà⁄[äX›[€äH¬àOà»ò[ö[O[X\›\ëõ‹ä\ú€€äN»Yäö[Kô^\› 
+JHù[[XYŸJö[Kò[YJH[ŸHõ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-HPT’TàäHBàHOà»ò[YQõ›–ÿ\›öY
+\ú€€äBàò[ö[OZYäõ‹›ö[ô ò⁄\òX›\ó€[ŸHãõ‹öY⁄[ò[äOOHõô]»äHX\›\ëõ‹ä\ú€€äH[ŸHYäYO[ù[
+Hö[Jõ⁄ôX›õ‹öY⁄[ò[€X\›\úÀ…YõX\›\àäH[ŸHô]\õê⁄⁄XŸSY[ùBà[\ùX[ŸÀêùZ[\ä\ KúŸ]Y\‹ÿYŸJ∏.`8.&¯.)x.-x.b8.(∏.&HPT’Tà8. ∏.+x.!»	ò[YH8.`8."x.'∏.,∏.,8.`8.(¯.-¯.b8.+x.!¯.&x.-x.bH8†(à8."x.,∏. x.%¯.-x.b8.`¯."∏.bx.!8.&x.&x.-x.bx."8.,8.%∏..x. x.(¯.,8.&∏..8.)¯.b8.,∏.%x.bx.+x.!¯.%x.(¯.)¯."8.`¯.*¯.(x.bäBàúŸ]‹⁄]]ôPù]€ä∏.`8.)x.-¯.+x. x.(¯..x.&»äH»À»Oàÿ\›\ôŸ][ò[YH»ö[N»ÿ\›X⁄Ÿ\ãõ][ò⁄
+\úò^SŸäö[XYŸK àäJHKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+HBààOà»ò[[ú]QY]^
+\ Kò\H»[ùH∏.&∏.%¯.&∏.,∏.%¯.`x.)x.,8.)x.,x. x.*x.$¯.,8.%x.,x.)¯.)x.,8.!8.(»é»Ÿ]^
+õ‹î””ìÿöôX›
+òÿ\›‹õ€\»äOÀõ‹›ö[ô ò[YJJHBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]Jò[YJKúŸ]öY] [ú]
+KúŸ]‹⁄]]ôPù]€ä∏.&∏.,x.&x.%¯.-∏. HäH»À»Oàò[õ€\œ\õ‹î””ìÿöôX›
+òÿ\›‹õ€\»äHŒàî””ìÿöôX›
+
+N»õ€\Àú]
+ò[YK[ú]ù^ù‘›ö[ô 
+JN»ú]
+òÿ\›‹õ€\»ãõ€\ N»ÿ]ôT›‹ûJ
+HKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+HBà»OàY]⁄\òX›\ìY[[‹ûJY[[‹ûRY
+\ú€€äKò[YKX\›\ëõ‹ä\ú€€äJBàOàŸ[ôõŸX›[€ìX\›\äY[[‹ûRY
+\ú€€äKò[YKX\›\ëõ‹ä\ú€€äJBàHOàô]öY]”X\›\äY[[‹ûRY
+\ú€€äKò[YKX\›\ëõ‹ä\ú€€äJBàHBàBàBÇàö]ò]Hù[à[›öY\”Y[ùJ
+H¬àò[\[àŒàô]\õàõ›XŸJ∏.&x.,¯.`8. ∏.bx.,∏.&∏.%¯.`x.)x.,8.!8.)x.-8.&¯. x.b8.+x.&x.!8.(¯.,x.&àäBàò[\œ\ôŸ]î””ê\úò^Jô\\€Ÿ\»äBà⁄⁄XŸSY[ùJº'„´8.`8.)x.-¯.+x. HT8.`8.'∏.-¯.b8.+x.%¯.,¯.)¯.-8.%8.-x.`∏.+Hã
+[ù[\Àõ[ô›
+
+JKõX\»HOÇàò[\Y\ÀôŸ]î””ìÿöôX›
+JBàò[ÿŸ[ô\œ\õ›‹ 
+Kôö[\à»]ôŸ][ù
+ô\äOOY\ôŸ][ù
+ô\äHBàò[€›[ù\ÿŸ[ô\Àò€›[ù»öY[ ]
+Kö\—ö[H	âàöY[ ]
+Kõ[ô›
+
+OåBàëT	Ÿ\ôŸ][ù
+ô\ä_H8†(à	Ÿ\õ‹›ö[ô ù]Hä_W∏.!8.)x.-8.&»	€›[ù…‹ÿŸ[ô\Àú⁄^ô_H8†(àà
+»Yä€›[ùO\ÿŸ[ô\Àú⁄^ôH	âàÿŸ[ô\Àö\”õ›[\J
+JH∏.'∏.(¯.bx.+x.(x.%x.(¯.)¯."8.`x.)x.,8.(¯.)¯.(HTà[ŸH∏.&x.,¯.`8. ∏.bx.,àT8.(¯.,∏.(∏."x.,∏. x. x.b8.+x.&x.(¯.)¯.(HÇàJH»HOà[›öYQ\\€ŸJ\ÀôŸ]î””ìÿöôX›
+JJHBàBàö]ò]Hù[à[›öYQ\\€ŸJ\àî””ìÿöôX›
+H¬à⁄⁄XŸSY[ùJëT	Ÿ\ôŸ][ù
+ô\ä_H8†(à	Ÿ\õ‹›ö[ô ù]Hä_Hã\›Ÿäº'„´8.%x.(¯.)¯."8.!8.)x.-8.&¯.`x.)x.,8.(¯.)¯.(HTã∏£Ï»8.%8..x.!8.)¯.,∏.(x.!8.-¯.&∏.*¯.&x.bx.,à»8.(∏. x.`8.)x.-8. Hã∏•≠à8.%8..x.*¯.&x.,x.!¯.%¯.-x.b8.(¯.)¯.(x.`x.)x.bx.)»ã∏´!»8.%8.,∏.)¯.&x.c8.`∏.*¯.)x.%Tã∏°•»8.`x."∏.(¯.cTãº'Â‡ªÓ#»8.*¯.&x.,x.!¯.`8.)¯.+x.(¯.c8."∏.,x.&x. x.b8.+x.&x.*¯.&x.bx.,àãº'„ßªÓ#»8."8.,x.%8. x.,∏.(¯.!8.)x.-8.&¯."x.,∏. Hã∏°•H8."8.,x.%8.)x.,¯.%8.,x.&∏.!8.)x.-8.&»äJH»HOà⁄[äJH¬àOàô\\ôS[›öYJ\
+BàHOà[›öYTõŸ‹ô\‹ \ôŸ][ù
+ô\äJBààOà]\›[›öYJ\ôŸ][ù
+ô\äJOÀõ]»^S[›öYJ]
+HHŒàõ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-x.*¯.&x.,x.!¯.%¯.-x.b8.(¯.)¯.(x.*∏.,¯.`8.(¯.a¯."äBà»Oà]\›[›öYJ\ôŸ][ù
+ô\äJOÀõ]»›€õÿY[›öYJ]
+HHŒàõ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-x.*¯.&x.,x.!¯.%¯.-x.b8.(¯.)¯.(x.*∏.,¯.`8.(¯.a¯."äBàOà]\›[›öYJ\ôŸ][ù
+ô\äJOÀõ]»⁄\ôS[›öYJ]
+HHŒàõ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-x.*¯.&x.,x.!¯.%¯.-x.b8.(¯.)¯.(x.*∏.,¯.`8.(¯.a¯."äBàHOà»ò[õÿúœ[[›öYRõÿú \ôŸ][ù
+ô\äJKôö[\à»ö[J]õ›]]õ\äKô^\› 
+H	âàôXY[›öYT›]J]
+Kõ‹›ö[ô ú›]HäOOHò€€\]HàBà⁄⁄XŸSY[ùJ∏.`8.)x.-¯.+x. x.`8.)¯.+x.(¯.c8."∏.,x.&HãõÿúÀõX\»ò]òKù^ë]Qõ‹õX]ôŸ]]U[YR[ú›[òŸJ
+Kôõ‹õX]
+ò]òKù][ë]J]õ\›[ŸYöYY
+
+JJHJH»àOÇà⁄⁄XŸSY[ùJ∏.*¯.&x.,x.!¯.`8.)¯.+x.(¯.c8."∏.,x.&x.&x.-x.bHã\›Ÿä∏.%8..x.*¯.&x.,x.!»ã∏.%8.,∏.)¯.&x.c8.`∏.*¯.)x.%Tã∏.`x."∏.(¯.cäJH»X›[€àOà⁄[äX›[€äH»Oà^S[›öYJõÿú÷€óJN»HOà›€õÿY[›öYJõÿú÷€óJN»àOà⁄\ôS[›öYJõÿú÷€óJHHBàBàBààOà\\€Ÿ\”Y[ùJ
+Bà»Oàô[‹ô\ì[›öYJ\
+BàHBàBàö]ò]Hù[à‹ô\ôY[›öYTÿŸ[ô\ \àî””ìÿöôX›
+Nà\›î””ìÿöôX›à¬àò[ÿŸ[ô\œ\õ›‹ [àHJKôö[\à»]ôŸ][ù
+ô\äOOY\ôŸ][ù
+ô\äHKú€‹ùYûH»]ôŸ][ù
+úÿŸ[ôHäHBàò[‹ô\èY\õ‹î””ê\úò^Júô[ô\ó€‹ô\àäHŒàô]\õàÿŸ[ô\¬àò[Ÿ^\œJ[ù[‹ô\ãõ[ô›
+
+JKõX\»‹ô\ãôŸ]›ö[ô ]
+HBàô\]Z\ôJŸ^\Àú⁄^ôOO\ÿŸ[ô\Àú⁄^ôH	âàŸ^\Àù‘Ÿ]
+
+OO\ÿŸ[ô\ÀõX\»Ÿ^J]
+HKù‘Ÿ]
+
+JH»∏.)x.,¯.%8.,x.&∏.!8.)x.-8.&¯.a8.(x.b8.%x.(¯.!¯.&∏.%»8. x.(¯..8.$¯.,∏."8.,x.%8.)x.,¯.%8.,x.&∏.`¯.*¯.(x.b8.*¯.(¯.-¯.+x.!8.-¯.&x.)x.,¯.%8.,x.&∏.`8.)x. ∏."x.,∏. HàBàô]\õàŸ^\ÀõX\»YOàÿŸ[ô\Àôö\ú›»Ÿ^J]
+OOZYHBàBàö]ò]Hù[àô[‹ô\ì[›öYJ\àî””ìÿöôX›
+H¬àò[ÿŸ[ô\œ\õ›‹ [àHJKôö[\à»]ôŸ][ù
+ô\äOOY\ôŸ][ù
+ô\äHKú€‹ùYûH»]ôŸ][ù
+úÿŸ[ôHäHBàò[‹ô\ôY\ù[êÿ]⁄[ô»»‹ô\ôY[›öYTÿŸ[ô\ \
+HKôŸ]‹ëYò][
+ÿŸ[ô\ Bàò[Yœ[‹ô\ôYõX\»Ÿ^J]
+HKù”]]XõS\›
+
+Bà⁄⁄XŸSY[ùJ∏."8.,x.%8.)x.,¯.%8.,x.&à8†(à8.`8.)x.-¯.+x. x.!8.)x.-8.&¯.`8.'∏.-¯.b8.+x.`8.)x.-¯.b8.+x.&HãYÀõX\[ô^Y»KYOàâ⁄JÃ_Kà	YàJ»∏.!8.-¯.&x.)x.,¯.%8.,x.&∏.`8.)x. ∏."x.,∏. HäH»[ô^OÇàYä[ô^OZYÀú⁄^ôJH»\úô[[›ôJúô[ô\ó€‹ô\àäN»ÿ]ôT›‹ûJ
+N»ô[‹ô\ì[›öYJ\
+HBà[ŸH⁄⁄XŸSY[ùJY÷⁄[ô^K\›Ÿä∏.`8.)x.-¯.b8.+x.&x. ∏.-∏.bx.&Hã∏.`8.)x.-¯.b8.+x.&x.)x.!»äJH»X›[€àOÇàò[\›[ò][€èZYäX›[€èOL
+H[ô^LH[ŸH[ô^
+ÃBàYä\›[ò][€àZ[àYÀö[ôXŸ\ Hõ›XŸJ∏.+x.(∏..x.b8.&¯.)x.,∏.(∏.)x.,¯.%8.,x.&∏.`x.)x.bx.)»äH[ŸH¬àò[][OZYÀúô[[›ôP]
+[ô^
+N»YÀòY
+\›[ò][€ã][JN»\ú]
+úô[ô\ó€‹ô\àãî””ê\úò^JY JN»ÿ]ôT›‹ûJ
+N»ô[‹ô\ì[›öYJ\
+BàBàBàBàBàö]ò]Hù[à[›öYRõÿú \à[ù
+HHö[Jõ⁄ôX›õ[›öY\À—T	Lôãôõ‹õX]
+\
+JKõ\›ö[\ 
+OÀôö[\à»]ö\—\ôX›‹ûHOÀú€‹ùYûQ\ÿŸ[ô[ô»»]õò[YHKõ‹ë[\J
+Bàö]ò]Hù[àôXY[›öYT›]Jõÿéàö[JNàî””ìÿöôX›Hù[êÿ]⁄[ô»»î””ìÿöôX›
+ö[Jõÿãú›]\Àöú€€àäKúôXY^
+
+JHKôŸ]‹ëYò][
+î””ìÿöôX›
+
+JBàö]ò]Hù[à]\›[›öYJ\à[ù
+HH[›öYRõÿú \
+Kôö\ú›‹ìù[»ôXY[›öYT›]J]
+Kõ‹›ö[ô ú›]HäOOHò€€\]Hà	âàö[J]õ›]]õ\äKö\—ö[H	âàù[êÿ]⁄[ô»»î””ìÿöôX›
+ö[J]úô\›[öú€€àäKúôXY^
+
+JKõ]»ô\›[Oàô\›[õ‹[ù
+ù⁄YäOOQ\\€ŸTù[\Àï“Q	âàô\›[õ‹[ù
+öZY⁄äOOQ\\€ŸTù[\ÀíRQ“HKôŸ]‹ëYò][
+ò[ŸJHBàö]ò]Hù[à[›öYQö[ôŸ\úö[ù
+\à[ù
+Nà›ö[ô»¬àò[\\€Ÿ\œ\[àHKôŸ]î””ê\úò^Jô\\€Ÿ\»äBàò[\\€ŸOJ[ù[\\€Ÿ\Àõ[ô›
+
+JKõX\»\\€Ÿ\ÀôŸ]î””ìÿöôX›
+]
+HKôö\ú›»]ôŸ][ù
+ô\äOOY\Bàò[ÿŸ[ô\œ[‹ô\ôY[›öYTÿŸ[ô\ \\€ŸJBàò[€›ô\èX€›ô\ëö[JëT	Lô–”’ëTóŒ^Màãôõ‹õX]
+\
+JBàô]\õàéNåMüLNLåä‹ÿŸ[ô\Àöõ⁄[ï‘›ö[ô ãäH»Ÿ^J]
+HJ»üä \›Ÿä€›ô\äJ‹ÿŸ[ô\ÀõX\»öY[ ]
+HJKöõ⁄[ï‘›ö[ô üäH»Yä]ô^\› 
+JH\\€ŸSYYXKôYŸ\›
+]
+H[ŸHõZ\‹⁄[ô»àBàBàö]ò]Hù[àô\\ôS[›öYJ\àî””ìÿöôX›
+H¬àYä[èÀõ‹›ö[ô ò\‹X›‹ò][»ãåMééHäHOHéNåMàäH»[ôÿÿ\P€‹SY[ùJ
+N»ô]\õàBàYä\\€ŸTô[ô\îŸ\ùöXŸKúù[õö[ô Hô]\õà[›öYTõŸ‹ô\‹ \ôŸ][ù
+ô\äJBàò[ù[Xô\èY\ôŸ][ù
+ô\äN»ò[ÿŸ[ô\œ\ù[êÿ]⁄[ô»»‹ô\ôY[›öYTÿŸ[ô\ \
+HKôŸ]‹ë[ŸH»õ›XŸJ]õY\‹ÿYŸHŒà∏.%x.(¯.)¯."8.)x.,¯.%8.,x.&∏.!8.)x.-8.&»äN»ô]\õàBàò[Z\‹⁄[ôœ\ÿŸ[ô\Àôö[\à»]öY[ ]
+Kô^\› 
+HBàYäZ\‹⁄[ôÀö\”õ›[\J
+JHô]\õàõ›XŸJ∏.(∏.,x.!¯. ∏.,∏.%8.!8.)x.-8.&»	€Z\‹⁄[ôÀöõ⁄[ï‘›ö[ô»»Ÿ^J]
+H_W∏.&x.,¯.`8. ∏.bx.,∏.`¯.*¯.bx.!8.(¯.&∏. x.b8.+x.&x.(¯.)¯.(HäBàò[€›ô\èX€›ô\ëö[JëT	Lô–”’ëTóŒ^Màãôõ‹õX]
+ù[Xô\äJBàYäX€›ô\ãô^\› 
+JHô]\õàõ›XŸJ∏.(∏.,x.!¯. ∏.,∏.%8.&¯. x.`x.&x.)¯.%x.,x.bx.!»T	ù[Xô\à8†(à8.&x.,¯.`8. ∏.bx.,∏.&¯. x. x.b8.+x.&x.(¯.)¯.(HäBàò[X[ŸœP[\ùX[ŸÀêùZ[\ä\ KúŸ]Y\‹ÿYŸJ∏. x.,¯.)x.,x.!¯.%x.(¯.)¯."8. ∏.&x.,∏.%8.`8.*∏.-x.(∏.!»8.`x.)x.,8.a8.'¯.)x.c8.!8.)x.-8.&¯†)àäKúŸ]ÿ[òŸ[XõJò[ŸJKú⁄›—\ôX›‹ä
+Bàò[õ€\è\õ⁄ôX›»ò[\[àHBàôXY¬àûH¬àò[[ôõ‹œ\ÿŸ[ô\ÀõX\»\\€ŸSYYXKö[ú‹X›
+öY[ ]
+JHBàò[\ò][€èLÃ
+⁄[ôõ‹Àú›[SŸà»]ô\ò][€ì\»Bàò[ò]OZ€›[ãõX]úõ›[ô
+[ôõ‹Àôö\ú›
+
+Kôú Kù“[ù
+
+Kò€Ÿ\òŸR[äKLå
+Bàò[ö]ò]O[X^ŸäçÃÃ[ôõ‹ÀõX^Ÿà»]òö]ò]HJKò€Ÿ\òŸP][‹›
+ÃÃ
+Bàò[ôYYYQ\\€ŸTù[\Àô\›[X]Pû]\ \ò][€ãö]ò]K[ôõ‹Àú›[SŸà»]ôö[Kõ[ô›
+
+HJBàô\]Z\ôJõ€\ãù\ÿXõT‹XŸOõôYYY
+H»∏.'∏.-¯.bx.&x.%¯.-x.b8.a8.(x.b8.'∏.+H8.%x.bx.+x.!¯.(x.-x.)¯.b8.,∏.!¯.&¯.(¯.,8.(x.,∏.$»	€ôYYYÃLçÃLçHPààBàò[ö[ôŸ\úö[ù[[›öYQö[ôŸ\úö[ù
+ù[Xô\äBàò[ô\‹ùH∏.&¯. x.`8.&¯.-8.%»8.)¯.-8.&x.,∏.%¯.-H8°§à	‹ÿŸ[ô\Àú⁄^ô_H8."x.,∏. W∏.'8.)x.)x.,x.'∏.&8.cL0Â»NLå8†(à	ò]Hú»8†(à	Ÿ\ò][€ãÃLH8.)¯.-8.&x.,∏.%¯.-W∏.'∏.-¯.bx.&x.%¯.-x.b8.&¯.(¯.,8.(x.,∏.$»	€ôYYYÃLçÃLçHPóóàä⁄[ôõ‹ÀõX\[ô^Y»KàOàâ⁄Ÿ^JÿŸ[ô\÷⁄WJ_Nà	›ãô\‹^U⁄YH0Â»	›ãô\‹^RZY⁄K	›ãôúﬂHúÀ	›ãô\ò][€ì\ÀÃLåH8.)¯.-8.&x.,∏.%¯.-K	›ãùöY[”Z[Y_K8.`8.*∏.-x.(∏.!»	›ãò]Y[”Z[YHŒà∏.a8.(x.b8.(x.-HüHàKöõ⁄[ï‘›ö[ô óàäBàù[ì€ïZUôXY¬àX[ŸÀô\€Z\‹ 
+Bàò[öY]œU^öY] \ Kò\H»^\ô\‹ù»Ÿ]Y[ô 
+MäK
+LäK
+MäK
+LäJHBà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.%x.(¯.)¯."8.)x.,¯.%8.,x.&∏.`x.)x.,8.!8..8.$¯.(8.,∏.'∏. x.b8.+x.&x.(¯.)¯.(HäKúŸ]öY] ÿ‹õ€öY] \ Kò\H»YöY] öY] HJBàúŸ]‹⁄]]ôPù]€ä∏.`8.)x.-¯.+x. x.(¯..x.&¯.`x.&∏.&∏.(¯.)¯.(HäH»À»OÇà⁄⁄XŸSY[ùJ∏.)¯.-8.&8.-x.(¯.)¯.(H8†(à8.`8. x.a¯.&∏.%x.bx.&x."x.&∏.,x.&∏.%¯..8. x.!8.)x.-8.&»ã\›Ÿä∏.!8..8.$¯.(8.,∏.'∏.*∏..x.!»8†(à8.&¯.(¯.,x.&∏.a8.'¯.)x.c8.`¯.*¯.bx.`8. ∏.bx.,∏. x.,x.&Hã∏.a8.(x.b8.`8. ∏.bx.,∏.(¯.*¯.,x.*∏.!8.)x.-8.&¯.`¯.*¯.(x.b8†(à8.%x.bx.+x.!¯.%x.(¯.!¯.%¯..8. x.!8.b8.,àäJH»[ŸHOÇàù[à›\ù
+‹õ‹àõ€€X[äH¬àYä\\€ŸTô[ô\îŸ\ùöXŸKúù[õö[ô H»õ›XŸJ∏.(x.-x.!¯.,∏.&x.(¯.)¯.(x. x.,¯.)x.,x.!¯.%¯.,¯.+x.(∏..x.bäN»ô]\õàBàò[õÿèQö[Jõ€\ãõ[›öY\À—T	Lô…Y…\»ãôõ‹õX]
+ù[Xô\ãﬁ\›[Kò›\úô[ù[YSZ[\ 
+KURQúò[ô€UURQ
+
+JJKò\H»ZŸ\ú 
+HBàò[‹XœRî””ìÿöôX›
+
+Kú]
+ò\‹X›‹ò][»ãéNåMàäKú]
+ù⁄Yã\\€ŸTù[\Àï“Q
+Kú]
+öZY⁄ã\\€ŸTù[\ÀíRQ“
+Kú]
+ô\ãù[Xô\äKú]
+ù]Hãõ‹›ö[ô ù]HäJKú]
+ôö[[ò[YHã\\€ŸTù[\Àôö[[ò[YJõ‹›ö[ô ù]HäKù[Xô\ã\õ‹›ö[ô ù]HäJJBàú]
+ò€›ô\àã€›ô\ãú]
+Kú]
+ò€\»ãî””ê\úò^J[ôõ‹ÀõX\»]ôö[Kú]JJKú]
+ôú»ãò]JKú]
+òö]ò]Hãö]ò]JKú]
+ô\ò][€ó€\»ã\ò][€äKú]
+ôö[ôŸ\úö[ùãö[ôŸ\úö[ù
+Kú]
+ö[ú]⁄\⁄\»ãî””ê\úò^J
+\›Ÿä€›ô\äJ⁄[ôõ‹ÀõX\»]ôö[HJKõX\»\\€ŸSYYXKôYŸ\›
+]
+HJJKú]
+õ‹‹€\‹»ã[ŸOOLJKú]
+ò‹õ‹ã‹õ‹
+Kú]
+ö\◊ÿ]Y[»ã[ôõ‹Àò[ûH»]ò]Y[”Z[YHO[ù[JBàö[Jõÿãú‹XÀöú€€àäKù‹ö]U^
+‹XÀù‘›ö[ô äJBàö[Jõÿãú›]\Àöú€€àäKù‹ö]U^
+î””ìÿöôX›
+
+Kú]
+ú›]Hãú]Y]YYäKú]
+õY\‹ÿYŸHã∏. x.,¯.)x.,x.!¯.`8.(¯.-8.b8.(x.(¯.)¯.(HäKù‘›ö[ô 
+JBàûH»[ôõ⁄Yò€‹ôKò€€ù[ùê€€ù^€€\]ú›\ùõ‹ôY‹õ›[ôŸ\ùöXŸJ\À[ù[ù
+\À\\€ŸTô[ô\îŸ\ùöXŸNéò€\‹Àöò]òJKú]^òJöõÿàãõÿãú]
+JN»[›öYTõŸ‹ô\‹ ù[Xô\äHBàÿ]⁄
+Nà^Ÿ\[€äH»ö[Jõÿãú›]\Àöú€€àäKù‹ö]U^
+î””ìÿöôX›
+
+Kú]
+ú›]HãôòZ[YäKú]
+õY\‹ÿYŸHãKõY\‹ÿYŸJKù‘›ö[ô 
+JN»õ›XŸJ∏.`8.(¯.-8.b8.(x.(¯.)¯.(x.a8.(x.b8.a8.%8.bNà	ŸKõY\‹ÿYŸ_HäHBàBàYä[ŸOOLH	âà[ôõ‹Àò[ûH»]ù⁄YOQ\\€ŸTù[\Àï“Q]öZY⁄OQ\\€ŸTù[\ÀíRQ“]úõ›][€àOL€›[ãõX]òXú ]ôúÀZ[ôõ‹Àôö\ú›
+
+Kôú OååYàJH»õ›XŸJ∏. ∏.&x.,∏.%¯.`8.'¯.(¯.(x.`8.(¯.%x.%x.b8.,∏.!¯. x.,x.&H8.%x.bx.+x.!¯.`8.)x.-¯.+x. x.&¯.(¯.,x.&∏.a8.'¯.)x.c8.!8..8.$¯.(8.,∏.'∏.*∏..x.!»äN»ô]\õê⁄⁄XŸSY[ùHBàò[Y\‹ÿYŸOZYä[ŸOOL
+H∏.&¯. x.`x.)x.,8.!8.)x.-8.&¯."8.,8.`8. ∏.bx.,∏.(¯.*¯.,x.*∏.`¯.*¯.(x.b8.`8.&¯.a¯.&Håçç8.!8..8.$¯.(8.,∏.'∏.*∏..x.!»	ÿö]ò]KÃWÃÃHXú»8.`8.*∏.-x.(∏.!»PP»8.(¯.,x. x.*x.,∏.`8.*∏.-x.(∏.!¯.`8.%8.-8.(H8.a8.(x.b8.(x.-x.%8.&x.%x.(¯.-x.`8.'∏.-8.b8.(H8.!8..8.$¯.(8.,∏.'∏.+x.,∏."8.`8.&¯.)x.-x.b8.(∏.&x.`8.)x.a¯. x.&x.bx.+x.(ó∏.a8.'¯.)x.c8. ∏.&x.,∏.%8.`8.)x.a¯. x. x.)¯.b8.,∏."8.,8.%∏..x. x. ∏.(∏.,∏.(à8.`x.%x.b8.a8.(x.b8.`8.'∏.-8.b8.(x.(¯.,∏.(∏.)x.,8.`8.+x.-x.(∏.%8."8.(¯.-8.!»à[ŸH∏.*∏.(¯.bx.,∏.!¯.&¯. x.`8.&¯.-8.%8. x.b8.+x.&H8.`x.)x.bx.)¯.%x.(¯.)¯."€ŸXÀÿ€€ôöY»8.`x.)x.,8.`8.*∏.-x.(∏.!»8.%∏.bx.,∏.a8.(x.b8.%x.(¯.!¯."8.,8.*¯.(∏..8.%8.`x.)x.,8.`x."8.bx.!»8.a8.(x.b8.`x.&¯.)x.!¯.!8.)x.-8.&¯.`8.+x.!»Çà[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.(∏.-¯.&x.(∏.,x.&x.)¯.-8.&8.-x.(¯.)¯.(HäKúŸ]Y\‹ÿYŸJY\‹ÿYŸJKúŸ]‹⁄]]ôPù]€ä∏.%8.,¯.`8.&x.-8.&x. x.,∏.(»äH»À»OÇàYä[ŸOOL	âà[ôõ‹Àò[ûH»]ù⁄Yù—›XõJ
+K⁄]öZY⁄Z[àKçÕããåKçŒH]úõ›][€àOLJH⁄⁄XŸSY[ùJ∏."8.,x.%8.(8.,∏.'∏.%x.b8.,∏.!¯.*∏.,x.%8.*∏.b8.)¯.&Hã\›Ÿä∏.`8.)¯.bx.&x. ∏.+x.&à8†(à8.`8.*¯.a¯.&x.(8.,∏.'∏.!8.(¯.&àã∏.!8.(¯.+x.&¯. x.-∏.b8.!¯. x.)x.,∏.!»8†(à8.`8.%x.a¯.(x."8.+H8.+x.,∏."8.%x.,x.%8. ∏.+x.&àäJH»^[›]Oà[›öYS^[›]ô]öY] [ôõ‹Àôö\ú›»]ù⁄Yù—›XõJ
+K⁄]öZY⁄Z[àKçÕããåKçŒH]úõ›][€àOLKôö[K^[›]OLJH»›\ù
+^[›]OLJHHBà[ŸH›\ù
+ò[ŸJBàKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàBàKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+BàBàHÿ]⁄
+Nà^Ÿ\[€äH»ù[ì€ïZUôXY»X[ŸÀô\€Z\‹ 
+N»õ›XŸJ∏.%x.(¯.)¯."8.!8.)x.-8.&¯.a8.(x.b8.'8.b8.,∏.&Nà	ŸKõY\‹ÿYŸ_HäHHBàKú›\ù
+
+BàBàö]ò]Hù[à[›öYS^[›]ô]öY] ö[Nàö[K‹õ‹àõ€€X[ãõÿŸYYà
+
+HOà[ö]
+H¬àò[ôXY\èX[ôõ⁄YõYYXKìYYXSY]Y]Tô]öY]ô\ä
+Bàò[ö]X\\ù[êÿ]⁄[ô»¬àôXY\ãúŸ]]T€›\òŸJö[Kú]
+BàYä[ôõ⁄Yõ‹ÀêùZ[ïëTî“S”ãî—◊“SïèLç HôXY\ãôŸ]ÿÿ[Yúò[YP][YJ[ôõ⁄YõYYXKìYYXSY]Y]Tô]öY]ô\ãì‘S”ó–”‘—T’‘÷SêÀMåM
+H[ŸHôXY\ãôŸ]úò[YP][YJ
+BàKôŸ]‹ìù[
+
+BàôXY\ãúô[X\ŸJ
+Bàò[öY]œR[XYŸUöY] \ Kò\H¬àŸ][XYŸPö]X\
+ö]X\
+N»Ÿ]òX⁄Ÿ‹õ›[ô€€‹ä€€‹ãêìP“ Bàÿÿ[U\OZYä‹õ‹
+H[XYŸUöY]Àîÿÿ[U\Kê—SïTó–‘ì‘[ŸH[XYŸUöY]Àîÿÿ[U\KëíU–—SïTÇà^[›]\ò[\œS[ôX\ì^[›]ì^[›]\ò[\ 
+é
+K
+MåäJBàBàò[[ô[S[ôX\ì^[›]
+\ Kò\H»‹öY[ù][€èLN»‹ò]ö]OQ‹ò]ö]Kê—SïTé»YöY] öY] HBàò[X[ŸœP[\ùX[ŸÀêùZ[\ä\ KúŸ]]JYä‹õ‹
+H∏.%x.,x.)¯.+x.(∏.b8.,∏.!¯.!8.(¯.+x.&¯. x.-∏.b8.!¯. x.)x.,∏.!»NåMàà[ŸH∏.%x.,x.)¯.+x.(∏.b8.,∏.!¯.`8.)¯.bx.&x. ∏.+x.&àNåMàäKúŸ]öY] [ô[
+BàúŸ]‹⁄]]ôPù]€ä∏.`¯."∏.bx.(¯..x.&¯.`x.&∏.&∏.&x.-x.bHäH»À»OàõÿŸYY
+
+HKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kò‹ôX]J
+BàX[ŸÀúŸ]€ë\€Z\‹”\›[ô\à»öY]ÀúŸ][XYŸQò]ÿXõJù[
+N»ö]X\ÀúôXﬁX€J
+HN»X[ŸÀú⁄› 
+BàBàö]ò]Hù[à[›öYTõŸ‹ô\‹ \à[ù
+H¬àò[õÿè[[›öYRõÿú \
+Kôö\ú›‹ìù[
+
+HŒàô]\õàõ›XŸJ∏.(∏.,x.!¯.a8.(x.b8.(x.-x.!¯.,∏.&x.(¯.)¯.(HT8.&x.-x.bHäBàò[^U^öY] \ Kò\H»Ÿ]Y[ô 
+MäK
+MäK
+MäK
+MäJN»^⁄^ôOLMôàBàò[X[ŸœP[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.(¯.)¯.(x.*¯.&x.,x.!»T	\äKúŸ]öY] ^
+KúŸ]‹⁄]]ôPù]€ä∏.&¯.-8.%8.*¯.&x.bx.,∏.%x.b8.,∏.!»ãù[
+KúŸ]ô]]ò[ù]€ä∏.(∏. x.`8.)x.-8. x.!¯.,∏.&HäH»À»OÇàYä\\€ŸTô[ô\îŸ\ùöXŸKúù[õö[ô H›\ùŸ\ùöXŸJ[ù[ù
+\À\\€ŸTô[ô\îŸ\ùöXŸNéò€\‹Àöò]òJKúŸ]X›[€ä\\€ŸTô[ô\îŸ\ùöXŸKê–Sê—S
+Kú]^òJöõÿàãõÿãú]
+JBàKò‹ôX]J
+Bàò[[ô\èX[ôõ⁄Yõ‹Àí[ô\ä[ôõ⁄Yõ‹Àì€‹\ãôŸ]XZ[ì€‹\ä
+JBàò\àX⁄‹œLàò[\]O[ÿöôX›àù[õòXõH»›ô\úöYHù[àù[ä
+H¬àYäYX[ŸÀö\‘⁄›⁄[ô Hô]\õÇàò[›]\œ\ôXY[›öYT›]JõÿäN»ò[›]O\›]\Àõ‹›ö[ô ú›]HäBàò[[ù\úù\Y\›]H[à\›Ÿäúô\\ö[ô»ãúô[ô\ö[ô»ãú]Y]YYäH	âàQ\\€ŸTô[ô\îŸ\ùöXŸKúù[õö[ô»	âà
+ ›X⁄‹œçBà^ù^ZYä[ù\úù\Y
+H∏.!¯.,∏.&x.%∏..x. x.*¯.(∏..8.%8. x.b8.+x.&x.`8.*∏.(¯.a¯."8. x.(¯..8.$¯.,∏.(¯.)¯.(x.`¯.*¯.(x.b8†(à8.%x.bx.&x."x.&∏.,x.&∏.(∏.,x.!¯.+x.(∏..x.bà[ŸHâ‹›]\Àõ‹›ö[ô õY\‹ÿYŸHä_Wâ‹›]\Àõ‹[ù
+úõŸ‹ô\‹»ä_IWâ⁄Yä›]OOHò€€\]HäH∏. x.)x.,x.&∏.`8.(x.&x..HT8.`8.'∏.-¯.b8.+x.%8..x.*¯.&x.,x.!¯.*¯.(¯.-¯.+x.%8.,∏.)¯.&x.c8.`∏.*¯.)x.%Tà[ŸH∏.*∏.)x.,x.&∏.`x.+x.&¯.a8.%8.bH8.!¯.,∏.&x.(∏.,x.!¯.%¯.,¯.%x.b8.+x.'8.b8.,∏.&x.&∏.(¯.-8. x.,∏.(¯.`8.&∏.-¯.bx.+x.!¯.*¯.&x.bx.,àüHÇà[ô\ãú‹›[^YY
+\ÀL
+BàHBàX[ŸÀúŸ]€ë\€Z\‹”\›[ô\à»[ô\ãúô[[›ôPÿ[òX⁄‹–[ôY\‹ÿYŸ\ ù[
+HN»X[ŸÀú⁄› 
+N»[ô\ãú‹›
+\]JBàBàö]ò]Hù[à⁄X⁄”[›öYP⁄[ôŸ\ õÿéàö[KõÿŸYYà
+
+HOà[ö]
+H¬àò[\Rî””ìÿöôX›
+ö[Jõÿãú‹XÀöú€€àäKúôXY^
+
+JKôŸ][ù
+ô\äBàò[€Rî””ìÿöôX›
+ö[Jõÿãúô\›[öú€€àäKúôXY^
+
+JKõ‹›ö[ô ôö[ôŸ\úö[ùäBàò[X[ŸœP[\ùX[ŸÀêùZ[\ä\ KúŸ]Y\‹ÿYŸJ∏.%x.(¯.)¯."8.)¯.b8.,∏.!8.)x.-8.&¯.`x.)x.,8.&¯. x.`8.&¯.)x.-x.b8.(∏.&x.*¯.(¯.-¯.+x.a8.(x.b8†)àäKúŸ]ÿ[òŸ[XõJò[ŸJKú⁄›—\ôX›‹ä
+BàôXY»ò[⁄[ôŸY\ù[êÿ]⁄[ô»»[›öYQö[ôŸ\úö[ù
+\
+HO[€KôŸ]‹ëYò][
+ùYJN»ù[ì€ïZUôXY¬àX[ŸÀô\€Z\‹ 
+BàYä⁄[ôŸY
+H[\ùX[ŸÀêùZ[\ä\ KúŸ]Y\‹ÿYŸJ∏.!8.)x.-8.&¯.*¯.(¯.-¯.+x.&¯. x.`8.&¯.)x.-x.b8.(∏.&x.*¯.)x.,x.!¯.(¯.)¯.(H8.*¯.&x.,x.!¯.&x.-x.bx.`8.&¯.a¯.&x.`8.)¯.+x.(¯.c8."∏.,x.&x.`8.%8.-8.(H8.%x.bx.+x.!¯.(¯.)¯.(x.`¯.*¯.(x.b8.`8.'∏.-¯.b8.+x.`¯."∏.bx. x.,∏.(¯.`x. x.bx.)x.b8.,∏.*∏..8.%äBàúŸ]‹⁄]]ôPù]€ä∏.`¯."∏.bx.`8.)¯.+x.(¯.c8."∏.,x.&x.`8.%8.-8.(HäH»À»OàõÿŸYY
+
+HKúŸ]ôYÿ]]ôPù]€ä∏.(∏. x.`8.)x.-8. Hãù[
+Kú⁄›—\ôX›‹ä
+H[ŸHõÿŸYY
+
+BàHKú›\ù
+
+BàBàö]ò]Hù[à^S[›öYJõÿéàö[JH¬àò[ö[OQö[Jõÿãõ›]]õ\äN»ò[öY]œUöY[’öY] \ Kò\H»Ÿ]öY[‘]
+ö[Kú]
+N»ò[€€ùõ€œSYYXP€€ùõ€\ä\–›Y[–X›]ö]JN»€€ùõ€ÀúŸ][ò⁄‹ïöY] \ N»Ÿ]YYXP€€ùõ€\ä€€ùõ€ N»Ÿ]€îô\\ôY\›[ô\à»›\ù
+
+HN»Ÿ]€ë\úõ‹ì\›[ô\à»ÀÀ»Oàõ›XŸJ∏.`8.)x.b8.&x.*¯.&x.,x.!¯.a8.'¯.)x.c8.&x.-x.bx.a8.(x.b8.a8.%8.bHäN»ùYHHBàò[X[ŸœP[\ùX[ŸÀêùZ[\ä\ KúŸ]]J∏.*¯.&x.,x.!»TäKúŸ]öY] öY] KúŸ]‹⁄]]ôPù]€ä∏.&¯.-8.%ãù[
+Kò‹ôX]J
+N»X[ŸÀúŸ]€ë\€Z\‹”\›[ô\à»öY]Àú›‹^XòX⁄ 
+HN»X[ŸÀú⁄› 
+N»X[ŸÀù⁄[ô›œÀúŸ]^[›]
+LK
+Må
+JBàBàö]ò]Hò[[›öYQ›€õÿYX⁄Ÿ\è\ôY⁄\›\ëõ‹êX›]ö]Tô\›[
+X›]ö]Tô\›[€€ùòX›Àê‹ôX]Qÿ›[Y[ù
+ùöY[À€\äJH»\öHOÇàò[]\ôYúÀôŸ]›ö[ô õ[›öYWŸ›€õÿY⁄õÿàãù[
+BàYä\öHO[ù[	âà]O[ù[
+H¬àò[X[ŸœP[\ùX[ŸÀêùZ[\ä\ KúŸ]Y\‹ÿYŸJ∏. x.,¯.)x.,x.!¯.&∏.,x.&x.%¯.-∏. HT8.)x.!¯.%x.,¯.`x.*¯.&x.b8.!¯.%¯.-x.b8.`8.)x.-¯.+x. x†)àäKúŸ]ÿ[òŸ[XõJò[ŸJKú⁄›—\ôX›‹ä
+BàôXY¬àûH¬àò[õÿèQö[J]
+N»ò[ö[OQö[Jõÿãõ›]]õ\äN»ô\]Z\ôJö[Kö\—ö[JH»∏.a8.(x.b8.'∏.&àTàBà€€ù[ùô\€€ô\ãõ‹[ì›]]›ôX[J\öKù›äHHKù\ŸH»›]]Oàö[Kö[ú]›ôX[J
+Kù\ŸH»]ò€‹U ›]]
+HHBàò[⁄^ôOX€€ù[ùô\€€ô\ãõ‹[ëö[Q\ÿ‹ö\‹ä\öKúàäOÀù\ŸH»]ú›]⁄^ôHBàô\]Z\ôJ⁄^ôOO[ù[⁄^ôO⁄^ôOOYö[Kõ[ô›
+
+JH»∏.&∏.,x.&x.%¯.-∏. x.a8.'¯.)x.c8.a8.(x.b8.!8.(¯.&ààBàö[Jõÿãô›€õÿYYöú€€àäKù‹ö]U^
+î””ìÿöôX›
+
+Kú]
+ù\öHã\öKù‘›ö[ô 
+JKú]
+ù[YHãﬁ\›[Kò›\úô[ù[YSZ[\ 
+JKù‘›ö[ô 
+JBàù[ì€ïZUôXY»X[ŸÀô\€Z\‹ 
+N»õ›XŸJ∏.%8.,∏.)¯.&x.c8.`∏.*¯.)x.%T8.*∏.,¯.`8.(¯.a¯."8†(à	Ÿ\‹^Sò[YJ\öJ_HäHBàHÿ]⁄
+Nà^Ÿ\[€äH»ù[ì€ïZUôXY»X[ŸÀô\€Z\‹ 
+N»õ›XŸJ∏.%8.,∏.)¯.&x.c8.`∏.*¯.)x.%8.a8.(x.b8.*∏.,¯.`8.(¯.a¯."à	ŸKõY\‹ÿYŸ_H8†(à8.a8.'¯.)x.c8.%¯.-x.b8.%x.,¯.`x.*¯.&x.b8.!¯.&¯.)x.,∏.(∏.%¯.,∏.!¯.+x.,∏."8.(∏.,x.!¯.a8.(x.b8.!8.(¯.&à8. x.(¯..8.$¯.,∏.&∏.,x.&x.%¯.-∏. x.`¯.*¯.(x.bäHHBàKú›\ù
+
+BàBàôYúÀôY]
+
+Kúô[[›ôJõ[›öYWŸ›€õÿY⁄õÿàäKò\J
+BàBàö]ò]Hù[à›€õÿY[›öYJõÿéàö[JHH⁄X⁄”[›öYP⁄[ôŸ\ õÿäH¬àò[ö[[ò[YORî””ìÿöôX›
+ö[Jõÿãúô\›[öú€€àäKúôXY^
+
+JKôŸ]›ö[ô ôö[[ò[YHäBàôYúÀôY]
+
+Kú]›ö[ô õ[›öYWŸ›€õÿY⁄õÿàãõÿãú]
+Kò\J
+N»[›öYQ›€õÿYX⁄Ÿ\ãõ][ò⁄
+ö[[ò[YJBàBàö]ò]Hù[à⁄\ôS[›öYJõÿéàö[JHH⁄X⁄”[›öYP⁄[ôŸ\ õÿäH¬àò[ö[OQö[Jõÿãõ›]]õ\äBàò[ò[YORî””ìÿöôX›
+ö[Jõÿãúô\›[öú€€àäKúôXY^
+
+JKôŸ]›ö[ô ôö[[ò[YHäBàò[^‹ùQö[JÿX⁄Q\ãõ[›öYWŸ^‹ùÀ…’URQúò[ô€UURQ
+
+_K…ò[YHäKò\H»\ô[ùö[HHKõZŸ\ú 
+HBàòX⁄Ÿ‹õ›[ô»ö[Kò€‹U ^‹ù
+N»ù[ì€ïZUôXY¬àò[\öOQö[Tõ›öY\ãôŸ]\öQõ‹ëö[J\ÀâX⁄ÿYŸSò[YKôö[\õ›öY\àã^‹ù
+Bàò[[ù[ùR[ù[ù
+[ù[ùêP’S”ó‘—Së
+Kò\H»\OHùöY[À€\é»]^òJ[ù[ùëVêW‘’ëPSK\öJN»€\]OP€\]Kõô]’\öJ€€ù[ùô\€€ô\ã∏.*¯.&x.,x.!»Tã\öJN»YõY‹ [ù[ùëìQ◊—‘êSï‘ëPQ’TíW‘TìRT‘“S”äHBàù[êÿ]⁄[ô»»›\ùX›]ö]J[ù[ùò‹ôX]P⁄€‹Ÿ\ä[ù[ù∏.`x."∏.(¯.c8.*¯.&x.,x.!»TäJHKõ€ëòZ[\ôH»õ›XŸJ∏.`8.&¯.-8.%8.`x."∏.(¯.c8.a8.(x.b8.a8.%8.bNà	⁄]õY\‹ÿYŸ_HäHBàHBàBÇàö]ò]Hù[àô]öY] 
+H»\\€Ÿ\”Y[ùJ
+HBàö]ò]Hù[à^‹ù
+\öNà\öJH¬àò[H[àHBà€€ù[ùô\€€ô\ãõ‹[ì›]]›ôX[J\öJHHKù\ŸH»›]]Oàö\›]]›ôX[J›]]
+Kù\ŸH»ö\OÇàù[à]
+ò[YNà›ö[ôÀ]Nàû]P\úò^JH»ö\ú]ô^[ùûJö\[ùûJò[YJJN»ö\ù‹ö]J]JN»ö\ò€‹ŸQ[ùûJ
+HBàò[[]ô\ôYHî””ìÿöôX›
+ù‘›ö[ô 
+JBàYä^‹ù\\€ŸHOHù[
+H¬àò[Ÿ[X›YHî””ê\úò^J
+N»ò[[HôŸ]î””ê\úò^Jô\\€Ÿ\»äBàõ‹äH[à[ù[[õ[ô›
+
+JHYä[ôŸ]î””ìÿöôX›
+JKôŸ][ù
+ô\äOOY^‹ù\\€ŸJHŸ[X›Yú]
+[ôŸ]î””ìÿöôX›
+JJBà[]ô\ôYú]
+ô^‹ù‹ÿ€‹Hãô\\€ŸHäKú]
+ú€›\òŸWŸ\\€ŸHã^‹ù\\€ŸJKú]
+ô\\€Ÿ\»ãŸ[X›Y
+Kú]
+ô\\€ŸWÿ€›[ùãŸ[X›Yõ[ô›
+
+JKú]
+úÿŸ[ôWÿ€›[ùãõ›‹ []ô\ôY
+Kú⁄^ôJBàBà]
+ú›‹ûKöú€€àã[]ô\ôYù‘›ö[ô äKù–û]P\úò^J
+JBà]
+ìRT‘“SëÀùãõ›‹ 
+Kôö[\à»^‹ù\\€ŸHOHù[]ôŸ][ù
+ô\äHOH^‹ù\\€ŸHKöõ⁄[ï‘›ö[ô óàäH»â⁄Ÿ^J]
+_Nà8.(8.,∏.'èI⁄[XYŸJ]
+Kô^\› 
+_H8.)¯.-8.%8.-x.`∏.+OI›öY[ ]
+Kô^\› 
+_HàKù–û]P\úò^J
+JBà]
+îëPQQKùãâ‹ôŸ]›ö[ô ù]Hä_Wâ‹ôŸ]›ö[ô òÿ]Y€‹ûHä_W∏.&x.,¯.(8.,∏.'∏."x.,∏. x.`x.)x.,8.!8.,¯.*∏.,x.b8.!¯.`¯.&Hõ›À—T—ì’Àù8.a8.&¯.`¯."∏.bx.`¯.&Hõ›»8†(à8.)¯.-8.&x.,∏.%¯.-H8†(àNåMàãù–û]P\úò^J
+JBàõ‹à
+ò[YH[à€›ô\ìò[Y\ 
+JH¬àò[ö[HH€›ô\ëö[Jò[YJBàYà
+Yö[Kô^\› 
+JH€€ù[ùYBàYà
+^‹ù\\€ŸHOHù[	âà›‹ûQö[\ÀúÿŸ[ôSù[Xô\äò[YH
+»ó‘–ÃHäOÀôö\ú›OH^‹ù\\€ŸH	âà[ò[YKú›\ù’⁄]
+ëT	Lô»ãôõ‹õX]
+^‹ù\\€ŸJJJH€€ù[ùYBàò[‹»H[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[íù\›X€ŸPõ›[ô»HùYHBà[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸQö[Jö[Kú]‹ Bàò[^H⁄[ä‹Àõ›]Z[YU\JH»ö[XYŸK⁄úY»àOàöú»é»ö[XYŸK›ŸXúàOàùŸXúé»[ŸHOàúô»àBà]
+ò€›ô\úÀ…ò[YKâ^ãö[KúôXYû]\ 
+JBàBàò[\\€Ÿ\»HôŸ]î””ê\úò^Jô\\€Ÿ\»äBàõ‹à
+H[à[ù[\\€Ÿ\Àõ[ô›
+
+JH¬àò[\H\\€Ÿ\ÀôŸ]î””ìÿöôX›
+JBàò[ù[Xô\àH\ôŸ][ù
+ô\äBàYà
+^‹ù\\€ŸHOHù[	âàù[Xô\àOH^‹ù\\€ŸJH€€ù[ùYBàò[ÿŸ[ô\»Hõ›‹ 
+Kôö[\à»]ôŸ][ù
+ô\äHOHù[Xô\àBàò[€€[X[ô»H›‹ûQö[\Àô\\€ŸQõ› ù[Xô\ã\õ‹›ö[ô ù]HäKÿŸ[ô\ÀõX\¬àö\JŸ^J]
+Kâ⁄]ôŸ]›ö[ô òX›[€àä_Wâ⁄]õ‹›ö[ô ôX[Ÿ›YHä_Hãõ›–€€[X[ô
+]
+JBàJBà]
+ëõ›À—T	Lô—ì’Àùãôõ‹õX]
+ù[Xô\äK€€[X[ôÀúô\XŸJé8.)¯.-8.&x.,∏.%¯.-x.%x.b8.+x."¯.-x.&H8†(àNåMàãâ‹õ‹[ù
+ô\ò][€ó‹ŸX€€ô»ã
+_H8.)¯.-8.&x.,∏.%¯.-x.%x.b8.+x."¯.-x.&H8†(à	‹õ‹›ö[ô ò\‹X›‹ò][»ãéNåMàä_HäKù–û]P\úò^J
+JBàBàõ‹à
+»[àõ›‹ 
+JH¬àYà
+^‹ù\\€ŸHOHù[	âàÀôŸ][ù
+ô\äHOH^‹ù\\€ŸJH€€ù[ùYBàò[]HëT	Lô…\»ãôõ‹õX]
+ÀôŸ][ù
+ô\äKŸ^J JBàò[ö[HH[XYŸJ Bàò[öY[»HöY[  BàYà
+öY[Àô^\› 
+JH»ö\ú]ô^[ùûJö\[ùûJùöY[‹À…⁄Ÿ^J _Kõ\äJN»öY[Àö[ú]›ôX[J
+Kù\ŸH»]ò€‹U ö\
+HN»ö\ò€‹ŸQ[ùûJ
+HBàYà
+Yö[Kô^\› 
+JH€€ù[ùYBàò[‹»H[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKì‹[€ú 
+Kò\H»[íù\›X€ŸPõ›[ô»HùYHBà[ôõ⁄Yô‹ò\X‹Àêö]X\òX›‹ûKôX€ŸQö[Jö[Kú]‹ Bàò[^[ú⁄[€àH⁄[ä‹Àõ›]Z[YU\JH»ö[XYŸK⁄úY»àOàöú»é»ö[XYŸK›ŸXúàOàùŸXúé»[ŸHOàúô»àBàö\ú]ô^[ùûJö\[ùûJâ]â^[ú⁄[€àäJN»ö[Kö[ú]›ôX[J
+Kù\ŸH»]ò€‹U ö\
+HN»ö\ò€‹ŸQ[ùûJ
+BÇàBàHBàBüBÇÇ
