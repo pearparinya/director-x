@@ -11,6 +11,9 @@ internal class GroqClient(private val apiKey: String,private val model: String,p
     private val pacer=GroqRequestPacer()
     @Volatile private var connection: HttpURLConnection?=null
     override fun cancel() { connection?.disconnect() }
+    private var connectTimeoutMillis=20000
+    private var readTimeoutMillis=120000
+    override fun useProposalTimeouts() { connectTimeoutMillis=10000; readTimeoutMillis=25000 }
     override fun availableDelayMillis(): Long = pacer.remainingMillis()
     override fun generate(prompt: String,schema: JSONObject): JSONObject = if(automaticRetry) StoryRequestRetry().execute(cancelled,onRetry) { generateOnce(prompt,schema) } else generateOnce(prompt,schema)
     private fun generateOnce(prompt: String,schema: JSONObject): JSONObject {
@@ -21,7 +24,7 @@ internal class GroqClient(private val apiKey: String,private val model: String,p
         val conn=URL(ENDPOINT).openConnection() as HttpURLConnection
         connection=conn
         try {
-            conn.requestMethod="POST"; conn.connectTimeout=20000; conn.readTimeout=120000; conn.instanceFollowRedirects=false
+            conn.requestMethod="POST"; conn.connectTimeout=connectTimeoutMillis; conn.readTimeout=readTimeoutMillis; conn.instanceFollowRedirects=false
             conn.setRequestProperty("Authorization","Bearer $apiKey")
             conn.setRequestProperty("Content-Type","application/json; charset=utf-8"); conn.doOutput=true
             if(cancelled()) throw CancellationException()

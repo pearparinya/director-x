@@ -9,6 +9,9 @@ import java.util.concurrent.CancellationException
 internal class GeminiClient(private val apiKey: String, private val model: String, private val cancelled: () -> Boolean,private val onRetry: (String)->Unit={},private val automaticRetry: Boolean=true): StoryTextClient {
     @Volatile private var connection: HttpURLConnection?=null
     override fun cancel() { connection?.disconnect() }
+    private var connectTimeoutMillis=20000
+    private var readTimeoutMillis=180000
+    override fun useProposalTimeouts() { connectTimeoutMillis=10000; readTimeoutMillis=25000 }
     override fun availableDelayMillis(): Long = GeminiPacing.delayMillis(apiKey)
     override fun generate(prompt: String,schema: JSONObject): JSONObject = if(automaticRetry) StoryRequestRetry().execute(cancelled,onRetry) { generateOnce(prompt,schema) } else generateOnce(prompt,schema)
     fun generateWithImages(prompt: String, schema: JSONObject, images: List<Pair<String,java.io.File>>): JSONObject {
@@ -43,7 +46,7 @@ internal class GeminiClient(private val apiKey: String, private val model: Strin
         try {
             conn=URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent").openConnection() as HttpURLConnection
             connection=conn
-            conn.requestMethod="POST"; conn.connectTimeout=20000; conn.readTimeout=180000; conn.instanceFollowRedirects=false
+            conn.requestMethod="POST"; conn.connectTimeout=connectTimeoutMillis; conn.readTimeout=readTimeoutMillis; conn.instanceFollowRedirects=false
             conn.setRequestProperty("x-goog-api-key",apiKey); conn.setRequestProperty("Content-Type","application/json; charset=utf-8")
             conn.doOutput=true
             conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
