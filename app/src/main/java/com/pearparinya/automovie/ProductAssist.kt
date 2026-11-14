@@ -13,15 +13,22 @@ import androidx.appcompat.app.AlertDialog
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import org.json.JSONObject
 
 /** User-confirmed product facts; store original affiliate links without rewriting them. */
 internal object ProductAssist {
+    fun confirmedProduct(activity: Activity, premise: String): JSONObject? {
+        val prefs = activity.getSharedPreferences("product_assist", Activity.MODE_PRIVATE)
+        if (prefs.getString("confirmed_premise", null) != premise) return null
+        return runCatching { JSONObject(prefs.getString("confirmed_product", "").orEmpty()) }.getOrNull()
+    }
     fun show(activity: Activity, premise: EditText, topic: String) {
         val prefs = activity.getSharedPreferences("product_assist", Activity.MODE_PRIVATE)
         val panel = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; setPadding(24, 16, 24, 16) }
         fun label(text: String) { panel.addView(TextView(activity).apply { this.text = text; textSize = 15f }) }
         fun field(hintText: String, value: String): EditText = EditText(activity).apply { hint = hintText; setText(value); panel.addView(this) }
-        label("ค้นหาในร้าน แล้วแชร์หรือคัดลอกลิงก์ Affiliate กลับมา • ตรวจว่าเป็นสินค้าเดียวกันก่อนรวมลิงก์")
+        label("ค้นหาในร้าน แล้วแชร์หรือคัดลอกลิงก์กลับมา • ตรวจว่าเป็นสินค้าเดียวกันก่อนรวมลิงก์ • แอปตรวจสิทธิค่าคอมมิชชันไม่ได้")
+        label("Shopee: ลิงก์ Affiliate ใหม่มักขึ้นต้น s.shopee.co.th ส่วน shope.ee และ th.shp.ee อาจเป็นลิงก์ทั่วไป โปรดสร้างและตรวจในโปรแกรม Affiliate")
         label("ข้อมูลที่บันทึกไว้อาจเป็นสินค้าเดิม โปรดตรวจและแก้ให้ตรงก่อนยืนยัน")
         val query = field("ค้นหาสินค้า", topic)
         listOf("TikTok Shop" to "https://www.tiktok.com/search?q=", "Shopee" to "https://shopee.co.th/search?keyword=", "Lazada" to "https://www.lazada.co.th/catalog/?q=").forEach { (name, url) ->
@@ -31,7 +38,7 @@ internal object ProductAssist {
                     .onFailure { AlertDialog.Builder(activity).setMessage("เปิดหน้าค้นหาไม่ได้ กรุณาเปิดแอป $name ด้วยตนเอง").setPositiveButton("ตกลง", null).show() }
             } })
         }
-        val links = listOf("TikTok Shop", "Shopee", "Lazada").mapIndexed { i, name -> field("ลิงก์ Affiliate $name", prefs.getString("link$i", "").orEmpty()) }
+        val links = listOf("TikTok Shop", "Shopee", "Lazada").mapIndexed { i, name -> field("ลิงก์สินค้าหรือ Affiliate $name", prefs.getString("link$i", "").orEmpty()) }
         val shared = prefs.getString("shared_link", "").orEmpty()
         if (shared.isNotBlank()) {
             label("ลิงก์ที่แชร์เข้ามา: $shared")
@@ -41,6 +48,42 @@ internal object ProductAssist {
         val facts = field("คุณสมบัติ วิธีใช้ และข้อสังเกตที่ตรวจแล้ว", prefs.getString("facts", "").orEmpty())
         val rating = field("คะแนนและจำนวนรีวิว (ถ้ามี พร้อมแหล่งที่มา)", prefs.getString("rating", "").orEmpty())
         val experience = field("ประสบการณ์ใช้จริงของคุณ (ถ้ามี)", prefs.getString("experience", "").orEmpty())
+        label("รายการสินค้าที่เลือกไว้สูงสุด 5 รายการ • ค้นหาและเลือกรายการจากร้านก่อน แล้วบันทึกไว้เปรียบเทียบได้ที่นี่")
+        val candidates = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; panel.addView(this) }
+        fun currentProduct(): JSONObject = JSONObject().put("name", name.text.toString().trim())
+            .put("facts", facts.text.toString().trim()).put("rating", rating.text.toString().trim())
+            .put("experience", experience.text.toString().trim()).apply {
+                links.forEachIndexed { i, edit -> put("link$i", edit.text.toString().trim()) }
+            }
+        fun loadProduct(product: JSONObject) {
+            name.setText(product.optString("name")); facts.setText(product.optString("facts"))
+            rating.setText(product.optString("rating")); experience.setText(product.optString("experience"))
+            links.forEachIndexed { i, edit -> edit.setText(product.optString("link$i")) }
+        }
+        fun refreshCandidates() {
+            candidates.removeAllViews()
+            repeat(5) { slot ->
+                val key = "candidate_$slot"
+                val saved = runCatching { JSONObject(prefs.getString(key, "{}").orEmpty()) }.getOrDefault(JSONObject())
+                val title = saved.optString("name").ifBlank { "ว่าง" }
+                candidates.addView(Button(activity).apply {
+                    text = "${slot + 1}. $title"
+                    setOnClickListener {
+                        val actions = if (saved.optString("name").isBlank()) arrayOf("บันทึกข้อมูลสินค้าปัจจุบัน") else arrayOf("เลือกสินค้านี้", "บันทึกข้อมูลปัจจุบันทับรายการนี้", "ลบรายการนี้")
+                        AlertDialog.Builder(activity).setTitle("รายการสินค้า ${slot + 1}: $title").setItems(actions) { _, choice ->
+                            when (actions[choice]) {
+                                "เลือกสินค้านี้" -> loadProduct(saved)
+                                "ลบรายการนี้" -> { prefs.edit().remove(key).apply(); refreshCandidates() }
+                                else -> if (name.text.isBlank()) {
+                                    AlertDialog.Builder(activity).setMessage("กรุณาระบุชื่อสินค้าก่อนบันทึก").setPositiveButton("ตกลง", null).show()
+                                } else { prefs.edit().putString(key, currentProduct().toString()).apply(); refreshCandidates() }
+                            }
+                        }.setNegativeButton("ยกเลิก", null).show()
+                    }
+                })
+            }
+        }
+        refreshCandidates()
         label("ไม่ต้องใส่ราคา • หากไม่เคยใช้ ให้เว้นประสบการณ์ว่าง • ตรวจข้อมูลก่อนส่งสร้างบท")
         val status = TextView(activity); panel.addView(status)
         panel.addView(Button(activity).apply { text = "ลองอ่านชื่อและคำอธิบายจากลิงก์"; setOnClickListener {
@@ -74,7 +117,9 @@ internal object ProductAssist {
                 val verified = listOf("สินค้า: ${name.text}", "ข้อมูลที่ผู้ใช้ตรวจ: ${facts.text}",
                     if (rating.text.isNotBlank()) "คะแนนที่ผู้ใช้ระบุ: ${rating.text}" else "", if (experience.text.isNotBlank()) "ประสบการณ์ที่ผู้ใช้ระบุ: ${experience.text}" else "ยังไม่ได้ระบุประสบการณ์ใช้จริง ห้ามอ้างว่าได้ทดลองใช้",
                     "ไม่ระบุราคา ไม่สร้างสรรพคุณ คะแนน หรือรีวิวขึ้นเอง")
-                premise.setText(verified.filter { it.isNotBlank() }.joinToString("\n"))
+                val confirmed = verified.filter { it.isNotBlank() }.joinToString("\n")
+                prefs.edit().putString("confirmed_premise", confirmed).putString("confirmed_product", currentProduct().toString()).apply()
+                premise.setText(confirmed)
                 dialog.dismiss()
             } }
         dialog.show()

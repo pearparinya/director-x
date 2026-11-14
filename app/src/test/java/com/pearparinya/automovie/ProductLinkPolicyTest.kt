@@ -7,6 +7,7 @@ class ProductLinkPolicyTest {
     @Test fun onlyTrustedHttpsDomainsAreAccepted() {
         assertTrue(ProductLinkPolicy.allowed("https://shope.ee/example?affiliate=1"))
         assertTrue(ProductLinkPolicy.allowed("https://vt.tiktok.com/example"))
+        assertTrue(ProductLinkPolicy.allowed("https://th.shp.ee/example"))
         assertTrue(ProductLinkPolicy.allowed("https://www.lazada.co.th/products/test.html"))
         assertFalse(ProductLinkPolicy.allowed("http://shopee.co.th/item"))
         assertFalse(ProductLinkPolicy.allowed("https://shopee.co.th.evil.example/item"))

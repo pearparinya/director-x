@@ -4,7 +4,7 @@ import java.net.URI
 
 /** Only public HTTPS storefront pages; redirect destinations must pass this same check. */
 internal object ProductLinkPolicy {
-    private val domains = listOf("tiktok.com", "tiktokshop.com", "shopee.co.th", "shope.ee", "s.shopee.co.th", "lazada.co.th", "lazada.com", "s.lazada.co.th", "s.lazada.com")
+    private val domains = listOf("tiktok.com", "tiktokshop.com", "shopee.co.th", "shope.ee", "th.shp.ee", "s.shopee.co.th", "lazada.co.th", "lazada.com", "s.lazada.co.th", "s.lazada.com")
     fun allowed(raw: String): Boolean = runCatching {
         val uri = URI(raw.trim())
         val host = uri.host?.lowercase().orEmpty()

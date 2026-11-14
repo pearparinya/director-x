@@ -4048,6 +4048,11 @@ $context"""
                             }
                         }
                         val folder=File(base,UUID.randomUUID().toString()).apply { mkdirs() }
+                        if (ChannelCatalog.allCategories[index].id == "pia_products") {
+                            ProductAssist.confirmedProduct(this@StudioActivity, premise.text.toString())?.let { product ->
+                                GeminiStoryFiles.write(File(folder, "product_info.json"), product)
+                            }
+                        }
                         for(n in 0 until catalog.length()) {
                             val row=catalog.getJSONObject(n); val target=File(folder,"master_candidates/"+row.getString("file")); target.parentFile!!.mkdirs()
                             val original=castingSource(row); require(original.isFile && MasterLibrary.digest(original.readBytes())==row.getString("sha256")) { "ภาพ MASTER ของ ${row.optString("display_name")} สูญหายหรือเปลี่ยนไป" }
