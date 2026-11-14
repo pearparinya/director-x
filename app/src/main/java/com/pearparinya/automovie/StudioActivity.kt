@@ -1483,8 +1483,14 @@ class StudioActivity : AppCompatActivity() {
         val wardrobeWarnings=plan?.let { story -> if(task.id.contains("_COVER_")) rows(story).flatMap { WardrobeContext.warnings(it) }.distinct() else rows(story).firstOrNull { key(it)==task.id }?.let { WardrobeContext.warnings(it) }.orEmpty() }.orEmpty()
         if(wardrobeWarnings.isNotEmpty()) panel.addView(TextView(this).apply { text="⚠️ ตรวจความเหมาะสมของชุดก่อนส่ง\n"+wardrobeWarnings.joinToString("\n"); setTypeface(null,Typeface.BOLD) })
         val piaFaceLock=runCatching { GeminiStoryFiles.read(File(project,"gemini_job/spec.json")).optBoolean("pia_face_lock",false) }.getOrDefault(false) && plan?.optString("channel")=="นายเปีย บ้านคลองขุด"
-        val faceOnly=android.widget.CheckBox(this).apply { text="ใช้ MASTER เฉพาะใบหน้ามนุษย์ • ชุดและทรงผมตามฉาก"; isChecked=piaFaceLock; panel.addView(this) }
+        val faceOnly=android.widget.CheckBox(this).apply { text="ใช้ MASTER เฉพาะใบหน้ามนุษย์ • ชุดตามฉาก"; isChecked=piaFaceLock; panel.addView(this) }
         if(piaFaceLock) panel.addView(TextView(this).apply { text="ล็อกหน้านายเปียด้วย MASTER ต้นฉบับ • เลือกกรอบใบหน้ามุมตรงด้านล่างเพื่อแนบภาพครอปเพิ่ม และตรวจภาพกับชื่อก่อนส่ง" })
+        val referenceMode=Spinner(this).apply {
+            adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ภาพสามมุม + ภาพครอปหน้า", "ภาพครอปหน้าอย่างเดียว", "MASTER + ภาพฉากที่ตรวจผ่าน"))
+            setSelection(prefs.getInt("image_reference_mode_${project.name}",0).coerceIn(0,2))
+        }
+        panel.addView(TextView(this).apply { text="วิธีใช้ภาพอ้างอิง • ทดลองเทียบผลได้" })
+        panel.addView(referenceMode)
         val masterAppearance=linkedMapOf<String,android.widget.CheckBox>()
         val crops=linkedMapOf<String,Pair<String,File>>()
         val cropDigests=linkedMapOf<String,String>()
@@ -1592,11 +1598,17 @@ class StudioActivity : AppCompatActivity() {
             .setPositiveButton("เลือกแอปและส่ง") { _,_ ->
                 val stable=runCatching { references.take(task.references.size).all { (id,file) -> file.isFile && MasterLibrary.digest(file.readBytes())==masterDigests[id] } }.getOrDefault(false)
                 if(!stable) { notice("ภาพ MASTER เปลี่ยนหรือหายระหว่างตรวจ กรุณาเปิดรายการและตรวจภาพอีกครั้ง"); return@setPositiveButton }
-                val selected=crops.toMap()
-                val cropsStable=runCatching { selected.all { (id,crop) -> crop.second.isFile && MasterLibrary.digest(crop.second.readBytes())==cropDigests[id] } }.getOrDefault(false)
+                val mode=referenceMode.selectedItemPosition
+                if(mode==1 && task.references.indices.any { crops[references[it].first]==null }) { notice("โหมดครอปหน้าอย่างเดียวต้องมีภาพครอปของทุกตัวละคร"); return@setPositiveButton }
+                if(mode==1 && masterAppearance.values.any { it.isChecked }) { notice("ภาพครอปไม่เห็นชุด MASTER • โปรดเลือกใช้ภาพสามมุมเมื่อใช้ชุด MASTER"); return@setPositiveButton }
+                val selected=if(mode==0) crops.toMap() else emptyMap()
+                val cropsToVerify=if(mode==1) crops else selected
+                val cropsStable=runCatching { cropsToVerify.all { (id,crop) -> crop.second.isFile && MasterLibrary.digest(crop.second.readBytes())==cropDigests[id] } }.getOrDefault(false)
                 if(!cropsStable) { notice("ภาพครอปใบหน้าเปลี่ยนหรือหาย กรุณาเลือกจาก MASTER อีกครั้ง"); return@setPositiveButton }
                 val bindings=selected.entries.joinToString("\n") { (id,crop) -> "CHARACTER ${labels[id].orEmpty()} — FACE CROP ${crop.first} is cropped from MASTER ${referenceId(id)}; both show the same character. Use the crop for facial identity and the original MASTER for verification. Never use this crop for another character." }
-                val baseCommand=(if(faceOnly.isChecked) SimpleProductionCommands.faceOnly(task.command) else task.command)+(if(bindings.isBlank()) "" else "\n\n$bindings")
+                val rawCommand=if(faceOnly.isChecked || mode==1) SimpleProductionCommands.faceOnly(task.command) else task.command
+                val modeCommand=if(mode==1) rawCommand.replace("The three views show one person; use the large clear front view for facial details.","Each attached character reference is a close-up of one person.").replace("The three views in each MASTER represent ONE person;", "Each attached face reference represents ONE person;") else rawCommand
+                val baseCommand=modeCommand+(if(bindings.isBlank()) "" else "\n\n$bindings")
                 val locked=task.references.mapIndexedNotNull { index,person ->
                     val id=references[index].first
                     if(masterAppearance[id]?.isChecked==true) person.optString("name") to referenceId(id) else null
@@ -1624,8 +1636,11 @@ class StudioActivity : AppCompatActivity() {
                 val propInstruction=if(propRefs.isEmpty()) "" else "\n\nPROP MASTER REFERENCES: Each selected image shows multiple views of ONE object. Match each named object to its own attached MASTER. Preserve its distinctive silhouette, proportions, materials, colors, markings, gems, guard and handle across scenes. Do not invent a replacement or mix different objects. Depict only the selected props appropriate to this scene; follow the planned action and placement. Follow the provided image order and generate directly. Similarity is a target and cannot be guaranteed.\n"+propLabels.entries.joinToString("\n") { "${it.value} | MASTER ID: ${it.key}" }
                 val extras=references.drop(task.references.size).filter { extraChecks[it.first]?.isChecked == true }
                 val outfitExtras=extras.filter { extra -> extra.first.startsWith("OUTFIT_") && locked.none { (_,id) -> extra.first.endsWith(id,true) } }
-                val outfitGuide=if(outfitExtras.isEmpty()) "" else "\n\nREVIEWED OUTFIT REFERENCES: For the listed characters only, these checked images override generic instructions against copying clothing. Use each labeled frame as a clothing reference for its named character, while the original character MASTER remains the identity reference. Preserve visible garments; follow the written outfit for parts not visible. Do not copy background, pose or objects. "+outfitExtras.joinToString("; ") { "${it.first} = ${labels[it.first]}" }
-                val payload=references.take(task.references.size)+extras.filter { !it.first.startsWith("OUTFIT_") || it in outfitExtras }+selected.values+propRefs
+                if(mode==2 && outfitExtras.none { it.first.startsWith("OUTFIT_EP") }) { notice("ยังไม่มีภาพฉากเดี่ยวที่ตรวจผ่านและชุดตรงกัน กรุณาเลือกวิธีอื่น"); return@setPositiveButton }
+                val outfitGuide=if(outfitExtras.isEmpty()) "" else (if(mode==2) "\n\nREVIEWED SCENE REFERENCE: The checked prior single-character scene was reviewed by the user for this same character and outfit. Use it as a supplemental identity and wardrobe reference; the original MASTER remains the source of identity. " else "")+"\n\nREVIEWED OUTFIT REFERENCES: For the listed characters only, these checked images override generic instructions against copying clothing. Use each labeled frame as a clothing reference for its named character, while the original character MASTER remains the identity reference. Preserve visible garments; follow the written outfit for parts not visible. Do not copy background, pose or objects. "+outfitExtras.joinToString("; ") { "${it.first} = ${labels[it.first]}" }
+                val primary=if(mode==1) references.take(task.references.size).map { (id,_) -> id to crops.getValue(id).second } else references.take(task.references.size)
+                val payload=primary+extras.filter { !it.first.startsWith("OUTFIT_") || it in outfitExtras }+selected.values+propRefs
+                prefs.edit().putInt("image_reference_mode_${project.name}",mode).apply()
                 if(payload.size>9) { notice("มีภาพอ้างอิง ${payload.size} ภาพ ซึ่งเกิน 9 ภาพ • ยกเลิกภาพอ้างอิงบางรายการแล้วลองอีกครั้ง"); return@setPositiveButton }
                 shareImageCommand(command+outfitGuide+propInstruction+(if(owners.isBlank()) "" else "\n$owners")+(if(coverOwners.isBlank()) "" else "\n$coverOwners"),payload,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
             }
