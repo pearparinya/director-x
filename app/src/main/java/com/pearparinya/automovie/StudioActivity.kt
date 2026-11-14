@@ -75,7 +75,7 @@ internal fun buildGeminiPackageIntent(text: String, command: Uri, images: ArrayL
     }
 }
 
-internal const val GEMINI_IMAGE_REQUEST = "สร้างและแสดงภาพจริง 1 ภาพตามรายละเอียดต่อไปนี้ ใช้ภาพ MASTER ที่แนบจับคู่ตัวละครตามรหัสเต็มโดยไม่สนใจนามสกุล รักษาข้อความบนปกตามคำสั่ง หากเป็นภาพฉากให้ทำตามข้อกำหนดของฉาก ไม่ต้องสรุปคำสั่ง ไม่ต้องเขียนโค้ด XML หากสร้างภาพไม่ได้ให้แจ้งสาเหตุ"
+internal const val GEMINI_IMAGE_REQUEST = "สร้างและแสดงภาพจริง 1 ภาพตามรายละเอียดต่อไปนี้ ใช้ภาพตัวละครที่แนบตามลำดับ จับคู่ภาพแรกกับตัวละครแรก โดยไม่อิงชื่อไฟล์ รักษาข้อความบนปกตามคำสั่ง หากเป็นภาพฉากให้ทำตามข้อกำหนดของฉาก ไม่ต้องสรุปคำสั่ง ไม่ต้องเขียนโค้ด XML หากสร้างภาพไม่ได้ให้แจ้งสาเหตุ"
 
 internal fun geminiImageMessage(command: String, twoCovers: Boolean = false): String = (if(twoCovers) GEMINI_IMAGE_REQUEST.replace("1 ภาพ","2 ภาพแยกไฟล์") else GEMINI_IMAGE_REQUEST)+"\n\n"+command
 
@@ -1613,7 +1613,7 @@ class StudioActivity : AppCompatActivity() {
                 val propLabels=propRefs.associate { (id,_) -> id to propNames[id.substring(5,7).toInt()-1] }
                 val coverOwners=if(task.id.contains("_COVER_")) task.references.mapNotNull { person -> characterProp(person.optString("master")).takeIf { it.isNotBlank() && it in chosen }?.let { "${person.optString("name")} is associated with $it; show it only if appropriate to this cover." } }.joinToString("\n") else ""
                 val owners=(0 until (automatic?.length() ?: 0)).mapNotNull { automatic?.optJSONObject(it) }.filter { it.optString("prop_id") in chosen }.joinToString("\n") { "${it.optString("holder").ifBlank { "Holder unspecified" }} is associated with ${it.optString("prop_id")} in this scene. Start-frame prop state: ${it.optString("start_prop_state").ifBlank { "unspecified; follow the story, do not assume it is held" }}. Follow the start state and action." }
-                val propInstruction=if(propRefs.isEmpty()) "" else "\n\nPROP MASTER REFERENCES: Each selected image shows multiple views of ONE object. Match each named object to its own attached MASTER. Preserve its distinctive silhouette, proportions, materials, colors, markings, gems, guard and handle across scenes. Do not invent a replacement or mix different objects. Depict only the selected props appropriate to this scene; follow the planned action and placement. If the mapping is unclear, ask. Similarity is a target and cannot be guaranteed.\n"+propLabels.entries.joinToString("\n") { "${it.value} | MASTER ID: ${it.key}" }
+                val propInstruction=if(propRefs.isEmpty()) "" else "\n\nPROP MASTER REFERENCES: Each selected image shows multiple views of ONE object. Match each named object to its own attached MASTER. Preserve its distinctive silhouette, proportions, materials, colors, markings, gems, guard and handle across scenes. Do not invent a replacement or mix different objects. Depict only the selected props appropriate to this scene; follow the planned action and placement. Follow the provided image order and generate directly. Similarity is a target and cannot be guaranteed.\n"+propLabels.entries.joinToString("\n") { "${it.value} | MASTER ID: ${it.key}" }
                 val extras=references.drop(task.references.size).filter { extraChecks[it.first]?.isChecked == true }
                 val outfitExtras=extras.filter { extra -> extra.first.startsWith("OUTFIT_") && locked.none { (_,id) -> extra.first.endsWith(id,true) } }
                 val outfitGuide=if(outfitExtras.isEmpty()) "" else "\n\nREVIEWED OUTFIT REFERENCES: For the listed characters only, these checked images override generic instructions against copying clothing. Use each labeled frame as a clothing reference for its named character, while the original character MASTER remains the identity reference. Preserve visible garments; follow the written outfit for parts not visible. Do not copy background, pose or objects. "+outfitExtras.joinToString("; ") { "${it.first} = ${labels[it.first]}" }
@@ -1625,17 +1625,18 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun shareImageCommand(command: String, references: List<Pair<String,File>>, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false) {
         val referenceDigests=runCatching { ReferenceSnapshot.capture(references) }.getOrElse { notice(it.message ?: "ตรวจภาพอ้างอิงไม่ได้"); return }
+        val orderedCommand=if(bodyOnly) command else SimpleProductionCommands.orderedReferenceCommand(command,references.map { it.first })
         val preferred=prefs.getString("image_provider","ChatGPT") ?: "ChatGPT"
         val providers=imageProviderOptions(preferred)
         val choices=providers.mapIndexed { i,name -> name+if(i==0) " • ตัวเลือกที่จำไว้" else "" } + "คัดลอกคำสั่ง • แนบ MASTER เอง"
         choiceMenu("สร้างภาพด้วยแอปไหน",choices) { selected ->
             if(selected==providers.size) {
-                copyCommand(command)
-                notice("คัดลอกแล้ว • แนบภาพ MASTER ของตัวละครแต่ละคนด้วยตนเองก่อนสร้าง")
+                copyCommand(orderedCommand)
+                notice("คัดลอกแล้ว • แนบภาพตัวละครตามลำดับในคำสั่งก่อนสร้าง")
             } else {
                 val provider=providers[selected]
                 prefs.edit().putString("image_provider",provider).apply()
-                shareText(command,includeMasters=false,referenceImages=references,destinationLabel=provider,imagePackage=true,referenceLabels=referenceLabels,twoCovers=twoCovers,bodyOnly=bodyOnly,referenceDigests=referenceDigests)
+                shareText(orderedCommand,includeMasters=false,referenceImages=references,destinationLabel=provider,imagePackage=true,referenceLabels=referenceLabels,twoCovers=twoCovers,bodyOnly=bodyOnly,referenceDigests=referenceDigests)
             }
         }
     }
@@ -2149,20 +2150,12 @@ $context"""
         if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
         val eps=story.getJSONArray("episodes")
         val channel=ChannelCatalog.currentChannel(story.optString("channel"))
-        val options=(0 until eps.length()).map { "🎬 EP.${eps.getJSONObject(it).getInt("ep")} • ${eps.getJSONObject(it).optString("title")}" }+
-            listOf("⚔ อุปกรณ์ MASTER • ผูกหรือให้ AI เสนอ")
-        choiceMenu("ขั้นตอน 3 • เลือก EP\nช่อง: ${channel.ifBlank { "ช่องไม่ระบุ" }}\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}",options) { index ->
-            if(index<eps.length()) confirmEpisode(story,eps.getJSONObject(index).getInt("ep"))
-            else {
-                val people=rows(story).flatMap { FlowReferencePrompt.people(it) }.distinctBy { referenceId(it.optString("master")).lowercase() }.filter { it.optString("master").isNotBlank() }
-                val linked=people.count { characterProp(it.optString("master")).isNotBlank() }
-                val saved=if(File(project,"prop_assignments.json").isFile) "มีไฟล์ข้อเสนอที่บันทึก" else "ยังไม่มีไฟล์ข้อเสนอ"
-                choiceMenu("จัดการอุปกรณ์แฟนตาซี",listOf("ผูกอุปกรณ์ประจำตัวละคร • ผูกแล้ว $linked คน","ให้ AI เสนออุปกรณ์รายซีน • $saved")) { mode ->
-                    if(mode==0) characterPropMenu(story) else suggestStoryProps(story)
-                }
-            }
+        val options=(0 until eps.length()).map { "🎬 EP.${eps.getJSONObject(it).getInt("ep")} • ${eps.getJSONObject(it).optString("title")}" }
+        choiceMenu("คำสั่ง Flow • เลือก EP\nช่อง: ${channel.ifBlank { "ช่องไม่ระบุ" }}\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}",options) { index ->
+            confirmEpisode(story,eps.getJSONObject(index).getInt("ep"))
         }
     }
+
     private fun suggestStoryWardrobe(story: JSONObject, mode: Int) {
         val useVision=mode!=2
         val useOpenAi=mode==1
@@ -2795,9 +2788,7 @@ $context"""
         val pending=rows(story).filter { it.optInt("ep")==number && propReviewStatus(it)!="ผู้ใช้ตรวจบทแล้ว" }.size
         val wardrobe=wardrobeReviewStatus(story)
         fun open() {
-            choiceMenu("ขั้นตอน 3 • EP.$number\nเลือกคำสั่งที่ต้องการ",listOf("🖼 สร้างภาพ • แนบ MASTER","🎬 คำสั่งวิดีโอ Flow • ใช้ภาพฉาก","✏️ ตรวจคำสั่ง / แก้เฉพาะจุด","📂 ไฟล์คำสั่ง / ทำต่อ")) { kind ->
-                when(kind) { 0 -> productionTaskDeck(story,number,true); 1 -> productionTaskDeck(story,number,false); 2 -> productionCheckMenu(story); else -> productionTaskType(story,number) }
-            }
+            productionTaskDeck(story,number,false)
         }
         if(HomeReviewState.shouldWarn(wardrobe,pending)) {
             AlertDialog.Builder(this).setTitle("ตรวจข้อมูลก่อนสร้างภาพและ Flow")
@@ -2892,20 +2883,21 @@ $context"""
             Triple(R.drawable.menu_script,"บทภาพยนตร์" to "ตรวจบทและฉาก",{ current?.let { productionCheckMenu(it) } ?: notice("เปิดเรื่องที่มีบทก่อน") })
         ))
         menuRow(listOf(
-            Triple(R.drawable.menu_cover,"ภาพปก" to "คำสั่งปก 9:16 และ 16:9",{ current?.let { story ->
+            Triple(R.drawable.menu_cover,"สร้างภาพ" to "ภาพปกและภาพฉาก",{ current?.let { story ->
                 val eps=story.optJSONArray("episodes")
                 if(eps==null || eps.length()==0) notice("ยังไม่มีตอนในบท")
-                else choiceMenu("ภาพปก • ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}", (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" }) { i ->
-                    productionTaskDeck(story,eps.getJSONObject(i).optInt("ep"),true)
+                else choiceMenu("สร้างภาพ • ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}", (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" } + "จัดการอุปกรณ์อ้างอิง") { i ->
+                    if(i<eps.length()) productionTaskDeck(story,eps.getJSONObject(i).optInt("ep"),true)
+                    else choiceMenu("จัดการอุปกรณ์",listOf("ผูกอุปกรณ์กับตัวละคร","ให้ AI เสนออุปกรณ์รายซีน")) { mode -> if(mode==0) characterPropMenu(story) else suggestStoryProps(story) }
                 }
             } ?: notice("เปิดเรื่องที่มีบทก่อน") }),
-            Triple(R.drawable.menu_scene,"ภาพฉาก + Flow" to "สร้างภาพและคำสั่ง Flow",{ commandCardsMenu() })
+            Triple(R.drawable.menu_scene,"คำสั่ง Flow" to "สร้างคำสั่งวิดีโอ",{ commandCardsMenu() })
         ))
         root.addView(TextView(this).apply { text="ขั้นตอนการทำงาน"; textSize=18f; setTextColor(gold); setTypeface(null,Typeface.BOLD); setPadding(0,dp(6),0,dp(4)) })
         val active=if(current==null || wardrobe!="ยืนยันชุดในบทแล้ว") 1 else if(reviewed<scenes.size) 2 else 3
         stepCard(1,"👕","ตรวจชุดตัวละคร","ตรวจชุด หรือให้ AI ช่วยเลือก",enabled=current!=null,completed=current!=null && wardrobe=="ยืนยันชุดในบทแล้ว",currentStep=active,statusText=wardrobe) { current?.let { wardrobeMenu(it) } }
         stepCard(2,"🧰","ตรวจสิ่งของในบท","ตรวจสิ่งของ หรือให้ AI ช่วยเลือก",enabled=current!=null,completed=current!=null && scenes.isNotEmpty() && reviewed==scenes.size,currentStep=active,statusText=if(current==null) "รอสร้างบท" else "ตรวจบทแล้ว $reviewed/${scenes.size} ฉาก") { current?.let { reviewSceneProps(it) } }
-        stepCard(3,"🎬","สร้างภาพ + Flow","เลือกฉากและตรวจภาพก่อนใช้ Flow",enabled=current!=null,currentStep=active,statusText=if(current==null) "รอสร้างบท" else "เปิดใช้งานได้ • ตรวจข้อมูลก่อนใช้") { commandCardsMenu() }
+        stepCard(3,"🎬","คำสั่ง Flow","เลือกฉากและตรวจภาพก่อนใช้ Flow",enabled=current!=null,currentStep=active,statusText=if(current==null) "รอสร้างบท" else "เปิดใช้งานได้ • ตรวจข้อมูลก่อนใช้") { commandCardsMenu() }
         button("🧰 เครื่องมือเพิ่มเติม",false) { extraToolsMenu(current) }
         splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
     }
