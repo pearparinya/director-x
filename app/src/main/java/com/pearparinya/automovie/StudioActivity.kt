@@ -1588,7 +1588,7 @@ class StudioActivity : AppCompatActivity() {
                 val cropsStable=runCatching { selected.all { (id,crop) -> crop.second.isFile && MasterLibrary.digest(crop.second.readBytes())==cropDigests[id] } }.getOrDefault(false)
                 if(!cropsStable) { notice("ภาพครอปใบหน้าเปลี่ยนหรือหาย กรุณาเลือกจาก MASTER อีกครั้ง"); return@setPositiveButton }
                 val bindings=selected.entries.joinToString("\n") { (id,crop) -> "CHARACTER ${labels[id].orEmpty()} — FACE CROP ${crop.first} is cropped from MASTER ${referenceId(id)}; both show the same character. Use the crop for facial identity and the original MASTER for verification. Never use this crop for another character." }
-                val baseCommand=if(faceOnly.isChecked) SimpleProductionCommands.faceOnly(task.command)+if(bindings.isBlank()) "" else "\n\n$bindings" else task.command
+                val baseCommand=(if(faceOnly.isChecked) SimpleProductionCommands.faceOnly(task.command) else task.command)+(if(bindings.isBlank()) "" else "\n\n$bindings")
                 val locked=task.references.mapIndexedNotNull { index,person ->
                     val id=references[index].first
                     if(masterAppearance[id]?.isChecked==true) person.optString("name") to referenceId(id) else null
