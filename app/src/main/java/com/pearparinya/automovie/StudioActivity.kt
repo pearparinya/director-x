@@ -677,13 +677,16 @@ class StudioActivity : AppCompatActivity() {
                     if(file?.isFile==true) fullImage(file,name+" • "+id) else notice("ไม่พบภาพ MASTER ของ $name • $id")
                 }))
             }
+            // The black outfit is another view of the presenter, not another person.
+            fun legacyKey(item: UnifiedMasterItem) = if(item.id=="PIA_BLACK_OUTFIT") piaActorId else item.id
+            val shortIds=ShortCatalogIds(File(filesDir,"short_catalog_ids.json")).assign(all.map { legacyKey(it) to it.category })
             val categories=listOf("ทั้งหมด","มนุษย์","สัตว์","อสูรและสัตว์ประหลาด","เทพและผู้พิทักษ์","ผี วิญญาณ และภูต","อาวุธและอุปกรณ์","ยังไม่ระบุประเภท")
             choiceMenu("คลัง MASTER • เลือกหมวด",categories+listOf("➕ เพิ่มตัวละคร","🎭 ตัวละครของเรื่องที่เปิด")) { selected ->
                 if(selected==categories.size) { actorCatalogMenu(); return@choiceMenu }
                 if(selected==categories.size+1) { if(plan!=null) castMenu() else notice("เปิดเรื่องที่มีบทก่อน"); return@choiceMenu }
                 val category=categories[selected]
                 val panel=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-                val search=EditText(this).apply { hint="ค้นหาชื่อหรือรหัส MASTER"; isSingleLine=true }
+                val search=EditText(this).apply { hint="ค้นหาชื่อหรือรหัสสั้น"; isSingleLine=true }
                 val count=TextView(this)
                 val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
                 panel.addView(search); panel.addView(count)
@@ -691,14 +694,14 @@ class StudioActivity : AppCompatActivity() {
                 val dialog=AlertDialog.Builder(this).setTitle("คลัง MASTER • $category").setView(panel).setNegativeButton("ปิด",null).create()
                 fun show(query: String) {
                     grid.removeAllViews()
-                    val found=all.filter { (category=="ทั้งหมด" || it.category==category) && (it.name+" "+it.id).contains(query,ignoreCase=true) }
+                    val found=all.filter { (category=="ทั้งหมด" || it.category==category) && (it.name+" "+it.id+" "+shortIds[legacyKey(it)].orEmpty()).contains(query,ignoreCase=true) }
                     count.text=if(found.isEmpty()) "ไม่พบรายการ • เพิ่มหรือเลือกหมวดอื่นได้" else "พบ ${found.size} รายการ • แตะเพื่อดู"
                     var row: LinearLayout?=null
                     found.forEachIndexed { index,entry ->
                         if(index%2==0) { row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; grid.addView(row) }
                         val cell=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(4),dp(6),dp(4),dp(6)) }
                         row?.addView(cell,LinearLayout.LayoutParams(0,-2,1f))
-                        val label=entry.name+"\n"+entry.id+(if(entry.file?.isFile==true) "" else "\nไม่พบ MASTER")
+                        val label=shortIds[legacyKey(entry)].orEmpty()+" • "+entry.name+(if(entry.file?.isFile==true) "" else "\nไม่พบ MASTER")
                         if(entry.file?.isFile==true) cell.addView(ImageView(this).apply {
                             setImageBitmap(castingThumbnail(entry.file)); adjustViewBounds=true
                             contentDescription=label; setOnClickListener { dialog.dismiss(); entry.open() }
