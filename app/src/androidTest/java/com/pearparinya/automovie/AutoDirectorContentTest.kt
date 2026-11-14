@@ -134,8 +134,8 @@ class AutoDirectorContentTest {
         cast.put(JSONObject().put("name","อสูร").put("master","SUPPORT_00000002_MASTER.png").put("outfit","armor").put("character_type","creature"))
         val cover=SimpleProductionCommands.imageTasks(project,1).first { it.id=="STORY_COVER_9x16" }
         assertEquals(5,cover.references.size)
-        assertTrue(cover.command.contains("Reference 4: หมาป่า"))
-        assertTrue(cover.command.contains("Reference 5: อสูร"))
+        assertTrue(cover.command.contains("Character 4: หมาป่า"))
+        assertTrue(cover.command.contains("Character 5: อสูร"))
         assertTrue(cover.command.contains("Preserve nonhuman species"))
     }
     @Test fun bothChannelsKeepVisibleCastPositionsAndStoryPropsInSceneCommand() {
