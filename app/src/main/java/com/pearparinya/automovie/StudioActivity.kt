@@ -1485,7 +1485,7 @@ class StudioActivity : AppCompatActivity() {
             panel.addView(TextView(this).apply { text="${person.optString("name")} • $position\n$id\nชุดที่ระบุในบท: ${person.optString("outfit")}"; setTypeface(null,Typeface.BOLD) })
             val sourceKey="wardrobe_source_${project.name}_${referenceId(id)}_${masterDigests[id]}"
             masterAppearance[id]=android.widget.CheckBox(this).apply {
-                isChecked=prefs.getBoolean(sourceKey,person.optString("character_type")=="knight")
+                isChecked=prefs.getBoolean(sourceKey,WardrobeEvidence.useMasterOutfit(person.optString("outfit")))
                 fun refreshSourceLabel() { text=if(isChecked) "แหล่งชุด: MASTER ของตัวละครนี้ ✓\nแตะเพื่อเปลี่ยนเป็นชุดตามบท" else "แหล่งชุด: ตามบท ✓\nแตะเพื่อใช้ชุดจาก MASTER" }
                 refreshSourceLabel()
                 setOnCheckedChangeListener { _,_ -> refreshSourceLabel() }
@@ -1542,13 +1542,15 @@ class StudioActivity : AppCompatActivity() {
             setTypeface(null,Typeface.BOLD)
         })
         val autoIds=(0 until (automatic?.length() ?: 0)).mapNotNull { automatic?.optJSONObject(it)?.optString("prop_id") }.toSet()
-        val coverIds=if(task.id.contains("_COVER_")) task.references.map { characterProp(it.optString("master")) }.filter { it.isNotBlank() }.toSet() else emptySet()
+        val coverIds=emptySet<String>() // Character associations alone do not prove an item appears on the cover.
         val saved=if(prefs.contains(propPreference)) prefs.getStringSet(propPreference, emptySet()).orEmpty() else autoIds+coverIds
         val checks=linkedMapOf<String,android.widget.CheckBox>()
-        panel.addView(TextView(this).apply { text=if(allowFantasyProps) "MASTER อุปกรณ์ • ตรวจเฉพาะชิ้นที่ปรากฏในภาพเริ่มต้น\nหากซีนไม่มีข้อเสนอ ให้เลือกเองหรือวิเคราะห์บทก่อน • ตรวจผู้ถือและสถานะจากบท" else "สิ่งของทั่วไปตามบท • ตรวจว่ามีในภาพเริ่มต้นก่อนสร้างวิดีโอ"; setTypeface(null,Typeface.BOLD) })
+        val visiblePropIds=autoIds
+        if(visiblePropIds.isNotEmpty()) panel.addView(TextView(this).apply { text="MASTER อุปกรณ์ที่ผูกกับบทฉากนี้ • ตรวจว่าปรากฏในภาพเริ่มต้น"; setTypeface(null,Typeface.BOLD) })
         propNames.forEachIndexed { index,name ->
             val id="PROP_%02d_MASTER".format(index+1)
-            val checkbox=android.widget.CheckBox(this).apply { text="$name • $id"; isChecked=id in saved }
+            if(id !in visiblePropIds) return@forEachIndexed
+            val checkbox=android.widget.CheckBox(this).apply { text="$name • $id"; isChecked=id in saved || (!prefs.contains(propPreference) && id in autoIds) }
             checks[id]=checkbox
             panel.addView(checkbox)
             val image=ImageView(this).apply { adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(180)); visibility=if(checkbox.isChecked) android.view.View.VISIBLE else android.view.View.GONE }
@@ -1917,7 +1919,7 @@ class StudioActivity : AppCompatActivity() {
                 val id=referenceId(person.optString("master"))
                 val file=runCatching { masterFor(person) }.getOrNull() ?: return@mapNotNull null
                 val digest=runCatching { MasterLibrary.digest(file.readBytes()) }.getOrNull() ?: return@mapNotNull null
-                if(prefs.getBoolean("wardrobe_source_${destination.name}_${id}_${digest}",person.optString("character_type")=="knight")) id else null
+                if(prefs.getBoolean("wardrobe_source_${destination.name}_${id}_${digest}",WardrobeEvidence.useMasterOutfit(person.optString("outfit")))) id else null
             }.toSet() else emptySet()
             val storyRevision=if(current!=null) File(destination,"story.json").takeIf { it.isFile }?.let { EpisodeMedia.digest(it) } else null
             val memory=JSONObject()
@@ -4404,7 +4406,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             val master=runCatching { masterFor(person) }.getOrNull() ?: return@mapNotNull null
             val digest=runCatching { MasterLibrary.digest(master.readBytes()) }.getOrNull() ?: return@mapNotNull null
             val key="wardrobe_source_${project.name}_${id}_${digest}"
-            if(prefs.getBoolean(key,person.optString("character_type")=="knight")) id else null
+            if(prefs.getBoolean(key,WardrobeEvidence.useMasterOutfit(person.optString("outfit")))) id else null
         }.sorted()
         return if(selected.isEmpty()) base else base+"|wardrobe_master="+selected.joinToString(",")
     }
@@ -4435,7 +4437,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             val sourceId=referenceId(person.optString("master"))
             val digest=master?.takeIf { it.isFile }?.let { runCatching { MasterLibrary.digest(it.readBytes()) }.getOrNull() }
             val sourceKey="wardrobe_source_${project.name}_${sourceId}_${digest}"
-            val fromMaster=digest!=null && prefs.getBoolean(sourceKey,person.optString("character_type")=="knight")
+            val fromMaster=digest!=null && prefs.getBoolean(sourceKey,WardrobeEvidence.useMasterOutfit(person.optString("outfit")))
             panel.addView(TextView(this).apply { text="${person.optString("name")} • แหล่งชุด: ${if(fromMaster) "MASTER" else "ตามบท"}\n${if(fromMaster) "เทียบชุดกับภาพ MASTER ด้านล่าง" else "ชุดในบท: ${person.optString("outfit")}"}"; setTypeface(null,Typeface.BOLD) })
             if(master?.isFile==true) panel.addView(ImageView(this).apply {
                 setImageBitmap(previewBitmap(Uri.fromFile(master))); adjustViewBounds=true
