@@ -3413,7 +3413,7 @@ $context"""
             }
             if(story.optString("aspect_ratio","16:9")!="9:16") { landscapeCopyMenu(); return@choiceMenu }
             val wardrobeIssues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(story))
-            if(action>=2 && wardrobeIssues.isNotEmpty()) { notice(wardrobeIssues.take(12).joinToString("\n")); return@choiceMenu }
+            if(action in 2..4 && wardrobeIssues.isNotEmpty()) { notice(wardrobeIssues.take(12).joinToString("\n")); return@choiceMenu }
             val revision=EpisodeMedia.digest(File(project,"story.json"))
             val phaseKey="autodirector_${project.name}_$revision"
             when(action) {
