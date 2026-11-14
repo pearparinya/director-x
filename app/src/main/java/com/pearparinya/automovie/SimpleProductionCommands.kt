@@ -55,6 +55,28 @@ HIGHEST PRIORITY — ORIGINAL MASTER APPEARANCE FOR THE CHARACTERS LISTED BELOW:
 $bindings
 For each listed character, use only their own attached MASTER for their identity, visible body, hairstyle, outfit, armor, headwear and accessories. Reproduce the distinctive colors, silhouette and details shown in that MASTER. If a helmet or mask covers the face, keep it closed: do not remove it, invent a visible face, or substitute an unhelmeted person. A covered face does not need a readable expression. Each three-view image shows ONE character, not multiple people. Never exchange identities or clothing between characters. This per-character instruction overrides generic face-only, scene outfit, wardrobe and expression instructions for the listed characters only. Follow the scene for action and pose without changing those appearances. If the attachment or identity mapping is unclear, ask before generating. Visually compare each character to their own reference; similarity cannot be guaranteed."""
     }
+    /** Resolve each character to one wardrobe source without changing the stored story. */
+    fun withWardrobeSources(command: String, people: List<JSONObject>, masterIds: Set<String>): String {
+        if(masterIds.isEmpty()) return command
+        var output=command.replace("Scene Outfit overrides MASTER clothing.","Use the per-character wardrobe source specified below.")
+            .replace("The scene controls clothes, hairstyle, body, pose and setting; do not copy MASTER clothing.","The selected wardrobe source controls clothing; the scene controls pose and setting.")
+            .replace("Use each approved Scene Outfit, not MASTER clothing.","Use the wardrobe source specified for each character below.")
+            .replace(WardrobeContext.image,"CONTEXTUAL WARDROBE: Follow each character's selected wardrobe source. Flag unclear or unsuitable clothes and footwear for review; never silently change them.")
+        val locked=mutableListOf<Pair<String,String>>()
+        for(person in people) {
+            val name=person.getString("name")
+            val id=referenceId(person.getString("master"))
+            if(masterIds.none { it.equals(id,true) }) continue
+            val pattern=Regex("(?m)^(${Regex.escape(name)} \\([^\\n]*\\) \\| MASTER ID: ${Regex.escape(id)} \\| position: [^\\n]*\\n)Outfit: [^\\n]*",RegexOption.IGNORE_CASE)
+            require(pattern.containsMatchIn(output)) { "ตรวจแหล่งชุดของ $name ไม่สำเร็จ กรุณากลับไปตรวจ MASTER" }
+            output=pattern.replace(output) { it.groupValues[1]+"Outfit: Use this character's own attached MASTER outfit; do not use the scene outfit for this character." }
+            val reference=Regex("(?m)^(Reference [0-9]+: ${Regex.escape(name)} \\| MASTER ID: ${Regex.escape(id)} \\| )Identity only[.]$",RegexOption.IGNORE_CASE)
+            output=reference.replace(output) { it.groupValues[1]+"Identity and clothing reference." }
+            locked.add(name to id)
+        }
+        require(locked.size==masterIds.size) { "แหล่งชุดไม่ตรงกับตัวละครที่เลือก กรุณาตรวจใหม่" }
+        return output+masterAppearanceLock(locked)
+    }
     private fun cast(people: List<JSONObject>,poster: Boolean=false)=people.mapIndexed { i,p ->
         val position=if(!poster) p.optString("screen_position") else when(people.size) { 1 -> "center"; 2 -> if(i==0) "left" else "right"; 3 -> listOf("left","center","right")[i]; else -> "distinct ensemble position ${i+1}" }
         val alias=when(FlowCast.id(p)) { "gawin" -> "Kawin / Gawin"; "rinlada" -> "Rinrada / Rinlada"; "mind" -> "May / Mind"; else -> p.getString("name") }
@@ -173,8 +195,11 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
     fun flowGroupPath(ep: Int, index: Int) = "Flow_EP%02d/EP%02d_FLOW_%02d.txt".format(ep,ep,index+1)
     fun flowGroupDocument(tasks: List<Task>): String = "คำสั่ง Flow ชุดนี้: แนบภาพรหัสเดียวกับซีนเป็น Start frame แล้วคัดลอกคำสั่งทีละซีน\n" + tasks.mapIndexed { i,task -> block(task,i,false) }.joinToString("\n\n")
     fun block(task: Task,index: Int,images: Boolean)="[${if(images) "รูปที่ %02d".format(index+1) else "วิดีโอ"} | ${task.title}]\nรหัส: ${task.id}\n${if(images) "ชื่อไฟล์ภาพ" else "ชื่อไฟล์วิดีโอ"}: ${task.id}.${if(images) "png" else "mp4"}\n${if(images) "" else "ภาพซีนที่ต้องแนบเป็นเฟรมแรก: ${task.id} (ใช้ไฟล์ภาพซีนรหัสนี้ เช่น ${task.id}.png)\n"}${task.command}"
-    fun document(story: JSONObject,number: Int,images: Boolean,coverSelection: Map<String,Set<String>> = emptyMap()): String {
-        val tasks=if(images) imageTasks(story,number,coverSelection) else videoTasks(story,number)
+    fun document(story: JSONObject,number: Int,images: Boolean,coverSelection: Map<String,Set<String>> = emptyMap(), wardrobeMasterIds: Set<String> = emptySet()): String {
+        val tasks=if(images) imageTasks(story,number,coverSelection).map { task ->
+            val selected=task.references.map { referenceId(it.optString("master")) }.filter { it in wardrobeMasterIds }.toSet()
+            if(selected.isEmpty()) task else task.copy(command=withWardrobeSources(task.command,task.references,selected))
+        } else videoTasks(story,number)
         val coverCount=tasks.count { it.id.contains("_COVER_") }
         return buildString {
             append("${if(images) "คำสั่งสร้างรูป ChatGPT / Gemini" else "คำสั่งวิดีโอ Flow"} | EP.$number | ${story.getString("title")}\n")
@@ -186,9 +211,9 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
             tasks.forEachIndexed { i,t -> append("\n\n${block(t,i,images)}") }
         }
     }
-    fun images(story: JSONObject,number: Int=firstEpisode(story),coverSelection: Map<String,Set<String>> = emptyMap())=document(story,number,true,coverSelection)
+    fun images(story: JSONObject,number: Int=firstEpisode(story),coverSelection: Map<String,Set<String>> = emptyMap(),wardrobeMasterIds: Set<String> = emptySet())=document(story,number,true,coverSelection,wardrobeMasterIds)
     fun videos(story: JSONObject,number: Int=firstEpisode(story))=document(story,number,false)
-    fun write(output: OutputStream,story: JSONObject,coverSelection: Map<String,Set<String>> = emptyMap()) {
+    fun write(output: OutputStream,story: JSONObject,coverSelection: Map<String,Set<String>> = emptyMap(),wardrobeMasterIds: Set<String> = emptySet()) {
         val problems=ProductionCommandCheck.issues(story)
         require(problems.isEmpty()) { problems.take(20).joinToString("\n") }
         val eps=story.getJSONArray("episodes")
@@ -196,7 +221,7 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
         val docs=(0 until eps.length()).flatMap { i ->
             val n=eps.getJSONObject(i).getInt("ep")
             val groups=groupScenes(videoTasks(story,n))
-            listOf(imageName(n) to images(story,n,coverSelection),flowName(n) to videos(story,n)) +
+            listOf(imageName(n) to images(story,n,coverSelection,wardrobeMasterIds),flowName(n) to videos(story,n)) +
                 groups.mapIndexed { index,group -> flowGroupPath(n,index) to flowGroupDocument(group) }
         }
         ZipOutputStream(output).use { zip -> docs.forEach { (name,text) -> zip.putNextEntry(ZipEntry(name)); zip.write(text.toByteArray(Charsets.UTF_8)); zip.closeEntry() } }

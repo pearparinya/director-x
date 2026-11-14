@@ -1483,9 +1483,12 @@ class StudioActivity : AppCompatActivity() {
             val (id,file)=references[index]
             val position=if(task.id.contains("_COVER_")) when(task.references.size) { 1 -> "center"; 2 -> if(index==0) "left" else "right"; 3 -> listOf("left","center","right")[index]; else -> "ลำดับ ${index+1}" } else person.optString("screen_position")
             panel.addView(TextView(this).apply { text="${person.optString("name")} • $position\n$id\nชุดที่ระบุในบท: ${person.optString("outfit")}"; setTypeface(null,Typeface.BOLD) })
+            val sourceKey="wardrobe_source_${project.name}_${referenceId(id)}_${masterDigests[id]}"
             masterAppearance[id]=android.widget.CheckBox(this).apply {
-                text="ใช้ชุดจาก MASTER ทับชุดในบทของตัวละครนี้ (ติ๊กเฉพาะเมื่อต้องการใช้ชุดเดิมจริง ๆ)"
-                isChecked=person.optString("character_type")=="knight"
+                isChecked=prefs.getBoolean(sourceKey,person.optString("character_type")=="knight")
+                fun refreshSourceLabel() { text=if(isChecked) "แหล่งชุด: MASTER ของตัวละครนี้ ✓\nแตะเพื่อเปลี่ยนเป็นชุดตามบท" else "แหล่งชุด: ตามบท ✓\nแตะเพื่อใช้ชุดจาก MASTER" }
+                refreshSourceLabel()
+                setOnCheckedChangeListener { _,_ -> refreshSourceLabel() }
                 panel.addView(this)
             }
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(220)); setOnClickListener { fullImage(file,person.optString("name")) } })
@@ -1572,7 +1575,15 @@ class StudioActivity : AppCompatActivity() {
                     val id=references[index].first
                     if(masterAppearance[id]?.isChecked==true) person.optString("name") to referenceId(id) else null
                 }
-                val command=baseCommand+SimpleProductionCommands.masterAppearanceLock(locked)
+                val command=runCatching { SimpleProductionCommands.withWardrobeSources(baseCommand,task.references,locked.map { it.second }.toSet()) }.getOrElse {
+                    notice(it.message ?: "ตรวจแหล่งชุดไม่สำเร็จ"); return@setPositiveButton
+                }
+                val sourcePrefs=prefs.edit()
+                task.references.forEachIndexed { index,_ ->
+                    val id=references[index].first
+                    sourcePrefs.putBoolean("wardrobe_source_${project.name}_${referenceId(id)}_${masterDigests[id]}",masterAppearance[id]?.isChecked==true)
+                }
+                sourcePrefs.apply()
                 val chosen=checks.filterValues { it.isChecked }.keys
                 val propRefs=runCatching { chosen.map { id ->
                     val file=File(cacheDir,"prop_masters/$id.png")
@@ -1586,9 +1597,9 @@ class StudioActivity : AppCompatActivity() {
                 val owners=(0 until (automatic?.length() ?: 0)).mapNotNull { automatic?.optJSONObject(it) }.filter { it.optString("prop_id") in chosen }.joinToString("\n") { "${it.optString("holder").ifBlank { "Holder unspecified" }} is associated with ${it.optString("prop_id")} in this scene. Start-frame prop state: ${it.optString("start_prop_state").ifBlank { "unspecified; follow the story, do not assume it is held" }}. Follow the start state and action." }
                 val propInstruction=if(propRefs.isEmpty()) "" else "\n\nPROP MASTER REFERENCES: Each selected image shows multiple views of ONE object. Match each named object to its own attached MASTER. Preserve its distinctive silhouette, proportions, materials, colors, markings, gems, guard and handle across scenes. Do not invent a replacement or mix different objects. Depict only the selected props appropriate to this scene; follow the planned action and placement. If the mapping is unclear, ask. Similarity is a target and cannot be guaranteed.\n"+propLabels.entries.joinToString("\n") { "${it.value} | MASTER ID: ${it.key}" }
                 val extras=references.drop(task.references.size).filter { extraChecks[it.first]?.isChecked == true }
-                val outfitExtras=extras.filter { it.first.startsWith("OUTFIT_") }
+                val outfitExtras=extras.filter { extra -> extra.first.startsWith("OUTFIT_") && locked.none { (_,id) -> extra.first.endsWith(id,true) } }
                 val outfitGuide=if(outfitExtras.isEmpty()) "" else "\n\nREVIEWED OUTFIT REFERENCES: For the listed characters only, these checked images override generic instructions against copying clothing. Use each labeled frame as a clothing reference for its named character, while the original character MASTER remains the identity reference. Preserve visible garments; follow the written outfit for parts not visible. Do not copy background, pose or objects. "+outfitExtras.joinToString("; ") { "${it.first} = ${labels[it.first]}" }
-                val payload=references.take(task.references.size)+extras+selected.values+propRefs
+                val payload=references.take(task.references.size)+extras.filter { !it.first.startsWith("OUTFIT_") || it in outfitExtras }+selected.values+propRefs
                 if(payload.size>9) { notice("มีภาพอ้างอิง ${payload.size} ภาพ ซึ่งเกิน 9 ภาพ • ยกเลิกภาพอ้างอิงบางรายการแล้วลองอีกครั้ง"); return@setPositiveButton }
                 shareImageCommand(command+outfitGuide+propInstruction+(if(owners.isBlank()) "" else "\n$owners")+(if(coverOwners.isBlank()) "" else "\n$coverOwners"),payload,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
             }
@@ -1902,12 +1913,18 @@ class StudioActivity : AppCompatActivity() {
             }
             val destination=project
             val coverSelection=if(current!=null) savedCoverSelection(current,destination) else emptyMap()
+            val wardrobeMasterIds=if(current!=null) rows(current).flatMap { FlowReferencePrompt.people(it) }.mapNotNull { person ->
+                val id=referenceId(person.optString("master"))
+                val file=runCatching { masterFor(person) }.getOrNull() ?: return@mapNotNull null
+                val digest=runCatching { MasterLibrary.digest(file.readBytes()) }.getOrNull() ?: return@mapNotNull null
+                if(prefs.getBoolean("wardrobe_source_${destination.name}_${id}_${digest}",person.optString("character_type")=="knight")) id else null
+            }.toSet() else emptySet()
             val storyRevision=if(current!=null) File(destination,"story.json").takeIf { it.isFile }?.let { EpisodeMedia.digest(it) } else null
             val memory=JSONObject()
             sources.forEach { (id,file) -> memory.put(id,characterMemory.read(id,file)) }
             background {
                 contentResolver.openOutputStream(uri)!!.use { output ->
-                    if(current!=null) SimpleProductionCommands.write(output,current,coverSelection)
+                    if(current!=null) SimpleProductionCommands.write(output,current,coverSelection,wardrobeMasterIds)
                     else FlowProductionPack.write(output,null,sources,memory,categories.first(),originalChannel)
                 }
                 if(storyRevision!=null) File(destination,"flow_pack_exported.sha256").writeText(storyRevision)
@@ -4380,7 +4397,18 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         android.graphics.BitmapFactory.decodeFile(file.path,bounds)
         return bounds.outHeight>0 && kotlin.math.abs(bounds.outWidth.toDouble()/bounds.outHeight-9.0/16)<0.04
     }
-    private fun sceneFrameApproved(s: JSONObject): Boolean = landscapeSceneImage(image(s)) && SceneFrameReview.current(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) },flowSpec(s).toString())
+    private fun frameReviewFacts(scene: JSONObject): String {
+        val base=flowSpec(scene).toString()
+        val selected=FlowReferencePrompt.people(scene).mapNotNull { person ->
+            val id=referenceId(person.optString("master"))
+            val master=runCatching { masterFor(person) }.getOrNull() ?: return@mapNotNull null
+            val digest=runCatching { MasterLibrary.digest(master.readBytes()) }.getOrNull() ?: return@mapNotNull null
+            val key="wardrobe_source_${project.name}_${id}_${digest}"
+            if(prefs.getBoolean(key,person.optString("character_type")=="knight")) id else null
+        }.sorted()
+        return if(selected.isEmpty()) base else base+"|wardrobe_master="+selected.joinToString(",")
+    }
+    private fun sceneFrameApproved(s: JSONObject): Boolean = landscapeSceneImage(image(s)) && SceneFrameReview.current(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) },frameReviewFacts(s))
     private fun reviewedVideoCommand(s: JSONObject, copy: Boolean=false) {
         if(plan?.optString("aspect_ratio","16:9")!="9:16") { landscapeCopyMenu(); return }
         if(plan?.optString("content_profile")==AutoDirectorContent.profile) {
@@ -4403,7 +4431,17 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(image(s)))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(280)) })
         val descriptions=(0 until cast.length()).map { i ->
             val person=cast.getJSONObject(i)
-            panel.addView(TextView(this).apply { text="${person.optString("name")} • ชุด: ${person.optString("outfit")}" })
+            val master=runCatching { masterFor(person) }.getOrNull()
+            val sourceId=referenceId(person.optString("master"))
+            val digest=master?.takeIf { it.isFile }?.let { runCatching { MasterLibrary.digest(it.readBytes()) }.getOrNull() }
+            val sourceKey="wardrobe_source_${project.name}_${sourceId}_${digest}"
+            val fromMaster=digest!=null && prefs.getBoolean(sourceKey,person.optString("character_type")=="knight")
+            panel.addView(TextView(this).apply { text="${person.optString("name")} • แหล่งชุด: ${if(fromMaster) "MASTER" else "ตามบท"}\n${if(fromMaster) "เทียบชุดกับภาพ MASTER ด้านล่าง" else "ชุดในบท: ${person.optString("outfit")}"}"; setTypeface(null,Typeface.BOLD) })
+            if(master?.isFile==true) panel.addView(ImageView(this).apply {
+                setImageBitmap(previewBitmap(Uri.fromFile(master))); adjustViewBounds=true
+                contentDescription="MASTER ของ ${person.optString("name")} • แตะเพื่อขยาย"
+                setOnClickListener { fullImage(master,"MASTER • ${person.optString("name")}") }
+            },LinearLayout.LayoutParams(-1,dp(150)))
             val appearance=EditText(this).apply { hint="ลักษณะจากภาพ เช่น ผู้หญิงผมสั้นประบ่า"; setText(person.optString("visual_description")); panel.addView(this) }
             val position=EditText(this).apply { hint="ตำแหน่งจากภาพ เช่น ซ้าย / กลาง / ขวา"; setText(person.optString("screen_position")); panel.addView(this) }
             appearance to position
@@ -4421,7 +4459,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             val issues=FlowScenePrompt.issues(flowSpec(candidate))
             if (issues.isNotEmpty()) notice(issues.joinToString("\n")) else {
                 s.put("characters",people).put("speaker",candidate.optString("speaker")).put("flow_image_revision",image(s).lastModified())
-                val approved=runCatching { SceneFrameReview.approve(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) },flowSpec(s).toString()) }
+                val approved=runCatching { SceneFrameReview.approve(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) },frameReviewFacts(s)) }
                 if(approved.isFailure) { notice(approved.exceptionOrNull()?.message ?: "ยืนยันภาพไม่ได้"); return@setOnClickListener }
                 saveStory(); dialog.dismiss(); reviewedVideoCommand(s)
             }
