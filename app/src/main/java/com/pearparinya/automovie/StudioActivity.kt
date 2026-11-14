@@ -62,9 +62,9 @@ internal fun buildStoryPackageIntent(text: String, uris: ArrayList<Uri>): Intent
 }
 
 /** Carry the instruction as an actual attachment when Gemini ignores EXTRA_TEXT. */
-internal fun buildGeminiPackageIntent(text: String, command: Uri, images: ArrayList<Uri>): Intent {
+internal fun buildGeminiPackageIntent(text: String, command: Uri, images: ArrayList<Uri>, imagesFirst: Boolean = false): Intent {
     require(images.isNotEmpty() && images.size<=9) { "ต้องมี MASTER 1–9 ภาพพร้อมไฟล์คำสั่ง" }
-    val files=arrayListOf(command).apply { addAll(images) }
+    val files=if(imagesFirst) ArrayList(images).apply { add(command) } else arrayListOf(command).apply { addAll(images) }
     return Intent(Intent.ACTION_SEND_MULTIPLE).apply {
         type="*/*"
         putExtra(Intent.EXTRA_TEXT,text)
@@ -83,13 +83,13 @@ internal fun imageProviderOptions(preferred: String): List<String> = listOf("Cha
     if (preferred in options) listOf(preferred) + options.filter { it != preferred } else options
 }
 
-internal fun buildGeminiImageShareIntent(text: String, images: ArrayList<Uri>): Intent {
+internal fun buildGeminiImageShareIntent(text: String, images: ArrayList<Uri>, imagesFirst: Boolean = false): Intent {
     require(images.isNotEmpty() && images.size<=9) { "ต้องมีภาพอ้างอิง 1–9 ภาพ" }
     return Intent(if(images.size==1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE).apply {
         type="image/*"
         putExtra(Intent.EXTRA_TEXT,text)
         if(images.size==1) putExtra(Intent.EXTRA_STREAM,images[0]) else putParcelableArrayListExtra(Intent.EXTRA_STREAM,images)
-        clipData=ClipData("คำสั่งและภาพอ้างอิง", arrayOf("image/*", "text/plain"), ClipData.Item(text, null, null, images[0])).apply { images.drop(1).forEach { addItem(ClipData.Item(it)) } }
+        clipData=if(imagesFirst) ClipData("ภาพอ้างอิงและคำสั่ง", arrayOf("image/*", "text/plain"), ClipData.Item(images[0])).apply { images.drop(1).forEach { addItem(ClipData.Item(it)) }; addItem(ClipData.Item(text)) } else ClipData("คำสั่งและภาพอ้างอิง", arrayOf("image/*", "text/plain"), ClipData.Item(text, null, null, images[0])).apply { images.drop(1).forEach { addItem(ClipData.Item(it)) } }
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 }
@@ -1475,6 +1475,18 @@ class StudioActivity : AppCompatActivity() {
         val masterDigests=runCatching { references.take(task.references.size).associate { (id,file) -> id to MasterLibrary.digest(file.readBytes()) } }
             .getOrElse { notice("อ่าน MASTER ไม่ได้ กรุณาตรวจไฟล์ก่อนส่ง"); return }
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
+        panel.addView(TextView(this).apply { text="ลำดับภาพอ้างอิง"; setTypeface(null,Typeface.BOLD) })
+        val imageOrder=Spinner(this).apply {
+            adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("MASTER สามมุมก่อน • ภาพครอปหลัง", "ภาพครอปก่อน • MASTER สามมุมหลัง"))
+            setSelection(prefs.getInt("image_attachment_order",0).coerceIn(0,1))
+        }
+        panel.addView(imageOrder)
+        panel.addView(TextView(this).apply { text="ลำดับไฟล์คำสั่งและภาพ (Gemini รับข้อความพร้อมภาพ; แอปปลายทางอาจแสดงต่างกัน)"; setTypeface(null,Typeface.BOLD) })
+        val transferOrder=Spinner(this).apply {
+            adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("คำสั่งก่อน • ภาพตามหลัง", "ภาพก่อน • คำสั่งตามหลัง"))
+            setSelection(prefs.getInt("image_transfer_order",0).coerceIn(0,1))
+        }
+        panel.addView(transferOrder)
         panel.addView(TextView(this).apply { text="ตรวจชื่อ MASTER ของทุกตัวละครและชุดที่เลือก • แตะภาพเพื่อขยาย\nหลังเปิดแอปปลายทาง ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง" })
         if(task.id.contains("_COVER_") && task.references.size==1) panel.addView(TextView(this).apply {
             text="⚠️ ปกนี้มีตัวละครพร้อมใช้เพียง 1 ตัว • ตรวจบทและรายการ MASTER ก่อนเลือกแอปสร้างภาพ"
@@ -1639,8 +1651,12 @@ class StudioActivity : AppCompatActivity() {
                 if(mode==2 && outfitExtras.none { it.first.startsWith("OUTFIT_EP") }) { notice("ยังไม่มีภาพฉากเดี่ยวที่ตรวจผ่านและชุดตรงกัน กรุณาเลือกวิธีอื่น"); return@setPositiveButton }
                 val outfitGuide=if(outfitExtras.isEmpty()) "" else (if(mode==2) "\n\nREVIEWED SCENE REFERENCE: The checked prior single-character scene was reviewed by the user for this same character and outfit. Use it as a supplemental identity and wardrobe reference; the original MASTER remains the source of identity. " else "")+"\n\nREVIEWED OUTFIT REFERENCES: For the listed characters only, these checked images override generic instructions against copying clothing. Use each labeled frame as a clothing reference for its named character, while the original character MASTER remains the identity reference. Preserve visible garments; follow the written outfit for parts not visible. Do not copy background, pose or objects. "+outfitExtras.joinToString("; ") { "${it.first} = ${labels[it.first]}" }
                 val primary=if(mode==1) references.take(task.references.size).map { (id,_) -> id to crops.getValue(id).second } else references.take(task.references.size)
-                val payload=primary+extras.filter { !it.first.startsWith("OUTFIT_") || it in outfitExtras }+selected.values+propRefs
-                prefs.edit().putInt("image_reference_mode_${project.name}",mode).apply()
+                val orderedPeople=if(mode==0 && imageOrder.selectedItemPosition==1) primary.flatMap { master ->
+                    val crop=selected[master.first]
+                    if(crop==null) listOf(master) else listOf(crop,master)
+                } else primary
+                val payload=orderedPeople+extras.filter { !it.first.startsWith("OUTFIT_") || it in outfitExtras }+(if(mode==0 && imageOrder.selectedItemPosition==0) selected.values else emptyList())+propRefs
+                prefs.edit().putInt("image_reference_mode_${project.name}",mode).putInt("image_attachment_order",imageOrder.selectedItemPosition).putInt("image_transfer_order",transferOrder.selectedItemPosition).apply()
                 if(payload.size>9) { notice("มีภาพอ้างอิง ${payload.size} ภาพ ซึ่งเกิน 9 ภาพ • ยกเลิกภาพอ้างอิงบางรายการแล้วลองอีกครั้ง"); return@setPositiveButton }
                 shareImageCommand(command+outfitGuide+propInstruction+(if(owners.isBlank()) "" else "\n$owners")+(if(coverOwners.isBlank()) "" else "\n$coverOwners"),payload,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
             }
@@ -1710,14 +1726,15 @@ class StudioActivity : AppCompatActivity() {
         // append every granted image URI to that same ClipData payload.
         val geminiImages=destinationLabel=="Gemini" && imagePackage && uris.isNotEmpty()
         val filePackage=!geminiImages && (destinationLabel=="Gemini" || imagePackage) && uris.isNotEmpty()
-        val intent = if(geminiImages) buildGeminiImageShareIntent((if(bodyOnly) "สร้างภาพตัวละครใหม่ตามคำสั่ง ใช้ภาพแนบสำหรับรูปร่างเท่านั้น\n\n"+text else geminiImageMessage(text,twoCovers)),ArrayList(uris)) else if(filePackage) {
+        val intent = if(geminiImages) buildGeminiImageShareIntent((if(bodyOnly) "สร้างภาพตัวละครใหม่ตามคำสั่ง ใช้ภาพแนบสำหรับรูปร่างเท่านั้น\n\n"+text else geminiImageMessage(text,twoCovers)),ArrayList(uris),prefs.getInt("image_transfer_order",0)==1) else if(filePackage) {
             val command=File(cacheDir,"scene_reference_exports/$transferId/READ_FIRST_IMAGE_COMMAND.txt")
             command.parentFile!!.mkdirs()
             command.writeText((if(bodyOnly) "สร้างตัวละครใหม่ตามคำสั่ง ภาพแนบใช้อ้างอิงรูปร่างเท่านั้น" else if(twoCovers) "สร้างปก 2 ภาพแยกไฟล์ตามคำสั่งด้านล่าง ใช้ MASTER ที่แนบให้ตรงตัวละคร" else "สร้างภาพหนึ่งภาพตามคำสั่งด้านล่าง ใช้ MASTER ที่แนบให้ตรงตัวละคร")+" ไม่สรุปคำสั่ง ไม่สร้างวิดีโอ\n\n"+text,Charsets.UTF_8)
             val commandUri=FileProvider.getUriForFile(this,"$packageName.fileprovider",command)
             val shareText=if(destinationLabel=="Gemini" && imagePackage) geminiImageMessage(text,twoCovers) else text
-            val result=buildGeminiPackageIntent(shareText,commandUri,ArrayList(uris))
-            uris.add(0,commandUri)
+            val imagesFirst=imagePackage && prefs.getInt("image_transfer_order",0)==1
+            val result=buildGeminiPackageIntent(shareText,commandUri,ArrayList(uris),imagesFirst)
+            if(imagesFirst) uris.add(commandUri) else uris.add(0,commandUri)
             attachments.put(JSONObject().put("name",command.name).put("bytes",command.length()).put("sha256",MasterLibrary.digest(command.readBytes())))
             result
         } else buildChatShareIntent(text,uris)
