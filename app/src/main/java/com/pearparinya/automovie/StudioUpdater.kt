@@ -61,7 +61,7 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                     else AlertDialog.Builder(activity).setIcon(R.drawable.studio_update).setTitle("DIRECTOR X รุ่นใหม่พร้อมแล้ว").setMessage("${release.optString("name", "รุ่นใหม่")}\nดาวน์โหลดและติดตั้งทับเพื่ออัปเดต งานที่บันทึกไว้จะยังอยู่")
                         .setPositiveButton("อัปเดต") { _,_ -> download(url,build,asset.optLong("size",-1)) }.setNegativeButton("ภายหลัง",null).showDirector()
                 }
-            } catch (e: Exception) { activity.runOnUiThread { busy = false; dialog?.dismiss(); if (!automatic && !activity.isFinishing && !activity.isDestroyed) message("ตรวจสอบอัปเดตไม่สำเร็จ: ${e.message}") } }
+            } catch (e: Exception) { activity.runOnUiThread { busy = false; if(automatic) lastAutomaticCheck=0L; dialog?.dismiss(); if (!automatic && !activity.isFinishing && !activity.isDestroyed) message("ตรวจสอบอัปเดตไม่สำเร็จ: ${e.message}") } }
         }.start()
     }
     private fun connect(url: String): HttpURLConnection = (URL(url).openConnection() as HttpURLConnection).apply {
