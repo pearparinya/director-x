@@ -9,12 +9,16 @@ import java.util.zip.ZipOutputStream
 
 /** Full workspace backup, distinct from delivery ZIPs; restores into a new directory. */
 internal object StudioArchive {
-    fun write(folder: File, output: OutputStream) {
+    fun write(folder: File, output: OutputStream, catalogIds: File? = null) {
         require(File(folder,"story.json").isFile) { "ไม่มีบทสำหรับสำรอง" }
         ZipOutputStream(output).use { zip ->
-            folder.walkTopDown().filter { it.isFile && !it.name.endsWith(".pending") && !it.name.endsWith(".tmp") }.forEach { file ->
+            folder.walkTopDown().filter { it.isFile && !it.name.endsWith(".pending") && !it.name.endsWith(".tmp") && it.relativeTo(folder).invariantSeparatorsPath != "__director_meta/short_catalog_ids.json" }.forEach { file ->
                 zip.putNextEntry(ZipEntry(file.relativeTo(folder).invariantSeparatorsPath))
                 file.inputStream().use { it.copyTo(zip) }; zip.closeEntry()
+            }
+            if(catalogIds?.isFile == true) {
+                zip.putNextEntry(ZipEntry("__director_meta/short_catalog_ids.json"))
+                catalogIds.inputStream().use { it.copyTo(zip) }; zip.closeEntry()
             }
         }
     }
