@@ -32,7 +32,7 @@ internal enum class StoryProvider(val id: String,val label: String,val defaultMo
         fun label(context: Context)="API อัตโนมัติ"
         val hybridProviders=listOf(GROQ,GEMINI)
         val activeProviders=listOf(GROQ,GEMINI,OPENROUTER,COHERE)
-        fun freeOnly(context: Context)=context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).getBoolean("free_only",false)
+        fun freeOnly(context: Context)=false
         fun setFreeOnly(context: Context,enabled: Boolean) { context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).edit().putBoolean("free_only",enabled).apply() }
         fun allowedIds(context: Context): Set<String> = context.getSharedPreferences("story_provider",Context.MODE_PRIVATE)
             .getStringSet("allowed_providers",activeProviders.map { it.id }.toSet())?.toSet().orEmpty()
@@ -65,9 +65,8 @@ internal enum class StoryProvider(val id: String,val label: String,val defaultMo
             if(runCatching { testFingerprint(context,provider) }.getOrNull()!=prefs.getString(provider.id+"_fingerprint",null)) return "ยังไม่ได้ทดสอบคีย์/โมเดลนี้"
             val time=prefs.getLong(provider.id+"_time",0L)
             if(time<=0L) return "ยังไม่ได้ทดสอบคีย์/โมเดลนี้"
-            val stamp=java.text.SimpleDateFormat("dd/MM HH:mm",java.util.Locale.getDefault()).format(java.util.Date(time))
-            val reason=prefs.getString(provider.id+"_reason","").orEmpty()
-            return "ทดสอบล่าสุด $stamp • ${prefs.getString(provider.id+"_result", "ไม่ทราบ")}" + if(reason.isNotBlank()) " • $reason" else "" 
+            val stamp=java.text.SimpleDateFormat("d MMM yyyy 'เวลา' HH.mm 'น.'",java.util.Locale("th","TH")).format(java.util.Date(time))
+            return "[$stamp] ${prefs.getString(provider.id+"_result", "ไม่ทราบ")}"
         }
         fun configure(context: Context,spec: JSONObject): JSONObject {
             spec.put("provider",GROQ.id).put("model",GROQ.model(context)).put("hybrid",false).put("auto_pipeline",true)

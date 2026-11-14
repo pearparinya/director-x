@@ -216,7 +216,16 @@ class StudioActivity : AppCompatActivity() {
                 background=backdrop(palette[2],palette[0])
                 importantForAccessibility=android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
             },LinearLayout.LayoutParams(dp(38),dp(38)).apply { marginEnd=dp(12) })
-            row.addView(TextView(this).apply {
+            if(title=="ตั้งค่าคีย์ API • ใช้อัตโนมัติ" && index<StoryProvider.activeProviders.size) {
+                val parts=value.split("\n", limit=2)
+                val labels=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
+                labels.addView(TextView(this).apply { text=parts[0]; textSize=16f; setTextColor(Color.WHITE); setTypeface(null,Typeface.BOLD) })
+                labels.addView(TextView(this).apply {
+                    text=parts.getOrElse(1) { "" }; setTextColor(Color.WHITE); maxLines=1
+                    androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(this,8,12,1,android.util.TypedValue.COMPLEX_UNIT_SP)
+                },LinearLayout.LayoutParams(-1,-2))
+                row.addView(labels,LinearLayout.LayoutParams(0,-2,1f))
+            } else row.addView(TextView(this).apply {
                 text=value; textSize=16f; setTextColor(Color.WHITE); setTypeface(null,Typeface.BOLD)
                 gravity=Gravity.CENTER_VERTICAL
                 importantForAccessibility=android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
@@ -1056,11 +1065,6 @@ class StudioActivity : AppCompatActivity() {
             contentDescription="DIRECTOR X • ภาพผู้กำกับในโรงภาพยนตร์"
         }
         root.addView(hero,LinearLayout.LayoutParams(-1,-2))
-        val portrait=assets.open("pia_home_portrait.webp").use { android.graphics.BitmapFactory.decodeStream(it) }
-        root.addView(ImageView(this).apply {
-            setImageBitmap(portrait); scaleType=ImageView.ScaleType.FIT_CENTER
-            contentDescription="นายเปีย บ้านคลองขุด"
-        },LinearLayout.LayoutParams(-1,dp(160)).apply { topMargin=dp(4) })
         root.addView(TextView(this).apply {
             text="DIRECTOR X "+packageManager.getPackageInfo(packageName,0).versionName
             textSize=12f; gravity=Gravity.END; setTextColor(gold)
@@ -2741,7 +2745,7 @@ $context"""
         } else open()
     }
     private fun extraToolsMenu(current: JSONObject?) {
-        val options=mutableListOf("📥 นำเข้าบทที่มีอยู่","⚙️ AutoDirector • ภาพและวิดีโอ","🧪 ทดสอบสร้างวิดีโอ","🎭 แม่แบบและคลังตัวละคร")
+        val options=mutableListOf("📥 นำเข้าบทที่มีอยู่","⚙️ DIRECTOR X • ภาพและวิดีโอ","🧪 ทดสอบสร้างวิดีโอ","🎭 แม่แบบและคลังตัวละคร")
         if(current!=null) options.add("📋 ข้อมูลโพสต์ Facebook / TikTok")
         if(current!=null && current.optString("clip_format")=="short") options.add("💬 ชื่อเรื่อง เรื่องย่อ และแคปชั่น")
         if(current!=null && prefs.getInt("last_image_deck_${project.name}",0)>0) options.add("↩ กลับรายการรูป / ซีนล่าสุด")
@@ -2750,7 +2754,7 @@ $context"""
         choiceMenu("🧰 เครื่องมือเพิ่มเติม",options) { index ->
             when(options[index]) {
                 "📥 นำเข้าบทที่มีอยู่" -> packagePicker.launch(arrayOf("*/*"))
-                "⚙️ AutoDirector • ภาพและวิดีโอ" -> autoDirectorMenu()
+                "⚙️ DIRECTOR X • ภาพและวิดีโอ" -> autoDirectorMenu()
                 "🧪 ทดสอบสร้างวิดีโอ" -> flowTestMenu()
                 "🎭 แม่แบบและคลังตัวละคร" -> choiceMenu("ตัวละคร",listOf("สร้างตัวละครจากแม่แบบ","คลังตัวละครใหม่","ตัวละครของเรื่องที่เปิด")) { when(it) { 0 -> bodyTemplateMenu(); 1 -> actorCatalogMenu(); else -> castMenu() } }
                 "📋 ข้อมูลโพสต์ Facebook / TikTok" -> if(current!=null) postDetails(current)
@@ -2838,9 +2842,9 @@ $context"""
         ))
         root.addView(TextView(this).apply { text="ขั้นตอนการทำงาน"; textSize=18f; setTextColor(gold); setTypeface(null,Typeface.BOLD); setPadding(0,dp(6),0,dp(4)) })
         val active=if(current==null || wardrobe!="ยืนยันชุดในบทแล้ว") 1 else if(reviewed<scenes.size) 2 else 3
-        stepCard(1,"👕","ตรวจชุดตัวละคร","ดูชุดในบท หรือให้ AI เสนอ • ยืนยันแล้วกลับมาแก้ได้",enabled=current!=null,completed=current!=null && wardrobe=="ยืนยันชุดในบทแล้ว",currentStep=active,statusText=wardrobe) { current?.let { wardrobeMenu(it) } }
-        stepCard(2,"🧰","ตรวจสิ่งของในบท","ดูผู้ใช้และสิ่งของ • ตรวจหรือให้ AI เสนอ",enabled=current!=null,completed=current!=null && scenes.isNotEmpty() && reviewed==scenes.size,currentStep=active,statusText=if(current==null) "รอสร้างบท" else "ตรวจบทแล้ว $reviewed/${scenes.size} ฉาก") { current?.let { reviewSceneProps(it) } }
-        stepCard(3,"🎬","สร้างภาพ + Flow","เลือก EP และซีน • ตรวจภาพจริงก่อนใช้ Flow",enabled=current!=null,currentStep=active,statusText=if(current==null) "รอสร้างบท" else "เปิดใช้งานได้ • ตรวจข้อมูลก่อนใช้") { commandCardsMenu() }
+        stepCard(1,"👕","ตรวจชุดตัวละคร","ตรวจชุด หรือให้ AI ช่วยเลือก",enabled=current!=null,completed=current!=null && wardrobe=="ยืนยันชุดในบทแล้ว",currentStep=active,statusText=wardrobe) { current?.let { wardrobeMenu(it) } }
+        stepCard(2,"🧰","ตรวจสิ่งของในบท","ตรวจสิ่งของ หรือให้ AI ช่วยเลือก",enabled=current!=null,completed=current!=null && scenes.isNotEmpty() && reviewed==scenes.size,currentStep=active,statusText=if(current==null) "รอสร้างบท" else "ตรวจบทแล้ว $reviewed/${scenes.size} ฉาก") { current?.let { reviewSceneProps(it) } }
+        stepCard(3,"🎬","สร้างภาพ + Flow","เลือกฉากและตรวจภาพก่อนใช้ Flow",enabled=current!=null,currentStep=active,statusText=if(current==null) "รอสร้างบท" else "เปิดใช้งานได้ • ตรวจข้อมูลก่อนใช้") { commandCardsMenu() }
         button("🧰 เครื่องมือเพิ่มเติม",false) { extraToolsMenu(current) }
         splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
     }
@@ -2871,11 +2875,10 @@ $context"""
     private fun geminiSettings(afterSave: (() -> Unit)?=null) {
         val providers=StoryProvider.activeProviders
         val choices=providers.map { it.label+"\n"+StoryProvider.lastTest(this,it) }+
-            listOf("☑️ เลือก API ที่อนุญาต", "🔍 ตรวจ API ที่เลือก", if(StoryProvider.freeOnly(this)) "🟢 ใช้เฉพาะ OpenRouter ฟรี: เปิด" else "⚪ ใช้เฉพาะ OpenRouter ฟรี: ปิด")
+            listOf("☑️ เลือก API ที่อนุญาต", "🔍 ตรวจ API ที่เลือก")
         choiceMenu("ตั้งค่าคีย์ API • ใช้อัตโนมัติ",choices) { index ->
             if(index==providers.size) selectStoryApiProviders(afterSave)
             else if(index==providers.size+1) { val selected=StoryProvider.eligible(this); if(selected.isEmpty()) notice("ยังไม่มี API ที่เลือกในโหมดปัจจุบัน") else testStoryApis(selected) }
-            else if(index==providers.size+2) { StoryProvider.setFreeOnly(this,!StoryProvider.freeOnly(this)); notice(if(StoryProvider.freeOnly(this)) "เปิดโหมดฟรี: ใช้เฉพาะ OpenRouter รุ่นฟรี • มีผลกับงานที่เริ่มหรือทำต่อครั้งถัดไป" else "ปิดโหมดฟรี: ผู้ให้บริการอื่นอาจมีค่าบริการตามบัญชี"); geminiSettings(afterSave) }
             else if(providers[index].extra()==null) storyProviderSettings(providers[index],afterSave)
             else extraApiKeyDialog(providers[index].extra()!!,afterSave)
         }
@@ -3285,12 +3288,12 @@ $context"""
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
     private fun autoDirectorMenu() {
-        choiceMenu("AutoDirector v45",listOf("สร้างเรื่องใหม่ • เลือกหมวดหลัก / AI คิดพล็อต","Phase 1 • ดูโครงเรื่องที่เปิด","Phase 2–4 • ทำงานทีละ EP","ส่งออก ZIP • ตอนละ 2 ไฟล์","คำสั่งภาพ / Flow • เลือก EP")) { action ->
+        choiceMenu("DIRECTOR X",listOf("สร้างเรื่องใหม่ • เลือกหมวดหลัก / AI คิดพล็อต","Phase 1 • ดูโครงเรื่องที่เปิด","Phase 2–4 • ทำงานทีละ EP","ส่งออก ZIP • ตอนละ 2 ไฟล์","คำสั่งภาพ / Flow • เลือก EP")) { action ->
             if(action==0) { flowPlanning(true); return@choiceMenu }
             val story=plan
             if(story==null) { if(File(project,"gemini_job/spec.json").isFile) geminiJobMenu() else notice("ยังไม่มีบท กรุณาสร้างเรื่องใหม่หรือนำเข้าบทก่อน"); return@choiceMenu }
             if(story.optString("content_profile")!=AutoDirectorContent.profile) {
-                notice("เรื่องนี้ใช้รูปแบบเดิม เลือกสร้างเรื่องใหม่ใน AutoDirector v45 เพื่อเลือกเวลาคลิป เสื้อผ้า 4 ส่วน และไฟล์ Gemini / Flow XML"); return@choiceMenu
+                notice("เรื่องนี้ใช้รูปแบบเดิม เลือกสร้างเรื่องใหม่ใน DIRECTOR X เพื่อเลือกเวลาคลิป เสื้อผ้า 4 ส่วน และไฟล์ Gemini / Flow XML"); return@choiceMenu
             }
             if(story.optString("aspect_ratio","16:9")!="9:16") { landscapeCopyMenu(); return@choiceMenu }
             val wardrobeIssues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(story))
@@ -3874,9 +3877,9 @@ $context"""
             if(format=="short") panel.addView(TextView(this).apply { text="คลิปสั้น • จบในคลิปเดียว" })
             panel.addView(TextView(this).apply { text="${if(format=="short") "คลิปสั้น" else "คลิปยาว"} • ${ClipPlan.label(seconds)}${if(format=="short") "" else " ต่อ EP"} • ไม่รวมปกเปิด 3 วินาที • สร้างเป็นเรื่องใหม่ เก็บเรื่องเดิมไว้\n\nทั้งสองช่องใช้ API เขียนบทชุดเดียวกันที่ตั้งค่าไว้ • ระบบเลือกค่ายอัตโนมัติจากคีย์ที่พร้อม • เนื้อหาอาจถูกส่งไปยังค่ายที่รับช่วง • โควตาและค่าบริการขึ้นอยู่กับแต่ละบัญชี • เขียนเฉพาะบทและคำสั่ง ส่งวิดีโอไปสร้างใน Flow ภายหลัง" })
             stepHeader("4","AI สร้างบทต่อให้อัตโนมัติ",Color.rgb(157,101,26))
-            val createDialog=AlertDialog.Builder(this).setTitle(if(autoDirector) "AutoDirector v45 • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
+            val createDialog=AlertDialog.Builder(this).setTitle(if(autoDirector) "DIRECTOR X • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป",null)
-                .setNeutralButton(if(autoDirector) "กลับเมนู AutoDirector" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
+                .setNeutralButton(if(autoDirector) "กลับเมนู DIRECTOR X" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
             automaticCreate={ if(createDialog.isShowing && !isFinishing && !isDestroyed) createDialog.getButton(-1).performClick() }
             createDialog.getButton(-1).setOnClickListener {
                     runCatching {

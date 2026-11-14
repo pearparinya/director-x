@@ -40,7 +40,7 @@ class AutomaticStoryRouterTest {
         row.put("flow_action","นายเปีย opens the door")
         assertTrue(SceneXml.hasUsableActions(value))
     }
-    @Test fun allowedProvidersRestrictRoutingAndFreeOnlyStillWins() {
+    @Test fun allowedProvidersRemainSelectedAfterFreeOnlyRemoval() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val before=StoryProvider.allowedIds(context); val free=StoryProvider.freeOnly(context)
         try {
@@ -52,10 +52,10 @@ class AutomaticStoryRouterTest {
             assertFalse(StoryProvider.viable(emptyList()))
             assertTrue(runCatching { StoryProvider.setAllowed(context,emptySet()) }.isFailure)
             StoryProvider.setFreeOnly(context,true)
-            assertTrue(StoryProvider.eligible(context).isEmpty())
+            assertEquals(listOf(StoryProvider.GROQ,StoryProvider.GEMINI,StoryProvider.COHERE),StoryProvider.eligible(context))
             assertTrue(runCatching { StoryProvider.setAllowed(context,setOf("cerebras")) }.isFailure)
             StoryProvider.setAllowed(context,setOf("openrouter","groq"))
-            assertEquals(listOf(StoryProvider.OPENROUTER),StoryProvider.eligible(context))
+            assertEquals(listOf(StoryProvider.GROQ,StoryProvider.OPENROUTER),StoryProvider.eligible(context))
         } finally { StoryProvider.setAllowed(context,before); StoryProvider.setFreeOnly(context,free) }
     }
     @Test fun cohereCanWriteAloneAndTakeOverAfterQuotaFailure() {
@@ -86,11 +86,15 @@ class AutomaticStoryRouterTest {
             assertEquals(1,firstCalls); assertEquals(1,secondProbes); assertEquals(2,secondWrites)
         } finally { folder.deleteRecursively() }
     }
-    @Test fun freeOnlyPolicyLimitsAutomaticProviders() {
+    @Test fun removedFreeOnlyFlagDoesNotOverrideAllowedProviders() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
-        val before=StoryProvider.freeOnly(context)
-        try { StoryProvider.setFreeOnly(context,true); assertEquals(listOf(StoryProvider.OPENROUTER),StoryProvider.eligible(context)) }
-        finally { StoryProvider.setFreeOnly(context,before) }
+        val before=StoryProvider.allowedIds(context)
+        try {
+            StoryProvider.setAllowed(context,setOf("groq","openrouter"))
+            StoryProvider.setFreeOnly(context,true)
+            assertFalse(StoryProvider.freeOnly(context))
+            assertEquals(listOf(StoryProvider.GROQ,StoryProvider.OPENROUTER),StoryProvider.eligible(context))
+        } finally { StoryProvider.setAllowed(context,before); StoryProvider.setFreeOnly(context,false) }
     }
     @Test fun invalidAnswerSwitchesProviderWithoutRepeatingSlowRequest() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-invalid-switch-${UUID.randomUUID()}")
