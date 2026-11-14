@@ -912,6 +912,7 @@ class StudioActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         listOf("body_02.png", "body_03.png").forEach { File(cacheDir, "body_template_sources/$it").delete() }
         adoptGeminiProject(intent)
+        receiveProductLink(intent)
         val masterError = runCatching { installCharacterMasters() }.exceptionOrNull()
         render()
         if (masterError != null) notice("ติดตั้ง MASTER ตัวละครไม่สำเร็จ กรุณาเปิดแอปอีกครั้ง")
@@ -920,8 +921,14 @@ class StudioActivity : AppCompatActivity() {
         val id=incoming?.getStringExtra("gemini_project") ?: return
         if(Regex("[a-zA-Z0-9-]+").matches(id) && File(base,"$id/gemini_job/spec.json").isFile) prefs.edit().putString("project",id).apply()
     }
+    private fun receiveProductLink(incoming: Intent?) {
+        if (incoming?.action != Intent.ACTION_SEND || incoming.type != "text/plain") return
+        val shared = incoming.getStringExtra(Intent.EXTRA_TEXT).orEmpty()
+        val link = ProductLinkPolicy.firstUrl(shared)
+        if (ProductLinkPolicy.allowed(link)) getSharedPreferences("product_assist", MODE_PRIVATE).edit().putString("shared_link", link).apply()
+    }
     override fun onNewIntent(incoming: Intent) {
-        super.onNewIntent(incoming); setIntent(incoming); adoptGeminiProject(incoming); render()
+        super.onNewIntent(incoming); setIntent(incoming); adoptGeminiProject(incoming); receiveProductLink(incoming); render()
     }
     private fun installCharacterMasters() {
         // Install explicitly supplied defaults only when no user image exists.
@@ -3588,6 +3595,7 @@ $context"""
             }
             if(needsFacts) panel.addView(TextView(this).apply { text="หมวดนี้ต้องระบุข้อมูลจริงที่ตรวจสอบแล้ว • AI จะใช้สร้างบท ไม่แต่งข้อมูลสินค้า ความปลอดภัย หรือสิทธิประโยชน์เอง"; setTextColor(Color.WHITE); setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(149,54,40)) })
             if(ChannelCatalog.allCategories[index].id=="pia_products") {
+                panel.addView(Button(this).apply { text="ค้นหาสินค้า • รับลิงก์ Affiliate"; colorAction(this,Color.rgb(34,105,160)); setOnClickListener { ProductAssist.show(this@StudioActivity,premise,selectedStoryTopic) } })
                 panel.addView(Button(this).apply { text="ดูตัวอย่างโฆษณาสินค้า TikTok"; colorAction(this,Color.rgb(225,161,35),true); setOnClickListener {
                     runCatching { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://ads.tiktok.com/business/creativecenter/inspiration/topads/pc/en?region=TH"))) }.onFailure { notice("เปิด TikTok Creative Center ไม่ได้") }
                 } })
@@ -4040,6 +4048,11 @@ $context"""
                             }
                         }
                         val folder=File(base,UUID.randomUUID().toString()).apply { mkdirs() }
+                        if (ChannelCatalog.allCategories[index].id == "pia_products") {
+                            ProductAssist.confirmedProduct(this@StudioActivity, premise.text.toString())?.let { product ->
+                                GeminiStoryFiles.write(File(folder, "product_info.json"), product)
+                            }
+                        }
                         for(n in 0 until catalog.length()) {
                             val row=catalog.getJSONObject(n); val target=File(folder,"master_candidates/"+row.getString("file")); target.parentFile!!.mkdirs()
                             val original=castingSource(row); require(original.isFile && MasterLibrary.digest(original.readBytes())==row.getString("sha256")) { "ภาพ MASTER ของ ${row.optString("display_name")} สูญหายหรือเปลี่ยนไป" }
