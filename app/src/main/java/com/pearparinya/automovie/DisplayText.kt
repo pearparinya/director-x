@@ -9,6 +9,7 @@ import java.util.TimeZone
 internal object DisplayText {
     fun category(value: String): String {
         val source=value.trim()
+        ChannelCatalog.allCategories.firstOrNull { it.label==source || it.name==source }?.let { return it.name }
         val match=Regex("^(.*?)\\s*\\(([^()]*)\\)\\s*$").matchEntire(source) ?: return source
         val main=match.groupValues[1].trim(); val sub=match.groupValues[2].trim()
         return if(main.equals(sub,ignoreCase=true)) main else source

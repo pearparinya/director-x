@@ -216,10 +216,11 @@ class StudioActivity : AppCompatActivity() {
                 background=backdrop(palette[2],palette[0])
                 importantForAccessibility=android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
             },LinearLayout.LayoutParams(dp(38),dp(38)).apply { marginEnd=dp(12) })
-            if(title=="ตั้งค่าคีย์ API • ใช้อัตโนมัติ" && index<StoryProvider.activeProviders.size) {
+            if((title=="ตั้งค่าคีย์ API • ใช้อัตโนมัติ" && index<StoryProvider.activeProviders.size) || title=="หมวดช่อง • นายเปีย บ้านคลองขุด") {
                 val parts=value.split("\n", limit=2)
                 val labels=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
-                labels.addView(TextView(this).apply { text=parts[0]; textSize=16f; setTextColor(Color.WHITE); setTypeface(null,Typeface.BOLD) })
+                labels.addView(TextView(this).apply { text=parts[0]; textSize=if(title.startsWith("หมวดช่อง")) 14f else 16f; setTextColor(Color.WHITE); setTypeface(null,Typeface.BOLD); maxLines=1
+                    if(title.startsWith("หมวดช่อง")) androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(this,11,14,1,android.util.TypedValue.COMPLEX_UNIT_SP) })
                 labels.addView(TextView(this).apply {
                     text=parts.getOrElse(1) { "" }; setTextColor(Color.WHITE); maxLines=1
                     androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(this,8,12,1,android.util.TypedValue.COMPLEX_UNIT_SP)
@@ -2071,14 +2072,12 @@ class StudioActivity : AppCompatActivity() {
             editor.apply(); notice("บันทึกอุปกรณ์ประจำตัวละครแล้ว • ตรวจซีนด้วยเมนู AI ก่อนสร้างภาพ")
         }.setNegativeButton("ยกเลิก",null).showDirector()
     }
-    private fun propReviewStamp(scene: JSONObject): String = ReviewFingerprints.props(scene)
+    private fun propReviewStamp(scene: JSONObject): String = ReviewFingerprints.props(scene)+":"+image(scene).let { if(it.isFile) runCatching { MasterLibrary.digest(it.readBytes()) }.getOrDefault("image-unreadable") else "no-image" }
     private fun propReviewStatus(scene: JSONObject): String {
         val pref="props_review_${project.name}_${key(scene)}"
         var saved=prefs.getString(pref,"").orEmpty()
         val current=propReviewStamp(scene)
-        if(saved.isNotBlank() && saved==ReviewFingerprints.legacyProps(scene)) {
-            prefs.edit().putString(pref,current).apply(); saved=current
-        }
+
         return when { saved.isBlank() -> "ยังไม่ได้ตรวจ"; saved==current -> "ผู้ใช้ตรวจบทแล้ว"; else -> "บทเปลี่ยน • ตรวจอีกครั้ง" }
     }
     private fun sameOpenStory(snapshot: String): Boolean {
@@ -2568,7 +2567,7 @@ $context"""
         }
         if(queueIds==null) {
             val covers=if(images) allTasks.filter { it.id.contains("_COVER_") } else emptyList()
-            val groups=SimpleProductionCommands.groupScenes(allTasks)
+            val groups=listOf(allTasks.filter { !it.id.contains("_COVER_") }).filter { it.isNotEmpty() }
             val storyCovers=covers.filter { it.id.startsWith("STORY_COVER_") }
             val episodeCovers=covers.filter { !it.id.startsWith("STORY_COVER_") }
             val groupsWithCovers=listOf(storyCovers,episodeCovers).filter { it.isNotEmpty() }+groups
@@ -2581,7 +2580,7 @@ $context"""
             val episode=story.optJSONArray("episodes")?.let { eps -> (0 until eps.length()).mapNotNull { eps.optJSONObject(it) }.firstOrNull { it.optInt("ep")==number } }
             val episodeTitle=episode?.optString("title")?.takeIf { it.isNotBlank() } ?: "ยังไม่ได้ตั้งชื่อตอน"
             val storyTitle=story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }
-            choiceMenu("เรื่อง: $storyTitle\nEP.$number • $episodeTitle\nเลือกชุด${if(images) "ภาพ" else "คำสั่ง Flow"} (ครั้งละ 5 ซีน)",options) { selected ->
+            choiceMenu("เรื่อง: $storyTitle\nEP.$number • $episodeTitle\nเลือกชุด${if(images) "ภาพ" else "คำสั่ง Flow"}",options) { selected ->
                 productionTaskDeck(story,number,images,groupsWithCovers[selected].map { it.id }.toSet())
             }
             return
@@ -2853,8 +2852,10 @@ $context"""
         }
         if(HomeReviewState.shouldWarn(wardrobe,pending)) {
             AlertDialog.Builder(this).setTitle("ตรวจข้อมูลก่อนสร้างภาพและ Flow")
-                .setMessage("ชุด: $wardrobe\nสิ่งของใน EP.$number ที่ยังไม่ได้ยืนยันหรือควรตรวจอีกครั้ง: $pending ฉาก\n\nคุณสามารถดำเนินการต่อได้ • ตรวจสิ่งของกับภาพเริ่มต้นจริงก่อนใช้ Flow")
-                .setPositiveButton("ดำเนินการต่อ") { _,_ -> open() }.setNegativeButton("กลับไปตรวจ",null).showDirector()
+                .setMessage("ชุดในบท: $wardrobe\nสิ่งของ EP.$number ยังไม่ได้ตรวจหรือต้องตรวจซ้ำ: $pending ฉาก\n\nข้ามไปทำงานต่อได้ • การตรวจบทไม่ได้ยืนยันภาพจริง กรุณาตรวจภาพก่อนใช้ Flow")
+                .setPositiveButton("ข้ามและดำเนินการต่อ") { _,_ -> open() }.setNegativeButton("กลับไปตรวจ") { _,_ ->
+                    choiceMenu("เลือกสิ่งที่ต้องการตรวจ",listOf("ตรวจชุดตัวละคร", "ตรวจสิ่งของในบท")) { selected -> if(selected==0) wardrobeMenu(story) else reviewSceneProps(story) }
+                }.showDirector()
         } else open()
     }
     private fun extraToolsMenu(current: JSONObject?) {
