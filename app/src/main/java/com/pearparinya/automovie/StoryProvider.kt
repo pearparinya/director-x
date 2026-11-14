@@ -65,7 +65,7 @@ internal enum class StoryProvider(val id: String,val label: String,val defaultMo
             if(runCatching { testFingerprint(context,provider) }.getOrNull()!=prefs.getString(provider.id+"_fingerprint",null)) return "ยังไม่ได้ทดสอบคีย์/โมเดลนี้"
             val time=prefs.getLong(provider.id+"_time",0L)
             if(time<=0L) return "ยังไม่ได้ทดสอบคีย์/โมเดลนี้"
-            val stamp=java.text.SimpleDateFormat("d MMM yyyy 'เวลา' HH.mm 'น.'",java.util.Locale("th","TH")).format(java.util.Date(time))
+            val stamp=DisplayText.thaiDateTime(time)
             return "[$stamp] ${prefs.getString(provider.id+"_result", "ไม่ทราบ")}"
         }
         fun configure(context: Context,spec: JSONObject): JSONObject {

@@ -2450,7 +2450,8 @@ $context"""
         if(number<=0 || (0 until eps.length()).none { eps.optJSONObject(it)?.optInt("ep")==number }) return false
         activeProductionDialog?.dismiss()
         activeProductionDialog=null
-        productionTaskDeck(story,number,true)
+        val saved=prefs.getStringSet("last_image_group_${project.name}_$number",emptySet()).orEmpty().toSet()
+        productionTaskDeck(story,number,true,saved.takeIf { it.isNotEmpty() })
         return true
     }
     private fun productionTaskDeck(story: JSONObject,number: Int,images: Boolean,queueIds: Set<String>?=null) {
@@ -2471,21 +2472,26 @@ $context"""
         if(queueIds==null) {
             val covers=if(images) allTasks.filter { it.id.contains("_COVER_") } else emptyList()
             val groups=SimpleProductionCommands.groupScenes(allTasks)
-            val groupsWithCovers=(if(covers.isEmpty()) emptyList() else listOf(covers))+groups
+            val storyCovers=covers.filter { it.id.startsWith("STORY_COVER_") }
+            val episodeCovers=covers.filter { !it.id.startsWith("STORY_COVER_") }
+            val groupsWithCovers=listOf(storyCovers,episodeCovers).filter { it.isNotEmpty() }+groups
             val options=groupsWithCovers.map { group ->
-                val label=if(group.first().id.contains("_COVER_")) "ปก" else "${group.first().id} – ${group.last().id}"
+                val label=if(group.first().id.startsWith("STORY_COVER_")) "ปกรวมเรื่อง • แนวตั้งและแนวนอน" else if(group.first().id.contains("_COVER_")) "ปก EP.$number • แนวตั้งและแนวนอน" else "${group.first().id} – ${group.last().id}"
                 val completed=group.count { task -> rows(story).firstOrNull { key(it)==task.id }?.let { sceneFrameApproved(it) } == true }
                 if(group.first().id.contains("_COVER_")) label else if(images) "$label • ตรวจผ่าน $completed/${group.size}" else "$label • ${group.size} ซีน"
             }
             if(options.isEmpty()) { notice("ยังไม่มีรายการภาพใน EP นี้"); return }
-            choiceMenu("EP.$number • เลือกชุด${if(images) "ภาพ" else "คำสั่ง Flow"} (ครั้งละ 5 ซีน)",options) { selected ->
+            val episode=story.optJSONArray("episodes")?.let { eps -> (0 until eps.length()).mapNotNull { eps.optJSONObject(it) }.firstOrNull { it.optInt("ep")==number } }
+            val episodeTitle=episode?.optString("title")?.takeIf { it.isNotBlank() } ?: "ยังไม่ได้ตั้งชื่อตอน"
+            val storyTitle=story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }
+            choiceMenu("เรื่อง: $storyTitle\nEP.$number • $episodeTitle\nเลือกชุด${if(images) "ภาพ" else "คำสั่ง Flow"} (ครั้งละ 5 ซีน)",options) { selected ->
                 productionTaskDeck(story,number,images,groupsWithCovers[selected].map { it.id }.toSet())
             }
             return
         }
         val tasks=if(queueIds==null) allTasks else allTasks.filter { it.id in queueIds }
-        if(tasks.isEmpty()) { notice("ไม่พบรายการภาพ"); return }
-        if(images) prefs.edit().putInt("last_image_deck_${project.name}",number).apply()
+        if(tasks.isEmpty()) { if(images) prefs.edit().remove("last_image_group_${project.name}_$number").apply(); notice("ไม่พบรายการภาพ กรุณาเลือกชุดใหม่"); return }
+        if(images) prefs.edit().putInt("last_image_deck_${project.name}",number).putStringSet("last_image_group_${project.name}_$number",tasks.map { it.id }.toSet()).apply()
         val preference="production_cursor_${project.name}_${number}_$images"
         val previous=prefs.getString(preference,"")
         val start=tasks.indexOfFirst { it.id==previous }.coerceAtLeast(0)
@@ -2517,7 +2523,18 @@ $context"""
             }
             val flowCamera=when(sceneForFlow?.optString("camera_movement")) { "track" -> "Gentle tracking movement."; "locked" -> "Locked camera."; "push_in" -> "Slow push-in."; else -> "Slow gentle pan." }
             val preview=if(!images && flowSpec!=null && FlowScenePrompt.issues(flowSpec).isEmpty()) task.copy(command=runCatching { ShortFlowPrompt.build(flowSpec,flowCamera) }.getOrElse { "Flow prompt needs review: non-English scene direction." }) else task
-            val code=(sceneSummary?.plus("\n\n") ?: "")+SimpleProductionCommands.block(preview,index,images)+"\n\nล่าสุดที่เปิด: ${task.id} | ถัดไป: $next\nสถานะนี้บันทึกการเปิดคำสั่ง ไม่ได้ยืนยันว่าภาพหรือคลิปสร้างสำเร็จแล้ว"
+            val wardrobeNotice=if(images) task.references.mapNotNull { person ->
+                val outfit=person.optString("outfit")
+                val pieces=runCatching { AutoDirectorWardrobe.parts(outfit) }.getOrNull() ?: return@mapNotNull null
+                val name=person.optString("name").ifBlank { "ตัวละคร" }
+                val checks=mutableListOf<String>()
+                if(pieces["Shoes"].orEmpty().trim().equals("none",true)) checks.add("Shoes: none = เท้าเปล่า โปรดตรวจว่าตั้งใจหรือไม่")
+                val top=pieces["Top"].orEmpty()
+                if(top.length<35 && !top.equals("none",true)) checks.add("รายละเอียดชุดอาจไม่พอ กรุณาตรวจทรง แขน คอ สี และเนื้อผ้า")
+                if(checks.isEmpty()) null else "$name: ${checks.joinToString(" • ")}"
+            } else emptyList()
+            val warning=if(wardrobeNotice.isEmpty()) "" else "ตรวจชุดก่อนสร้างภาพ (ยังไม่เปลี่ยนข้อมูลบท):\n"+wardrobeNotice.joinToString("\n")+"\n\n"
+            val code=warning+(sceneSummary?.plus("\n\n") ?: "")+SimpleProductionCommands.block(preview,index,images)+"\n\nล่าสุดที่เปิด: ${task.id} | ถัดไป: $next\nสถานะนี้บันทึกการเปิดคำสั่ง ไม่ได้ยืนยันว่าภาพหรือคลิปสร้างสำเร็จแล้ว"
             val problems=ProductionCommandCheck.issues(story)
             val dialog=showFlowCode("${task.id} • ถัดไป $next",code,"${task.id}_${if(images) "IMAGE" else "FLOW"}.txt")
             if(images) activeProductionDialog=dialog
@@ -2782,7 +2799,7 @@ $context"""
             layoutParams=LinearLayout.LayoutParams(-1,-2).apply { topMargin=dp(10); bottomMargin=dp(8) }
         }
         card.addView(TextView(this).apply { text="✦ เรื่องที่เปิดอยู่ ✦"; textSize=13f; setTextColor(gold); setTypeface(null,Typeface.BOLD) })
-        card.addView(TextView(this).apply { text="ช่อง: $channel\nหมวด: ${current?.optString("category")?.takeIf { it.isNotBlank() } ?: "ยังไม่ระบุ"}\nเรื่อง: $title"; textSize=16f; setTextColor(ice); setTypeface(null,Typeface.BOLD); setPadding(0,dp(8),0,dp(6)) })
+        card.addView(TextView(this).apply { text="ช่อง: $channel\nหมวด: ${DisplayText.category(current?.optString("category")?.takeIf { it.isNotBlank() } ?: "ยังไม่ระบุ")}\nเรื่อง: $title"; textSize=16f; setTextColor(ice); setTypeface(null,Typeface.BOLD); setPadding(0,dp(8),0,dp(6)) })
         card.addView(TextView(this).apply { text=if(current==null) "สร้างบทใหม่ หรือเปิดเรื่องที่บันทึกไว้" else "$episodes EP • ${scenes.size} ฉาก • ${current.optString("aspect_ratio","9:16")}"+(if(exported) " • เคยส่งออกบทนี้แล้ว" else ""); textSize=12f; setTextColor(muted) })
         root.addView(card)
         if(File(project,"gemini_job/spec.json").isFile) {
@@ -2834,7 +2851,7 @@ $context"""
             Triple(R.drawable.menu_cover,"ภาพปก" to "คำสั่งปก 9:16 และ 16:9",{ current?.let { story ->
                 val eps=story.optJSONArray("episodes")
                 if(eps==null || eps.length()==0) notice("ยังไม่มีตอนในบท")
-                else choiceMenu("ภาพปก • เลือก EP", (0 until eps.length()).map { "EP."+eps.getJSONObject(it).optInt("ep") }) { i ->
+                else choiceMenu("ภาพปก • ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}", (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" }) { i ->
                     productionTaskDeck(story,eps.getJSONObject(i).optInt("ep"),true)
                 }
             } ?: notice("เปิดเรื่องที่มีบทก่อน") }),
@@ -2870,7 +2887,7 @@ $context"""
         val channel=spec?.optString("channel")?.takeIf { it.isNotBlank() } ?: saved?.optString("channel")?.takeIf { it.isNotBlank() } ?: "ยังไม่ระบุ"
         val title=outline?.optString("title")?.takeIf { it.isNotBlank() } ?: saved?.optString("title")?.takeIf { it.isNotBlank() } ?: "กำลังตั้งชื่อเรื่อง"
         val category=spec?.optString("category")?.takeIf { it.isNotBlank() } ?: saved?.optString("category")?.takeIf { it.isNotBlank() } ?: "ยังไม่ระบุ"
-        return "ช่อง: $channel\nหมวด: $category\nเรื่อง: $title\n"+StoryStatusText.format(status,GeminiStoryService.running && GeminiStoryService.projectId==project.name,details=details)
+        return "ช่อง: $channel\nหมวด: ${DisplayText.category(category)}\nเรื่อง: $title\n"+StoryStatusText.format(status,GeminiStoryService.running && GeminiStoryService.projectId==project.name,details=details)
     }
     private fun geminiSettings(afterSave: (() -> Unit)?=null) {
         val providers=StoryProvider.activeProviders
