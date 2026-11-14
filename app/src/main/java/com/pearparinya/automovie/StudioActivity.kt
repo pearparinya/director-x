@@ -1913,12 +1913,18 @@ class StudioActivity : AppCompatActivity() {
             }
             val destination=project
             val coverSelection=if(current!=null) savedCoverSelection(current,destination) else emptyMap()
+            val wardrobeMasterIds=if(current!=null) rows(current).flatMap { FlowReferencePrompt.people(it) }.mapNotNull { person ->
+                val id=referenceId(person.optString("master"))
+                val file=runCatching { masterFor(person) }.getOrNull() ?: return@mapNotNull null
+                val digest=runCatching { MasterLibrary.digest(file.readBytes()) }.getOrNull() ?: return@mapNotNull null
+                if(prefs.getBoolean("wardrobe_source_${destination.name}_${id}_${digest}",person.optString("character_type")=="knight")) id else null
+            }.toSet() else emptySet()
             val storyRevision=if(current!=null) File(destination,"story.json").takeIf { it.isFile }?.let { EpisodeMedia.digest(it) } else null
             val memory=JSONObject()
             sources.forEach { (id,file) -> memory.put(id,characterMemory.read(id,file)) }
             background {
                 contentResolver.openOutputStream(uri)!!.use { output ->
-                    if(current!=null) SimpleProductionCommands.write(output,current,coverSelection)
+                    if(current!=null) SimpleProductionCommands.write(output,current,coverSelection,wardrobeMasterIds)
                     else FlowProductionPack.write(output,null,sources,memory,categories.first(),originalChannel)
                 }
                 if(storyRevision!=null) File(destination,"flow_pack_exported.sha256").writeText(storyRevision)
