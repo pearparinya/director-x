@@ -158,7 +158,8 @@ internal class AutomaticStoryRouter(
     private fun coolDown(provider: StoryProvider,e: Exception) {
         if(verifyBeforeUse && e is StoryHttpFailure && e.status==429) {
             val now=android.os.SystemClock.elapsedRealtime()
-            val seconds=maxOf(65L,e.retryAfter?.let { StoryRequestRetry.retrySeconds(it,System.currentTimeMillis()) } ?: 0L).coerceAtMost((Long.MAX_VALUE-now)/1000)
+            val suggested=e.retryAfter?.let { StoryRequestRetry.retrySeconds(it,System.currentTimeMillis()) }
+            val seconds=(if(provider==StoryProvider.GEMINI && suggested!=null) suggested.coerceAtLeast(1L) else maxOf(65L,suggested ?: 0L)).coerceAtMost((Long.MAX_VALUE-now)/1000)
             cooldown[provider]=now+seconds*1000L
         }
     }

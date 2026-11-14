@@ -10,6 +10,7 @@ internal object GeminiPacing {
     private val blockedUntil=mutableMapOf<String,Long>()
     private fun fingerprint(key: String): String = java.security.MessageDigest.getInstance("SHA-256").digest(key.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
     private fun now()=android.os.SystemClock.elapsedRealtime()
+    fun keyCooldownMillis(key: String): Long = synchronized(lock) { maxOf(0L,(blockedUntil[fingerprint(key)] ?: 0L)-now()) }
     fun delayMillis(key: String): Long = synchronized(lock) { maxOf(0L,(blockedUntil[fingerprint(key)] ?: 0L)-now(),nextStart-now(),if(active) 1000L else 0L) }
     fun acquire(key: String,cancelled: () -> Boolean) {
         synchronized(lock) {
