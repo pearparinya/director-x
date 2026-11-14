@@ -23,8 +23,8 @@ internal object ScenePropContinuity {
 }
 
 internal object ReadingPropPolicy {
-    private val paper = Regex("เอกสาร|จดหมาย|กระดาษ|หนังสือ|สัญญา|document|letter|paper|contract|book", RegexOption.IGNORE_CASE)
-    const val instruction = "When reading, the written side faces the reader, top edge up; when viewed from the front, show the blank reverse to camera. Keep the sheet and hands physically consistent; no readable or mirrored text."
+    private val paper = Regex("เอกสาร|จดหมาย|กระดาษ|หนังสือ|สัญญา|พิมพ์เขียว|แบบแปลน|document|letter|paper|contract|book|blueprint|plan drawing", RegexOption.IGNORE_CASE)
+    const val instruction = "When reading or inspecting a document, its written side faces the reader and the reader looks at it; if presenting, the written side faces the intended audience. Keep hands, gaze and document orientation physically consistent."
     fun forScene(vararg parts: String) = if (parts.any { paper.containsMatchIn(it) }) instruction else ""
 }
 
