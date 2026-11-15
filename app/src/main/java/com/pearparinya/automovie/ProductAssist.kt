@@ -48,7 +48,7 @@ internal object ProductAssist {
             panel.addView(head,LinearLayout.LayoutParams(-1,-2).apply { topMargin=16; bottomMargin=8 })
         }
         val flowStatus=TextView(activity).apply {
-            text="① เลือกประเภท ✓   •   ② พร้อมค้นหา"; setTextColor(Color.rgb(255,196,77)); textSize=15f; setPadding(8,8,8,8)
+            text=if(prefs.getString("source_url", "").isNullOrBlank()) "① เลือกประเภท ✓   •   ② พร้อมค้นหา" else "③ มีสินค้าที่เลือกไว้ • ตรวจหน้าร้านอีกครั้ง"; setTextColor(Color.rgb(255,196,77)); textSize=15f; setPadding(8,8,8,8)
             panel.addView(this)
         }
         step("①", "ประเภทสินค้า", "เลือกหมวดและแก้คำค้นได้")
@@ -91,6 +91,7 @@ internal object ProductAssist {
             } }
             manual.visibility=android.view.View.GONE; advancedViews.add(manual); panel.addView(manual)
         }
+        step("③", "เลือกสินค้า 1 ชิ้น", "ผลค้นหาจะปรากฏเป็นรายการให้เลือก")
         step("④", "ตรวจสินค้าและลิงก์", "ตรวจความพร้อมจำหน่ายในหน้าร้านก่อนใช้งาน")
         label("สถานะสินค้า: ยังไม่ได้ตรวจความพร้อมจำหน่าย")
         val links = listOf("TikTok Shop", "Shopee", "Lazada").mapIndexed { i, name -> field("ลิงก์ Affiliate $name (หากมี)", prefs.getString("link$i", "").orEmpty()) }
