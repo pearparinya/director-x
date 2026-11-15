@@ -87,6 +87,9 @@ class ApiTestCenterActivity : Activity() {
         val simulation = text("ยังไม่ได้ทดสอบ", 15f)
         result.addView(simulation)
         root.addView(result)
+        // Keep safe, credit-free simulations beside their result, before live API actions.
+        val simulationActions = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        result.addView(simulationActions)
         val liveReport = card()
         liveReport.addView(text("ทดสอบการเชื่อมต่อจริง (กดเองเท่านั้น)", 18f, true))
         val liveStatus = text("ยังไม่ได้ทดสอบออนไลน์", 14f)
@@ -193,6 +196,30 @@ class ApiTestCenterActivity : Activity() {
                 }
             }
         }
+        fun simulate(status: Int) {
+            val enabled = StoryProvider.activeProviders.filter { it.id in StoryProvider.allowedIds(this) }.toSet()
+            val configured = StoryProvider.activeProviders.filter { it.hasKey(this) }.toSet()
+            val next = StoryApiDiagnostics.simulateFallback(
+                StoryProvider.selected(this), enabled, configured, approved(),
+                status, order = order()
+            )
+            simulation.text = if (next == null)
+                "HTTP $status: ไม่สลับ API (ไม่มีตัวสำรองที่ผ่านเงื่อนไข หรือรหัสข้อผิดพลาดไม่อนุญาต)"
+            else "HTTP $status: จำลองเลือก ${next.label} เป็นตัวสำรอง • ไม่ได้เรียก API จริง"
+        }
+        simulationActions.addView(Button(this).apply {
+            text = "จำลอง HTTP 429 (จำกัดคำขอ)"
+            setOnClickListener { simulate(429) }
+        })
+        simulationActions.addView(Button(this).apply {
+            text = "จำลอง HTTP 401 (ต้องไม่สลับ)"
+            setOnClickListener { simulate(401) }
+        })
+        simulationActions.addView(Button(this).apply {
+            text = "จำลอง HTTP 503 (บริการไม่พร้อม)"
+            setOnClickListener { simulate(503) }
+        })
+
         StoryProvider.activeProviders.forEach { provider ->
             root.addView(Button(this).apply {
                 text = "ทดสอบออนไลน์: ${provider.label}"
@@ -213,29 +240,6 @@ class ApiTestCenterActivity : Activity() {
         root.addView(Button(this).apply {
             text = "ตรวจสอบสถานะใหม่ (ออฟไลน์)"
             setOnClickListener { refresh() }
-        })
-        fun simulate(status: Int) {
-            val enabled = StoryProvider.activeProviders.filter { it.id in StoryProvider.allowedIds(this) }.toSet()
-            val configured = StoryProvider.activeProviders.filter { it.hasKey(this) }.toSet()
-            val next = StoryApiDiagnostics.simulateFallback(
-                StoryProvider.selected(this), enabled, configured, approved(),
-                status, order = order()
-            )
-            simulation.text = if (next == null)
-                "HTTP $status: ไม่สลับ API (ไม่มีตัวสำรองที่ผ่านเงื่อนไข หรือรหัสข้อผิดพลาดไม่อนุญาต)"
-            else "HTTP $status: จำลองเลือก ${next.label} เป็นตัวสำรอง • ไม่ได้เรียก API จริง"
-        }
-        root.addView(Button(this).apply {
-            text = "จำลอง HTTP 429 (จำกัดคำขอ)"
-            setOnClickListener { simulate(429) }
-        })
-        root.addView(Button(this).apply {
-            text = "จำลอง HTTP 401 (ต้องไม่สลับ)"
-            setOnClickListener { simulate(401) }
-        })
-        root.addView(Button(this).apply {
-            text = "จำลอง HTTP 503 (บริการไม่พร้อม)"
-            setOnClickListener { simulate(503) }
         })
         refresh()
         setContentView(ScrollView(this).apply { addView(root) })
