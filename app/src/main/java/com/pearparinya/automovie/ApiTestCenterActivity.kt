@@ -72,9 +72,9 @@ class ApiTestCenterActivity : Activity() {
         }
         root.addView(text("API TEST CENTER", 25f, true))
         root.addView(text("ตรวจสอบและจำลองการสลับ API แบบออฟไลน์", 16f))
-        root.addView(text("ไม่มีการเชื่อมต่อ API • ไม่ใช้เครดิต • ไม่แสดงคีย์", 13f))
+        root.addView(text("การจำลองไม่ใช้เครดิต • ทดสอบออนไลน์ส่งคำขอจริงเมื่อกดยืนยัน • ไม่แสดงคีย์", 13f))
         root.addView(text("การอนุญาตในหน้านี้ใช้กับการจำลองเท่านั้น ยังไม่เปิดการสลับ API ในงานเขียนบทจริง", 13f, true))
-        root.addView(text("ทดสอบออนไลน์จะส่งคำขอสร้าง JSON สั้น ๆ ไปยังผู้ให้บริการและอาจใช้โควตา • ไม่มีการทดสอบอัตโนมัติ", 13f, true))
+        root.addView(text("ทดสอบออนไลน์ต้องเปิดผู้ให้บริการและตั้งค่า API Key ก่อน • อาจใช้โควตา • ไม่มีการทดสอบอัตโนมัติ", 13f, true))
 
         val providers = card()
         providers.addView(text("สิทธิ์ API สำรองและลำดับการทดลอง", 18f, true))
@@ -92,7 +92,7 @@ class ApiTestCenterActivity : Activity() {
         result.addView(simulationActions)
         val liveReport = card()
         liveReport.addView(text("ทดสอบการเชื่อมต่อจริง (กดเองเท่านั้น)", 18f, true))
-        val liveStatus = text("ยังไม่ได้ทดสอบออนไลน์", 14f)
+        val liveStatus = text("ยังไม่ได้ทดสอบออนไลน์ • ตรวจสอบ API Key และการเปิดใช้งานในหน้าตั้งค่า API", 14f)
         liveReport.addView(liveStatus)
         root.addView(liveReport)
 
@@ -223,7 +223,23 @@ class ApiTestCenterActivity : Activity() {
         StoryProvider.activeProviders.forEach { provider ->
             root.addView(Button(this).apply {
                 text = "ทดสอบออนไลน์: ${provider.label}"
-                setOnClickListener { runProbe(listOf(provider)) }
+                val ready = provider.hasKey(this@ApiTestCenterActivity) &&
+                    provider.id in StoryProvider.allowedIds(this@ApiTestCenterActivity)
+                isEnabled = ready
+                if (ready) {
+                    backgroundTintList = android.content.res.ColorStateList.valueOf(gold)
+                    setTextColor(navy)
+                } else {
+                    text = "ตั้งค่า API ก่อนทดสอบ: ${provider.label}"
+                }
+                setOnClickListener {
+                    android.app.AlertDialog.Builder(this@ApiTestCenterActivity)
+                        .setTitle("ยืนยันการทดสอบ ${provider.label}")
+                        .setMessage("จะส่งคำขอออนไลน์จริง 1 ครั้งไปยัง ${provider.label} ซึ่งอาจใช้โควตา API โดยไม่ลองซ้ำอัตโนมัติ")
+                        .setNegativeButton("ยกเลิก", null)
+                        .setPositiveButton("ทดสอบ") { _, _ -> runProbe(listOf(provider)) }
+                        .show()
+                }
             })
         }
         root.addView(Button(this).apply {
