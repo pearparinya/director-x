@@ -8,6 +8,17 @@ class FlowScenePromptTest {
     private val rin=FlowPerson("รินรดา","long-haired woman","right","pink top")
     private fun scene(speaker: String="เมย์", dialogue: String="พี่ริน หนูเป็นน้องสาวของพี่", narration: String="ไม่มี") =
         FlowSceneSpec(listOf(may,rin),speaker,dialogue,narration,"May slides the envelope","living room","Envelope in the center","Envelope near Rinlada",8,"9:16")
+    @Test fun conflictingDayAndNightAmbienceRequiresReview() {
+        val issue = FlowScenePrompt.issues(scene().copy(startState="daylight forest", sound="forest night insects"))
+        assertTrue(issue.any { it.contains("กลางวัน") && it.contains("กลางคืน") })
+        assertTrue(FlowScenePrompt.issues(scene().copy(startState="daylight forest", sound="daytime birds")).isEmpty())
+    }
+    @Test fun apostrophesStayReadableAndXmlEscapingRemainsValid() {
+        val prompt = FlowScenePrompt.build(scene(dialogue="it's A & B"))
+        assertFalse(prompt.contains("&apos;"))
+        val doc = javax.xml.parsers.DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(java.io.ByteArrayInputStream(prompt.toByteArray(Charsets.UTF_8)))
+        assertEquals("it's A & B", doc.getElementsByTagName("text").item(0).textContent)
+    }
     @Test fun speakerIsBoundToAppearanceAndListenersStaySilent() {
         val prompt=FlowScenePrompt.build(scene())
         assertTrue(prompt.contains("<dialogue>"))

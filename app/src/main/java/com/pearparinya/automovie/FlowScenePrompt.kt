@@ -18,7 +18,7 @@ internal data class FlowSceneSpec(
 }
 
 internal object ScenePropContinuity {
-    const val video = "Use only the props and objects already visible in the attached first frame. Do not introduce, generate, reveal, or bring any new object into the scene during the shot; nothing materializes or pops into view. Existing objects may be handled and temporarily occluded naturally. If an action requires an object missing from the first frame, revise the action or first frame before generating the video."
+    const val video = "Use only the props and objects already visible in the attached first frame. Do not introduce, generate, reveal, or bring any new object into the scene during the shot; nothing materializes or pops into view. Existing objects may be handled and temporarily occluded naturally. If an action requires an object missing from the first frame, preserve the story event and revise the first frame or split the scene before generating. When discovery is essential, ensure part of the object is visible in the first frame."
     const val planning = "PROP CONTINUITY: Include every object needed for the action in the scene's start_state and first-frame image. During the shot do not introduce, create, reveal or bring in any object absent from the first frame. Existing objects may move or be temporarily occluded naturally."
 }
 
@@ -42,6 +42,9 @@ internal object FlowScenePrompt {
     }
     private fun speech(value: String) = value.trim().takeUnless { it in listOf("", "ไม่มี", "ไม่มีเสียงบรรยาย", "none", "None") }.orEmpty()
     fun issues(s: FlowSceneSpec): List<String> = buildList {
+        val startDay = Regex("\\b(daylight|daytime|midday)\\b|กลางวัน", RegexOption.IGNORE_CASE).containsMatchIn(s.startState)
+        val soundNight = Regex("\\b(night|nighttime|midnight)\\b|กลางคืน", RegexOption.IGNORE_CASE).containsMatchIn(s.sound)
+        if(startDay && soundNight) add("ภาพเริ่มต้นระบุกลางวัน แต่เสียงระบุกลางคืน • กรุณาตรวจข้อมูลซีน")
         if(s.aspect!=LandscapeProduction.ASPECT) add("คำสั่งวิดีโอต้องเป็นแนวตั้ง 9:16")
         unknownActionNames(s).forEach { add("พบชื่อภาษาอังกฤษ '$it' ที่ยังจับคู่ตัวละครไม่ได้ ใน flow_action ให้แก้เป็นชื่อตัวละครภาษาไทยตามรายชื่อในซีน แล้วเปิดคำสั่งใหม่") }
         if (s.cast.isEmpty() && speech(s.dialogue).isNotEmpty()) add("ระบุตัวละครที่ปรากฏในภาพฉากนี้")
@@ -85,7 +88,7 @@ internal object FlowScenePrompt {
             match.value.equals("open hands", ignoreCase=true)
         }.map { it.groupValues[1] }.filter { it.lowercase() !in known && it.lowercase() !in generic }.distinct().toList()
     }
-    private fun xml(value: String) = value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&apos;")
+    private fun xml(value: String) = value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 
     /** A prompt, not a Flow API schema. The image must still be attached in Flow. */
     fun build(s: FlowSceneSpec, id: String = "scene", camera: String = "Slow, gentle pan."): String {

@@ -3587,15 +3587,17 @@ $context"""
             stepHeader("1","AI คิดเรื่องจากแนวที่เลือก",Color.rgb(34,105,160))
             panel.addView(TextView(this).apply { text="ล็อกแนวคิดเรื่องแล้ว • AI จะคิดเรื่องจากหมวดและสถานการณ์ที่เลือก"; setTextColor(Color.WHITE); setPadding(dp(12),dp(8),dp(12),dp(8)) })
             val needsFacts=ChannelCatalog.allCategories[index].id in setOf("pia_benefits","pia_safety","pia_products")
-            val secondaryGenre = SecondaryGenreControl(this, panel, needsFacts)
+            val secondaryGenre = SecondaryGenreControl(this, panel, needsFacts, categories[index], selectedStoryTopic)
             val premise=EditText(this).apply {
                 hint="ข้อมูลจริงและแหล่งอ้างอิงที่ตรวจสอบแล้ว"
                 maxLines=4
                 if(needsFacts) panel.addView(this)
             }
             if(needsFacts) panel.addView(TextView(this).apply { text="หมวดนี้ต้องระบุข้อมูลจริงที่ตรวจสอบแล้ว • AI จะใช้สร้างบท ไม่แต่งข้อมูลสินค้า ความปลอดภัย หรือสิทธิประโยชน์เอง"; setTextColor(Color.WHITE); setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(149,54,40)) })
+            var productButton: Button? = null
             if(ChannelCatalog.allCategories[index].id=="pia_products") {
-                panel.addView(Button(this).apply { text="ค้นหาสินค้า • รับลิงก์ Affiliate"; colorAction(this,Color.rgb(34,105,160)); setOnClickListener { ProductAssist.show(this@StudioActivity,premise,selectedStoryTopic) } })
+                productButton=Button(this).apply { text="ค้นหาสินค้า • รับลิงก์ Affiliate"; colorAction(this,Color.rgb(34,105,160)); setOnClickListener { ProductAssist.show(this@StudioActivity,premise,selectedStoryTopic) } }
+                panel.addView(productButton)
                 panel.addView(Button(this).apply { text="ดูตัวอย่างโฆษณาสินค้า TikTok"; colorAction(this,Color.rgb(225,161,35),true); setOnClickListener {
                     runCatching { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://ads.tiktok.com/business/creativecenter/inspiration/topads/pc/en?region=TH"))) }.onFailure { notice("เปิด TikTok Creative Center ไม่ได้") }
                 } })
@@ -3618,6 +3620,10 @@ $context"""
                 if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenters.length()>0 && presenters.getJSONObject(0).optString("id")==piaActorId) setSelection(1)
             }
             presenter.visibility=android.view.View.GONE
+            if (chosenChannel=="นายเปีย บ้านคลองขุด") panel.addView(TextView(this).apply {
+                text=if (presenters.length()>0) "ตัวละครหลัก: นายเปีย บ้านคลองขุด ✓" else "ไม่พบ MASTER นายเปีย • กรุณาตรวจคลังตัวละคร"
+                setTextColor(Color.WHITE); setPadding(dp(8),dp(8),dp(8),dp(8))
+            })
             val presenterButton=Button(this).apply {
                 fun updateLabel() { text=(if(chosenChannel=="นายเปีย บ้านคลองขุด") "ตัวละครหลัก (ต้องเลือก): " else "ตัวละครหลัก (ไม่บังคับ): ")+presenter.selectedItem.toString() }
                 updateLabel()
@@ -3627,6 +3633,11 @@ $context"""
                     }
                     chooseNamedCharacterGrid("เลือกตัวละครหลัก",items) { i -> presenter.setSelection(i); updateLabel() }
                 }
+            }
+            if (chosenChannel=="นายเปีย บ้านคลองขุด") {
+                presenterButton.text="ตัวละครหลัก: นายเปีย บ้านคลองขุด ✓"
+                presenterButton.setOnClickListener(null)
+                presenterButton.isEnabled=false
             }
             presenterButton.visibility=android.view.View.GONE
             colorAction(presenterButton,Color.rgb(62,86,110))
@@ -3653,7 +3664,7 @@ $context"""
                 handler.post(tick)
                 return dialog to current
             }
-            val selectedActors=linkedSetOf<String>()
+            val selectedActors=linkedSetOf<String>().apply { if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenters.length()>0) add(piaActorId) }
             val selectedProps=linkedMapOf<String,String>()
             val proposedProps=linkedMapOf<String,String>()
             var automaticEquipmentUnresolved=false
@@ -4006,10 +4017,14 @@ $context"""
             val createDialog=AlertDialog.Builder(this).setTitle(if(autoDirector) "DIRECTOR X • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป",null)
                 .setNeutralButton(if(autoDirector) "กลับเมนู DIRECTOR X" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
+            if (productButton != null && getSharedPreferences("product_assist", MODE_PRIVATE).getString("shared_link", "").isNullOrBlank()) {
+                createDialog.window?.decorView?.post { if (createDialog.isShowing && !isFinishing && !isDestroyed) ProductAssist.show(this@StudioActivity,premise,selectedStoryTopic,true) }
+            }
             automaticCreate={ if(createDialog.isShowing && !isFinishing && !isDestroyed) createDialog.getButton(-1).performClick() }
             createDialog.getButton(-1).setOnClickListener {
                     runCatching {
                         if(ChannelCatalog.allCategories[index].id in setOf("pia_benefits","pia_safety","pia_products")) require(premise.text.toString().trim().isNotEmpty()) { "กรุณาระบุข้อมูลที่ตรวจสอบแล้วหรือรายละเอียดสินค้าก่อนสร้างบท" }
+                        require(secondaryGenre.ready) { "กรุณารอ AI เลือกแนวรอง หรือเลือกแนวรองเอง" }
                         require(!autoRunning) { "AI กำลังเลือกตัวละครและอุปกรณ์ • กรุณารอหรือยกเลิก" }
                         require(selectedActors.isNotEmpty()) { "กรุณาเลือกตัวละครด้วย AI หรือเลือกจาก MASTER ก่อนสร้างบท" }
                         require(!automaticEquipmentUnresolved) { "การเลือกอุปกรณ์อัตโนมัติยังไม่เสร็จหรือจับคู่ไม่ได้ • ลองใหม่หรือเลือกอุปกรณ์ด้วยตนเอง" }

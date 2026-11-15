@@ -3,7 +3,7 @@ package com.pearparinya.automovie
 /** English scene direction with original speech. Never guess or delete untranslated instructions. */
 internal object ShortFlowPrompt {
     private val thai=Regex("[\\u0E00-\\u0E7F]")
-    private fun xml(v: String)=v.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;")
+    private fun xml(v: String)=v.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;")
     private fun spoken(v: String)=v.trim().takeUnless { it.isBlank() || it.equals("none",true) || it=="ไม่มี" || it=="ไม่มีเสียงบรรยาย" }.orEmpty()
     private fun aliases(s: FlowSceneSpec, source: String): String {
         var result=source

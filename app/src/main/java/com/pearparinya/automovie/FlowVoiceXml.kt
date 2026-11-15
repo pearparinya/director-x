@@ -8,7 +8,7 @@ internal object ThaiSpeechPacing {
 
 internal object FlowVoiceXml {
     internal const val accent = "The speaker speaks Thai with a natural Central Thai accent."
-    private fun xml(v: String)=v.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;")
+    private fun xml(v: String)=v.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;")
     private fun spoken(v: String)=v.trim().takeUnless { it.isBlank() || it.equals("none",true) || it=="ไม่มี" || it=="ไม่มีเสียงบรรยาย" }.orEmpty()
     fun build(s: FlowSceneSpec, camera: String): String {
         require(FlowScenePrompt.issues(s).isEmpty()) { "ตรวจข้อมูลซีนก่อนสร้างคำสั่ง" }
