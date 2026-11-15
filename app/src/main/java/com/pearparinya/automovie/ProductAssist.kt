@@ -22,6 +22,12 @@ import org.json.JSONObject
 
 /** User-confirmed product facts; store original affiliate links without rewriting them. */
 internal object ProductAssist {
+    private var sharedReceiver: ((String) -> Unit)? = null
+    fun deliverSharedLink(url: String): Boolean {
+        val receiver=sharedReceiver ?: return false
+        receiver(url)
+        return true
+    }
     fun confirmedProduct(activity: Activity, premise: String): JSONObject? {
         val prefs = activity.getSharedPreferences("product_assist", Activity.MODE_PRIVATE)
         if (prefs.getString("confirmed_premise", null) != premise) return null
@@ -32,34 +38,65 @@ internal object ProductAssist {
         val panel = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; setPadding(24, 16, 24, 16) }
         fun label(text: String) { panel.addView(TextView(activity).apply { this.text = text; textSize = 15f }) }
         fun field(hintText: String, value: String): EditText = EditText(activity).apply { hint = hintText; setText(value); panel.addView(this) }
-        label("ค้นหาในร้าน แล้วแชร์หรือคัดลอกลิงก์กลับมา • ตรวจว่าเป็นสินค้าเดียวกันก่อนรวมลิงก์ • แอปตรวจสิทธิค่าคอมมิชชันไม่ได้")
+        fun step(number: String, title: String, detail: String) {
+            val head=LinearLayout(activity).apply {
+                orientation=LinearLayout.VERTICAL; setPadding(20,14,20,14)
+                background=GradientDrawable().apply { setColor(Color.rgb(7,57,91)); cornerRadius=18f }
+                addView(TextView(activity).apply { text="$number  $title"; textSize=18f; setTypeface(null,Typeface.BOLD); setTextColor(Color.rgb(255,198,83)) })
+                addView(TextView(activity).apply { text=detail; textSize=13f; setTextColor(Color.WHITE) })
+            }
+            panel.addView(head,LinearLayout.LayoutParams(-1,-2).apply { topMargin=16; bottomMargin=8 })
+        }
+        val flowStatus=TextView(activity).apply {
+            text=if(prefs.getString("source_url", "").isNullOrBlank()) "① เลือกประเภท ✓   •   ② พร้อมค้นหา" else "③ มีสินค้าที่เลือกไว้ • ตรวจหน้าร้านอีกครั้ง"; setTextColor(Color.rgb(255,196,77)); textSize=15f; setPadding(8,8,8,8)
+            panel.addView(this)
+        }
+        step("①", "ประเภทสินค้า", "เลือกหมวดและแก้คำค้นได้")
+        label("ค้นหาในร้าน แล้วแชร์ลิงก์กลับมา • ตรวจว่าเป็นสินค้าเดียวกัน • แอปตรวจค่าคอมมิชชันไม่ได้")
         label("Shopee: ลิงก์ Affiliate ใหม่มักขึ้นต้น s.shopee.co.th ส่วน shope.ee และ th.shp.ee อาจเป็นลิงก์ทั่วไป โปรดสร้างและตรวจในโปรแกรม Affiliate")
         label("ข้อมูลที่บันทึกไว้อาจเป็นสินค้าเดิม โปรดตรวจและแก้ให้ตรงก่อนยืนยัน")
-        val query = field("ค้นหาสินค้า", topic)
-        label("เลือกแพลตฟอร์มสำหรับค้นหาด้วย AI")
+        val query = field("ค้นหาสินค้า", if(prefs.getString("draft_topic",null)==topic) prefs.getString("draft_query",topic).orEmpty() else topic)
+        prefs.edit().putString("draft_topic",topic).apply()
+        step("②", "ค้นหาสินค้า", "เลือกทั้ง 3 ร้านหรือร้านเดียว • อาจใช้โควตา API")
+        label("เลือกร้านที่ต้องการค้น")
         val platform = Spinner(activity).apply {
-            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, listOf("TikTok Shop", "Shopee", "Lazada"))
+            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, listOf("ทั้ง 3 ร้าน", "TikTok Shop", "Shopee", "Lazada"))
             panel.addView(this)
         }
         val searchButton = Button(activity).apply {
-            text = "✦ ให้ AI ค้นหาสินค้า 5 รายการ"
+            text = "✦ ค้นหาสินค้า สูงสุด 5 รายการ"
             setTextColor(Color.WHITE); textSize = 16f; setTypeface(null, Typeface.BOLD)
             backgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(0, 106, 155))
             panel.addView(this)
         }
+        val advancedViews=mutableListOf<android.view.View>()
+        panel.addView(Button(activity).apply {
+            text="⚙ ตัวเลือกเพิ่มเติม"; isAllCaps=false
+            setOnClickListener {
+                val open=advancedViews.any { it.visibility!=android.view.View.VISIBLE }
+                advancedViews.forEach { it.visibility=if(open) android.view.View.VISIBLE else android.view.View.GONE }
+                text=if(open) "⚙ ซ่อนตัวเลือกเพิ่มเติม" else "⚙ ตัวเลือกเพิ่มเติม"
+            }
+        })
         val engine = Spinner(activity).apply {
             adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, listOf("Gemini 5 โปรเจกต์ → OpenRouter", "OpenRouter เท่านั้น"))
-            panel.addView(this)
+            panel.addView(this); visibility=android.view.View.GONE; advancedViews.add(this)
         }
         label("ค้นด้วย API ที่ตั้งค่าไว้ • อาจมีค่าใช้จ่าย • ผลลัพธ์ขึ้นอยู่กับข้อมูลสาธารณะ")
         listOf("TikTok Shop" to "https://www.tiktok.com/search?q=", "Shopee" to "https://shopee.co.th/search?keyword=", "Lazada" to "https://www.lazada.co.th/catalog/?q=").forEach { (name, url) ->
-            panel.addView(Button(activity).apply { text = "ค้นหาใน $name"; setOnClickListener {
+            val manual = Button(activity).apply { text = "ค้นหาใน $name"; setOnClickListener {
                 val encoded = URLEncoder.encode(query.text.toString().trim(), "UTF-8")
                 runCatching { activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url + encoded))) }
                     .onFailure { AlertDialog.Builder(activity).setMessage("เปิดหน้าค้นหาไม่ได้ กรุณาเปิดแอป $name ด้วยตนเอง").setPositiveButton("ตกลง", null).show() }
-            } })
+            } }
+            manual.visibility=android.view.View.GONE; advancedViews.add(manual); panel.addView(manual)
         }
+        step("③", "เลือกสินค้า 1 ชิ้น", "ผลค้นหาจะปรากฏเป็นรายการให้เลือก")
+        step("④", "ตรวจสินค้าและลิงก์", "ตรวจความพร้อมจำหน่ายในหน้าร้านก่อนใช้งาน")
+        label("สถานะสินค้า: ยังไม่ได้ตรวจความพร้อมจำหน่าย")
         val links = listOf("TikTok Shop", "Shopee", "Lazada").mapIndexed { i, name -> field("ลิงก์ Affiliate $name (หากมี)", prefs.getString("link$i", "").orEmpty()) }
+        links.forEach { it.visibility=android.view.View.GONE; advancedViews.add(it) }
+        val sharedStatus=TextView(activity).apply { text="ลิงก์ Affiliate: ยังไม่ได้ตรวจสอบ"; setTextColor(Color.rgb(255,196,77)); panel.addView(this) }
         val shared = prefs.getString("shared_link", "").orEmpty()
         if (shared.isNotBlank()) {
             label("ลิงก์ที่แชร์เข้ามา: $shared")
@@ -75,6 +112,23 @@ internal object ProductAssist {
         val facts = field("คุณสมบัติ วิธีใช้ และข้อสังเกตที่ตรวจแล้ว", prefs.getString("facts", "").orEmpty())
         val rating = field("คะแนนและจำนวนรีวิว (ถ้ามี พร้อมแหล่งที่มา)", prefs.getString("rating", "").orEmpty())
         val experience = field("ประสบการณ์ใช้จริงของคุณ (ถ้ามี)", prefs.getString("experience", "").orEmpty())
+        listOf(rating,experience).forEach { it.visibility=android.view.View.GONE; advancedViews.add(it) }
+        fun saveDraft(key: String, edit: EditText) {
+            edit.addTextChangedListener(object: android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { prefs.edit().putString(key,s?.toString().orEmpty()).apply() }
+                override fun afterTextChanged(s: android.text.Editable?) {}
+            })
+        }
+        saveDraft("draft_query",query); saveDraft("source_url",source); saveDraft("name",name); saveDraft("facts",facts)
+        saveDraft("rating",rating); saveDraft("experience",experience); links.forEachIndexed { i, edit -> saveDraft("link$i",edit) }
+        val receiver: (String) -> Unit = { received ->
+            AlertDialog.Builder(activity).setTitle("ได้รับลิงก์แล้ว")
+                .setMessage("เลือกช่อง Affiliate ที่ต้องการบันทึก แล้วตรวจว่าลิงก์ตรงกับสินค้าที่เลือก ระบบยังไม่ได้ตรวจค่าคอมมิชชัน")
+                .setItems(arrayOf("TikTok Shop","Shopee","Lazada")) { _, index -> links[index].setText(received); sharedStatus.text="ได้รับลิงก์ ${listOf("TikTok Shop","Shopee","Lazada")[index]} แล้ว • ตรวจให้ตรงสินค้า"; flowStatus.text="④ ได้รับลิงก์ ✓   •   ⑤ ตรวจข้อมูลก่อนยืนยัน"; prefs.edit().remove("shared_link").apply() }
+                .setNegativeButton("ภายหลัง",null).show()
+        }
+        sharedReceiver=receiver
         searchButton.setOnClickListener {
             val searchText = query.text.toString().trim(); val selectedPlatform = platform.selectedItemPosition; val selectedEngine = engine.selectedItemPosition
             if (searchText.isBlank()) {
@@ -82,28 +136,35 @@ internal object ProductAssist {
                 return@setOnClickListener
             }
             val control=ProductSearchControl()
-            val attempts=mutableListOf<ProductSearchRotation.Attempt>()
             val allowed=StoryProvider.allowedIds(activity)
-            if(selectedEngine==0 && "gemini" in allowed) {
-                (0..4).forEach { slot ->
-                    val settings=GeminiSettings(activity,StoryProvider.GEMINI,slot)
-                    if(settings.hasSaved()) attempts.add(ProductSearchRotation.Attempt("Gemini ชุดที่ ${slot+1}/5") {
-                        val key=runCatching { settings.key() }.getOrElse { throw ProductSearchError("อ่านคีย์บนเครื่องไม่ได้") }
-                        if(key.isBlank()) throw ProductSearchError("ยังไม่ได้ตั้งค่าคีย์")
-                        val model=activity.getSharedPreferences("gemini_key_pool",Activity.MODE_PRIVATE).getString("model",null)?.takeIf { it.isNotBlank() } ?: settings.model()
-                        GeminiProductSearch.search(activity.applicationContext,searchText,selectedPlatform,key,control,model)
-                    })
+            val stores=if(selectedPlatform==0) listOf(0,1,2) else listOf(selectedPlatform-1)
+            val storeNames=listOf("TikTok Shop","Shopee","Lazada")
+            fun attemptsForStore(store: Int): List<ProductSearchRotation.Attempt> {
+                val attempts=mutableListOf<ProductSearchRotation.Attempt>()
+                if(selectedEngine==0 && "gemini" in allowed) {
+                    (0..4).forEach { slot ->
+                        val settings=GeminiSettings(activity,StoryProvider.GEMINI,slot)
+                        if(settings.hasSaved()) attempts.add(ProductSearchRotation.Attempt("Gemini ชุดที่ ${slot+1}/5") {
+                            val key=runCatching { settings.key() }.getOrElse { throw ProductSearchError("อ่านคีย์บนเครื่องไม่ได้") }
+                            if(key.isBlank()) throw ProductSearchError("ยังไม่ได้ตั้งค่าคีย์")
+                            val model=activity.getSharedPreferences("gemini_key_pool",Activity.MODE_PRIVATE).getString("model",null)?.takeIf { it.isNotBlank() } ?: settings.model()
+                            GeminiProductSearch.search(activity.applicationContext,searchText,store,key,control,model)
+                        })
+                    }
                 }
+                val orSettings=ExtraApiSettings(activity, ExtraApiProvider.OPENROUTER)
+                if("openrouter" in allowed && orSettings.hasKey()) attempts.add(ProductSearchRotation.Attempt("OpenRouter") {
+                    ProductSearch.searchOpenRouter(activity.applicationContext,searchText,store,control)
+                })
+                return attempts
             }
-            val orSettings=ExtraApiSettings(activity, ExtraApiProvider.OPENROUTER)
-            if("openrouter" in allowed && orSettings.hasKey()) attempts.add(ProductSearchRotation.Attempt("OpenRouter") {
-                ProductSearch.searchOpenRouter(activity.applicationContext,searchText,selectedPlatform,control)
-            })
-            if(attempts.isEmpty()) {
+            val attemptsByStore=stores.associateWith { attemptsForStore(it) }
+            if(attemptsByStore.values.all { it.isEmpty() }) {
                 AlertDialog.Builder(activity).setTitle("ยังไม่มี API ที่พร้อมค้นหา").setMessage("เพิ่มคีย์ Gemini หรือ OpenRouter และตรวจการตั้งค่า API ก่อนลองใหม่").setPositiveButton("ตกลง",null).show()
                 return@setOnClickListener
             }
             searchButton.isEnabled = false
+            flowStatus.text="① เลือกประเภท ✓   •   ② กำลังค้นหา…"
             val handler=android.os.Handler(android.os.Looper.getMainLooper())
             val started=android.os.SystemClock.elapsedRealtime()
             val progressText=TextView(activity).apply { textSize=18f; setPadding(32,24,32,24); setTextColor(Color.WHITE) }
@@ -127,27 +188,31 @@ internal object ProductAssist {
             progress.setOnShowListener { progress.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener { progress.dismiss() } }
             progress.show(); handler.post(tick)
             Thread {
-                val outcome=runCatching { ProductSearchRotation.run(attempts,control) { index,total,label,state ->
-                    activity.runOnUiThread { if(progress.isShowing && !control.cancelled()) step="$label • $index/$total\n$state" }
+                val outcome=runCatching { ProductMultiSearch.run(stores,control) { store ->
+                    ProductSearchRotation.run(attemptsByStore[store].orEmpty(),control) { index,total,label,state ->
+                        activity.runOnUiThread { if(progress.isShowing && !control.cancelled()) step="${storeNames[store]} • $label • $index/$total\n$state" }
+                    }
                 } }
                 activity.runOnUiThread {
                     if(control.cancelled() || activity.isFinishing || activity.isDestroyed) return@runOnUiThread
                     val found=outcome.getOrNull(); progress.dismiss()
+                    flowStatus.text=if(found?.items?.isNotEmpty()==true) "② ค้นหาเสร็จ ✓   •   ③ เลือกสินค้า" else "② ยังไม่พบสินค้า • ลองค้นใหม่"
                     if(found==null) {
                         AlertDialog.Builder(activity).setTitle("ค้นหาสินค้าไม่สำเร็จ").setMessage("การค้นหาขัดข้อง กรุณาลองใหม่หรือค้นจากร้านโดยตรง").setPositiveButton("ตกลง",null).show()
                     } else {
-                        val products=found.results
+                        val products=found.items
                         if(products.isEmpty()) {
                             AlertDialog.Builder(activity).setTitle("ยังไม่พบสินค้าที่ตรวจแหล่งได้")
-                                .setMessage(found.failures.joinToString("\n").ifBlank { "ไม่พบข้อมูล กรุณาลองค้นใหม่" }+"\n\nลองคำค้นใหม่ ค้นจากร้าน หรือวางลิงก์เองได้")
+                                .setMessage(found.storeReports.joinToString("\n").ifBlank { "ไม่พบข้อมูล กรุณาลองค้นใหม่" }+"\n\nลองคำค้นใหม่ ค้นจากร้าน หรือวางลิงก์เองได้")
                                 .setPositiveButton("ตกลง",null).show()
                         } else {
                             val cards = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; setPadding(20, 12, 20, 12) }
-                            cards.addView(TextView(activity).apply { text = "พบ ${products.size} รายการ • แตะเลือก 1 รายการ แล้วตรวจข้อมูลกับร้านอีกครั้ง"; setPadding(8, 8, 8, 16) })
+                            cards.addView(TextView(activity).apply { text = "③ เลือกสินค้า 1 ชิ้น • พบ ${products.size} รายการ\n"+found.storeReports.joinToString("\n")+"\nสถานะจำหน่าย: ยังไม่ได้ตรวจ"; setPadding(8, 8, 8, 16) })
                             val resultsDialog = AlertDialog.Builder(activity).setTitle("✦ สินค้าที่ค้นพบ").setView(ScrollView(activity).apply { addView(cards) }).setNegativeButton("กลับไปค้นใหม่", null).create()
-                            products.forEachIndexed { index, product ->
+                            products.forEachIndexed { index, item ->
+                                val product=item.product
                                 cards.addView(Button(activity).apply {
-                                    text = "${index + 1}  ${product.name}\n${product.detail.ifBlank { "ดูรายละเอียดจากร้าน" }}\nเปิดตรวจจากลิงก์ต้นทางได้หลังเลือก"
+                                    text = "${index + 1}  ${product.name}\n${storeNames[item.store]} • ยังไม่ได้ตรวจความพร้อมจำหน่าย\n${product.detail.ifBlank { "ดูรายละเอียดจากร้าน" }}"
                                     isAllCaps = false; textSize = 15f; setTextColor(Color.WHITE)
                                     backgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(4, 67, 108))
                                     minHeight = 105
@@ -155,6 +220,8 @@ internal object ProductAssist {
                                         name.setText(product.name); facts.setText(product.detail)
                                         rating.setText(""); experience.setText(""); links.forEach { it.setText("") }
                                         source.setText(product.url)
+                                        flowStatus.text="③ เลือกสินค้าแล้ว ✓   •   ④ ตรวจหน้าร้าน"
+                                        searchButton.text="↻ ค้นหาสินค้าทดแทน"
                                         prefs.edit().putString("source_url", product.url).putString("name", product.name).putString("facts", product.detail)
                                             .putString("link0", "").putString("link1", "").putString("link2", "")
                                             .putString("rating", "").putString("experience", "").remove("shared_link")
@@ -162,7 +229,11 @@ internal object ProductAssist {
                                         resultsDialog.dismiss()
                                         AlertDialog.Builder(activity).setTitle("เลือกสินค้าแล้ว").setMessage("ตรวจชื่อและคุณสมบัติกับร้านก่อนยืนยัน • ลิงก์ที่พบเป็นลิงก์สินค้า กรุณาเปลี่ยนเป็นลิงก์ Affiliate ของคุณหากต้องการค่าคอมมิชชัน") .setPositiveButton("ตกลง", null).show()
                                     }
-                                }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 12 })
+                                }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 10 })
+                                cards.addView(Button(activity).apply {
+                                    text="เปิดดูสินค้า ${index + 1} • ตรวจหน้าร้าน"; isAllCaps=false
+                                    setOnClickListener { runCatching { activity.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(product.url))) }.onFailure { AlertDialog.Builder(activity).setMessage("เปิดหน้าร้านไม่ได้").setPositiveButton("ตกลง",null).show() } }
+                                }, LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=12 })
                             }
                             resultsDialog.show()
                         }
@@ -209,7 +280,7 @@ internal object ProductAssist {
         label("ไม่ต้องใส่ราคา • หากไม่เคยใช้ ให้เว้นประสบการณ์ว่าง • ตรวจข้อมูลก่อนส่งสร้างบท")
         val status = TextView(activity); panel.addView(status)
         panel.addView(Button(activity).apply { text = "ลองอ่านชื่อและคำอธิบายจากลิงก์"; setOnClickListener {
-            val url = links.map { ProductLinkPolicy.firstUrl(it.text.toString()) }.firstOrNull { it.isNotBlank() }.orEmpty()
+            val url = ProductLinkPolicy.firstUrl(source.text.toString()).ifBlank { links.map { ProductLinkPolicy.firstUrl(it.text.toString()) }.firstOrNull { it.isNotBlank() }.orEmpty() }
             if (!ProductLinkPolicy.allowed(url)) { status.text = "ใส่ลิงก์ HTTPS ของร้านที่รองรับก่อน หรือกรอกข้อมูลเอง"; return@setOnClickListener }
             status.text = "กำลังตรวจข้อมูลสาธารณะ…"
             Thread {
@@ -221,6 +292,7 @@ internal object ProductAssist {
                 }
             }.start()
         } })
+        step("⑤", "ยืนยันและสร้างบท", "ตรวจข้อมูลสินค้าและลิงก์ก่อนยืนยัน")
         val dialog = AlertDialog.Builder(activity).setTitle("นายเปียพาช้อป • ข้อมูลสินค้า").setView(ScrollView(activity).apply { addView(panel) })
             .setPositiveButton("ยืนยันข้อมูลใช้สร้างบท", null).setNegativeButton("ยกเลิก", null).create()
         dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
@@ -244,8 +316,9 @@ internal object ProductAssist {
                 premise.setText(confirmed)
                 dialog.dismiss()
             } }
+        dialog.setOnDismissListener { if(sharedReceiver===receiver) sharedReceiver=null }
         dialog.show()
-        if (autoSearch && topic.isNotBlank() && runCatching { GeminiSettings.configured(activity).isNotEmpty() }.getOrDefault(false)) searchButton.post { if (dialog.isShowing) searchButton.performClick() }
+        // Search begins only on the visible button: searching three stores can consume API quota.
     }
 }
 
