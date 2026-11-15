@@ -285,6 +285,44 @@ jobs:
           sha256sum "$RUNNER_TEMP/DIRECTOR-X-${{ steps.app_version.outputs.version }}-release.apk" >> "$GITHUB_STEP_SUMMARY"
 
       # ============================================================
+      # VERIFY PACKAGE AND VERSION INSIDE THE SIGNED APK
+      # ============================================================
+
+      - name: Verify signed APK metadata
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ steps.app_version.outputs.version }}
+          EXPECTED_BUILD: ${{ steps.app_version.outputs.build }}
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/DIRECTOR-X-${EXPECTED_VERSION}-release.apk"
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          AAPT="$BUILD_TOOLS/aapt"
+          test -x "$AAPT" || { echo "::error::aapt is unavailable."; exit 1; }
+          BADGING="$("$AAPT" dump badging "$APK")"
+          PACKAGE_LINE="$(printf '%s\n' "$BADGING" | grep -m1 '^package: ')"
+          test -n "$PACKAGE_LINE" || { echo "::error::APK package metadata missing."; exit 1; }
+          EXPECTED_PACKAGE="com.pearparinya.automovie"
+          [[ "$PACKAGE_LINE" == *"name='$EXPECTED_PACKAGE'"* ]] || {
+            echo "::error::Unexpected APK package name."
+            exit 1
+          }
+          [[ "$PACKAGE_LINE" == *"versionCode='$EXPECTED_BUILD'"* ]] || {
+            echo "::error::APK versionCode does not match Gradle configuration."
+            exit 1
+          }
+          [[ "$PACKAGE_LINE" == *"versionName='$EXPECTED_VERSION'"* ]] || {
+            echo "::error::APK versionName does not match Gradle configuration."
+            exit 1
+          }
+          {
+            echo "### Signed APK package metadata verified"
+            echo "- Package: \`$EXPECTED_PACKAGE\`"
+            echo "- Version: \`$EXPECTED_VERSION\`"
+            echo "- Build: \`$EXPECTED_BUILD\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ============================================================
       # UPLOAD
       # ============================================================
 
