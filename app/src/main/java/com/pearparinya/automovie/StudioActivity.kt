@@ -1102,13 +1102,40 @@ class StudioActivity : AppCompatActivity() {
             gravity = Gravity.END
             setTextColor(gold)
         })
-        versionRow.addView(Button(this).apply {
-            text = "↻ ตรวจสอบอัปเดต"
-            textSize = 11f
-            isAllCaps = false
-            setTextColor(ice)
+        val refreshIcon = TextView(this).apply {
+            text = "↻"; textSize = 20f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+        }
+        val updateLabel = TextView(this).apply {
+            text = "ตรวจสอบอัปเดต"; textSize = 11f; setTextColor(Color.WHITE); gravity = Gravity.CENTER_VERTICAL
+        }
+        val updateButton = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(10), 0, dp(12), 0)
+            background = GradientDrawable().apply { setColor(Color.rgb(0, 135, 42)); cornerRadius = dp(24).toFloat() }
+            isClickable = true; isFocusable = true
+            contentDescription = "ตรวจสอบอัปเดต DIRECTOR X"
+            addView(refreshIcon, LinearLayout.LayoutParams(dp(25), dp(42)))
+            addView(updateLabel)
             setOnClickListener { updater.check(automatic = false) }
-        }, LinearLayout.LayoutParams(-2, dp(48)).apply { marginStart = dp(10) })
+        }
+        versionRow.addView(updateButton, LinearLayout.LayoutParams(-2, dp(42)).apply { marginStart = dp(10) })
+        var spinning: android.animation.ObjectAnimator? = null
+        updater.onStatus = { state ->
+            if (state == "checking") {
+                updateLabel.text = "กำลังตรวจสอบ..."
+                if (spinning == null) spinning = android.animation.ObjectAnimator.ofFloat(refreshIcon, "rotation", 0f, 360f).apply {
+                    duration = 1000L; repeatCount = android.animation.ValueAnimator.INFINITE
+                }
+                spinning?.start()
+            } else {
+                spinning?.cancel(); refreshIcon.rotation = 0f
+                when (state) {
+                    "latest" -> { refreshIcon.text = "✓"; updateLabel.text = "ล่าสุดแล้ว" }
+                    "available" -> { refreshIcon.text = "↓"; updateLabel.text = "มีอัปเดตใหม่" }
+                    else -> { refreshIcon.text = "↻"; updateLabel.text = "ลองอีกครั้ง" }
+                }
+            }
+        }
         root.addView(versionRow, LinearLayout.LayoutParams(-1, -2))
         
         flowHome()
@@ -2997,7 +3024,7 @@ $context"""
         splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
     }
     private fun flowSettings() {
-        choiceMenu("ตั้งค่า DIRECTOR X",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","ตั้งค่า API เขียนบท")) { i -> when(i) {
+        choiceMenu("ตั้งค่า DIRECTOR X",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","ตั้งค่า API")) { i -> when(i) {
             0 -> updater.check()
             1 -> { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
             2 -> if(plan==null) notice("ยังไม่มีเรื่องให้สำรอง") else { backupMode=true; zipPicker.launch(StoryFiles.zipName(plan!!.optString("title")+"_สำรอง")) }
@@ -3006,8 +3033,58 @@ $context"""
                 .setMessage("เรื่องปัจจุบันยังอยู่ในรายการเรื่องที่บันทึก")
                 .setPositiveButton("เริ่มใหม่") { _,_ -> prefs.edit().putString("project",UUID.randomUUID().toString()).apply(); render() }
                 .setNegativeButton("ยกเลิก",null).showDirector()
-            5 -> geminiSettings()
+            5 -> apiSettingsCenter()
         } }
+    }
+    private fun apiSettingsCenter() {
+        choiceMenu("⚙️ ตั้งค่า API", listOf("🎬 API เขียนบท", "🛒 API โหมดนายเปียพาช้อป")) { index ->
+            if (index == 0) geminiSettings() else shoppingApiSettings()
+        }
+    }
+    private fun shoppingApiSettings() {
+        val services = listOf("tavily" to "Tavily", "exa" to "Exa", "serpapi" to "SerpApi", "firecrawl" to "Firecrawl", "longsearch" to "Long Search")
+        val store = FreeSearchSettings(this)
+        choiceMenu("🛒 API โหมดนายเปียพาช้อป", services.map { (id, name) -> "$name • " + if (store.key(id).isNotBlank()) "บันทึกคีย์แล้ว" else "ยังไม่มีคีย์" } + "🧪 ทดสอบ API ที่บันทึก") { selected ->
+            if (selected == services.size) { shoppingApiTest(); return@choiceMenu }
+            val (id, name) = services[selected]
+            val input = EditText(this).apply {
+                hint = "วาง API Key ของ $name"
+                inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                setPadding(dp(18), dp(16), dp(18), dp(16))
+            }
+            val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8)); addView(input) }
+            box.addView(CheckBox(this).apply { text = "แสดง API Key"; setOnCheckedChangeListener { _, checked ->
+                input.inputType = android.text.InputType.TYPE_CLASS_TEXT or (if (checked) android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD else android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD)
+                input.setSelection(input.text.length)
+            } })
+            AlertDialog.Builder(this).setTitle("ตั้งค่า $name").setMessage("คีย์เดิมจะคงอยู่หากไม่กรอกใหม่ • จัดเก็บแบบเข้ารหัสบนเครื่อง")
+                .setView(box)
+                .setPositiveButton("บันทึก") { _, _ ->
+                    val value = input.text.toString().trim()
+                    if (value.isNotEmpty()) runCatching { store.save(id, value) }.onFailure { notice("บันทึกคีย์ไม่สำเร็จ: ตรวจรูปแบบคีย์") }
+                    shoppingApiSettings()
+                }
+                .setNeutralButton("ลบคีย์") { _, _ -> store.clear(id); shoppingApiSettings() }
+                .setNegativeButton("ยกเลิก", null).showDirector()
+        }
+    }
+    private fun shoppingApiTest() {
+        val store = FreeSearchSettings(this)
+        val services = listOf("tavily" to "Tavily", "exa" to "Exa", "serpapi" to "SerpApi", "firecrawl" to "Firecrawl")
+        choiceMenu("🧪 ทดสอบ API ค้นหาสินค้า", services.map { it.second }) { selected ->
+            val (id, name) = services[selected]
+            if (store.key(id).isBlank()) { notice("ยังไม่ได้บันทึก API Key ของ $name"); return@choiceMenu }
+            val progress = AlertDialog.Builder(this).setTitle("ทดสอบ $name").setMessage("กำลังค้นหาสินค้าทดสอบ • อาจใช้โควตา API").setCancelable(false).showDirector()
+            Thread {
+                val result = runCatching { FreeProductSearch.search(applicationContext, id, "แก้วน้ำ", 1, ProductSearchControl()) }
+                runOnUiThread {
+                    progress.dismiss()
+                    if (!isFinishing && !isDestroyed) AlertDialog.Builder(this).setTitle("ผลทดสอบ $name")
+                        .setMessage(result.fold({ "เชื่อมต่อสำเร็จ • พบลิงก์ที่ตรงร้าน ${it.size} รายการ" }, { ProductSearchRotation.friendly(it) }))
+                        .setPositiveButton("ตกลง", null).showDirector()
+                }
+            }.start()
+        }
     }
     private fun readGeminiStatus(): JSONObject? = runCatching { GeminiStoryFiles.read(File(project,"gemini_job/status.json")) }.getOrNull()
     private fun geminiStatusText(status: JSONObject?,details: Boolean=false): String {

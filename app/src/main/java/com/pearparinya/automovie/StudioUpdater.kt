@@ -17,6 +17,8 @@ import java.security.MessageDigest
 
 /** In-place update from the Studio screen; verifies package, version and signer. */
 class StudioUpdater(private val activity: AppCompatActivity) {
+    var onStatus: ((String) -> Unit)? = null
+    private fun status(value: String) { activity.runOnUiThread { if (!activity.isFinishing && !activity.isDestroyed) onStatus?.invoke(value) } }
     private var busy = false
     private var pending: File? = null
     private val permission = activity.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -39,6 +41,7 @@ class StudioUpdater(private val activity: AppCompatActivity) {
     fun check(automatic: Boolean = false) {
         if (busy) return
         busy = true
+        status("checking")
         val dialog = if (automatic) null else AlertDialog.Builder(activity).setIcon(R.drawable.studio_update).setTitle("DIRECTOR X").setMessage("กำลังตรวจสอบรุ่นใหม่…").setCancelable(false).showDirector()
         Thread {
             try {
@@ -57,6 +60,7 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                     url.startsWith("https://github.com/pearparinya/auto-movie-r6-4/releases/download/")) { "แหล่งดาวน์โหลดไม่ถูกต้อง" }
                 activity.runOnUiThread {
                     busy = false; dialog?.dismiss()
+                    status(if (build <= local) "latest" else "available")
                     if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
                     updatePrefs.edit().putLong("last_successful_check", System.currentTimeMillis()).apply()
                     if (automatic && !activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) { lastCheckThisSession = 0L; return@runOnUiThread }
@@ -71,7 +75,7 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                             .setNegativeButton("ภายหลัง") { _,_ -> updatePrefs.edit().putLong("dismissed_build",build).putLong("dismissed_at",System.currentTimeMillis()).apply() }.showDirector()
                     }
                 }
-            } catch (e: Exception) { activity.runOnUiThread { busy = false; dialog?.dismiss(); if (automatic) lastCheckThisSession = 0L; if (!automatic && !activity.isFinishing && !activity.isDestroyed) message("ตรวจสอบอัปเดตไม่สำเร็จ: ${e.message}") } }
+            } catch (e: Exception) { activity.runOnUiThread { busy = false; dialog?.dismiss(); status("error"); if (automatic) lastCheckThisSession = 0L; if (!automatic && !activity.isFinishing && !activity.isDestroyed) message("ตรวจสอบอัปเดตไม่สำเร็จ: ${e.message}") } }
         }.start()
     }
     private fun connect(url: String): HttpURLConnection = (URL(url).openConnection() as HttpURLConnection).apply {
