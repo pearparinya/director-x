@@ -43,6 +43,10 @@ jobs:
             echo "Missing Android version metadata."
             exit 1
           fi
+          if ! [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]] || ! [[ "$BUILD" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Invalid versionName/versionCode format."
+            exit 1
+          fi
           TAG="R${VERSION}-B${BUILD}"
           echo "Checking immutable release: $TAG"
 
@@ -277,6 +281,8 @@ jobs:
             "$RUNNER_TEMP/DIRECTOR-X-${{ steps.app_version.outputs.version }}-release.apk"
 
           echo "DIRECTOR X R${{ steps.app_version.outputs.version }} signature verified."
+          echo "### Signed APK SHA-256" >> "$GITHUB_STEP_SUMMARY"
+          sha256sum "$RUNNER_TEMP/DIRECTOR-X-${{ steps.app_version.outputs.version }}-release.apk" >> "$GITHUB_STEP_SUMMARY"
 
       # ============================================================
       # UPLOAD
@@ -337,5 +343,19 @@ jobs:
             exit 1
           }
 
+          # Download the public release asset and verify that it matches the
+          # locally signed APK byte-for-byte. This catches upload corruption.
+          VERIFY_DIR="$(mktemp -d)"
+          gh release download "$TAG" --pattern "$ASSET_NAME" --dir "$VERIFY_DIR"
+          test -s "$VERIFY_DIR/$ASSET_NAME" || {
+            echo "::error::Published APK is empty or missing."
+            exit 1
+          }
+          cmp -s "$PUBLISH_APK" "$VERIFY_DIR/$ASSET_NAME" || {
+            echo "::error::Published APK differs from the verified signed APK."
+            exit 1
+          }
+          echo "### Published APK integrity verified: $TAG" >> "$GITHUB_STEP_SUMMARY"
+          sha256sum "$VERIFY_DIR/$ASSET_NAME" >> "$GITHUB_STEP_SUMMARY"
           echo "Published and verified $TAG • $ASSET_NAME."
 
