@@ -40,4 +40,42 @@ class StoryFallbackPolicyTest {
             assertFalse("Unexpected fallback for $it", StoryFallbackPolicy.canFallback(it))
         }
     }
+    @Test fun retryBudgetAllowsOnlyOneApprovedBackupByDefault() {
+        val next = StoryFallbackPolicy.nextCandidate(
+            StoryProvider.GROQ, all, all, setOf(StoryProvider.GROQ),
+            setOf(StoryProvider.GEMINI), 429, cancelled = false
+        )
+        assertEquals(StoryProvider.GEMINI, next)
+        assertNull(StoryFallbackPolicy.nextCandidate(
+            StoryProvider.GROQ, all, all,
+            setOf(StoryProvider.GROQ, StoryProvider.GEMINI),
+            setOf(StoryProvider.GEMINI), 429, cancelled = false
+        ))
+    }
+
+    @Test fun cancellationOrNonTransientErrorNeverFallsBack() {
+        for (cancelled in listOf(true, false)) {
+            assertNull(StoryFallbackPolicy.nextCandidate(
+                StoryProvider.GROQ, all, all, setOf(StoryProvider.GROQ),
+                setOf(StoryProvider.GEMINI), 401, cancelled
+            ))
+        }
+        assertNull(StoryFallbackPolicy.nextCandidate(
+            StoryProvider.GROQ, all, all, setOf(StoryProvider.GROQ),
+            setOf(StoryProvider.GEMINI), 503, cancelled = true
+        ))
+    }
+
+    @Test fun primaryMustHaveBeenAttemptedAndBudgetMustBePositive() {
+        assertNull(StoryFallbackPolicy.nextCandidate(
+            StoryProvider.GROQ, all, all, emptySet(),
+            setOf(StoryProvider.GEMINI), 429, cancelled = false
+        ))
+        assertNull(StoryFallbackPolicy.nextCandidate(
+            StoryProvider.GROQ, all, all, setOf(StoryProvider.GROQ),
+            setOf(StoryProvider.GEMINI), 429, cancelled = false,
+            maxTotalAttempts = 1
+        ))
+    }
+
 }
