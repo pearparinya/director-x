@@ -1096,42 +1096,51 @@ class StudioActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL or Gravity.END
         }
+        val installed = packageManager.getPackageInfo(packageName, 0)
         versionRow.addView(TextView(this).apply {
-            text = "DIRECTOR X " + packageManager.getPackageInfo(packageName, 0).versionName
-            textSize = 12f
+            text = "DIRECTOR X ${installed.versionName} • Build ${installed.longVersionCode}"
+            textSize = 11f
             gravity = Gravity.END
             setTextColor(gold)
         })
         val refreshIcon = TextView(this).apply {
-            text = "↻"; textSize = 20f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            text = "↻"; textSize = 16f; setTextColor(Color.rgb(34, 211, 238)); gravity = Gravity.CENTER
         }
         val updateLabel = TextView(this).apply {
-            text = "ตรวจสอบอัปเดต"; textSize = 11f; setTextColor(Color.WHITE); gravity = Gravity.CENTER_VERTICAL
+            text = "ตรวจสอบ"; textSize = 11f
+            setTextColor(Color.rgb(34, 211, 238)); gravity = Gravity.CENTER_VERTICAL
         }
         val updateButton = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(10), 0, dp(12), 0)
-            background = GradientDrawable().apply { setColor(Color.rgb(0, 135, 42)); cornerRadius = dp(24).toFloat() }
+            setPadding(dp(5), 0, dp(5), 0)
             isClickable = true; isFocusable = true
             contentDescription = "ตรวจสอบอัปเดต DIRECTOR X"
-            addView(refreshIcon, LinearLayout.LayoutParams(dp(25), dp(42)))
+            addView(refreshIcon, LinearLayout.LayoutParams(dp(20), dp(42)))
             addView(updateLabel)
             setOnClickListener { updater.check(automatic = false) }
         }
-        versionRow.addView(updateButton, LinearLayout.LayoutParams(-2, dp(42)).apply { marginStart = dp(10) })
+        versionRow.addView(updateButton, LinearLayout.LayoutParams(-2, dp(42)).apply { marginStart = dp(5) })
         var spinning: android.animation.ObjectAnimator? = null
         updater.onStatus = { state ->
             if (state == "checking") {
-                updateLabel.text = "กำลังตรวจสอบ..."
+                refreshIcon.text = "↻"; updateLabel.text = "กำลังตรวจสอบ"
+                val color = Color.rgb(34, 211, 238)
+                refreshIcon.setTextColor(color); updateLabel.setTextColor(color)
                 if (spinning == null) spinning = android.animation.ObjectAnimator.ofFloat(refreshIcon, "rotation", 0f, 360f).apply {
                     duration = 1000L; repeatCount = android.animation.ValueAnimator.INFINITE
                 }
                 spinning?.start()
             } else {
                 spinning?.cancel(); refreshIcon.rotation = 0f
+                val color = when (state) {
+                    "latest" -> Color.rgb(52, 211, 153)
+                    "available" -> Color.rgb(251, 191, 36)
+                    else -> Color.rgb(253, 186, 116)
+                }
+                refreshIcon.setTextColor(color); updateLabel.setTextColor(color)
                 when (state) {
                     "latest" -> { refreshIcon.text = "✓"; updateLabel.text = "ล่าสุดแล้ว" }
-                    "available" -> { refreshIcon.text = "↓"; updateLabel.text = "มีอัปเดตใหม่" }
+                    "available" -> { refreshIcon.text = "↓"; updateLabel.text = "อัปเดตใหม่" }
                     else -> { refreshIcon.text = "↻"; updateLabel.text = "ลองอีกครั้ง" }
                 }
             }
