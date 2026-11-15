@@ -10,7 +10,6 @@ on:
       - 'settings.gradle.kts'
       - 'gradle/**'
       - 'gradle.properties'
-      - 'gradlew'
       - '.github/workflows/verify-on-demand.yml'
   workflow_dispatch:
     inputs:
@@ -39,18 +38,19 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
       - name: Verify preinstalled Android SDK
         run: |
           test -n "${ANDROID_HOME:-}" && test -d "$ANDROID_HOME" || { echo 'Android SDK missing on runner'; exit 1; }
           echo "Android SDK: $ANDROID_HOME"
-      - name: Make Gradle wrapper executable
-        run: chmod +x ./gradlew
+      - name: Install Gradle 8.9 with caching
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
       - name: Run unit tests
-        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest
+        run: gradle --no-daemon --stacktrace testDebugUnitTest
       - name: Compile debug APK when requested
         if: ${{ inputs.build_debug_apk }}
-        run: ./gradlew --no-daemon --stacktrace assembleDebug
+        run: gradle --no-daemon --stacktrace assembleDebug
       - name: Upload debug APK
         if: ${{ inputs.build_debug_apk }}
         uses: actions/upload-artifact@v4
