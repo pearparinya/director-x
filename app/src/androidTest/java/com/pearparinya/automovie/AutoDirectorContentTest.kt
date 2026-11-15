@@ -245,7 +245,7 @@ class AutoDirectorContentTest {
         val scene=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
         fun command()=SimpleProductionCommands.videoTasks(project,1).first().command
         assertTrue(command().contains("Slow, gentle pan"))
-        assertTrue(command().contains("Preserve each character&#39;s identity") || command().contains("Preserve each character&apos;s identity"))
+        assertTrue(command().contains("Preserve each character's identity"))
         assertTrue(command().contains("<speaker>Woman 1</speaker>"))
         scene.put("camera_movement","pan")
         assertTrue(command().contains("Slow, gentle pan"))
