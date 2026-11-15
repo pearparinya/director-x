@@ -27,7 +27,7 @@ internal object ProductAssist {
         if (prefs.getString("confirmed_premise", null) != premise) return null
         return runCatching { JSONObject(prefs.getString("confirmed_product", "").orEmpty()) }.getOrNull()
     }
-    fun show(activity: Activity, premise: EditText, topic: String) {
+    fun show(activity: Activity, premise: EditText, topic: String, autoSearch: Boolean = false) {
         val prefs = activity.getSharedPreferences("product_assist", Activity.MODE_PRIVATE)
         val panel = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; setPadding(24, 16, 24, 16) }
         fun label(text: String) { panel.addView(TextView(activity).apply { this.text = text; textSize = 15f }) }
@@ -47,7 +47,11 @@ internal object ProductAssist {
             backgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(0, 106, 155))
             panel.addView(this)
         }
-        label("ค้นด้วย OpenRouter • อาจมีค่าใช้จ่าย • ผลลัพธ์ขึ้นอยู่กับข้อมูลสาธารณะ")
+        val engine = Spinner(activity).apply {
+            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, listOf("Gemini (ถ้ามี) / ค้นด้วย API ที่พร้อม", "OpenRouter"))
+            panel.addView(this)
+        }
+        label("ค้นด้วย API ที่ตั้งค่าไว้ • อาจมีค่าใช้จ่าย • ผลลัพธ์ขึ้นอยู่กับข้อมูลสาธารณะ")
         listOf("TikTok Shop" to "https://www.tiktok.com/search?q=", "Shopee" to "https://shopee.co.th/search?keyword=", "Lazada" to "https://www.lazada.co.th/catalog/?q=").forEach { (name, url) ->
             panel.addView(Button(activity).apply { text = "ค้นหาใน $name"; setOnClickListener {
                 val encoded = URLEncoder.encode(query.text.toString().trim(), "UTF-8")
@@ -55,34 +59,40 @@ internal object ProductAssist {
                     .onFailure { AlertDialog.Builder(activity).setMessage("เปิดหน้าค้นหาไม่ได้ กรุณาเปิดแอป $name ด้วยตนเอง").setPositiveButton("ตกลง", null).show() }
             } })
         }
-        val links = listOf("TikTok Shop", "Shopee", "Lazada").mapIndexed { i, name -> field("ลิงก์สินค้าหรือ Affiliate $name", prefs.getString("link$i", "").orEmpty()) }
+        val links = listOf("TikTok Shop", "Shopee", "Lazada").mapIndexed { i, name -> field("ลิงก์ Affiliate $name (หากมี)", prefs.getString("link$i", "").orEmpty()) }
         val shared = prefs.getString("shared_link", "").orEmpty()
         if (shared.isNotBlank()) {
             label("ลิงก์ที่แชร์เข้ามา: $shared")
             links.forEachIndexed { i, edit -> panel.addView(Button(activity).apply { text = "ใส่ลิงก์แชร์ในช่อง ${listOf("TikTok", "Shopee", "Lazada")[i]}"; setOnClickListener { edit.setText(shared) } }) }
         }
+        val source = field("ลิงก์สินค้าต้นทาง (ไม่ใช่ลิงก์ Affiliate)", prefs.getString("source_url", "").orEmpty())
+        panel.addView(Button(activity).apply { text = "เปิดสินค้าเพื่อรับลิงก์ Affiliate"; setOnClickListener {
+            val url = ProductLinkPolicy.firstUrl(source.text.toString())
+            if (!ProductLinkPolicy.allowed(url)) AlertDialog.Builder(activity).setMessage("เลือกสินค้าหรือวางลิงก์สินค้าก่อน").setPositiveButton("ตกลง", null).show()
+            else runCatching { activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }.onFailure { AlertDialog.Builder(activity).setMessage("เปิดหน้าสินค้าไม่ได้").setPositiveButton("ตกลง", null).show() }
+        } })
         val name = field("ชื่อสินค้า / ยี่ห้อ / รุ่น", prefs.getString("name", "").orEmpty())
         val facts = field("คุณสมบัติ วิธีใช้ และข้อสังเกตที่ตรวจแล้ว", prefs.getString("facts", "").orEmpty())
         val rating = field("คะแนนและจำนวนรีวิว (ถ้ามี พร้อมแหล่งที่มา)", prefs.getString("rating", "").orEmpty())
         val experience = field("ประสบการณ์ใช้จริงของคุณ (ถ้ามี)", prefs.getString("experience", "").orEmpty())
         searchButton.setOnClickListener {
-            val searchText = query.text.toString().trim(); val selectedPlatform = platform.selectedItemPosition
+            val searchText = query.text.toString().trim(); val selectedPlatform = platform.selectedItemPosition; val selectedEngine = engine.selectedItemPosition
             if (searchText.isBlank()) {
                 AlertDialog.Builder(activity).setMessage("กรุณาระบุคำค้นสินค้า").setPositiveButton("ตกลง", null).show()
                 return@setOnClickListener
             }
             searchButton.isEnabled = false
             val progress = AlertDialog.Builder(activity).setTitle("กำลังค้นหาสินค้า")
-                .setMessage("ค้นข้อมูลสาธารณะด้วย OpenRouter • อาจใช้เวลาสักครู่")
+                .setMessage("ค้นข้อมูลสาธารณะด้วย API • อาจใช้เวลาสักครู่")
                 .setNegativeButton("ปิดหน้าต่าง") { _, _ -> }.show()
             Thread {
-                val result = runCatching { ProductSearch.search(activity.applicationContext, searchText, selectedPlatform) }
+                val result = runCatching { if (selectedEngine == 1) ProductSearch.searchOpenRouter(activity.applicationContext, searchText, selectedPlatform) else ProductSearch.search(activity.applicationContext, searchText, selectedPlatform) }
                 activity.runOnUiThread {
                     searchButton.isEnabled = true
                     if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
                     progress.dismiss()
-                    result.onFailure { error ->
-                        AlertDialog.Builder(activity).setTitle("ค้นหาสินค้าไม่สำเร็จ").setMessage(error.message ?: "กรุณาลองใหม่หรือค้นจากร้านโดยตรง").setPositiveButton("ตกลง", null).show()
+                    result.onFailure {
+                        AlertDialog.Builder(activity).setTitle("ค้นหาสินค้าไม่สำเร็จ").setMessage("ตรวจ API และโควตา แล้วลองใหม่ หรือเลือก OpenRouter / ค้นจากร้านโดยตรง").setPositiveButton("ตกลง", null).show()
                     }.onSuccess { products ->
                         if (products.isEmpty()) {
                             AlertDialog.Builder(activity).setTitle("ยังไม่พบสินค้าที่ตรวจแหล่งได้").setMessage("ลองเปลี่ยนคำค้น หรือค้นจากร้านโดยตรง") .setPositiveButton("ตกลง", null).show()
@@ -99,7 +109,8 @@ internal object ProductAssist {
                                     setOnClickListener {
                                         name.setText(product.name); facts.setText(product.detail)
                                         rating.setText(""); experience.setText(""); links.forEach { it.setText("") }
-                                        links[selectedPlatform].setText(product.url)
+                                        source.setText(product.url)
+                                        prefs.edit().putString("source_url", product.url).putString("name", product.name).putString("facts", product.detail).apply()
                                         resultsDialog.dismiss()
                                         AlertDialog.Builder(activity).setTitle("เลือกสินค้าแล้ว").setMessage("ตรวจชื่อและคุณสมบัติกับร้านก่อนยืนยัน • ลิงก์ที่พบเป็นลิงก์สินค้า กรุณาเปลี่ยนเป็นลิงก์ Affiliate ของคุณหากต้องการค่าคอมมิชชัน") .setPositiveButton("ตกลง", null).show()
                                     }
@@ -113,13 +124,13 @@ internal object ProductAssist {
         }
         label("รายการสินค้าที่เลือกไว้สูงสุด 5 รายการ • ค้นหาและเลือกรายการจากร้านก่อน แล้วบันทึกไว้เปรียบเทียบได้ที่นี่")
         val candidates = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; panel.addView(this) }
-        fun currentProduct(): JSONObject = JSONObject().put("name", name.text.toString().trim())
+        fun currentProduct(): JSONObject = JSONObject().put("source_url", source.text.toString().trim()).put("name", name.text.toString().trim())
             .put("facts", facts.text.toString().trim()).put("rating", rating.text.toString().trim())
             .put("experience", experience.text.toString().trim()).apply {
                 links.forEachIndexed { i, edit -> put("link$i", edit.text.toString().trim()) }
             }
         fun loadProduct(product: JSONObject) {
-            name.setText(product.optString("name")); facts.setText(product.optString("facts"))
+            source.setText(product.optString("source_url")); name.setText(product.optString("name")); facts.setText(product.optString("facts"))
             rating.setText(product.optString("rating")); experience.setText(product.optString("experience"))
             links.forEachIndexed { i, edit -> edit.setText(product.optString("link$i")) }
         }
@@ -173,11 +184,11 @@ internal object ProductAssist {
                     status.text = "ตรวจลิงก์ให้เป็น HTTPS ของร้านที่รองรับ"
                     return@setOnClickListener
                 }
-                val edits = prefs.edit()
+                val edits = prefs.edit().putString("source_url", source.text.toString().trim())
                 links.forEachIndexed { i, edit -> edits.putString("link$i", edit.text.toString().trim()) }
                 edits.putString("name", name.text.toString().trim()).putString("facts", facts.text.toString().trim())
                     .putString("rating", rating.text.toString().trim()).putString("experience", experience.text.toString().trim()).remove("shared_link").apply()
-                val verified = listOf("สินค้า: ${name.text}", "ข้อมูลที่ผู้ใช้ตรวจ: ${facts.text}",
+                val verified = listOf("สินค้า: ${name.text}", "ข้อมูลที่ผู้ใช้ตรวจ: ${facts.text}", if(source.text.isNotBlank()) "แหล่งข้อมูลสินค้า: ${source.text}" else "",
                     if (rating.text.isNotBlank()) "คะแนนที่ผู้ใช้ระบุ: ${rating.text}" else "", if (experience.text.isNotBlank()) "ประสบการณ์ที่ผู้ใช้ระบุ: ${experience.text}" else "ยังไม่ได้ระบุประสบการณ์ใช้จริง ห้ามอ้างว่าได้ทดลองใช้",
                     "ไม่ระบุราคา ไม่สร้างสรรพคุณ คะแนน หรือรีวิวขึ้นเอง")
                 val confirmed = verified.filter { it.isNotBlank() }.joinToString("\n")
@@ -186,6 +197,7 @@ internal object ProductAssist {
                 dialog.dismiss()
             } }
         dialog.show()
+        if (autoSearch && topic.isNotBlank() && runCatching { GeminiSettings.configured(activity).isNotEmpty() }.getOrDefault(false)) searchButton.post { if (dialog.isShowing) searchButton.performClick() }
     }
 }
 

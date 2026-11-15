@@ -10,6 +10,16 @@ import java.net.URL
 internal object ProductSearch {
     data class Result(val name: String, val url: String, val detail: String)
     fun search(context: Context, query: String, platform: Int): List<Result> {
+        val configured = runCatching { GeminiSettings.configured(context) }.getOrDefault(emptyList())
+        if (configured.isNotEmpty()) {
+            val result = runCatching { GeminiProductSearch.search(context, query, platform, configured.first().second) }
+            if (result.isSuccess && result.getOrThrow().isNotEmpty()) return result.getOrThrow()
+            // Do not automatically incur OpenRouter web-search charges: user can choose it explicitly.
+            throw IllegalStateException("Gemini ยังไม่พบสินค้าที่ตรวจแหล่งได้ หรือโควตาไม่พร้อม • ลองใหม่หรือเลือก OpenRouter")
+        }
+        return searchOpenRouter(context, query, platform)
+    }
+    fun searchOpenRouter(context: Context, query: String, platform: Int): List<Result> {
         val settings = ExtraApiSettings(context, ExtraApiProvider.OPENROUTER)
         val key = settings.key()
         require(key.isNotBlank()) { "กรุณาตั้งค่า OpenRouter API ก่อนค้นหา" }
@@ -43,7 +53,8 @@ internal object ProductSearch {
             }
             require(citations.isNotEmpty()) { "ผลค้นหาไม่มีแหล่งอ้างอิงที่ตรวจได้ กรุณาลองใหม่หรือค้นจากร้านโดยตรง" }
             val content = message.optString("content").trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
-            val rows = JSONObject(content).optJSONArray("products") ?: JSONArray()
+            val rows = runCatching { JSONObject(content).optJSONArray("products") ?: JSONArray() }
+                .getOrElse { throw IllegalStateException("AI ส่งผลค้นหาไม่สมบูรณ์ กรุณาลองใหม่หรือค้นจากร้านโดยตรง") }
             val results = mutableListOf<Result>()
             for (i in 0 until rows.length()) {
                 val row = rows.optJSONObject(i) ?: continue
