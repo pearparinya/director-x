@@ -928,7 +928,11 @@ class StudioActivity : AppCompatActivity() {
         if (ProductLinkPolicy.allowed(link)) getSharedPreferences("product_assist", MODE_PRIVATE).edit().putString("shared_link", link).apply()
     }
     override fun onNewIntent(incoming: Intent) {
-        super.onNewIntent(incoming); setIntent(incoming); adoptGeminiProject(incoming); receiveProductLink(incoming); render()
+        super.onNewIntent(incoming); setIntent(incoming); adoptGeminiProject(incoming); receiveProductLink(incoming)
+        val shared=if(incoming.action==Intent.ACTION_SEND) ProductLinkPolicy.firstUrl(incoming.getStringExtra(Intent.EXTRA_TEXT).orEmpty()) else ""
+        if(shared.isNotBlank() && ProductLinkPolicy.allowed(shared) && ProductAssist.deliverSharedLink(shared)) return
+        render()
+        if(shared.isNotBlank() && ProductLinkPolicy.allowed(shared)) notice("ได้รับลิงก์แล้ว • เปิดหน้าข้อมูลสินค้าเพื่อเลือกช่อง Affiliate")
     }
     private fun installCharacterMasters() {
         // Install explicitly supplied defaults only when no user image exists.
