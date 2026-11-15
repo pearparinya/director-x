@@ -12,8 +12,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1083
-        versionName = "4.67"
+        versionCode = 1084
+        versionName = "4.68"
     }
 
     sourceSets {
@@ -50,4 +50,3 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
 }
-
