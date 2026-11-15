@@ -1070,6 +1070,12 @@ class StudioActivity : AppCompatActivity() {
             setPadding(dp(10),dp(6),dp(10),dp(6))
             background = backdrop(navy,navy)
         })
+        host.addView(Button(this).apply {
+            text = "🧪 API TEST CENTER • ตรวจสอบแบบไม่ใช้เครดิต"
+            setOnClickListener {
+                startActivity(Intent(this@StudioActivity, ApiTestCenterActivity::class.java))
+            }
+        })
         setContentView(host)
         ViewCompat.setOnApplyWindowInsetsListener(host) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
