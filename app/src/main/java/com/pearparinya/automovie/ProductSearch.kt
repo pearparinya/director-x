@@ -65,7 +65,7 @@ internal object ProductSearch {
             for (i in 0 until rows.length()) {
                 val row = rows.optJSONObject(i) ?: continue
                 val url = row.optString("url").trim(); val name = row.optString("name").trim().take(200)
-                if (name.isNotBlank() && url in citations && matchesPlatform(url, platform) && results.none { it.url == url }) {
+                if (relevantTitle(name) && url in citations && matchesPlatform(url, platform) && results.none { it.url == url }) {
                     results.add(Result(name, url, row.optString("detail").trim().take(500)))
                 }
                 if (results.size == 5) break
@@ -73,14 +73,23 @@ internal object ProductSearch {
             return results
         } finally { control.detach(conn); conn.disconnect() }
     }
+    fun relevantTitle(title: String): Boolean {
+        val value=title.trim()
+        if(value.length < 5) return false
+        val lower=value.lowercase()
+        val generic=listOf("tiktok shop thailand", "tiktok shop", "shopee thailand", "lazada thailand", "ค้นหา - tiktok", "search - tiktok")
+        if(lower in generic) return false
+        if(Regex("^(เข้าสู่ระบบ|เข้าสู่ระบบเพื่อ|ลงชื่อเข้าใช้|login|sign in|log in|search\\s*[-|]|ค้นหา\\s*[-|])",RegexOption.IGNORE_CASE).containsMatchIn(value)) return false
+        return true
+    }
     fun matchesPlatform(url: String, platform: Int): Boolean {
         if (!ProductLinkPolicy.allowed(url)) return false
         val uri = runCatching { java.net.URI(url) }.getOrNull() ?: return false
         val host = uri.host.lowercase(); val path = uri.path.orEmpty().lowercase()
         return when (platform) {
-            0 -> (host == "shop-th.tiktok.com" || host.endsWith(".tiktokshop.com")) && (path.contains("/pdp/") || path.contains("/product/"))
+            0 -> (host == "shop-th.tiktok.com" || host.endsWith(".tiktokshop.com")) && (Regex("/pdp/\\d+(?:/|$)").containsMatchIn(path) || Regex("/product/\\d+(?:/|$)").containsMatchIn(path))
             1 -> (host == "shopee.co.th" || host.endsWith(".shopee.co.th")) && (Regex("-i\\.\\d+\\.\\d+").containsMatchIn(path) || Regex("/product/\\d+/\\d+").containsMatchIn(path))
-            2 -> (host == "lazada.co.th" || host.endsWith(".lazada.co.th")) && path.contains("/products/")
+            2 -> (host == "lazada.co.th" || host.endsWith(".lazada.co.th")) && Regex("/products/[^/]+-i\\d+(?:\\.html|/|$)").containsMatchIn(path)
             else -> false
         }
     }
