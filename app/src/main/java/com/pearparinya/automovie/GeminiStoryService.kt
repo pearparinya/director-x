@@ -71,7 +71,52 @@ class GeminiStoryService : Service() {
                             val model=if(automatic || hybrid) spec.optString("${target.id}_model").ifBlank { target.model(this) } else spec.getString("model")
                             StoryClientFactory.create(target,key,model,{ cancelled },{ seconds -> status("running",lastPercent,if(seconds>0) "Groq • พัก $seconds วินาที • ครบเวลาแล้วทำต่ออัตโนมัติ • กดหยุดได้" else "Groq • กำลังส่งคำขอ / รอคำตอบบท",if(seconds>0) "waiting" else "requesting") },retryStatus,!hybrid && !automatic,context=this)
                         }
+                        // Consent is opt-in and scoped to currently eligible, configured providers.
+                        // Legacy single-provider jobs keep their original behavior unless opted in.
+                        val approvedIds=getSharedPreferences("studio",MODE_PRIVATE)
+                            .getStringSet("story_fallback_approved_ids",emptySet())?.toSet().orEmpty()
+                        val allowedBackups=StoryProvider.eligible(this).filter {
+                            it.id in approvedIds && it.hasKey(this) &&
+                                (!StoryProvider.freeOnly(this) || it==StoryProvider.OPENROUTER)
+                        }
+                        val fallbackConnections=mutableMapOf<StoryProvider,StoryTextClient>()
                         clients=connections.values.toList()
+                        fun singleProviderRequest(prompt: String,schema: JSONObject): JSONObject {
+                            val primary=provider
+                            val attempted=mutableSetOf(primary)
+                            try {
+                                return connections.getValue(primary).generate(prompt,schema)
+                            } catch (error: Exception) {
+                                if(cancelled || error is CancellationException) throw CancellationException()
+                                val code=(error as? StoryHttpFailure)?.status
+                                val backup=StoryFallbackPolicy.nextCandidate(
+                                    primary=primary,
+                                    allowed=StoryProvider.eligible(this).toSet(),
+                                    configured=allowedBackups.toSet(),
+                                    attempted=attempted,
+                                    approvedForAutomaticUse=allowedBackups.toSet(),
+                                    httpStatus=code,
+                                    cancelled=cancelled
+                                ) ?: throw error
+                                if(cancelled) throw CancellationException()
+                                val client=fallbackConnections.getOrPut(backup) {
+                                    StoryClientFactory.create(
+                                        backup,backup.key(this),backup.model(this),
+                                        { cancelled },automaticRetry=false,context=this
+                                    ).also { clients=connections.values.toList()+fallbackConnections.values+it }
+                                }
+                                attempted.add(backup)
+                                status("running",lastPercent,
+                                    "${primary.label} ไม่พร้อม (HTTP $code) • ลอง API สำรอง ${backup.label} ครั้งเดียว",
+                                    "requesting")
+                                val answer=client.generate(prompt,schema)
+                                if(cancelled) throw CancellationException()
+                                status("running",lastPercent,
+                                    "API สำรอง ${backup.label} ตอบสำเร็จ • กลับไปใช้ API หลักในคำขอถัดไป",
+                                    "requesting")
+                                return answer
+                            }
+                        }
                         val autoRouter=AutomaticStoryRouter(folder,connections,{cancelled}) { target,message ->
                             provider=target; status("running",lastPercent,"อัตโนมัติ • ${target.label} • $message","requesting")
                         }.apply { verifyBeforeUse=true }
@@ -89,7 +134,7 @@ class GeminiStoryService : Service() {
                             if(automatic) StoryRequestRetry().execute({cancelled},retryStatus) { autoRouter.generate(prompt,schema) }
                             else if(hybrid) StoryRequestRetry().execute({cancelled},retryStatus) {
                                 router.generate(StoryProviderRouter.preferred(schema.getJSONObject("properties").has("scenes"))) { target -> connections.getValue(target).generate(prompt,schema) }
-                            } else connections.getValue(provider).generate(prompt,schema)
+                            } else singleProviderRequest(prompt,schema)
                         },{cancelled}) { percent,message ->
                             synchronized(statusLock) { liveStatus.setTask(message) }
                             status("running",percent,message,if(message.startsWith("บันทึกแล้ว")) "saved" else "preparing")
