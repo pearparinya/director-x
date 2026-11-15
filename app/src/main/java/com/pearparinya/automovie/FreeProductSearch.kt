@@ -48,6 +48,42 @@ internal class FreeSearchSettings(private val context: Context) {
 }
 
 internal object FreeProductSearch {
+    private fun searchAdditional(provider: String, key: String, query: String, store: Int, control: ProductSearchControl): List<ProductSearch.Result> {
+        val domain = listOf("tiktokshop.com", "shopee.co.th", "lazada.co.th")[store]
+        val searchQuery = query.take(120) + " site:" + domain
+        val endpoint = if(provider=="serpapi") "https://serpapi.com/search.json" else "https://api.firecrawl.dev/v2/search"
+        val conn = URL(endpoint).openConnection() as HttpURLConnection
+        conn.connectTimeout = 20000; conn.readTimeout = 45000
+        val payload = if(provider=="serpapi") JSONObject().put("engine","google").put("q",searchQuery).put("api_key",key).put("num",10)
+            else JSONObject().put("query",searchQuery).put("limit",10)
+        conn.requestMethod="POST"; conn.doOutput=true
+        conn.setRequestProperty("Content-Type","application/json")
+        if(provider=="firecrawl") conn.setRequestProperty("Authorization","Bearer $key")
+        control.attach(conn)
+        try {
+            conn.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+            val code=conn.responseCode
+            if(code !in 200..299) throw ProductSearchError(when(code) {
+                401,403 -> "คีย์หรือสิทธิ์ไม่พร้อม (HTTP $code)"
+                402,429 -> "โควตาหรืออัตราเรียกไม่พร้อม (HTTP $code)"
+                else -> "บริการค้นหาขัดข้อง (HTTP $code)"
+            })
+            val body=JSONObject(conn.inputStream.bufferedReader().use { it.readText().take(500000) })
+            val rows=if(provider=="serpapi") body.optJSONArray("organic_results") ?: JSONArray()
+                else body.optJSONObject("data")?.optJSONArray("web") ?: body.optJSONArray("data") ?: JSONArray()
+            val found=mutableListOf<ProductSearch.Result>()
+            for(i in 0 until rows.length()) {
+                control.check()
+                val row=rows.optJSONObject(i) ?: continue
+                val url=if(provider=="serpapi") row.optString("link") else row.optString("url")
+                val title=row.optString("title").take(200)
+                if(title.isNotBlank() && ProductSearch.matchesPlatform(url,store) && found.none { it.url==url })
+                    found.add(ProductSearch.Result(title,url,""))
+                if(found.size>=5) break
+            }
+            return found
+        } finally { control.detach(conn); conn.disconnect() }
+    }
     fun search(context: Context, provider: String, query: String, store: Int, control: ProductSearchControl): List<ProductSearch.Result> {
         val settings=FreeSearchSettings(context); val key=settings.key(provider)
         if(key.isBlank()) throw ProductSearchError("ยังไม่ได้ตั้ง API Key")
@@ -56,6 +92,7 @@ internal object FreeProductSearch {
         val request=JSONObject().put("query",query.take(120)+" "+listOf("TikTok Shop Thailand","Shopee Thailand","Lazada Thailand")[store])
         if(provider=="tavily") request.put("search_depth","basic").put("max_results",10).put("auto_parameters",false).put("include_domains",JSONArray(domains[store]))
         else request.put("type","lite").put("numResults",10).put("includeDomains",JSONArray(domains[store]))
+        if(provider=="serpapi" || provider=="firecrawl") return searchAdditional(provider, key, query, store, control)
         // Reserve before sending, including failures, so retries cannot bypass the local ceiling.
         settings.reserve(provider)
         val conn=URL(if(provider=="tavily") "https://api.tavily.com/search" else "https://api.exa.ai/search").openConnection() as HttpURLConnection
