@@ -90,7 +90,8 @@ internal object ProductAssist {
                     if(settings.hasSaved()) attempts.add(ProductSearchRotation.Attempt("Gemini ชุดที่ ${slot+1}/5") {
                         val key=runCatching { settings.key() }.getOrElse { throw ProductSearchError("อ่านคีย์บนเครื่องไม่ได้") }
                         if(key.isBlank()) throw ProductSearchError("ยังไม่ได้ตั้งค่าคีย์")
-                        GeminiProductSearch.search(activity.applicationContext,searchText,selectedPlatform,key,control)
+                        val model=activity.getSharedPreferences("gemini_key_pool",Activity.MODE_PRIVATE).getString("model",null)?.takeIf { it.isNotBlank() } ?: settings.model()
+                        GeminiProductSearch.search(activity.applicationContext,searchText,selectedPlatform,key,control,model)
                     })
                 }
             }

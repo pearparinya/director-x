@@ -9,10 +9,9 @@ import java.net.URL
 
 /** Grounded search only: display source titles and product links returned by Google, never model-invented URLs. */
 internal object GeminiProductSearch {
-    fun search(context: Context, query: String, platform: Int, key: String, control: ProductSearchControl = ProductSearchControl()): List<ProductSearch.Result> {
+    fun search(context: Context, query: String, platform: Int, key: String, control: ProductSearchControl = ProductSearchControl(), model: String = GeminiSettings.firstModel(context)): List<ProductSearch.Result> {
         val stores = listOf("TikTok Shop Thailand", "Shopee Thailand", "Lazada Thailand")
         require(platform in stores.indices && query.isNotBlank()) { "กรุณาเลือกแพลตฟอร์มและระบุคำค้น" }
-        val model = GeminiSettings.firstModel(context)
         require(Regex("gemini-[A-Za-z0-9.-]+").matches(model)) { "โมเดล Gemini ไม่ถูกต้อง" }
         val prompt = "ค้นหาหน้าสินค้ารายชิ้นที่มีอยู่จริงบน ${stores[platform]} ประเทศไทย สำหรับ ${query.take(120)} จำนวนไม่เกิน 5 ชิ้น แสดงแหล่งข้อมูลจากเว็บเท่านั้น ห้ามแต่งสินค้า"
         val payload = JSONObject().put("contents", JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", prompt)))))
