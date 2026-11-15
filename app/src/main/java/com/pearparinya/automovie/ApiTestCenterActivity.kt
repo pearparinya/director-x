@@ -70,6 +70,13 @@ class ApiTestCenterActivity : Activity() {
             setPadding(dp(16), dp(32), dp(16), dp(28))
             setBackgroundColor(navy)
         }
+        root.addView(Button(this).apply {
+            text = "← ย้อนกลับ"
+            contentDescription = "กลับไปหน้าก่อนหน้า"
+            setTextColor(gold)
+            setBackgroundColor(Color.TRANSPARENT)
+            setOnClickListener { finish() }
+        })
         root.addView(text("API TEST CENTER", 25f, true))
         root.addView(text("ตรวจสอบและจำลองการสลับ API แบบออฟไลน์", 16f))
         root.addView(text("การจำลองไม่ใช้เครดิต • ทดสอบออนไลน์ส่งคำขอจริงเมื่อกดยืนยัน • ไม่แสดงคีย์", 13f))
