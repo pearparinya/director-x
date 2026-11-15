@@ -27,12 +27,13 @@ class StudioUpdater(private val activity: AppCompatActivity) {
     private fun message(text: String) = AlertDialog.Builder(activity).setIcon(R.drawable.studio_update).setTitle("DIRECTOR X").setMessage(text).setPositiveButton("ตกลง",null).showDirector()
     private val updatePrefs = activity.getSharedPreferences("director_x_updater", android.content.Context.MODE_PRIVATE)
     private val checkIntervalMs = 5 * 60 * 1000L
+    private var lastCheckThisSession = 0L
     private val reminderIntervalMs = 24 * 60 * 60 * 1000L
     fun checkAutomatically() {
         val now = System.currentTimeMillis()
-        val last = updatePrefs.getLong("last_successful_check", 0L)
-        if (last in 1..now && now - last < checkIntervalMs) return
+        if (lastCheckThisSession in 1..now && now - lastCheckThisSession < checkIntervalMs) return
         if (busy) return
+        lastCheckThisSession = now
         check(true)
     }
     fun check(automatic: Boolean = false) {
@@ -58,7 +59,7 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                     busy = false; dialog?.dismiss()
                     if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
                     updatePrefs.edit().putLong("last_successful_check", System.currentTimeMillis()).apply()
-                    if (automatic && !activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) return@runOnUiThread
+                    if (automatic && !activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) { lastCheckThisSession = 0L; return@runOnUiThread }
                     if (build <= local) { if (!automatic) message("ติดตั้ง Build $local แล้ว • GitHub ล่าสุด Build $build • ไม่จำเป็นต้องอัปเดต") }
                     else {
                         val now = System.currentTimeMillis()
@@ -70,7 +71,7 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                             .setNegativeButton("ภายหลัง") { _,_ -> updatePrefs.edit().putLong("dismissed_build",build).putLong("dismissed_at",System.currentTimeMillis()).apply() }.showDirector()
                     }
                 }
-            } catch (e: Exception) { activity.runOnUiThread { busy = false; dialog?.dismiss(); if (!automatic && !activity.isFinishing && !activity.isDestroyed) message("ตรวจสอบอัปเดตไม่สำเร็จ: ${e.message}") } }
+            } catch (e: Exception) { activity.runOnUiThread { busy = false; dialog?.dismiss(); if (automatic) lastCheckThisSession = 0L; if (!automatic && !activity.isFinishing && !activity.isDestroyed) message("ตรวจสอบอัปเดตไม่สำเร็จ: ${e.message}") } }
         }.start()
     }
     private fun connect(url: String): HttpURLConnection = (URL(url).openConnection() as HttpURLConnection).apply {
