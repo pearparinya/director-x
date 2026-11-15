@@ -44,13 +44,31 @@ jobs:
             exit 1
           fi
           TAG="R${VERSION}-B${BUILD}"
-          if gh release view "$TAG" >/dev/null 2>&1; then
+          echo "Checking immutable release: $TAG"
+
+          # Fail closed on API errors. A 403/rate-limit must never look like
+          # a missing release and accidentally trigger another signed build.
+          API_STATUS="$(gh api -i "repos/${GITHUB_REPOSITORY}/releases/tags/$TAG" 2>&1)" && API_EXIT=0 || API_EXIT=$?
+          if [ "$API_EXIT" -eq 0 ]; then
             echo "Release $TAG already exists; skipping duplicate build."
             echo "should_build=false" >> "$GITHUB_OUTPUT"
             echo "### Skipped duplicate release: $TAG" >> "$GITHUB_STEP_SUMMARY"
-          else
+          elif printf '%s' "$API_STATUS" | grep -Eq 'HTTP/[0-9.]+ 404|HTTP 404'; then
+            # A tag may exist without a GitHub Release. Never overwrite it.
+            if ! REMOTE_TAGS="$(git ls-remote --tags origin "refs/tags/$TAG")"; then
+              echo "::error::Could not check remote tags; refusing to build."
+              exit 1
+            fi
+            if [ -n "$REMOTE_TAGS" ]; then
+              echo "::error::Tag $TAG exists without a published Release. Resolve manually."
+              exit 1
+            fi
             echo "should_build=true" >> "$GITHUB_OUTPUT"
             echo "### New release candidate: $TAG" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::Could not verify release status for $TAG; refusing to build."
+            echo "$API_STATUS" | tail -n 12
+            exit 1
           fi
 
   build:
