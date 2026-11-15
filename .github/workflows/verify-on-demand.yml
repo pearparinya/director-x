@@ -3,6 +3,15 @@ name: On-demand Android verification
 # Run verification without consuming Codex tasks.
 # This workflow does not publish, sign, or replace the production APK.
 on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle/**'
+      - 'gradle.properties'
+      - 'gradlew'
+      - '.github/workflows/verify-on-demand.yml'
   workflow_dispatch:
     inputs:
       build_debug_apk:
