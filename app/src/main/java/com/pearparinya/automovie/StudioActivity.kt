@@ -1092,10 +1092,24 @@ class StudioActivity : AppCompatActivity() {
             contentDescription="DIRECTOR X • ภาพผู้กำกับในโรงภาพยนตร์"
         }
         root.addView(hero,LinearLayout.LayoutParams(-1,-2))
-        root.addView(TextView(this).apply {
-            text="DIRECTOR X "+packageManager.getPackageInfo(packageName,0).versionName
-            textSize=12f; gravity=Gravity.END; setTextColor(gold)
+        val versionRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL or Gravity.END
+        }
+        versionRow.addView(TextView(this).apply {
+            text = "DIRECTOR X " + packageManager.getPackageInfo(packageName, 0).versionName
+            textSize = 12f
+            gravity = Gravity.END
+            setTextColor(gold)
         })
+        versionRow.addView(Button(this).apply {
+            text = "↻ ตรวจสอบอัปเดต"
+            textSize = 11f
+            isAllCaps = false
+            setTextColor(ice)
+            setOnClickListener { updater.check(automatic = false) }
+        }, LinearLayout.LayoutParams(-2, dp(48)).apply { marginStart = dp(10) })
+        root.addView(versionRow, LinearLayout.LayoutParams(-1, -2))
         
         flowHome()
     }
