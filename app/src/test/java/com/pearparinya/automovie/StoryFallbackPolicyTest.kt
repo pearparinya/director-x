@@ -78,4 +78,54 @@ class StoryFallbackPolicyTest {
         ))
     }
 
+    @Test fun onlyApprovedConfiguredAndAllowedProviderCanRun() {
+        val next = StoryFallbackPolicy.nextCandidate(
+            primary = StoryProvider.GROQ,
+            allowed = setOf(StoryProvider.GROQ, StoryProvider.GEMINI),
+            configured = setOf(StoryProvider.GROQ, StoryProvider.GEMINI, StoryProvider.COHERE),
+            attempted = setOf(StoryProvider.GROQ),
+            approvedForAutomaticUse = setOf(StoryProvider.COHERE),
+            httpStatus = 503,
+            cancelled = false
+        )
+        assertNull("An approved provider must also be allowed", next)
+    }
+
+    @Test fun missingBackupKeyPreventsFallback() {
+        assertNull(StoryFallbackPolicy.nextCandidate(
+            primary = StoryProvider.GROQ,
+            allowed = all,
+            configured = setOf(StoryProvider.GROQ),
+            attempted = setOf(StoryProvider.GROQ),
+            approvedForAutomaticUse = setOf(StoryProvider.GEMINI),
+            httpStatus = 429,
+            cancelled = false
+        ))
+    }
+
+    @Test fun fallbackNeverRepeatsAnAlreadyAttemptedBackup() {
+        assertEquals(StoryProvider.COHERE, StoryFallbackPolicy.nextCandidate(
+            primary = StoryProvider.GROQ,
+            allowed = all,
+            configured = all,
+            attempted = setOf(StoryProvider.GROQ, StoryProvider.GEMINI),
+            approvedForAutomaticUse = setOf(StoryProvider.GEMINI, StoryProvider.COHERE),
+            httpStatus = 503,
+            cancelled = false,
+            maxTotalAttempts = 3
+        ))
+    }
+
+    @Test fun defaultBudgetStopsAfterPrimaryAndOneBackup() {
+        assertNull(StoryFallbackPolicy.nextCandidate(
+            primary = StoryProvider.GROQ,
+            allowed = all,
+            configured = all,
+            attempted = setOf(StoryProvider.GROQ, StoryProvider.GEMINI),
+            approvedForAutomaticUse = setOf(StoryProvider.COHERE),
+            httpStatus = 503,
+            cancelled = false
+        ))
+    }
+
 }
