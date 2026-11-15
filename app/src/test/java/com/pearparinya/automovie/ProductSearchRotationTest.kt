@@ -16,6 +16,14 @@ class ProductSearchRotationTest {
         assertTrue(out.failures.any { it.contains("โควตาเต็ม") }); assertTrue(out.failures.any { it.contains("ไม่พบ") })
         assertTrue(progress.contains("Gemini 3"))
     }
+    @Test fun triesAllFiveBeforeUsingFallback() {
+        val called=mutableListOf<String>(); val match=ProductSearch.Result("สินค้า","https://shop-th.tiktok.com/pdp/123","")
+        val attempts=(1..5).map { n -> ProductSearchRotation.Attempt("Gemini $n") { called.add("Gemini $n"); emptyList() } } +
+            ProductSearchRotation.Attempt("OpenRouter") { called.add("OpenRouter"); listOf(match) }
+        val out=ProductSearchRotation.run(attempts,ProductSearchControl()) { _,_,_,_ -> }
+        assertEquals(listOf("Gemini 1","Gemini 2","Gemini 3","Gemini 4","Gemini 5","OpenRouter"),called)
+        assertEquals(listOf(match),out.results)
+    }
     @Test fun cancellationPreventsNextProvider() {
         val control=ProductSearchControl(); var secondCalled=false
         val attempts=listOf(ProductSearchRotation.Attempt("first") { control.cancel(); emptyList() }, ProductSearchRotation.Attempt("second") { secondCalled=true; emptyList() })
