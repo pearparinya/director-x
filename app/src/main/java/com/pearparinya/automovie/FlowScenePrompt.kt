@@ -18,7 +18,7 @@ internal data class FlowSceneSpec(
 }
 
 internal object ScenePropContinuity {
-    const val video = "Use only the props and objects already visible in the attached first frame. Do not introduce, generate, reveal, or bring any new object into the scene during the shot; nothing materializes or pops into view. Existing objects may be handled and temporarily occluded naturally. Preserve the story event: when discovery is essential, ensure part of the object is visible in the first frame; otherwise pause and revise the first frame or split the scene before generating."
+    const val video = "Use only the props and objects already visible in the attached first frame. Do not introduce, generate, reveal, or bring any new object into the scene during the shot; nothing materializes or pops into view. Existing objects may be handled and temporarily occluded naturally. If an action requires an object missing from the first frame, preserve the story event and revise the first frame or split the scene before generating. When discovery is essential, ensure part of the object is visible in the first frame."
     const val planning = "PROP CONTINUITY: Include every object needed for the action in the scene's start_state and first-frame image. During the shot do not introduce, create, reveal or bring in any object absent from the first frame. Existing objects may move or be temporarily occluded naturally."
 }
 
