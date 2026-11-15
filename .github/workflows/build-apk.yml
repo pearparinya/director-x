@@ -2,26 +2,62 @@ name: DIRECTOR X Release Signed APK
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
   push:
     branches:
       - main
+    paths:
+      - 'app/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - '.github/workflows/build-apk.yml'
 
 permissions:
-  contents: write
-  actions: write
+  contents: read
 
 # Only the newest main-branch build may publish the in-app update.
 # This prevents an older overlapping run from finishing later and
 # incorrectly becoming GitHub's "latest" release.
 concurrency:
-  group: auto-movie-release-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'main' }}
+  group: auto-movie-release-main
   cancel-in-progress: true
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Skip already-published version before building
+        id: check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)"
+          BUILD="$(sed -n 's/.*versionCode = \([0-9][0-9]*\).*/\1/p' app/build.gradle.kts | head -n 1)"
+          if [ -z "$VERSION" ] || [ -z "$BUILD" ]; then
+            echo "Missing Android version metadata."
+            exit 1
+          fi
+          TAG="R${VERSION}-B${BUILD}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; skipping duplicate build."
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+            echo "### Skipped duplicate release: $TAG" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            echo "### New release candidate: $TAG" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   build:
+    needs: preflight
+    if: needs.preflight.outputs.should_build == 'true'
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
 
     steps:
@@ -244,7 +280,6 @@ jobs:
       # ============================================================
 
       - name: Publish APK to GitHub Release
-        if: github.event_name != 'pull_request'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
