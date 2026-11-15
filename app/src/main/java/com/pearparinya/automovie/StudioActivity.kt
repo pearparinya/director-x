@@ -3001,12 +3001,42 @@ $context"""
     private fun geminiSettings(afterSave: (() -> Unit)?=null) {
         val providers=StoryProvider.activeProviders
         val choices=providers.map { it.label+"\n"+StoryProvider.lastTest(this,it) }+
-            listOf("☑️ เลือก API ที่อนุญาต", "🔍 ตรวจ API ที่เลือก")
+            listOf("☑️ เลือก API ที่อนุญาต", "🔍 ตรวจ API ที่เลือก", "🛡️ อนุญาต API สำรอง (ยังไม่เปิดสลับอัตโนมัติ)")
         choiceMenu("ตั้งค่าคีย์ API • ใช้อัตโนมัติ",choices) { index ->
             if(index==providers.size) selectStoryApiProviders(afterSave)
             else if(index==providers.size+1) { val selected=StoryProvider.eligible(this); if(selected.isEmpty()) notice("ยังไม่มี API ที่เลือกในโหมดปัจจุบัน") else testStoryApis(selected) }
+            else if(index==providers.size+2) selectStoryFallbackConsent()
             else if(providers[index].extra()==null) storyProviderSettings(providers[index],afterSave)
             else extraApiKeyDialog(providers[index].extra()!!,afterSave)
+        }
+    }
+    private fun selectStoryFallbackConsent() {
+        val providers=StoryProvider.eligible(this)
+        if(providers.isEmpty()) return notice("เลือก API ที่อนุญาตก่อนตั้งค่า API สำรอง")
+        val saved=prefs.getStringSet("story_fallback_approved_ids", emptySet())?.toSet().orEmpty()
+        val checks=BooleanArray(providers.size) { providers[it].id in saved }
+        val labels=providers.map { provider ->
+            "${provider.label} • ${if(provider.hasKey(this)) "มีคีย์" else "ยังไม่มีคีย์"}"
+        }.toTypedArray()
+        val dialog=AlertDialog.Builder(this)
+            .setTitle("อนุญาต API สำรอง")
+            .setMessage("เลือกเฉพาะ API ที่คุณยอมรับเงื่อนไขและค่าบริการแล้ว • ยังไม่เปิดการสลับ API อัตโนมัติในเวอร์ชันนี้ • ไม่มีการทดสอบหรือเรียก API จากหน้านี้")
+            .setMultiChoiceItems(labels,checks) { _,index,checked -> checks[index]=checked }
+            .setPositiveButton("บันทึก",null)
+            .setNeutralButton("ปิดการอนุญาตทั้งหมด",null)
+            .setNegativeButton("ยกเลิก",null)
+            .showDirector()
+        dialog.getButton(-1).setOnClickListener {
+            val selected=providers.filterIndexed { index,provider -> checks[index] && provider.hasKey(this) }
+                .map { it.id }.toSet()
+            prefs.edit().putStringSet("story_fallback_approved_ids",selected).apply()
+            dialog.dismiss()
+            notice("บันทึก API สำรอง ${selected.size} ราย • ยังไม่เปิดสลับอัตโนมัติ")
+        }
+        dialog.getButton(-3).setOnClickListener {
+            prefs.edit().remove("story_fallback_approved_ids").apply()
+            dialog.dismiss()
+            notice("ปิดการอนุญาต API สำรองทั้งหมดแล้ว")
         }
     }
     private fun selectStoryApiProviders(afterSave: (() -> Unit)?=null) {
