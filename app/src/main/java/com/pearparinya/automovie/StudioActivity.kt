@@ -149,7 +149,7 @@ class StudioActivity : AppCompatActivity() {
     private var backupMode: Boolean
         get() = prefs.getBoolean("backup_mode",false)
         set(value) { prefs.edit().putBoolean("backup_mode",value).apply() }
-    private val updater = StudioUpdater(this)
+    private lateinit var updater: StudioUpdater
     private lateinit var root: LinearLayout
     private val navy = Color.rgb(12,12,15)
     private val gold = Color.rgb(232,180,82)
@@ -910,6 +910,8 @@ class StudioActivity : AppCompatActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Register the update permission launcher after Activity attachment, before STARTED.
+        updater = StudioUpdater(this)
         listOf("body_02.png", "body_03.png").forEach { File(cacheDir, "body_template_sources/$it").delete() }
         adoptGeminiProject(intent)
         receiveProductLink(intent)
