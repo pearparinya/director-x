@@ -85,11 +85,11 @@ internal object ProductAssist {
         }
         refreshQuota()
         panel.addView(Button(activity).apply {
-            text="🔑 ตั้งค่า Tavily / Exa"; isAllCaps=false
+            text="🔑 ตั้งค่า API ค้นหาสินค้า"; isAllCaps=false
             setOnClickListener {
-                val names=arrayOf("Tavily", "Exa")
+                val names=arrayOf("Tavily", "Exa", "SerpApi", "Firecrawl", "Long Search")
                 AlertDialog.Builder(activity).setTitle("ตั้งค่า API ค้นหาฟรี").setItems(names) { _, selected ->
-                    val id=if(selected==0) "tavily" else "exa"
+                    val id=listOf("tavily","exa","serpapi","firecrawl","longsearch")[selected]
                     val input=EditText(activity).apply { hint="วาง API Key ใหม่"; inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD }
                     AlertDialog.Builder(activity).setTitle(names[selected]+if(searchSettings.key(id).isNotBlank()) " • บันทึกแล้ว" else " • ยังไม่มีคีย์")
                         .setMessage("ใช้เฉพาะแผนฟรี ไม่เปิด Pay as you go • คีย์เข้ารหัสบนเครื่อง • วางคีย์ใหม่เพื่อบันทึก")
@@ -103,7 +103,7 @@ internal object ProductAssist {
         panel.addView(Button(activity).apply {
             text="ทดสอบ API ที่บันทึก"; isAllCaps=false
             setOnClickListener {
-                val choices=arrayOf("Tavily", "Exa")
+                val choices=arrayOf("Tavily", "Exa", "SerpApi", "Firecrawl")
                 AlertDialog.Builder(activity).setTitle("เลือก API เพื่อทดสอบ").setMessage("การทดสอบจะใช้โควตาค้นหา 1 ครั้ง")
                     .setItems(choices) { _, selected ->
                         val id=if(selected==0) "tavily" else "exa"
@@ -124,7 +124,7 @@ internal object ProductAssist {
                     }.setNegativeButton("ยกเลิก",null).show()
             }
         })
-        label("ค้นด้วย Tavily ก่อน แล้วใช้ Exa สำรอง • ตั้งบัญชีผู้ให้บริการเป็นแผนฟรี • ระบบนี้นับเฉพาะการเรียกจากเครื่องนี้")
+        label("ค้นด้วย Tavily → Exa → SerpApi → Firecrawl ตามคีย์ที่ตั้งไว้ • ตรวจโควตาและค่าใช้จ่ายกับผู้ให้บริการก่อนใช้งาน")
         listOf("TikTok Shop" to "https://www.tiktok.com/search?q=", "Shopee" to "https://shopee.co.th/search?keyword=", "Lazada" to "https://www.lazada.co.th/catalog/?q=").forEach { (name, url) ->
             val manual = Button(activity).apply { text = "ค้นหาใน $name"; setOnClickListener {
                 val encoded = URLEncoder.encode(query.text.toString().trim(), "UTF-8")
@@ -182,7 +182,7 @@ internal object ProductAssist {
             val storeNames=listOf("TikTok Shop","Shopee","Lazada")
             fun attemptsForStore(store: Int): List<ProductSearchRotation.Attempt> {
                 val attempts=mutableListOf<ProductSearchRotation.Attempt>()
-                listOf("tavily" to "Tavily", "exa" to "Exa").forEach { (id,label) ->
+                listOf("tavily" to "Tavily", "exa" to "Exa", "serpapi" to "SerpApi", "firecrawl" to "Firecrawl").forEach { (id,label) ->
                     if(searchSettings.key(id).isNotBlank()) attempts.add(ProductSearchRotation.Attempt(label) {
                         FreeProductSearch.search(activity.applicationContext,id,searchText,store,control)
                     })
