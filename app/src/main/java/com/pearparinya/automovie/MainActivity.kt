@@ -29,6 +29,7 @@ import java.util.Date
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
+    private lateinit var appUpdater: StudioUpdater
 
     private var currentEp = 1
     private var currentScene = 1
@@ -84,6 +85,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (::appUpdater.isInitialized) appUpdater.checkAutomatically()
         if (awaitingChatGptReturn || statePrefs.getBoolean("awaitingChatGptReturn", false)) {
             awaitingChatGptReturn = false
             statePrefs.edit().putBoolean("awaitingChatGptReturn", false).apply()
@@ -99,6 +101,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        appUpdater = StudioUpdater(this)
+        appUpdater.checkAutomatically()
 
         val scroll = ScrollView(this).apply {
             setBackgroundColor(navy)
