@@ -55,7 +55,11 @@ jobs:
             echo "### Skipped duplicate release: $TAG" >> "$GITHUB_STEP_SUMMARY"
           elif printf '%s' "$API_STATUS" | grep -Eq 'HTTP/[0-9.]+ 404|HTTP 404'; then
             # A tag may exist without a GitHub Release. Never overwrite it.
-            if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            if ! REMOTE_TAGS="$(git ls-remote --tags origin "refs/tags/$TAG")"; then
+              echo "::error::Could not check remote tags; refusing to build."
+              exit 1
+            fi
+            if [ -n "$REMOTE_TAGS" ]; then
               echo "::error::Tag $TAG exists without a published Release. Resolve manually."
               exit 1
             fi
