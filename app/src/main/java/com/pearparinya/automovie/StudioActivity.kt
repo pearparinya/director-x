@@ -3044,7 +3044,8 @@ $context"""
     private fun shoppingApiSettings() {
         val services = listOf("tavily" to "Tavily", "exa" to "Exa", "serpapi" to "SerpApi", "firecrawl" to "Firecrawl", "longsearch" to "Long Search")
         val store = FreeSearchSettings(this)
-        choiceMenu("🛒 API โหมดนายเปียพาช้อป", services.map { (id, name) -> "$name • " + if (store.key(id).isNotBlank()) "บันทึกคีย์แล้ว" else "ยังไม่มีคีย์" }) { selected ->
+        choiceMenu("🛒 API โหมดนายเปียพาช้อป", services.map { (id, name) -> "$name • " + if (store.key(id).isNotBlank()) "บันทึกคีย์แล้ว" else "ยังไม่มีคีย์" } + "🧪 ทดสอบ API ที่บันทึก") { selected ->
+            if (selected == services.size) { shoppingApiTest(); return@choiceMenu }
             val (id, name) = services[selected]
             val input = EditText(this).apply {
                 hint = "วาง API Key ของ $name"
@@ -3065,6 +3066,24 @@ $context"""
                 }
                 .setNeutralButton("ลบคีย์") { _, _ -> store.clear(id); shoppingApiSettings() }
                 .setNegativeButton("ยกเลิก", null).showDirector()
+        }
+    }
+    private fun shoppingApiTest() {
+        val store = FreeSearchSettings(this)
+        val services = listOf("tavily" to "Tavily", "exa" to "Exa", "serpapi" to "SerpApi", "firecrawl" to "Firecrawl")
+        choiceMenu("🧪 ทดสอบ API ค้นหาสินค้า", services.map { it.second }) { selected ->
+            val (id, name) = services[selected]
+            if (store.key(id).isBlank()) { notice("ยังไม่ได้บันทึก API Key ของ $name"); return@choiceMenu }
+            val progress = AlertDialog.Builder(this).setTitle("ทดสอบ $name").setMessage("กำลังค้นหาสินค้าทดสอบ • อาจใช้โควตา API").setCancelable(false).showDirector()
+            Thread {
+                val result = runCatching { FreeProductSearch.search(applicationContext, id, "แก้วน้ำ", 1, ProductSearchControl()) }
+                runOnUiThread {
+                    progress.dismiss()
+                    if (!isFinishing && !isDestroyed) AlertDialog.Builder(this).setTitle("ผลทดสอบ $name")
+                        .setMessage(result.fold({ "เชื่อมต่อสำเร็จ • พบลิงก์ที่ตรงร้าน ${it.size} รายการ" }, { ProductSearchRotation.friendly(it) }))
+                        .setPositiveButton("ตกลง", null).showDirector()
+                }
+            }.start()
         }
     }
     private fun readGeminiStatus(): JSONObject? = runCatching { GeminiStoryFiles.read(File(project,"gemini_job/status.json")) }.getOrNull()
