@@ -128,4 +128,60 @@ class StoryFallbackPolicyTest {
         ))
     }
 
+    @Test fun successfulPrimaryNeverSelectsBackup() {
+        assertNull(StoryFallbackPolicy.nextCandidate(
+            StoryProvider.GROQ, all, all, setOf(StoryProvider.GROQ),
+            setOf(StoryProvider.GEMINI), 200, cancelled = false
+        ))
+    }
+
+    @Test fun transientErrorMatrixSelectsOneExplicitlyApprovedBackup() {
+        listOf(408, 429, 500, 502, 503, 599).forEach { status ->
+            assertEquals("HTTP $status", StoryProvider.GEMINI,
+                StoryFallbackPolicy.nextCandidate(
+                    StoryProvider.GROQ, all, all, setOf(StoryProvider.GROQ),
+                    setOf(StoryProvider.GEMINI), status, cancelled = false
+                ))
+        }
+    }
+
+    @Test fun exhaustedProvidersAndMissingApprovalFailClosed() {
+        assertNull(StoryFallbackPolicy.nextCandidate(
+            StoryProvider.GROQ, all, all, setOf(StoryProvider.GROQ),
+            emptySet(), 503, cancelled = false
+        ))
+        assertNull(StoryFallbackPolicy.nextCandidate(
+            StoryProvider.GROQ, all, setOf(StoryProvider.GROQ),
+            setOf(StoryProvider.GROQ), setOf(StoryProvider.GEMINI),
+            503, cancelled = false
+        ))
+    }
+
+    @Test fun cancelledRequestDoesNotSwitchEvenOnRateLimit() {
+        listOf(408, 429, 503).forEach { status ->
+            assertNull(StoryFallbackPolicy.nextCandidate(
+                StoryProvider.GROQ, all, all, setOf(StoryProvider.GROQ),
+                setOf(StoryProvider.GEMINI), status, cancelled = true
+            ))
+        }
+    }
+
+    @Test fun candidateOrderingIsDeterministicAndDeduplicated() {
+        val order = listOf(StoryProvider.GEMINI, StoryProvider.GEMINI, StoryProvider.COHERE)
+        assertEquals(listOf(StoryProvider.GEMINI, StoryProvider.COHERE),
+            StoryFallbackPolicy.candidates(
+                StoryProvider.GROQ, all, all, setOf(StoryProvider.GROQ),
+                all, active = order
+            ))
+    }
+
+    @Test fun noFallbackOnMissingStatusOrClientSideFailures() {
+        listOf(null, 400, 401, 403, 404, 409, 422, 499).forEach { status ->
+            assertNull("HTTP $status", StoryFallbackPolicy.nextCandidate(
+                StoryProvider.GROQ, all, all, setOf(StoryProvider.GROQ),
+                setOf(StoryProvider.GEMINI), status, cancelled = false
+            ))
+        }
+    }
+
 }
