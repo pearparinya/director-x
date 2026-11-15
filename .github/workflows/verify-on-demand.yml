@@ -48,6 +48,27 @@ jobs:
           gradle-version: '8.9'
       - name: Run unit tests
         run: gradle --no-daemon --stacktrace testDebugUnitTest
+      - name: Publish test report summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Director X Android verification"
+            echo ""
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Branch/ref: \`${GITHUB_REF_NAME}\`"
+            echo "- Unit test report: see uploaded artifact (when generated)."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload unit test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: director-x-unit-test-reports
+          path: |
+            app/build/test-results/testDebugUnitTest/**
+            app/build/reports/tests/testDebugUnitTest/**
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Compile debug APK when requested
         if: ${{ inputs.build_debug_apk }}
         run: gradle --no-daemon --stacktrace assembleDebug
