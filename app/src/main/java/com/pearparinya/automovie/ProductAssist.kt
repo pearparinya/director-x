@@ -110,7 +110,10 @@ internal object ProductAssist {
                                         name.setText(product.name); facts.setText(product.detail)
                                         rating.setText(""); experience.setText(""); links.forEach { it.setText("") }
                                         source.setText(product.url)
-                                        prefs.edit().putString("source_url", product.url).putString("name", product.name).putString("facts", product.detail).apply()
+                                        prefs.edit().putString("source_url", product.url).putString("name", product.name).putString("facts", product.detail)
+                                            .putString("link0", "").putString("link1", "").putString("link2", "")
+                                            .putString("rating", "").putString("experience", "").remove("shared_link")
+                                            .remove("confirmed_product").remove("confirmed_premise").apply()
                                         resultsDialog.dismiss()
                                         AlertDialog.Builder(activity).setTitle("เลือกสินค้าแล้ว").setMessage("ตรวจชื่อและคุณสมบัติกับร้านก่อนยืนยัน • ลิงก์ที่พบเป็นลิงก์สินค้า กรุณาเปลี่ยนเป็นลิงก์ Affiliate ของคุณหากต้องการค่าคอมมิชชัน") .setPositiveButton("ตกลง", null).show()
                                     }
