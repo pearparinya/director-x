@@ -51,11 +51,11 @@ internal object FreeProductSearch {
     fun search(context: Context, provider: String, query: String, store: Int, control: ProductSearchControl): List<ProductSearch.Result> {
         val settings=FreeSearchSettings(context); val key=settings.key(provider)
         if(key.isBlank()) throw ProductSearchError("ยังไม่ได้ตั้ง API Key")
-        val domains=listOf("tiktokshop.com","shopee.co.th","lazada.co.th")
+        val domains=listOf(listOf("tiktokshop.com", "shop-th.tiktok.com"),listOf("shopee.co.th"),listOf("lazada.co.th"))
         require(store in domains.indices)
         val request=JSONObject().put("query",query.take(120)+" "+listOf("TikTok Shop Thailand","Shopee Thailand","Lazada Thailand")[store])
-        if(provider=="tavily") request.put("search_depth","basic").put("max_results",10).put("auto_parameters",false).put("include_domains",JSONArray().put(domains[store]))
-        else request.put("type","lite").put("numResults",10).put("includeDomains",JSONArray().put(domains[store]))
+        if(provider=="tavily") request.put("search_depth","basic").put("max_results",10).put("auto_parameters",false).put("include_domains",JSONArray(domains[store]))
+        else request.put("type","lite").put("numResults",10).put("includeDomains",JSONArray(domains[store]))
         // Reserve before sending, including failures, so retries cannot bypass the local ceiling.
         settings.reserve(provider)
         val conn=URL(if(provider=="tavily") "https://api.tavily.com/search" else "https://api.exa.ai/search").openConnection() as HttpURLConnection
