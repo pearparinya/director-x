@@ -1,0 +1,58 @@
+name: Director X Release Dry Run
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/release-dry-run.yml'
+      - '.github/workflows/build-apk.yml'
+      - 'app/build.gradle.kts'
+      - 'scripts/check_release_config.py'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate release configuration
+        run: python3 scripts/check_release_config.py
+      - name: Check existing version without publishing
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)"
+          BUILD="$(sed -n 's/.*versionCode = \([0-9][0-9]*\).*/\1/p' app/build.gradle.kts | head -n 1)"
+          [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]] && [[ "$BUILD" =~ ^[1-9][0-9]*$ ]] || {
+            echo "::error::Invalid version metadata"; exit 1;
+          }
+          TAG="R${VERSION}-B${BUILD}"
+          echo "### Director X release dry run" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Candidate: \`$TAG\`" >> "$GITHUB_STEP_SUMMARY"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "- Release: already published (build should be skipped)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            STATUS="$(gh api -i "repos/${GITHUB_REPOSITORY}/releases/tags/$TAG" 2>&1)" && {
+              echo "- Release: exists" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            }
+            if ! printf '%s' "$STATUS" | grep -Eq 'HTTP/[0-9.]+ 404|HTTP 404'; then
+              echo "::error::Release lookup failed; refusing to guess."
+              exit 1
+            fi
+            if ! TAG_MATCHES="$(git ls-remote --tags origin "refs/tags/$TAG")"; then
+              echo "::error::Remote tag lookup failed."
+              exit 1
+            fi
+            if [ -n "$TAG_MATCHES" ]; then
+              echo "- Release: missing, but tag exists (manual intervention required)" >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+            echo "- Release: not published; candidate may be built after approval" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "- No APK was built, signed, uploaded, or published." >> "$GITHUB_STEP_SUMMARY"
