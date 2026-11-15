@@ -107,7 +107,13 @@ internal object ProductAssist {
             val handler=android.os.Handler(android.os.Looper.getMainLooper())
             val started=android.os.SystemClock.elapsedRealtime()
             val progressText=TextView(activity).apply { textSize=18f; setPadding(32,24,32,24); setTextColor(Color.WHITE) }
-            val progressPanel=LinearLayout(activity).apply { orientation=LinearLayout.VERTICAL; addView(progressText); addView(android.widget.ProgressBar(activity).apply { isIndeterminate=true }) }
+            val progressPanel=LinearLayout(activity).apply {
+                orientation=LinearLayout.VERTICAL; setPadding(20,12,20,24)
+                background=GradientDrawable().apply { colors=intArrayOf(Color.rgb(9,35,61),Color.rgb(5,18,38)); cornerRadius=24f }
+                addView(TextView(activity).apply { text="DIRECTOR X • ค้นหาสินค้า"; textSize=17f; setTypeface(null,Typeface.BOLD); setTextColor(Color.rgb(255,196,77)); setPadding(28,20,28,0) })
+                addView(progressText)
+                addView(android.widget.ProgressBar(activity).apply { isIndeterminate=true; indeterminateTintList=android.content.res.ColorStateList.valueOf(Color.rgb(33,194,231)) })
+            }
             val progress = AlertDialog.Builder(activity).setTitle("✦ กำลังค้นหาสินค้า")
                 .setView(progressPanel).setNegativeButton("ยกเลิก",null).create()
             var step="กำลังเตรียมค้นหา"
