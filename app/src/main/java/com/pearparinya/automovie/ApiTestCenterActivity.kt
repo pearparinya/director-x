@@ -11,6 +11,10 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Switch
+import android.os.Handler
+import android.os.Looper
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Offline-only fallback consent and diagnostics.
@@ -23,6 +27,9 @@ class ApiTestCenterActivity : Activity() {
     private val gold = Color.rgb(246, 191, 88)
     private val pale = Color.rgb(223, 232, 250)
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
+    private val probeExecutor = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val probing = AtomicBoolean(false)
     private val preferences by lazy { getSharedPreferences("api_fallback_simulation", MODE_PRIVATE) }
 
     private fun approved(): Set<StoryProvider> {
@@ -67,6 +74,7 @@ class ApiTestCenterActivity : Activity() {
         root.addView(text("ตรวจสอบและจำลองการสลับ API แบบออฟไลน์", 16f))
         root.addView(text("ไม่มีการเชื่อมต่อ API • ไม่ใช้เครดิต • ไม่แสดงคีย์", 13f))
         root.addView(text("การอนุญาตในหน้านี้ใช้กับการจำลองเท่านั้น ยังไม่เปิดการสลับ API ในงานเขียนบทจริง", 13f, true))
+        root.addView(text("ทดสอบออนไลน์จะส่งคำขอสร้าง JSON สั้น ๆ ไปยังผู้ให้บริการและอาจใช้โควตา • ไม่มีการทดสอบอัตโนมัติ", 13f, true))
 
         val providers = card()
         providers.addView(text("สิทธิ์ API สำรองและลำดับการทดลอง", 18f, true))
@@ -79,6 +87,11 @@ class ApiTestCenterActivity : Activity() {
         val simulation = text("ยังไม่ได้ทดสอบ", 15f)
         result.addView(simulation)
         root.addView(result)
+        val liveReport = card()
+        liveReport.addView(text("ทดสอบการเชื่อมต่อจริง (กดเองเท่านั้น)", 18f, true))
+        val liveStatus = text("ยังไม่ได้ทดสอบออนไลน์", 14f)
+        liveReport.addView(liveStatus)
+        root.addView(liveReport)
 
         fun refresh() {
             providers.removeAllViews()
@@ -138,10 +151,65 @@ class ApiTestCenterActivity : Activity() {
                     StoryApiDiagnostics.State.DISABLED -> "ปิดใช้งานในตั้งค่า API"
                     StoryApiDiagnostics.State.NOT_APPROVED_FOR_FALLBACK -> "ยังไม่ได้อนุญาตจำลองสำรอง"
                 }
-                report.addView(text("${item.provider.label} — $description", 14f))
+                report.addView(text("${item.provider.label} — $description • ผลล่าสุด: ${StoryProvider.lastTest(this, item.provider)}", 14f))
             }
         }
 
+        fun runProbe(targets: List<StoryProvider>) {
+            if (!probing.compareAndSet(false, true)) return
+            liveStatus.text = "กำลังตรวจสอบ ${targets.size} ผู้ให้บริการ • อาจใช้โควตา"
+            probeExecutor.execute {
+                val messages = mutableListOf<String>()
+                try {
+                    targets.forEach { provider ->
+                        if (!provider.hasKey(this)) {
+                            messages.add("${provider.label}: ยังไม่มีคีย์ • ไม่ส่งคำขอ")
+                        } else if (provider.id !in StoryProvider.allowedIds(this)) {
+                            messages.add("${provider.label}: ปิดใช้งาน • ไม่ส่งคำขอ")
+                        } else {
+                            val started = System.nanoTime()
+                            val outcome = try {
+                                val client = StoryClientFactory.create(
+                                    provider, provider.key(this), provider.model(this),
+                                    cancelled = { false }, automaticRetry = false,
+                                    context = if (provider == StoryProvider.GEMINI) this else null
+                                )
+                                StoryApiProbe.check(client)
+                                StoryProvider.recordTest(this, provider, true)
+                                val millis = (System.nanoTime() - started) / 1_000_000
+                                "ผ่าน • ${millis} ms"
+                            } catch (e: Exception) {
+                                val safeReason = StoryApiProbe.error(e)
+                                StoryProvider.recordTest(this, provider, false, safeReason)
+                                "ไม่ผ่าน • $safeReason"
+                            }
+                            messages.add("${provider.label}: $outcome")
+                        }
+                        mainHandler.post { if (!isFinishing && !isDestroyed) liveStatus.text = messages.joinToString("\n") }
+                    }
+                } finally {
+                    probing.set(false)
+                    mainHandler.post { if (!isFinishing && !isDestroyed) refresh() }
+                }
+            }
+        }
+        StoryProvider.activeProviders.forEach { provider ->
+            root.addView(Button(this).apply {
+                text = "ทดสอบออนไลน์: ${provider.label}"
+                setOnClickListener { runProbe(listOf(provider)) }
+            })
+        }
+        root.addView(Button(this).apply {
+            text = "ทดสอบออนไลน์ทั้งหมด (อาจใช้โควตา 4 รายการ)"
+            setOnClickListener {
+                android.app.AlertDialog.Builder(this@ApiTestCenterActivity)
+                    .setTitle("ยืนยันการใช้โควตา API")
+                    .setMessage("จะส่งคำขอทดสอบจริงไปยัง API ที่เปิดใช้งานและมีคีย์ สูงสุด 4 ผู้ให้บริการ โดยไม่ลองซ้ำอัตโนมัติ")
+                    .setNegativeButton("ยกเลิก", null)
+                    .setPositiveButton("เริ่มทดสอบ") { _, _ -> runProbe(StoryProvider.activeProviders) }
+                    .show()
+            }
+        })
         root.addView(Button(this).apply {
             text = "ตรวจสอบสถานะใหม่ (ออฟไลน์)"
             setOnClickListener { refresh() }
