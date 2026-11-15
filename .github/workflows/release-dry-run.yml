@@ -34,17 +34,12 @@ jobs:
           TAG="R${VERSION}-B${BUILD}"
           echo "### Director X release dry run" >> "$GITHUB_STEP_SUMMARY"
           echo "- Candidate: \`$TAG\`" >> "$GITHUB_STEP_SUMMARY"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "- Release: already published (build should be skipped)" >> "$GITHUB_STEP_SUMMARY"
-          else
-            STATUS="$(gh api -i "repos/${GITHUB_REPOSITORY}/releases/tags/$TAG" 2>&1)" && {
-              echo "- Release: exists" >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            }
-            if ! printf '%s' "$STATUS" | grep -Eq 'HTTP/[0-9.]+ 404|HTTP 404'; then
-              echo "::error::Release lookup failed; refusing to guess."
-              exit 1
-            fi
+          # A single API lookup distinguishes an existing release, a genuine
+          # 404, and permission/rate-limit errors without guessing.
+          API_RESPONSE="$(gh api -i "repos/${GITHUB_REPOSITORY}/releases/tags/$TAG" 2>&1)" && API_EXIT=0 || API_EXIT=$?
+          if [ "$API_EXIT" -eq 0 ]; then
+            echo "- Release: already published; duplicate build should be skipped" >> "$GITHUB_STEP_SUMMARY"
+          elif printf '%s' "$API_RESPONSE" | grep -Eq 'HTTP/[0-9.]+ 404|HTTP 404'; then
             if ! TAG_MATCHES="$(git ls-remote --tags origin "refs/tags/$TAG")"; then
               echo "::error::Remote tag lookup failed."
               exit 1
@@ -54,5 +49,9 @@ jobs:
               exit 1
             fi
             echo "- Release: not published; candidate may be built after approval" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::Release API lookup failed (not a 404); refusing to guess."
+            echo "- Release: status unavailable; no build should start" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
           fi
           echo "- No APK was built, signed, uploaded, or published." >> "$GITHUB_STEP_SUMMARY"
