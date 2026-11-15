@@ -26,9 +26,10 @@ class StudioUpdater(private val activity: AppCompatActivity) {
     }
     private fun message(text: String) = AlertDialog.Builder(activity).setIcon(R.drawable.studio_update).setTitle("DIRECTOR X").setMessage(text).setPositiveButton("ตกลง",null).showDirector()
     private var lastAutomaticCheck = 0L
+    private val checkIntervalMs = 30 * 60 * 1000L
     fun checkAutomatically() {
         val now = android.os.SystemClock.elapsedRealtime()
-        if (lastAutomaticCheck != 0L && now - lastAutomaticCheck < 30 * 60 * 1000L) return
+        if (lastAutomaticCheck != 0L && now - lastAutomaticCheck < checkIntervalMs) return
         if (busy) return
         lastAutomaticCheck = now
         check(true)
@@ -41,12 +42,14 @@ class StudioUpdater(private val activity: AppCompatActivity) {
             try {
                 val connection = connect("https://api.github.com/repos/pearparinya/director-x/releases/latest?cb=${System.currentTimeMillis()}")
                 val release = try { JSONObject(connection.inputStream.bufferedReader().use { it.readText() }) } finally { connection.disconnect() }
+                require(!release.optBoolean("draft") && !release.optBoolean("prerelease")) { "รุ่นนี้ยังไม่พร้อมเผยแพร่" }
                 val build = Regex("BUILD\\s*[:#]?\\s*(\\d+)",RegexOption.IGNORE_CASE).find(release.optString("body"))?.groupValues?.get(1)?.toLongOrNull()
                     ?: Regex("-B(\\d+)").find(release.getString("tag_name"))?.groupValues?.get(1)?.toLongOrNull()
                     ?: error("รุ่นล่าสุดไม่มีข้อมูลการอัปเดต")
                 val local = activity.packageManager.getPackageInfo(activity.packageName,0).versionCode.toLong()
                 val assets = release.getJSONArray("assets")
                 val asset = (0 until assets.length()).map { assets.getJSONObject(it) }.firstOrNull { it.getString("name").endsWith(".apk",true) } ?: error("ไม่พบ APK รุ่นใหม่")
+                require(asset.optLong("size",0L) > 100000L) { "ไฟล์ APK ใน Release ไม่สมบูรณ์" }
                 val url = asset.getString("browser_download_url")
                 require(url.startsWith("https://github.com/pearparinya/director-x/releases/download/") ||
                     url.startsWith("https://github.com/pearparinya/auto-movie-r6-4/releases/download/")) { "แหล่งดาวน์โหลดไม่ถูกต้อง" }
@@ -80,7 +83,31 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                 val dir = activity.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: error("ไม่มีพื้นที่ดาวน์โหลด")
                 val file = File(dir,"DIRECTOR-X-$build.apk"); target = file
                 val connection = connect(url)
-                try { connection.inputStream.use { source -> file.outputStream().use { source.copyTo(it) } } } finally { connection.disconnect() }
+                try {
+                    val total = if (expectedSize > 0) expectedSize else connection.contentLengthLong
+                    connection.inputStream.use { source ->
+                        file.outputStream().use { output ->
+                            val buffer = ByteArray(64 * 1024)
+                            var received = 0L
+                            var lastPercent = -1
+                            while (true) {
+                                val count = source.read(buffer)
+                                if (count < 0) break
+                                output.write(buffer, 0, count)
+                                received += count
+                                if (total > 0) {
+                                    val percent = (received * 100 / total).toInt().coerceIn(0, 100)
+                                    if (percent >= lastPercent + 5 || percent == 100) {
+                                        lastPercent = percent
+                                        activity.runOnUiThread {
+                                            if (!activity.isFinishing && !activity.isDestroyed) dialog.setMessage("กำลังดาวน์โหลด… $percent%")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } finally { connection.disconnect() }
                 require(file.length() > 100000 && (expectedSize <= 0 || file.length() == expectedSize)) { "ดาวน์โหลดไฟล์ไม่ครบ" }
                 val pm = activity.packageManager
                 val candidate = pm.getPackageArchiveInfo(file.path,PackageManager.GET_SIGNATURES) ?: error("ไฟล์ APK ไม่ถูกต้อง")
@@ -91,10 +118,10 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                 }?.toSet() ?: emptySet()
                 val signers = certificates(candidate)
                 require(signers.isNotEmpty() && signers == certificates(installed)) { "ลายเซ็นไม่ตรงกับแอปที่ติดตั้ง" }
-                activity.runOnUiThread { busy = false; dialog.dismiss(); install(file) }
+                activity.runOnUiThread { busy = false; dialog.dismiss(); if (!activity.isFinishing && !activity.isDestroyed) install(file) }
             } catch (e: Exception) {
                 target?.delete()
-                activity.runOnUiThread { busy = false; dialog.dismiss(); message("อัปเดตไม่สำเร็จ: ${e.message}") }
+                activity.runOnUiThread { busy = false; dialog.dismiss(); if (!activity.isFinishing && !activity.isDestroyed) message("อัปเดตไม่สำเร็จ: ${e.message}") }
             }
         }.start()
     }
