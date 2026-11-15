@@ -25,13 +25,14 @@ class StudioUpdater(private val activity: AppCompatActivity) {
         else message("ยังไม่ได้อนุญาตติดตั้งอัปเดต กด Update เพื่อลองอีกครั้งครับ")
     }
     private fun message(text: String) = AlertDialog.Builder(activity).setIcon(R.drawable.studio_update).setTitle("DIRECTOR X").setMessage(text).setPositiveButton("ตกลง",null).showDirector()
-    private var lastAutomaticCheck = 0L
+    private val updatePrefs = activity.getSharedPreferences("director_x_updater", android.content.Context.MODE_PRIVATE)
     private val checkIntervalMs = 30 * 60 * 1000L
+    private val reminderIntervalMs = 24 * 60 * 60 * 1000L
     fun checkAutomatically() {
-        val now = android.os.SystemClock.elapsedRealtime()
-        if (lastAutomaticCheck != 0L && now - lastAutomaticCheck < checkIntervalMs) return
+        val now = System.currentTimeMillis()
+        val last = updatePrefs.getLong("last_successful_check", 0L)
+        if (last in 1..now && now - last < checkIntervalMs) return
         if (busy) return
-        lastAutomaticCheck = now
         check(true)
     }
     fun check(automatic: Boolean = false) {
@@ -56,15 +57,20 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                 activity.runOnUiThread {
                     busy = false; dialog?.dismiss()
                     if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
-                    if (automatic && !activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
-                        lastAutomaticCheck = 0L
-                        return@runOnUiThread
-                    }
+                    updatePrefs.edit().putLong("last_successful_check", System.currentTimeMillis()).apply()
+                    if (automatic && !activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) return@runOnUiThread
                     if (build <= local) { if (!automatic) message("คุณใช้ DIRECTOR X รุ่นล่าสุดแล้วครับ") }
-                    else AlertDialog.Builder(activity).setIcon(R.drawable.studio_update).setTitle("DIRECTOR X รุ่นใหม่พร้อมแล้ว").setMessage("${release.optString("name", "รุ่นใหม่")}\nดาวน์โหลดและติดตั้งทับเพื่ออัปเดต งานที่บันทึกไว้จะยังอยู่")
-                        .setPositiveButton("อัปเดต") { _,_ -> download(url,build,asset.optLong("size",-1)) }.setNegativeButton("ภายหลัง",null).showDirector()
+                    else {
+                        val now = System.currentTimeMillis()
+                        val dismissedBuild = updatePrefs.getLong("dismissed_build", -1L)
+                        val dismissedAt = updatePrefs.getLong("dismissed_at", 0L)
+                        if (automatic && dismissedBuild == build && dismissedAt in 1..now && now - dismissedAt < reminderIntervalMs) return@runOnUiThread
+                        AlertDialog.Builder(activity).setIcon(R.drawable.studio_update).setTitle("DIRECTOR X รุ่นใหม่พร้อมแล้ว").setMessage("${release.optString("name", "รุ่นใหม่")}\nดาวน์โหลดและติดตั้งทับเพื่ออัปเดต งานที่บันทึกไว้จะยังอยู่")
+                            .setPositiveButton("อัปเดต") { _,_ -> download(url,build,asset.optLong("size",-1)) }
+                            .setNegativeButton("ภายหลัง") { _,_ -> updatePrefs.edit().putLong("dismissed_build",build).putLong("dismissed_at",System.currentTimeMillis()).apply() }.showDirector()
+                    }
                 }
-            } catch (e: Exception) { activity.runOnUiThread { busy = false; if(automatic) lastAutomaticCheck=0L; dialog?.dismiss(); if (!automatic && !activity.isFinishing && !activity.isDestroyed) message("ตรวจสอบอัปเดตไม่สำเร็จ: ${e.message}") } }
+            } catch (e: Exception) { activity.runOnUiThread { busy = false; dialog?.dismiss(); if (!automatic && !activity.isFinishing && !activity.isDestroyed) message("ตรวจสอบอัปเดตไม่สำเร็จ: ${e.message}") } }
         }.start()
     }
     private fun connect(url: String): HttpURLConnection = (URL(url).openConnection() as HttpURLConnection).apply {
