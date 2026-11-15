@@ -103,12 +103,17 @@ class GeminiStoryService : Service() {
                                     StoryClientFactory.create(
                                         backup,backup.key(this),backup.model(this),
                                         { cancelled },automaticRetry=false,context=this
-                                    ).also { clients=connections.values.toList()+fallbackConnections.values+it }
+                                    ).also { created ->
+                                        // Register the in-flight client before its request starts so
+                                        // the service CANCEL action can disconnect it immediately.
+                                        clients=connections.values.toList()+fallbackConnections.values.toList()+created
+                                    }
                                 }
                                 attempted.add(backup)
                                 status("running",lastPercent,
                                     "${primary.label} ไม่พร้อม (HTTP $code) • ลอง API สำรอง ${backup.label} ครั้งเดียว",
                                     "requesting")
+                                if(cancelled) { client.cancel(); throw CancellationException() }
                                 val answer=client.generate(prompt,schema)
                                 if(cancelled) throw CancellationException()
                                 status("running",lastPercent,
