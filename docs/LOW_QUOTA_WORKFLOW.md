@@ -10,7 +10,7 @@ This process reduces repeated Codex usage; it does **not** increase OpenAI's wee
 5. Review test results and changes before merging. Use the existing release/signing workflow for production updates.
 
 ## Stability safeguards
-- The verification workflow is manual, so it does not consume CI minutes on every small edit.
+- The verification workflow runs automatically for pull requests changing Android/build files and can also be triggered manually. Unrelated documentation-only changes do not trigger it.
 - Runs for the same branch are grouped; newer runs cancel older unfinished runs.
 - Gradle dependencies are cached to reduce repeated setup.
 - The job has a 35-minute timeout to prevent indefinitely running builds.
