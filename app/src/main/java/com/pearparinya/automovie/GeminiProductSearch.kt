@@ -43,7 +43,7 @@ internal object GeminiProductSearch {
                 val web=chunks.optJSONObject(i)?.optJSONObject("web") ?: continue
                 val source=web.optString("uri"); val title=web.optString("title").trim().take(200)
                 val url=runCatching { resolveSource(source, control) }.getOrDefault("")
-                if(title.isNotBlank() && ProductSearch.matchesPlatform(url,platform) && results.none { it.url==url }) results.add(ProductSearch.Result(title,url,""))
+                if(ProductSearch.relevantTitle(title) && ProductSearch.matchesPlatform(url,platform) && results.none { it.url==url }) results.add(ProductSearch.Result(title,url,""))
                 if(results.size==5) break
             }
             if(results.isEmpty()) throw ProductSearchError("พบแหล่งอ้างอิง แต่ไม่พบหน้าสินค้าที่ตรวจลิงก์ได้ในร้านที่เลือก")

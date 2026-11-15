@@ -79,52 +79,12 @@ internal object ProductAssist {
             }
         })
         val searchSettings=FreeSearchSettings(activity)
-        val quotaStatus=TextView(activity).apply { setTextColor(Color.WHITE); panel.addView(this) }
-        fun refreshQuota() {
-            quotaStatus.text="Tavily: ${searchSettings.used("tavily")}/${searchSettings.limit("tavily")} • Exa: ${searchSettings.used("exa")}/${searchSettings.limit("exa")} ครั้งบนเครื่องเดือนนี้\nตัวเลขโดยประมาณ • ตรวจยอดจริงในบัญชี • ใช้แผนฟรีเท่านั้น"
-        }
-        refreshQuota()
+        fun refreshQuota() { }
         panel.addView(Button(activity).apply {
-            text="🔑 ตั้งค่า Tavily / Exa"; isAllCaps=false
-            setOnClickListener {
-                val names=arrayOf("Tavily", "Exa")
-                AlertDialog.Builder(activity).setTitle("ตั้งค่า API ค้นหาฟรี").setItems(names) { _, selected ->
-                    val id=if(selected==0) "tavily" else "exa"
-                    val input=EditText(activity).apply { hint="วาง API Key ใหม่"; inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD }
-                    AlertDialog.Builder(activity).setTitle(names[selected]+if(searchSettings.key(id).isNotBlank()) " • บันทึกแล้ว" else " • ยังไม่มีคีย์")
-                        .setMessage("ใช้เฉพาะแผนฟรี ไม่เปิด Pay as you go • คีย์เข้ารหัสบนเครื่อง • วางคีย์ใหม่เพื่อบันทึก")
-                        .setView(input).setPositiveButton("บันทึก") { _,_ ->
-                            runCatching { searchSettings.save(id,input.text.toString()) }.onFailure { AlertDialog.Builder(activity).setMessage("ตรวจ API Key อีกครั้ง").setPositiveButton("ตกลง",null).show() }
-                            refreshQuota()
-                        }.setNeutralButton("ลบคีย์") { _,_ -> searchSettings.clear(id); refreshQuota() }.setNegativeButton("ยกเลิก",null).show()
-                }.show()
-            }
+            text="⚙ ตั้งค่า / ทดสอบ API ค้นหา"; isAllCaps=false
+            setOnClickListener { FreeSearchSettingsUi.show(activity) }
         })
-        panel.addView(Button(activity).apply {
-            text="ทดสอบ API ที่บันทึก"; isAllCaps=false
-            setOnClickListener {
-                val choices=arrayOf("Tavily", "Exa")
-                AlertDialog.Builder(activity).setTitle("เลือก API เพื่อทดสอบ").setMessage("การทดสอบจะใช้โควตาค้นหา 1 ครั้ง")
-                    .setItems(choices) { _, selected ->
-                        val id=if(selected==0) "tavily" else "exa"
-                        if(searchSettings.key(id).isBlank()) {
-                            AlertDialog.Builder(activity).setMessage("ยังไม่ได้บันทึก API Key").setPositiveButton("ตกลง",null).show()
-                        } else {
-                            val progress=AlertDialog.Builder(activity).setMessage("กำลังทดสอบ ${choices[selected]}…").setCancelable(false).show()
-                            Thread {
-                                val result=runCatching { FreeProductSearch.search(activity.applicationContext,id,"แก้วน้ำ",1,ProductSearchControl()) }
-                                activity.runOnUiThread {
-                                    progress.dismiss(); refreshQuota()
-                                    if(!activity.isFinishing && !activity.isDestroyed) AlertDialog.Builder(activity).setTitle("ผลทดสอบ ${choices[selected]}")
-                                        .setMessage(result.fold({ "เชื่อมต่อสำเร็จ • พบลิงก์สินค้าที่ตรวจรูปแบบได้ ${it.size} รายการ" }, { ProductSearchRotation.friendly(it) }))
-                                        .setPositiveButton("ตกลง",null).show()
-                                }
-                            }.start()
-                        }
-                    }.setNegativeButton("ยกเลิก",null).show()
-            }
-        })
-        label("ค้นด้วย Tavily ก่อน แล้วใช้ Exa สำรอง • ตั้งบัญชีผู้ให้บริการเป็นแผนฟรี • ระบบนี้นับเฉพาะการเรียกจากเครื่องนี้")
+        label("สลับบริการที่มีคีย์ทีละตัว • ตรวจโควตาจริงและใช้บัญชีแผนฟรี")
         listOf("TikTok Shop" to "https://www.tiktok.com/search?q=", "Shopee" to "https://shopee.co.th/search?keyword=", "Lazada" to "https://www.lazada.co.th/catalog/?q=").forEach { (name, url) ->
             val manual = Button(activity).apply { text = "ค้นหาใน $name"; setOnClickListener {
                 val encoded = URLEncoder.encode(query.text.toString().trim(), "UTF-8")
@@ -166,7 +126,6 @@ internal object ProductAssist {
         saveDraft("rating",rating); saveDraft("experience",experience); links.forEachIndexed { i, edit -> saveDraft("link$i",edit) }
         val receiver: (String) -> Unit = { received ->
             AlertDialog.Builder(activity).setTitle("ได้รับลิงก์แล้ว")
-                .setMessage("เลือกช่อง Affiliate ที่ต้องการบันทึก แล้วตรวจว่าลิงก์ตรงกับสินค้าที่เลือก ระบบยังไม่ได้ตรวจค่าคอมมิชชัน")
                 .setItems(arrayOf("TikTok Shop","Shopee","Lazada")) { _, index -> links[index].setText(received); sharedStatus.text="ได้รับลิงก์ ${listOf("TikTok Shop","Shopee","Lazada")[index]} แล้ว • ตรวจให้ตรงสินค้า"; flowStatus.text="④ ได้รับลิงก์ ✓   •   ⑤ ตรวจข้อมูลก่อนยืนยัน"; prefs.edit().remove("shared_link").apply() }
                 .setNegativeButton("ภายหลัง",null).show()
         }
@@ -182,7 +141,7 @@ internal object ProductAssist {
             val storeNames=listOf("TikTok Shop","Shopee","Lazada")
             fun attemptsForStore(store: Int): List<ProductSearchRotation.Attempt> {
                 val attempts=mutableListOf<ProductSearchRotation.Attempt>()
-                listOf("tavily" to "Tavily", "exa" to "Exa").forEach { (id,label) ->
+                FreeSearchSettings.PROVIDERS.forEach { (id,label) ->
                     if(searchSettings.key(id).isNotBlank()) attempts.add(ProductSearchRotation.Attempt(label) {
                         FreeProductSearch.search(activity.applicationContext,id,searchText,store,control)
                     })
@@ -191,7 +150,7 @@ internal object ProductAssist {
             }
             val attemptsByStore=stores.associateWith { attemptsForStore(it) }
             if(attemptsByStore.values.all { it.isEmpty() }) {
-                AlertDialog.Builder(activity).setTitle("ยังไม่มี API ที่พร้อมค้นหา").setMessage("เพิ่มคีย์ Tavily หรือ Exa ในปุ่มตั้งค่า API ก่อนลองใหม่").setPositiveButton("ตกลง",null).show()
+                AlertDialog.Builder(activity).setTitle("ยังไม่มี API ที่พร้อมค้นหา").setMessage("เพิ่มคีย์ API ค้นหาในปุ่มตั้งค่า API ก่อนลองใหม่").setPositiveButton("ตกลง",null).show()
                 return@setOnClickListener
             }
             searchButton.isEnabled = false
@@ -212,7 +171,7 @@ internal object ProductAssist {
             val tick=object: Runnable { override fun run() {
                 if(!progress.isShowing) return
                 val seconds=(android.os.SystemClock.elapsedRealtime()-started)/1000
-                progressText.text="$step\nเวลารวม %02d:%02d\nใช้บัญชีแผนฟรี • ตรวจยอดจริงกับผู้ให้บริการ".format(seconds/60,seconds%60)
+                progressText.text="$step\nเวลารวม %02d:%02d\nตรวจโควตาจริงและสถานะบิลกับผู้ให้บริการ".format(seconds/60,seconds%60)
                 handler.postDelayed(this,1000)
             } }
             progress.setOnDismissListener { control.cancel(); handler.removeCallbacks(tick); searchButton.isEnabled=true }
