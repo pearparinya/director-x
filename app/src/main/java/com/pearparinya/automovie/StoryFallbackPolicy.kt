@@ -22,6 +22,33 @@ internal object StoryFallbackPolicy {
         }
     }
 
+    /**
+     * Limit total requests per story operation. This counts the primary request too.
+     * The caller must record every attempted provider before requesting another.
+     * No fallback is allowed after cancellation, when no attempt remains, or
+     * for non-transient HTTP failures.
+     */
+    fun nextCandidate(
+        primary: StoryProvider,
+        allowed: Set<StoryProvider>,
+        configured: Set<StoryProvider>,
+        attempted: Set<StoryProvider>,
+        approvedForAutomaticUse: Set<StoryProvider>,
+        httpStatus: Int?,
+        cancelled: Boolean,
+        maxTotalAttempts: Int = 2,
+        active: List<StoryProvider> = StoryProvider.activeProviders
+    ): StoryProvider? {
+        if (cancelled || !canFallback(httpStatus)) return null
+        if (maxTotalAttempts <= 1 || attempted.size >= maxTotalAttempts) return null
+        // Only a previously attempted primary may trigger fallback.
+        if (primary !in attempted) return null
+        return candidates(
+            primary, allowed, configured, attempted,
+            approvedForAutomaticUse, active
+        ).firstOrNull()
+    }
+
     /** Never switch on authentication, invalid input, or other non-transient errors. */
     fun canFallback(httpStatus: Int?): Boolean =
         httpStatus == 408 || httpStatus == 429 ||
