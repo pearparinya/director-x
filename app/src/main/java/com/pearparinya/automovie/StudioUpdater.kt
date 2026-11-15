@@ -26,7 +26,7 @@ class StudioUpdater(private val activity: AppCompatActivity) {
     }
     private fun message(text: String) = AlertDialog.Builder(activity).setIcon(R.drawable.studio_update).setTitle("DIRECTOR X").setMessage(text).setPositiveButton("ตกลง",null).showDirector()
     private val updatePrefs = activity.getSharedPreferences("director_x_updater", android.content.Context.MODE_PRIVATE)
-    private val checkIntervalMs = 30 * 60 * 1000L
+    private val checkIntervalMs = 5 * 60 * 1000L
     private val reminderIntervalMs = 24 * 60 * 60 * 1000L
     fun checkAutomatically() {
         val now = System.currentTimeMillis()
@@ -59,7 +59,7 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                     if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
                     updatePrefs.edit().putLong("last_successful_check", System.currentTimeMillis()).apply()
                     if (automatic && !activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) return@runOnUiThread
-                    if (build <= local) { if (!automatic) message("คุณใช้ DIRECTOR X รุ่นล่าสุดแล้วครับ") }
+                    if (build <= local) { if (!automatic) message("ติดตั้ง Build $local แล้ว • GitHub ล่าสุด Build $build • ไม่จำเป็นต้องอัปเดต") }
                     else {
                         val now = System.currentTimeMillis()
                         val dismissedBuild = updatePrefs.getLong("dismissed_build", -1L)
