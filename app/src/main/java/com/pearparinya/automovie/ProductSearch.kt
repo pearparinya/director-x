@@ -19,7 +19,7 @@ internal object ProductSearch {
         }
         return searchOpenRouter(context, query, platform)
     }
-    fun searchOpenRouter(context: Context, query: String, platform: Int): List<Result> {
+    fun searchOpenRouter(context: Context, query: String, platform: Int, control: ProductSearchControl = ProductSearchControl()): List<Result> {
         val settings = ExtraApiSettings(context, ExtraApiProvider.OPENROUTER)
         val key = settings.key()
         require(key.isNotBlank()) { "กรุณาตั้งค่า OpenRouter API ก่อนค้นหา" }
@@ -34,10 +34,16 @@ internal object ProductSearch {
         val conn = URL("https://openrouter.ai/api/v1/chat/completions").openConnection() as HttpURLConnection
         conn.requestMethod = "POST"; conn.connectTimeout = 20000; conn.readTimeout = 90000; conn.doOutput = true
         conn.setRequestProperty("Authorization", "Bearer $key"); conn.setRequestProperty("Content-Type", "application/json")
+        control.attach(conn)
         try {
             conn.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
             val code = conn.responseCode
-            require(code in 200..299) { "ค้นหาไม่สำเร็จ (HTTP $code) ตรวจสิทธิ์ค้นเว็บ โควตา และโมเดล OpenRouter" }
+            if(code !in 200..299) throw ProductSearchError(when(code) {
+                401,403 -> "คีย์หรือสิทธิ์ไม่พร้อม (HTTP $code)"
+                429 -> "โควตาหรืออัตราเรียกเต็ม (HTTP 429)"
+                in 500..599 -> "บริการขัดข้องชั่วคราว (HTTP $code)"
+                else -> "ค้นหาไม่สำเร็จ (HTTP $code)"
+            })
             val response = conn.inputStream.bufferedReader().use { reader ->
                 val b = CharArray(8192); val out = StringBuilder()
                 while (out.length < 500000) { val n = reader.read(b, 0, minOf(b.size, 500000-out.length)); if (n < 0) break; out.append(b, 0, n) }
@@ -51,10 +57,10 @@ internal object ProductSearch {
                 val url = a.optJSONObject("url_citation")?.optString("url").orEmpty()
                 if (url.isNotBlank()) citations.add(url)
             }
-            require(citations.isNotEmpty()) { "ผลค้นหาไม่มีแหล่งอ้างอิงที่ตรวจได้ กรุณาลองใหม่หรือค้นจากร้านโดยตรง" }
+            if(citations.isEmpty()) throw ProductSearchError("ผลค้นหาไม่มีแหล่งอ้างอิงที่ตรวจได้")
             val content = message.optString("content").trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
             val rows = runCatching { JSONObject(content).optJSONArray("products") ?: JSONArray() }
-                .getOrElse { throw IllegalStateException("AI ส่งผลค้นหาไม่สมบูรณ์ กรุณาลองใหม่หรือค้นจากร้านโดยตรง") }
+                .getOrElse { throw ProductSearchError("AI ส่งผลค้นหาไม่สมบูรณ์") }
             val results = mutableListOf<Result>()
             for (i in 0 until rows.length()) {
                 val row = rows.optJSONObject(i) ?: continue
@@ -65,7 +71,7 @@ internal object ProductSearch {
                 if (results.size == 5) break
             }
             return results
-        } finally { conn.disconnect() }
+        } finally { control.detach(conn); conn.disconnect() }
     }
     fun matchesPlatform(url: String, platform: Int): Boolean {
         if (!ProductLinkPolicy.allowed(url)) return false

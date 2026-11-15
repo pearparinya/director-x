@@ -48,7 +48,7 @@ internal object ProductAssist {
             panel.addView(this)
         }
         val engine = Spinner(activity).apply {
-            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, listOf("Gemini (ถ้ามี) / ค้นด้วย API ที่พร้อม", "OpenRouter"))
+            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, listOf("Gemini 5 โปรเจกต์ → OpenRouter", "OpenRouter เท่านั้น"))
             panel.addView(this)
         }
         label("ค้นด้วย API ที่ตั้งค่าไว้ • อาจมีค่าใช้จ่าย • ผลลัพธ์ขึ้นอยู่กับข้อมูลสาธารณะ")
@@ -81,21 +81,59 @@ internal object ProductAssist {
                 AlertDialog.Builder(activity).setMessage("กรุณาระบุคำค้นสินค้า").setPositiveButton("ตกลง", null).show()
                 return@setOnClickListener
             }
+            val control=ProductSearchControl()
+            val attempts=mutableListOf<ProductSearchRotation.Attempt>()
+            val allowed=StoryProvider.allowedIds(activity)
+            if(selectedEngine==0 && "gemini" in allowed) {
+                (0..4).forEach { slot ->
+                    val settings=GeminiSettings(activity,StoryProvider.GEMINI,slot)
+                    if(settings.hasSaved()) attempts.add(ProductSearchRotation.Attempt("Gemini ชุดที่ ${slot+1}/5") {
+                        val key=runCatching { settings.key() }.getOrElse { throw ProductSearchError("อ่านคีย์บนเครื่องไม่ได้") }
+                        if(key.isBlank()) throw ProductSearchError("ยังไม่ได้ตั้งค่าคีย์")
+                        GeminiProductSearch.search(activity.applicationContext,searchText,selectedPlatform,key,control)
+                    })
+                }
+            }
+            val orSettings=ExtraApiSettings(activity, ExtraApiProvider.OPENROUTER)
+            if("openrouter" in allowed && orSettings.hasKey()) attempts.add(ProductSearchRotation.Attempt("OpenRouter") {
+                ProductSearch.searchOpenRouter(activity.applicationContext,searchText,selectedPlatform,control)
+            })
+            if(attempts.isEmpty()) {
+                AlertDialog.Builder(activity).setTitle("ยังไม่มี API ที่พร้อมค้นหา").setMessage("เพิ่มคีย์ Gemini หรือ OpenRouter และตรวจการตั้งค่า API ก่อนลองใหม่").setPositiveButton("ตกลง",null).show()
+                return@setOnClickListener
+            }
             searchButton.isEnabled = false
-            val progress = AlertDialog.Builder(activity).setTitle("กำลังค้นหาสินค้า")
-                .setMessage("ค้นข้อมูลสาธารณะด้วย API • อาจใช้เวลาสักครู่")
-                .setNegativeButton("ปิดหน้าต่าง") { _, _ -> }.show()
+            val handler=android.os.Handler(android.os.Looper.getMainLooper())
+            val started=android.os.SystemClock.elapsedRealtime()
+            val progressText=TextView(activity).apply { textSize=18f; setPadding(32,24,32,24); setTextColor(Color.WHITE) }
+            val progressPanel=LinearLayout(activity).apply { orientation=LinearLayout.VERTICAL; addView(progressText); addView(android.widget.ProgressBar(activity).apply { isIndeterminate=true }) }
+            val progress = AlertDialog.Builder(activity).setTitle("✦ กำลังค้นหาสินค้า")
+                .setView(progressPanel).setNegativeButton("ยกเลิก",null).create()
+            var step="กำลังเตรียมค้นหา"
+            val tick=object: Runnable { override fun run() {
+                if(!progress.isShowing) return
+                val seconds=(android.os.SystemClock.elapsedRealtime()-started)/1000
+                progressText.text="$step\nเวลารวม %02d:%02d\nOpenRouter อาจมีค่าใช้จ่ายตามบัญชี".format(seconds/60,seconds%60)
+                handler.postDelayed(this,1000)
+            } }
+            progress.setOnDismissListener { control.cancel(); handler.removeCallbacks(tick); searchButton.isEnabled=true }
+            progress.setOnShowListener { progress.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener { progress.dismiss() } }
+            progress.show(); handler.post(tick)
             Thread {
-                val result = runCatching { if (selectedEngine == 1) ProductSearch.searchOpenRouter(activity.applicationContext, searchText, selectedPlatform) else ProductSearch.search(activity.applicationContext, searchText, selectedPlatform) }
+                val outcome=runCatching { ProductSearchRotation.run(attempts,control) { index,total,label,state ->
+                    activity.runOnUiThread { if(progress.isShowing && !control.cancelled()) step="$label • $index/$total\n$state" }
+                } }
                 activity.runOnUiThread {
-                    searchButton.isEnabled = true
-                    if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
-                    progress.dismiss()
-                    result.onFailure {
-                        AlertDialog.Builder(activity).setTitle("ค้นหาสินค้าไม่สำเร็จ").setMessage("ตรวจ API และโควตา แล้วลองใหม่ หรือเลือก OpenRouter / ค้นจากร้านโดยตรง").setPositiveButton("ตกลง", null).show()
-                    }.onSuccess { products ->
-                        if (products.isEmpty()) {
-                            AlertDialog.Builder(activity).setTitle("ยังไม่พบสินค้าที่ตรวจแหล่งได้").setMessage("ลองเปลี่ยนคำค้น หรือค้นจากร้านโดยตรง") .setPositiveButton("ตกลง", null).show()
+                    if(control.cancelled() || activity.isFinishing || activity.isDestroyed) return@runOnUiThread
+                    val found=outcome.getOrNull(); progress.dismiss()
+                    if(found==null) {
+                        AlertDialog.Builder(activity).setTitle("ค้นหาสินค้าไม่สำเร็จ").setMessage("การค้นหาขัดข้อง กรุณาลองใหม่หรือค้นจากร้านโดยตรง").setPositiveButton("ตกลง",null).show()
+                    } else {
+                        val products=found.results
+                        if(products.isEmpty()) {
+                            AlertDialog.Builder(activity).setTitle("ยังไม่พบสินค้าที่ตรวจแหล่งได้")
+                                .setMessage(found.failures.joinToString("\n").ifBlank { "ไม่พบข้อมูล กรุณาลองค้นใหม่" }+"\n\nลองคำค้นใหม่ ค้นจากร้าน หรือวางลิงก์เองได้")
+                                .setPositiveButton("ตกลง",null).show()
                         } else {
                             val cards = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; setPadding(20, 12, 20, 12) }
                             cards.addView(TextView(activity).apply { text = "พบ ${products.size} รายการ • แตะเลือก 1 รายการ แล้วตรวจข้อมูลกับร้านอีกครั้ง"; setPadding(8, 8, 8, 16) })
