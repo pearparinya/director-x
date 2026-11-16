@@ -3053,47 +3053,114 @@ $context"""
     private fun shoppingApiSettings() {
         val services = listOf("tavily" to "Tavily", "exa" to "Exa", "serpapi" to "SerpApi", "firecrawl" to "Firecrawl", "longsearch" to "Long Search")
         val store = FreeSearchSettings(this)
-        choiceMenu("🛒 API โหมดนายเปียพาช้อป", services.map { (id, name) -> "$name • " + if (store.key(id).isNotBlank()) "บันทึกคีย์แล้ว" else "ยังไม่มีคีย์" } + "🧪 ทดสอบ API ที่บันทึก") { selected ->
-            if (selected == services.size) { shoppingApiTest(); return@choiceMenu }
-            val (id, name) = services[selected]
-            val input = EditText(this).apply {
-                hint = "วาง API Key ของ $name"
-                inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-                setPadding(dp(18), dp(16), dp(18), dp(16))
-            }
-            val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8)); addView(input) }
-            box.addView(CheckBox(this).apply { text = "แสดง API Key"; setOnCheckedChangeListener { _, checked ->
-                input.inputType = android.text.InputType.TYPE_CLASS_TEXT or (if (checked) android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD else android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD)
-                input.setSelection(input.text.length)
-            } })
-            AlertDialog.Builder(this).setTitle("ตั้งค่า $name").setMessage("คีย์เดิมจะคงอยู่หากไม่กรอกใหม่ • จัดเก็บแบบเข้ารหัสบนเครื่อง")
-                .setView(box)
-                .setPositiveButton("บันทึก") { _, _ ->
-                    val value = input.text.toString().trim()
-                    if (value.isNotEmpty()) runCatching { store.save(id, value) }.onFailure { notice("บันทึกคีย์ไม่สำเร็จ: ตรวจรูปแบบคีย์") }
-                    shoppingApiSettings()
+        val entries = services.map { (id, name) ->
+            val keyState = if (store.key(id).isBlank()) "ไม่พบ API" else if (id=="longsearch") "รอ Endpoint" else store.status(id)
+            "$name • $keyState" + if (!store.enabled(id)) " • ปิดใช้งาน" else ""
+        } + listOf("🧪 ตรวจ API ที่เลือก", "🔎 ตรวจ API ทั้งหมด", "🛡 API สำรอง: " + if(store.fallbackEnabled()) "เปิด" else "ปิด", "📊 สรุปการใช้งาน")
+        choiceMenu("🛒 API โหมดนายเปียพาช้อป", entries) { selected ->
+            when(selected) {
+                services.size -> shoppingApiTest()
+                services.size+1 -> shoppingApiTestAll()
+                services.size+2 -> { store.setFallbackEnabled(!store.fallbackEnabled()); shoppingApiSettings() }
+                services.size+3 -> {
+                    val info=services.filter { it.first!="longsearch" }.joinToString("\n\n") { (id,name) ->
+                        val time=store.tested(id).takeIf { it>0 }?.let { java.text.SimpleDateFormat("dd/MM/yyyy HH:mm",java.util.Locale.getDefault()).format(java.util.Date(it)) } ?: "ยังไม่ทดสอบ"
+                        "$name: ${store.status(id)}\nตรวจล่าสุด: $time\nเรียกบนเครื่องเดือนนี้: ${store.used(id)} ครั้ง (ขีดจำกัดตั้งเอง ไม่ใช่เครดิตจริง)"
+                    }
+                    AlertDialog.Builder(this).setTitle("สถานะ API ค้นหาสินค้า").setMessage(info).setPositiveButton("ตกลง",null).showDirector()
                 }
-                .setNeutralButton("ลบคีย์") { _, _ -> store.clear(id); shoppingApiSettings() }
-                .setNegativeButton("ยกเลิก", null).showDirector()
+                else -> {
+                    val (id,name)=services[selected]
+                    val input=EditText(this).apply {
+                        hint="วาง API Key ของ $name"
+                        inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                        setPadding(dp(18),dp(16),dp(18),dp(16))
+                    }
+                    val box=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(16),dp(8),dp(16),dp(8)); addView(input) }
+                    box.addView(CheckBox(this).apply {
+                        text="แสดง API Key"
+                        setOnCheckedChangeListener { _,checked ->
+                            input.inputType=android.text.InputType.TYPE_CLASS_TEXT or (if(checked) android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD else android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD)
+                            input.setSelection(input.text.length)
+                        }
+                    })
+                    box.addView(CheckBox(this).apply {
+                        text="อนุญาตให้ใช้ API นี้"; isChecked=store.enabled(id)
+                        setOnCheckedChangeListener { _,checked -> store.setEnabled(id,checked) }
+                    })
+                    AlertDialog.Builder(this).setTitle("ตั้งค่า $name")
+                        .setMessage(if(id=="longsearch") "ยังไม่มี Endpoint ที่ยืนยัน • บันทึกคีย์ได้แต่ยังค้นหาจริงไม่ได้" else "ไม่กรอกคีย์ใหม่ = เก็บคีย์เดิม • คีย์เข้ารหัสบนเครื่อง")
+                        .setView(box).setPositiveButton("บันทึก") { _,_ ->
+                            val value=input.text.toString().trim()
+                            if(value.isNotEmpty()) runCatching { store.save(id,value) }.onFailure { notice("รูปแบบ API Key ไม่ถูกต้อง") }
+                            shoppingApiSettings()
+                        }.setNeutralButton("ลบคีย์") { _,_ -> store.clear(id); shoppingApiSettings() }
+                        .setNegativeButton("ยกเลิก",null).showDirector()
+                }
+            }
         }
     }
     private fun shoppingApiTest() {
-        val store = FreeSearchSettings(this)
-        val services = listOf("tavily" to "Tavily", "exa" to "Exa", "serpapi" to "SerpApi", "firecrawl" to "Firecrawl")
-        choiceMenu("🧪 ทดสอบ API ค้นหาสินค้า", services.map { it.second }) { selected ->
-            val (id, name) = services[selected]
-            if (store.key(id).isBlank()) { notice("ยังไม่ได้บันทึก API Key ของ $name"); return@choiceMenu }
-            val progress = AlertDialog.Builder(this).setTitle("ทดสอบ $name").setMessage("กำลังค้นหาสินค้าทดสอบ • อาจใช้โควตา API").setCancelable(false).showDirector()
-            Thread {
-                val result = runCatching { FreeProductSearch.search(applicationContext, id, "แก้วน้ำ", 1, ProductSearchControl()) }
-                runOnUiThread {
-                    progress.dismiss()
-                    if (!isFinishing && !isDestroyed) AlertDialog.Builder(this).setTitle("ผลทดสอบ $name")
-                        .setMessage(result.fold({ "เชื่อมต่อสำเร็จ • พบลิงก์ที่ตรงร้าน ${it.size} รายการ" }, { ProductSearchRotation.friendly(it) }))
-                        .setPositiveButton("ตกลง", null).showDirector()
-                }
-            }.start()
+        val services=listOf("tavily" to "Tavily","exa" to "Exa","serpapi" to "SerpApi","firecrawl" to "Firecrawl")
+        choiceMenu("🧪 ทดสอบ API ค้นหาสินค้า",services.map { it.second }) { selected ->
+            val (id,name)=services[selected]
+            shoppingApiRunTest(id,name) { shoppingApiSettings() }
         }
+    }
+    private fun shoppingApiRunTest(id: String,name: String,done: () -> Unit) {
+        val store=FreeSearchSettings(this)
+        if(store.key(id).isBlank()) { store.record(id,"ไม่พบ API"); notice("ยังไม่ได้บันทึก API Key ของ $name"); done(); return }
+        if(!store.enabled(id)) { notice("$name ถูกปิดใช้งาน"); done(); return }
+        val control=ProductSearchControl()
+        val progress=AlertDialog.Builder(this).setTitle("ทดสอบ $name").setMessage("กำลังค้นหาสินค้าทดสอบ • อาจใช้โควตา API")
+            .setNegativeButton("ยกเลิก") { _,_ -> control.cancel() }.showDirector()
+        Thread {
+            val result=runCatching { FreeProductSearch.search(applicationContext,id,"แก้วน้ำ",1,control) }
+            val status=result.fold({ if(it.isEmpty()) "ผ่าน • ไม่พบสินค้า" else "ผ่าน • พบสินค้า ${it.size} รายการ" },{ error ->
+                val msg=ProductSearchRotation.friendly(error)
+                when {
+                    msg.contains("โควตา") || msg.contains("429") -> "เครดิตหมดหรือถูกจำกัด"
+                    msg.contains("API Key") -> "ไม่พบ API"
+                    else -> "ไม่ผ่าน • $msg"
+                }
+            })
+            if(!control.cancelled()) store.record(id,status)
+            runOnUiThread {
+                progress.dismiss()
+                if(!isFinishing && !isDestroyed) AlertDialog.Builder(this).setTitle("ผลทดสอบ $name")
+                    .setMessage(if(control.cancelled()) "ยกเลิกการทดสอบ" else status)
+                    .setPositiveButton("ตกลง") { _,_ -> done() }.showDirector()
+            }
+        }.start()
+    }
+    private fun shoppingApiTestAll() {
+        val services=listOf("tavily" to "Tavily","exa" to "Exa","serpapi" to "SerpApi","firecrawl" to "Firecrawl")
+        val store=FreeSearchSettings(this)
+        val eligible=services.filter { store.enabled(it.first) && store.key(it.first).isNotBlank() }
+        if(eligible.isEmpty()) { notice("ไม่พบ API ที่เปิดใช้งานและมีคีย์"); return }
+        AlertDialog.Builder(this).setTitle("ตรวจ API ทั้งหมด")
+            .setMessage("จะทดสอบ ${eligible.size} บริการและอาจใช้โควตาจริง ต้องการดำเนินการหรือไม่?")
+            .setPositiveButton("ทดสอบ") { _,_ ->
+                val control=ProductSearchControl()
+                val progress=AlertDialog.Builder(this).setTitle("ตรวจ API ทั้งหมด").setMessage("กำลังทดสอบตามลำดับ")
+                    .setNegativeButton("ยกเลิก") { _,_ -> control.cancel() }.showDirector()
+                Thread {
+                    val lines=mutableListOf<String>()
+                    eligible.forEachIndexed { index,(id,name) ->
+                        if(control.cancelled()) return@forEachIndexed
+                        runOnUiThread { progress.setMessage("กำลังทดสอบ ${index+1}/${eligible.size}: $name") }
+                        val result=runCatching { FreeProductSearch.search(applicationContext,id,"แก้วน้ำ",1,control) }
+                        val status=result.fold({ "ผ่าน • ${it.size} รายการ" },{ "ไม่ผ่าน • ${ProductSearchRotation.friendly(it)}" })
+                        if(!control.cancelled()) { store.record(id,status); lines.add("$name: $status") }
+                    }
+                    runOnUiThread {
+                        progress.dismiss()
+                        if(!isFinishing && !isDestroyed) AlertDialog.Builder(this).setTitle("ผลตรวจ API")
+                            .setMessage(lines.joinToString("\n") + if(control.cancelled()) "\nยกเลิกแล้ว" else "")
+                            .setPositiveButton("ตกลง") { _,_ -> shoppingApiSettings() }.showDirector()
+                    }
+                }.start()
+            }.setNegativeButton("ยกเลิก",null).showDirector()
     }
     private fun readGeminiStatus(): JSONObject? = runCatching { GeminiStoryFiles.read(File(project,"gemini_job/status.json")) }.getOrNull()
     private fun geminiStatusText(status: JSONObject?,details: Boolean=false): String {
