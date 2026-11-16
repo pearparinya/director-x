@@ -1,5 +1,8 @@
 package com.pearparinya.automovie
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.FaceDetector
 import java.io.File
 import java.util.UUID
 
