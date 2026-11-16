@@ -1519,9 +1519,10 @@ class StudioActivity : AppCompatActivity() {
                     var value: Pair<FlowSceneSpec,String>?=null
                     for(provider in providers) {
                         if(stopped.get()) break
-                        val answer=runCatching { val client=StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ stopped.get() },automaticRetry=false,context=this@StudioActivity); active.set(client); if(stopped.get()) throw java.util.concurrent.CancellationException(); client.generate(FlowEnglishDirections.prompt(spec),FlowEnglishDirections.schema()) }.getOrNull() ?: continue
+                        val answer=runCatching { val client=StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ stopped.get() },automaticRetry=false,context=this@StudioActivity); active.set(client); if(stopped.get()) throw java.util.concurrent.CancellationException(); client.generate(FlowEnglishDirections.prompt(spec,camera),FlowEnglishDirections.schema()) }.getOrNull() ?: continue
                         val translated=runCatching { FlowEnglishDirections.apply(spec,answer) }.getOrNull() ?: continue
-                        val command=runCatching { ShortFlowPrompt.build(translated,camera,silent) }.getOrNull() ?: continue
+                        val translatedCamera=runCatching { FlowEnglishDirections.translatedCamera(answer,camera) }.getOrNull() ?: continue
+                        val command=runCatching { ShortFlowPrompt.build(translated,translatedCamera,silent) }.getOrNull() ?: continue
                         value=translated to command; break
                     }
                     val result=value
