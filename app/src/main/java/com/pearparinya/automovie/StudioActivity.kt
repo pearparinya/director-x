@@ -1762,7 +1762,7 @@ class StudioActivity : AppCompatActivity() {
                         id==masterId || crops[masterId]?.first==id
                     }?.let { i -> task.references[i].optString("name") }
                     "Reference image ${index+1}: ${owner?.let { "$it | " }.orEmpty()}${labels[id] ?: cropLabels[id] ?: propLabels[id] ?: id} | ${if(task.references.indices.any { i -> crops[references[i].first]?.first==id }) "FACE CROP" else "SOURCE REFERENCE"}"
-                }.joinToString("\\n")
+                }.joinToString("\n")
                 prefs.edit().putInt("image_reference_mode_${project.name}",mode).putInt("image_attachment_order",imageOrder.selectedItemPosition).putInt("image_transfer_order",transferOrder.selectedItemPosition).apply()
                 if(payload.size>9) { notice("มีภาพอ้างอิง ${payload.size} ภาพ ซึ่งเกิน 9 ภาพ • ยกเลิกภาพอ้างอิงบางรายการแล้วลองอีกครั้ง"); return@setPositiveButton }
                 shareImageCommand(command+outfitGuide+propInstruction+(if(owners.isBlank()) "" else "\n$owners")+(if(coverOwners.isBlank()) "" else "\n$coverOwners")+"\n\nATTACHMENT ORDER (verify in receiving app):\n"+exactBindings,payload,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
