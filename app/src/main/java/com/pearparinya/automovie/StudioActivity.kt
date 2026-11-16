@@ -1629,7 +1629,11 @@ class StudioActivity : AppCompatActivity() {
                 cropPreview.visibility=android.view.View.VISIBLE
                 cropPreview.setOnClickListener { fullImage(target,"ตรวจภาพครอป • ${person.optString("name")}") }
             }
-            runCatching { cropStore.latest(file)?.let { showCrop(it) } }
+            runCatching {
+                // Reuse the verified crop, or prepare one from a uniquely detected face.
+                // Multi-face three-view sheets stay manual to avoid picking the wrong view.
+                cropStore.prepare(file)?.let { showCrop(it) }
+            }.onFailure { notice("เตรียมภาพใบหน้าอัตโนมัติไม่ได้: ${person.optString("name")}") }
             panel.addView(Button(this).apply {
                 text="เลือกกรอบใบหน้าจาก MASTER"
                 setOnClickListener {
