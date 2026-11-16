@@ -148,7 +148,7 @@ class ShortFlowPromptPreflightTest {
     }
 
     @Test fun visualPreflightFlagsConjuredAndProducedProps() {
-        for (action in listOf("Character 1 materializes a key", "Character 1 produces a letter", "Character 1 conjures a book")) {
+        for (action in listOf("Character 1 materializes a key", "Character 1 produces a letter", "Character 1 conjures a book", "Character 1 takes out an envelope", "Character 1 pulls out an object")) {
             assertTrue(ShortFlowPrompt.visualWarnings(scene().copy(action = action), "Locked camera").any { it.contains("prop") })
         }
     }
