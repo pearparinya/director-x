@@ -39,6 +39,20 @@ class ShortFlowPromptPreflightTest {
         assertFalse(prompt.contains(".. "))
     }
 
+    @Test fun xmlEscapingPreservesOriginalThaiDialogue() {
+        val original = "ช่วย A & B <ตอนนี้> \"ได้ไหม\""
+        val output = ShortFlowPrompt.build(scene(dialogue = original), "Locked camera")
+        val parsed = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+            .newDocumentBuilder().parse(org.xml.sax.InputSource(java.io.StringReader(output)))
+        assertTrue(parsed.getElementsByTagName("text").item(0).textContent == original)
+    }
+
+    @Test fun silentModeNeverEmitsSpokenDialogueOrEffects() {
+        val output = ShortFlowPrompt.build(scene(), "Locked camera", silent = true)
+        assertFalse(output.contains("<dialogue"))
+        assertFalse(output.contains("<sound_effects>"))
+    }
+
     @Test fun speechWarningsNeverRewriteText() {
         val original = scene(dialogue = "สวัสดีครับ".repeat(20))
         assertTrue(ShortFlowPrompt.audioWarnings(original).isNotEmpty())
