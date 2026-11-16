@@ -55,7 +55,7 @@ internal class FreeSearchSettings(private val context: Context) {
     fun cached(provider: String, query: String, store: Int): List<ProductSearch.Result>? {
         val id=cacheId(provider,query,store)
         val time=prefs.getLong("cache_time_$id",0L)
-        if(time<=0 || System.currentTimeMillis()-time>15*60*1000L) return null
+        if(time<=0 || System.currentTimeMillis()-time>15*60*1000L || time>System.currentTimeMillis()) return null
         val raw=prefs.getString("cache_$id",null) ?: return null
         return runCatching {
             val arr=JSONArray(raw)
@@ -64,13 +64,14 @@ internal class FreeSearchSettings(private val context: Context) {
                 val title=item.optString("title"); val url=item.optString("url")
                 if(title.isBlank() || !ProductSearch.matchesPlatform(url,store)) null else ProductSearch.Result(title,url,"")
             }
-        }.getOrNull()
+        }.getOrNull()?.takeIf { it.isNotEmpty() }
     }
     fun cache(provider: String, query: String, store: Int, results: List<ProductSearch.Result>) {
         if(results.isEmpty()) return
         val id=cacheId(provider,query,store)
         val arr=JSONArray()
-        results.take(5).forEach { arr.put(JSONObject().put("title",it.name).put("url",it.url)) }
+        results.filter { it.name.isNotBlank() && ProductSearch.matchesPlatform(it.url,store) }.distinctBy { it.url }.take(5).forEach { arr.put(JSONObject().put("title",it.name).put("url",it.url)) }
+        if(arr.length()==0) return
         prefs.edit().putString("cache_$id",arr.toString()).putLong("cache_time_$id",System.currentTimeMillis()).apply()
     }
     private fun failureKey(provider: String) = provider+"_consecutive_failures"
@@ -82,7 +83,7 @@ internal class FreeSearchSettings(private val context: Context) {
         if (!temporary) { prefs.edit().putInt(failureKey(provider),0).apply(); return }
         val failures=prefs.getInt(failureKey(provider),0)+1
         val edit=prefs.edit().putInt(failureKey(provider),failures)
-        if(failures>=3) edit.putLong(provider+"_cooldown_until",System.currentTimeMillis()+120000L)
+        if(failures>=3) edit.putLong(provider+"_cooldown_until",System.currentTimeMillis()+120000L).putInt(failureKey(provider),0)
         edit.apply()
     }
     private fun month()=SimpleDateFormat("yyyy-MM",Locale.US).format(Date())
@@ -98,13 +99,14 @@ internal object FreeProductSearch {
     private fun searchAdditional(provider: String, key: String, query: String, store: Int, control: ProductSearchControl): List<ProductSearch.Result> {
         val domain = listOf("tiktokshop.com", "shopee.co.th", "lazada.co.th")[store]
         val searchQuery = query.take(120) + " site:" + domain
-        val endpoint = if(provider=="serpapi") "https://serpapi.com/search.json?engine=google&q=" + java.net.URLEncoder.encode(searchQuery,"UTF-8") + "&api_key=" + java.net.URLEncoder.encode(key,"UTF-8") + "&num=10" else "https://api.firecrawl.dev/v2/search"
+        val endpoint = if(provider=="serpapi") "https://serpapi.com/search.json?engine=google&q=" + java.net.URLEncoder.encode(searchQuery,"UTF-8") + "&num=10" else "https://api.firecrawl.dev/v2/search"
         val conn = URL(endpoint).openConnection() as HttpURLConnection
         conn.connectTimeout = 20000; conn.readTimeout = 45000
         val payload = if(provider=="serpapi") JSONObject().put("engine","google").put("q",searchQuery).put("api_key",key).put("num",10)
             else JSONObject().put("query",searchQuery).put("limit",10)
         conn.requestMethod=if(provider=="serpapi") "GET" else "POST"; conn.doOutput=provider!="serpapi"
         conn.setRequestProperty("Content-Type","application/json")
+        if(provider=="serpapi") conn.setRequestProperty("X-API-KEY",key)
         if(provider=="firecrawl") conn.setRequestProperty("Authorization","Bearer $key")
         control.attach(conn)
         try {
@@ -135,6 +137,7 @@ internal object FreeProductSearch {
         val settings=FreeSearchSettings(context); val key=settings.key(provider)
         if(key.isBlank()) throw ProductSearchError("ยังไม่ได้ตั้ง API Key")
         if(!settings.enabled(provider)) throw ProductSearchError("API นี้ถูกปิดใช้งาน")
+        control.check()
         settings.cached(provider,query,store)?.let { control.check(); return it }
         if(settings.coolingDown(provider)) throw ProductSearchError("API พักชั่วคราวหลังเชื่อมต่อผิดพลาดซ้ำ")
         if(provider !in listOf("tavily","exa","serpapi","firecrawl")) throw ProductSearchError("ยังไม่รองรับ Endpoint ของ API นี้")
