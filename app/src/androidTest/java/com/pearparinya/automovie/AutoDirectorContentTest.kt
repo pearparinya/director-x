@@ -567,7 +567,7 @@ class AutoDirectorContentTest {
         val code=AutoDirectorContent.images(p,1)
         assertEquals(28,Regex("Generate a (?:9:16|16:9) image exactly as described, RAW photo:").findAll(code).count())
         assertTrue(code.contains("TEXT COMMANDS ONLY")); assertTrue(code.contains("HARD STOP"))
-        assertTrue(code.contains(BodyReferencePolicy.preciseIdentity)); assertTrue(code.contains("warm gold")); assertTrue(code.contains("no large empty black panel"))
+        assertTrue(code.contains(BodyReferencePolicy.preciseIdentity)); assertTrue(code.contains("genre-appropriate color")); assertTrue(code.contains("no large empty black panel"))
         assertTrue(code.contains("✅ โค้ดคำสั่งภาพเสร็จสิ้น! พิมพ์ 'สร้างบท EP.1'"))
         assertTrue(AutoDirectorContent.outline(p).contains("✅ โครงเรื่องพร้อม พิมพ์ 'สร้างภาพ EP.1'"))
         val speech=AutoDirectorContent.dialogue(p,1)
