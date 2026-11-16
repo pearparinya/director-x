@@ -103,7 +103,6 @@ internal object ShortFlowPrompt {
         if (Regex("(?i)\\b(?:cut to|jump cut|montage|multiple shots|new angle)\\b|ตัดภาพไป|ตัดฉาก|เปลี่ยนมุมกล้อง").containsMatchIn(scene))
             add("A first-frame 8-second video must remain one continuous shot; review scene transitions.")
         val introducedProp = Regex("(?i)\\b(?:suddenly appears|materializ(?:es|ed|ing)|new object appears|pulls out an? |takes out an? |produces an? |conjures an? )\\b")
-        val alreadyPresent = Regex("(?i)\\b(?:already (?:visible|present|in (?:the )?(?:frame|shot|hand))|visible (?:from|in) (?:the )?(?:first frame|opening shot)|on (?:the )?(?:desk|table) (?:from|at) (?:the )?(?:start|beginning))\\b|อยู่ในภาพตั้งแต่ต้น|มีอยู่แล้วในภาพแรก")
         val introducedName = Regex("(?i)\\b(?:pulls out|takes out|produces|conjures) an? ([a-z]+)\\b").find(s.action)?.groupValues?.get(1)
         val matchingObject = introducedName != null && Regex("(?i)\\b" + Regex.escape(introducedName) + "\\b").containsMatchIn(s.startState)
         val objectAlreadyVisible = introducedName != null && Regex("(?i)\\b" + Regex.escape(introducedName) + "\\b.{0,40}\\b(?:already visible|already present|visible in the first frame|visible from the start)\\b|\\b(?:already visible|already present|visible in the first frame|visible from the start)\\b.{0,40}\\b" + Regex.escape(introducedName) + "\\b").containsMatchIn(s.startState)
