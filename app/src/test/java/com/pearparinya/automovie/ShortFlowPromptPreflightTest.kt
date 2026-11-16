@@ -154,6 +154,11 @@ class ShortFlowPromptPreflightTest {
         assertTrue(warnings.any { it.contains("day to night") })
     }
 
+    @Test fun visualPreflightFlagsNightToDayInThai() {
+        val sample = scene().copy(startState = "กลางคืน", endState = "กลางวัน")
+        assertTrue(ShortFlowPrompt.visualWarnings(sample, "Locked camera").any { it.contains("night to day") })
+    }
+
     @Test fun visualPreflightDoesNotAlterValidScene() {
         val sample = scene()
         assertTrue(ShortFlowPrompt.visualWarnings(sample, "Locked camera").isEmpty())
