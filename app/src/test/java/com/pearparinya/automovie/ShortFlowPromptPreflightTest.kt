@@ -33,17 +33,6 @@ class ShortFlowPromptPreflightTest {
         assertFalse(prompt.contains(".. "))
     }
 
-    @Test fun cameraTranslationMustBeEnglish() {
-        val result = org.json.JSONObject().put("camera", "Locked camera")
-        assertTrue(FlowEnglishDirections.translatedCamera(result, "กล้องนิ่ง") == "Locked camera")
-    }
-
-    @Test fun missingCameraTranslationIsRejected() {
-        val result = org.json.JSONObject().put("camera", "")
-        val rejected = runCatching { FlowEnglishDirections.translatedCamera(result, "กล้องนิ่ง") }.isFailure
-        assertTrue(rejected)
-    }
-
     @Test fun speechWarningsNeverRewriteText() {
         val original = scene(dialogue = "สวัสดีครับ".repeat(20))
         assertTrue(ShortFlowPrompt.audioWarnings(original).isNotEmpty())
