@@ -88,6 +88,35 @@ class ShortFlowPromptPreflightTest {
         assertTrue(output.indexOf("สอง") < output.indexOf("เสียงบรรยาย"))
     }
 
+    @Test fun narrationOnlyHasOffscreenSpeakerAndNoVisibleDialogue() {
+        val sample = scene().copy(dialogue = "", narration = "เรื่องราวเริ่มขึ้น")
+        val xml = ShortFlowPrompt.build(sample, "Locked camera")
+        val doc = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+            .newDocumentBuilder().parse(org.xml.sax.InputSource(java.io.StringReader(xml)))
+        val dialogues = doc.getElementsByTagName("dialogue")
+        assertTrue(dialogues.length == 1)
+        assertTrue(dialogues.item(0).attributes.getNamedItem("off_screen").nodeValue == "true")
+        assertTrue(doc.getElementsByTagName("speaker").item(0).textContent == "Off-screen narrator")
+        assertTrue(doc.getElementsByTagName("text").item(0).textContent == "เรื่องราวเริ่มขึ้น")
+    }
+
+    @Test fun orderedDialogueAndNarrationProduceThreeExactXmlTurns() {
+        val sample = scene().copy(
+            dialogue = "",
+            narration = "เสียงบรรยาย",
+            turns = listOf(FlowDialogueTurn("สมชาย", "หนึ่ง & สอง"), FlowDialogueTurn("สมชาย", "สาม"))
+        )
+        val xml = ShortFlowPrompt.build(sample, "Locked camera")
+        val doc = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+            .newDocumentBuilder().parse(org.xml.sax.InputSource(java.io.StringReader(xml)))
+        val texts = doc.getElementsByTagName("text")
+        assertTrue(texts.length == 3)
+        assertTrue(texts.item(0).textContent == "หนึ่ง & สอง")
+        assertTrue(texts.item(1).textContent == "สาม")
+        assertTrue(texts.item(2).textContent == "เสียงบรรยาย")
+        assertTrue(doc.getElementsByTagName("dialogue").item(2).attributes.getNamedItem("off_screen").nodeValue == "true")
+    }
+
     @Test fun speechWarningsNeverRewriteText() {
         val original = scene(dialogue = "สวัสดีครับ".repeat(20))
         assertTrue(ShortFlowPrompt.audioWarnings(original).isNotEmpty())
