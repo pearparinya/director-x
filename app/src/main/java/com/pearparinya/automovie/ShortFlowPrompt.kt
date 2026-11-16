@@ -107,7 +107,7 @@ internal object ShortFlowPrompt {
         val introducedName = Regex("(?i)\\b(?:pulls out|takes out|produces|conjures) an? ([a-z]+)\\b").find(s.action)?.groupValues?.get(1)
         val matchingObject = introducedName != null && Regex("(?i)\\b" + Regex.escape(introducedName) + "\\b").containsMatchIn(s.startState)
         val objectAlreadyVisible = introducedName != null && Regex("(?i)\\b" + Regex.escape(introducedName) + "\\b.{0,40}\\b(?:already visible|already present|visible in the first frame|visible from the start)\\b|\\b(?:already visible|already present|visible in the first frame|visible from the start)\\b.{0,40}\\b" + Regex.escape(introducedName) + "\\b").containsMatchIn(s.startState)
-        if (introducedProp.containsMatchIn(s.action) && !(matchingObject && (objectAlreadyVisible || alreadyPresent.containsMatchIn(s.startState) && !Regex("(?i)\\b(?:not|never)\\s+(?:already\\s+)?visible\\b").containsMatchIn(s.startState))))
+        if (introducedProp.containsMatchIn(s.action) && !(matchingObject && objectAlreadyVisible && !Regex("(?i)\\b(?:not|never)\\s+(?:already\\s+)?visible\\b").containsMatchIn(s.startState)))
             add("An action may introduce a prop absent from the first frame; verify prop continuity.")
         val daytime = Regex("(?i)\\b(?:daylight|daytime|midday)\\b|กลางวัน")
         val nighttime = Regex("(?i)\\b(?:night|midnight|nighttime)\\b|กลางคืน")
