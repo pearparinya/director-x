@@ -183,7 +183,7 @@ internal object ProductAssist {
             fun attemptsForStore(store: Int): List<ProductSearchRotation.Attempt> {
                 val attempts=mutableListOf<ProductSearchRotation.Attempt>()
                 listOf("tavily" to "Tavily", "exa" to "Exa", "serpapi" to "SerpApi", "firecrawl" to "Firecrawl").forEach { (id,label) ->
-                    if(searchSettings.key(id).isNotBlank()) attempts.add(ProductSearchRotation.Attempt(label) {
+                    if(searchSettings.key(id).isNotBlank() && searchSettings.enabled(id) && (searchSettings.fallbackEnabled() || attempts.isEmpty())) attempts.add(ProductSearchRotation.Attempt(label) {
                         FreeProductSearch.search(activity.applicationContext,id,searchText,store,control)
                     })
                 }
@@ -191,7 +191,7 @@ internal object ProductAssist {
             }
             val attemptsByStore=stores.associateWith { attemptsForStore(it) }
             if(attemptsByStore.values.all { it.isEmpty() }) {
-                AlertDialog.Builder(activity).setTitle("ยังไม่มี API ที่พร้อมค้นหา").setMessage("เพิ่มคีย์ Tavily หรือ Exa ในปุ่มตั้งค่า API ก่อนลองใหม่").setPositiveButton("ตกลง",null).show()
+                AlertDialog.Builder(activity).setTitle("ยังไม่มี API ที่พร้อมค้นหา").setMessage("เพิ่มคีย์และเปิดใช้งาน API ในเมนูตั้งค่า API ก่อนลองใหม่").setPositiveButton("ตกลง",null).show()
                 return@setOnClickListener
             }
             searchButton.isEnabled = false
