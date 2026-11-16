@@ -1629,7 +1629,11 @@ class StudioActivity : AppCompatActivity() {
                 cropPreview.visibility=android.view.View.VISIBLE
                 cropPreview.setOnClickListener { fullImage(target,"ตรวจภาพครอป • ${person.optString("name")}") }
             }
-            runCatching { cropStore.latest(file)?.let { showCrop(it) } }
+            runCatching {
+                // Reuse the verified crop, or prepare one from a uniquely detected face.
+                // Multi-face three-view sheets stay manual to avoid picking the wrong view.
+                cropStore.prepare(file)?.let { showCrop(it) }
+            }.onFailure { notice("เตรียมภาพใบหน้าอัตโนมัติไม่ได้: ${person.optString("name")}") }
             panel.addView(Button(this).apply {
                 text="เลือกกรอบใบหน้าจาก MASTER"
                 setOnClickListener {
@@ -1750,9 +1754,18 @@ class StudioActivity : AppCompatActivity() {
                     if(crop==null) listOf(master) else if(imageOrder.selectedItemPosition==1) listOf(crop,master) else listOf(master,crop)
                 } else primary
                 val payload=orderedPeople+extras.filter { !it.first.startsWith("OUTFIT_") || it in outfitExtras }+propRefs
+                // Bind every attachment to its actual position after the user's order choice.
+                // Do not rely on filenames or a presumed MASTER-first ordering.
+                val exactBindings=payload.mapIndexed { index, (id, _) ->
+                    val owner=task.references.indices.firstOrNull { i ->
+                        val masterId=references[i].first
+                        id==masterId || crops[masterId]?.first==id
+                    }?.let { i -> task.references[i].optString("name") }
+                    "Reference image ${index+1}: ${owner?.let { "$it | " }.orEmpty()}${labels[id] ?: cropLabels[id] ?: propLabels[id] ?: id} | ${if(task.references.indices.any { i -> crops[references[i].first]?.first==id }) "FACE CROP" else "SOURCE REFERENCE"}"
+                }.joinToString("\n")
                 prefs.edit().putInt("image_reference_mode_${project.name}",mode).putInt("image_attachment_order",imageOrder.selectedItemPosition).putInt("image_transfer_order",transferOrder.selectedItemPosition).apply()
                 if(payload.size>9) { notice("มีภาพอ้างอิง ${payload.size} ภาพ ซึ่งเกิน 9 ภาพ • ยกเลิกภาพอ้างอิงบางรายการแล้วลองอีกครั้ง"); return@setPositiveButton }
-                shareImageCommand(command+outfitGuide+propInstruction+(if(owners.isBlank()) "" else "\n$owners")+(if(coverOwners.isBlank()) "" else "\n$coverOwners"),payload,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
+                shareImageCommand(command+outfitGuide+propInstruction+(if(owners.isBlank()) "" else "\n$owners")+(if(coverOwners.isBlank()) "" else "\n$coverOwners")+"\n\nATTACHMENT ORDER (verify in receiving app):\n"+exactBindings,payload,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
             }
             .setNegativeButton("กลับไปตรวจ",null).showDirector()
     }

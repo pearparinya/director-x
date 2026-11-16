@@ -9,6 +9,7 @@ on:
         type: choice
         options:
           - feature/shopping-resilience-479
+          - feature/director-x-480-continuity
 
 permissions:
   contents: read
