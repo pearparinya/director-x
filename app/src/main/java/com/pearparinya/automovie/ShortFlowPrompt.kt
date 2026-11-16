@@ -109,7 +109,7 @@ internal object ShortFlowPrompt {
             .any { clause ->
                 val objectMentioned = Regex("(?i)\\b" + Regex.escape(introducedName) + "\\b").containsMatchIn(clause)
                 val visible = Regex("(?i)\\b(?:already visible|already present|visible in the first frame|visible from the start)\\b").containsMatchIn(clause)
-                val hidden = Regex("(?i)\\b(?:hidden|offscreen|off-screen|not visible|never visible|out of frame)\\b").containsMatchIn(clause)
+                val hidden = Regex("(?i)\\b(?:hidden|offscreen|off-screen|not visible|never visible|out of frame|behind (?:the |a )?\\w+|inside (?:the |a )?\\w+|covered|obscured)\\b").containsMatchIn(clause)
                 objectMentioned && visible && !hidden
             }
         if (introducedProp.containsMatchIn(s.action) && !objectAlreadyVisible)
