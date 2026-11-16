@@ -217,6 +217,18 @@ class ShortFlowPromptPreflightTest {
         assertTrue(ShortFlowPrompt.visualWarnings(sample, "Locked camera").any { it.contains("prop") })
     }
 
+    @Test fun visualPreflightFlagsConcealedProps() {
+        for (state in listOf(
+            "A letter is already present but covered",
+            "A letter is already visible behind the wall",
+            "A letter is already present inside a drawer",
+            "A letter is already visible but obscured"
+        )) {
+            val sample = scene().copy(action = "Character 1 takes out a letter", startState = state)
+            assertTrue(ShortFlowPrompt.visualWarnings(sample, "Locked camera").any { it.contains("prop") })
+        }
+    }
+
     @Test fun visualPreflightDoesNotTreatInvisibleObjectAsPresent() {
         val sample = scene().copy(
             action = "Character 1 takes out a letter",
