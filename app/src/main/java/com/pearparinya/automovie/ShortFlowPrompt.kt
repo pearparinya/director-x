@@ -83,6 +83,15 @@ internal object ShortFlowPrompt {
         if(Regex("fog|mist|หมอก").containsMatchIn(text)) rules.add("Visible fog moves gently")
         return rules.joinToString(". ")
     }
+    /** Non-destructive timing warnings: never rewrite or truncate the original screenplay. */
+    internal fun audioWarnings(s: FlowSceneSpec): List<String> = buildList {
+        val turns = if (s.turns.isNotEmpty()) s.turns.map { it.text } else listOf(s.dialogue)
+        val spokenLines = (turns + s.narration).filter { spoken(it).isNotEmpty() }
+        if (spokenLines.sumOf { it.length } > 85) add("Thai speech may be too long for a natural 8-second shot.")
+        if (spokenLines.size > 2) add("Multiple spoken turns can increase audio generation complexity.")
+        if (spoken(s.narration).isNotEmpty() && turns.any { spoken(it).isNotEmpty() })
+            add("Narration and dialogue may compete for the same 8-second audio window.")
+    }
     private fun speechText(text: String): String = text.trim()
     private fun speakerLabel(s: FlowSceneSpec, name: String): String {
         val index=s.cast.indexOfFirst { it.name.trim()==name.trim() || StoryIdentity.keyFor(it.name)?.let { key -> key==StoryIdentity.keyFor(name) }==true }
@@ -115,7 +124,7 @@ internal object ShortFlowPrompt {
                 .joinToString("; ")
             cues.takeIf { it.isNotBlank() }?.let { "${labels(s)[i]} performance: ${typed(s,aliases(s,it))}" }
         }.joinToString(". ")
-        val direction="Perform each character's recorded emotion and reaction naturally in this scene, respecting the prior scene and existing action. Silent listeners may react silently."
+        val direction="Use restrained cinematic performances, motivated eye-lines, natural breathing, subtle reactions and consistent emotional continuity. Silent listeners react without speaking."
         val spokenTurns=when {
             silent -> emptyList()
             s.turns.isNotEmpty() -> s.turns.map { it.speaker to it.text }
@@ -136,19 +145,19 @@ internal object ShortFlowPrompt {
         val location=typed(s,aliases(s,s.location.trim())).takeIf { it.isNotBlank() && !thai.containsMatchIn(it) }.orEmpty()
         val visual=listOf("Use the attached first frame as the starting point. One continuous 8-second vertical 9:16 shot",cast,location.takeIf { it.isNotBlank() }?.let { "Environment: $it" }.orEmpty(),action,
             "Preserve each character's identity, face or species-specific features, hair or fur, body proportions, position, clothing and props from the first frame. Keep the location and lighting consistent throughout",ScenePropContinuity.video,performance,direction,
-            motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}",instructions)
+            motion(s.action,s.location,s.startState,s.endState,s.sound),"Cinematography: natural depth, motivated contrast, consistent screen direction and exposure; preserve the attached frame's established color grade. Camera: ${camera.trim()}",instructions)
             .filter { it.isNotBlank() }.joinToString(". ")
         val lines=allSpokenTurns.joinToString("") { (name,text) ->
             val label=if(name.isBlank()) "Off-screen narrator" else speakerLabel(s,name)
             val offscreen=name.isBlank() || s.offscreen.any { it.trim()==name.trim() }
             "<dialogue${if(offscreen) " off_screen=\"true\"" else ""}><speaker>${xml(label)}</speaker><text>${xml(speechText(text))}</text><language>th-TH</language></dialogue>"
         }
-        val audio=if(silent) "No speech, narration, music or sound effects; visible characters remain silent." else if(lines.isEmpty()) "No dialogue or narration; visible characters remain silent." else "Speak the exact written Thai words in turn, naturally within 8 seconds without rushing. Other visible characters remain silent while the current speaker speaks. Preserve each character's anatomy. No extra voices, overlap or subtitles."
+        val audio=if(silent) "No speech, narration, music or sound effects; visible characters remain silent." else if(lines.isEmpty()) "No dialogue or narration; visible characters remain silent. Only explicitly requested environmental sounds are allowed." else "Deliver only the exact Thai dialogue with clear cinematic foreground speech and natural pacing within the shot; never rush or invent words. Other visible characters remain silent while the current speaker speaks. Preserve each character's anatomy. No extra voices, overlap or subtitles."
         val soundParts=Regex("(?is)^Ambience: (.*?); SFX: (.*?); Music: (.*?)[.]?$").matchEntire(sound)
         val ambient=soundParts?.groupValues?.get(1) ?: sound.ifBlank { "none specified" }
         val sfx=soundParts?.groupValues?.get(2) ?: "none specified"
         val music=soundParts?.groupValues?.get(3) ?: "none specified"
-        val effects=if(silent) "" else "<sound_effects><ambient>${xml(ambient)}</ambient><sfx>${xml(sfx)}</sfx><music>${xml(music)}</music><mix>Keep sound below dialogue; no additional voices.</mix></sound_effects>"
+        val effects=if(silent) "" else "<sound_effects><ambient>${xml(ambient)}</ambient><sfx>${xml(sfx)}</sfx><music>${xml(music)}</music><mix>Use natural spatial ambience and restrained foley; keep all effects and music beneath dialogue. No additional voices.</mix></sound_effects>"
         return "<flow><scene><aspect_ratio>9:16</aspect_ratio><duration>8</duration><lighting>Preserve the first frame's motivated practical lighting, cinematic color grade, natural skin tones, and shadow direction. Do not introduce new light sources or change the time of day. Preserve the first frame's lighting direction and scene continuity.</lighting><typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone><prompt>${xml(visual+". "+audio)}</prompt>$lines$effects</scene></flow>"
     }
 }
