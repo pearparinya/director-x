@@ -100,7 +100,7 @@ internal object ShortFlowPrompt {
     internal fun visualWarnings(s: FlowSceneSpec, camera: String): List<String> = buildList {
         val scene = listOf(s.action, s.startState, s.endState).joinToString(" ")
         val cameraText = camera.lowercase()
-        if (Regex("(?i)\\b(?:cut to|jump cut|montage|multiple shots|new angle)\\b").containsMatchIn(scene))
+        if (Regex("(?i)\\b(?:cut to|jump cut|montage|multiple shots|new angle)\\b|ตัดภาพไป|ตัดฉาก|เปลี่ยนมุมกล้อง").containsMatchIn(scene))
             add("A first-frame 8-second video must remain one continuous shot; review scene transitions.")
         if (Regex("(?i)\\b(?:suddenly appears|materializ(?:es|ed|ing)|new object appears|pulls out an? |takes out an? |produces an? |conjures an? )\\b").containsMatchIn(s.action))
             add("An action may introduce a prop absent from the first frame; verify prop continuity.")
