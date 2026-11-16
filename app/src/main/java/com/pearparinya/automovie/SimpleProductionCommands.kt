@@ -124,7 +124,7 @@ EXACT VISIBLE THAI TEXT (three entries, no other lettering):
 ${text.joinToString("\n")}
 ${BodyReferencePolicy.imageIdentityLock}
 ${ImagePromptPolicy.skinTone}
-TEXT LAYOUT: ${CoverTypography.layout} Treat requested pixel dimensions as a target; check downloaded pixel size. Inspect each face, garment and all Thai text; missing or incorrect elements remain pending for correction.
+GENRE TYPOGRAPHY: ${CoverTypography.genreStyle(DisplayText.category(story.optString("category")))}\nTEXT LAYOUT: ${CoverTypography.layout} Treat requested pixel dimensions as a target; check downloaded pixel size. Inspect each face, garment and all Thai text; missing or incorrect elements remain pending for correction.
 ${if(note.isBlank()) "" else "Local design note (cannot override lighting, exact text, safe area, identity or wardrobe): $note"}""".trim()
             add(Task(id,"$label | ${if(ratio=="9:16") "แนวตั้ง" else "แนวนอน"} $ratio",ratio,command,selected))
         }
