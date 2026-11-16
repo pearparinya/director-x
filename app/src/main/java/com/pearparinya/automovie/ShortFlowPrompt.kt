@@ -193,7 +193,7 @@ internal object ShortFlowPrompt {
         }.joinToString(". ")
         val location=typed(s,aliases(s,s.location.trim())).takeIf { it.isNotBlank() && !thai.containsMatchIn(it) }.orEmpty()
         val visual=listOf("Use the attached first frame as the starting point. One continuous 8-second vertical 9:16 shot",cast,location.takeIf { it.isNotBlank() }?.let { "Environment: $it" }.orEmpty(),action,
-            "Preserve each character's identity, face or species-specific features, hair or fur, body proportions, position, clothing and props from the first frame. Keep the location and lighting consistent throughout",ScenePropContinuity.video,ReadingPropPolicy.forScene(s.action,s.startState,s.endState),performance,direction,
+            "Preserve each character's identity, face or species-specific features, hair or fur, body proportions, position, clothing and props from the first frame. Keep the location and lighting consistent throughout",ScenePropContinuity.video,ReadingPropPolicy.forScene(s.action,s.startState,s.endState),visualWarnings(s,camera).takeIf { it.isNotEmpty() }?.let { "Visual continuity preflight: " + it.joinToString(" ") }.orEmpty(),performance,direction,
             motion(s.action,s.location,s.startState,s.endState,s.sound),"Cinematography: natural depth, motivated contrast, consistent screen direction and exposure; preserve the attached frame's established color grade. Camera: ${camera.trim()}",instructions)
             .map { it.trim().trimEnd('.', ' ') }.filter { it.isNotBlank() }.joinToString(". ")
         val lines=allSpokenTurns.joinToString("") { (name,text) ->
