@@ -47,6 +47,18 @@ internal class FreeSearchSettings(private val context: Context) {
     }
     fun status(provider: String): String = prefs.getString(provider+"_status","ยังไม่ทดสอบ").orEmpty()
     fun tested(provider: String): Long = prefs.getLong(provider+"_tested",0L)
+    private fun failureKey(provider: String) = provider+"_consecutive_failures"
+    fun coolingDown(provider: String): Boolean = System.currentTimeMillis() < prefs.getLong(provider+"_cooldown_until",0L)
+    @Synchronized fun markSuccess(provider: String) {
+        prefs.edit().putInt(failureKey(provider),0).remove(provider+"_cooldown_until").apply()
+    }
+    @Synchronized fun markFailure(provider: String, temporary: Boolean) {
+        if (!temporary) { prefs.edit().putInt(failureKey(provider),0).apply(); return }
+        val failures=prefs.getInt(failureKey(provider),0)+1
+        val edit=prefs.edit().putInt(failureKey(provider),failures)
+        if(failures>=3) edit.putLong(provider+"_cooldown_until",System.currentTimeMillis()+120000L)
+        edit.apply()
+    }
     private fun month()=SimpleDateFormat("yyyy-MM",Locale.US).format(Date())
     fun used(provider: String): Int = if(prefs.getString(provider+"_month","")==month()) prefs.getInt(provider+"_used",0) else 0
     fun limit(provider: String)=when(provider) { "tavily" -> 900; "exa" -> 1500; else -> 100 }
@@ -97,13 +109,18 @@ internal object FreeProductSearch {
         val settings=FreeSearchSettings(context); val key=settings.key(provider)
         if(key.isBlank()) throw ProductSearchError("ยังไม่ได้ตั้ง API Key")
         if(!settings.enabled(provider)) throw ProductSearchError("API นี้ถูกปิดใช้งาน")
+        if(settings.coolingDown(provider)) throw ProductSearchError("API พักชั่วคราวหลังเชื่อมต่อผิดพลาดซ้ำ")
         if(provider !in listOf("tavily","exa","serpapi","firecrawl")) throw ProductSearchError("ยังไม่รองรับ Endpoint ของ API นี้")
         val domains=listOf(listOf("tiktokshop.com", "shop-th.tiktok.com"),listOf("shopee.co.th"),listOf("lazada.co.th"))
         require(store in domains.indices)
         val request=JSONObject().put("query",query.take(120)+" "+listOf("TikTok Shop Thailand","Shopee Thailand","Lazada Thailand")[store])
         if(provider=="tavily") request.put("search_depth","basic").put("max_results",10).put("auto_parameters",false).put("include_domains",JSONArray(domains[store]))
         else request.put("type","lite").put("numResults",10).put("includeDomains",JSONArray(domains[store]))
-        if(provider=="serpapi" || provider=="firecrawl") { settings.reserve(provider); return searchAdditional(provider, key, query, store, control) }
+        if(provider=="serpapi" || provider=="firecrawl") {
+            settings.reserve(provider)
+            return try { searchAdditional(provider,key,query,store,control).also { settings.markSuccess(provider) } }
+            catch(e: Exception) { if(!control.cancelled()) settings.markFailure(provider, e is java.io.IOException || (e is ProductSearchError && e.publicMessage.contains("HTTP 5"))); throw e }
+        }
         // Reserve before sending, including failures, so retries cannot bypass the local ceiling.
         settings.reserve(provider)
         val conn=URL(if(provider=="tavily") "https://api.tavily.com/search" else "https://api.exa.ai/search").openConnection() as HttpURLConnection
@@ -123,7 +140,11 @@ internal object FreeProductSearch {
                 if(title.isNotBlank() && ProductSearch.matchesPlatform(url,store) && found.none { it.url==url }) found.add(ProductSearch.Result(title,url,""))
                 if(found.size>=5) break
             }
+            settings.markSuccess(provider)
             return found
+        } catch(e: Exception) {
+            if(!control.cancelled()) settings.markFailure(provider, e is java.io.IOException || (e is ProductSearchError && e.publicMessage.contains("HTTP 5")))
+            throw e
         } finally { control.detach(conn); conn.disconnect() }
     }
 }
