@@ -105,7 +105,7 @@ internal object ShortFlowPrompt {
         val introducedProp = Regex("(?i)\\b(?:suddenly appears|materializ(?:es|ed|ing)|new object appears|pulls out an? |takes out an? |produces an? |conjures an? )\\b")
         val introducedName = Regex("(?i)\\b(?:pulls out|takes out|produces|conjures) an? ([a-z]+)\\b").find(s.action)?.groupValues?.get(1)
         val objectAlreadyVisible = introducedName != null && s.startState
-            .split(Regex("[;.!?,]|\\b(?:but|however|while|whereas|and)\\b", RegexOption.IGNORE_CASE))
+            .split(Regex("[;.!?,]|\\b(?:while|whereas|and)\\b", RegexOption.IGNORE_CASE))
             .any { clause ->
                 val objectMentioned = Regex("(?i)\\b" + Regex.escape(introducedName) + "\\b").containsMatchIn(clause)
                 val visible = Regex("(?i)\\b(?:already visible|already present|visible in the first frame|visible from the start)\\b").containsMatchIn(clause)
