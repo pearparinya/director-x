@@ -89,7 +89,7 @@ class ShortFlowPromptPreflightTest {
     }
 
     @Test fun narrationOnlyHasOffscreenSpeakerAndNoVisibleDialogue() {
-        val sample = scene().copy(dialogue = "", narration = "เรื่องราวเริ่มขึ้น")
+        val sample = scene().copy(speaker = "", dialogue = "", narration = "เรื่องราวเริ่มขึ้น")
         val xml = ShortFlowPrompt.build(sample, "Locked camera")
         val doc = javax.xml.parsers.DocumentBuilderFactory.newInstance()
             .newDocumentBuilder().parse(org.xml.sax.InputSource(java.io.StringReader(xml)))
@@ -100,21 +100,15 @@ class ShortFlowPromptPreflightTest {
         assertTrue(doc.getElementsByTagName("text").item(0).textContent == "เรื่องราวเริ่มขึ้น")
     }
 
-    @Test fun orderedDialogueAndNarrationProduceThreeExactXmlTurns() {
+    @Test fun orderedDialogueAndNarrationAreRejectedToAvoidOverlappingVoices() {
         val sample = scene().copy(
+            speaker = "",
             dialogue = "",
             narration = "เสียงบรรยาย",
             turns = listOf(FlowDialogueTurn("สมชาย", "หนึ่ง & สอง"), FlowDialogueTurn("สมชาย", "สาม"))
         )
-        val xml = ShortFlowPrompt.build(sample, "Locked camera")
-        val doc = javax.xml.parsers.DocumentBuilderFactory.newInstance()
-            .newDocumentBuilder().parse(org.xml.sax.InputSource(java.io.StringReader(xml)))
-        val texts = doc.getElementsByTagName("text")
-        assertTrue(texts.length == 3)
-        assertTrue(texts.item(0).textContent == "หนึ่ง & สอง")
-        assertTrue(texts.item(1).textContent == "สาม")
-        assertTrue(texts.item(2).textContent == "เสียงบรรยาย")
-        assertTrue(doc.getElementsByTagName("dialogue").item(2).attributes.getNamedItem("off_screen").nodeValue == "true")
+        assertTrue(FlowScenePrompt.issues(sample).any { it.contains("บทสนทนาหลายคน") })
+        assertTrue(runCatching { ShortFlowPrompt.build(sample, "Locked camera") }.isFailure)
     }
 
     @Test fun speechWarningsNeverRewriteText() {
