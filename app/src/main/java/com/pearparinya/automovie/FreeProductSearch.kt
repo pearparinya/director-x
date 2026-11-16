@@ -38,9 +38,18 @@ internal class FreeSearchSettings(private val context: Context) {
         String(cipher.doFinal(Base64.decode(data,Base64.NO_WRAP)),Charsets.UTF_8)
     }.getOrDefault("")
     fun clear(provider: String) { prefs.edit().remove(provider+"_key").remove(provider+"_iv").apply() }
+    fun enabled(provider: String): Boolean = prefs.getBoolean(provider+"_enabled", true)
+    fun setEnabled(provider: String, enabled: Boolean) { prefs.edit().putBoolean(provider+"_enabled",enabled).apply() }
+    fun fallbackEnabled(): Boolean = prefs.getBoolean("fallback_enabled",true)
+    fun setFallbackEnabled(value: Boolean) { prefs.edit().putBoolean("fallback_enabled",value).apply() }
+    fun record(provider: String, status: String) {
+        prefs.edit().putString(provider+"_status",status).putLong(provider+"_tested",System.currentTimeMillis()).apply()
+    }
+    fun status(provider: String): String = prefs.getString(provider+"_status","ยังไม่ทดสอบ").orEmpty()
+    fun tested(provider: String): Long = prefs.getLong(provider+"_tested",0L)
     private fun month()=SimpleDateFormat("yyyy-MM",Locale.US).format(Date())
     fun used(provider: String): Int = if(prefs.getString(provider+"_month","")==month()) prefs.getInt(provider+"_used",0) else 0
-    fun limit(provider: String)=if(provider=="tavily") 900 else 1500
+    fun limit(provider: String)=when(provider) { "tavily" -> 900; "exa" -> 1500; else -> 100 }
     @Synchronized fun reserve(provider: String) {
         val count=used(provider); require(count<limit(provider)) { "ถึงขีดจำกัดค้นฟรีบนเครื่องในเดือนนี้" }
         check(prefs.edit().putString(provider+"_month",month()).putInt(provider+"_used",count+1).commit()) { "บันทึกโควตาไม่สำเร็จ" }
@@ -87,12 +96,14 @@ internal object FreeProductSearch {
     fun search(context: Context, provider: String, query: String, store: Int, control: ProductSearchControl): List<ProductSearch.Result> {
         val settings=FreeSearchSettings(context); val key=settings.key(provider)
         if(key.isBlank()) throw ProductSearchError("ยังไม่ได้ตั้ง API Key")
+        if(!settings.enabled(provider)) throw ProductSearchError("API นี้ถูกปิดใช้งาน")
+        if(provider !in listOf("tavily","exa","serpapi","firecrawl")) throw ProductSearchError("ยังไม่รองรับ Endpoint ของ API นี้")
         val domains=listOf(listOf("tiktokshop.com", "shop-th.tiktok.com"),listOf("shopee.co.th"),listOf("lazada.co.th"))
         require(store in domains.indices)
         val request=JSONObject().put("query",query.take(120)+" "+listOf("TikTok Shop Thailand","Shopee Thailand","Lazada Thailand")[store])
         if(provider=="tavily") request.put("search_depth","basic").put("max_results",10).put("auto_parameters",false).put("include_domains",JSONArray(domains[store]))
         else request.put("type","lite").put("numResults",10).put("includeDomains",JSONArray(domains[store]))
-        if(provider=="serpapi" || provider=="firecrawl") return searchAdditional(provider, key, query, store, control)
+        if(provider=="serpapi" || provider=="firecrawl") { settings.reserve(provider); return searchAdditional(provider, key, query, store, control) }
         // Reserve before sending, including failures, so retries cannot bypass the local ceiling.
         settings.reserve(provider)
         val conn=URL(if(provider=="tavily") "https://api.tavily.com/search" else "https://api.exa.ai/search").openConnection() as HttpURLConnection
