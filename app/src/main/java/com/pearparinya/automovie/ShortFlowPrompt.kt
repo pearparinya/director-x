@@ -104,9 +104,12 @@ internal object ShortFlowPrompt {
             add("A first-frame 8-second video must remain one continuous shot; review scene transitions.")
         if (Regex("(?i)\\b(?:suddenly appears|materializes|new object appears|pulls out a|takes out a)\\b").containsMatchIn(s.action))
             add("An action may introduce a prop absent from the first frame; verify prop continuity.")
-        if (Regex("(?i)\\b(?:daylight|daytime|midday)\\b").containsMatchIn(s.startState) &&
-            Regex("(?i)\\b(?:night|midnight|nighttime)\\b").containsMatchIn(s.endState))
+        val daytime = Regex("(?i)\\b(?:daylight|daytime|midday)\\b|กลางวัน")
+        val nighttime = Regex("(?i)\\b(?:night|midnight|nighttime)\\b|กลางคืน")
+        if (daytime.containsMatchIn(s.startState) && nighttime.containsMatchIn(s.endState))
             add("The end state changes day to night within an 8-second continuous shot.")
+        if (nighttime.containsMatchIn(s.startState) && daytime.containsMatchIn(s.endState))
+            add("The end state changes night to day within an 8-second continuous shot.")
         if (Regex("(?i)\\b(?:locked|static|tripod)\\b").containsMatchIn(cameraText) &&
             Regex("(?i)\\b(?:pan|tilt|dolly|tracking|orbit|handheld)\\b").containsMatchIn(cameraText))
             add("Locked and moving camera directions conflict.")
