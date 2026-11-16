@@ -201,6 +201,22 @@ class ShortFlowPromptPreflightTest {
         assertFalse(ShortFlowPrompt.visualWarnings(sample, "Locked camera").any { it.contains("prop") })
     }
 
+    @Test fun visualPreflightSeparatesAndJoinedProps() {
+        val sample = scene().copy(
+            action = "Character 1 takes out a letter",
+            startState = "A key is already visible in the first frame and a letter is hidden offscreen"
+        )
+        assertTrue(ShortFlowPrompt.visualWarnings(sample, "Locked camera").any { it.contains("prop") })
+    }
+
+    @Test fun visualPreflightSeparatesCommaJoinedProps() {
+        val sample = scene().copy(
+            action = "Character 1 takes out a letter",
+            startState = "A key is already visible in the first frame, a letter is hidden offscreen"
+        )
+        assertTrue(ShortFlowPrompt.visualWarnings(sample, "Locked camera").any { it.contains("prop") })
+    }
+
     @Test fun visualPreflightDoesNotTreatInvisibleObjectAsPresent() {
         val sample = scene().copy(
             action = "Character 1 takes out a letter",
