@@ -37,4 +37,24 @@ class FaceReferenceStoreTest {
             assertNull(store.latest(a)); assertNull(store.latest(b))
         } finally { dir.deleteRecursively() }
     }
+    @Test fun prepareReusesExistingReviewedCropWithoutDecodingMaster() {
+        val dir=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-face-cache-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val original=File(dir,"master").apply { writeText("original master bytes") }
+            val store=FaceReferenceStore(File(dir,"crops"))
+            val crop=store.newFile(original).apply { parentFile!!.mkdirs(); writeText("reviewed crop") }
+            assertEquals(crop,store.prepare(original))
+        } finally { dir.deleteRecursively() }
+    }
+
+    @Test fun prepareDoesNotInventFaceWhenImageIsInvalid() {
+        val dir=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-face-invalid-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val original=File(dir,"master").apply { writeText("not a picture") }
+            val store=FaceReferenceStore(File(dir,"crops"))
+            assertNull(store.prepare(original))
+            assertNull(store.latest(original))
+        } finally { dir.deleteRecursively() }
+    }
+
 }
