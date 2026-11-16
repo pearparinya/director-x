@@ -3749,9 +3749,9 @@ $context"""
                     )) { action ->
                         when(action) {
                             0 -> {
-                                // Keep product selection in the existing workflow, so confirmed facts
-                                // flow into the video script instead of a disconnected search dialog.
-                                openCategory(3)
+                                // Open search immediately, without entering the film creation wizard.
+                                // ProductAssist persists user-confirmed product facts for the review workflow.
+                                ProductAssist.show(this@StudioActivity,EditText(this@StudioActivity),"ค้นหาสินค้า")
                             }
                             1 -> openCategory(3)
                             2 -> shoppingApiTestAll()
@@ -3826,6 +3826,9 @@ $context"""
             if(needsFacts) panel.addView(TextView(this).apply { text="หมวดนี้ต้องระบุข้อมูลจริงที่ตรวจสอบแล้ว • AI จะใช้สร้างบท ไม่แต่งข้อมูลสินค้า ความปลอดภัย หรือสิทธิประโยชน์เอง"; setTextColor(Color.WHITE); setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(149,54,40)) })
             var productButton: Button? = null
             if(ChannelCatalog.allCategories[index].id=="pia_products") {
+                val savedProduct=getSharedPreferences("product_assist",MODE_PRIVATE)
+                    .getString("confirmed_premise","").orEmpty()
+                if(savedProduct.isNotBlank()) premise.setText(savedProduct)
                 productButton=Button(this).apply { text="ค้นหาสินค้า • รับลิงก์ Affiliate"; colorAction(this,Color.rgb(34,105,160)); setOnClickListener { ProductAssist.show(this@StudioActivity,premise,selectedStoryTopic) } }
                 panel.addView(productButton)
                 panel.addView(Button(this).apply { text="ดูตัวอย่างโฆษณาสินค้า TikTok"; colorAction(this,Color.rgb(225,161,35),true); setOnClickListener {
