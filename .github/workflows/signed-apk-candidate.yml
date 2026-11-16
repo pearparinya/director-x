@@ -1,0 +1,78 @@
+name: DIRECTOR X Signed APK Candidate (No Publish)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  signed-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Validate release configuration
+        run: python3 scripts/check_release_config.py
+      - name: Restore and validate existing signing key
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          for var in KEYSTORE_BASE64 STORE_PASSWORD KEY_ALIAS; do
+            test -n "${!var}" || { echo "::error::Missing signing secret: $var"; exit 1; }
+          done
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/director-x-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/director-x-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          echo "Existing signing key loaded successfully."
+      - name: Build release and run unit tests
+        run: gradle :app:testDebugUnitTest :app:assembleRelease
+      - name: Sign, verify and inspect candidate APK
+        shell: bash
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)"
+          BUILD="$(sed -n 's/.*versionCode = \([0-9][0-9]*\).*/\1/p' app/build.gradle.kts | head -n 1)"
+          test -n "$VERSION" && test -n "$BUILD"
+          UNSIGNED_APK="$(find app/build/outputs/apk/release -type f -name '*unsigned*.apk' -print -quit)"
+          test -s "$UNSIGNED_APK" || { echo "::error::Unsigned APK missing"; exit 1; }
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          APK="$RUNNER_TEMP/DIRECTOR-X-$VERSION-candidate.apk"
+          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/director-x-release.jks" --ks-key-alias "$KEY_ALIAS" --ks-pass "env:STORE_PASSWORD" --key-pass "env:KEY_PASSWORD" --out "$APK" "$UNSIGNED_APK"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" > "$RUNNER_TEMP/apk-verification.txt"
+          PACKAGE="$("$BUILD_TOOLS/aapt" dump badging "$APK" | grep -m1 '^package: ')"
+          [[ "$PACKAGE" == *"name='com.pearparinya.automovie'"* ]] || exit 1
+          [[ "$PACKAGE" == *"versionCode='$BUILD'"* ]] || exit 1
+          [[ "$PACKAGE" == *"versionName='$VERSION'"* ]] || exit 1
+          {
+            echo "### Signed candidate APK (not published)"
+            echo "- Version: $VERSION (build $BUILD)"
+            echo "- Package: com.pearparinya.automovie"
+            echo "- SHA-256: $(sha256sum "$APK" | cut -d' ' -f1)"
+            grep 'Signer #1 certificate SHA-256 digest:' "$RUNNER_TEMP/apk-verification.txt" | sed 's/^/- /'
+            echo "- No GitHub Release was created."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "SIGNED_APK=$APK" >> "$GITHUB_ENV"
+      - name: Upload candidate for controlled upgrade testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: DIRECTOR-X-SIGNED-CANDIDATE
+          path: ${{ env.SIGNED_APK }}
+          if-no-files-found: error
+          retention-days: 3
