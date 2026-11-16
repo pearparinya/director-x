@@ -160,6 +160,19 @@ class ShortFlowPromptPreflightTest {
         assertTrue(ShortFlowPrompt.build(sample, "Locked camera").contains(sample.dialogue))
     }
 
+    @Test fun generatedPromptSurfacesVisualWarningsWithoutChangingAuthoredAction() {
+        val sample = scene().copy(action = "Character 1 suddenly appears with a letter")
+        val output = ShortFlowPrompt.build(sample, "Locked camera")
+        assertTrue(output.contains("Visual continuity preflight:"))
+        assertTrue(output.contains("verify prop continuity"))
+        assertTrue(output.contains(sample.action))
+    }
+
+    @Test fun cleanPromptHasNoVisualWarningBanner() {
+        val output = ShortFlowPrompt.build(scene(), "Locked camera")
+        assertFalse(output.contains("Visual continuity preflight:"))
+    }
+
     @Test fun speechWarningsNeverRewriteText() {
         val original = scene(dialogue = "สวัสดีครับ".repeat(20))
         assertTrue(ShortFlowPrompt.audioWarnings(original).isNotEmpty())
