@@ -2,7 +2,7 @@ package com.pearparinya.automovie
 
 /** One text contract for all covers; scene-image text restrictions do not apply to posters. */
 internal object CoverTypography {
-    const val layout = """Keep all three entries together as one compact group centered horizontally in the lower-middle, approximately x=10-90% and y=52-72%. Order top to bottom: channel, large story title, then tagline or episode text. Place the channel immediately above the title, never at the top edge; place the third entry immediately below the title, preferably on one line when legible. Make the title the dominant line, cinematic Thai lettering in warm gold with restrained burgundy edging and subtle depth; channel and third entry are smaller. Preserve the visible setting and meaningful foreground props below the text through the bottom edge; no large empty black panel, solid black lower half, or heavy full-width black gradient. Use only a subtle local shadow behind letters. Keep faces unobstructed and all letters inside the frame; adjust type size or wrap long text naturally without losing words. Compose separately for each aspect ratio."""
+    const val layout = """Keep all three entries together as one compact group centered horizontally in the lower-middle, approximately x=10-90% and y=52-72%. Order top to bottom: channel, large story title, then tagline or episode text. Place the channel immediately above the title, never at the top edge; place the third entry immediately below the title, preferably on one line when legible. Make the title the dominant line, cinematic Thai lettering in genre-appropriate color and restrained cinematic depth; channel and third entry are smaller. Preserve the visible setting and meaningful foreground props below the text through the bottom edge; no large empty black panel, solid black lower half, or heavy full-width black gradient. Use only a subtle local shadow behind letters. Keep faces unobstructed and all letters inside the frame; adjust type size or wrap long text naturally without losing words. Compose separately for each aspect ratio."""
     /** Genre-aware lettering guidance; keep the existing exact Thai text contract. */
     fun genreStyle(category: String): String {
         val genre = category.lowercase()
@@ -24,6 +24,13 @@ internal object CoverTypography {
             else -> "GENRE ADAPTIVE: choose readable cinematic Thai typography from the story mood; avoid a fixed gold template."
         }
     }
+    /** Keep vertical text clear of common Shorts/Reels overlays; actual platform UI can vary. */
+    fun safeZone(ratio: String): String =
+        if (ratio == "9:16")
+            "VERTICAL SOCIAL SAFE AREA: Keep all lettering within x=8%-85% and y=12%-78%; avoid top 10%, bottom 20%, left 8% and right 15%. Do not cover any face, eyes or important hand gesture. Keep the three text entries grouped and move the group to genuine negative space rather than forcing a fixed center."
+        else
+            "LANDSCAPE SAFE AREA: Keep lettering at least 6% inside each edge and clear of faces and important action. Recompose independently."
+
     fun lines(channel: String,story: String,ep: Int?=null,episode: String="",tagline: String=""): List<String> =
         listOf(ChannelCatalog.currentChannel(channel),story,if(ep==null) tagline else "ตอนที่ $ep $episode")
 
