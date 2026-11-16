@@ -102,7 +102,7 @@ internal object ShortFlowPrompt {
         val cameraText = camera.lowercase()
         if (Regex("(?i)\\b(?:cut to|jump cut|montage|multiple shots|new angle)\\b").containsMatchIn(scene))
             add("A first-frame 8-second video must remain one continuous shot; review scene transitions.")
-        if (Regex("(?i)\\b(?:suddenly appears|materializes|new object appears|pulls out a|takes out a)\\b").containsMatchIn(s.action))
+        if (Regex("(?i)\\b(?:suddenly appears|materializ(?:es|ed|ing)|new object appears|pulls out a|takes out a|produces a|conjures a)\\b").containsMatchIn(s.action))
             add("An action may introduce a prop absent from the first frame; verify prop continuity.")
         val daytime = Regex("(?i)\\b(?:daylight|daytime|midday)\\b|กลางวัน")
         val nighttime = Regex("(?i)\\b(?:night|midnight|nighttime)\\b|กลางคืน")
