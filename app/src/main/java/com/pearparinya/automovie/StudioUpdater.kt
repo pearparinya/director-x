@@ -39,7 +39,10 @@ class StudioUpdater(private val activity: AppCompatActivity) {
         check(true)
     }
     fun check(automatic: Boolean = false) {
-        if (busy) return
+        if (busy) {
+            if (!automatic) message("ระบบกำลังตรวจสอบหรือดาวน์โหลดอัปเดตอยู่ กรุณารอสักครู่")
+            return
+        }
         busy = true
         status("checking")
         val dialog = if (automatic) null else AlertDialog.Builder(activity).setIcon(R.drawable.studio_update).setTitle("DIRECTOR X").setMessage("กำลังตรวจสอบรุ่นใหม่…").setCancelable(false).showDirector()
@@ -69,7 +72,14 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                     return@Thread
                 }
                 val assets = release.getJSONArray("assets")
-                val asset = (0 until assets.length()).map { assets.getJSONObject(it) }.firstOrNull { it.getString("name").endsWith(".apk",true) } ?: error("ไม่พบ APK รุ่นใหม่")
+                val releaseVersion = release.getString("tag_name")
+                    .removePrefix("R").substringBefore("-B")
+                val expectedApkName = "DIRECTOR-X-$releaseVersion.apk"
+                // Fail closed: never install a different APK accidentally attached to a release.
+                val asset = (0 until assets.length())
+                    .map { assets.getJSONObject(it) }
+                    .singleOrNull { it.optString("name").equals(expectedApkName, ignoreCase = true) }
+                    ?: error("ไม่พบไฟล์ $expectedApkName ใน Release หรือมีไฟล์ชื่อซ้ำ")
                 require(asset.optLong("size",0L) > 100000L) { "ไฟล์ APK ใน Release ไม่สมบูรณ์" }
                 val url = asset.getString("browser_download_url")
                 require(url.startsWith("https://github.com/pearparinya/director-x/releases/download/") ||
