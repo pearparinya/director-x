@@ -99,14 +99,13 @@ internal object FreeProductSearch {
     private fun searchAdditional(provider: String, key: String, query: String, store: Int, control: ProductSearchControl): List<ProductSearch.Result> {
         val domain = listOf("tiktokshop.com", "shopee.co.th", "lazada.co.th")[store]
         val searchQuery = query.take(120) + " site:" + domain
-        val endpoint = if(provider=="serpapi") "https://serpapi.com/search.json?engine=google&q=" + java.net.URLEncoder.encode(searchQuery,"UTF-8") + "&num=10" else "https://api.firecrawl.dev/v2/search"
+        val endpoint = if(provider=="serpapi") "https://serpapi.com/search.json?engine=google&q=" + java.net.URLEncoder.encode(searchQuery,"UTF-8") + "&api_key=" + java.net.URLEncoder.encode(key,"UTF-8") + "&num=10" else "https://api.firecrawl.dev/v2/search"
         val conn = URL(endpoint).openConnection() as HttpURLConnection
         conn.connectTimeout = 20000; conn.readTimeout = 45000
         val payload = if(provider=="serpapi") JSONObject().put("engine","google").put("q",searchQuery).put("api_key",key).put("num",10)
             else JSONObject().put("query",searchQuery).put("limit",10)
         conn.requestMethod=if(provider=="serpapi") "GET" else "POST"; conn.doOutput=provider!="serpapi"
         conn.setRequestProperty("Content-Type","application/json")
-        if(provider=="serpapi") conn.setRequestProperty("X-API-KEY",key)
         if(provider=="firecrawl") conn.setRequestProperty("Authorization","Bearer $key")
         control.attach(conn)
         try {
