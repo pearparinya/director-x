@@ -2731,7 +2731,7 @@ $context"""
                 if(!images) {
                     if(problems.isNotEmpty() || flowSpec==null) { productionCheckMenu(story); return@setOnClickListener }
                     val value=runCatching { ShortFlowPrompt.build(flowSpec,flowCamera) }.getOrElse { error ->
-                        if(error.message?.contains("คำบรรยายการกระทำ ตำแหน่ง หรือเสียงยังมีภาษาไทย")==true && sceneForFlow!=null) offerFlowTranslation(story,sceneForFlow,flowSpec,flowCamera,false)
+                        if(sceneForFlow!=null && ShortFlowPrompt.untranslatedFields(flowSpec,flowCamera).isNotEmpty()) offerFlowTranslation(story,sceneForFlow,flowSpec,flowCamera,false)
                         else notice(error.message ?: "ตรวจคำสั่ง Flow ก่อนคัดลอก")
                         return@setOnClickListener
                     }
