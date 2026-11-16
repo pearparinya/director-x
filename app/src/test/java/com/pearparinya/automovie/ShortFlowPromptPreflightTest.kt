@@ -69,6 +69,25 @@ class ShortFlowPromptPreflightTest {
         assertTrue(ShortFlowPrompt.audioWarnings(shouting).any { it.contains("vocal performance") })
     }
 
+    @Test fun voiceOnlyIncludesBothDialogueAndNarrationInOrder() {
+        val sample = scene().copy(narration = "คืนนี้มีฝน")
+        val output = ShortFlowPrompt.voiceOnly(sample)
+        assertTrue(output.contains("สวัสดีครับ"))
+        assertTrue(output.contains("Off-screen narrator: คืนนี้มีฝน"))
+        assertTrue(output.indexOf("สวัสดีครับ") < output.indexOf("คืนนี้มีฝน"))
+    }
+
+    @Test fun voiceOnlyPreservesOrderedTurnsAndNarration() {
+        val sample = scene().copy(
+            dialogue = "",
+            narration = "เสียงบรรยาย",
+            turns = listOf(FlowDialogueTurn("สมชาย", "หนึ่ง"), FlowDialogueTurn("สมชาย", "สอง"))
+        )
+        val output = ShortFlowPrompt.voiceOnly(sample)
+        assertTrue(output.indexOf("หนึ่ง") < output.indexOf("สอง"))
+        assertTrue(output.indexOf("สอง") < output.indexOf("เสียงบรรยาย"))
+    }
+
     @Test fun speechWarningsNeverRewriteText() {
         val original = scene(dialogue = "สวัสดีครับ".repeat(20))
         assertTrue(ShortFlowPrompt.audioWarnings(original).isNotEmpty())
