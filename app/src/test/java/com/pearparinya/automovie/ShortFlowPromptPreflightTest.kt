@@ -142,6 +142,24 @@ class ShortFlowPromptPreflightTest {
         assertTrue(doc.getElementsByTagName("text").item(0).textContent == "ได้ยินไหม")
     }
 
+    @Test fun visualPreflightFlagsPropAppearingMidShot() {
+        val sample = scene().copy(action = "Character 1 suddenly appears with a letter")
+        assertTrue(ShortFlowPrompt.visualWarnings(sample, "Locked camera").any { it.contains("prop") })
+    }
+
+    @Test fun visualPreflightFlagsTimeJumpAndSceneCut() {
+        val sample = scene().copy(action = "Cut to a new angle", startState = "daylight", endState = "nighttime")
+        val warnings = ShortFlowPrompt.visualWarnings(sample, "Locked camera")
+        assertTrue(warnings.any { it.contains("continuous shot") })
+        assertTrue(warnings.any { it.contains("day to night") })
+    }
+
+    @Test fun visualPreflightDoesNotAlterValidScene() {
+        val sample = scene()
+        assertTrue(ShortFlowPrompt.visualWarnings(sample, "Locked camera").isEmpty())
+        assertTrue(ShortFlowPrompt.build(sample, "Locked camera").contains(sample.dialogue))
+    }
+
     @Test fun speechWarningsNeverRewriteText() {
         val original = scene(dialogue = "สวัสดีครับ".repeat(20))
         assertTrue(ShortFlowPrompt.audioWarnings(original).isNotEmpty())
