@@ -131,7 +131,7 @@ internal object ShortFlowPrompt {
         if (spoken(s.narration).isNotEmpty()) {
             lines.add("Off-screen narrator: ${speechText(spoken(s.narration))}")
         }
-        return lines.joinToString("\\n").ifBlank { "No spoken dialogue." }
+        return lines.joinToString("\n").ifBlank { "No spoken dialogue." }
     }
     fun plain(s: FlowSceneSpec, camera: String): String {
         val structured=build(s,camera)
