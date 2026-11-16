@@ -48,8 +48,11 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                 val connection = connect("https://api.github.com/repos/pearparinya/director-x/releases/latest?cb=${System.currentTimeMillis()}")
                 val release = try { JSONObject(connection.inputStream.bufferedReader().use { it.readText() }) } finally { connection.disconnect() }
                 require(!release.optBoolean("draft") && !release.optBoolean("prerelease")) { "รุ่นนี้ยังไม่พร้อมเผยแพร่" }
-                val build = Regex("BUILD\\s*[:#]?\\s*(\\d+)",RegexOption.IGNORE_CASE).find(release.optString("body"))?.groupValues?.get(1)?.toLongOrNull()
-                    ?: Regex("-B(\\d+)").find(release.getString("tag_name"))?.groupValues?.get(1)?.toLongOrNull()
+                // The immutable release tag is authoritative; release notes may mention older builds.
+                val build = Regex("-B(\\d+)", RegexOption.IGNORE_CASE)
+                    .find(release.getString("tag_name"))?.groupValues?.get(1)?.toLongOrNull()
+                    ?: Regex("BUILD\\s*[:#]?\\s*(\\d+)", RegexOption.IGNORE_CASE)
+                        .find(release.optString("body"))?.groupValues?.get(1)?.toLongOrNull()
                     ?: error("รุ่นล่าสุดไม่มีข้อมูลการอัปเดต")
                 val local = activity.packageManager.getPackageInfo(activity.packageName,0).versionCode.toLong()
                 // Only published releases are eligible for in-app updates.
@@ -59,6 +62,7 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                         busy = false
                         dialog?.dismiss()
                         status("latest")
+                        updatePrefs.edit().putLong("last_successful_check", System.currentTimeMillis()).apply()
                         if (!activity.isFinishing && !activity.isDestroyed && !automatic)
                             message("ติดตั้ง Build $local แล้ว • GitHub Release ล่าสุด Build $build • ยังไม่มีอัปเดตใหม่ที่เผยแพร่")
                     }
@@ -72,11 +76,11 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                     url.startsWith("https://github.com/pearparinya/auto-movie-r6-4/releases/download/")) { "แหล่งดาวน์โหลดไม่ถูกต้อง" }
                 activity.runOnUiThread {
                     busy = false; dialog?.dismiss()
-                    status(if (build <= local) "latest" else "available")
+                    status("available")
                     if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
                     updatePrefs.edit().putLong("last_successful_check", System.currentTimeMillis()).apply()
                     if (automatic && !activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) { lastCheckThisSession = 0L; return@runOnUiThread }
-                    {
+                    run {
                         val now = System.currentTimeMillis()
                         val dismissedBuild = updatePrefs.getLong("dismissed_build", -1L)
                         val dismissedAt = updatePrefs.getLong("dismissed_at", 0L)
