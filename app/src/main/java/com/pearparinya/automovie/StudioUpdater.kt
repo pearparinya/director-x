@@ -52,6 +52,18 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                     ?: Regex("-B(\\d+)").find(release.getString("tag_name"))?.groupValues?.get(1)?.toLongOrNull()
                     ?: error("รุ่นล่าสุดไม่มีข้อมูลการอัปเดต")
                 val local = activity.packageManager.getPackageInfo(activity.packageName,0).versionCode.toLong()
+                // Only published releases are eligible for in-app updates.
+                // CI artifacts must never be presented as installable updates.
+                if (build <= local) {
+                    activity.runOnUiThread {
+                        busy = false
+                        dialog?.dismiss()
+                        status("latest")
+                        if (!activity.isFinishing && !activity.isDestroyed && !automatic)
+                            message("ติดตั้ง Build $local แล้ว • GitHub Release ล่าสุด Build $build • ยังไม่มีอัปเดตใหม่ที่เผยแพร่")
+                    }
+                    return@Thread
+                }
                 val assets = release.getJSONArray("assets")
                 val asset = (0 until assets.length()).map { assets.getJSONObject(it) }.firstOrNull { it.getString("name").endsWith(".apk",true) } ?: error("ไม่พบ APK รุ่นใหม่")
                 require(asset.optLong("size",0L) > 100000L) { "ไฟล์ APK ใน Release ไม่สมบูรณ์" }
@@ -64,8 +76,7 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                     if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
                     updatePrefs.edit().putLong("last_successful_check", System.currentTimeMillis()).apply()
                     if (automatic && !activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) { lastCheckThisSession = 0L; return@runOnUiThread }
-                    if (build <= local) { if (!automatic) message("ติดตั้ง Build $local แล้ว • GitHub ล่าสุด Build $build • ไม่จำเป็นต้องอัปเดต") }
-                    else {
+                    {
                         val now = System.currentTimeMillis()
                         val dismissedBuild = updatePrefs.getLong("dismissed_build", -1L)
                         val dismissedAt = updatePrefs.getLong("dismissed_at", 0L)
@@ -75,7 +86,11 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                             .setNegativeButton("ภายหลัง") { _,_ -> updatePrefs.edit().putLong("dismissed_build",build).putLong("dismissed_at",System.currentTimeMillis()).apply() }.showDirector()
                     }
                 }
-            } catch (e: Exception) { activity.runOnUiThread { busy = false; dialog?.dismiss(); status("error"); if (automatic) lastCheckThisSession = 0L; if (!automatic && !activity.isFinishing && !activity.isDestroyed) message("ตรวจสอบอัปเดตไม่สำเร็จ: ${e.message}") } }
+            } catch (e: Exception) { activity.runOnUiThread { busy = false; dialog?.dismiss(); status("error"); if (automatic) lastCheckThisSession = 0L; if (!automatic && !activity.isFinishing && !activity.isDestroyed) message(
+                    if (e.message?.contains("HTTP 404") == true)
+                        "ยังไม่มี GitHub Release สำหรับอัปเดตผ่านแอป • APK ทดสอบใน GitHub Actions ไม่ใช่รุ่นเผยแพร่"
+                    else "ตรวจสอบอัปเดตไม่สำเร็จ: ${e.message}"
+                ) } }
         }.start()
     }
     private fun connect(url: String): HttpURLConnection = (URL(url).openConnection() as HttpURLConnection).apply {
