@@ -1,0 +1,56 @@
+name: DIRECTOR X 4.79 Candidate Download Link (Pre-release)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download successful signed candidate artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RUN_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/signed-apk-candidate.yml/runs?event=workflow_dispatch&status=success&per_page=30" --jq '[.workflow_runs[] | select(.head_branch == "main")] | first | .id // empty')"
+          test -n "$RUN_ID" || { echo "::error::No successful candidate workflow run"; exit 1; }
+          echo "Using candidate run $RUN_ID"
+          mkdir -p candidate
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name DIRECTOR-X-SIGNED-CANDIDATE --dir candidate
+          APK="$(find candidate -type f -name 'DIRECTOR-X-4.79-candidate.apk' -print -quit)"
+          test -n "$APK" && test -s "$APK" || { echo "::error::Expected signed 4.79 candidate not found"; exit 1; }
+          echo "APK=$APK" >> "$GITHUB_ENV"
+      - name: Verify APK package, version and signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          "$TOOLS/apksigner" verify --verbose "$APK"
+          META="$("$TOOLS/aapt" dump badging "$APK" | grep -m1 '^package: ')"
+          [[ "$META" == *"name='com.pearparinya.automovie'"* ]] || exit 1
+          [[ "$META" == *"versionCode='1095'"* ]] || exit 1
+          [[ "$META" == *"versionName='4.79'"* ]] || exit 1
+          sha256sum "$APK" >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish separate non-latest prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="R4.79-B1095-CANDIDATE"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::Candidate prerelease already exists; refusing to overwrite."
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags "https://github.com/${GITHUB_REPOSITORY}.git" "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::Candidate tag already exists."
+            exit 1
+          fi
+          gh release create "$TAG" "$APK#DIRECTOR-X-4.79-candidate.apk" --repo "$GITHUB_REPOSITORY" --target "${GITHUB_SHA}" --title "DIRECTOR X 4.79 - Test Candidate" --notes "Test-only signed candidate. Not a production update. Verify signing certificate matches installed app before installing over existing data." --prerelease --latest=false
+          echo "Candidate download: https://github.com/${GITHUB_REPOSITORY}/releases/tag/$TAG" >> "$GITHUB_STEP_SUMMARY"
