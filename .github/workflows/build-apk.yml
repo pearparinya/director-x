@@ -25,6 +25,8 @@ concurrency:
 
 jobs:
   preflight:
+    # Manual dispatch on a feature branch must never publish a production APK.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       should_build: ${{ steps.check.outputs.should_build }}

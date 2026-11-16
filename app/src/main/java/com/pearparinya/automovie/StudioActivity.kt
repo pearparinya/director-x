@@ -3731,13 +3731,34 @@ $context"""
                 listOf("ครอบครัวและความกตัญญู", "ผู้สูงอายุและการดูแล", "น้ำใจและการช่วยเหลือ", "ความซื่อสัตย์และความไว้ใจ", "คนทำงานและอาชีพ", "ปัญหาในชุมชน", "การให้โอกาสและเริ่มต้นใหม่", "มิตรภาพและสัตว์เลี้ยง"),
                 listOf("เครื่องมือช่าง", "เครื่องมือสวนและเกษตร", "ของใช้ในบ้าน", "เครื่องใช้ไฟฟ้าในครัว", "อุปกรณ์ไอทีและมือถือ", "ของใช้ส่วนตัว", "ของใช้ในรถ", "เปรียบเทียบและเลือกซื้อสินค้า")
             )
-            choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",labels) { selected ->
+            fun openCategory(selected: Int) {
                 val index=ChannelCatalog.allCategories.indexOfFirst { it.id==ids[selected] }
                 require(index>=0) { "ไม่พบหมวดที่เลือก" }
                 chooseTopicWithRandom(channel,ChannelCatalog.allCategories[index].name,subcategories[selected]) { topic ->
                     selectedStoryTopic=topic
                     done(index)
                 }
+            }
+            choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",labels) { selected ->
+                if(selected==3) {
+                    choiceMenu("🛍️ นายเปียพาช้อป • เลือกการทำงาน",listOf(
+                        "🔎 ค้นหาสินค้า • Shopee / Lazada / TikTok Shop",
+                        "🎬 สร้างวิดีโอรีวิวสินค้า",
+                        "🧪 ทดสอบ API ค้นหาสินค้า",
+                        "⚙️ ตั้งค่า API ค้นหาสินค้า"
+                    )) { action ->
+                        when(action) {
+                            0 -> {
+                                // Open search immediately, without entering the film creation wizard.
+                                // ProductAssist persists user-confirmed product facts for the review workflow.
+                                ProductAssist.show(this@StudioActivity,EditText(this@StudioActivity),"ค้นหาสินค้า")
+                            }
+                            1 -> openCategory(3)
+                            2 -> shoppingApiTestAll()
+                            3 -> shoppingApiSettings()
+                        }
+                    }
+                } else openCategory(selected)
             }
             return
         }
@@ -3805,6 +3826,33 @@ $context"""
             if(needsFacts) panel.addView(TextView(this).apply { text="หมวดนี้ต้องระบุข้อมูลจริงที่ตรวจสอบแล้ว • AI จะใช้สร้างบท ไม่แต่งข้อมูลสินค้า ความปลอดภัย หรือสิทธิประโยชน์เอง"; setTextColor(Color.WHITE); setPadding(dp(8),dp(8),dp(8),dp(8)); setBackgroundColor(Color.rgb(149,54,40)) })
             var productButton: Button? = null
             if(ChannelCatalog.allCategories[index].id=="pia_products") {
+                panel.addView(Button(this).apply {
+                    text="📦 ใช้ข้อมูลสินค้าที่เคยยืนยัน"
+                    colorAction(this,Color.rgb(34,105,160))
+                    setOnClickListener {
+                        // Read at click time, not when the video form was opened:
+                        // another product may have been confirmed in the meantime.
+                        val currentProduct=getSharedPreferences("product_assist",MODE_PRIVATE)
+                            .getString("confirmed_premise","").orEmpty()
+                        if(currentProduct.isBlank() ||
+                            ProductAssist.confirmedProduct(this@StudioActivity,currentProduct)==null) {
+                            notice("ยังไม่มีข้อมูลสินค้าที่ตรวจสอบและยืนยันแล้ว กรุณาค้นหาและยืนยันสินค้า")
+                        } else {
+                            AlertDialog.Builder(this@StudioActivity)
+                                .setTitle("ใช้ข้อมูลสินค้าที่บันทึกไว้?")
+                                .setMessage("โปรดตรวจว่าเป็นสินค้าที่ต้องการรีวิวในวิดีโอนี้ ข้อมูลเก่าจะไม่ถูกนำมาใช้โดยอัตโนมัติ")
+                                .setPositiveButton("ใช้ข้อมูลนี้") { _,_ ->
+                                    val latest=getSharedPreferences("product_assist",MODE_PRIVATE)
+                                        .getString("confirmed_premise","").orEmpty()
+                                    if(latest==currentProduct &&
+                                        ProductAssist.confirmedProduct(this@StudioActivity,latest)!=null) {
+                                        premise.setText(latest)
+                                    } else notice("ข้อมูลสินค้าเปลี่ยนแปลง กรุณากดเลือกสินค้าอีกครั้ง")
+                                }
+                                .setNegativeButton("ยกเลิก",null).showDirector()
+                        }
+                    }
+                })
                 productButton=Button(this).apply { text="ค้นหาสินค้า • รับลิงก์ Affiliate"; colorAction(this,Color.rgb(34,105,160)); setOnClickListener { ProductAssist.show(this@StudioActivity,premise,selectedStoryTopic) } }
                 panel.addView(productButton)
                 panel.addView(Button(this).apply { text="ดูตัวอย่างโฆษณาสินค้า TikTok"; colorAction(this,Color.rgb(225,161,35),true); setOnClickListener {

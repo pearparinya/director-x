@@ -23,7 +23,19 @@ internal object ProductSearchRotation {
         val failures=mutableListOf<String>()
         attempts.forEachIndexed { index, attempt ->
             control.check(); progress(index+1,attempts.size,attempt.label,"กำลังค้นหา")
-            val result=try { attempt.run() } catch(e: Exception) {
+            val result=try {
+                try { attempt.run() } catch(first: Exception) {
+                    control.check()
+                    val transient=first is java.net.SocketTimeoutException ||
+                        first is java.net.ConnectException ||
+                        (first is ProductSearchError && first.publicMessage.contains("HTTP 5"))
+                    if(!transient) throw first
+                    // One bounded retry only; never retry authentication or quota errors.
+                    Thread.sleep(600L)
+                    control.check()
+                    attempt.run()
+                }
+            } catch(e: Exception) {
                 control.check()
                 failures.add("${attempt.label}: ${friendly(e)}")
                 progress(index+1,attempts.size,attempt.label,"${friendly(e)} • ลองชุดถัดไป")

@@ -30,6 +30,7 @@ internal class FreeSearchSettings(private val context: Context) {
         val key=value.trim(); require(key.length in 12..1024 && key.none { it.isWhitespace() }) { "ตรวจ API Key อีกครั้ง" }
         val cipher=Cipher.getInstance("AES/GCM/NoPadding"); cipher.init(Cipher.ENCRYPT_MODE,secret())
         prefs.edit().putString(provider+"_key",Base64.encodeToString(cipher.doFinal(key.toByteArray(Charsets.UTF_8)),Base64.NO_WRAP)).putString(provider+"_iv",Base64.encodeToString(cipher.iv,Base64.NO_WRAP)).apply()
+        clearCache(provider); markSuccess(provider)
     }
     fun key(provider: String): String = runCatching {
         val data=prefs.getString(provider+"_key",null) ?: return ""
@@ -37,7 +38,7 @@ internal class FreeSearchSettings(private val context: Context) {
         cipher.init(Cipher.DECRYPT_MODE,secret(),GCMParameterSpec(128,Base64.decode(prefs.getString(provider+"_iv",null),Base64.NO_WRAP)))
         String(cipher.doFinal(Base64.decode(data,Base64.NO_WRAP)),Charsets.UTF_8)
     }.getOrDefault("")
-    fun clear(provider: String) { prefs.edit().remove(provider+"_key").remove(provider+"_iv").apply() }
+    fun clear(provider: String) { prefs.edit().remove(provider+"_key").remove(provider+"_iv").apply(); clearCache(provider); markSuccess(provider) }
     fun enabled(provider: String): Boolean = prefs.getBoolean(provider+"_enabled", true)
     fun setEnabled(provider: String, enabled: Boolean) { prefs.edit().putBoolean(provider+"_enabled",enabled).apply() }
     fun fallbackEnabled(): Boolean = prefs.getBoolean("fallback_enabled",true)
@@ -47,6 +48,57 @@ internal class FreeSearchSettings(private val context: Context) {
     }
     fun status(provider: String): String = prefs.getString(provider+"_status","ยังไม่ทดสอบ").orEmpty()
     fun tested(provider: String): Long = prefs.getLong(provider+"_tested",0L)
+    fun clearCache(provider: String) {
+        val edit=prefs.edit()
+        prefs.all.keys.filter { it.startsWith("cache_${provider}_") || it.startsWith("cache_time_${provider}_") }.forEach { edit.remove(it) }
+        edit.apply()
+    }
+    private fun cacheId(provider: String, query: String, store: Int): String {
+        val input="$provider|$store|${query.trim().lowercase(Locale.ROOT)}"
+        val digest=java.security.MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
+        return provider+"_"+digest.joinToString("") { "%02x".format(it) }
+    }
+    fun cached(provider: String, query: String, store: Int): List<ProductSearch.Result>? {
+        val id=cacheId(provider,query,store)
+        val time=prefs.getLong("cache_time_$id",0L)
+        if(time<=0 || System.currentTimeMillis()-time>15*60*1000L || time>System.currentTimeMillis()) return null
+        val raw=prefs.getString("cache_$id",null) ?: return null
+        return runCatching {
+            val arr=JSONArray(raw)
+            (0 until arr.length()).mapNotNull { i ->
+                val item=arr.optJSONObject(i) ?: return@mapNotNull null
+                val title=item.optString("title"); val url=item.optString("url")
+                if(title.isBlank() || !ProductSearch.matchesPlatform(url,store)) null else ProductSearch.Result(title,url,"")
+            }
+        }.getOrNull()?.takeIf { it.isNotEmpty() }
+    }
+    fun cache(provider: String, query: String, store: Int, results: List<ProductSearch.Result>) {
+        if(results.isEmpty()) return
+        val id=cacheId(provider,query,store)
+        val arr=JSONArray()
+        results.filter { it.name.isNotBlank() && ProductSearch.matchesPlatform(it.url,store) }.distinctBy { it.url }.take(5).forEach { arr.put(JSONObject().put("title",it.name).put("url",it.url)) }
+        if(arr.length()==0) return
+        val edit=prefs.edit()
+        val entries=prefs.all.keys.filter { it.startsWith("cache_time_") }
+        if(entries.size>=60) {
+            entries.sortedBy { prefs.getLong(it,0L) }.take(entries.size-59).forEach { timeKey ->
+                edit.remove(timeKey).remove("cache_"+timeKey.removePrefix("cache_time_"))
+            }
+        }
+        edit.putString("cache_$id",arr.toString()).putLong("cache_time_$id",System.currentTimeMillis()).apply()
+    }
+    private fun failureKey(provider: String) = provider+"_consecutive_failures"
+    fun coolingDown(provider: String): Boolean = System.currentTimeMillis() < prefs.getLong(provider+"_cooldown_until",0L)
+    @Synchronized fun markSuccess(provider: String) {
+        prefs.edit().putInt(failureKey(provider),0).remove(provider+"_cooldown_until").apply()
+    }
+    @Synchronized fun markFailure(provider: String, temporary: Boolean) {
+        if (!temporary) { prefs.edit().putInt(failureKey(provider),0).apply(); return }
+        val failures=prefs.getInt(failureKey(provider),0)+1
+        val edit=prefs.edit().putInt(failureKey(provider),failures)
+        if(failures>=3) edit.putLong(provider+"_cooldown_until",System.currentTimeMillis()+120000L).putInt(failureKey(provider),0)
+        edit.apply()
+    }
     private fun month()=SimpleDateFormat("yyyy-MM",Locale.US).format(Date())
     fun used(provider: String): Int = if(prefs.getString(provider+"_month","")==month()) prefs.getInt(provider+"_used",0) else 0
     fun limit(provider: String)=when(provider) { "tavily" -> 900; "exa" -> 1500; else -> 100 }
@@ -97,13 +149,20 @@ internal object FreeProductSearch {
         val settings=FreeSearchSettings(context); val key=settings.key(provider)
         if(key.isBlank()) throw ProductSearchError("ยังไม่ได้ตั้ง API Key")
         if(!settings.enabled(provider)) throw ProductSearchError("API นี้ถูกปิดใช้งาน")
+        control.check()
+        settings.cached(provider,query,store)?.let { control.check(); return it }
+        if(settings.coolingDown(provider)) throw ProductSearchError("API พักชั่วคราวหลังเชื่อมต่อผิดพลาดซ้ำ")
         if(provider !in listOf("tavily","exa","serpapi","firecrawl")) throw ProductSearchError("ยังไม่รองรับ Endpoint ของ API นี้")
         val domains=listOf(listOf("tiktokshop.com", "shop-th.tiktok.com"),listOf("shopee.co.th"),listOf("lazada.co.th"))
         require(store in domains.indices)
         val request=JSONObject().put("query",query.take(120)+" "+listOf("TikTok Shop Thailand","Shopee Thailand","Lazada Thailand")[store])
         if(provider=="tavily") request.put("search_depth","basic").put("max_results",10).put("auto_parameters",false).put("include_domains",JSONArray(domains[store]))
         else request.put("type","lite").put("numResults",10).put("includeDomains",JSONArray(domains[store]))
-        if(provider=="serpapi" || provider=="firecrawl") { settings.reserve(provider); return searchAdditional(provider, key, query, store, control) }
+        if(provider=="serpapi" || provider=="firecrawl") {
+            settings.reserve(provider)
+            return try { searchAdditional(provider,key,query,store,control).also { settings.markSuccess(provider); settings.cache(provider,query,store,it) } }
+            catch(e: Exception) { if(!control.cancelled()) settings.markFailure(provider, e is java.io.IOException || (e is ProductSearchError && e.publicMessage.contains("HTTP 5"))); throw e }
+        }
         // Reserve before sending, including failures, so retries cannot bypass the local ceiling.
         settings.reserve(provider)
         val conn=URL(if(provider=="tavily") "https://api.tavily.com/search" else "https://api.exa.ai/search").openConnection() as HttpURLConnection
@@ -123,7 +182,12 @@ internal object FreeProductSearch {
                 if(title.isNotBlank() && ProductSearch.matchesPlatform(url,store) && found.none { it.url==url }) found.add(ProductSearch.Result(title,url,""))
                 if(found.size>=5) break
             }
+            settings.markSuccess(provider)
+            settings.cache(provider,query,store,found)
             return found
+        } catch(e: Exception) {
+            if(!control.cancelled()) settings.markFailure(provider, e is java.io.IOException || (e is ProductSearchError && e.publicMessage.contains("HTTP 5")))
+            throw e
         } finally { control.detach(conn); conn.disconnect() }
     }
 }

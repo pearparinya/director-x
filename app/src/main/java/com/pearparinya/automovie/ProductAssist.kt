@@ -28,10 +28,21 @@ internal object ProductAssist {
         receiver(url)
         return true
     }
+    // Pure guard shared by saved-product reuse and project export.
+    // Reject empty, stale or malformed confirmation rather than attaching the wrong product.
+    fun validConfirmation(requestedPremise: String, savedPremise: String?, productJson: String?): Boolean {
+        if (requestedPremise.isBlank() || requestedPremise != savedPremise || productJson.isNullOrBlank()) return false
+        return runCatching {
+            val product=JSONObject(productJson)
+            product.optString("name").isNotBlank() &&
+                product.optString("facts").isNotBlank()
+        }.getOrDefault(false)
+    }
     fun confirmedProduct(activity: Activity, premise: String): JSONObject? {
         val prefs = activity.getSharedPreferences("product_assist", Activity.MODE_PRIVATE)
-        if (prefs.getString("confirmed_premise", null) != premise) return null
-        return runCatching { JSONObject(prefs.getString("confirmed_product", "").orEmpty()) }.getOrNull()
+        val raw=prefs.getString("confirmed_product",null)
+        if (!validConfirmation(premise,prefs.getString("confirmed_premise",null),raw)) return null
+        return runCatching { JSONObject(raw!!) }.getOrNull()
     }
     fun show(activity: Activity, premise: EditText, topic: String, autoSearch: Boolean = false) {
         val prefs = activity.getSharedPreferences("product_assist", Activity.MODE_PRIVATE)
@@ -183,7 +194,7 @@ internal object ProductAssist {
             fun attemptsForStore(store: Int): List<ProductSearchRotation.Attempt> {
                 val attempts=mutableListOf<ProductSearchRotation.Attempt>()
                 listOf("tavily" to "Tavily", "exa" to "Exa", "serpapi" to "SerpApi", "firecrawl" to "Firecrawl").forEach { (id,label) ->
-                    if(searchSettings.key(id).isNotBlank() && searchSettings.enabled(id) && (searchSettings.fallbackEnabled() || attempts.isEmpty())) attempts.add(ProductSearchRotation.Attempt(label) {
+                    if(searchSettings.key(id).isNotBlank() && !searchSettings.coolingDown(id) && searchSettings.enabled(id) && (searchSettings.fallbackEnabled() || attempts.isEmpty())) attempts.add(ProductSearchRotation.Attempt(label) {
                         FreeProductSearch.search(activity.applicationContext,id,searchText,store,control)
                     })
                 }
