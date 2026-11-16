@@ -104,6 +104,14 @@ internal object ShortFlowPrompt {
         if (spokenLines.size > 2) add("Multiple spoken turns can increase audio generation complexity.")
         if (spoken(s.narration).isNotEmpty() && turns.any { spoken(it).isNotEmpty() })
             add("Narration and dialogue may compete for the same 8-second audio window.")
+        if (s.turns.isNotEmpty() && s.turns.any { it.speaker.isBlank() })
+            add("A dialogue turn has no speaker; verify voice assignment before generating.")
+        if (s.turns.isNotEmpty() && s.turns.any { spoken(it.text).isEmpty() })
+            add("An ordered dialogue turn has no spoken text.")
+        if (spoken(s.narration).isNotEmpty() && s.offscreen.isEmpty())
+            add("Narration must remain off-screen; verify that visible characters do not lip-sync the narrator.")
+        if (Regex("(?i)\\b(?:shout|scream|whisper)\\b").containsMatchIn(s.action) && spokenLines.isEmpty())
+            add("Scene direction requests a vocal performance but no spoken dialogue is provided.")
     }
     private fun speechText(text: String): String = text.trim()
     private fun speakerLabel(s: FlowSceneSpec, name: String): String {
