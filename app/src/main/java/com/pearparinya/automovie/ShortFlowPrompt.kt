@@ -129,8 +129,8 @@ internal object ShortFlowPrompt {
         val sound=typed(s,aliases(s,s.sound.trim()))
             .replace(Regex("\\b(?:(?:soft|quiet|low|faint|gentle|indoor)\\s+)*murmurs?\\s+of\\s+(?:(?:art|gallery|room|office)\\s+)*(?:patrons|people|crowds?|visitors|guests)\\b",RegexOption.IGNORE_CASE),"quiet room tone")
             .replace(Regex("\\b(?:indoor )?murmurs\\b",RegexOption.IGNORE_CASE),"quiet room tone")
-        require(!thai.containsMatchIn(action) && positions.none { thai.containsMatchIn(it) } && !thai.containsMatchIn(sound) && !thai.containsMatchIn(camera) && clothes.none { thai.containsMatchIn(it) }) {
-            "คำบรรยายการกระทำ ตำแหน่ง หรือเสียงยังมีภาษาไทย • กรุณาแก้เป็นภาษาอังกฤษก่อนคัดลอก โดยคงบทพูดภาษาไทย"
+        require(!thai.containsMatchIn(action) && positions.none { thai.containsMatchIn(it) } && !thai.containsMatchIn(sound) && !thai.containsMatchIn(camera) && clothes.none { thai.containsMatchIn(it) } && !thai.containsMatchIn(typed(s,aliases(s,s.location)))) {
+            "คำกำกับการกระทำ ตำแหน่ง สถานที่ กล้อง หรือเสียงยังมีภาษาไทย • กรุณาแปลเป็นภาษาอังกฤษก่อนคัดลอก โดยคงบทพูดภาษาไทย"
         }
         val cast=positions.mapIndexed { i,pos -> "${labels(s)[i]}: $pos" + clothes[i].takeIf { it.isNotBlank() }?.let { ", wearing $it" }.orEmpty() + s.cast[i].appearance.trim().takeIf { it.isNotBlank() && it.length<=160 && !thai.containsMatchIn(it) && !it.contains("MASTER",true) }?.let { ", appearance: $it" }.orEmpty() }.joinToString("; ")
         val performance=s.cast.mapIndexedNotNull { i,person ->
