@@ -183,7 +183,7 @@ internal object ProductAssist {
             fun attemptsForStore(store: Int): List<ProductSearchRotation.Attempt> {
                 val attempts=mutableListOf<ProductSearchRotation.Attempt>()
                 listOf("tavily" to "Tavily", "exa" to "Exa", "serpapi" to "SerpApi", "firecrawl" to "Firecrawl").forEach { (id,label) ->
-                    if(searchSettings.key(id).isNotBlank() && searchSettings.enabled(id) && (searchSettings.fallbackEnabled() || attempts.isEmpty())) attempts.add(ProductSearchRotation.Attempt(label) {
+                    if(searchSettings.key(id).isNotBlank() && !searchSettings.coolingDown(id) && searchSettings.enabled(id) && (searchSettings.fallbackEnabled() || attempts.isEmpty())) attempts.add(ProductSearchRotation.Attempt(label) {
                         FreeProductSearch.search(activity.applicationContext,id,searchText,store,control)
                     })
                 }
