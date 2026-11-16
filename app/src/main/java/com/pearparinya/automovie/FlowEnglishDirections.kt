@@ -10,14 +10,20 @@ internal object FlowEnglishDirections {
         val string=JSONObject().put("type","string")
         return JSONObject().put("type","object").put("properties",JSONObject()
             .put("action",string).put("positions",JSONObject().put("type","array").put("items",JSONObject().put("type","string")))
-            .put("location",string).put("sound",JSONObject().put("type","string"))
+            .put("location",string).put("camera",string).put("sound",JSONObject().put("type","string"))
             .put("clothing",JSONObject().put("type","array").put("items",JSONObject().put("type","string"))))
-            .put("required",JSONArray().put("action").put("positions").put("location").put("sound").put("clothing"))
+            .put("required",JSONArray().put("action").put("positions").put("location").put("camera").put("sound").put("clothing"))
     }
-    fun prompt(s: FlowSceneSpec): String {
+    fun prompt(s: FlowSceneSpec, camera: String = ""): String {
         val mapping=JSONArray(s.cast.mapIndexed { i,p -> JSONObject().put("label","Character ${i+1}").put("name",p.name).put("english_name",p.englishName) })
-        val data=JSONObject().put("action",s.action).put("location",s.location).put("positions",JSONArray(s.cast.map { it.position })).put("sound",s.sound).put("clothing",JSONArray(s.cast.map { ShortFlowPrompt.clothing(it) })).put("characters",mapping)
-        return """Translate the supplied action, location, each ordered position and sound direction to concise English for an 8-second video. Replace character names with their exact Character N labels using the supplied mapping. Preserve every event, position and sound; do not invent, omit, reinterpret or add props, people, dialogue or effects. Translate each clothing item in order; preserve its exact meaning and color, never infer or add details. Return an empty clothing item if its input is empty. Preserve the number and order of positions and clothing items. If sound is empty, return an empty string. Return exactly the requested JSON. Do not translate or add spoken dialogue. Input: $data"""
+        val data=JSONObject().put("action",s.action).put("location",s.location).put("camera",camera).put("positions",JSONArray(s.cast.map { it.position })).put("sound",s.sound).put("clothing",JSONArray(s.cast.map { ShortFlowPrompt.clothing(it) })).put("characters",mapping)
+        return """Translate the supplied action, location, camera, each ordered position and sound direction to concise English for an 8-second video. Replace character names with their exact Character N labels using the supplied mapping. Preserve every event, position and sound; do not invent, omit, reinterpret or add props, people, dialogue or effects. Translate each clothing item in order; preserve its exact meaning and color, never infer or add details. Return an empty clothing item if its input is empty. Preserve the number and order of positions and clothing items. If sound or camera is empty, return the corresponding empty string. Return exactly the requested JSON. Do not translate or add spoken dialogue. Input: $data"""
+    }
+    fun translatedCamera(result: JSONObject, original: String): String {
+        require(result.opt("camera") is String) { "คำแปลกล้องไม่ครบ" }
+        val camera=result.getString("camera").trim()
+        require(original.isBlank()==camera.isBlank() && !thai.containsMatchIn(camera)) { "คำแปลกล้องไม่ถูกต้อง" }
+        return camera
     }
     fun apply(s: FlowSceneSpec,result: JSONObject): FlowSceneSpec {
         require(result.opt("action") is String && result.opt("location") is String && result.opt("sound") is String) { "คำแปลไม่ครบ" }
