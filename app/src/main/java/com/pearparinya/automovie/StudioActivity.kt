@@ -3828,7 +3828,19 @@ $context"""
             if(ChannelCatalog.allCategories[index].id=="pia_products") {
                 val savedProduct=getSharedPreferences("product_assist",MODE_PRIVATE)
                     .getString("confirmed_premise","").orEmpty()
-                if(savedProduct.isNotBlank()) premise.setText(savedProduct)
+                if(savedProduct.isNotBlank()) {
+                    panel.addView(Button(this).apply {
+                        text="📦 ใช้ข้อมูลสินค้าที่เคยยืนยัน"
+                        colorAction(this,Color.rgb(34,105,160))
+                        setOnClickListener {
+                            AlertDialog.Builder(this@StudioActivity)
+                                .setTitle("ใช้ข้อมูลสินค้าที่บันทึกไว้?")
+                                .setMessage("โปรดตรวจว่าเป็นสินค้าที่ต้องการรีวิวในวิดีโอนี้ ข้อมูลเก่าจะไม่ถูกนำมาใช้โดยอัตโนมัติ")
+                                .setPositiveButton("ใช้ข้อมูลนี้") { _,_ -> premise.setText(savedProduct) }
+                                .setNegativeButton("ยกเลิก",null).showDirector()
+                        }
+                    })
+                }
                 productButton=Button(this).apply { text="ค้นหาสินค้า • รับลิงก์ Affiliate"; colorAction(this,Color.rgb(34,105,160)); setOnClickListener { ProductAssist.show(this@StudioActivity,premise,selectedStoryTopic) } }
                 panel.addView(productButton)
                 panel.addView(Button(this).apply { text="ดูตัวอย่างโฆษณาสินค้า TikTok"; colorAction(this,Color.rgb(225,161,35),true); setOnClickListener {
