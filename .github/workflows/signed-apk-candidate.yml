@@ -142,4 +142,4 @@ jobs:
           name: DIRECTOR-X-SIGNED-CANDIDATE
           path: ${{ env.SIGNED_APK }}
           if-no-files-found: error
-          retention-days: 3
+          retention-days: 90
