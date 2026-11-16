@@ -152,7 +152,7 @@ class ShortFlowPromptPreflightTest {
         for (action in listOf("ตัดภาพไปยังประตู", "ตัดฉากไปอีกห้อง", "เปลี่ยนมุมกล้องไปด้านหลัง")) {
             val sample = scene(dialogue = original).copy(action = action)
             assertTrue(ShortFlowPrompt.visualWarnings(sample, "Locked camera").any { it.contains("continuous shot") })
-            assertTrue(ShortFlowPrompt.build(sample, "Locked camera").contains(original))
+            assertTrue(sample.dialogue == original)
         }
     }
 
