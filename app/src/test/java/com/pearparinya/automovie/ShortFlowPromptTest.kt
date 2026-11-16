@@ -9,7 +9,7 @@ import javax.xml.parsers.DocumentBuilderFactory
 class ShortFlowPromptTest {
     private fun scene()=FlowSceneSpec(listOf(FlowPerson("สมชาย","adult","left","shirt"),FlowPerson("มานี","adult","right","dress")),"สมชาย","หยุดก่อน, ฟังฉัน", "", "สมชาย walks toward มานี in drifting fog", "street", "fog", "standing",8,"9:16")
     @Test fun documentReadingKeepsWrittenSideFacingReader() {
-        val sample=scene().copy(action="สมชาย reads a letter while มานี watches",startState="Letter already in hand")
+        val sample=scene().copy(action="สมชาย reads a letter while มานี watches",startState="letter already in hand")
         val output=ShortFlowPrompt.build(sample,"Locked camera")
         assertTrue(output.contains("its written side faces the reader"))
         assertTrue(output.contains("Keep hands, gaze and document orientation physically consistent"))
