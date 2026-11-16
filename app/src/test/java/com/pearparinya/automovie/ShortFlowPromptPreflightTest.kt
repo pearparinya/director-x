@@ -167,6 +167,16 @@ class ShortFlowPromptPreflightTest {
         assertFalse(ShortFlowPrompt.visualWarnings(sample, "Locked camera").any { it.contains("prop") })
     }
 
+    @Test fun visualPreflightRespectsFirstFramePropEvidence() {
+        val sample = scene().copy(action = "Character 1 takes out a letter", startState = "Letter already visible in the first frame")
+        assertFalse(ShortFlowPrompt.visualWarnings(sample, "Locked camera").any { it.contains("prop") })
+    }
+
+    @Test fun visualPreflightStillWarnsWhenFirstFrameEvidenceIsMissing() {
+        val sample = scene().copy(action = "Character 1 takes out a letter", startState = "Empty desk")
+        assertTrue(ShortFlowPrompt.visualWarnings(sample, "Locked camera").any { it.contains("prop") })
+    }
+
     @Test fun visualPreflightFlagsTimeJumpAndSceneCut() {
         val sample = scene().copy(action = "Cut to a new angle", startState = "daylight", endState = "nighttime")
         val warnings = ShortFlowPrompt.visualWarnings(sample, "Locked camera")
