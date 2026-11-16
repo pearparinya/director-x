@@ -3731,13 +3731,34 @@ $context"""
                 listOf("ครอบครัวและความกตัญญู", "ผู้สูงอายุและการดูแล", "น้ำใจและการช่วยเหลือ", "ความซื่อสัตย์และความไว้ใจ", "คนทำงานและอาชีพ", "ปัญหาในชุมชน", "การให้โอกาสและเริ่มต้นใหม่", "มิตรภาพและสัตว์เลี้ยง"),
                 listOf("เครื่องมือช่าง", "เครื่องมือสวนและเกษตร", "ของใช้ในบ้าน", "เครื่องใช้ไฟฟ้าในครัว", "อุปกรณ์ไอทีและมือถือ", "ของใช้ส่วนตัว", "ของใช้ในรถ", "เปรียบเทียบและเลือกซื้อสินค้า")
             )
-            choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",labels) { selected ->
+            fun openCategory(selected: Int) {
                 val index=ChannelCatalog.allCategories.indexOfFirst { it.id==ids[selected] }
                 require(index>=0) { "ไม่พบหมวดที่เลือก" }
                 chooseTopicWithRandom(channel,ChannelCatalog.allCategories[index].name,subcategories[selected]) { topic ->
                     selectedStoryTopic=topic
                     done(index)
                 }
+            }
+            choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",labels) { selected ->
+                if(selected==3) {
+                    choiceMenu("🛍️ นายเปียพาช้อป • เลือกการทำงาน",listOf(
+                        "🔎 ค้นหาสินค้า • Shopee / Lazada / TikTok Shop",
+                        "🎬 สร้างวิดีโอรีวิวสินค้า",
+                        "🧪 ทดสอบ API ค้นหาสินค้า",
+                        "⚙️ ตั้งค่า API ค้นหาสินค้า"
+                    )) { action ->
+                        when(action) {
+                            0 -> {
+                                // Keep product selection in the existing workflow, so confirmed facts
+                                // flow into the video script instead of a disconnected search dialog.
+                                openCategory(3)
+                            }
+                            1 -> openCategory(3)
+                            2 -> shoppingApiTestAll()
+                            3 -> shoppingApiSettings()
+                        }
+                    }
+                } else openCategory(selected)
             }
             return
         }
