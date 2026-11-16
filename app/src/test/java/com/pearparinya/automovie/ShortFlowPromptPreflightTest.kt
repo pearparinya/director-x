@@ -147,6 +147,15 @@ class ShortFlowPromptPreflightTest {
         assertTrue(ShortFlowPrompt.visualWarnings(sample, "Locked camera").any { it.contains("prop") })
     }
 
+    @Test fun visualPreflightFlagsThaiCutsWithoutChangingDialogue() {
+        val original = "สวัสดีครับ"
+        for (action in listOf("ตัดภาพไปยังประตู", "ตัดฉากไปอีกห้อง", "เปลี่ยนมุมกล้องไปด้านหลัง")) {
+            val sample = scene(dialogue = original).copy(action = action)
+            assertTrue(ShortFlowPrompt.visualWarnings(sample, "Locked camera").any { it.contains("continuous shot") })
+            assertTrue(ShortFlowPrompt.build(sample, "Locked camera").contains(original))
+        }
+    }
+
     @Test fun visualPreflightFlagsConjuredAndProducedProps() {
         for (action in listOf("Character 1 materializes a key", "Character 1 produces a letter", "Character 1 conjures a book", "Character 1 takes out an envelope", "Character 1 pulls out an object")) {
             assertTrue(ShortFlowPrompt.visualWarnings(scene().copy(action = action), "Locked camera").any { it.contains("prop") })
