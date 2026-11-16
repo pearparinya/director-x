@@ -171,7 +171,7 @@ internal object ShortFlowPrompt {
         val ambient=soundParts?.groupValues?.get(1) ?: sound.ifBlank { "none specified" }
         val sfx=soundParts?.groupValues?.get(2) ?: "none specified"
         val music=soundParts?.groupValues?.get(3)?.trim()?.trimEnd('.') ?: "none specified"
-        val effects=if(silent) "" else "<sound_effects><ambient>${xml(ambient)}</ambient><sfx>${xml(sfx)}</sfx><music>${xml(music)}</music><mix>Use natural spatial ambience and restrained foley; keep all effects and music beneath dialogue. No additional voices.</mix></sound_effects>"
+        val effects=if(silent) "" else "<sound_effects><ambient>${xml(ambient)}</ambient><sfx>${xml(sfx)}</sfx><music>${xml(music)}</music><mix>Use natural spatial ambience and restrained foley; keep all effects and music below dialogue. No additional voices.</mix></sound_effects>"
         return "<flow><scene><aspect_ratio>9:16</aspect_ratio><duration>8</duration><lighting>Preserve the first frame's motivated practical lighting, cinematic color grade, natural skin tones, and shadow direction. Do not introduce new light sources or change the time of day. Keep scene continuity.</lighting><typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone><prompt>${xml(visual+". "+audio)}</prompt>$lines$effects</scene></flow>"
     }
 }
