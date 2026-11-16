@@ -110,7 +110,7 @@ internal object ShortFlowPrompt {
             add("An ordered dialogue turn has no spoken text.")
         if (spoken(s.narration).isNotEmpty() && s.offscreen.isEmpty())
             add("Narration must remain off-screen; verify that visible characters do not lip-sync the narrator.")
-        if (Regex("(?i)\\b(?:shout|scream|whisper)\\b").containsMatchIn(s.action) && spokenLines.isEmpty())
+        if (Regex("(?i)\\b(?:shout(?:s|ed|ing)?|scream(?:s|ed|ing)?|whisper(?:s|ed|ing)?)\\b").containsMatchIn(s.action) && spokenLines.isEmpty())
             add("Scene direction requests a vocal performance but no spoken dialogue is provided.")
     }
     private fun speechText(text: String): String = text.trim()
