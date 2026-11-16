@@ -65,12 +65,25 @@ internal object ShortFlowPrompt {
         val type=when { upper.contains("แจ็กเก็ต") || upper.contains("แจ็คเก็ต") -> "jacket"; upper.contains("เสื้อคลุม") -> "coat"; upper.contains("เสื้อเชิ้ต") -> "shirt"; upper.contains("เสื้อยืด") -> "T-shirt"; upper.contains("เสื้อ") -> "top"; upper.contains("ชุดทำงาน") -> "work outfit"; else -> null }
         return if (color!=null && type!=null) "$color $type" else cue
     }
+    /** Blocking preflight for the Flow prompt; dialogue remains untouched. */
+    internal fun directionIssues(s: FlowSceneSpec, camera: String): List<String> = buildList {
+        if (camera.isBlank()) add("Camera direction is missing.")
+        if (thai.containsMatchIn(camera)) add("Camera direction must be in English.")
+        if (thai.containsMatchIn(typed(s, aliases(s, s.location)))) add("Scene location must be in English.")
+        val cameraText = camera.lowercase()
+        if (Regex("\\b(locked|static|tripod)\\b").containsMatchIn(cameraText) &&
+            Regex("\\b(pan|tilt|tracking|dolly|push.in|orbit|handheld)\\b").containsMatchIn(cameraText))
+            add("Camera direction contains both locked and moving camera instructions.")
+        if (Regex("\\b(cut|montage|multiple shots)\\b").containsMatchIn(cameraText))
+            add("This 8-second first-frame prompt requires one continuous shot.")
+    }
     fun untranslatedFields(s: FlowSceneSpec,camera: String): List<String> = buildList {
         if(thai.containsMatchIn(aliases(s,s.action))) add("การกระทำสำหรับวิดีโอ")
         if(s.cast.any { thai.containsMatchIn(aliases(s,it.position)) }) add("ตำแหน่งตัวละคร")
         if(s.cast.any { thai.containsMatchIn(clothing(it)) }) add("เสื้อผ้าตัวละคร")
         if(thai.containsMatchIn(aliases(s,s.sound))) add("เสียงฉาก")
         if(thai.containsMatchIn(camera)) add("กล้อง")
+        if(thai.containsMatchIn(typed(s,aliases(s,s.location)))) add("สถานที่ฉาก")
     }
     internal fun motion(vararg parts: String): String {
         val text=parts.joinToString(" ").lowercase()
@@ -109,6 +122,7 @@ internal object ShortFlowPrompt {
     }
     fun build(s: FlowSceneSpec, camera: String, silent: Boolean=false): String {
         require(FlowScenePrompt.issues(s).isEmpty()) { "ตรวจข้อมูลซีนก่อนคัดลอกคำสั่ง" }
+        require(directionIssues(s,camera).isEmpty()) { directionIssues(s,camera).joinToString("\n") }
         val action=typed(s,aliases(s,s.action.trim()))
         val positions=s.cast.map { typed(s,aliases(s,it.position.trim())) }
         val clothes=s.cast.map { clothing(it).takeUnless { value -> value.equals("none",true) } .orEmpty() }
