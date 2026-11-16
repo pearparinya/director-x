@@ -160,7 +160,7 @@ internal object ShortFlowPrompt {
         val visual=listOf("Use the attached first frame as the starting point. One continuous 8-second vertical 9:16 shot",cast,location.takeIf { it.isNotBlank() }?.let { "Environment: $it" }.orEmpty(),action,
             "Preserve each character's identity, face or species-specific features, hair or fur, body proportions, position, clothing and props from the first frame. Keep the location and lighting consistent throughout",ScenePropContinuity.video,performance,direction,
             motion(s.action,s.location,s.startState,s.endState,s.sound),"Cinematography: natural depth, motivated contrast, consistent screen direction and exposure; preserve the attached frame's established color grade. Camera: ${camera.trim()}",instructions)
-            .filter { it.isNotBlank() }.joinToString(". ")
+            .map { it.trim().trimEnd('.', ' ') }.filter { it.isNotBlank() }.joinToString(". ")
         val lines=allSpokenTurns.joinToString("") { (name,text) ->
             val label=if(name.isBlank()) "Off-screen narrator" else speakerLabel(s,name)
             val offscreen=name.isBlank() || s.offscreen.any { it.trim()==name.trim() }
@@ -172,6 +172,6 @@ internal object ShortFlowPrompt {
         val sfx=soundParts?.groupValues?.get(2) ?: "none specified"
         val music=soundParts?.groupValues?.get(3) ?: "none specified"
         val effects=if(silent) "" else "<sound_effects><ambient>${xml(ambient)}</ambient><sfx>${xml(sfx)}</sfx><music>${xml(music)}</music><mix>Use natural spatial ambience and restrained foley; keep all effects and music beneath dialogue. No additional voices.</mix></sound_effects>"
-        return "<flow><scene><aspect_ratio>9:16</aspect_ratio><duration>8</duration><lighting>Preserve the first frame's motivated practical lighting, cinematic color grade, natural skin tones, and shadow direction. Do not introduce new light sources or change the time of day. Preserve the first frame's lighting direction and scene continuity.</lighting><typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone><prompt>${xml(visual+". "+audio)}</prompt>$lines$effects</scene></flow>"
+        return "<flow><scene><aspect_ratio>9:16</aspect_ratio><duration>8</duration><lighting>Preserve the first frame's motivated practical lighting, cinematic color grade, natural skin tones, and shadow direction. Do not introduce new light sources or change the time of day. Keep scene continuity.</lighting><typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone><prompt>${xml(visual+". "+audio)}</prompt>$lines$effects</scene></flow>"
     }
 }
