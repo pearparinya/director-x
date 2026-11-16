@@ -2,6 +2,11 @@ name: DIRECTOR X 4.79 Candidate Download Link (Pre-release)
 
 on:
   workflow_dispatch:
+    inputs:
+      candidate_run_id:
+        description: 'Exact successful Signed APK Candidate run ID (not #3)'
+        required: true
+        type: string
 
 permissions:
   actions: read
@@ -18,9 +23,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          RUN_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/signed-apk-candidate.yml/runs?event=workflow_dispatch&status=success&per_page=30" --jq '[.workflow_runs[] | select(.head_branch == "main")] | first | .id // empty')"
-          test -n "$RUN_ID" || { echo "::error::No successful candidate workflow run"; exit 1; }
-          echo "Using candidate run $RUN_ID"
+          RUN_ID="${{ inputs.candidate_run_id }}"
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "::error::Invalid numeric run ID"; exit 1; }
+          RUN_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/$RUN_ID")"
+          echo "$RUN_JSON" | jq -e --arg repo "$GITHUB_REPOSITORY" '
+            .name == "DIRECTOR X Signed APK Candidate (No Publish)" and
+            .event == "workflow_dispatch" and
+            .head_branch == "main" and
+            .status == "completed" and
+            .conclusion == "success" and
+            .repository.full_name == $repo
+          ' >/dev/null || { echo "::error::Run is not a successful main-branch candidate run"; exit 1; }
+          echo "Using exact candidate run $RUN_ID"
           mkdir -p candidate
           gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name DIRECTOR-X-SIGNED-CANDIDATE --dir candidate
           APK="$(find candidate -type f -name 'DIRECTOR-X-4.79-candidate.apk' -print -quit)"
@@ -28,6 +42,10 @@ jobs:
           echo "APK=$APK" >> "$GITHUB_ENV"
       - name: Verify APK package, version and signature
         shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           set -euo pipefail
           TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
@@ -36,6 +54,17 @@ jobs:
           [[ "$META" == *"name='com.pearparinya.automovie'"* ]] || exit 1
           [[ "$META" == *"versionCode='1095'"* ]] || exit 1
           [[ "$META" == *"versionName='4.79'"* ]] || exit 1
+          # Compare signed APK certificate with the permanent release keystore.
+          test -n "$KEYSTORE_BASE64" && test -n "$STORE_PASSWORD" && test -n "$KEY_ALIAS" || {
+            echo "::error::Required signing verification secrets are missing"; exit 1;
+          }
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          ACTUAL="$("$TOOLS/apksigner" verify --print-certs "$APK" | sed -nE 's/^[[:space:]]*Signer #[0-9]+ certificate SHA-256 digest:[[:space:]]*([[:xdigit:]:]+).*/\1/p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          EXPECTED="$(keytool -list -v -keystore "$RUNNER_TEMP/release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" | sed -nE 's/^[[:space:]]*SHA256:[[:space:]]*([[:xdigit:]:]+).*/\1/p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          test -n "$ACTUAL" && test -n "$EXPECTED" && [ "$ACTUAL" = "$EXPECTED" ] || {
+            echo "::error::Candidate signing certificate differs from the permanent release key"; exit 1;
+          }
+          echo "Signing certificate matches permanent release keystore." >> "$GITHUB_STEP_SUMMARY"
           sha256sum "$APK" >> "$GITHUB_STEP_SUMMARY"
       - name: Publish separate non-latest prerelease
         shell: bash
