@@ -30,6 +30,7 @@ internal class FreeSearchSettings(private val context: Context) {
         val key=value.trim(); require(key.length in 12..1024 && key.none { it.isWhitespace() }) { "ตรวจ API Key อีกครั้ง" }
         val cipher=Cipher.getInstance("AES/GCM/NoPadding"); cipher.init(Cipher.ENCRYPT_MODE,secret())
         prefs.edit().putString(provider+"_key",Base64.encodeToString(cipher.doFinal(key.toByteArray(Charsets.UTF_8)),Base64.NO_WRAP)).putString(provider+"_iv",Base64.encodeToString(cipher.iv,Base64.NO_WRAP)).apply()
+        clearCache(provider); markSuccess(provider)
     }
     fun key(provider: String): String = runCatching {
         val data=prefs.getString(provider+"_key",null) ?: return ""
@@ -37,7 +38,7 @@ internal class FreeSearchSettings(private val context: Context) {
         cipher.init(Cipher.DECRYPT_MODE,secret(),GCMParameterSpec(128,Base64.decode(prefs.getString(provider+"_iv",null),Base64.NO_WRAP)))
         String(cipher.doFinal(Base64.decode(data,Base64.NO_WRAP)),Charsets.UTF_8)
     }.getOrDefault("")
-    fun clear(provider: String) { prefs.edit().remove(provider+"_key").remove(provider+"_iv").apply() }
+    fun clear(provider: String) { prefs.edit().remove(provider+"_key").remove(provider+"_iv").apply(); clearCache(provider); markSuccess(provider) }
     fun enabled(provider: String): Boolean = prefs.getBoolean(provider+"_enabled", true)
     fun setEnabled(provider: String, enabled: Boolean) { prefs.edit().putBoolean(provider+"_enabled",enabled).apply() }
     fun fallbackEnabled(): Boolean = prefs.getBoolean("fallback_enabled",true)
@@ -47,10 +48,15 @@ internal class FreeSearchSettings(private val context: Context) {
     }
     fun status(provider: String): String = prefs.getString(provider+"_status","ยังไม่ทดสอบ").orEmpty()
     fun tested(provider: String): Long = prefs.getLong(provider+"_tested",0L)
+    fun clearCache(provider: String) {
+        val edit=prefs.edit()
+        prefs.all.keys.filter { it.startsWith("cache_${provider}_") || it.startsWith("cache_time_${provider}_") }.forEach { edit.remove(it) }
+        edit.apply()
+    }
     private fun cacheId(provider: String, query: String, store: Int): String {
         val input="$provider|$store|${query.trim().lowercase(Locale.ROOT)}"
         val digest=java.security.MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
-        return digest.joinToString("") { "%02x".format(it) }
+        return provider+"_"+digest.joinToString("") { "%02x".format(it) }
     }
     fun cached(provider: String, query: String, store: Int): List<ProductSearch.Result>? {
         val id=cacheId(provider,query,store)
@@ -72,7 +78,14 @@ internal class FreeSearchSettings(private val context: Context) {
         val arr=JSONArray()
         results.filter { it.name.isNotBlank() && ProductSearch.matchesPlatform(it.url,store) }.distinctBy { it.url }.take(5).forEach { arr.put(JSONObject().put("title",it.name).put("url",it.url)) }
         if(arr.length()==0) return
-        prefs.edit().putString("cache_$id",arr.toString()).putLong("cache_time_$id",System.currentTimeMillis()).apply()
+        val edit=prefs.edit()
+        val entries=prefs.all.keys.filter { it.startsWith("cache_time_") }
+        if(entries.size>=60) {
+            entries.sortedBy { prefs.getLong(it,0L) }.take(entries.size-59).forEach { timeKey ->
+                edit.remove(timeKey).remove("cache_"+timeKey.removePrefix("cache_time_"))
+            }
+        }
+        edit.putString("cache_$id",arr.toString()).putLong("cache_time_$id",System.currentTimeMillis()).apply()
     }
     private fun failureKey(provider: String) = provider+"_consecutive_failures"
     fun coolingDown(provider: String): Boolean = System.currentTimeMillis() < prefs.getLong(provider+"_cooldown_until",0L)
