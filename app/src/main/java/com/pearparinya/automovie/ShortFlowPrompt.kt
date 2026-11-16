@@ -118,11 +118,20 @@ internal object ShortFlowPrompt {
         val index=s.cast.indexOfFirst { it.name.trim()==name.trim() || StoryIdentity.keyFor(it.name)?.let { key -> key==StoryIdentity.keyFor(name) }==true }
         return if(index>=0) labels(s)[index] else "Off-screen speaker"
     }
-    fun voiceOnly(s: FlowSceneSpec): String = when {
-        s.turns.isNotEmpty() -> s.turns.joinToString("\n") { "${speakerLabel(s,it.speaker)}: ${speechText(it.text)}" }
-        spoken(s.dialogue).isNotEmpty() -> "${speakerLabel(s,s.speaker)}: ${speechText(spoken(s.dialogue))}"
-        spoken(s.narration).isNotEmpty() -> "Off-screen narrator: ${speechText(spoken(s.narration))}"
-        else -> "No spoken dialogue."
+    /** Preserve both cast dialogue and off-screen narration in the audio-only export. */
+    fun voiceOnly(s: FlowSceneSpec): String {
+        val lines = mutableListOf<String>()
+        if (s.turns.isNotEmpty()) {
+            s.turns.filter { spoken(it.text).isNotEmpty() }.forEach {
+                lines.add("${speakerLabel(s, it.speaker)}: ${speechText(it.text)}")
+            }
+        } else if (spoken(s.dialogue).isNotEmpty()) {
+            lines.add("${speakerLabel(s, s.speaker)}: ${speechText(spoken(s.dialogue))}")
+        }
+        if (spoken(s.narration).isNotEmpty()) {
+            lines.add("Off-screen narrator: ${speechText(spoken(s.narration))}")
+        }
+        return lines.joinToString("\\n").ifBlank { "No spoken dialogue." }
     }
     fun plain(s: FlowSceneSpec, camera: String): String {
         val structured=build(s,camera)
