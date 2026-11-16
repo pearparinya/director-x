@@ -33,4 +33,36 @@ class ProductSearchRotationTest {
     @Test fun unknownExceptionsNeverExposeSecrets() {
         assertFalse(ProductSearchRotation.friendly(IllegalStateException("secret-key")).contains("secret-key"))
     }
+
+    @Test fun retryTransientTimeoutOnlyOnce() {
+        var calls=0
+        val match=ProductSearch.Result("สินค้า","https://shopee.co.th/product/123","")
+        val result=ProductSearchRotation.run(listOf(ProductSearchRotation.Attempt("Tavily") {
+            calls++
+            if(calls==1) throw java.net.SocketTimeoutException("timeout")
+            listOf(match)
+        }),ProductSearchControl()) { _,_,_,_ -> }
+        assertEquals(2,calls)
+        assertEquals(listOf(match),result.results)
+    }
+    @Test fun neverRetryInvalidKeyOrQuota() {
+        for(code in listOf(401,429)) {
+            var calls=0
+            ProductSearchRotation.run(listOf(ProductSearchRotation.Attempt("provider") {
+                calls++
+                throw ProductSearchError("HTTP $code")
+            }),ProductSearchControl()) { _,_,_,_ -> }
+            assertEquals(1,calls)
+        }
+    }
+    @Test fun retryServerErrorOnceThenFallback() {
+        var calls=0
+        val match=ProductSearch.Result("สินค้า","https://shopee.co.th/product/123","")
+        val result=ProductSearchRotation.run(listOf(
+            ProductSearchRotation.Attempt("first") { calls++; throw ProductSearchError("HTTP 503") },
+            ProductSearchRotation.Attempt("second") { listOf(match) }
+        ),ProductSearchControl()) { _,_,_,_ -> }
+        assertEquals(2,calls)
+        assertEquals(listOf(match),result.results)
+    }
 }
