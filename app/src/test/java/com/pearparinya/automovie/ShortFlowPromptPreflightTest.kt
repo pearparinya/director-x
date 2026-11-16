@@ -124,8 +124,8 @@ class ShortFlowPromptPreflightTest {
         assertTrue(texts.length == 2)
         assertTrue(texts.item(0).textContent == "หนึ่ง & สอง")
         assertTrue(texts.item(1).textContent == "สาม <สี่>")
-        assertTrue(doc.getElementsByTagName("speaker").item(0).textContent == "Character 1")
-        assertTrue(doc.getElementsByTagName("speaker").item(1).textContent == "Character 1")
+        assertTrue(doc.getElementsByTagName("speaker").item(0).textContent == "The Man 1")
+        assertTrue(doc.getElementsByTagName("speaker").item(1).textContent == "The Man 1")
     }
 
     @Test fun offscreenSpeakerDoesNotAnimateVisibleCharacter() {
