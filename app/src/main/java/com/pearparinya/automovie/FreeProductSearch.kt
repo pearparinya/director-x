@@ -70,7 +70,7 @@ internal class FreeSearchSettings(private val context: Context) {
         if(results.isEmpty()) return
         val id=cacheId(provider,query,store)
         val arr=JSONArray()
-        results.take(5).forEach { arr.put(JSONObject().put("title",it.title).put("url",it.url)) }
+        results.take(5).forEach { arr.put(JSONObject().put("title",it.name).put("url",it.url)) }
         prefs.edit().putString("cache_$id",arr.toString()).putLong("cache_time_$id",System.currentTimeMillis()).apply()
     }
     private fun failureKey(provider: String) = provider+"_consecutive_failures"
