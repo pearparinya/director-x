@@ -104,9 +104,15 @@ internal object ShortFlowPrompt {
             add("A first-frame 8-second video must remain one continuous shot; review scene transitions.")
         val introducedProp = Regex("(?i)\\b(?:suddenly appears|materializ(?:es|ed|ing)|new object appears|pulls out an? |takes out an? |produces an? |conjures an? )\\b")
         val introducedName = Regex("(?i)\\b(?:pulls out|takes out|produces|conjures) an? ([a-z]+)\\b").find(s.action)?.groupValues?.get(1)
-        val matchingObject = introducedName != null && Regex("(?i)\\b" + Regex.escape(introducedName) + "\\b").containsMatchIn(s.startState)
-        val objectAlreadyVisible = introducedName != null && Regex("(?i)\\b" + Regex.escape(introducedName) + "\\b.{0,40}\\b(?:already visible|already present|visible in the first frame|visible from the start)\\b|\\b(?:already visible|already present|visible in the first frame|visible from the start)\\b.{0,40}\\b" + Regex.escape(introducedName) + "\\b").containsMatchIn(s.startState)
-        if (introducedProp.containsMatchIn(s.action) && !(matchingObject && objectAlreadyVisible && !Regex("(?i)\\b(?:not|never)\\s+(?:already\\s+)?visible\\b").containsMatchIn(s.startState)))
+        val objectAlreadyVisible = introducedName != null && s.startState
+            .split(Regex("[;.!?]"))
+            .any { clause ->
+                val objectMentioned = Regex("(?i)\\\\b" + Regex.escape(introducedName) + "\\\\b").containsMatchIn(clause)
+                val visible = Regex("(?i)\\\\b(?:already visible|already present|visible in the first frame|visible from the start)\\\\b").containsMatchIn(clause)
+                val hidden = Regex("(?i)\\\\b(?:hidden|offscreen|off-screen|not visible|never visible|out of frame)\\\\b").containsMatchIn(clause)
+                objectMentioned && visible && !hidden
+            }
+        if (introducedProp.containsMatchIn(s.action) && !objectAlreadyVisible)
             add("An action may introduce a prop absent from the first frame; verify prop continuity.")
         val daytime = Regex("(?i)\\b(?:daylight|daytime|midday)\\b|กลางวัน")
         val nighttime = Regex("(?i)\\b(?:night|midnight|nighttime)\\b|กลางคืน")
