@@ -96,6 +96,24 @@ internal object ShortFlowPrompt {
         if(Regex("fog|mist|หมอก").containsMatchIn(text)) rules.add("Visible fog moves gently")
         return rules.joinToString(". ")
     }
+    /** Visual preflight is advisory: preserve authored actions rather than silently rewriting them. */
+    internal fun visualWarnings(s: FlowSceneSpec, camera: String): List<String> = buildList {
+        val scene = listOf(s.action, s.startState, s.endState).joinToString(" ")
+        val cameraText = camera.lowercase()
+        if (Regex("(?i)\\b(?:cut to|jump cut|montage|multiple shots|new angle)\\b").containsMatchIn(scene))
+            add("A first-frame 8-second video must remain one continuous shot; review scene transitions.")
+        if (Regex("(?i)\\b(?:suddenly appears|materializes|new object appears|pulls out a|takes out a)\\b").containsMatchIn(s.action))
+            add("An action may introduce a prop absent from the first frame; verify prop continuity.")
+        if (Regex("(?i)\\b(?:daylight|daytime|midday)\\b").containsMatchIn(s.startState) &&
+            Regex("(?i)\\b(?:night|midnight|nighttime)\\b").containsMatchIn(s.endState))
+            add("The end state changes day to night within an 8-second continuous shot.")
+        if (Regex("(?i)\\b(?:locked|static|tripod)\\b").containsMatchIn(cameraText) &&
+            Regex("(?i)\\b(?:pan|tilt|dolly|tracking|orbit|handheld)\\b").containsMatchIn(cameraText))
+            add("Locked and moving camera directions conflict.")
+        if (Regex("(?i)\\b(?:letter|document|paper|contract|book|blueprint)\\b").containsMatchIn(scene) &&
+            Regex("(?i)\\b(?:reads?|inspects?|examines?)\\b").containsMatchIn(s.action))
+            add("Verify that the document's written side faces the reader and hands and gaze remain consistent.")
+    }
     /** Non-destructive timing warnings: never rewrite or truncate the original screenplay. */
     internal fun audioWarnings(s: FlowSceneSpec): List<String> = buildList {
         val turns = if (s.turns.isNotEmpty()) s.turns.map { it.text } else listOf(s.dialogue)
