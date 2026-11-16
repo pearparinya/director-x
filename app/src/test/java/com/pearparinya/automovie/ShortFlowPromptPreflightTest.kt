@@ -165,7 +165,7 @@ class ShortFlowPromptPreflightTest {
         val output = ShortFlowPrompt.build(sample, "Locked camera")
         assertTrue(output.contains("Visual continuity preflight:"))
         assertTrue(output.contains("verify prop continuity"))
-        assertTrue(output.contains(sample.action))
+        assertTrue(output.contains("suddenly appears with a letter"))
     }
 
     @Test fun cleanPromptHasNoVisualWarningBanner() {
