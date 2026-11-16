@@ -47,6 +47,32 @@ internal class FreeSearchSettings(private val context: Context) {
     }
     fun status(provider: String): String = prefs.getString(provider+"_status","ยังไม่ทดสอบ").orEmpty()
     fun tested(provider: String): Long = prefs.getLong(provider+"_tested",0L)
+    private fun cacheId(provider: String, query: String, store: Int): String {
+        val input="$provider|$store|${query.trim().lowercase(Locale.ROOT)}"
+        val digest=java.security.MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
+        return digest.joinToString("") { "%02x".format(it) }
+    }
+    fun cached(provider: String, query: String, store: Int): List<ProductSearch.Result>? {
+        val id=cacheId(provider,query,store)
+        val time=prefs.getLong("cache_time_$id",0L)
+        if(time<=0 || System.currentTimeMillis()-time>15*60*1000L) return null
+        val raw=prefs.getString("cache_$id",null) ?: return null
+        return runCatching {
+            val arr=JSONArray(raw)
+            (0 until arr.length()).mapNotNull { i ->
+                val item=arr.optJSONObject(i) ?: return@mapNotNull null
+                val title=item.optString("title"); val url=item.optString("url")
+                if(title.isBlank() || !ProductSearch.matchesPlatform(url,store)) null else ProductSearch.Result(title,url,"")
+            }
+        }.getOrNull()
+    }
+    fun cache(provider: String, query: String, store: Int, results: List<ProductSearch.Result>) {
+        if(results.isEmpty()) return
+        val id=cacheId(provider,query,store)
+        val arr=JSONArray()
+        results.take(5).forEach { arr.put(JSONObject().put("title",it.title).put("url",it.url)) }
+        prefs.edit().putString("cache_$id",arr.toString()).putLong("cache_time_$id",System.currentTimeMillis()).apply()
+    }
     private fun failureKey(provider: String) = provider+"_consecutive_failures"
     fun coolingDown(provider: String): Boolean = System.currentTimeMillis() < prefs.getLong(provider+"_cooldown_until",0L)
     @Synchronized fun markSuccess(provider: String) {
@@ -109,6 +135,7 @@ internal object FreeProductSearch {
         val settings=FreeSearchSettings(context); val key=settings.key(provider)
         if(key.isBlank()) throw ProductSearchError("ยังไม่ได้ตั้ง API Key")
         if(!settings.enabled(provider)) throw ProductSearchError("API นี้ถูกปิดใช้งาน")
+        settings.cached(provider,query,store)?.let { control.check(); return it }
         if(settings.coolingDown(provider)) throw ProductSearchError("API พักชั่วคราวหลังเชื่อมต่อผิดพลาดซ้ำ")
         if(provider !in listOf("tavily","exa","serpapi","firecrawl")) throw ProductSearchError("ยังไม่รองรับ Endpoint ของ API นี้")
         val domains=listOf(listOf("tiktokshop.com", "shop-th.tiktok.com"),listOf("shopee.co.th"),listOf("lazada.co.th"))
@@ -118,7 +145,7 @@ internal object FreeProductSearch {
         else request.put("type","lite").put("numResults",10).put("includeDomains",JSONArray(domains[store]))
         if(provider=="serpapi" || provider=="firecrawl") {
             settings.reserve(provider)
-            return try { searchAdditional(provider,key,query,store,control).also { settings.markSuccess(provider) } }
+            return try { searchAdditional(provider,key,query,store,control).also { settings.markSuccess(provider); settings.cache(provider,query,store,it) } }
             catch(e: Exception) { if(!control.cancelled()) settings.markFailure(provider, e is java.io.IOException || (e is ProductSearchError && e.publicMessage.contains("HTTP 5"))); throw e }
         }
         // Reserve before sending, including failures, so retries cannot bypass the local ceiling.
@@ -141,6 +168,7 @@ internal object FreeProductSearch {
                 if(found.size>=5) break
             }
             settings.markSuccess(provider)
+            settings.cache(provider,query,store,found)
             return found
         } catch(e: Exception) {
             if(!control.cancelled()) settings.markFailure(provider, e is java.io.IOException || (e is ProductSearchError && e.publicMessage.contains("HTTP 5")))
