@@ -111,6 +111,37 @@ class ShortFlowPromptPreflightTest {
         assertTrue(runCatching { ShortFlowPrompt.build(sample, "Locked camera") }.isFailure)
     }
 
+    @Test fun validOrderedTurnsPreserveSpeakerAndExactThaiXml() {
+        val sample = scene().copy(
+            speaker = "", dialogue = "", narration = "",
+            turns = listOf(FlowDialogueTurn("สมชาย", "หนึ่ง & สอง"), FlowDialogueTurn("สมชาย", "สาม <สี่>"))
+        )
+        assertTrue(FlowScenePrompt.issues(sample).isEmpty())
+        val xml = ShortFlowPrompt.build(sample, "Locked camera")
+        val doc = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+            .newDocumentBuilder().parse(org.xml.sax.InputSource(java.io.StringReader(xml)))
+        val texts = doc.getElementsByTagName("text")
+        assertTrue(texts.length == 2)
+        assertTrue(texts.item(0).textContent == "หนึ่ง & สอง")
+        assertTrue(texts.item(1).textContent == "สาม <สี่>")
+        assertTrue(doc.getElementsByTagName("speaker").item(0).textContent == "Character 1")
+        assertTrue(doc.getElementsByTagName("speaker").item(1).textContent == "Character 1")
+    }
+
+    @Test fun offscreenSpeakerDoesNotAnimateVisibleCharacter() {
+        val sample = scene().copy(
+            speaker = "ผู้บรรยาย", dialogue = "ได้ยินไหม", narration = "",
+            offscreen = listOf("ผู้บรรยาย")
+        )
+        assertTrue(FlowScenePrompt.issues(sample).isEmpty())
+        val xml = ShortFlowPrompt.build(sample, "Locked camera")
+        val doc = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+            .newDocumentBuilder().parse(org.xml.sax.InputSource(java.io.StringReader(xml)))
+        assertTrue(doc.getElementsByTagName("dialogue").item(0).attributes.getNamedItem("off_screen").nodeValue == "true")
+        assertTrue(doc.getElementsByTagName("prompt").item(0).textContent.contains("visible characters stay silent"))
+        assertTrue(doc.getElementsByTagName("text").item(0).textContent == "ได้ยินไหม")
+    }
+
     @Test fun speechWarningsNeverRewriteText() {
         val original = scene(dialogue = "สวัสดีครับ".repeat(20))
         assertTrue(ShortFlowPrompt.audioWarnings(original).isNotEmpty())
