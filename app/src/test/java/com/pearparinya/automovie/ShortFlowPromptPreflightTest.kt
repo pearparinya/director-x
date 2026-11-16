@@ -53,6 +53,22 @@ class ShortFlowPromptPreflightTest {
         assertFalse(output.contains("<sound_effects>"))
     }
 
+    @Test fun audioPreflightFlagsUnassignedSpeakerAndEmptyTurn() {
+        val sample = scene().copy(
+            turns = listOf(FlowDialogueTurn("", "ช่วยด้วย"), FlowDialogueTurn("สมชาย", ""))
+        )
+        val warnings = ShortFlowPrompt.audioWarnings(sample)
+        assertTrue(warnings.any { it.contains("no speaker") })
+        assertTrue(warnings.any { it.contains("no spoken text") })
+    }
+
+    @Test fun audioPreflightFlagsOffscreenNarrationAndUnvoicedShout() {
+        val narrated = scene().copy(dialogue = "", narration = "คืนนี้ฝนตก")
+        assertTrue(ShortFlowPrompt.audioWarnings(narrated).any { it.contains("off-screen") })
+        val shouting = scene().copy(dialogue = "", action = "Character 1 shouts")
+        assertTrue(ShortFlowPrompt.audioWarnings(shouting).any { it.contains("vocal performance") })
+    }
+
     @Test fun speechWarningsNeverRewriteText() {
         val original = scene(dialogue = "สวัสดีครับ".repeat(20))
         assertTrue(ShortFlowPrompt.audioWarnings(original).isNotEmpty())
