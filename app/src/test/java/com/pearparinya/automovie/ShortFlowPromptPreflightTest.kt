@@ -26,6 +26,12 @@ class ShortFlowPromptPreflightTest {
         assertTrue(ShortFlowPrompt.directionIssues(scene(location = "ห้องนั่งเล่น"), "Locked camera").isNotEmpty())
     }
 
+    @Test fun finalBuildRejectsUntranslatedLocation() {
+        assertTrue(runCatching {
+            ShortFlowPrompt.build(scene(location = "ห้องนั่งเล่น"), "Locked camera")
+        }.isFailure)
+    }
+
     @Test fun thaiDialogueIsPreservedInGeneratedPrompt() {
         val prompt = ShortFlowPrompt.build(scene(), "Locked camera.")
         assertTrue(prompt.contains("สวัสดีครับ"))
