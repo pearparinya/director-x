@@ -443,6 +443,25 @@ class ShortFlowPromptPreflightTest {
         assertTrue(history.isEmpty())
     }
 
+    @Test fun propEventsWithoutPropsCannotBeSilentlyValidated() {
+        val issues = ContinuityReview.propEventStructureIssues(
+            false, listOf("string"), null
+        )
+        assertTrue(issues.single().contains("ไม่มี props"))
+    }
+
+    @Test fun malformedPropEventElementsAreIdentifiedByFieldAndPosition() {
+        val issues = ContinuityReview.propEventStructureIssues(
+            true, listOf("string", "invalid"), listOf("invalid", "string")
+        )
+        assertTrue(issues.size == 2)
+        assertTrue(issues.any { it.contains("removed_props ลำดับ 2") })
+        assertTrue(issues.any { it.contains("returned_props ลำดับ 1") })
+        assertTrue(ContinuityReview.propEventStructureIssues(
+            true, emptyList(), listOf("string")
+        ).isEmpty())
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
