@@ -4,6 +4,13 @@ import org.json.JSONObject
 
 /** Surface observable inconsistencies for human review, without claiming semantic verification. */
 internal object ContinuityReview {
+    internal fun continuityGroupLocationIssue(
+        group: String, previousLocation: String, currentLocation: String
+    ): String? {
+        if(group.isBlank() || previousLocation.isBlank() || currentLocation.isBlank()) return null
+        if(previousLocation.trim().equals(currentLocation.trim(), ignoreCase = true)) return null
+        return "กลุ่มต่อเนื่อง $group ใช้สถานที่ต่างกัน ($previousLocation / $currentLocation) โปรดตรวจว่ามีการย้ายสถานที่ในเนื้อเรื่อง"
+    }
     fun review(story: JSONObject): List<String> {
         val findings = mutableListOf<String>()
         val groups = mutableMapOf<String, Pair<String, String>>()
@@ -50,6 +57,9 @@ internal object ContinuityReview {
                     val previous = groups[group]
                     if (previous != null && day.isNotBlank() && previous.first.isNotBlank() && day != previous.first)
                         findings.add("$label: กลุ่มต่อเนื่อง $group ใช้วันต่างกัน (${previous.first} / $day) โปรดตรวจ")
+                    if(previous != null) continuityGroupLocationIssue(group, previous.second, location)?.let {
+                        findings.add("$label: $it")
+                    }
                     if (previous == null) groups[group] = day to location
                 }
             }
