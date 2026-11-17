@@ -9,8 +9,8 @@ import org.junit.runner.RunWith
 class CoverTypographyPolicyTest {
     @Test fun socialPosterHasVerticalSafeArea() {
         val text = CoverTypography.safeZone("9:16")
-        assertTrue(text.contains("bottom 20%"))
-        assertTrue(text.contains("right 15%"))
+        assertTrue(text.contains("bottom 25%"))
+        assertTrue(text.contains("right 20%"))
         assertTrue(text.contains("Do not cover any face"))
     }
 
@@ -23,6 +23,6 @@ class CoverTypographyPolicyTest {
     }
 
     @Test fun landscapeDoesNotInheritVerticalSafeArea() {
-        assertFalse(CoverTypography.safeZone("16:9").contains("bottom 20%"))
+        assertFalse(CoverTypography.safeZone("16:9").contains("bottom 25%"))
     }
 }
