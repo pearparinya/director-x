@@ -2868,7 +2868,7 @@ $context"""
             .setNegativeButton("ปิด",null).showDirector()
         dialog.getButton(-3).setOnClickListener {
             val save: () -> Unit = {
-                prefs.edit().putString("pending_flow_code",SceneCommandCards.join(cards)).apply()
+                prefs.edit().putString("pending_flow_code",if(kind==1) SceneCommandCards.exportVideoEpisode(cards) else SceneCommandCards.join(cards)).apply()
                 flowCodePicker.launch("EP%02d_%s.txt".format(number,if(kind==0) "IMAGES" else "VIDEOS"))
             }
             val summary=if(kind==1) SceneCommandCards.episodeWarningSummary(cards) else null
