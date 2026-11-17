@@ -162,4 +162,13 @@ class FlowScenePromptTest {
         assertTrue(FlowScenePrompt.issues(scene().copy(cast=listOf(may,may.copy(name="มายด์")))).isNotEmpty())
         assertTrue(FlowScenePrompt.issues(scene().copy(cast=listOf(may,rin.copy(appearance=may.appearance,position=may.position)))).isNotEmpty())
     }
+    @Test fun wardrobeWordsAreNotMistakenForCharacterAliases() {
+        for (word in listOf("trousers", "Trousers", "pants", "shirt", "jacket", "shoes", "dress", "boots")) {
+            val spec=scene().copy(action="$word looks worn as เมย์ stands by the door")
+            assertFalse("Wardrobe word $word must not trigger character picker",
+                FlowScenePrompt.unknownActionNames(spec).any { it.equals(word,ignoreCase=true) })
+        }
+        val unknown=scene().copy(action="UnknownPerson looks at trousers")
+        assertTrue(FlowScenePrompt.unknownActionNames(unknown).contains("UnknownPerson"))
+    }
 }
