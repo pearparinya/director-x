@@ -172,6 +172,23 @@ class ShortFlowPromptPreflightTest {
         assertTrue(issues.isEmpty())
     }
 
+    @Test fun continuityGroupLocationChangeRequiresReview() {
+        val warning = ContinuityReview.continuityGroupLocationIssue(
+            "DAY1_HOME", "Living room", "Hospital corridor"
+        )
+        assertTrue(warning?.contains("สถานที่ต่างกัน") == true)
+        assertTrue(warning?.contains("DAY1_HOME") == true)
+    }
+
+    @Test fun continuityGroupLocationMatchingIgnoresCaseAndWhitespace() {
+        assertTrue(ContinuityReview.continuityGroupLocationIssue(
+            "DAY1_HOME", " Living Room ", "living room"
+        ) == null)
+        assertTrue(ContinuityReview.continuityGroupLocationIssue(
+            "", "Living room", "Hospital"
+        ) == null)
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
