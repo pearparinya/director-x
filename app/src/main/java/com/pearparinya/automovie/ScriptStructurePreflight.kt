@@ -142,7 +142,7 @@ internal object ScriptStructurePreflight {
             val ep = "EP${episode.number}"
             if (episode.number <= 0) add("EP ลำดับ ${episodeIndex + 1}: หมายเลข EP ต้องมากกว่า 0")
             if (!seenEpisodes.add(episode.number)) add("$ep: หมายเลข EP ซ้ำ")
-            if (previousEpisodeNumber != null && episode.number > previousEpisodeNumber!! + 1)
+            if (previousEpisodeNumber != null && episode.number.toLong() > previousEpisodeNumber!!.toLong() + 1L)
                 add("$ep: หมายเลข EP ข้ามจาก EP$previousEpisodeNumber")
             if (previousEpisodeNumber != null && episode.number < previousEpisodeNumber!!)
                 add("$ep: ลำดับ EP ย้อนกลับจาก EP$previousEpisodeNumber")
@@ -154,7 +154,7 @@ internal object ScriptStructurePreflight {
                 val label = "$ep SC${scene.number}"
                 if (scene.number <= 0) add("$ep ฉากลำดับ ${sceneIndex + 1}: หมายเลขฉากต้องมากกว่า 0")
                 if (!seenScenes.add(scene.number)) add("$label: หมายเลขฉากซ้ำ")
-                if (previousSceneNumber != null && scene.number > previousSceneNumber!! + 1)
+                if (previousSceneNumber != null && scene.number.toLong() > previousSceneNumber!!.toLong() + 1L)
                     add("$label: หมายเลขฉากข้ามจาก SC$previousSceneNumber")
                 if (previousSceneNumber != null && scene.number < previousSceneNumber!!)
                     add("$label: ลำดับฉากย้อนกลับจาก SC$previousSceneNumber")
