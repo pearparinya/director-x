@@ -23,6 +23,19 @@ internal class CinematicPropStore(context: Context) {
         return preferences.edit().putString(key, serialized).commit()
     }
 
+    /**
+     * Build a Flow prompt using the saved inventory for this scene.
+     * A caller-supplied inventory takes precedence, so unsaved edits are not lost.
+     */
+    fun buildScenePrompt(
+        sceneId: String,
+        spec: FlowSceneSpec,
+        camera: String = "Slow, gentle pan."
+    ): String {
+        val inventory = if (spec.cinematicProps.isNotEmpty()) spec.cinematicProps else load(sceneId)
+        return FlowScenePrompt.build(spec.copy(cinematicProps = inventory), id = sceneId, camera = camera)
+    }
+
     fun clear(sceneId: String): Boolean =
         preferences.edit().remove(keyFor(sceneId)).commit()
 
