@@ -59,6 +59,15 @@ internal object ProductionCommandCheck {
     fun sceneIssues(scene: JSONObject): List<String> = buildList {
         addAll(FlowScenePrompt.issues(spec(scene)))
         val people=people(scene)
+        for (field in listOf("characters", "offscreen_characters", "mentioned_characters")) {
+            val raw=scene.optJSONArray(field)
+            if(scene.has(field) && raw==null) add("$field ต้องเป็น array")
+            if(raw!=null) for(index in 0 until raw.length()) {
+                val valid=if(field=="characters") raw.optJSONObject(index)!=null
+                    else raw.opt(index) is String
+                if(!valid) add("$field ลำดับ ${index+1} มีรูปแบบไม่ถูกต้อง")
+            }
+        }
         addAll(dialogueTurnContentIssues(dialogueTurns(scene)))
         addAll(repeatedDialogueTurnIssues(dialogueTurns(scene)))
         addAll(dialogueSpeakerPlacementIssues(dialogueTurns(scene), people.map { it.optString("name") }, offscreen(scene)))
