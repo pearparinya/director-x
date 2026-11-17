@@ -327,4 +327,18 @@ class ScriptStructurePreflightTest {
         assertTrue(ScriptStructurePreflight.issues(listOf(first, second)).isEmpty())
     }
 
+    @Test fun maximumIntegerEpisodeAndSceneNumbersDoNotOverflowGapCheck() {
+        val scenes = listOf(
+            validScene().copy(number = Int.MAX_VALUE - 1),
+            validScene().copy(number = Int.MAX_VALUE)
+        )
+        val episodes = listOf(
+            ScriptStructurePreflight.Episode(Int.MAX_VALUE - 1, scenes),
+            ScriptStructurePreflight.Episode(Int.MAX_VALUE, listOf(validScene()))
+        )
+        val issues = ScriptStructurePreflight.issues(episodes)
+        assertTrue(issues.none { it.contains("หมายเลข EP ข้าม") })
+        assertTrue(issues.none { it.contains("หมายเลขฉากข้าม") })
+    }
+
 }
