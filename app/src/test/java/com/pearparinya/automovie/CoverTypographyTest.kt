@@ -19,4 +19,18 @@ class CoverTypographyTest {
             .forEach { assertTrue(it.startsWith("STOP")); assertTrue(it.contains("PENDING")); assertFalse(it.contains("BEGIN EXACT COVER TEXT")) }
         assertFalse(CoverTypography.prompt("ช่อง","เรื่อง",1,"ตอน").startsWith("STOP"))
     }
+    @Test fun socialSafeZoneSupportsBothVerticalRatioNotations() {
+        for(ratio in listOf("9:16","9x16")) {
+            val rule=CoverTypography.safeZone(ratio)
+            assertTrue(rule.contains("x=108..864"))
+            assertTrue(rule.contains("y=288..1440"))
+            assertTrue(rule.contains("bottom 25%"))
+        }
+    }
+    @Test fun genreTypographyCoversFantasyHorrorActionAndEverydayStories() {
+        assertTrue(CoverTypography.genreStyle("แฟนตาซีเวทมนตร์").contains("FANTASY"))
+        assertTrue(CoverTypography.genreStyle("สยองขวัญ").contains("HORROR"))
+        assertTrue(CoverTypography.genreStyle("แอ็กชัน").contains("ACTION"))
+        assertTrue(CoverTypography.genreStyle("ชีวิตทั่วไป").contains("LIFE DRAMA"))
+    }
 }
