@@ -374,6 +374,20 @@ class ShortFlowPromptPreflightTest {
         ).isNotEmpty())
     }
 
+    @Test fun continuityReportPrioritizesMissingPropData() {
+        val result = ContinuityReview.formatFinding("EP1 ซีน 2: สิ่งของลำดับ 1 ขาดชื่อ")
+        assertTrue(result.startsWith("[ควรแก้ไข] EP1 ซีน 2:"))
+        assertTrue(result.contains("แนวทาง: ตรวจ props"))
+    }
+
+    @Test fun continuityReportDistinguishesWarningsAndManualChecks() {
+        val warning = ContinuityReview.formatFinding("EP1 ซีน 3: สิ่งของ จดหมาย กลับมาปรากฏในฉากโดยไม่ระบุ returned_props")
+        assertTrue(warning.startsWith("[ควรตรวจสอบ]"))
+        assertTrue(warning.contains("แนวทาง: ตรวจประวัติการนำสิ่งของออก"))
+        val manual = ContinuityReview.formatFinding("ตรวจด้วยตนเอง: ตรวจความหมายและภาพจริง")
+        assertTrue(manual.startsWith("[ข้อมูลเพิ่มเติม]"))
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
