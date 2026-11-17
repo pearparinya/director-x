@@ -294,6 +294,23 @@ class ShortFlowPromptPreflightTest {
         )).isEmpty())
     }
 
+    @Test fun omittedPropBetweenTrackedScenesIsFlagged() {
+        val issues = ContinuityReview.missingPropIssues(
+            setOf("จดหมาย", "โทรศัพท์"), setOf("โทรศัพท์"), emptySet()
+        )
+        assertTrue(issues.size == 1)
+        assertTrue(issues.single().contains("จดหมาย"))
+    }
+
+    @Test fun explicitlyRemovedPropIsNotFlaggedAsMissing() {
+        assertTrue(ContinuityReview.missingPropIssues(
+            setOf("จดหมาย"), emptySet(), setOf(" จดหมาย ")
+        ).isEmpty())
+        assertTrue(ContinuityReview.missingPropIssues(
+            setOf("Phone"), setOf(" phone "), emptySet()
+        ).isEmpty())
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
