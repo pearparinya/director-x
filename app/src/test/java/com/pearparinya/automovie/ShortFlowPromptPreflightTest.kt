@@ -353,6 +353,27 @@ class ShortFlowPromptPreflightTest {
         assertTrue(issues.any { it.contains("ขาดชื่อสิ่งของ") })
     }
 
+    @Test fun undocumentedReturnOfRemovedPropWarns() {
+        val issues = ContinuityReview.undocumentedPropReturns(
+            setOf("จดหมาย"), setOf("จดหมาย", "โทรศัพท์"), emptyList()
+        )
+        assertTrue(issues.size == 1)
+        assertTrue(issues.single().contains("จดหมาย กลับมาปรากฏ"))
+    }
+
+    @Test fun documentedReturnDoesNotWarnAndRepeatedCyclesCanBeChecked() {
+        val removed = setOf("จดหมาย")
+        assertTrue(ContinuityReview.undocumentedPropReturns(
+            removed, setOf("จดหมาย"), listOf("จดหมาย")
+        ).isEmpty())
+        assertTrue(ContinuityReview.undocumentedPropReturns(
+            removed, emptySet(), emptyList()
+        ).isEmpty())
+        assertTrue(ContinuityReview.undocumentedPropReturns(
+            removed, setOf("จดหมาย"), emptyList()
+        ).isNotEmpty())
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
