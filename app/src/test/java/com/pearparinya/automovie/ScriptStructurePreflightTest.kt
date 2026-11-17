@@ -307,4 +307,20 @@ class ScriptStructurePreflightTest {
         assertTrue(scene.getString("narration") == "เสียงบรรยายภาษาไทย")
     }
 
+    @Test fun skippedEpisodeAndSceneNumbersAreReportedWithoutRenumbering() {
+        val first = ScriptStructurePreflight.Episode(1, listOf(validScene(), validScene().copy(number = 3)))
+        val third = ScriptStructurePreflight.Episode(3, listOf(validScene()))
+        val issues = ScriptStructurePreflight.issues(listOf(first, third))
+        assertTrue(issues.any { it.contains("หมายเลข EP ข้ามจาก EP1") })
+        assertTrue(issues.any { it.contains("หมายเลขฉากข้ามจาก SC1") })
+        assertTrue(first.scenes[1].number == 3)
+        assertTrue(third.number == 3)
+    }
+
+    @Test fun consecutiveEpisodeAndSceneNumbersRemainValid() {
+        val first = ScriptStructurePreflight.Episode(1, listOf(validScene(), validScene().copy(number = 2)))
+        val second = ScriptStructurePreflight.Episode(2, listOf(validScene()))
+        assertTrue(ScriptStructurePreflight.issues(listOf(first, second)).isEmpty())
+    }
+
 }
