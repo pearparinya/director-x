@@ -317,7 +317,9 @@ internal object ContinuityReview {
                     if(previousEnd != null) adjacentSceneStateIssue(group, previousEnd, startState, scene.optString("continuity_transition"))?.let {
                         findings.add("$label: $it")
                     }
-                    if(endState.isNotBlank()) groupEndStates[group] = endState
+                    // An unknown end state must not be reused as the previous state of a later scene.
+                    if (endState.isBlank()) groupEndStates.remove(group)
+                    else groupEndStates[group] = endState
                     if (previous == null) groups[group] = day to location
                 }
             }
