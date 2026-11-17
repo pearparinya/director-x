@@ -4896,7 +4896,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         Button(this).apply {
             text = "จัดการวัตถุในฉาก (Cinematic Props)"
             setOnClickListener {
-                CinematicPropDialog.show(this@StudioActivity, key(s)) {
+                CinematicPropDialog.show(this@StudioActivity, "${project.name}:${key(s)}") {
                     notice("บันทึกรายการวัตถุของฉากแล้ว")
                 }
             }
