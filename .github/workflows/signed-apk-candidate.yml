@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feature/director-x-category-1-script-analysis
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       source_branch:
@@ -28,7 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.source_branch || github.ref_name }}
+          ref: ${{ inputs.source_branch || github.event.pull_request.head.sha || github.sha }}
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
