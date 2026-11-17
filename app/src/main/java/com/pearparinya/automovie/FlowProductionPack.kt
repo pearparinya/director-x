@@ -91,7 +91,10 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
                         null
                     }
                 }
-                if (people.isEmpty()) continue
+                if (people.size != cast.length()) {
+                    // An incomplete cast must never pass validation or reach the exporter.
+                    continue
+                }
                 val keys=people.map { FlowCast.id(it) }
                 if(keys.any { it==null } || keys.distinct().size!=keys.size) add("$id ตัวละครไม่ตรง MASTER หรือซ้ำ")
                 people.forEach { p ->
