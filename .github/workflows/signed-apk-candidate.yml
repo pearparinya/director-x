@@ -11,6 +11,7 @@ on:
           - feature/shopping-resilience-479
           - feature/director-x-480-continuity
           - feature/cinematic-flow-engine
+          - fix/flow-action-wardrobe-alias-484
 
 permissions:
   contents: read
