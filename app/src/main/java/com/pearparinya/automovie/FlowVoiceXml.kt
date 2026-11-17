@@ -10,11 +10,11 @@ internal object FlowVoiceXml {
     internal const val accent = "The speaker speaks Thai with a natural Central Thai accent."
     private fun xml(v: String)=v.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;")
     private fun spoken(v: String)=v.trim().takeUnless { it.isBlank() || it.equals("none",true) || it=="ไม่มี" || it=="ไม่มีเสียงบรรยาย" }.orEmpty()
-    fun build(s: FlowSceneSpec, camera: String): String {
+    private fun sameIdentity(a: String, b: String): Boolean =\n        a.trim() == b.trim() || (StoryIdentity.keyFor(a)?.let { it == StoryIdentity.keyFor(b) } == true)\n    fun build(s: FlowSceneSpec, camera: String): String {
         require(FlowScenePrompt.issues(s).isEmpty()) { "ตรวจข้อมูลซีนก่อนสร้างคำสั่ง" }
         val dialogue=spoken(s.dialogue)
         val narration=spoken(s.narration)
-        val offscreen=dialogue.isNotEmpty() && s.offscreen.any { it.trim()==s.speaker.trim() }
+        val offscreen=dialogue.isNotEmpty() && s.offscreen.any { sameIdentity(it, s.speaker) }
         // These labels are local to the current frame, never inferred from gender or image filenames.
         fun label(index: Int)="Character ${index+1}"
         val speakerIndex=s.cast.indexOfFirst { it.name.trim()==s.speaker.trim() || StoryIdentity.keyFor(it.name)?.let { key -> key==StoryIdentity.keyFor(s.speaker) }==true }
@@ -52,7 +52,7 @@ internal object FlowVoiceXml {
         val prompt="$mapping $action. $visible$accentDirection Preserve the attached first frame, faces, hair, body proportions, positions, clothes, shoes, props, lighting and location. ${ScenePropContinuity.video} ${camera.trim()}".trim()
         val audio=when {
             s.turns.isNotEmpty() -> s.turns.joinToString("") { turn ->
-                val off=s.offscreen.any { it.trim()==turn.speaker.trim() || StoryIdentity.keyFor(it)?.let { key -> key==StoryIdentity.keyFor(turn.speaker) }==true }
+                val off=s.offscreen.any { sameIdentity(it, turn.speaker) }
                 "    <dialogue${if(off) " off_screen=\"true\"" else ""}>\n      <speaker>${xml(if(off) role(turn.speaker) else "[${role(turn.speaker)}]")}</speaker>\n      <text>${xml(ThaiSpeechPacing.format(turn.text))}</text>\n      <language>th-TH</language>\n    </dialogue>\n"
             }
             narration.isNotEmpty() -> "    <dialogue off_screen=\"true\">\n      <voice name=\"male_narrator_thai\">${xml(ThaiSpeechPacing.format(narration))}</voice>\n    </dialogue>\n"
