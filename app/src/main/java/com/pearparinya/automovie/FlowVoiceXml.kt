@@ -11,7 +11,8 @@ internal object FlowVoiceXml {
     private fun xml(v: String)=v.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;")
     private fun spoken(v: String)=v.trim().takeUnless { it.isBlank() || it.equals("none",true) || it=="ไม่มี" || it=="ไม่มีเสียงบรรยาย" }.orEmpty()
     private fun sameIdentity(a: String, b: String): Boolean =
-        a.trim() == b.trim() || (StoryIdentity.keyFor(a)?.let { it == StoryIdentity.keyFor(b) } == true)\n    fun build(s: FlowSceneSpec, camera: String): String {
+        a.trim() == b.trim() || (StoryIdentity.keyFor(a)?.let { it == StoryIdentity.keyFor(b) } == true)
+    fun build(s: FlowSceneSpec, camera: String): String {
         require(FlowScenePrompt.issues(s).isEmpty()) { "ตรวจข้อมูลซีนก่อนสร้างคำสั่ง" }
         val dialogue=spoken(s.dialogue)
         val narration=spoken(s.narration)
