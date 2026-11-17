@@ -147,6 +147,31 @@ class ShortFlowPromptPreflightTest {
         assertTrue(ProductionCommandCheck.repeatedDialogueTurnIssues(turns).isEmpty())
     }
 
+    @Test fun speakerCannotBeVisibleAndOffscreenInSameTurn() {
+        val issues = ProductionCommandCheck.dialogueSpeakerPlacementIssues(
+            listOf(FlowDialogueTurn("สมชาย", "สวัสดีครับ")),
+            listOf("สมชาย"), listOf("สมชาย")
+        )
+        assertTrue(issues.single().contains("อยู่ทั้งในภาพและนอกภาพ"))
+    }
+
+    @Test fun missingDialogueSpeakerIsReportedWithTurnNumber() {
+        val issues = ProductionCommandCheck.dialogueSpeakerPlacementIssues(
+            listOf(FlowDialogueTurn("สมชาย", "สวัสดี"), FlowDialogueTurn("สมหญิง", "ตอบกลับ")),
+            listOf("สมชาย"), emptyList()
+        )
+        assertTrue(issues.size == 1)
+        assertTrue(issues.single().contains("บทสนทนาลำดับ 2 ไม่พบผู้พูด สมหญิง"))
+    }
+
+    @Test fun validOffscreenDialogueSpeakerIsAllowed() {
+        val issues = ProductionCommandCheck.dialogueSpeakerPlacementIssues(
+            listOf(FlowDialogueTurn("สมหญิง", "ได้ยินเสียงจากนอกภาพ")),
+            listOf("สมชาย"), listOf("สมหญิง")
+        )
+        assertTrue(issues.isEmpty())
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
