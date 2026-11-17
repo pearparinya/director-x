@@ -2843,10 +2843,21 @@ $context"""
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
         val picker=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,cards.map { it.title }); panel.addView(this) }
         panel.addView(TextView(this).apply { text=if(kind==0) "แนบ MASTER ตามรายชื่อ • สร้างทีละภาพใน Gemini" else "แม่แบบ Flow • แนบภาพซีนที่ตรวจแล้ว ตรวจผู้พูดและตำแหน่งก่อนใช้ • เสียงสร้างจากคำสั่งใน Flow"; textSize=12f })
+        val visualWarning=TextView(this).apply { textSize=13f; setPadding(dp(8),dp(8),dp(8),dp(8)) }
+        if(kind==1) panel.addView(visualWarning)
         val code=TextView(this).apply { textSize=13f; setTextIsSelectable(true); setPadding(dp(8),dp(8),dp(8),dp(8)) }
         panel.addView(ScrollView(this).apply { addView(code) },LinearLayout.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.38).toInt()))
         val nav=LinearLayout(this).apply { orientation=0; panel.addView(this) }
-        fun show(n: Int) { index=n.coerceIn(cards.indices); code.text=cards[index].command; if(picker.selectedItemPosition!=index) picker.setSelection(index) }
+        fun show(n: Int) {
+            index=n.coerceIn(cards.indices)
+            code.text=cards[index].command
+            if(kind==1) {
+                val warnings=cards[index].visualWarnings
+                visualWarning.text=if(warnings.isEmpty()) "✓ ไม่พบคำเตือนความต่อเนื่องจากข้อความฉาก • ยังต้องตรวจภาพจริง" else
+                    "⚠ ตรวจความต่อเนื่อง ${warnings.size} จุด:\n"+warnings.mapIndexed { i, note -> "${i+1}. $note" }.joinToString("\n")
+            }
+            if(picker.selectedItemPosition!=index) picker.setSelection(index)
+        }
         listOf("ก่อนหน้า" to -1,"ถัดไป" to 1).forEach { (label,step) -> nav.addView(android.widget.Button(this).apply { text=label; setOnClickListener { show(index+step) } },LinearLayout.LayoutParams(0,-2,1f)) }
         picker.onItemSelectedListener=object: android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>?,view: android.view.View?,position: Int,id: Long) { show(position) }
