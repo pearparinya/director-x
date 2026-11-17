@@ -133,6 +133,10 @@ internal object ContinuityReview {
         }
         return "[$level] $finding | แนวทาง: $action"
     }
+    internal fun malformedSceneFields(fields: Map<String, String>): List<String> =
+        fields.filterValues { it != "missing" && it != "array" }
+            .keys.map { "ข้อมูล $it ต้องเป็นรายการ array จึงจะตรวจสอบได้" }
+
     fun review(story: JSONObject): List<String> {
         val findings = mutableListOf<String>()
         val groups = mutableMapOf<String, Pair<String, String>>()
@@ -143,12 +147,25 @@ internal object ContinuityReview {
         val groupRemovedHistory = mutableMapOf<String, MutableSet<String>>()
         val dailyWardrobes = mutableMapOf<Pair<String, String>, Pair<String, String>>()
         val characterMasters = mutableMapOf<String, Pair<String, String>>()
-        val episodes = story.optJSONArray("episodes") ?: return listOf("ไม่มีข้อมูล EP ให้ตรวจ")
+        val episodes = story.optJSONArray("episodes")
+            ?: return listOf(formatFinding("ข้อมูล episodes ต้องเป็นรายการ array และต้องมี EP ให้ตรวจ"))
         for (e in 0 until episodes.length()) {
-            val ep = episodes.optJSONObject(e) ?: continue
-            val scenes = ep.optJSONArray("scenes") ?: continue
+            val ep = episodes.optJSONObject(e)
+            if(ep == null) {
+                findings.add("EP${e + 1}: ข้อมูล EP ต้องเป็น object")
+                continue
+            }
+            val scenes = ep.optJSONArray("scenes")
+            if(scenes == null) {
+                findings.add("EP${e + 1}: ข้อมูล scenes ต้องเป็นรายการ array")
+                continue
+            }
             for (i in 0 until scenes.length()) {
-                val scene = scenes.optJSONObject(i) ?: continue
+                val scene = scenes.optJSONObject(i)
+                if(scene == null) {
+                    findings.add("EP${e + 1} ซีนลำดับ ${i + 1}: ข้อมูลซีนต้องเป็น object")
+                    continue
+                }
                 val label = "EP${e + 1} ซีน ${scene.optInt("scene", i + 1)}"
                 val group = scene.optString("continuity_group").trim()
                 val day = scene.optString("story_day").trim()
@@ -156,6 +173,15 @@ internal object ContinuityReview {
                 val storyTime = scene.optString("story_time").trim()
                 val characters = scene.optJSONArray("characters")
                 val props = scene.optJSONArray("props")
+                val arrayFields = listOf("characters", "props", "removed_props", "returned_props")
+                val malformed = malformedSceneFields(arrayFields.associateWith { field ->
+                    when {
+                        !scene.has(field) || scene.isNull(field) -> "missing"
+                        scene.optJSONArray(field) != null -> "array"
+                        else -> "invalid"
+                    }
+                })
+                findings.addAll(malformed.map { "$label: $it" })
                 if(props != null) {
                     val entries = (0 until props.length()).map { p ->
                         val item = props.optJSONObject(p)
