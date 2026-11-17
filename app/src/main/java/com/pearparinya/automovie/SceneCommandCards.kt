@@ -49,5 +49,16 @@ internal object SceneCommandCards {
             videoCard(s.getInt("scene"), spec)
         }
     }
+    internal data class EpisodeWarningSummary(val flaggedScenes: Int, val warningCount: Int, val details: String)
+    internal fun episodeWarningSummary(cards: List<Card>): EpisodeWarningSummary {
+        val flagged = cards.filter { it.visualWarnings.isNotEmpty() }
+        return EpisodeWarningSummary(
+            flaggedScenes = flagged.size,
+            warningCount = flagged.sumOf { it.visualWarnings.size },
+            details = flagged.joinToString("\n\n") { card ->
+                "${card.title}\n" + card.visualWarnings.mapIndexed { i, note -> "${i + 1}. $note" }.joinToString("\n")
+            }
+        )
+    }
     fun join(cards: List<Card>) = cards.joinToString("\n\n") { "=== ${it.title} ===\n${it.command}" }
 }
