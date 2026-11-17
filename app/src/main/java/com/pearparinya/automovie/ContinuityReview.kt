@@ -177,6 +177,18 @@ internal object ContinuityReview {
             .filter { it in history && it in current && it !in removedInThisScene }
             .forEach { history.remove(it) }
     }
+    /** A removed prop's old state must not be compared to a later, explicitly returned prop. */
+    internal fun clearRemovedPropStates(
+        states: MutableMap<Pair<String, String>, String>, group: String,
+        previousNames: Set<String>?, currentNames: Set<String>, removedNames: List<String>
+    ) {
+        if (group.isBlank() || previousNames == null) return
+        val previous = previousNames.map { it.trim().lowercase() }.toSet()
+        val current = currentNames.map { it.trim().lowercase() }.toSet()
+        removedNames.map { it.trim().lowercase() }
+            .filter { it.isNotBlank() && it in previous && it !in current }
+            .forEach { states.remove(group to it) }
+    }
     /** Clear stale state when a scene omits its ending; subsequent scenes must not compare against it. */
     internal fun advanceEndState(history: MutableMap<String, String>, group: String, endState: String) {
         if (group.isBlank()) return
@@ -263,6 +275,7 @@ internal object ContinuityReview {
                         findings.addAll(removedPropIssues(previous, currentNames, removed).map { "$label: $it" })
                         findings.addAll(missingPropIssues(previous, currentNames, removed.toSet()).map { "$label: $it" })
                     }
+                    clearRemovedPropStates(groupPropStates, group, groupPreviousProps[group], currentNames, removed)
                     advanceRemovedPropHistory(history, groupPreviousProps[group], currentNames, removed, returned)
                     groupPreviousProps[group] = currentNames
                 }
