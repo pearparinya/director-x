@@ -240,6 +240,20 @@ class ShortFlowPromptPreflightTest {
         }
     }
 
+    @Test fun visualPreflightChecksDefiniteArticleProps() {
+        for (action in listOf(
+            "Character 1 pulls out the letter",
+            "Character 1 takes out the letter",
+            "Character 1 produces the letter",
+            "Character 1 conjures the letter"
+        )) {
+            val missing = scene().copy(action = action, startState = "A key is already visible in the first frame")
+            assertTrue(ShortFlowPrompt.visualWarnings(missing, "Locked camera").any { it.contains("prop") })
+            val present = scene().copy(action = action, startState = "The letter is already visible in the first frame")
+            assertFalse(ShortFlowPrompt.visualWarnings(present, "Locked camera").any { it.contains("prop") })
+        }
+    }
+
     @Test fun visualPreflightDoesNotTreatInvisibleObjectAsPresent() {
         val sample = scene().copy(
             action = "Character 1 takes out a letter",
