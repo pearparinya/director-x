@@ -200,4 +200,16 @@ class ScriptStructurePreflightTest {
         assertTrue(story.toString() == original)
     }
 
+    @Test fun numericCharacterNameIsRejectedWithoutMutatingStory() {
+        val story = JSONObject("""{"episodes":[{"ep":1,"scenes":[{
+            "scene":1,"story_day":"DAY01","story_time":"morning",
+            "location":"home","start_state":"standing","end_state":"sitting",
+            "characters":[{"name":123},{"name":"นายเปีย"}],
+            "speaker":"นายเปีย","dialogue":"สวัสดีครับ"
+        }]}]}""")
+        val original = story.toString()
+        assertTrue(ScriptStructurePreflight.storyIssues(story).any { it.contains("name ต้องเป็นข้อความ") })
+        assertTrue(story.toString() == original)
+    }
+
 }
