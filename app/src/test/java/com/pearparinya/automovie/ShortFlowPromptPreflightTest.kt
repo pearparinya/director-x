@@ -462,6 +462,25 @@ class ShortFlowPromptPreflightTest {
         ).isEmpty())
     }
 
+    @Test fun contradictoryPropEventsAreReportedOncePerProp() {
+        val issues = ContinuityReview.conflictingPropEvents(
+            listOf("จดหมาย", "โทรศัพท์"), listOf(" จดหมาย ", "จดหมาย", "กระเป๋า")
+        )
+        assertTrue(issues.size == 1)
+        assertTrue(issues.single().contains("จดหมาย"))
+        assertTrue(issues.single().contains("removed_props"))
+        assertTrue(issues.single().contains("returned_props"))
+    }
+
+    @Test fun independentPropEventsDoNotConflict() {
+        assertTrue(ContinuityReview.conflictingPropEvents(
+            listOf("จดหมาย"), listOf("โทรศัพท์")
+        ).isEmpty())
+        assertTrue(ContinuityReview.conflictingPropEvents(
+            listOf(""), listOf(" ")
+        ).isEmpty())
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
