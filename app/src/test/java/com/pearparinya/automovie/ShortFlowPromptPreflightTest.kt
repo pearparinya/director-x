@@ -80,6 +80,22 @@ class ShortFlowPromptPreflightTest {
         assertTrue(exported.endsWith(SceneCommandCards.join(cards)))
     }
 
+    @Test fun exportedEpisodeSeparatesPreflightMetadataFromEveryScenePrompt() {
+        val cards = listOf(
+            SceneCommandCards.Card("ซีน 1", "<prompt>first</prompt>", listOf("Missing prop")),
+            SceneCommandCards.Card("ซีน 2", "<prompt>second</prompt>"),
+            SceneCommandCards.Card("ซีน 3", "<prompt>third</prompt>", listOf("Lighting mismatch"))
+        )
+        val exported = SceneCommandCards.exportVideoEpisode(cards)
+        assertTrue(exported.startsWith("=== FLOW VISUAL PREFLIGHT REPORT (NOT PART OF VIDEO PROMPTS) ==="))
+        assertTrue(exported.contains("=== END PREFLIGHT REPORT ==="))
+        assertTrue(exported.contains("=== VIDEO COMMANDS: COPY EACH SCENE BLOCK SEPARATELY ==="))
+        assertTrue(exported.indexOf("=== END PREFLIGHT REPORT ===") < exported.indexOf("<prompt>first</prompt>"))
+        assertTrue(exported.indexOf("<prompt>first</prompt>") < exported.indexOf("<prompt>second</prompt>"))
+        assertTrue(exported.indexOf("<prompt>second</prompt>") < exported.indexOf("<prompt>third</prompt>"))
+        assertTrue(exported.endsWith(SceneCommandCards.join(cards)))
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
