@@ -137,6 +137,23 @@ internal object ContinuityReview {
         fields.filterValues { it != "missing" && it != "array" }
             .keys.map { "ข้อมูล $it ต้องเป็นรายการ array จึงจะตรวจสอบได้" }
 
+    /** Pure state transition shared by the JSON review and multi-episode JVM tests. */
+    internal fun advanceRemovedPropHistory(
+        history: MutableSet<String>, previousNames: Set<String>?,
+        currentNames: Set<String>, removedNames: List<String>, returnedNames: List<String>
+    ) {
+        fun normalize(names: Collection<String>) = names.map { it.trim().lowercase() }.toSet()
+        val current = normalize(currentNames)
+        if(previousNames != null) {
+            val previous = normalize(previousNames)
+            removedNames.map { it.trim().lowercase() }
+                .filter { it.isNotBlank() && it in previous && it !in current }
+                .forEach { history.add(it) }
+        }
+        returnedNames.map { it.trim().lowercase() }
+            .filter { it in history && it in current }
+            .forEach { history.remove(it) }
+    }
     fun review(story: JSONObject): List<String> {
         val findings = mutableListOf<String>()
         val groups = mutableMapOf<String, Pair<String, String>>()
@@ -205,15 +222,8 @@ internal object ContinuityReview {
                     groupPreviousProps[group]?.let { previous ->
                         findings.addAll(removedPropIssues(previous, currentNames, removed).map { "$label: $it" })
                         findings.addAll(missingPropIssues(previous, currentNames, removed.toSet()).map { "$label: $it" })
-                        val previousNormalized = previous.map { it.trim().lowercase() }.toSet()
-                        val currentNormalized = currentNames.map { it.trim().lowercase() }.toSet()
-                        removed.map { it.trim().lowercase() }
-                            .filter { it.isNotBlank() && it in previousNormalized && it !in currentNormalized }
-                            .forEach { history.add(it) }
                     }
-                    returned.map { it.trim().lowercase() }
-                        .filter { it in history && it in currentNames.map { name -> name.trim().lowercase() } }
-                        .forEach { history.remove(it) }
+                    advanceRemovedPropHistory(history, groupPreviousProps[group], currentNames, removed, returned)
                     groupPreviousProps[group] = currentNames
                 }
                 if(group.isNotBlank() && props != null) for(p in 0 until props.length()) {
