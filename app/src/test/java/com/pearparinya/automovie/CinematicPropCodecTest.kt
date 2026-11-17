@@ -39,4 +39,14 @@ class CinematicPropCodecTest {
         val raw = "[" + (1..51).joinToString(",") { """{"id":"p$it","presentInFirstFrame":true,"requiredForAction":false}""" } + "]"
         CinematicPropCodec.decode(raw)
     }
+    @Test fun sceneJsonInventoryReachesProductionFlowSpec() {
+        val scene = org.json.JSONObject().apply {
+            put("cinematic_props", org.json.JSONArray(CinematicPropCodec.encode(
+                listOf(CinematicProp("cup", true, true, "left", "left", 1, 1))
+            )))
+        }
+        val spec = ProductionCommandCheck.spec(scene)
+        assertEquals("cup", spec.cinematicProps.single().id)
+    }
+
 }
