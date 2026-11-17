@@ -62,7 +62,9 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
         if(eps==null || eps.length()==0) { add("ยังไม่มี EP"); return@buildList }
         if(plan.optString("clip_format")=="short" && eps.length()!=1) add("คลิปสั้นต้องมีเรื่องจบในคลิปเดียว (1 EP)")
         for(i in 0 until eps.length()) {
-            val ep=eps.getJSONObject(i); val scenes=ep.optJSONArray("scenes")
+            val ep=eps.optJSONObject(i)
+            if (ep == null) { add("EP ลำดับ ${i+1}: ต้องเป็น object"); continue }
+            val scenes=ep.optJSONArray("scenes")
             if(ep.optInt("ep")!=i+1) add("เลข EP ต้องเรียงจาก 1")
             if(scenes==null || scenes.length()==0) { add("EP ${i+1} ไม่มีซีน"); continue }
             if(plan.optString("content_profile")==AutoDirectorContent.profile) {
@@ -72,7 +74,9 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
             }
             var total=0
             for(j in 0 until scenes.length()) {
-                val s=scenes.getJSONObject(j); val id="EP${i+1} ซีน${j+1}"
+                val s=scenes.optJSONObject(j)
+                if (s == null) { add("EP${i+1} ซีน${j+1}: ต้องเป็น object"); continue }
+                val id="EP${i+1} ซีน${j+1}"
                 val duration=s.optInt("duration_seconds",plan.optInt("duration_seconds",8))
                 total+=duration
                 if(duration!=8) add("$id ต้องใช้ 8 วินาทีสำหรับชุด Veo นี้")
