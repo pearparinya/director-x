@@ -111,4 +111,30 @@ class ScriptStructurePreflightTest {
         assertTrue(issues.any { it.contains("dialogue_turns ลำดับ 1 ต้องเป็น object") })
     }
 
+    @Test fun malformedCastAndOffscreenItemsAreReportedWithoutCrashing() {
+        val story = JSONObject("""{"episodes":[{"ep":1,"scenes":[{
+            "scene":1,"story_day":"DAY01","story_time":"morning",
+            "location":"home","start_state":"standing","end_state":"sitting",
+            "characters":[null,"wrong",{"name":"นายเปีย"}],
+            "offscreen_characters":[42,"ณัฐชา"]
+        }]}]}""")
+        val issues = ScriptStructurePreflight.storyIssues(story)
+        assertTrue(issues.any { it.contains("characters ลำดับ 1 ต้องเป็น object") })
+        assertTrue(issues.any { it.contains("characters ลำดับ 2 ต้องเป็น object") })
+        assertTrue(issues.any { it.contains("offscreen_characters ลำดับ 1 ต้องเป็นข้อความ") })
+    }
+
+    @Test fun spokenDialogueWithoutSpeakerIsRejectedButNarrationOnlyIsAllowed() {
+        val story = JSONObject("""{"episodes":[{"ep":1,"scenes":[{
+            "scene":1,"story_day":"DAY01","story_time":"morning",
+            "location":"home","start_state":"standing","end_state":"sitting",
+            "characters":[{"name":"นายเปีย"}],"dialogue":"สวัสดีครับ"
+        }]}]}""")
+        assertTrue(ScriptStructurePreflight.storyIssues(story).any { it.contains("ขาด speaker") })
+        val scene = story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
+        scene.remove("dialogue")
+        scene.put("narration", "สวัสดีครับ")
+        assertTrue(ScriptStructurePreflight.storyIssues(story).isEmpty())
+    }
+
 }
