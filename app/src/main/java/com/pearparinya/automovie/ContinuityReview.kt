@@ -10,6 +10,7 @@ internal object ContinuityReview {
         val dailyWardrobes = mutableMapOf<Pair<String, String>, Pair<String, String>>()
         val characterMasters = mutableMapOf<String, Pair<String, String>>()
         val previousSceneByGroup = mutableMapOf<String, Pair<String, String>>()
+        val previousLocationByGroup = mutableMapOf<String, Pair<String, String>>()
         val episodes = story.optJSONArray("episodes") ?: return listOf("ไม่มีข้อมูล EP ให้ตรวจ")
         for (e in 0 until episodes.length()) {
             val ep = episodes.optJSONObject(e) ?: continue
@@ -52,11 +53,16 @@ internal object ContinuityReview {
                     if (previous != null && day.isNotBlank() && previous.first.isNotBlank() && day != previous.first)
                         findings.add("$label: กลุ่มต่อเนื่อง $group ใช้วันต่างกัน (${previous.first} / $day) โปรดตรวจ")
                     if (previous == null) groups[group] = day to location
+                    val previousLocation = previousLocationByGroup[group]
+                    if (previousLocation != null && location.isNotBlank() && previousLocation.first.isNotBlank() &&
+                        !location.equals(previousLocation.first, ignoreCase = true))
+                        findings.add("$label: สถานที่ของกลุ่มต่อเนื่อง $group ต่างจาก ${previousLocation.second} โปรดตรวจการเปลี่ยนสถานที่")
+                    if (location.isNotBlank()) previousLocationByGroup[group] = location to label
                     val startState = scene.optString("start_state").trim()
                     val endState = scene.optString("end_state").trim()
                     val previousScene = previousSceneByGroup[group]
                     if (previousScene != null && startState.isNotBlank() && previousScene.first.isNotBlank() &&
-                        startState != previousScene.first)
+                        !startState.equals(previousScene.first, ignoreCase = true))
                         findings.add("$label: สถานะเริ่มต้นของกลุ่ม $group ไม่ตรงกับสถานะสิ้นสุดของ ${previousScene.second} โปรดตรวจความต่อเนื่อง")
                     if (endState.isNotBlank()) previousSceneByGroup[group] = endState to label
                 }
