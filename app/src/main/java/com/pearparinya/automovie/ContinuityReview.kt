@@ -149,6 +149,16 @@ internal object ContinuityReview {
         }
     }
 
+    internal fun conflictingPropEvents(
+        removedNames: List<String>, returnedNames: List<String>
+    ): List<String> {
+        val removed = removedNames.map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet()
+        return returnedNames.map { it.trim().lowercase() }
+            .filter { it.isNotBlank() && it in removed }
+            .distinct()
+            .map { "สิ่งของ $it ถูกระบุทั้ง removed_props และ returned_props ในฉากเดียวกัน" }
+    }
+
     /** Pure state transition shared by the JSON review and multi-episode JVM tests. */
     internal fun advanceRemovedPropHistory(
         history: MutableSet<String>, previousNames: Set<String>?,
@@ -233,11 +243,12 @@ internal object ContinuityReview {
                         props.optJSONObject(p)?.optString("name")?.trim()?.takeIf(String::isNotBlank)
                     }.toSet()
                     val removed = scene.optJSONArray("removed_props")?.let { a ->
-                        (0 until a.length()).map { p -> a.optString(p) }
+                        (0 until a.length()).map { p -> (a.opt(p) as? String).orEmpty() }
                     }.orEmpty()
                     val returned = scene.optJSONArray("returned_props")?.let { a ->
-                        (0 until a.length()).map { p -> a.optString(p) }
+                        (0 until a.length()).map { p -> (a.opt(p) as? String).orEmpty() }
                     }.orEmpty()
+                    findings.addAll(conflictingPropEvents(removed, returned).map { "$label: $it" })
                     val history = groupRemovedHistory.getOrPut(group) { mutableSetOf() }
                     findings.addAll(returnedPropIssues(history, currentNames, returned).map { "$label: $it" })
                     findings.addAll(undocumentedPropReturns(history, currentNames, returned).map { "$label: $it" })
