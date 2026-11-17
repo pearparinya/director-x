@@ -229,6 +229,17 @@ class ShortFlowPromptPreflightTest {
         }
     }
 
+    @Test fun visualPreflightAllowsVisiblePropWithUnrelatedConcealedProp() {
+        for (state in listOf(
+            "A letter is already visible in the first frame while a key is covered",
+            "A letter is already visible in the first frame and a key is hidden offscreen",
+            "A letter is already visible in the first frame, a key is inside a drawer"
+        )) {
+            val sample = scene().copy(action = "Character 1 takes out a letter", startState = state)
+            assertFalse(ShortFlowPrompt.visualWarnings(sample, "Locked camera").any { it.contains("prop") })
+        }
+    }
+
     @Test fun visualPreflightDoesNotTreatInvisibleObjectAsPresent() {
         val sample = scene().copy(
             action = "Character 1 takes out a letter",
