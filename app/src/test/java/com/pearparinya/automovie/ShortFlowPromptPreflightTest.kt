@@ -258,6 +258,23 @@ class ShortFlowPromptPreflightTest {
         ) == null)
     }
 
+    @Test fun unexplainedPropStateChangeRequiresReview() {
+        val issue = ContinuityReview.propContinuityIssue(
+            "จดหมาย", "อยู่ในมือ", "อยู่บนโต๊ะ", ""
+        )
+        assertTrue(issue?.contains("สิ่งของ จดหมาย เปลี่ยนสถานะ") == true)
+    }
+
+    @Test fun documentedOrUnchangedPropStateDoesNotWarn() {
+        assertTrue(ContinuityReview.propContinuityIssue(
+            "โทรศัพท์", "อยู่บนโต๊ะ", " อยู่บนโต๊ะ ", ""
+        ) == null)
+        assertTrue(ContinuityReview.propContinuityIssue(
+            "จดหมาย", "อยู่ในมือ", "อยู่บนโต๊ะ",
+            "ตัวละครวางจดหมายลงบนโต๊ะก่อนออกจากห้อง"
+        ) == null)
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
