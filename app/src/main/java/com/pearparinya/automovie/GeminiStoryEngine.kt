@@ -54,6 +54,18 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                     continue
                 }
                 rows.put(target,replacement.getJSONObject(0))
+            } else if(name=="outline.json" && issue.message.orEmpty().startsWith("ชื่อเรื่อง")) {
+                // Repair only the generated title: do not rewrite the validated plot, cast or episodes.
+                val originalTitle=value.optString("title")
+                val titleSchema=JSONObject().put("type","object")
+                    .put("properties",JSONObject().put("title",JSONObject().put("type","string")))
+                    .put("required",JSONArray().put("title"))
+                val proposal=generate("Return ONLY a new Thai story title in JSON. The previous title was rejected: "+
+                    issue.message.orEmpty()+". Do not use the publishing channel name or unrelated place/person names. "+
+                    "Base the title on the actual premise and story outline, not channel branding. "+
+                    "Keep all plot events and episode names unchanged. Previous title: "+originalTitle+
+                    ". Story outline: "+value.toString().take(10000)+marker,titleSchema).optString("title").trim()
+                if(proposal.isNotBlank() && proposal!=originalTitle) value.put("title",proposal)
             } else {
                 value=generate(prompt+marker+"Your previous JSON failed validation: "+issue.message.orEmpty().take(600)+
                     "\nReturn a corrected replacement with the same events and scene numbers. Previous JSON:\n"+value.toString(),schema)
