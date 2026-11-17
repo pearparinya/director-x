@@ -177,6 +177,15 @@ internal object ContinuityReview {
             .filter { it in history && it in current && it !in removedInThisScene }
             .forEach { history.remove(it) }
     }
+    /** Flag ambiguous duplicate character records without assuming the characters are different people. */
+    internal fun duplicateCharacterIssues(names: List<String>): List<String> = buildList {
+        val seen = mutableSetOf<String>()
+        names.forEachIndexed { index, raw ->
+            val normalized = raw.trim().lowercase().replace(Regex("\\s+"), " ")
+            if (normalized.isBlank()) add("ตัวละครลำดับ ${index + 1} ขาดชื่อ")
+            else if (!seen.add(normalized)) add("ตัวละครลำดับ ${index + 1} ชื่อ $raw ซ้ำในฉากเดียวกัน")
+        }
+    }
     /** A removed prop's old state must not be compared to a later, explicitly returned prop. */
     internal fun clearRemovedPropStates(
         states: MutableMap<Pair<String, String>, String>, group: String,
@@ -294,6 +303,12 @@ internal object ContinuityReview {
 
                 val startState = scene.optString("start_state").trim()
                 val endState = scene.optString("end_state").trim()
+                if (characters != null) {
+                    val names = (0 until characters.length()).map { c ->
+                        characters.optJSONObject(c)?.optString("name").orEmpty()
+                    }
+                    findings.addAll(duplicateCharacterIssues(names).map { "$label: $it" })
+                }
                 if (characters != null) for (c in 0 until characters.length()) {
                     val character = characters.optJSONObject(c) ?: continue
                     val name = character.optString("name").trim()
