@@ -114,6 +114,16 @@ class FlowProductionPackTest {
             }
         } finally { prefs.edit().putString("project",previous).remove("wardrobe_selected_stamp_$id").commit(); folder.deleteRecursively() }
     }
+    @Test fun malformedEpisodeAndSceneRowsAreReportedBeforeExport() {
+        val invalidEpisode = plan(1, 23)
+        invalidEpisode.getJSONArray("episodes").put(0, "not an episode")
+        assertTrue(FlowProductionPack.issues(invalidEpisode).any { it.contains("ต้องเป็น object") })
+
+        val invalidScene = plan(1, 23)
+        invalidScene.getJSONArray("episodes").getJSONObject(0)
+            .getJSONArray("scenes").put(0, "not a scene")
+        assertTrue(FlowProductionPack.issues(invalidScene).any { it.contains("ต้องเป็น object") })
+    }
     @Test fun referenceLabelsLeadCommandsWithoutImageFilenames() {
         val single=FlowTestPrompt.build(listOf("mind"),"home","ห้องครัว","ถือแก้วน้ำ","")
         assertTrue(single.contains(FlowVisualDirection.referencePriority))
