@@ -101,22 +101,37 @@ internal object ProductAssist {
             }
         })
         panel.addView(Button(activity).apply {
-            text="ทดสอบ API ที่บันทึก"; isAllCaps=false
+            text="ทดสอบ API ค้นหาสินค้า"; isAllCaps=false
             setOnClickListener {
-                val choices=arrayOf("Tavily", "Exa", "SerpApi", "Firecrawl")
-                AlertDialog.Builder(activity).setTitle("เลือก API เพื่อทดสอบ").setMessage("การทดสอบจะใช้โควตาค้นหา 1 ครั้ง")
+                val choices=arrayOf("Tavily", "Exa", "SerpApi", "Firecrawl", "Long Search")
+                val ids=listOf("tavily", "exa", "serpapi", "firecrawl", "longsearch")
+                AlertDialog.Builder(activity).setTitle("เลือก API เพื่อทดสอบ")
+                    .setMessage("ทดสอบออนไลน์เมื่อกดเลือกเท่านั้น • อาจใช้โควตา 1 ครั้ง")
                     .setItems(choices) { _, selected ->
-                        val id=if(selected==0) "tavily" else "exa"
-                        if(searchSettings.key(id).isBlank()) {
-                            AlertDialog.Builder(activity).setMessage("ยังไม่ได้บันทึก API Key").setPositiveButton("ตกลง",null).show()
+                        val id=ids[selected]
+                        if(id=="longsearch") {
+                            AlertDialog.Builder(activity).setTitle("Long Search • ยังไม่รองรับการทดสอบ")
+                                .setMessage("มีช่องตั้งค่าคีย์ แต่ยังไม่มีตัวเชื่อมต่อค้นหา Long Search ที่ตรวจสอบได้ จึงไม่ส่งคำขอหรือรายงานว่าผ่าน")
+                                .setPositiveButton("ตกลง",null).show()
+                        } else if(searchSettings.key(id).isBlank()) {
+                            AlertDialog.Builder(activity).setTitle("ยังไม่ได้ตั้งค่า")
+                                .setMessage("ยังไม่ได้บันทึก API Key ของ ${choices[selected]}")
+                                .setPositiveButton("ตกลง",null).show()
                         } else {
                             val progress=AlertDialog.Builder(activity).setMessage("กำลังทดสอบ ${choices[selected]}…").setCancelable(false).show()
                             Thread {
+                                val started=System.nanoTime()
                                 val result=runCatching { FreeProductSearch.search(activity.applicationContext,id,"แก้วน้ำ",1,ProductSearchControl()) }
+                                val elapsed=(System.nanoTime()-started)/1_000_000
                                 activity.runOnUiThread {
                                     progress.dismiss(); refreshQuota()
-                                    if(!activity.isFinishing && !activity.isDestroyed) AlertDialog.Builder(activity).setTitle("ผลทดสอบ ${choices[selected]}")
-                                        .setMessage(result.fold({ "เชื่อมต่อสำเร็จ • พบลิงก์สินค้าที่ตรวจรูปแบบได้ ${it.size} รายการ" }, { ProductSearchRotation.friendly(it) }))
+                                    if(!activity.isFinishing && !activity.isDestroyed) AlertDialog.Builder(activity)
+                                        .setTitle("ผลทดสอบ ${choices[selected]}")
+                                        .setMessage(result.fold(
+                                            { if(it.isEmpty()) "ไม่เจอ • เชื่อมต่อได้ แต่ไม่พบลิงก์สินค้าที่ตรงรูปแบบ • ${elapsed} ms"
+                                              else "ผ่าน • พบลิงก์สินค้าที่ตรงรูปแบบ ${it.size} รายการ • ${elapsed} ms" },
+                                            { "ไม่ผ่าน • ${ProductSearchRotation.friendly(it)} • ${elapsed} ms" }
+                                        ))
                                         .setPositiveButton("ตกลง",null).show()
                                 }
                             }.start()
