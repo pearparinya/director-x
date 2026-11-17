@@ -771,4 +771,16 @@ class ShortFlowPromptPreflightTest {
         assertTrue(ShortFlowPrompt.audioWarnings(original).isNotEmpty())
         assertTrue(ShortFlowPrompt.build(original, "Locked camera.").contains(original.dialogue))
     }
+
+    @Test fun contradictorySameScenePropEventsDoNotErasePriorRemovalHistory() {
+        val history = mutableSetOf("จดหมาย")
+        ContinuityReview.advanceRemovedPropHistory(
+            history, emptySet(), setOf("จดหมาย"),
+            listOf("จดหมาย"), listOf("จดหมาย")
+        )
+        assertTrue("จดหมาย" in history)
+        assertTrue(ContinuityReview.undocumentedPropReturns(
+            history, setOf("จดหมาย"), emptyList()
+        ).isNotEmpty())
+    }
 }
