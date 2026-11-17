@@ -137,4 +137,27 @@ class ScriptStructurePreflightTest {
         assertTrue(ScriptStructurePreflight.storyIssues(story).isEmpty())
     }
 
+    @Test fun emptyOrderedTurnsPreserveLegacySingleSpeaker() {
+        val story = JSONObject("""{"episodes":[{"ep":1,"scenes":[{
+            "scene":1,"story_day":"DAY01","story_time":"morning",
+            "location":"home","start_state":"standing","end_state":"sitting",
+            "characters":[{"name":"นายเปีย"}],"speaker":"นายเปีย",
+            "dialogue":"สวัสดีครับ","dialogue_turns":[]
+        }]}]}""")
+        assertTrue(ScriptStructurePreflight.storyIssues(story).isEmpty())
+        val scene = story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
+        scene.remove("speaker")
+        assertTrue(ScriptStructurePreflight.storyIssues(story).any { it.contains("ขาด speaker") })
+    }
+
+    @Test fun orderedDialogueTurnWithoutTextIsRejected() {
+        val story = JSONObject("""{"episodes":[{"ep":1,"scenes":[{
+            "scene":1,"story_day":"DAY01","story_time":"morning",
+            "location":"home","start_state":"standing","end_state":"sitting",
+            "characters":[{"name":"นายเปีย"}],
+            "dialogue_turns":[{"speaker":"นายเปีย","text":""}]
+        }]}]}""")
+        assertTrue(ScriptStructurePreflight.storyIssues(story).any { it.contains("ขาดข้อความบทพูด") })
+    }
+
 }
