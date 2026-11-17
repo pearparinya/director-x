@@ -63,11 +63,14 @@ internal object ContinuityReview {
     }
     internal fun missingPropIssues(
         previousNames: Set<String>, currentNames: Set<String>, removedNames: Set<String>
-    ): List<String> = previousNames.map { it.trim().lowercase() }
-        .filter { it.isNotBlank() && it !in currentNames.map(String::trim).map(String::lowercase) &&
-            it !in removedNames.map(String::trim).map(String::lowercase) }
-        .distinct()
-        .map { "สิ่งของ $it ไม่ปรากฏในรายการฉากถัดไป โปรดตรวจว่าออกจากฉากโดยตั้งใจหรือข้อมูลตกหล่น" }
+    ): List<String> {
+        val current = currentNames.map { it.trim().lowercase() }.toSet()
+        val removed = removedNames.map { it.trim().lowercase() }.toSet()
+        return previousNames.map { it.trim().lowercase() }
+            .filter { it.isNotBlank() && it !in current && it !in removed }
+            .distinct()
+            .map { "สิ่งของ $it ไม่ปรากฏในรายการฉากถัดไป โปรดตรวจว่าออกจากฉากโดยตั้งใจหรือข้อมูลตกหล่น" }
+    }
     fun review(story: JSONObject): List<String> {
         val findings = mutableListOf<String>()
         val groups = mutableMapOf<String, Pair<String, String>>()
