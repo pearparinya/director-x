@@ -167,7 +167,7 @@ class FlowProductionPackTest {
                 .put("flow_action","May stands holding an envelope")
                 .put("image_prompt","May holds a sealed envelope, medium shot, photorealistic 9:16.")
                 .put("flow_prompt","8 seconds. May looks down at the envelope. No speech.")
-                .put("location","ห้องนั่งเล่น").put("start_state","ซองปิด").put("end_state","มองซอง")
+                .put("location","living room").put("start_state","ซองปิด").put("end_state","มองซอง")
                 .put("characters",JSONArray().put(JSONObject().put("name","เมย์").put("master","MIND_MASTER.png").put("outfit","เสื้อสีครีม กางเกงขายาว")
                     .put("visual_description","short auburn bob").put("screen_position","frame-left")))) }
             eps.put(JSONObject().put("ep",e+1).put("title","ตอน ${e+1}").put("scenes",rows))
