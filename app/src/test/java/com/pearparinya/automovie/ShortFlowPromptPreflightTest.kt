@@ -65,7 +65,7 @@ class ShortFlowPromptPreflightTest {
             SceneCommandCards.Card("ซีน 2", "<prompt>second</prompt>")
         )
         val exported = SceneCommandCards.exportVideoEpisode(cards)
-        assertTrue(exported.startsWith("FLOW VISUAL PREFLIGHT:"))
+        assertTrue(exported.startsWith("=== FLOW VISUAL PREFLIGHT REPORT (NOT PART OF VIDEO PROMPTS) ===\nFLOW VISUAL PREFLIGHT:"))
         assertTrue(exported.contains("1 scene(s), 1 warning(s)"))
         assertTrue(exported.contains("Missing first-frame prop"))
         assertTrue(exported.indexOf("Missing first-frame prop") < exported.indexOf("<prompt>first</prompt>"))
