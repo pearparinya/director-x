@@ -107,6 +107,25 @@ class ShortFlowPromptPreflightTest {
         assertTrue(issues.isEmpty())
     }
 
+    @Test fun dialogueTurnContentIdentifiesMissingSpeakerAndTextSeparately() {
+        val issues = ProductionCommandCheck.dialogueTurnContentIssues(listOf(
+            FlowDialogueTurn("", "สวัสดีครับ"),
+            FlowDialogueTurn("สมชาย", "ไม่มี"),
+            FlowDialogueTurn("สมชาย", "ข้อความจริง")
+        ))
+        assertTrue(issues.size == 2)
+        assertTrue(issues.any { it.contains("บทสนทนาลำดับ 1 ขาดชื่อผู้พูด") })
+        assertTrue(issues.any { it.contains("บทสนทนาลำดับ 2 ขาดข้อความ") })
+    }
+
+    @Test fun completeDialogueTurnsPreserveValidThaiSpeech() {
+        val issues = ProductionCommandCheck.dialogueTurnContentIssues(listOf(
+            FlowDialogueTurn("สมชาย", "สวัสดีครับ"),
+            FlowDialogueTurn("สมหญิง", "สวัสดีค่ะ")
+        ))
+        assertTrue(issues.isEmpty())
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
