@@ -212,4 +212,18 @@ class ScriptStructurePreflightTest {
         assertTrue(story.toString() == original)
     }
 
+    @Test fun legacyDialogueFieldsMustBeStringsAndSourceRemainsUnchanged() {
+        val story = JSONObject("""{"episodes":[{"ep":1,"scenes":[{
+            "scene":1,"story_day":"DAY01","story_time":"morning",
+            "location":"home","start_state":"standing","end_state":"sitting",
+            "characters":[{"name":"นายเปีย"}],
+            "speaker":123,"dialogue":456
+        }]}]}""")
+        val original = story.toString()
+        val issues = ScriptStructurePreflight.storyIssues(story)
+        assertTrue(issues.any { it.contains("speaker ต้องเป็นข้อความ") })
+        assertTrue(issues.any { it.contains("dialogue ต้องเป็นข้อความ") })
+        assertTrue(story.toString() == original)
+    }
+
 }
