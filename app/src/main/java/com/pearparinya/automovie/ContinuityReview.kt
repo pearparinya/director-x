@@ -172,8 +172,9 @@ internal object ContinuityReview {
                 .filter { it.isNotBlank() && it in previous && it !in current }
                 .forEach { history.add(it) }
         }
+        val removedInThisScene = removedNames.map { it.trim().lowercase() }.toSet()
         returnedNames.map { it.trim().lowercase() }
-            .filter { it in history && it in current }
+            .filter { it in history && it in current && it !in removedInThisScene }
             .forEach { history.remove(it) }
     }
     fun review(story: JSONObject): List<String> {
