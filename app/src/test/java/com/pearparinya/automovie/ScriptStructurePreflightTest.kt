@@ -160,4 +160,30 @@ class ScriptStructurePreflightTest {
         assertTrue(ScriptStructurePreflight.storyIssues(story).any { it.contains("ขาดข้อความบทพูด") })
     }
 
+    @Test fun mixingSingleAndMultiSpeakerDialogueIsRejectedWithoutEditingThaiText() {
+        val story = JSONObject("""{"episodes":[{"ep":1,"scenes":[{
+            "scene":1,"story_day":"DAY01","story_time":"morning",
+            "location":"home","start_state":"standing","end_state":"sitting",
+            "characters":[{"name":"นายเปีย"}],
+            "speaker":"นายเปีย","dialogue":"สวัสดีครับ",
+            "dialogue_turns":[{"speaker":"นายเปีย","text":"ไปกันเถอะ"}]
+        }]}]}""")
+        val original = story.toString()
+        assertTrue(ScriptStructurePreflight.storyIssues(story).any { it.contains("ขัดแย้งกับ speaker/dialogue") })
+        assertTrue(story.toString() == original)
+    }
+
+    @Test fun narrationCannotOverlapSpokenDialogueButNarrationOnlyIsValid() {
+        val story = JSONObject("""{"episodes":[{"ep":1,"scenes":[{
+            "scene":1,"story_day":"DAY01","story_time":"morning",
+            "location":"home","start_state":"standing","end_state":"sitting",
+            "characters":[{"name":"นายเปีย"}],
+            "narration":"ผู้บรรยายกล่าว","dialogue_turns":[{"speaker":"นายเปีย","text":"ครับ"}]
+        }]}]}""")
+        assertTrue(ScriptStructurePreflight.storyIssues(story).any { it.contains("narration และบทพูด") })
+        val scene = story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
+        scene.remove("dialogue_turns")
+        assertTrue(ScriptStructurePreflight.storyIssues(story).isEmpty())
+    }
+
 }
