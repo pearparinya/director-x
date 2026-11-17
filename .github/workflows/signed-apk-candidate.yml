@@ -41,6 +41,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+          cache-read-only: false
       - name: Validate release configuration
         run: python3 scripts/check_release_config.py
       - name: Restore and validate existing signing key
@@ -62,16 +63,17 @@ jobs:
         run: |
           set -euo pipefail
           # Retry transient Maven Central rate limits, not Kotlin/Gradle compilation errors.
-          for attempt in 1 2 3; do
+          for attempt in 1 2 3 4; do
             LOG="$RUNNER_TEMP/director-x-build-attempt-$attempt.log"
             if gradle --no-daemon :app:testDebugUnitTest :app:assembleRelease 2>&1 | tee "$LOG"; then
               exit 0
             fi
-            if [ "$attempt" -eq 3 ] || ! grep -Eiq '429|Too Many Requests' "$LOG"; then
+            if [ "$attempt" -eq 4 ] || ! grep -Eiq '429|Too Many Requests' "$LOG"; then
               echo "::error::Build failed (not a retryable rate limit, or attempts exhausted)"
               exit 1
             fi
-            sleep $((attempt * 20))
+            echo "::warning::Maven repository rate limited; waiting before retry $((attempt + 1))"
+            sleep $((attempt * 45))
           done
       - name: Sign, verify and inspect candidate APK
         shell: bash
