@@ -405,6 +405,44 @@ class ShortFlowPromptPreflightTest {
         )).isEmpty())
     }
 
+    @Test fun propLifecycleAcrossEpisodesSupportsRepeatedRemovalAndReturn() {
+        val history = mutableSetOf<String>()
+        // EP1: letter exists, then is removed.
+        ContinuityReview.advanceRemovedPropHistory(
+            history, setOf("จดหมาย"), emptySet(), listOf("จดหมาย"), emptyList()
+        )
+        assertTrue("จดหมาย" in history)
+        // EP2: letter reappears with an explicit return.
+        assertTrue(ContinuityReview.undocumentedPropReturns(
+            history, setOf("จดหมาย"), listOf("จดหมาย")
+        ).isEmpty())
+        ContinuityReview.advanceRemovedPropHistory(
+            history, emptySet(), setOf("จดหมาย"), emptyList(), listOf("จดหมาย")
+        )
+        assertTrue(history.isEmpty())
+        // EP3: same prop may be removed again.
+        ContinuityReview.advanceRemovedPropHistory(
+            history, setOf("จดหมาย"), emptySet(), listOf("จดหมาย"), emptyList()
+        )
+        assertTrue("จดหมาย" in history)
+        assertTrue(ContinuityReview.undocumentedPropReturns(
+            history, setOf("จดหมาย"), emptyList()
+        ).isNotEmpty())
+    }
+
+    @Test fun malformedOrUnjustifiedPropEventsDoNotCorruptHistory() {
+        val history = mutableSetOf<String>()
+        ContinuityReview.advanceRemovedPropHistory(
+            history, setOf("โทรศัพท์"), setOf("โทรศัพท์"),
+            listOf("โทรศัพท์", "กระเป๋า"), listOf("กระเป๋า")
+        )
+        assertTrue(history.isEmpty())
+        ContinuityReview.advanceRemovedPropHistory(
+            history, null, emptySet(), listOf("โทรศัพท์"), emptyList()
+        )
+        assertTrue(history.isEmpty())
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
