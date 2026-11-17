@@ -783,4 +783,21 @@ class ShortFlowPromptPreflightTest {
             history, setOf("จดหมาย"), emptyList()
         ).isNotEmpty())
     }
+
+    @Test fun incompleteSceneEndClearsPriorGroupState() {
+        val history = mutableMapOf<String, String>()
+        ContinuityReview.advanceEndState(history, "HOME", "ถือจดหมาย")
+        assertTrue(history["HOME"] == "ถือจดหมาย")
+        ContinuityReview.advanceEndState(history, "HOME", " ")
+        assertFalse(history.containsKey("HOME"))
+    }
+
+    @Test fun missingEndStateOnlyClearsItsOwnContinuityGroup() {
+        val history = mutableMapOf("HOME" to "ถือจดหมาย", "OFFICE" to "นั่งโต๊ะ")
+        ContinuityReview.advanceEndState(history, "HOME", "")
+        assertTrue(history["OFFICE"] == "นั่งโต๊ะ")
+        assertFalse(history.containsKey("HOME"))
+        ContinuityReview.advanceEndState(history, "", "ignored")
+        assertFalse(history.containsKey(""))
+    }
 }
