@@ -31,4 +31,21 @@ class CinematicContinuityReviewTest {
         ))
         assertTrue(findings.none { it.contains("ไม่ตรงกับสถานะสิ้นสุด") })
     }
+    @Test fun detectsLocationChangeWithinSameContinuityGroup() {
+        val second = scene(2, "door open", "person enters").put("location", "garden")
+        val findings = ContinuityReview.review(story(
+            scene(1, "door closed", "door open"),
+            second
+        ))
+        assertTrue(findings.any { it.contains("สถานที่ของกลุ่มต่อเนื่อง") && it.contains("ซีน 2") })
+    }
+
+    @Test fun caseOnlyDifferencesDoNotTriggerStateMismatch() {
+        val findings = ContinuityReview.review(story(
+            scene(1, "door closed", "Door Open"),
+            scene(2, "door open", "person enters")
+        ))
+        assertTrue(findings.none { it.contains("ไม่ตรงกับสถานะสิ้นสุด") })
+    }
+
 }
