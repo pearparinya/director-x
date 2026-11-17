@@ -5,6 +5,16 @@ package com.pearparinya.automovie
  * and restore them after process death; never regenerate already completed scenes.
  */
 internal object ImageSceneQueue {
+    /** Restore only validated saved scene IDs for the current project. */
+    fun restore(sceneIds: List<Int>, savedProgress: String): State {
+        val completed = if (savedProgress.isBlank()) emptySet() else
+            savedProgress.split(",").map { token ->
+                token.trim().toIntOrNull()?.takeIf { it > 0 }
+                    ?: throw IllegalArgumentException("Invalid saved scene ID")
+            }.toSet()
+        return State(sceneIds, completed)
+    }
+
     data class State(
         val sceneIds: List<Int>,
         val completedSceneIds: Set<Int> = emptySet()
@@ -20,6 +30,8 @@ internal object ImageSceneQueue {
         val progressPercent: Int get() =
             if (totalCount == 0) 100 else completedCount * 100 / totalCount
         val nextPendingScene: Int? get() = sceneIds.firstOrNull { it !in completedSceneIds }
+
+        fun encodeProgress(): String = completedSceneIds.sorted().joinToString(",")
 
         fun markCompleted(sceneId: Int): State {
             require(sceneId in sceneIds) { "Unknown scene ID" }
