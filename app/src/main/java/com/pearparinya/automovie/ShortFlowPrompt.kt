@@ -65,12 +65,25 @@ internal object ShortFlowPrompt {
         val type=when { upper.contains("แจ็กเก็ต") || upper.contains("แจ็คเก็ต") -> "jacket"; upper.contains("เสื้อคลุม") -> "coat"; upper.contains("เสื้อเชิ้ต") -> "shirt"; upper.contains("เสื้อยืด") -> "T-shirt"; upper.contains("เสื้อ") -> "top"; upper.contains("ชุดทำงาน") -> "work outfit"; else -> null }
         return if (color!=null && type!=null) "$color $type" else cue
     }
+    /** Blocking preflight for the Flow prompt; dialogue remains untouched. */
+    internal fun directionIssues(s: FlowSceneSpec, camera: String): List<String> = buildList {
+        if (camera.isBlank()) add("Camera direction is missing.")
+        if (thai.containsMatchIn(camera)) add("Camera direction must be in English.")
+        if (thai.containsMatchIn(typed(s, aliases(s, s.location)))) add("Scene location must be in English.")
+        val cameraText = camera.lowercase()
+        if (Regex("\\b(locked|static|tripod)\\b").containsMatchIn(cameraText) &&
+            Regex("\\b(pan|tilt|tracking|dolly|push.in|orbit|handheld)\\b").containsMatchIn(cameraText))
+            add("Camera direction contains both locked and moving camera instructions.")
+        if (Regex("\\b(cut|montage|multiple shots)\\b").containsMatchIn(cameraText))
+            add("This 8-second first-frame prompt requires one continuous shot.")
+    }
     fun untranslatedFields(s: FlowSceneSpec,camera: String): List<String> = buildList {
         if(thai.containsMatchIn(aliases(s,s.action))) add("การกระทำสำหรับวิดีโอ")
         if(s.cast.any { thai.containsMatchIn(aliases(s,it.position)) }) add("ตำแหน่งตัวละคร")
         if(s.cast.any { thai.containsMatchIn(clothing(it)) }) add("เสื้อผ้าตัวละคร")
         if(thai.containsMatchIn(aliases(s,s.sound))) add("เสียงฉาก")
         if(thai.containsMatchIn(camera)) add("กล้อง")
+        if(thai.containsMatchIn(typed(s,aliases(s,s.location)))) add("สถานที่ฉาก")
     }
     internal fun motion(vararg parts: String): String {
         val text=parts.joinToString(" ").lowercase()
@@ -83,16 +96,73 @@ internal object ShortFlowPrompt {
         if(Regex("fog|mist|หมอก").containsMatchIn(text)) rules.add("Visible fog moves gently")
         return rules.joinToString(". ")
     }
+    /** Visual preflight is advisory: preserve authored actions rather than silently rewriting them. */
+    internal fun visualWarnings(s: FlowSceneSpec, camera: String): List<String> = buildList {
+        val scene = listOf(s.action, s.startState, s.endState).joinToString(" ")
+        val cameraText = camera.lowercase()
+        if (Regex("(?i)\\b(?:cut to|jump cut|montage|multiple shots|new angle)\\b|ตัดภาพไป|ตัดฉาก|เปลี่ยนมุมกล้อง").containsMatchIn(scene))
+            add("A first-frame 8-second video must remain one continuous shot; review scene transitions.")
+        val introducedProp = Regex("(?i)\\b(?:suddenly appears|materializ(?:es|ed|ing)|new object appears|pulls out (?:an? |the )|takes out (?:an? |the )|produces (?:an? |the )|conjures (?:an? |the ))\\b")
+        val introducedName = Regex("(?i)\\b(?:pulls out|takes out|produces|conjures) (?:an? |the )([a-z]+)\\b").find(s.action)?.groupValues?.get(1)
+        val objectAlreadyVisible = introducedName != null && s.startState
+            .split(Regex("[;.!?,]|\\b(?:while|whereas|and)\\b", RegexOption.IGNORE_CASE))
+            .any { clause ->
+                val objectMentioned = Regex("(?i)\\b" + Regex.escape(introducedName) + "\\b").containsMatchIn(clause)
+                val visible = Regex("(?i)\\b(?:already visible|already present|visible in the first frame|visible from the start)\\b").containsMatchIn(clause)
+                val hidden = Regex("(?i)\\b(?:hidden|offscreen|off-screen|not visible|never visible|out of frame|behind (?:the |a )?\\w+|inside (?:the |a )?\\w+|covered|obscured)\\b").containsMatchIn(clause)
+                objectMentioned && visible && !hidden
+            }
+        if (introducedProp.containsMatchIn(s.action) && !objectAlreadyVisible)
+            add("An action may introduce a prop absent from the first frame; verify prop continuity.")
+        val daytime = Regex("(?i)\\b(?:daylight|daytime|midday)\\b|กลางวัน")
+        val nighttime = Regex("(?i)\\b(?:night|midnight|nighttime)\\b|กลางคืน")
+        if (daytime.containsMatchIn(s.startState) && nighttime.containsMatchIn(s.endState))
+            add("The end state changes day to night within an 8-second continuous shot.")
+        if (nighttime.containsMatchIn(s.startState) && daytime.containsMatchIn(s.endState))
+            add("The end state changes night to day within an 8-second continuous shot.")
+        if (Regex("(?i)\\b(?:locked|static|tripod)\\b").containsMatchIn(cameraText) &&
+            Regex("(?i)\\b(?:pan|tilt|dolly|tracking|orbit|handheld)\\b").containsMatchIn(cameraText))
+            add("Locked and moving camera directions conflict.")
+        if (Regex("(?i)\\b(?:letter|document|paper|contract|book|blueprint)\\b").containsMatchIn(scene) &&
+            Regex("(?i)\\b(?:reads?|inspects?|examines?)\\b").containsMatchIn(s.action))
+            add("Verify that the document's written side faces the reader and hands and gaze remain consistent.")
+    }
+    /** Non-destructive timing warnings: never rewrite or truncate the original screenplay. */
+    internal fun audioWarnings(s: FlowSceneSpec): List<String> = buildList {
+        val turns = if (s.turns.isNotEmpty()) s.turns.map { it.text } else listOf(s.dialogue)
+        val spokenLines = (turns + s.narration).filter { spoken(it).isNotEmpty() }
+        if (spokenLines.sumOf { it.length } > 85) add("Thai speech may be too long for a natural 8-second shot.")
+        if (spokenLines.size > 2) add("Multiple spoken turns can increase audio generation complexity.")
+        if (spoken(s.narration).isNotEmpty() && turns.any { spoken(it).isNotEmpty() })
+            add("Narration and dialogue may compete for the same 8-second audio window.")
+        if (s.turns.isNotEmpty() && s.turns.any { it.speaker.isBlank() })
+            add("A dialogue turn has no speaker; verify voice assignment before generating.")
+        if (s.turns.isNotEmpty() && s.turns.any { spoken(it.text).isEmpty() })
+            add("An ordered dialogue turn has no spoken text.")
+        if (spoken(s.narration).isNotEmpty() && s.offscreen.isEmpty())
+            add("Narration must remain off-screen; verify that visible characters do not lip-sync the narrator.")
+        if (Regex("(?i)\\b(?:shout(?:s|ed|ing)?|scream(?:s|ed|ing)?|whisper(?:s|ed|ing)?)\\b").containsMatchIn(s.action) && spokenLines.isEmpty())
+            add("Scene direction requests a vocal performance but no spoken dialogue is provided.")
+    }
     private fun speechText(text: String): String = text.trim()
     private fun speakerLabel(s: FlowSceneSpec, name: String): String {
         val index=s.cast.indexOfFirst { it.name.trim()==name.trim() || StoryIdentity.keyFor(it.name)?.let { key -> key==StoryIdentity.keyFor(name) }==true }
         return if(index>=0) labels(s)[index] else "Off-screen speaker"
     }
-    fun voiceOnly(s: FlowSceneSpec): String = when {
-        s.turns.isNotEmpty() -> s.turns.joinToString("\n") { "${speakerLabel(s,it.speaker)}: ${speechText(it.text)}" }
-        spoken(s.dialogue).isNotEmpty() -> "${speakerLabel(s,s.speaker)}: ${speechText(spoken(s.dialogue))}"
-        spoken(s.narration).isNotEmpty() -> "Off-screen narrator: ${speechText(spoken(s.narration))}"
-        else -> "No spoken dialogue."
+    /** Preserve both cast dialogue and off-screen narration in the audio-only export. */
+    fun voiceOnly(s: FlowSceneSpec): String {
+        val lines = mutableListOf<String>()
+        if (s.turns.isNotEmpty()) {
+            s.turns.filter { spoken(it.text).isNotEmpty() }.forEach {
+                lines.add("${speakerLabel(s, it.speaker)}: ${speechText(it.text)}")
+            }
+        } else if (spoken(s.dialogue).isNotEmpty()) {
+            lines.add("${speakerLabel(s, s.speaker)}: ${speechText(spoken(s.dialogue))}")
+        }
+        if (spoken(s.narration).isNotEmpty()) {
+            lines.add("Off-screen narrator: ${speechText(spoken(s.narration))}")
+        }
+        return lines.joinToString("\n").ifBlank { "No spoken dialogue." }
     }
     fun plain(s: FlowSceneSpec, camera: String): String {
         val structured=build(s,camera)
@@ -100,14 +170,15 @@ internal object ShortFlowPrompt {
     }
     fun build(s: FlowSceneSpec, camera: String, silent: Boolean=false): String {
         require(FlowScenePrompt.issues(s).isEmpty()) { "ตรวจข้อมูลซีนก่อนคัดลอกคำสั่ง" }
+        require(directionIssues(s,camera).isEmpty()) { directionIssues(s,camera).joinToString("\n") }
         val action=typed(s,aliases(s,s.action.trim()))
         val positions=s.cast.map { typed(s,aliases(s,it.position.trim())) }
         val clothes=s.cast.map { clothing(it).takeUnless { value -> value.equals("none",true) } .orEmpty() }
         val sound=typed(s,aliases(s,s.sound.trim()))
             .replace(Regex("\\b(?:(?:soft|quiet|low|faint|gentle|indoor)\\s+)*murmurs?\\s+of\\s+(?:(?:art|gallery|room|office)\\s+)*(?:patrons|people|crowds?|visitors|guests)\\b",RegexOption.IGNORE_CASE),"quiet room tone")
             .replace(Regex("\\b(?:indoor )?murmurs\\b",RegexOption.IGNORE_CASE),"quiet room tone")
-        require(!thai.containsMatchIn(action) && positions.none { thai.containsMatchIn(it) } && !thai.containsMatchIn(sound) && !thai.containsMatchIn(camera) && clothes.none { thai.containsMatchIn(it) }) {
-            "คำบรรยายการกระทำ ตำแหน่ง หรือเสียงยังมีภาษาไทย • กรุณาแก้เป็นภาษาอังกฤษก่อนคัดลอก โดยคงบทพูดภาษาไทย"
+        require(!thai.containsMatchIn(action) && positions.none { thai.containsMatchIn(it) } && !thai.containsMatchIn(sound) && !thai.containsMatchIn(camera) && clothes.none { thai.containsMatchIn(it) } && !thai.containsMatchIn(typed(s,aliases(s,s.location)))) {
+            "คำกำกับการกระทำ ตำแหน่ง สถานที่ กล้อง หรือเสียงยังมีภาษาไทย • กรุณาแปลเป็นภาษาอังกฤษก่อนคัดลอก โดยคงบทพูดภาษาไทย"
         }
         val cast=positions.mapIndexed { i,pos -> "${labels(s)[i]}: $pos" + clothes[i].takeIf { it.isNotBlank() }?.let { ", wearing $it" }.orEmpty() + s.cast[i].appearance.trim().takeIf { it.isNotBlank() && it.length<=160 && !thai.containsMatchIn(it) && !it.contains("MASTER",true) }?.let { ", appearance: $it" }.orEmpty() }.joinToString("; ")
         val performance=s.cast.mapIndexedNotNull { i,person ->
@@ -115,7 +186,7 @@ internal object ShortFlowPrompt {
                 .joinToString("; ")
             cues.takeIf { it.isNotBlank() }?.let { "${labels(s)[i]} performance: ${typed(s,aliases(s,it))}" }
         }.joinToString(". ")
-        val direction="Perform each character's recorded emotion and reaction naturally in this scene, respecting the prior scene and existing action. Silent listeners may react silently."
+        val direction="Use restrained cinematic performances, motivated eye-lines, natural breathing, subtle reactions and consistent emotional continuity. Silent listeners react without speaking."
         val spokenTurns=when {
             silent -> emptyList()
             s.turns.isNotEmpty() -> s.turns.map { it.speaker to it.text }
@@ -135,20 +206,20 @@ internal object ShortFlowPrompt {
         }.joinToString(". ")
         val location=typed(s,aliases(s,s.location.trim())).takeIf { it.isNotBlank() && !thai.containsMatchIn(it) }.orEmpty()
         val visual=listOf("Use the attached first frame as the starting point. One continuous 8-second vertical 9:16 shot",cast,location.takeIf { it.isNotBlank() }?.let { "Environment: $it" }.orEmpty(),action,
-            "Preserve each character's identity, face or species-specific features, hair or fur, body proportions, position, clothing and props from the first frame. Keep the location and lighting consistent throughout",ScenePropContinuity.video,performance,direction,
-            motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}",instructions)
-            .filter { it.isNotBlank() }.joinToString(". ")
+            "Preserve each character's identity, face or species-specific features, hair or fur, body proportions, position, clothing and props from the first frame. Keep the location and lighting consistent throughout",ScenePropContinuity.video,ReadingPropPolicy.forScene(s.action,s.startState,s.endState),visualWarnings(s,camera).takeIf { it.isNotEmpty() }?.let { "Visual continuity preflight: " + it.joinToString(" ") }.orEmpty(),performance,direction,
+            motion(s.action,s.location,s.startState,s.endState,s.sound),"Cinematography: natural depth, motivated contrast, consistent screen direction and exposure; preserve the attached frame's established color grade. Camera: ${camera.trim()}",instructions)
+            .map { it.trim().trimEnd('.', ' ') }.filter { it.isNotBlank() }.joinToString(". ")
         val lines=allSpokenTurns.joinToString("") { (name,text) ->
             val label=if(name.isBlank()) "Off-screen narrator" else speakerLabel(s,name)
             val offscreen=name.isBlank() || s.offscreen.any { it.trim()==name.trim() }
             "<dialogue${if(offscreen) " off_screen=\"true\"" else ""}><speaker>${xml(label)}</speaker><text>${xml(speechText(text))}</text><language>th-TH</language></dialogue>"
         }
-        val audio=if(silent) "No speech, narration, music or sound effects; visible characters remain silent." else if(lines.isEmpty()) "No dialogue or narration; visible characters remain silent." else "Speak the exact written Thai words in turn, naturally within 8 seconds without rushing. Other visible characters remain silent while the current speaker speaks. Preserve each character's anatomy. No extra voices, overlap or subtitles."
+        val audio=if(silent) "No speech, narration, music or sound effects; visible characters remain silent." else if(lines.isEmpty()) "No dialogue or narration; visible characters remain silent. Only explicitly requested environmental sounds are allowed." else "Deliver only the exact Thai dialogue with clear cinematic foreground speech and natural pacing within the shot; never rush or invent words. Other visible characters remain silent while the current speaker speaks. Preserve each character's anatomy. No extra voices, overlap or subtitles."
         val soundParts=Regex("(?is)^Ambience: (.*?); SFX: (.*?); Music: (.*?)[.]?$").matchEntire(sound)
         val ambient=soundParts?.groupValues?.get(1) ?: sound.ifBlank { "none specified" }
         val sfx=soundParts?.groupValues?.get(2) ?: "none specified"
-        val music=soundParts?.groupValues?.get(3) ?: "none specified"
-        val effects=if(silent) "" else "<sound_effects><ambient>${xml(ambient)}</ambient><sfx>${xml(sfx)}</sfx><music>${xml(music)}</music><mix>Keep sound below dialogue; no additional voices.</mix></sound_effects>"
-        return "<flow><scene><aspect_ratio>9:16</aspect_ratio><duration>8</duration><lighting>5500K daylight white balance, pure bright studio lighting, no yellow light. Preserve the first frame's lighting direction and scene continuity.</lighting><typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone><prompt>${xml(visual+". "+audio)}</prompt>$lines$effects</scene></flow>"
+        val music=soundParts?.groupValues?.get(3)?.trim()?.trimEnd('.') ?: "none specified"
+        val effects=if(silent) "" else "<sound_effects><ambient>${xml(ambient)}</ambient><sfx>${xml(sfx)}</sfx><music>${xml(music)}</music><mix>Use natural spatial ambience and restrained foley; keep all effects and music below dialogue. No additional voices.</mix></sound_effects>"
+        return "<flow><scene><aspect_ratio>9:16</aspect_ratio><duration>8</duration><lighting>Preserve the first frame's motivated practical lighting, cinematic color grade, natural skin tones, and shadow direction. Do not introduce new light sources or change the time of day. Keep scene continuity.</lighting><typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone><prompt>${xml(visual+". "+audio)}</prompt>$lines$effects</scene></flow>"
     }
 }
