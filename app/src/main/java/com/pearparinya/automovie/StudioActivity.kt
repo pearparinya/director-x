@@ -4897,6 +4897,9 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             text = "จัดการวัตถุในฉาก (Cinematic Props)"
             setOnClickListener {
                 CinematicPropDialog.show(this@StudioActivity, "${project.name}:${key(s)}") {
+                    val inventory = CinematicPropStore(this@StudioActivity).load("${project.name}:${key(s)}")
+                    s.put("cinematic_props", JSONArray(CinematicPropCodec.encode(inventory)))
+                    saveStory()
                     notice("บันทึกรายการวัตถุของฉากแล้ว")
                 }
             }
