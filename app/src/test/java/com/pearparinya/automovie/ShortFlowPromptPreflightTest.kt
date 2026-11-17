@@ -240,6 +240,24 @@ class ShortFlowPromptPreflightTest {
         assertTrue(issue?.contains("สถานะจบฉากก่อนหน้าไม่ตรง") == true)
     }
 
+    @Test fun placeholderOrShortTransitionDoesNotSuppressWarning() {
+        for(note in listOf("TODO", "ไม่มี", "ok", "123456789012", "aaaaaaaaaaaa", "รอแก้ไข")) {
+            assertTrue(!ContinuityReview.meaningfulTransitionNote(note))
+            val issue = ContinuityReview.adjacentSceneStateIssue(
+                "HOME_DAY1", "Man holds a letter", "Man has empty hands", note
+            )
+            assertTrue(issue?.contains("สถานะจบฉากก่อนหน้าไม่ตรง") == true)
+        }
+    }
+
+    @Test fun descriptiveThaiTransitionCanExplainStateChange() {
+        val note = "ตัวละครวางจดหมายไว้บนโต๊ะก่อนเดินออกจากห้อง"
+        assertTrue(ContinuityReview.meaningfulTransitionNote(note))
+        assertTrue(ContinuityReview.adjacentSceneStateIssue(
+            "HOME_DAY1", "ถือจดหมาย", "มือว่าง", note
+        ) == null)
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
