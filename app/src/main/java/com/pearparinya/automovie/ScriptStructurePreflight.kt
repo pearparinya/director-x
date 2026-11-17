@@ -81,8 +81,14 @@ internal object ScriptStructurePreflight {
                     val turn = turns.optJSONObject(index)
                     if (turn == null) structural.add(
                         "EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}: dialogue_turns ลำดับ ${index + 1} ต้องเป็น object")
-                    else if (turn.optString("text").isBlank()) structural.add(
-                        "EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}: dialogue_turns ลำดับ ${index + 1} ขาดข้อความบทพูด")
+                    else {
+                        if (turn.opt("speaker") !is String)
+                            structural.add("$label: dialogue_turns ลำดับ ${index + 1} speaker ต้องเป็นข้อความ")
+                        if (turn.opt("text") !is String)
+                            structural.add("$label: dialogue_turns ลำดับ ${index + 1} text ต้องเป็นข้อความ")
+                        else if (turn.optString("text").isBlank())
+                            structural.add("$label: dialogue_turns ลำดับ ${index + 1} ขาดข้อความบทพูด")
+                    }
                     turn?.optString("speaker").orEmpty()
                 } else listOfNotNull(s.optString("speaker").takeIf { it.isNotBlank() })
                 scenes.add(Scene(
