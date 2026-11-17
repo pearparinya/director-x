@@ -47,6 +47,9 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
 
     fun issues(plan: JSONObject): List<String> = buildList {
         addAll(FlowCast.issues(plan))
+        // Strict script checks are opt-in so previously saved stories remain exportable.
+        if (plan.optInt("script_preflight_version") >= 1)
+            addAll(ScriptStructurePreflight.storyIssues(plan))
         if(plan.optString("character_mode","original")!="original") add("ชุดนี้ใช้ตัวละครหลัก 3 คนและตัวละครเสริมที่ลงทะเบียนในเรื่อง กรุณาใช้เครื่องมือเดิมสำหรับโหมดตัวละครใหม่ทั้งหมด")
         if(plan.optString("title").isBlank()) add("ขาดชื่อเรื่อง")
         if(plan.optString("aspect_ratio","16:9")!="9:16") add("ชุด Flow นี้กำหนดภาพฉาก 9:16")
