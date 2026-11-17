@@ -132,6 +132,16 @@ class FlowProductionPackTest {
         assertTrue(problems.any { it.contains("ตัวละครลำดับ 2 ต้องเป็น object") })
     }
 
+    @Test fun malformedOffscreenAndMentionedCharactersProduceQaIssues() {
+        val scene = plan(1, 23).getJSONArray("episodes").getJSONObject(0)
+            .getJSONArray("scenes").getJSONObject(0)
+        scene.put("offscreen_characters", JSONArray().put(123))
+        scene.put("mentioned_characters", JSONArray().put(JSONObject()))
+        val issues = ProductionCommandCheck.sceneIssues(scene)
+        assertTrue(issues.any { it.contains("offscreen_characters ลำดับ 1") })
+        assertTrue(issues.any { it.contains("mentioned_characters ลำดับ 1") })
+    }
+
     @Test fun malformedEpisodeAndSceneRowsAreReportedBeforeExport() {
         val invalidEpisode = plan(1, 23)
         invalidEpisode.getJSONArray("episodes").put(0, "not an episode")
