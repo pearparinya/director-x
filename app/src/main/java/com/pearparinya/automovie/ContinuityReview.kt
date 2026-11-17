@@ -29,11 +29,12 @@ internal object ContinuityReview {
         return "กลุ่มต่อเนื่อง $group เปลี่ยนช่วงเวลากลางวัน/กลางคืน ($previousTime / $currentTime) โปรดตรวจการเปลี่ยนเวลาในเนื้อเรื่อง"
     }
     internal fun adjacentSceneStateIssue(
-        group: String, previousEnd: String, nextStart: String
+        group: String, previousEnd: String, nextStart: String, transitionNote: String = ""
     ): String? {
         if(group.isBlank() || previousEnd.isBlank() || nextStart.isBlank()) return null
         fun normalized(value: String) = value.trim().lowercase().replace(Regex("\\s+"), " ")
         if(normalized(previousEnd) == normalized(nextStart)) return null
+        if(transitionNote.isNotBlank()) return null // Explicitly documented change; do not infer meaning.
         return "กลุ่มต่อเนื่อง $group สถานะจบฉากก่อนหน้าไม่ตรงกับสถานะเริ่มฉากถัดไป โปรดตรวจการเปลี่ยนแปลงของตัวละครและสิ่งของ"
     }
     fun review(story: JSONObject): List<String> {
@@ -96,7 +97,7 @@ internal object ContinuityReview {
                     }
                     if(storyTime.isNotBlank()) groupTimes.putIfAbsent(group, storyTime)
                     val previousEnd = groupEndStates[group]
-                    if(previousEnd != null) adjacentSceneStateIssue(group, previousEnd, startState)?.let {
+                    if(previousEnd != null) adjacentSceneStateIssue(group, previousEnd, startState, scene.optString("continuity_transition"))?.let {
                         findings.add("$label: $it")
                     }
                     if(endState.isNotBlank()) groupEndStates[group] = endState
