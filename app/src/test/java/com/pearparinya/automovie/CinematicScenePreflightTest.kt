@@ -51,4 +51,19 @@ class CinematicScenePreflightTest {
         assertTrue(errors.any { it.contains("ไม่มีในภาพเริ่มต้น") })
     }
 
+    @Test fun explicitInventoryIsIncludedInPromptDirection() {
+        val direction = CinematicScenePreflight.promptDirection(listOf(
+            CinematicProp("cup", true, true, "left", "left", expectedCount = 2, firstFrameCount = 2)
+        ))
+        assertTrue(direction.contains("exactly 2 visible at start"))
+        assertTrue(direction.contains("screen side left"))
+    }
+
+    @Test fun unspecifiedCountsAreNotInvented() {
+        val direction = CinematicScenePreflight.promptDirection(listOf(
+            CinematicProp("folder", true, true)
+        ))
+        assertTrue(direction.contains("count not specified"))
+    }
+
 }
