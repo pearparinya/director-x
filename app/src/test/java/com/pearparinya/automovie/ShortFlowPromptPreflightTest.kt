@@ -388,6 +388,23 @@ class ShortFlowPromptPreflightTest {
         assertTrue(manual.startsWith("[ข้อมูลเพิ่มเติม]"))
     }
 
+    @Test fun malformedSceneArrayFieldsAreReportedWithoutDroppingValidFields() {
+        val issues = ContinuityReview.malformedSceneFields(mapOf(
+            "props" to "invalid", "characters" to "array",
+            "removed_props" to "missing", "returned_props" to "invalid"
+        ))
+        assertTrue(issues.size == 2)
+        assertTrue(issues.any { it.contains("props ต้องเป็นรายการ array") })
+        assertTrue(issues.any { it.contains("returned_props ต้องเป็นรายการ array") })
+    }
+
+    @Test fun missingOptionalSceneArraysDoNotCreateMalformedWarnings() {
+        assertTrue(ContinuityReview.malformedSceneFields(mapOf(
+            "props" to "missing", "characters" to "array",
+            "removed_props" to "missing", "returned_props" to "array"
+        )).isEmpty())
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
