@@ -281,14 +281,18 @@ class ScriptStructurePreflightTest {
         assertTrue(issues.none { it.contains("หมายเลข EP ซ้ำ") })
     }
 
-    @Test fun increasingNonconsecutiveEpisodeAndSceneNumbersAreAccepted() {
+    @Test fun increasingNonconsecutiveEpisodeAndSceneNumbersAreReportedWithoutMutation() {
         val episodes = listOf(
             ScriptStructurePreflight.Episode(1, listOf(
                 validScene().copy(number = 1),
                 validScene().copy(number = 3))),
             ScriptStructurePreflight.Episode(4, listOf(validScene().copy(number = 2)))
         )
-        assertTrue(ScriptStructurePreflight.issues(episodes).isEmpty())
+        val issues = ScriptStructurePreflight.issues(episodes)
+        assertTrue(issues.any { it.contains("หมายเลข EP ข้ามจาก EP1") })
+        assertTrue(issues.any { it.contains("หมายเลขฉากข้ามจาก SC1") })
+        assertTrue(episodes[0].scenes[1].number == 3)
+        assertTrue(episodes[1].number == 4)
     }
 
     @Test fun narrationMustBeTextAndValidThaiNarrationRemainsUntouched() {
