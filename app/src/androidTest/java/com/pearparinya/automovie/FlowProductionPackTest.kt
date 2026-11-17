@@ -123,6 +123,15 @@ class FlowProductionPackTest {
         assertTrue(problems.any { it.contains("ตัวละครลำดับ 1 ต้องเป็น object") })
     }
 
+    @Test fun mixedValidAndMalformedCastCannotSlipThroughExportValidation() {
+        val story = plan(1, 23)
+        val scene = story.getJSONArray("episodes").getJSONObject(0)
+            .getJSONArray("scenes").getJSONObject(0)
+        scene.getJSONArray("characters").put("broken additional character")
+        val problems = FlowProductionPack.issues(story)
+        assertTrue(problems.any { it.contains("ตัวละครลำดับ 2 ต้องเป็น object") })
+    }
+
     @Test fun malformedEpisodeAndSceneRowsAreReportedBeforeExport() {
         val invalidEpisode = plan(1, 23)
         invalidEpisode.getJSONArray("episodes").put(0, "not an episode")
