@@ -4,10 +4,6 @@ on:
   push:
     branches:
       - feature/director-x-category-1-script-analysis
-    paths:
-      - 'app/**'
-      - 'scripts/check_release_config.py'
-      - '.github/workflows/signed-apk-candidate.yml'
   workflow_dispatch:
     inputs:
       source_branch:
