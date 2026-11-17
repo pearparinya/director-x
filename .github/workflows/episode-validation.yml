@@ -33,7 +33,9 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          # The emulator runner invokes each script line separately via sh -c.\n          # Use one complete command instead of a multiline shell loop.\n          script: gradle --no-daemon :app:connectedDebugAndroidTest --console=plain\n      - uses: actions/upload-artifact@v4
+          # Use one complete command: the runner executes script via sh -c.
+          script: gradle --no-daemon :app:connectedDebugAndroidTest --console=plain
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: episode-export-test-report
