@@ -134,16 +134,24 @@ internal object ScriptStructurePreflight {
     fun issues(episodes: List<Episode>): List<String> = buildList {
         if (episodes.isEmpty()) add("ไม่มีข้อมูล EP")
         val seenEpisodes = mutableSetOf<Int>()
+        var previousEpisodeNumber: Int? = null
         episodes.forEachIndexed { episodeIndex, episode ->
             val ep = "EP${episode.number}"
             if (episode.number <= 0) add("EP ลำดับ ${episodeIndex + 1}: หมายเลข EP ต้องมากกว่า 0")
             if (!seenEpisodes.add(episode.number)) add("$ep: หมายเลข EP ซ้ำ")
+            if (previousEpisodeNumber != null && episode.number < previousEpisodeNumber!!)
+                add("$ep: ลำดับ EP ย้อนกลับจาก EP$previousEpisodeNumber")
+            previousEpisodeNumber = episode.number
             if (episode.scenes.isEmpty()) add("$ep: ไม่มีฉาก")
             val seenScenes = mutableSetOf<Int>()
+            var previousSceneNumber: Int? = null
             episode.scenes.forEachIndexed { sceneIndex, scene ->
                 val label = "$ep SC${scene.number}"
                 if (scene.number <= 0) add("$ep ฉากลำดับ ${sceneIndex + 1}: หมายเลขฉากต้องมากกว่า 0")
                 if (!seenScenes.add(scene.number)) add("$label: หมายเลขฉากซ้ำ")
+                if (previousSceneNumber != null && scene.number < previousSceneNumber!!)
+                    add("$label: ลำดับฉากย้อนกลับจาก SC$previousSceneNumber")
+                previousSceneNumber = scene.number
                 if (scene.day.isBlank()) add("$label: ขาด story_day")
                 if (scene.location.isBlank()) add("$label: ขาด location")
                 if (scene.time.isBlank()) add("$label: ขาด story_time")
