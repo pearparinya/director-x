@@ -100,4 +100,22 @@ class CinematicPropStoreTest {
         }
     }
 
+    @Test fun editorOperationsPersistAndReload() {
+        val store = CinematicPropStore(context)
+        val sceneId = "test_prop_store_editor_operations"
+        store.clear(sceneId)
+        try {
+            val cup = CinematicProp("cup", true, true, firstFrameCount = 1)
+            assertTrue(store.addProp(sceneId, cup))
+            assertEquals(listOf(cup), CinematicPropStore(context).load(sceneId))
+            val glass = cup.copy(id = "glass")
+            assertTrue(store.replaceProp(sceneId, "CUP", glass))
+            assertEquals(listOf(glass), store.load(sceneId))
+            assertTrue(store.removeProp(sceneId, "GLASS"))
+            assertTrue(store.load(sceneId).isEmpty())
+        } finally {
+            store.clear(sceneId)
+        }
+    }
+
 }
