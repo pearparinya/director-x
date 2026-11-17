@@ -161,4 +161,17 @@ class CinematicScenePreflightTest {
         assertTrue(prompt.contains("Prop cup: exactly 1 visible at start"))
     }
 
+    @Test fun readingPropDirectionRemainsWhenApplicable() {
+        val spec = FlowSceneSpec(
+            cast = listOf(FlowPerson("A", "adult", "center", "shirt")),
+            speaker = "A", dialogue = "สวัสดี", narration = "",
+            action = "A reads a document", location = "room",
+            startState = "document on table", endState = "document in hand",
+            duration = 8, aspect = "9:16"
+        )
+        val prompt = FlowScenePrompt.build(spec)
+        assertTrue(prompt.contains(ReadingPropPolicy.instruction))
+        assertTrue(prompt.contains("Camera: Slow, gentle pan."))
+    }
+
 }
