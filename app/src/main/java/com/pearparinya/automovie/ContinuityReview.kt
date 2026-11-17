@@ -28,13 +28,19 @@ internal object ContinuityReview {
         if(before == null || after == null || before == after) return null
         return "กลุ่มต่อเนื่อง $group เปลี่ยนช่วงเวลากลางวัน/กลางคืน ($previousTime / $currentTime) โปรดตรวจการเปลี่ยนเวลาในเนื้อเรื่อง"
     }
+    internal fun meaningfulTransitionNote(note: String): Boolean {
+        val normalized = note.trim().lowercase().replace(Regex("\\s+"), " ")
+        val placeholders = setOf("none", "n/a", "na", "todo", "tbd", "unknown", "ไม่มี", "ไม่ทราบ", "รอแก้ไข", "ตรวจสอบ", "-", "?")
+        return normalized.length >= 12 && normalized !in placeholders &&
+            normalized.any { it.isLetter() } && normalized.toSet().size >= 4
+    }
     internal fun adjacentSceneStateIssue(
         group: String, previousEnd: String, nextStart: String, transitionNote: String = ""
     ): String? {
         if(group.isBlank() || previousEnd.isBlank() || nextStart.isBlank()) return null
         fun normalized(value: String) = value.trim().lowercase().replace(Regex("\\s+"), " ")
         if(normalized(previousEnd) == normalized(nextStart)) return null
-        if(transitionNote.isNotBlank()) return null // Explicitly documented change; do not infer meaning.
+        if(meaningfulTransitionNote(transitionNote)) return null // Plausible documentation only; semantics still need human review.
         return "กลุ่มต่อเนื่อง $group สถานะจบฉากก่อนหน้าไม่ตรงกับสถานะเริ่มฉากถัดไป โปรดตรวจการเปลี่ยนแปลงของตัวละครและสิ่งของ"
     }
     fun review(story: JSONObject): List<String> {
