@@ -15,6 +15,12 @@ internal data class CinematicProp(
 )
 
 internal object CinematicScenePreflight {
+    /** Explicit inventory facts only; never infer object counts from a picture. */
+    fun promptDirection(props: List<CinematicProp>): String = props.filter { it.id.isNotBlank() }.joinToString(" ") { prop ->
+        val count = prop.firstFrameCount?.let { "exactly $it visible at start" } ?: "count not specified"
+        val side = prop.screenSide.trim().takeIf { it.isNotEmpty() }?.let { ", screen side $it" }.orEmpty()
+        "Prop ${prop.id.trim()}: $count$side; preserve the first-frame inventory."
+    }
     fun issues(props: List<CinematicProp>): List<String> = buildList {
         val ids = props.map { it.id.trim().lowercase() }
         if (ids.any { it.isEmpty() }) add("กรุณาระบุรหัสวัตถุทุกชิ้น")
