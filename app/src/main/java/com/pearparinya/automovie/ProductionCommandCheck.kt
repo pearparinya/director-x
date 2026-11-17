@@ -38,11 +38,30 @@ internal object ProductionCommandCheck {
             }
         }
     }
+    internal fun dialogueSpeakerPlacementIssues(
+        turns: List<FlowDialogueTurn>, visible: List<String>, offscreen: List<String>
+    ): List<String> = buildList {
+        turns.forEachIndexed { index, turn ->
+            val name = speech(turn.speaker)
+            if(name.isEmpty()) return@forEachIndexed
+            val visibleCount = visible.count { it.trim() == name }
+            val offscreenCount = offscreen.count { it.trim() == name }
+            when {
+                visibleCount > 0 && offscreenCount > 0 ->
+                    add("บทสนทนาลำดับ ${index+1} ผู้พูด $name อยู่ทั้งในภาพและนอกภาพ ต้องเลือกตำแหน่งเดียว")
+                visibleCount + offscreenCount == 0 ->
+                    add("บทสนทนาลำดับ ${index+1} ไม่พบผู้พูด $name ในรายชื่อคนในภาพหรือคนนอกภาพ")
+                visibleCount + offscreenCount > 1 ->
+                    add("บทสนทนาลำดับ ${index+1} ผู้พูด $name มีชื่อซ้ำในรายการตัวละคร")
+            }
+        }
+    }
     fun sceneIssues(scene: JSONObject): List<String> = buildList {
         addAll(FlowScenePrompt.issues(spec(scene)))
         val people=people(scene)
         addAll(dialogueTurnContentIssues(dialogueTurns(scene)))
         addAll(repeatedDialogueTurnIssues(dialogueTurns(scene)))
+        addAll(dialogueSpeakerPlacementIssues(dialogueTurns(scene), people.map { it.optString("name") }, offscreen(scene)))
         val rawTurns=scene.optJSONArray("dialogue_turns")
         if(rawTurns!=null) addAll(malformedDialogueTurnIssues(
             (0 until rawTurns.length()).map { rawTurns.optJSONObject(it) != null }
