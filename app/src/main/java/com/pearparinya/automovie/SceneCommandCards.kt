@@ -4,7 +4,7 @@ import org.json.JSONObject
 
 /** One self-contained command per card. Headings are outside the command to avoid image captions. */
 internal object SceneCommandCards {
-    data class Card(val title: String,val command: String)
+    data class Card(val title: String,val command: String, val visualWarnings: List<String> = emptyList())
     private fun episode(story: JSONObject,number: Int): JSONObject {
         val eps=story.getJSONArray("episodes")
         return (0 until eps.length()).map { eps.getJSONObject(it) }.first { it.getInt("ep")==number }
@@ -44,7 +44,7 @@ internal object SceneCommandCards {
             val warnings = ShortFlowPrompt.visualWarnings(spec, camera)
             val title = "ซีน ${s.getInt("scene")} • วิดีโอแนวตั้ง 9:16 • 8 วินาที" +
                 if (warnings.isNotEmpty()) " • ⚠ ตรวจสอบภาพเริ่มต้น ${warnings.size} จุด" else ""
-            Card(title, ShortFlowPrompt.build(spec, camera))
+            Card(title, ShortFlowPrompt.build(spec, camera), warnings)
         }
     }
     fun join(cards: List<Card>) = cards.joinToString("\n\n") { "=== ${it.title} ===\n${it.command}" }
