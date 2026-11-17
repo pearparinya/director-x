@@ -13,6 +13,27 @@ class ShortFlowPromptPreflightTest {
         duration = 8, aspect = "9:16"
     )
 
+    @Test fun videoCardExposesVisualWarningWithoutChangingGeneratedPrompt() {
+        val spec = scene().copy(
+            action = "Character 1 pulls out the letter",
+            startState = "Character 1 stands with empty hands"
+        )
+        val card = SceneCommandCards.videoCard(7, spec)
+        assertTrue(card.title.contains("ซีน 7"))
+        assertTrue(card.title.contains("⚠"))
+        assertTrue(card.visualWarnings.any { it.contains("prop", ignoreCase = true) })
+        assertTrue(card.command.contains("Use only the props and objects already visible"))
+        assertFalse(card.command.contains("ตรวจสอบภาพเริ่มต้น"))
+    }
+
+    @Test fun videoCardWithoutVisualWarningsKeepsCleanTitleAndEmptyWarningList() {
+        val card = SceneCommandCards.videoCard(2, scene())
+        assertTrue(card.title.contains("ซีน 2"))
+        assertFalse(card.title.contains("⚠"))
+        assertTrue(card.visualWarnings.isEmpty())
+        assertTrue(card.command.contains("สวัสดีครับ"))
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
