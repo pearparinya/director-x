@@ -12,8 +12,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1098
-        versionName = "4.82"
+        versionCode = 1099
+        versionName = "4.83"
     }
 
     sourceSets {
@@ -46,6 +46,8 @@ dependencies {
     implementation("androidx.media3:media3-transformer:1.5.1")
     implementation("androidx.media3:media3-effect:1.5.1")
     testImplementation("junit:junit:4.13.2")
+    // Android SDK org.json is a non-functional stub in local JVM unit tests.
+    testImplementation("org.json:json:20240303")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
