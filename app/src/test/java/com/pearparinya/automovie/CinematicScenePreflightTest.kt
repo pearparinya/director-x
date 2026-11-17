@@ -116,4 +116,23 @@ class CinematicScenePreflightTest {
         assertTrue(errors.any { it.contains("จำนวนที่ต้องใช้เป็นศูนย์") })
     }
 
+    @Test fun malformedPropIdentifierIsRejected() {
+        val errors = CinematicScenePreflight.issues(listOf(
+            CinematicProp("<cup>", true, true)
+        ))
+        assertTrue(errors.any { it.contains("อักขระที่ไม่อนุญาต") })
+    }
+
+    @Test fun oversizedInventoryIsRejected() {
+        val props = (1..51).map { CinematicProp("prop_$it", true, false) }
+        assertTrue(CinematicScenePreflight.issues(props).any { it.contains("50 รายการ") })
+    }
+
+    @Test fun excessivelyLongIdentifierIsRejected() {
+        val errors = CinematicScenePreflight.issues(listOf(
+            CinematicProp("a".repeat(81), true, false)
+        ))
+        assertTrue(errors.any { it.contains("80 ตัวอักษร") })
+    }
+
 }
