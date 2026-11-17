@@ -800,4 +800,31 @@ class ShortFlowPromptPreflightTest {
         ContinuityReview.advanceEndState(history, "", "ignored")
         assertFalse(history.containsKey(""))
     }
+
+    @Test fun removedPropClearsOldStateWithoutAffectingOtherGroups() {
+        val states = mutableMapOf(
+            ("HOME" to "จดหมาย") to "อยู่ในมือ",
+            ("HOME" to "โทรศัพท์") to "อยู่บนโต๊ะ",
+            ("OFFICE" to "จดหมาย") to "อยู่ในลิ้นชัก"
+        )
+        ContinuityReview.clearRemovedPropStates(
+            states, "HOME", setOf("จดหมาย", "โทรศัพท์"),
+            setOf("โทรศัพท์"), listOf("จดหมาย")
+        )
+        assertFalse(states.containsKey("HOME" to "จดหมาย"))
+        assertTrue(states["HOME" to "โทรศัพท์"] == "อยู่บนโต๊ะ")
+        assertTrue(states["OFFICE" to "จดหมาย"] == "อยู่ในลิ้นชัก")
+    }
+
+    @Test fun invalidRemovalDoesNotEraseTrackedPropState() {
+        val states = mutableMapOf(("HOME" to "จดหมาย") to "อยู่ในมือ")
+        ContinuityReview.clearRemovedPropStates(
+            states, "HOME", setOf("จดหมาย"), setOf("จดหมาย"), listOf("จดหมาย")
+        )
+        assertTrue(states["HOME" to "จดหมาย"] == "อยู่ในมือ")
+        ContinuityReview.clearRemovedPropStates(
+            states, "HOME", null, emptySet(), listOf("จดหมาย")
+        )
+        assertTrue(states.containsKey("HOME" to "จดหมาย"))
+    }
 }
