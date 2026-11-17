@@ -185,6 +185,8 @@ class FlowScenePromptTest {
         assertTrue(FlowScenePrompt.issues(base.copy(offscreen = listOf(" ")))
             .any { it.contains("ต้องไม่ว่าง") })
         assertTrue(FlowScenePrompt.issues(base.copy(offscreen = listOf("ณัฐชา"))).isEmpty())
+        assertTrue(FlowScenePrompt.issues(base.copy(offscreen = listOf("นาย เปีย", " นาย   เปีย ")))
+            .any { it.contains("คนนอกภาพซ้ำ") })
     }
 
 }
