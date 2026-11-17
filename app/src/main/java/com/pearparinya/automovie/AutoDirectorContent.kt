@@ -81,11 +81,11 @@ Images are generated externally in Gemini; video is generated externally in Flow
     private fun poster(story: JSONObject, people: List<JSONObject>, ratio: String, number: Int? = null): String {
         val ep=number?.let { episode(story,it) }
         val heading=if(number==null) "หน้าปกรวม" else "หน้าปกตอน EP.$number"
-        val typography=CoverTypography.prompt(story.optString("channel"),story.getString("title"),number,ep?.optString("title").orEmpty(),story.optString("tagline"))
+        val typography=CoverTypography.prompt(story.optString("channel"),story.getString("title"),number,ep?.optString("title").orEmpty(),story.optString("tagline"),story.optString("category"))
         val cue=ep?.optString("cover_incident")?.ifBlank { ep.optString("tagline") } ?: story.optString("tagline")
         return "[$heading $ratio] • ${if(ratio=="9:16") "แนวตั้ง" else "แนวนอน"} [แนบรูป: ${people.joinToString(", ") { alias(it) }}]\n${imageStart.replace("9:16",ratio)}\n" +
             ImagePromptPolicy.productionDirection+"\n"+binding(people,story)+"\n${normalize(FlowReferencePrompt.visibleCastLock(people),story)}\n$identity\n${PerformanceDirection.guide}\n${ChannelCatalog.performance(story)}\n${ChannelCatalog.genre(story)}\nFreeze one expressive story-supported instant, not a sequence.\nBoth cover orientations use the exact locked daily outfits and accessory lists. Recompose the camera only; do not redesign clothes or jewelry.\nCinematic waist-up medium close-up, zoomed in closely, ${if(ChannelCatalog.performance(story).isNotBlank()) "playful sitcom ensemble poses, distinct comic reactions and a story-relevant prop," else "dynamic dramatic editorial poses, intense eye contact,"} natural three-quarter body angles and reference proportions. NO full body, NO stiff standing. No collage. Story cue: ${normalize(cue,story)}\n"+
-            FlowVisualDirection.layout(ratio.replace(":","x"))+"\n"+typography+"\n"+ending(ratio)
+            FlowVisualDirection.layout(ratio.replace(":","x"))+"\n"+CoverTypography.safeZone(ratio)+"\n"+typography+"\n"+ending(ratio)
     }
     private fun storyCoverPeople(story: JSONObject): List<JSONObject> =
         FlowCast.definitions(story).map { p ->
