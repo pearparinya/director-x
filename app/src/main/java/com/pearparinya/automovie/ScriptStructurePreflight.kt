@@ -115,8 +115,9 @@ internal object ScriptStructurePreflight {
         return structural + issues(episodes)
     }
 
+    private val whitespace = Regex("\\s+")
     private fun key(value: String): String =
-        value.trim().lowercase().replace(Regex("\\s+"), " ")
+        value.trim().lowercase().replace(whitespace, " ")
 
     fun issues(episodes: List<Episode>): List<String> = buildList {
         if (episodes.isEmpty()) add("ไม่มีข้อมูล EP")
@@ -139,6 +140,8 @@ internal object ScriptStructurePreflight {
                 if (scene.durationSeconds != 8) add("$label: Flow ต้องใช้เวลา 8 วินาที")
                 val cast = scene.characterNames.map(::key)
                 val offscreen = scene.offscreenNames.map(::key)
+                val castSet = cast.toHashSet()
+                val offscreenSet = offscreen.toHashSet()
                 if (cast.isEmpty()) add("$label: ขาดรายชื่อตัวละคร")
                 if (cast.any { it.isEmpty() }) add("$label: มีตัวละครที่ขาดชื่อ")
                 if (cast.filter { it.isNotEmpty() }.distinct().size != cast.count { it.isNotEmpty() })
@@ -146,12 +149,12 @@ internal object ScriptStructurePreflight {
                 if (offscreen.any { it.isEmpty() }) add("$label: มีตัวละครนอกภาพที่ขาดชื่อ")
                 if (offscreen.filter { it.isNotEmpty() }.distinct().size != offscreen.count { it.isNotEmpty() })
                     add("$label: มีชื่อตัวละครนอกภาพซ้ำ")
-                if (cast.intersect(offscreen.toSet()).any { it.isNotEmpty() })
+                if (castSet.any { it.isNotEmpty() && it in offscreenSet })
                     add("$label: ตัวละครอยู่ทั้งในภาพและนอกภาพ")
                 scene.dialogueSpeakers.forEachIndexed { turn, speaker ->
                     val normalized = key(speaker)
                     if (normalized.isEmpty()) add("$label: บทพูดลำดับ ${turn + 1} ขาดชื่อผู้พูด")
-                    else if (normalized !in cast && normalized !in offscreen)
+                    else if (normalized !in castSet && normalized !in offscreenSet)
                         add("$label: บทพูดลำดับ ${turn + 1} ไม่พบผู้พูด $speaker")
                 }
             }
