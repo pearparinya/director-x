@@ -41,4 +41,19 @@ class MasterReferencePreparationTest {
             assertTrue(result.warnings.any { it.contains("เดียวกับตัวละครอื่น") })
         } finally { dir.deleteRecursively() }
     }
+    @Test fun rejectsNamesThatOnlyDifferByExtraWhitespace() {
+        val dir = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,
+            "ref-name-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val a = File(dir, "a.jpg").apply { writeText("master A") }
+            val b = File(dir, "b.jpg").apply { writeText("master B") }
+            val result = MasterReferencePreparation.prepare(listOf(
+                MasterReferencePreparation.CharacterSource("นาย เปีย", a),
+                MasterReferencePreparation.CharacterSource(" นาย   เปีย ", b)
+            ), FaceReferenceStore(File(dir, "crops")))
+            assertEquals(1, result.attachments.size)
+            assertTrue(result.warnings.any { it.contains("ชื่อตัวละครว่างหรือซ้ำ") })
+        } finally { dir.deleteRecursively() }
+    }
+
 }
