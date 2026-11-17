@@ -4,7 +4,7 @@ import org.json.JSONObject
 
 /** One self-contained command per card. Headings are outside the command to avoid image captions. */
 internal object SceneCommandCards {
-    data class Card(val title: String,val command: String)
+    data class Card(val title: String,val command: String, val visualWarnings: List<String> = emptyList())
     private fun episode(story: JSONObject,number: Int): JSONObject {
         val eps=story.getJSONArray("episodes")
         return (0 until eps.length()).map { eps.getJSONObject(it) }.first { it.getInt("ep")==number }
@@ -34,15 +34,43 @@ internal object SceneCommandCards {
             for(i in 0 until scenes.length()) add(Card("ซีน ${scenes.getJSONObject(i).getInt("scene")} • ภาพแนวตั้ง 9:16",FlowReferencePrompt.scene(scenes.getJSONObject(i),number,"image")))
         }.map { it.copy(command=it.command+"\n"+ChannelCatalog.genre(story)) }
     }
+    internal fun videoCard(sceneNumber: Int, spec: FlowSceneSpec, camera: String = "Slow, gentle pan."): Card {
+        val warnings = ShortFlowPrompt.visualWarnings(spec, camera)
+        val title = "ซีน $sceneNumber • วิดีโอแนวตั้ง 9:16 • 8 วินาที" +
+            if (warnings.isNotEmpty()) " • ⚠ ตรวจสอบภาพเริ่มต้น ${warnings.size} จุด" else ""
+        return Card(title, ShortFlowPrompt.build(spec, camera), warnings)
+    }
     fun videos(story: JSONObject,number: Int): List<Card> {
         LandscapeProduction.requirePlan(story)
         val rows=episode(story,number).getJSONArray("scenes")
         return (0 until rows.length()).map { i ->
             val s=rows.getJSONObject(i)
             val spec=FlowSceneSpec(FlowReferencePrompt.people(s).map { FlowPerson(it.getString("name"),it.getString("visual_description"),it.getString("screen_position"),it.getString("outfit"),PerformanceDirection.text(it)) },s.optString("speaker"),s.optString("dialogue"),s.optString("narration"),s.optString("flow_action").ifBlank { s.getString("action") },s.getString("location"),s.getString("start_state"),s.getString("end_state"),8,"9:16",SoundDesign.notes(s),ProductionCommandCheck.offscreen(s),ProductionCommandCheck.dialogueTurns(s))
-            val mapped=spec
-            Card("ซีน ${s.getInt("scene")} • วิดีโอแนวตั้ง 9:16 • 8 วินาที",ShortFlowPrompt.build(mapped,"Slow, gentle pan."))
+            videoCard(s.getInt("scene"), spec)
         }
+    }
+    internal data class EpisodeWarningSummary(val flaggedScenes: Int, val warningCount: Int, val details: String)
+    internal fun episodeWarningSummary(cards: List<Card>): EpisodeWarningSummary {
+        val flagged = cards.filter { it.visualWarnings.isNotEmpty() }
+        return EpisodeWarningSummary(
+            flaggedScenes = flagged.size,
+            warningCount = flagged.sumOf { it.visualWarnings.size },
+            details = flagged.joinToString("\n\n") { card ->
+                "${card.title}\n" + card.visualWarnings.mapIndexed { i, note -> "${i + 1}. $note" }.joinToString("\n")
+            }
+        )
+    }
+    internal fun exportVideoEpisode(cards: List<Card>): String {
+        val summary = episodeWarningSummary(cards)
+        val preflight = if(summary.flaggedScenes == 0) {
+            "FLOW VISUAL PREFLIGHT: No text-based continuity warnings detected. Verify every first-frame image manually."
+        } else {
+            "FLOW VISUAL PREFLIGHT: ${summary.flaggedScenes} scene(s), ${summary.warningCount} warning(s). Review first-frame images before use.\n" +
+                summary.details
+        }
+        return "=== FLOW VISUAL PREFLIGHT REPORT (NOT PART OF VIDEO PROMPTS) ===\n" +
+            preflight + "\n=== END PREFLIGHT REPORT ===\n\n" +
+            "=== VIDEO COMMANDS: COPY EACH SCENE BLOCK SEPARATELY ===\n" + join(cards)
     }
     fun join(cards: List<Card>) = cards.joinToString("\n\n") { "=== ${it.title} ===\n${it.command}" }
 }

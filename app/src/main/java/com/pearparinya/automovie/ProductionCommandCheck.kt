@@ -18,9 +18,54 @@ internal object ProductionCommandCheck {
         val value=text.trim().lowercase().substringBefore(',').trim()
         return when(value) { "left","ซ้าย" -> "left"; "right","ขวา" -> "right"; "center","centre","middle","กลาง" -> "center"; else -> null }
     }
+    internal fun malformedDialogueTurnIssues(validObjects: List<Boolean>): List<String> =
+        validObjects.mapIndexedNotNull { index, valid ->
+            if(valid) null else "บทสนทนาลำดับ ${index+1} ต้องเป็นข้อมูลผู้พูดและข้อความ"
+        }
+    internal fun dialogueTurnContentIssues(turns: List<FlowDialogueTurn>): List<String> = buildList {
+        turns.forEachIndexed { index, turn ->
+            if(speech(turn.speaker).isEmpty()) add("บทสนทนาลำดับ ${index+1} ขาดชื่อผู้พูด")
+            if(speech(turn.text).isEmpty()) add("บทสนทนาลำดับ ${index+1} ขาดข้อความ")
+        }
+    }
+    internal fun repeatedDialogueTurnIssues(turns: List<FlowDialogueTurn>): List<String> = buildList {
+        turns.forEachIndexed { index, turn ->
+            if(index == 0 || speech(turn.speaker).isEmpty() || speech(turn.text).isEmpty()) return@forEachIndexed
+            val previous = turns[index - 1]
+            if(turn.speaker.trim() == previous.speaker.trim() &&
+                turn.text.trim() == previous.text.trim()) {
+                add("บทสนทนาลำดับ ${index+1} ซ้ำกับลำดับ ${index} ทั้งผู้พูดและข้อความ กรุณาตรวจว่าตั้งใจพูดซ้ำหรือไม่")
+            }
+        }
+    }
+    internal fun dialogueSpeakerPlacementIssues(
+        turns: List<FlowDialogueTurn>, visible: List<String>, offscreen: List<String>
+    ): List<String> = buildList {
+        turns.forEachIndexed { index, turn ->
+            val name = speech(turn.speaker)
+            if(name.isEmpty()) return@forEachIndexed
+            val visibleCount = visible.count { it.trim() == name }
+            val offscreenCount = offscreen.count { it.trim() == name }
+            when {
+                visibleCount > 0 && offscreenCount > 0 ->
+                    add("บทสนทนาลำดับ ${index+1} ผู้พูด $name อยู่ทั้งในภาพและนอกภาพ ต้องเลือกตำแหน่งเดียว")
+                visibleCount + offscreenCount == 0 ->
+                    add("บทสนทนาลำดับ ${index+1} ไม่พบผู้พูด $name ในรายชื่อคนในภาพหรือคนนอกภาพ")
+                visibleCount + offscreenCount > 1 ->
+                    add("บทสนทนาลำดับ ${index+1} ผู้พูด $name มีชื่อซ้ำในรายการตัวละคร")
+            }
+        }
+    }
     fun sceneIssues(scene: JSONObject): List<String> = buildList {
         addAll(FlowScenePrompt.issues(spec(scene)))
         val people=people(scene)
+        addAll(dialogueTurnContentIssues(dialogueTurns(scene)))
+        addAll(repeatedDialogueTurnIssues(dialogueTurns(scene)))
+        addAll(dialogueSpeakerPlacementIssues(dialogueTurns(scene), people.map { it.optString("name") }, offscreen(scene)))
+        val rawTurns=scene.optJSONArray("dialogue_turns")
+        if(rawTurns!=null) addAll(malformedDialogueTurnIssues(
+            (0 until rawTurns.length()).map { rawTurns.optJSONObject(it) != null }
+        ))
         if(people.isEmpty()) add("ขาดตัวละครในซีน")
         if(scene.optInt("duration_seconds",8)!=8) add("ซีนต้องใช้ 8 วินาที")
         val camera=scene.optString("camera_movement").trim()

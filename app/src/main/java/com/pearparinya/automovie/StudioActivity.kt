@@ -1519,9 +1519,10 @@ class StudioActivity : AppCompatActivity() {
                     var value: Pair<FlowSceneSpec,String>?=null
                     for(provider in providers) {
                         if(stopped.get()) break
-                        val answer=runCatching { val client=StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ stopped.get() },automaticRetry=false,context=this@StudioActivity); active.set(client); if(stopped.get()) throw java.util.concurrent.CancellationException(); client.generate(FlowEnglishDirections.prompt(spec),FlowEnglishDirections.schema()) }.getOrNull() ?: continue
+                        val answer=runCatching { val client=StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ stopped.get() },automaticRetry=false,context=this@StudioActivity); active.set(client); if(stopped.get()) throw java.util.concurrent.CancellationException(); client.generate(FlowEnglishDirections.prompt(spec,camera),FlowEnglishDirections.schema()) }.getOrNull() ?: continue
                         val translated=runCatching { FlowEnglishDirections.apply(spec,answer) }.getOrNull() ?: continue
-                        val command=runCatching { ShortFlowPrompt.build(translated,camera,silent) }.getOrNull() ?: continue
+                        val translatedCamera=runCatching { FlowEnglishDirections.translatedCamera(answer,camera) }.getOrNull() ?: continue
+                        val command=runCatching { ShortFlowPrompt.build(translated,translatedCamera,silent) }.getOrNull() ?: continue
                         value=translated to command; break
                     }
                     val result=value
@@ -1530,7 +1531,7 @@ class StudioActivity : AppCompatActivity() {
                         active.set(null); loading.dismiss()
                         if(project.name!=projectId || plan!==story || scene.toString()!=snapshot) { notice("ซีนเปลี่ยนระหว่างแปล กรุณาลองใหม่"); return@runOnUiThread }
                         if(result==null) { notice("ยังแปลคำกำกับไม่ได้ • ตรวจ API หรือกดแก้ซีนด้วยตนเอง • ไม่มีการเปลี่ยนบท"); return@runOnUiThread }
-                        val text="ตรวจคำแปลเทียบกับบทก่อนคัดลอก • การแปลนี้ไม่แก้บทที่บันทึก\n\nการกระทำเดิม: ${spec.action}\n\nคำแปล: ${result.first.action}\n\nตำแหน่งและเสื้อผ้า (ตรวจให้ตรงกับภาพ): ${result.first.cast.mapIndexed { i,p -> "Character ${i+1}: ${p.position}, ${ShortFlowPrompt.clothing(p).ifBlank { "ไม่ระบุเสื้อ" }} (เดิม: ${ShortFlowPrompt.clothing(spec.cast[i]).ifBlank { "ไม่ระบุ" }})" }.joinToString("; ")}\n\nเสียงฉาก: ${result.first.sound.ifBlank { "ไม่มี" }}\n\nบทพูด/บรรยายภาษาไทยคงเดิม\n\n${result.second}"
+                        val text="ตรวจคำแปลเทียบกับบทก่อนคัดลอก • การแปลนี้ไม่แก้บทที่บันทึก\n\nการกระทำเดิม: ${spec.action}\n\nคำแปล: ${result.first.action}\n\nสถานที่เดิม: ${spec.location.ifBlank { "ไม่ระบุ" }}\nสถานที่แปล: ${result.first.location.ifBlank { "ไม่ระบุ" }}\n\nคำสั่งกล้องเดิม: $camera\n\nตำแหน่งและเสื้อผ้า (ตรวจให้ตรงกับภาพ): ${result.first.cast.mapIndexed { i,p -> "Character ${i+1}: ${p.position}, ${ShortFlowPrompt.clothing(p).ifBlank { "ไม่ระบุเสื้อ" }} (เดิม: ${ShortFlowPrompt.clothing(spec.cast[i]).ifBlank { "ไม่ระบุ" }})" }.joinToString("; ")}\n\nเสียงฉาก: ${result.first.sound.ifBlank { "ไม่มี" }}\n\nบทพูด/บรรยายภาษาไทยคงเดิม\n\n${result.second}"
                         AlertDialog.Builder(this).setTitle("ตรวจคำแปลก่อนคัดลอก").setView(ScrollView(this).apply { addView(TextView(context).apply { setPadding(dp(18),dp(12),dp(18),dp(12)); this.text=text; setTextIsSelectable(true) }) })
                             .setPositiveButton("คัดลอกคำสั่ง Flow") { _,_ -> copyCommand(result.second) }.setNegativeButton("ยกเลิก",null).showDirector()
                     }
@@ -2730,11 +2731,17 @@ $context"""
                 if(!images) {
                     if(problems.isNotEmpty() || flowSpec==null) { productionCheckMenu(story); return@setOnClickListener }
                     val value=runCatching { ShortFlowPrompt.build(flowSpec,flowCamera) }.getOrElse { error ->
-                        if(error.message?.contains("คำบรรยายการกระทำ ตำแหน่ง หรือเสียงยังมีภาษาไทย")==true && sceneForFlow!=null) offerFlowTranslation(story,sceneForFlow,flowSpec,flowCamera,false)
+                        if(sceneForFlow!=null && ShortFlowPrompt.untranslatedFields(flowSpec,flowCamera).isNotEmpty()) offerFlowTranslation(story,sceneForFlow,flowSpec,flowCamera,false)
                         else notice(error.message ?: "ตรวจคำสั่ง Flow ก่อนคัดลอก")
                         return@setOnClickListener
                     }
-                    copyCommand(value)
+                    val audioNotes=ShortFlowPrompt.audioWarnings(flowSpec)
+                    if(audioNotes.isNotEmpty()) {
+                        AlertDialog.Builder(this@StudioActivity).setTitle("ตรวจเสียง Flow ก่อนคัดลอก")
+                            .setMessage(audioNotes.joinToString("\n") + "\n\nบทพูดต้นฉบับจะไม่ถูกแก้ไข")
+                            .setPositiveButton("คัดลอกตามบทเดิม") { _,_ -> copyCommand(value) }
+                            .setNegativeButton("กลับไปตรวจซีน",null).showDirector()
+                    } else copyCommand(value)
                     return@setOnClickListener
                 }
                 if(problems.isNotEmpty()) { productionCheckMenu(story); return@setOnClickListener }
@@ -2836,19 +2843,53 @@ $context"""
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
         val picker=Spinner(this).apply { adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,cards.map { it.title }); panel.addView(this) }
         panel.addView(TextView(this).apply { text=if(kind==0) "แนบ MASTER ตามรายชื่อ • สร้างทีละภาพใน Gemini" else "แม่แบบ Flow • แนบภาพซีนที่ตรวจแล้ว ตรวจผู้พูดและตำแหน่งก่อนใช้ • เสียงสร้างจากคำสั่งใน Flow"; textSize=12f })
+        val visualWarning=TextView(this).apply { textSize=13f; setPadding(dp(8),dp(8),dp(8),dp(8)) }
+        if(kind==1) panel.addView(visualWarning)
         val code=TextView(this).apply { textSize=13f; setTextIsSelectable(true); setPadding(dp(8),dp(8),dp(8),dp(8)) }
         panel.addView(ScrollView(this).apply { addView(code) },LinearLayout.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.38).toInt()))
         val nav=LinearLayout(this).apply { orientation=0; panel.addView(this) }
-        fun show(n: Int) { index=n.coerceIn(cards.indices); code.text=cards[index].command; if(picker.selectedItemPosition!=index) picker.setSelection(index) }
+        fun show(n: Int) {
+            index=n.coerceIn(cards.indices)
+            code.text=cards[index].command
+            if(kind==1) {
+                val warnings=cards[index].visualWarnings
+                visualWarning.text=if(warnings.isEmpty()) "✓ ไม่พบคำเตือนความต่อเนื่องจากข้อความฉาก • ยังต้องตรวจภาพจริง" else
+                    "⚠ ตรวจความต่อเนื่อง ${warnings.size} จุด:\n"+warnings.mapIndexed { i, note -> "${i+1}. $note" }.joinToString("\n")
+            }
+            if(picker.selectedItemPosition!=index) picker.setSelection(index)
+        }
         listOf("ก่อนหน้า" to -1,"ถัดไป" to 1).forEach { (label,step) -> nav.addView(android.widget.Button(this).apply { text=label; setOnClickListener { show(index+step) } },LinearLayout.LayoutParams(0,-2,1f)) }
         picker.onItemSelectedListener=object: android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>?,view: android.view.View?,position: Int,id: Long) { show(position) }
             override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
         }
         val dialog=AlertDialog.Builder(this).setTitle("EP.$number • ${if(kind==0) "คำสั่งภาพ" else "คำสั่งวิดีโอ"}").setView(panel)
-            .setPositiveButton("คัดลอกชุดนี้",null).setNeutralButton("บันทึกทั้ง EP") { _,_ -> prefs.edit().putString("pending_flow_code",SceneCommandCards.join(cards)).apply(); flowCodePicker.launch("EP%02d_%s.txt".format(number,if(kind==0) "IMAGES" else "VIDEOS")) }
+            .setPositiveButton("คัดลอกชุดนี้",null).setNeutralButton("บันทึกทั้ง EP",null)
             .setNegativeButton("ปิด",null).showDirector()
-        dialog.getButton(-1).setOnClickListener { copyCommand(cards[index].command) }
+        dialog.getButton(-3).setOnClickListener {
+            val save: () -> Unit = {
+                prefs.edit().putString("pending_flow_code",if(kind==1) SceneCommandCards.exportVideoEpisode(cards) else SceneCommandCards.join(cards)).apply()
+                flowCodePicker.launch("EP%02d_%s.txt".format(number,if(kind==0) "IMAGES" else "VIDEOS"))
+            }
+            val summary=if(kind==1) SceneCommandCards.episodeWarningSummary(cards) else null
+            if(summary != null && summary.flaggedScenes > 0) {
+                AlertDialog.Builder(this).setTitle("⚠ ตรวจคำสั่งวิดีโอทั้ง EP")
+                    .setMessage("พบ ${summary.flaggedScenes} ฉากที่มีคำเตือน รวม ${summary.warningCount} จุด:\n\n" +
+                        summary.details + "\n\nตรวจภาพเริ่มต้นของแต่ละฉากก่อนนำไฟล์ไปใช้ Flow")
+                    .setPositiveButton("ยืนยันและบันทึก") { _,_ -> save() }
+                    .setNegativeButton("กลับไปตรวจซีน",null).showDirector()
+            } else save()
+        }
+        dialog.getButton(-1).setOnClickListener {
+            val selected=cards[index]
+            if(kind==1 && selected.visualWarnings.isNotEmpty()) {
+                AlertDialog.Builder(this).setTitle("⚠ ตรวจภาพก่อนคัดลอกคำสั่ง")
+                    .setMessage(selected.visualWarnings.mapIndexed { i, note -> "${i+1}. $note" }.joinToString("\n\n") +
+                        "\n\nหากภาพเริ่มต้นไม่ตรงกับเหตุการณ์ ให้กลับไปแก้ภาพหรือบทก่อนใช้ Flow")
+                    .setPositiveButton("ยืนยันและคัดลอก") { _,_ -> copyCommand(selected.command) }
+                    .setNegativeButton("กลับไปตรวจซีน",null).showDirector()
+            } else copyCommand(selected.command)
+        }
         show(0)
     }
     private fun showFlowCode(title: String, code: String, filename: String): AlertDialog {
@@ -4746,8 +4787,26 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         }
         if(!image(s).isFile) { notice("สร้างภาพฉากใน Gemini / Flow แล้วนำเข้าภาพก่อน จากนั้นเทียบ MASTER และยืนยันภาพ"); return }
         if(!sceneFrameApproved(s) || FlowScenePrompt.issues(flowSpec(s)).isNotEmpty()) { compareScene(s); return }
-        val code=runCatching { ShortFlowPrompt.build(flowSpec(s),"Slow gentle pan.") }.getOrElse { notice(it.message ?: "ตรวจคำสั่ง Flow"); return }
-        if(copy) copyCommand(code) else showFlowCode("วิดีโอจากภาพที่ยืนยันแล้ว",code,"${key(s)}_VIDEO.txt")
+        val spec = flowSpec(s)
+        val camera = "Slow gentle pan."
+        val code=runCatching { ShortFlowPrompt.build(spec,camera) }.getOrElse { notice(it.message ?: "ตรวจคำสั่ง Flow"); return }
+        val audioNotes=ShortFlowPrompt.audioWarnings(spec)
+        val visualNotes=ShortFlowPrompt.visualWarnings(spec,camera)
+        val proceed: () -> Unit = {
+            if(copy && audioNotes.isNotEmpty()) {
+                AlertDialog.Builder(this).setTitle("ตรวจเสียง Flow ก่อนคัดลอก")
+                    .setMessage(audioNotes.joinToString("\n") + "\n\nบทพูดต้นฉบับจะไม่ถูกแก้ไข")
+                    .setPositiveButton("คัดลอกตามบทเดิม") { _,_ -> copyCommand(code) }
+                    .setNegativeButton("กลับไปตรวจซีน",null).showDirector()
+            } else if(copy) copyCommand(code) else showFlowCode("วิดีโอจากภาพที่ยืนยันแล้ว",code,"${key(s)}_VIDEO.txt")
+        }
+        if(visualNotes.isNotEmpty()) {
+            AlertDialog.Builder(this).setTitle("⚠ ตรวจความต่อเนื่องของภาพ ${visualNotes.size} จุด")
+                .setMessage(visualNotes.mapIndexed { i, note -> "${i+1}. $note" }.joinToString("\n\n") +
+                    "\n\nตรวจภาพเริ่มต้นและแก้บทหรือภาพก่อนใช้ Flow หากวัตถุหรือการเคลื่อนไหวไม่ตรงกัน")
+                .setPositiveButton("ดูคำสั่งต่อ") { _,_ -> proceed() }
+                .setNegativeButton("กลับไปตรวจซีน",null).showDirector()
+        } else proceed()
     }
     private fun copyFlowCommand(s: JSONObject) { reviewedVideoCommand(s,true) }
     private fun mapFlowCharacters(s: JSONObject) {
