@@ -37,6 +37,15 @@ internal class CinematicPropStore(context: Context) {
         return FlowScenePrompt.build(spec.copy(cinematicProps = inventory), id = sceneId, camera = camera)
     }
 
+    fun addProp(sceneId: String, prop: CinematicProp): Boolean =
+        save(sceneId, CinematicPropEditor.add(load(sceneId), prop))
+
+    fun replaceProp(sceneId: String, originalId: String, prop: CinematicProp): Boolean =
+        save(sceneId, CinematicPropEditor.replace(load(sceneId), originalId, prop))
+
+    fun removeProp(sceneId: String, propId: String): Boolean =
+        save(sceneId, CinematicPropEditor.remove(load(sceneId), propId))
+
     fun clear(sceneId: String): Boolean =
         preferences.edit().remove(keyFor(sceneId)).commit()
 
