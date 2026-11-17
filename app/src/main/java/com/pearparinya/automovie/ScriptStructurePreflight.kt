@@ -70,10 +70,13 @@ internal object ScriptStructurePreflight {
                     s.optString("speaker").isBlank())
                     structural.add("EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}: มีบทพูดแต่ขาด speaker")
                 val turns = s.optJSONArray("dialogue_turns")
-                val speakers = if (turns != null) (0 until turns.length()).map { index ->
+                val hasTurns = turns != null && turns.length() > 0
+                val speakers = if (hasTurns) (0 until turns!!.length()).map { index ->
                     val turn = turns.optJSONObject(index)
                     if (turn == null) structural.add(
                         "EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}: dialogue_turns ลำดับ ${index + 1} ต้องเป็น object")
+                    else if (turn.optString("text").isBlank()) structural.add(
+                        "EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}: dialogue_turns ลำดับ ${index + 1} ขาดข้อความบทพูด")
                     turn?.optString("speaker").orEmpty()
                 } else listOfNotNull(s.optString("speaker").takeIf { it.isNotBlank() })
                 scenes.add(Scene(
