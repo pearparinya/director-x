@@ -25,3 +25,14 @@ This roadmap is a newly agreed development structure, not a recovered deleted-ch
 - Keep PRs draft until reviewed and CI passes.
 - Do not mark any category 100% until all acceptance gates are evidenced.
 - Do not publish an APK without verified signing and upgrade compatibility.
+
+## Integration of prior work from PR #358 (2026-11-17)
+PR #358 was reviewed as a cross-category source. Its eight changed files were copied into this working branch, preserving the six category-1 commits. This is a source snapshot integration, not a Git merge of PR #358, and does not close PR #358.
+
+- Category 1: ScriptStructurePreflight, story.json adapter, FlowProductionPack opt-in integration and unit tests.
+- Category 2: ContinuityReview and its cross-episode character/prop checks (from PR #358).
+- Category 3: First-frame visual preflight in ShortFlowPrompt and SceneCommandCards (from PR #358).
+- Category 4: English Flow directions, prompt generation and StudioActivity wiring (from PR #358).
+- Category 5: Prompt preflight reports, export logic and ShortFlowPrompt JVM tests (from PR #358).
+
+No category is marked 100% without successful CI and device evidence. PR #358 and PR #359 must not be merged independently into main without resolving overlap and checking the final diff.
