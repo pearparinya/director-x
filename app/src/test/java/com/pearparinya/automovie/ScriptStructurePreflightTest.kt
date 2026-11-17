@@ -226,4 +226,17 @@ class ScriptStructurePreflightTest {
         assertTrue(story.toString() == original)
     }
 
+    @Test fun duplicateNamesAfterWhitespaceNormalizationAreReported() {
+        val scene = validScene().copy(
+            characterNames = listOf("นาย เปีย", "  นาย   เปีย  ", "ณัฐชา"),
+            offscreenNames = listOf("ผู้บรรยาย", " ผู้บรรยาย "),
+            dialogueSpeakers = listOf("ณัฐชา")
+        )
+        val issues = ScriptStructurePreflight.issues(
+            listOf(ScriptStructurePreflight.Episode(1, listOf(scene))))
+        assertTrue(issues.any { it.contains("ชื่อตัวละครซ้ำ") })
+        assertTrue(issues.any { it.contains("ชื่อตัวละครนอกภาพซ้ำ") })
+        assertTrue(issues.none { it.contains("ไม่พบผู้พูด") })
+    }
+
 }
