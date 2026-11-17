@@ -31,4 +31,24 @@ class CinematicScenePreflightTest {
             CinematicProp("folder", true, true, "center", "center")
         )).isEmpty())
     }
+    @Test fun quantityMismatchIsFlaggedWhenExplicitlyProvided() {
+        val errors = CinematicScenePreflight.issues(listOf(
+            CinematicProp("cups", true, true, expectedCount = 3, firstFrameCount = 2)
+        ))
+        assertTrue(errors.any { it.contains("จำนวนไม่เพียงพอ") })
+    }
+
+    @Test fun optionalQuantityDoesNotChangeLegacyBehavior() {
+        assertTrue(CinematicScenePreflight.issues(listOf(
+            CinematicProp("cups", true, true)
+        )).isEmpty())
+    }
+
+    @Test fun conflictingPresenceAndCountIsFlagged() {
+        val errors = CinematicScenePreflight.issues(listOf(
+            CinematicProp("letter", false, false, firstFrameCount = 1)
+        ))
+        assertTrue(errors.any { it.contains("ไม่มีในภาพเริ่มต้น") })
+    }
+
 }
