@@ -83,7 +83,7 @@ internal object ProductionCommandCheck {
     fun namedIssues(scene: JSONObject,definitions: List<JSONObject>): List<String> = buildList {
         val aliases=mapOf("gawin" to listOf("กวิน","Kawin","Gawin","The Man"),"rinlada" to listOf("รินรดา","Rinrada","Rinlada","Woman 1"),"mind" to listOf("เมย์","May","Mind","Woman 2"))
         val present=people(scene).map { it.optString("name") }.toSet()
-        fun references(field: String): Set<String> = scene.optJSONArray(field)?.let { a -> (0 until a.length()).map { a.getString(it) }.toSet() }.orEmpty()
+        fun references(field: String): Set<String> = scene.optJSONArray(field)?.let { a -> (0 until a.length()).map { a.optString(it) }.toSet() }.orEmpty()
         val mentioned=references("mentioned_characters"); val offscreen=references("offscreen_characters")
         val known=definitions.map { it.optString("name") }.toSet()
         if((mentioned+offscreen).any { it !in known }) add("ชื่อคนนอกภาพหรือคนที่กล่าวถึงไม่อยู่ในทะเบียนตัวละคร")
