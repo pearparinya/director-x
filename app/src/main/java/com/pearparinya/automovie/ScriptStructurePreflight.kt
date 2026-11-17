@@ -71,6 +71,12 @@ internal object ScriptStructurePreflight {
                     structural.add("EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}: มีบทพูดแต่ขาด speaker")
                 val turns = s.optJSONArray("dialogue_turns")
                 val hasTurns = turns != null && turns.length() > 0
+                val label = "EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}"
+                if (hasTurns && (s.optString("dialogue").isNotBlank() || s.optString("speaker").isNotBlank()))
+                    structural.add("$label: dialogue_turns ขัดแย้งกับ speaker/dialogue แบบเดี่ยว")
+                if (s.optString("narration").isNotBlank() &&
+                    (hasTurns || s.optString("dialogue").isNotBlank()))
+                    structural.add("$label: narration และบทพูดไม่ควรอยู่ในฉากเดียวกัน")
                 val speakers = if (hasTurns) (0 until turns!!.length()).map { index ->
                     val turn = turns.optJSONObject(index)
                     if (turn == null) structural.add(
