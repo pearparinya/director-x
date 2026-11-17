@@ -55,6 +55,20 @@ internal object ScriptStructurePreflight {
                     if (s.has(field) && s.optJSONArray(field) == null)
                         structural.add("EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}: $field ต้องเป็น array")
                 }
+                val castArray = s.optJSONArray("characters")
+                if (castArray != null) for (index in 0 until castArray.length()) {
+                    if (castArray.optJSONObject(index) == null)
+                        structural.add("EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}: characters ลำดับ ${index + 1} ต้องเป็น object")
+                }
+                val offscreenArray = s.optJSONArray("offscreen_characters")
+                if (offscreenArray != null) for (index in 0 until offscreenArray.length()) {
+                    if (offscreenArray.opt(index) !is String)
+                        structural.add("EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}: offscreen_characters ลำดับ ${index + 1} ต้องเป็นข้อความ")
+                }
+                if (s.optString("dialogue").isNotBlank() &&
+                    s.optJSONArray("dialogue_turns") == null &&
+                    s.optString("speaker").isBlank())
+                    structural.add("EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}: มีบทพูดแต่ขาด speaker")
                 val turns = s.optJSONArray("dialogue_turns")
                 val speakers = if (turns != null) (0 until turns.length()).map { index ->
                     val turn = turns.optJSONObject(index)
