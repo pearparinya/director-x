@@ -189,6 +189,26 @@ class ShortFlowPromptPreflightTest {
         ) == null)
     }
 
+    @Test fun continuityGroupDayToNightShiftIsFlagged() {
+        val issue = ContinuityReview.continuityGroupTimeIssue(
+            "DAY1_HOME", "กลางวัน", "กลางคืน"
+        )
+        assertTrue(issue?.contains("เปลี่ยนช่วงเวลากลางวัน/กลางคืน") == true)
+        assertTrue(issue?.contains("DAY1_HOME") == true)
+    }
+
+    @Test fun continuityGroupMatchingOrUnknownTimeDoesNotRaiseFalseAlarm() {
+        assertTrue(ContinuityReview.continuityGroupTimeIssue(
+            "DAY1_HOME", "daytime", "กลางวัน"
+        ) == null)
+        assertTrue(ContinuityReview.continuityGroupTimeIssue(
+            "DAY1_HOME", "morning", "evening"
+        ) == null)
+        assertTrue(ContinuityReview.continuityGroupTimeIssue(
+            "", "daytime", "nighttime"
+        ) == null)
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
