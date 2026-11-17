@@ -60,5 +60,15 @@ internal object SceneCommandCards {
             }
         )
     }
+    internal fun exportVideoEpisode(cards: List<Card>): String {
+        val summary = episodeWarningSummary(cards)
+        val preflight = if(summary.flaggedScenes == 0) {
+            "FLOW VISUAL PREFLIGHT: No text-based continuity warnings detected. Verify every first-frame image manually."
+        } else {
+            "FLOW VISUAL PREFLIGHT: ${summary.flaggedScenes} scene(s), ${summary.warningCount} warning(s). Review first-frame images before use.\n" +
+                summary.details
+        }
+        return preflight + "\n\n" + join(cards)
+    }
     fun join(cards: List<Card>) = cards.joinToString("\n\n") { "=== ${it.title} ===\n${it.command}" }
 }
