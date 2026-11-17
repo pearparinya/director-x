@@ -87,6 +87,22 @@ internal object ContinuityReview {
             }
         }
     }
+    internal fun returnedPropIssues(
+        removedHistory: Set<String>, currentNames: Set<String>, returnedNames: List<String>
+    ): List<String> = buildList {
+        val history = removedHistory.map { it.trim().lowercase() }.toSet()
+        val current = currentNames.map { it.trim().lowercase() }.toSet()
+        val seen = mutableSetOf<String>()
+        returnedNames.forEachIndexed { index, raw ->
+            val name = raw.trim().lowercase()
+            when {
+                name.isEmpty() -> add("returned_props ลำดับ ${index+1} ขาดชื่อสิ่งของ")
+                !seen.add(name) -> add("returned_props ลำดับ ${index+1} สิ่งของ $raw ซ้ำ")
+                name !in history -> add("returned_props ลำดับ ${index+1} สิ่งของ $raw ไม่เคยถูกนำออกจากฉาก")
+                name !in current -> add("returned_props ลำดับ ${index+1} สิ่งของ $raw ไม่ปรากฏใน props ของฉากปัจจุบัน")
+            }
+        }
+    }
     fun review(story: JSONObject): List<String> {
         val findings = mutableListOf<String>()
         val groups = mutableMapOf<String, Pair<String, String>>()
@@ -94,6 +110,7 @@ internal object ContinuityReview {
         val groupEndStates = mutableMapOf<String, String>()
         val groupPropStates = mutableMapOf<Pair<String, String>, String>()
         val groupPreviousProps = mutableMapOf<String, Set<String>>()
+        val groupRemovedHistory = mutableMapOf<String, MutableSet<String>>()
         val dailyWardrobes = mutableMapOf<Pair<String, String>, Pair<String, String>>()
         val characterMasters = mutableMapOf<String, Pair<String, String>>()
         val episodes = story.optJSONArray("episodes") ?: return listOf("ไม่มีข้อมูล EP ให้ตรวจ")
@@ -123,10 +140,23 @@ internal object ContinuityReview {
                     val removed = scene.optJSONArray("removed_props")?.let { a ->
                         (0 until a.length()).map { p -> a.optString(p) }
                     }.orEmpty()
+                    val returned = scene.optJSONArray("returned_props")?.let { a ->
+                        (0 until a.length()).map { p -> a.optString(p) }
+                    }.orEmpty()
+                    val history = groupRemovedHistory.getOrPut(group) { mutableSetOf() }
+                    findings.addAll(returnedPropIssues(history, currentNames, returned).map { "$label: $it" })
                     groupPreviousProps[group]?.let { previous ->
                         findings.addAll(removedPropIssues(previous, currentNames, removed).map { "$label: $it" })
                         findings.addAll(missingPropIssues(previous, currentNames, removed.toSet()).map { "$label: $it" })
+                        val previousNormalized = previous.map { it.trim().lowercase() }.toSet()
+                        val currentNormalized = currentNames.map { it.trim().lowercase() }.toSet()
+                        removed.map { it.trim().lowercase() }
+                            .filter { it.isNotBlank() && it in previousNormalized && it !in currentNormalized }
+                            .forEach { history.add(it) }
                     }
+                    returned.map { it.trim().lowercase() }
+                        .filter { it in history && it in currentNames.map { name -> name.trim().lowercase() } }
+                        .forEach { history.remove(it) }
                     groupPreviousProps[group] = currentNames
                 }
                 if(group.isNotBlank() && props != null) for(p in 0 until props.length()) {
