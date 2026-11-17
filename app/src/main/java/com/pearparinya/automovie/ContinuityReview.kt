@@ -28,10 +28,19 @@ internal object ContinuityReview {
         if(before == null || after == null || before == after) return null
         return "กลุ่มต่อเนื่อง $group เปลี่ยนช่วงเวลากลางวัน/กลางคืน ($previousTime / $currentTime) โปรดตรวจการเปลี่ยนเวลาในเนื้อเรื่อง"
     }
+    internal fun adjacentSceneStateIssue(
+        group: String, previousEnd: String, nextStart: String
+    ): String? {
+        if(group.isBlank() || previousEnd.isBlank() || nextStart.isBlank()) return null
+        fun normalized(value: String) = value.trim().lowercase().replace(Regex("\\s+"), " ")
+        if(normalized(previousEnd) == normalized(nextStart)) return null
+        return "กลุ่มต่อเนื่อง $group สถานะจบฉากก่อนหน้าไม่ตรงกับสถานะเริ่มฉากถัดไป โปรดตรวจการเปลี่ยนแปลงของตัวละครและสิ่งของ"
+    }
     fun review(story: JSONObject): List<String> {
         val findings = mutableListOf<String>()
         val groups = mutableMapOf<String, Pair<String, String>>()
         val groupTimes = mutableMapOf<String, String>()
+        val groupEndStates = mutableMapOf<String, String>()
         val dailyWardrobes = mutableMapOf<Pair<String, String>, Pair<String, String>>()
         val characterMasters = mutableMapOf<String, Pair<String, String>>()
         val episodes = story.optJSONArray("episodes") ?: return listOf("ไม่มีข้อมูล EP ให้ตรวจ")
@@ -46,6 +55,8 @@ internal object ContinuityReview {
                 val location = scene.optString("location").trim()
                 val storyTime = scene.optString("story_time").trim()
                 val characters = scene.optJSONArray("characters")
+                val startState = scene.optString("start_state").trim()
+                val endState = scene.optString("end_state").trim()
                 if (characters != null) for (c in 0 until characters.length()) {
                     val character = characters.optJSONObject(c) ?: continue
                     val name = character.optString("name").trim()
@@ -84,6 +95,11 @@ internal object ContinuityReview {
                         findings.add("$label: $it")
                     }
                     if(storyTime.isNotBlank()) groupTimes.putIfAbsent(group, storyTime)
+                    val previousEnd = groupEndStates[group]
+                    if(previousEnd != null) adjacentSceneStateIssue(group, previousEnd, startState)?.let {
+                        findings.add("$label: $it")
+                    }
+                    if(endState.isNotBlank()) groupEndStates[group] = endState
                     if (previous == null) groups[group] = day to location
                 }
             }
