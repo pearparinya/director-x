@@ -34,15 +34,23 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
+            log_file="$(mktemp)"
+            trap 'rm -f "$log_file"' EXIT
             for attempt in 1 2 3; do
-              if gradle :app:connectedDebugAndroidTest --no-daemon --console=plain; then
+              if gradle :app:connectedDebugAndroidTest --console=plain >"$log_file" 2>&1; then
+                cat "$log_file"
                 exit 0
               fi
-              if [ "$attempt" -eq 3 ]; then
-                echo "Android instrumentation tests failed after 3 attempts"
+              cat "$log_file"
+              if ! grep -Eq 'Received status code 429|HTTP[^[:cntrl:]]*429|Too Many Requests' "$log_file"; then
+                echo "Non-transient failure: stopping immediately rather than rerunning tests."
                 exit 1
               fi
-              echo "Gradle or dependency download failed; retrying after cooldown (attempt $attempt/3)"
+              if [ "$attempt" -eq 3 ]; then
+                echo "Maven rate limit persisted after 3 attempts."
+                exit 1
+              fi
+              echo "Maven HTTP 429: retrying after cooldown (attempt $attempt/3)"
               sleep $((attempt * 20))
             done
       - uses: actions/upload-artifact@v4
