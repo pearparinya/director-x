@@ -114,6 +114,15 @@ class FlowProductionPackTest {
             }
         } finally { prefs.edit().putString("project",previous).remove("wardrobe_selected_stamp_$id").commit(); folder.deleteRecursively() }
     }
+    @Test fun malformedCharacterRowIsReportedWithoutCrashing() {
+        val story = plan(1, 23)
+        val scene = story.getJSONArray("episodes").getJSONObject(0)
+            .getJSONArray("scenes").getJSONObject(0)
+        scene.getJSONArray("characters").put(0, "invalid character")
+        val problems = FlowProductionPack.issues(story)
+        assertTrue(problems.any { it.contains("ตัวละครลำดับ 1 ต้องเป็น object") })
+    }
+
     @Test fun malformedEpisodeAndSceneRowsAreReportedBeforeExport() {
         val invalidEpisode = plan(1, 23)
         invalidEpisode.getJSONArray("episodes").put(0, "not an episode")
