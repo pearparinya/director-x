@@ -25,14 +25,15 @@ internal class CinematicPropStore(context: Context) {
 
     /**
      * Build a Flow prompt using the saved inventory for this scene.
-     * A caller-supplied inventory takes precedence, so unsaved edits are not lost.
+     * Explicit caller-supplied inventory takes precedence, including an empty list.
      */
     fun buildScenePrompt(
         sceneId: String,
         spec: FlowSceneSpec,
-        camera: String = "Slow, gentle pan."
+        camera: String = "Slow, gentle pan.",
+        useSpecInventory: Boolean = false
     ): String {
-        val inventory = if (spec.cinematicProps.isNotEmpty()) spec.cinematicProps else load(sceneId)
+        val inventory = if (useSpecInventory || spec.cinematicProps.isNotEmpty()) spec.cinematicProps else load(sceneId)
         return FlowScenePrompt.build(spec.copy(cinematicProps = inventory), id = sceneId, camera = camera)
     }
 
