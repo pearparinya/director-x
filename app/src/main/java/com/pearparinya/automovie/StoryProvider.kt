@@ -6,18 +6,10 @@ import org.json.JSONObject
 internal enum class StoryProvider(val id: String,val label: String,val defaultModel: String,val keyUrl: String) {
     GROQ("groq","Groq","openai/gpt-oss-120b","https://console.groq.com/keys"),
     GEMINI("gemini","Gemini",GeminiSettings.DEFAULT_MODEL,"https://aistudio.google.com/apikey"),
-    CEREBRAS("cerebras","Cerebras",CompatibleService.CEREBRAS.defaultModel,"https://cloud.cerebras.ai/"),
-    DEEPSEEK("deepseek","DeepSeek",CompatibleService.DEEPSEEK.defaultModel,"https://platform.deepseek.com/"),
     OPENROUTER("openrouter","OpenRouter",CompatibleService.OPENROUTER.defaultModel,"https://openrouter.ai/keys"),
-    SAMBANOVA("sambanova","SambaNova",CompatibleService.SAMBANOVA.defaultModel,"https://cloud.sambanova.ai/"),
-    MISTRAL("mistral","Mistral",CompatibleService.MISTRAL.defaultModel,"https://console.mistral.ai/api-keys"),
     COHERE("cohere","Cohere",CompatibleService.COHERE.defaultModel,"https://dashboard.cohere.com/api-keys");
     fun extra(): ExtraApiProvider? = when(this) {
-        CEREBRAS -> ExtraApiProvider.CEREBRAS
-        DEEPSEEK -> ExtraApiProvider.DEEPSEEK
         OPENROUTER -> ExtraApiProvider.OPENROUTER
-        SAMBANOVA -> ExtraApiProvider.SAMBANOVA
-        MISTRAL -> ExtraApiProvider.MISTRAL
         COHERE -> ExtraApiProvider.COHERE
         else -> null
     }
