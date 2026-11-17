@@ -68,7 +68,9 @@ internal object SceneCommandCards {
             "FLOW VISUAL PREFLIGHT: ${summary.flaggedScenes} scene(s), ${summary.warningCount} warning(s). Review first-frame images before use.\n" +
                 summary.details
         }
-        return preflight + "\n\n" + join(cards)
+        return "=== FLOW VISUAL PREFLIGHT REPORT (NOT PART OF VIDEO PROMPTS) ===\n" +
+            preflight + "\n=== END PREFLIGHT REPORT ===\n\n" +
+            "=== VIDEO COMMANDS: COPY EACH SCENE BLOCK SEPARATELY ===\n" + join(cards)
     }
     fun join(cards: List<Card>) = cards.joinToString("\n\n") { "=== ${it.title} ===\n${it.command}" }
 }
