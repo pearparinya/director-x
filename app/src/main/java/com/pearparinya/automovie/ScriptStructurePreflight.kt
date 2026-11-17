@@ -66,7 +66,7 @@ internal object ScriptStructurePreflight {
                         structural.add("EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}: offscreen_characters ลำดับ ${index + 1} ต้องเป็นข้อความ")
                 }
                 if (s.optString("dialogue").isNotBlank() &&
-                    s.optJSONArray("dialogue_turns") == null &&
+                    (s.optJSONArray("dialogue_turns")?.length() ?: 0) == 0 &&
                     s.optString("speaker").isBlank())
                     structural.add("EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}: มีบทพูดแต่ขาด speaker")
                 val turns = s.optJSONArray("dialogue_turns")
