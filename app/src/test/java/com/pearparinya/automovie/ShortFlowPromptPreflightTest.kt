@@ -126,6 +126,27 @@ class ShortFlowPromptPreflightTest {
         assertTrue(issues.isEmpty())
     }
 
+    @Test fun repeatedAdjacentDialogueIsFlaggedWithoutChangingWords() {
+        val turns = listOf(
+            FlowDialogueTurn("สมชาย", "สวัสดีครับ"),
+            FlowDialogueTurn("สมชาย", "สวัสดีครับ"),
+            FlowDialogueTurn("สมหญิง", "สวัสดีค่ะ")
+        )
+        val issues = ProductionCommandCheck.repeatedDialogueTurnIssues(turns)
+        assertTrue(issues.size == 1)
+        assertTrue(issues.single().contains("บทสนทนาลำดับ 2 ซ้ำกับลำดับ 1"))
+        assertTrue(turns[1].text == "สวัสดีครับ")
+    }
+
+    @Test fun deliberateSameSpeakerWithDifferentLinesIsAllowed() {
+        val turns = listOf(
+            FlowDialogueTurn("สมชาย", "ประโยคแรก"),
+            FlowDialogueTurn("สมชาย", "ประโยคถัดไป"),
+            FlowDialogueTurn("สมหญิง", "ประโยคถัดไป")
+        )
+        assertTrue(ProductionCommandCheck.repeatedDialogueTurnIssues(turns).isEmpty())
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
