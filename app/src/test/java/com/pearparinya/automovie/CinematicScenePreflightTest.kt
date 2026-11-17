@@ -102,4 +102,18 @@ class CinematicScenePreflightTest {
         assertTrue(!xml.contains("${CinematicFlowGuard.direction()}  Slow pan."))
     }
 
+    @Test fun nonActionPropsStillRequireConsistentExplicitCounts() {
+        val errors = CinematicScenePreflight.issues(listOf(
+            CinematicProp("background_chairs", true, false, expectedCount = 4, firstFrameCount = 2)
+        ))
+        assertTrue(errors.any { it.contains("จำนวนไม่เพียงพอ") })
+    }
+
+    @Test fun visiblePropCannotRequireZeroObjects() {
+        val errors = CinematicScenePreflight.issues(listOf(
+            CinematicProp("clock", true, false, expectedCount = 0, firstFrameCount = 1)
+        ))
+        assertTrue(errors.any { it.contains("จำนวนที่ต้องใช้เป็นศูนย์") })
+    }
+
 }
