@@ -57,8 +57,11 @@ internal object ScriptStructurePreflight {
                 }
                 val castArray = s.optJSONArray("characters")
                 if (castArray != null) for (index in 0 until castArray.length()) {
-                    if (castArray.optJSONObject(index) == null)
+                    val person = castArray.optJSONObject(index)
+                    if (person == null)
                         structural.add("EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}: characters ลำดับ ${index + 1} ต้องเป็น object")
+                    else if (person.opt("name") !is String)
+                        structural.add("EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}: characters ลำดับ ${index + 1} name ต้องเป็นข้อความ")
                 }
                 val offscreenArray = s.optJSONArray("offscreen_characters")
                 if (offscreenArray != null) for (index in 0 until offscreenArray.length()) {
