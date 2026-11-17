@@ -20,8 +20,8 @@ internal object MasterReferencePreparation {
         val seenNames = mutableSetOf<String>()
         val usedSources = mutableSetOf<String>()
         characters.forEach { character ->
-            val name = character.name.trim()
-            if (name.isBlank() || !seenNames.add(name)) {
+            val name = character.name.trim()\n            val normalizedName = name.replace(Regex("\\s+"), " ").lowercase()
+            if (name.isBlank() || !seenNames.add(normalizedName)) {
                 warnings.add("ชื่อตัวละครว่างหรือซ้ำ: กรุณาตรวจการจับคู่ MASTER")
                 return@forEach
             }
