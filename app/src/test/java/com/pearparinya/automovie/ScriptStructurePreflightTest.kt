@@ -291,4 +291,20 @@ class ScriptStructurePreflightTest {
         assertTrue(ScriptStructurePreflight.issues(episodes).isEmpty())
     }
 
+    @Test fun narrationMustBeTextAndValidThaiNarrationRemainsUntouched() {
+        val story = JSONObject("""{"episodes":[{"ep":1,"scenes":[{
+            "scene":1,"story_day":"DAY01","story_time":"เช้า",
+            "location":"บ้าน","start_state":"ยืน","end_state":"นั่ง",
+            "characters":[{"name":"นายเปีย"}],"narration":42
+        }]}]}""")
+        assertTrue(ScriptStructurePreflight.storyIssues(story).any {
+            it.contains("narration ต้องเป็นข้อความ")
+        })
+        val scene = story.getJSONArray("episodes").getJSONObject(0)
+            .getJSONArray("scenes").getJSONObject(0)
+        scene.put("narration", "เสียงบรรยายภาษาไทย")
+        assertTrue(ScriptStructurePreflight.storyIssues(story).isEmpty())
+        assertTrue(scene.getString("narration") == "เสียงบรรยายภาษาไทย")
+    }
+
 }
