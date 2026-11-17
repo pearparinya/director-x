@@ -85,4 +85,19 @@ class CinematicPropStoreTest {
         duration = 8, aspect = "9:16"
     )
 
+    @Test fun explicitlyClearedUnsavedInventoryDoesNotRestoreSavedProp() {
+        val store = CinematicPropStore(context)
+        val sceneId = "test_prop_store_explicit_empty"
+        store.clear(sceneId)
+        try {
+            assertTrue(store.save(sceneId, listOf(CinematicProp("cup", true, true, firstFrameCount = 1))))
+            val prompt = store.buildScenePrompt(sceneId, sceneSpec(), useSpecInventory = true)
+            assertFalse(prompt.contains("Prop cup:"))
+            assertTrue(store.hasSavedInventory(sceneId))
+            assertEquals(1, store.load(sceneId).size)
+        } finally {
+            store.clear(sceneId)
+        }
+    }
+
 }
