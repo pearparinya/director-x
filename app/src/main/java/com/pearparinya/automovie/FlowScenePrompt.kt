@@ -53,6 +53,12 @@ internal object FlowScenePrompt {
         if (s.cast.isEmpty() && speech(s.dialogue).isNotEmpty()) add("ระบุตัวละครที่ปรากฏในภาพฉากนี้")
         if (s.cast.map { it.englishName.trim().lowercase() }.filter { it.isNotEmpty() }.let { it.distinct().size!=it.size }) add("ชื่ออังกฤษของตัวละครซ้ำ กรุณาตรวจรายชื่อ")
         if (s.cast.any { it.name.isBlank() }) add("ตัวละครต้องมีชื่อ")
+        val offscreenIds = s.offscreen.map(::identity)
+        if (s.offscreen.any { it.isBlank() }) add("รายชื่อคนนอกภาพต้องไม่ว่าง")
+        if (offscreenIds.distinct().size != offscreenIds.size) add("รายชื่อคนนอกภาพซ้ำ")
+        if (s.cast.any { person -> identity(person.name) in offscreenIds })
+            add("ตัวละครเดียวกันอยู่ทั้งในภาพและนอกภาพ กรุณาเลือกสถานะเดียว")
+
         if (s.cast.map { identity(it.name) }.distinct().size != s.cast.size || s.cast.map { refName(it.name) }.distinct().size != s.cast.size) add("ชื่อตัวละครซ้ำหรือรหัสอ้างอิงชนกัน")
         s.cast.forEach {
             if (it.appearance.isBlank() || it.position.isBlank()) add("ตรวจลักษณะและตำแหน่งในภาพของ ${it.name}")
