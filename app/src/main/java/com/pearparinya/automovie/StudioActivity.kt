@@ -2864,8 +2864,25 @@ $context"""
             override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
         }
         val dialog=AlertDialog.Builder(this).setTitle("EP.$number • ${if(kind==0) "คำสั่งภาพ" else "คำสั่งวิดีโอ"}").setView(panel)
-            .setPositiveButton("คัดลอกชุดนี้",null).setNeutralButton("บันทึกทั้ง EP") { _,_ -> prefs.edit().putString("pending_flow_code",SceneCommandCards.join(cards)).apply(); flowCodePicker.launch("EP%02d_%s.txt".format(number,if(kind==0) "IMAGES" else "VIDEOS")) }
+            .setPositiveButton("คัดลอกชุดนี้",null).setNeutralButton("บันทึกทั้ง EP",null)
             .setNegativeButton("ปิด",null).showDirector()
+        dialog.getButton(-3).setOnClickListener {
+            val save: () -> Unit = {
+                prefs.edit().putString("pending_flow_code",SceneCommandCards.join(cards)).apply()
+                flowCodePicker.launch("EP%02d_%s.txt".format(number,if(kind==0) "IMAGES" else "VIDEOS"))
+            }
+            val flagged=if(kind==1) cards.filter { it.visualWarnings.isNotEmpty() } else emptyList()
+            if(flagged.isNotEmpty()) {
+                val count=flagged.sumOf { it.visualWarnings.size }
+                AlertDialog.Builder(this).setTitle("⚠ ตรวจคำสั่งวิดีโอทั้ง EP")
+                    .setMessage("พบ ${flagged.size} ฉากที่มีคำเตือน รวม $count จุด:\n\n" +
+                        flagged.joinToString("\n\n") { card ->
+                            "${card.title}\n" + card.visualWarnings.mapIndexed { i, note -> "${i+1}. $note" }.joinToString("\n")
+                        } + "\n\nตรวจภาพเริ่มต้นของแต่ละฉากก่อนนำไฟล์ไปใช้ Flow")
+                    .setPositiveButton("ยืนยันและบันทึก") { _,_ -> save() }
+                    .setNegativeButton("กลับไปตรวจซีน",null).showDirector()
+            } else save()
+        }
         dialog.getButton(-1).setOnClickListener {
             val selected=cards[index]
             if(kind==1 && selected.visualWarnings.isNotEmpty()) {
