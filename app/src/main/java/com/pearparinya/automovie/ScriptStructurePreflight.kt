@@ -51,21 +51,28 @@ internal object ScriptStructurePreflight {
                         else a.optString(index)
                     }
                 }
+                for (field in listOf("characters", "offscreen_characters", "dialogue_turns")) {
+                    if (s.has(field) && s.optJSONArray(field) == null)
+                        structural.add("EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}: $field ต้องเป็น array")
+                }
                 val turns = s.optJSONArray("dialogue_turns")
                 val speakers = if (turns != null) (0 until turns.length()).map { index ->
-                    turns.optJSONObject(index)?.optString("speaker").orEmpty()
+                    val turn = turns.optJSONObject(index)
+                    if (turn == null) structural.add(
+                        "EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}: dialogue_turns ลำดับ ${index + 1} ต้องเป็น object")
+                    turn?.optString("speaker").orEmpty()
                 } else listOfNotNull(s.optString("speaker").takeIf { it.isNotBlank() })
                 scenes.add(Scene(
-                    number = s.optInt("scene", j + 1),
+                    number = if (s.has("scene")) s.optInt("scene", 0) else j + 1,
                     day = s.optString("story_day"), location = s.optString("location"),
                     time = s.optString("story_time"), startState = s.optString("start_state"),
                     endState = s.optString("end_state"),
-                    durationSeconds = s.optInt("duration_seconds", 8),
+                    durationSeconds = if (s.has("duration_seconds")) s.optInt("duration_seconds", 0) else 8,
                     characterNames = names("characters"), dialogueSpeakers = speakers,
                     offscreenNames = names("offscreen_characters")
                 ))
             }
-            episodes.add(Episode(ep.optInt("ep", i + 1), scenes))
+            episodes.add(Episode(if (ep.has("ep")) ep.optInt("ep", 0) else i + 1, scenes))
         }
         return structural + issues(episodes)
     }
