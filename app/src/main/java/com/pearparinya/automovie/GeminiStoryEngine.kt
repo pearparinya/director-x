@@ -219,6 +219,13 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                         for(n in 0 until sceneRows.length()) PerformanceDirection.normalizeSilentVoices(sceneRows.getJSONObject(n))
                     }
                     validateBatch(it,i+1,start,size,support)
+                    // Validate each generated batch before caching it when strict script mode is enabled.
+                    if (spec.optInt("script_preflight_version") >= 1) {
+                        val partial = JSONObject().put("episodes", JSONArray().put(
+                            JSONObject().put("ep", i + 1).put("scenes", it.getJSONArray("scenes"))))
+                        val problems = ScriptStructurePreflight.storyIssues(partial)
+                        require(problems.isEmpty()) { problems.take(5).joinToString("; ") }
+                    }
                     if(spec.optString("content_profile")==AutoDirectorContent.profile || spec.optInt("command_version")>=1) {
                         AutoDirectorContent.validateWardrobes(it,spec.optInt("autodirector_version")>=AutoDirectorContent.version)
                         val wardrobeIssues=AutoDirectorWardrobe.issues(priorWardrobe+AutoDirectorWardrobe.batch(i+1,it.getJSONArray("scenes")))
