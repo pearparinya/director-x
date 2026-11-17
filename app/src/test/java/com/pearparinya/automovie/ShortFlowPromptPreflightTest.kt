@@ -827,4 +827,22 @@ class ShortFlowPromptPreflightTest {
         )
         assertTrue(states.containsKey("HOME" to "จดหมาย"))
     }
+
+    @Test fun duplicateCharactersWithinSceneAreReported() {
+        val issues = ContinuityReview.duplicateCharacterIssues(
+            listOf("ณัฐชา", " กวิน ", " ณัฐชา ", "กวิน")
+        )
+        assertTrue(issues.size == 2)
+        assertTrue(issues.any { it.contains("ลำดับ 3") })
+        assertTrue(issues.any { it.contains("ลำดับ 4") })
+    }
+
+    @Test fun missingCharacterNameIsReportedWithoutFalseDuplicate() {
+        val issues = ContinuityReview.duplicateCharacterIssues(
+            listOf("", "  ", "นาย เปีย", "นาย   เปีย")
+        )
+        assertTrue(issues.size == 3)
+        assertTrue(issues.count { it.contains("ขาดชื่อ") } == 2)
+        assertTrue(issues.count { it.contains("ซ้ำ") } == 1)
+    }
 }
