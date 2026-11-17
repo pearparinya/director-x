@@ -177,11 +177,14 @@ internal object ContinuityReview {
             .filter { it in history && it in current && it !in removedInThisScene }
             .forEach { history.remove(it) }
     }
+    /** Match the same character consistently across episodes despite extra whitespace or case. */
+    internal fun characterKey(name: String): String =
+        name.trim().lowercase().replace(Regex("\\s+"), " ")
     /** Flag ambiguous duplicate character records without assuming the characters are different people. */
     internal fun duplicateCharacterIssues(names: List<String>): List<String> = buildList {
         val seen = mutableSetOf<String>()
         names.forEachIndexed { index, raw ->
-            val normalized = raw.trim().lowercase().replace(Regex("\\s+"), " ")
+            val normalized = characterKey(raw)
             if (normalized.isBlank()) add("ตัวละครลำดับ ${index + 1} ขาดชื่อ")
             else if (!seen.add(normalized)) add("ตัวละครลำดับ ${index + 1} ชื่อ $raw ซ้ำในฉากเดียวกัน")
         }
@@ -317,17 +320,17 @@ internal object ContinuityReview {
                     val outfit = character.optString("outfit").trim()
                     if (master.isBlank()) findings.add("$label: $name ไม่มีภาพ MASTER ที่ระบุไว้")
                     else {
-                        val previousMaster = characterMasters[name]
+                        val previousMaster = characterMasters[characterKey(name)]
                         if (previousMaster != null && previousMaster.first != master)
                             findings.add("$label: $name ใช้ MASTER ต่างจาก ${previousMaster.second} โปรดตรวจการจับคู่ภาพ")
-                        else characterMasters.putIfAbsent(name, master to label)
+                        else characterMasters.putIfAbsent(characterKey(name), master to label)
                     }
                     if (day.isBlank()) {
                         findings.add("$label: $name ไม่ระบุ story_day จึงตรวจชุดประจำวันไม่ได้")
                     } else if (outfit.isBlank()) {
                         findings.add("$label: $name ไม่มีรายละเอียดชุดสำหรับ $day")
                     } else {
-                        val key = name to day
+                        val key = characterKey(name) to day
                         val previousOutfit = dailyWardrobes[key]
                         if (previousOutfit != null && previousOutfit.first != outfit)
                             findings.add("$label: $name ชุดหรือรองเท้าใน $day ต่างจาก ${previousOutfit.second} โปรดตรวจ")
