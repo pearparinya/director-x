@@ -85,7 +85,13 @@ story.json ต้องเป็น UTF-8 และมีรูปแบบน�
                     if(s.optString(field).isBlank()) add("$id ขาด $field")
                 val cast=s.optJSONArray("characters")
                 if(cast==null || cast.length()==0) { add("$id ขาดตัวละคร"); continue }
-                val people=(0 until cast.length()).map { cast.getJSONObject(it) }
+                val people=(0 until cast.length()).mapNotNull { index ->
+                    cast.optJSONObject(index) ?: run {
+                        add("$id ตัวละครลำดับ ${index + 1} ต้องเป็น object")
+                        null
+                    }
+                }
+                if (people.isEmpty()) continue
                 val keys=people.map { FlowCast.id(it) }
                 if(keys.any { it==null } || keys.distinct().size!=keys.size) add("$id ตัวละครไม่ตรง MASTER หรือซ้ำ")
                 people.forEach { p ->
