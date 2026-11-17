@@ -267,4 +267,28 @@ class ScriptStructurePreflightTest {
         assertTrue(issues.any { it.contains("duration_seconds ต้องเป็นจำนวนเต็ม") })
     }
 
+    @Test fun outOfOrderEpisodesAndScenesAreDetectedWithoutRequiringConsecutiveNumbers() {
+        val episodes = listOf(
+            ScriptStructurePreflight.Episode(3, listOf(
+                validScene().copy(number = 10),
+                validScene().copy(number = 7))),
+            ScriptStructurePreflight.Episode(1, listOf(validScene().copy(number = 4)))
+        )
+        val issues = ScriptStructurePreflight.issues(episodes)
+        assertTrue(issues.any { it.contains("ลำดับ EP ย้อนกลับ") })
+        assertTrue(issues.any { it.contains("ลำดับฉากย้อนกลับ") })
+        assertTrue(issues.none { it.contains("หมายเลขฉากซ้ำ") })
+        assertTrue(issues.none { it.contains("หมายเลข EP ซ้ำ") })
+    }
+
+    @Test fun increasingNonconsecutiveEpisodeAndSceneNumbersAreAccepted() {
+        val episodes = listOf(
+            ScriptStructurePreflight.Episode(1, listOf(
+                validScene().copy(number = 1),
+                validScene().copy(number = 3))),
+            ScriptStructurePreflight.Episode(4, listOf(validScene().copy(number = 2)))
+        )
+        assertTrue(ScriptStructurePreflight.issues(episodes).isEmpty())
+    }
+
 }
