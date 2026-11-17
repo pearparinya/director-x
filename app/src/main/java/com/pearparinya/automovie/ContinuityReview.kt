@@ -61,12 +61,20 @@ internal object ContinuityReview {
             if(key.isNotEmpty() && !seen.add(key)) add("สิ่งของลำดับ ${index+1} ชื่อ $name ซ้ำในฉากเดียวกัน")
         }
     }
+    internal fun missingPropIssues(
+        previousNames: Set<String>, currentNames: Set<String>, removedNames: Set<String>
+    ): List<String> = previousNames.map { it.trim().lowercase() }
+        .filter { it.isNotBlank() && it !in currentNames.map(String::trim).map(String::lowercase) &&
+            it !in removedNames.map(String::trim).map(String::lowercase) }
+        .distinct()
+        .map { "สิ่งของ $it ไม่ปรากฏในรายการฉากถัดไป โปรดตรวจว่าออกจากฉากโดยตั้งใจหรือข้อมูลตกหล่น" }
     fun review(story: JSONObject): List<String> {
         val findings = mutableListOf<String>()
         val groups = mutableMapOf<String, Pair<String, String>>()
         val groupTimes = mutableMapOf<String, String>()
         val groupEndStates = mutableMapOf<String, String>()
         val groupPropStates = mutableMapOf<Pair<String, String>, String>()
+        val groupPreviousProps = mutableMapOf<String, Set<String>>()
         val dailyWardrobes = mutableMapOf<Pair<String, String>, Pair<String, String>>()
         val characterMasters = mutableMapOf<String, Pair<String, String>>()
         val episodes = story.optJSONArray("episodes") ?: return listOf("ไม่มีข้อมูล EP ให้ตรวจ")
@@ -88,6 +96,18 @@ internal object ContinuityReview {
                         (item?.optString("name") ?: "") to (item?.optString("state") ?: "")
                     }
                     findings.addAll(propEntryIssues(entries).map { "$label: $it" })
+                }
+                if(group.isNotBlank() && props != null) {
+                    val currentNames = (0 until props.length()).mapNotNull { p ->
+                        props.optJSONObject(p)?.optString("name")?.trim()?.takeIf(String::isNotBlank)
+                    }.toSet()
+                    val removed = scene.optJSONArray("removed_props")?.let { a ->
+                        (0 until a.length()).mapNotNull { p -> a.optString(p).trim().takeIf(String::isNotBlank) }.toSet()
+                    }.orEmpty()
+                    groupPreviousProps[group]?.let { previous ->
+                        findings.addAll(missingPropIssues(previous, currentNames, removed).map { "$label: $it" })
+                    }
+                    groupPreviousProps[group] = currentNames
                 }
                 if(group.isNotBlank() && props != null) for(p in 0 until props.length()) {
                     val item = props.optJSONObject(p) ?: continue
