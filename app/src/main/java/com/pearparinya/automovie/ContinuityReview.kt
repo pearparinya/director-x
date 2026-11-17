@@ -71,6 +71,22 @@ internal object ContinuityReview {
             .distinct()
             .map { "สิ่งของ $it ไม่ปรากฏในรายการฉากถัดไป โปรดตรวจว่าออกจากฉากโดยตั้งใจหรือข้อมูลตกหล่น" }
     }
+    internal fun removedPropIssues(
+        previousNames: Set<String>, currentNames: Set<String>, removedNames: List<String>
+    ): List<String> = buildList {
+        val previous = previousNames.map { it.trim().lowercase() }.toSet()
+        val current = currentNames.map { it.trim().lowercase() }.toSet()
+        val seen = mutableSetOf<String>()
+        removedNames.forEachIndexed { index, raw ->
+            val name = raw.trim().lowercase()
+            when {
+                name.isEmpty() -> add("removed_props ลำดับ ${index+1} ขาดชื่อสิ่งของ")
+                !seen.add(name) -> add("removed_props ลำดับ ${index+1} ระบุสิ่งของ $raw ซ้ำ")
+                name !in previous -> add("removed_props ลำดับ ${index+1} สิ่งของ $raw ไม่อยู่ในฉากก่อนหน้า")
+                name in current -> add("removed_props ลำดับ ${index+1} สิ่งของ $raw ยังอยู่ในฉากปัจจุบัน")
+            }
+        }
+    }
     fun review(story: JSONObject): List<String> {
         val findings = mutableListOf<String>()
         val groups = mutableMapOf<String, Pair<String, String>>()
@@ -105,10 +121,11 @@ internal object ContinuityReview {
                         props.optJSONObject(p)?.optString("name")?.trim()?.takeIf(String::isNotBlank)
                     }.toSet()
                     val removed = scene.optJSONArray("removed_props")?.let { a ->
-                        (0 until a.length()).mapNotNull { p -> a.optString(p).trim().takeIf(String::isNotBlank) }.toSet()
+                        (0 until a.length()).map { p -> a.optString(p) }
                     }.orEmpty()
                     groupPreviousProps[group]?.let { previous ->
-                        findings.addAll(missingPropIssues(previous, currentNames, removed).map { "$label: $it" })
+                        findings.addAll(removedPropIssues(previous, currentNames, removed).map { "$label: $it" })
+                        findings.addAll(missingPropIssues(previous, currentNames, removed.toSet()).map { "$label: $it" })
                     }
                     groupPreviousProps[group] = currentNames
                 }
