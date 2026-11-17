@@ -4,6 +4,7 @@ package com.pearparinya.automovie
  * Pure scheduling policy for free-tier image providers.
  * No network calls or charges are made by this class.
  * Callers must persist queue progress and provider cooldowns.
+ * Unknown remaining quota is excluded: never risk a paid request.
  */
 internal object ImageProviderRotation {
     data class Provider(
@@ -29,7 +30,7 @@ internal object ImageProviderRotation {
         val eligible = providers.filter {
             it.id.isNotBlank() && it.freeTierConfirmed &&
                 (!requiresReferenceImage || it.supportsReferenceImage) &&
-                (it.remainingFreeRequests == null || it.remainingFreeRequests > 0)
+                it.remainingFreeRequests != null && it.remainingFreeRequests > 0
         }.distinctBy { it.id }
         val ready = eligible.filter { it.retryAfterEpochMs <= nowEpochMs }
         if (ready.isNotEmpty()) {
