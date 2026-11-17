@@ -311,6 +311,27 @@ class ShortFlowPromptPreflightTest {
         ).isEmpty())
     }
 
+    @Test fun removedPropsMustExistPreviouslyAndNotCurrently() {
+        val issues = ContinuityReview.removedPropIssues(
+            setOf("จดหมาย"), setOf("โทรศัพท์"),
+            listOf("จดหมาย", "จดหมาย", "กระเป๋า", "")
+        )
+        assertTrue(issues.size == 3)
+        assertTrue(issues.any { it.contains("ระบุสิ่งของ จดหมาย ซ้ำ") })
+        assertTrue(issues.any { it.contains("สิ่งของ กระเป๋า ไม่อยู่ในฉากก่อนหน้า") })
+        assertTrue(issues.any { it.contains("ลำดับ 4 ขาดชื่อสิ่งของ") })
+    }
+
+    @Test fun validRemovedPropPassesAndPresentPropIsFlagged() {
+        assertTrue(ContinuityReview.removedPropIssues(
+            setOf("จดหมาย"), emptySet(), listOf("จดหมาย")
+        ).isEmpty())
+        val issues = ContinuityReview.removedPropIssues(
+            setOf("จดหมาย"), setOf("จดหมาย"), listOf("จดหมาย")
+        )
+        assertTrue(issues.single().contains("ยังอยู่ในฉากปัจจุบัน"))
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
