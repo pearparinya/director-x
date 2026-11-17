@@ -22,9 +22,16 @@ internal object ProductionCommandCheck {
         validObjects.mapIndexedNotNull { index, valid ->
             if(valid) null else "บทสนทนาลำดับ ${index+1} ต้องเป็นข้อมูลผู้พูดและข้อความ"
         }
+    internal fun dialogueTurnContentIssues(turns: List<FlowDialogueTurn>): List<String> = buildList {
+        turns.forEachIndexed { index, turn ->
+            if(speech(turn.speaker).isEmpty()) add("บทสนทนาลำดับ ${index+1} ขาดชื่อผู้พูด")
+            if(speech(turn.text).isEmpty()) add("บทสนทนาลำดับ ${index+1} ขาดข้อความ")
+        }
+    }
     fun sceneIssues(scene: JSONObject): List<String> = buildList {
         addAll(FlowScenePrompt.issues(spec(scene)))
         val people=people(scene)
+        addAll(dialogueTurnContentIssues(dialogueTurns(scene)))
         val rawTurns=scene.optJSONArray("dialogue_turns")
         if(rawTurns!=null) addAll(malformedDialogueTurnIssues(
             (0 until rawTurns.length()).map { rawTurns.optJSONObject(it) != null }
