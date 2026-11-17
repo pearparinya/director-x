@@ -4893,6 +4893,15 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         val fields = listOf("action" to "เหตุการณ์", "dialogue" to "บทพูด", "speaker" to "ผู้พูด", "narration" to "เสียงบรรยาย", "location" to "สถานที่", "continuity_group" to "กลุ่มความต่อเนื่อง", "props" to "อุปกรณ์", "story_time" to "เวลาในเรื่อง", "story_day" to "วันในเรื่อง เช่น DAY01", "activity" to "กิจกรรม เช่น meeting / home / sleep", "wardrobe_event" to "ช่วงชุด เช่น DAY01_MEETING", "image_prompt" to "คำสั่งภาพ", "framing" to "ระยะภาพ (ว่าง = ตามการกระทำ)", "lighting" to "แสงตามฉาก", "flow_prompt" to "VIDEO PROMPT (แก้ให้ตรงกับบทและชุดปัจจุบัน)", "flow_action" to "การกระทำสำหรับวิดีโอ (English)", "start_state" to "สถานะต้นฉาก", "end_state" to "สถานะท้ายฉาก")
         val panel = LinearLayout(this).apply { orientation = 1; setPadding(dp(12),dp(12),dp(12),dp(12)) }
         val inputs = fields.map { (key,label) -> key to EditText(this).apply { hint = label; setText(draft.optString(key,s.optString(key))); panel.addView(this) } }
+        Button(this).apply {
+            text = "จัดการวัตถุในฉาก (Cinematic Props)"
+            setOnClickListener {
+                CinematicPropDialog.show(this@StudioActivity, key(s)) {
+                    notice("บันทึกรายการวัตถุของฉากแล้ว")
+                }
+            }
+            panel.addView(this)
+        }
         val turnInput=EditText(this).apply {
             hint="บทสนทนาหลายคน: ชื่อผู้พูด: ข้อความ (หนึ่งบรรทัดต่อหนึ่งช่วง) • เว้นบทเดี่ยวและบรรยายให้ว่าง"
             setText(draft.optString("dialogue_turns_draft").ifBlank { ProductionCommandCheck.dialogueTurns(draft).joinToString("\n") { "${it.speaker}: ${it.text}" } })
