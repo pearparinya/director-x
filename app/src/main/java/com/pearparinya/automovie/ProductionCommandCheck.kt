@@ -28,10 +28,21 @@ internal object ProductionCommandCheck {
             if(speech(turn.text).isEmpty()) add("บทสนทนาลำดับ ${index+1} ขาดข้อความ")
         }
     }
+    internal fun repeatedDialogueTurnIssues(turns: List<FlowDialogueTurn>): List<String> = buildList {
+        turns.forEachIndexed { index, turn ->
+            if(index == 0 || speech(turn.speaker).isEmpty() || speech(turn.text).isEmpty()) return@forEachIndexed
+            val previous = turns[index - 1]
+            if(turn.speaker.trim() == previous.speaker.trim() &&
+                turn.text.trim() == previous.text.trim()) {
+                add("บทสนทนาลำดับ ${index+1} ซ้ำกับลำดับ ${index} ทั้งผู้พูดและข้อความ กรุณาตรวจว่าตั้งใจพูดซ้ำหรือไม่")
+            }
+        }
+    }
     fun sceneIssues(scene: JSONObject): List<String> = buildList {
         addAll(FlowScenePrompt.issues(spec(scene)))
         val people=people(scene)
         addAll(dialogueTurnContentIssues(dialogueTurns(scene)))
+        addAll(repeatedDialogueTurnIssues(dialogueTurns(scene)))
         val rawTurns=scene.optJSONArray("dialogue_turns")
         if(rawTurns!=null) addAll(malformedDialogueTurnIssues(
             (0 until rawTurns.length()).map { rawTurns.optJSONObject(it) != null }
