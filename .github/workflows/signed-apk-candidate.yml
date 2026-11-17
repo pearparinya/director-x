@@ -55,7 +55,21 @@ jobs:
           keytool -list -keystore "$RUNNER_TEMP/director-x-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
           echo "Existing signing key loaded successfully."
       - name: Build release and run unit tests
-        run: gradle :app:testDebugUnitTest :app:assembleRelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Retry transient Maven Central rate limits, not Kotlin/Gradle compilation errors.
+          for attempt in 1 2 3; do
+            LOG="$RUNNER_TEMP/director-x-build-attempt-$attempt.log"
+            if gradle --no-daemon :app:testDebugUnitTest :app:assembleRelease 2>&1 | tee "$LOG"; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ] || ! grep -Eiq '429|Too Many Requests' "$LOG"; then
+              echo "::error::Build failed (not a retryable rate limit, or attempts exhausted)"
+              exit 1
+            fi
+            sleep $((attempt * 20))
+          done
       - name: Sign, verify and inspect candidate APK
         shell: bash
         env:
