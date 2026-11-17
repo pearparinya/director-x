@@ -845,4 +845,16 @@ class ShortFlowPromptPreflightTest {
         assertTrue(issues.count { it.contains("ขาดชื่อ") } == 2)
         assertTrue(issues.count { it.contains("ซ้ำ") } == 1)
     }
+
+    @Test fun characterIdentityKeyIsStableAcrossEpisodes() {
+        assertTrue(ContinuityReview.characterKey("  นาย   เปีย  ") ==
+            ContinuityReview.characterKey("นาย เปีย"))
+        assertTrue(ContinuityReview.characterKey("SOMCHAI") ==
+            ContinuityReview.characterKey("somchai"))
+    }
+
+    @Test fun distinctCharactersRetainSeparateIdentityKeys() {
+        assertFalse(ContinuityReview.characterKey("ณัฐชา") ==
+            ContinuityReview.characterKey("กวิน"))
+    }
 }
