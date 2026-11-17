@@ -40,8 +40,11 @@ internal object SceneCommandCards {
         return (0 until rows.length()).map { i ->
             val s=rows.getJSONObject(i)
             val spec=FlowSceneSpec(FlowReferencePrompt.people(s).map { FlowPerson(it.getString("name"),it.getString("visual_description"),it.getString("screen_position"),it.getString("outfit"),PerformanceDirection.text(it)) },s.optString("speaker"),s.optString("dialogue"),s.optString("narration"),s.optString("flow_action").ifBlank { s.getString("action") },s.getString("location"),s.getString("start_state"),s.getString("end_state"),8,"9:16",SoundDesign.notes(s),ProductionCommandCheck.offscreen(s),ProductionCommandCheck.dialogueTurns(s))
-            val mapped=spec
-            Card("ซีน ${s.getInt("scene")} • วิดีโอแนวตั้ง 9:16 • 8 วินาที",ShortFlowPrompt.build(mapped,"Slow, gentle pan."))
+            val camera = "Slow, gentle pan."
+            val warnings = ShortFlowPrompt.visualWarnings(spec, camera)
+            val title = "ซีน ${s.getInt("scene")} • วิดีโอแนวตั้ง 9:16 • 8 วินาที" +
+                if (warnings.isNotEmpty()) " • ⚠ ตรวจสอบภาพเริ่มต้น ${warnings.size} จุด" else ""
+            Card(title, ShortFlowPrompt.build(spec, camera))
         }
     }
     fun join(cards: List<Card>) = cards.joinToString("\n\n") { "=== ${it.title} ===\n${it.command}" }
