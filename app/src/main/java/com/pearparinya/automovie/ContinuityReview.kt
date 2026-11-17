@@ -112,6 +112,27 @@ internal object ContinuityReview {
             .distinct()
             .map { "สิ่งของ $it กลับมาปรากฏในฉากโดยไม่ระบุ returned_props โปรดตรวจลำดับเหตุการณ์" }
     }
+    /** Human-readable triage only: severity is heuristic, not a verified scene defect. */
+    internal fun formatFinding(finding: String): String {
+        val manual = finding.startsWith("ตรวจด้วยตนเอง:")
+        val high = listOf("ขาดชื่อ", "ขาดสถานะ", "ไม่มีภาพ MASTER", "ใช้ MASTER ต่าง", "ชื่อ", "ซ้ำ")
+            .any { finding.contains(it) } && !manual
+        val level = when {
+            manual -> "ข้อมูลเพิ่มเติม"
+            high -> "ควรแก้ไข"
+            else -> "ควรตรวจสอบ"
+        }
+        val action = when {
+            manual -> "ตรวจความสมเหตุสมผลของเนื้อเรื่องและภาพจริงด้วยตนเอง"
+            finding.contains("returned_props") -> "ตรวจประวัติการนำสิ่งของออกและการกลับเข้าฉาก"
+            finding.contains("removed_props") -> "ตรวจรายการสิ่งของในฉากก่อนหน้าและฉากปัจจุบัน"
+            finding.contains("สิ่งของ") -> "ตรวจ props และสถานะสิ่งของระหว่างฉาก"
+            finding.contains("MASTER") -> "ตรวจการจับคู่ภาพ MASTER ของตัวละคร"
+            finding.contains("ชุด") || finding.contains("story_day") -> "ตรวจวันในเรื่องและเครื่องแต่งกาย"
+            else -> "ตรวจข้อมูลฉากและเหตุการณ์ที่เชื่อมต่อกัน"
+        }
+        return "[$level] $finding | แนวทาง: $action"
+    }
     fun review(story: JSONObject): List<String> {
         val findings = mutableListOf<String>()
         val groups = mutableMapOf<String, Pair<String, String>>()
@@ -232,6 +253,6 @@ internal object ContinuityReview {
             }
         }
         findings.add("ตรวจด้วยตนเอง: ใครรู้หลักฐานเมื่อใด บาดแผล สิ่งของ อารมณ์ และเหตุการณ์ที่เชื่อมต่อระหว่าง EP • ระบบยังไม่ยืนยันความหมายหรือภาพจริง")
-        return findings.distinct()
+        return findings.distinct().map(::formatFinding)
     }
 }
