@@ -32,6 +32,9 @@ internal object ScriptStructurePreflight {
                 structural.add("EP ลำดับ ${i + 1}: ต้องเป็น object")
                 continue
             }
+            if (ep.has("ep") && (ep.opt("ep") !is Number ||
+                    ep.opt("ep").toString().toLongOrNull() == null))
+                structural.add("EP ลำดับ ${i + 1}: ep ต้องเป็นจำนวนเต็ม")
             val scenesArray = ep.optJSONArray("scenes")
             if (scenesArray == null) {
                 structural.add("EP${ep.optInt("ep", i + 1)}: ข้อมูล scenes ต้องเป็น array")
@@ -81,6 +84,15 @@ internal object ScriptStructurePreflight {
                 val turns = s.optJSONArray("dialogue_turns")
                 val hasTurns = turns != null && turns.length() > 0
                 val label = "EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}"
+                for (field in listOf("story_day", "location", "story_time", "start_state", "end_state")) {
+                    if (s.has(field) && s.opt(field) !is String)
+                        structural.add("$label: $field ต้องเป็นข้อความ")
+                }
+                for (field in listOf("scene", "duration_seconds")) {
+                    if (s.has(field) && (s.opt(field) !is Number ||
+                            s.opt(field).toString().toLongOrNull() == null))
+                        structural.add("$label: $field ต้องเป็นจำนวนเต็ม")
+                }
                 if (hasTurns && (s.optString("dialogue").isNotBlank() || s.optString("speaker").isNotBlank()))
                     structural.add("$label: dialogue_turns ขัดแย้งกับ speaker/dialogue แบบเดี่ยว")
                 if (s.optString("narration").isNotBlank() &&
