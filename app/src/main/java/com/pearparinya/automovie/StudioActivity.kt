@@ -2981,8 +2981,51 @@ $context"""
                 }.showDirector()
         } else open()
     }
+    private fun scriptStructureReview(story: JSONObject) {
+        val problems = runCatching { ScriptStructurePreflight.storyIssues(story) }
+            .getOrElse { listOf("อ่านโครงสร้างบทไม่สำเร็จ: ${it.message}") }
+        val enabled = story.optInt("script_preflight_version") >= 1
+        val details = if (problems.isEmpty()) {
+            "โครงสร้างบทผ่านการตรวจ EP / SC แล้ว • ยังต้องตรวจ MASTER ภาพ และวิดีโอจริง"
+        } else {
+            "พบ ${problems.size} จุดที่ต้องแก้ไข:\\n\\n" +
+                problems.take(30).joinToString("\\n") +
+                if (problems.size > 30) "\\n…และอีก ${problems.size - 30} จุด" else ""
+        }
+        AlertDialog.Builder(this)
+            .setTitle("ตรวจโครงสร้างบท • ${problems.size} จุด")
+            .setMessage(details + "\\n\\nการตรวจนี้ไม่แก้ไขข้อมูลเดิม")
+            .setPositiveButton(if (problems.isEmpty() && !enabled) "เปิดใช้ตรวจเข้มก่อนส่งออก" else "ตกลง") { _, _ ->
+                if (problems.isEmpty() && !enabled) {
+                    AlertDialog.Builder(this)
+                        .setTitle("ยืนยันการเปิดตรวจเข้ม")
+                        .setMessage("ระบบจะตรวจโครงสร้าง EP / SC ทุกครั้งก่อนส่งออก Flow และอาจปฏิเสธบทที่แก้ไขภายหลังจนกว่าจะตรวจผ่าน")
+                        .setPositiveButton("ยืนยัน") { _, _ ->
+                            runCatching {
+                                val updated = JSONObject(story.toString()).put("script_preflight_version", 1)
+                                val destination = File(project, "story.json")
+                                val temporary = File(project, "story.json.pending")
+                                temporary.writeText(updated.toString(2))
+                                check(temporary.renameTo(destination)) { "บันทึกบทไม่สำเร็จ" }
+                                plan = updated
+                                render()
+                            }.onFailure { notice("เปิดตรวจเข้มไม่สำเร็จ: ${it.message}") }
+                        }
+                        .setNegativeButton("ยกเลิก", null).showDirector()
+                }
+            }
+            .setNeutralButton(if (problems.isNotEmpty()) "แก้ซีน" else "ตรวจคำสั่ง") { _, _ ->
+                if (problems.isNotEmpty()) {
+                    val scenes = rows(story)
+                    if (scenes.isEmpty()) notice("ยังไม่มีซีนให้แก้ไข")
+                    else choiceMenu("เลือกซีนเพื่อแก้ไข", scenes.map { key(it) + " • " + it.optString("action").take(50) }) { editScene(scenes[it]) }
+                } else productionCheckMenu(story)
+            }
+            .setNegativeButton("ปิด", null).showDirector()
+    }
     private fun extraToolsMenu(current: JSONObject?) {
         val options=mutableListOf("📥 นำเข้าบทที่มีอยู่","⚙️ DIRECTOR X • ภาพและวิดีโอ","🧪 ทดสอบสร้างวิดีโอ","🎭 แม่แบบและคลังตัวละคร")
+        if(current!=null) options.add("🔎 ตรวจโครงสร้างบท EP / SC ก่อนส่งออก")
         if(current!=null) options.add("📋 ข้อมูลโพสต์ Facebook / TikTok")
         if(current!=null && current.optString("clip_format")=="short") options.add("💬 ชื่อเรื่อง เรื่องย่อ และแคปชั่น")
         if(current!=null && prefs.getInt("last_image_deck_${project.name}",0)>0) options.add("↩ กลับรายการรูป / ซีนล่าสุด")
@@ -2994,6 +3037,7 @@ $context"""
                 "⚙️ DIRECTOR X • ภาพและวิดีโอ" -> autoDirectorMenu()
                 "🧪 ทดสอบสร้างวิดีโอ" -> flowTestMenu()
                 "🎭 แม่แบบและคลังตัวละคร" -> choiceMenu("ตัวละคร",listOf("สร้างตัวละครจากแม่แบบ","คลังตัวละครใหม่","ตัวละครของเรื่องที่เปิด")) { when(it) { 0 -> bodyTemplateMenu(); 1 -> actorCatalogMenu(); else -> castMenu() } }
+                "🔎 ตรวจโครงสร้างบท EP / SC ก่อนส่งออก" -> if(current!=null) scriptStructureReview(current)
                 "📋 ข้อมูลโพสต์ Facebook / TikTok" -> if(current!=null) postDetails(current)
                 "💬 ชื่อเรื่อง เรื่องย่อ และแคปชั่น" -> if(current!=null) AlertDialog.Builder(this).setTitle("ข้อมูลและแคปชั่นคลิปสั้น").setMessage(ShortStoryDetails.text(current)).setPositiveButton("คัดลอกทั้งหมด") { _,_ -> copyCommand(ShortStoryDetails.text(current)) }.setNegativeButton("ปิด",null).showDirector()
                 "↩ กลับรายการรูป / ซีนล่าสุด" -> if(!returnToImageList()) notice("ไม่พบ EP ที่เคยเปิดในเรื่องนี้")
