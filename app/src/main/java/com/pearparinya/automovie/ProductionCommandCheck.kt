@@ -21,6 +21,12 @@ internal object ProductionCommandCheck {
     fun sceneIssues(scene: JSONObject): List<String> = buildList {
         addAll(FlowScenePrompt.issues(spec(scene)))
         val people=people(scene)
+        val rawTurns=scene.optJSONArray("dialogue_turns")
+        if(rawTurns!=null) {
+            for(i in 0 until rawTurns.length()) {
+                if(rawTurns.optJSONObject(i)==null) add("บทสนทนาลำดับ ${i+1} ต้องเป็นข้อมูลผู้พูดและข้อความ")
+            }
+        }
         if(people.isEmpty()) add("ขาดตัวละครในซีน")
         if(scene.optInt("duration_seconds",8)!=8) add("ซีนต้องใช้ 8 วินาที")
         val camera=scene.optString("camera_movement").trim()
