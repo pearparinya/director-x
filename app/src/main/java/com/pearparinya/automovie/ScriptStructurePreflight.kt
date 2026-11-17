@@ -1,5 +1,7 @@
 package com.pearparinya.automovie
 
+import org.json.JSONObject
+
 /**
  * Pure structural preflight for episode/scene metadata. Does not alter a script,
  * translate dialogue, or infer missing plot details.
@@ -18,6 +20,55 @@ internal object ScriptStructurePreflight {
         val offscreenNames: List<String> = emptyList()
     )
     data class Episode(val number: Int, val scenes: List<Scene>)
+
+    /** Opt-in adapter for the existing story.json schema; never mutates the input. */
+    fun storyIssues(story: JSONObject): List<String> {
+        val rows = story.optJSONArray("episodes") ?: return listOf("ข้อมูล episodes ต้องเป็น array")
+        val episodes = mutableListOf<Episode>()
+        val structural = mutableListOf<String>()
+        for (i in 0 until rows.length()) {
+            val ep = rows.optJSONObject(i)
+            if (ep == null) {
+                structural.add("EP ลำดับ ${i + 1}: ต้องเป็น object")
+                continue
+            }
+            val scenesArray = ep.optJSONArray("scenes")
+            if (scenesArray == null) {
+                structural.add("EP${ep.optInt("ep", i + 1)}: ข้อมูล scenes ต้องเป็น array")
+                continue
+            }
+            val scenes = mutableListOf<Scene>()
+            for (j in 0 until scenesArray.length()) {
+                val s = scenesArray.optJSONObject(j)
+                if (s == null) {
+                    structural.add("EP${ep.optInt("ep", i + 1)} SC ลำดับ ${j + 1}: ต้องเป็น object")
+                    continue
+                }
+                fun names(field: String): List<String> {
+                    val a = s.optJSONArray(field) ?: return emptyList()
+                    return (0 until a.length()).map { index ->
+                        if (field == "characters") a.optJSONObject(index)?.optString("name").orEmpty()
+                        else a.optString(index)
+                    }
+                }
+                val turns = s.optJSONArray("dialogue_turns")
+                val speakers = if (turns != null) (0 until turns.length()).map { index ->
+                    turns.optJSONObject(index)?.optString("speaker").orEmpty()
+                } else listOfNotNull(s.optString("speaker").takeIf { it.isNotBlank() })
+                scenes.add(Scene(
+                    number = s.optInt("scene", j + 1),
+                    day = s.optString("story_day"), location = s.optString("location"),
+                    time = s.optString("story_time"), startState = s.optString("start_state"),
+                    endState = s.optString("end_state"),
+                    durationSeconds = s.optInt("duration_seconds", 8),
+                    characterNames = names("characters"), dialogueSpeakers = speakers,
+                    offscreenNames = names("offscreen_characters")
+                ))
+            }
+            episodes.add(Episode(ep.optInt("ep", i + 1), scenes))
+        }
+        return structural + issues(episodes)
+    }
 
     private fun key(value: String): String =
         value.trim().lowercase().replace(Regex("\\s+"), " ")
