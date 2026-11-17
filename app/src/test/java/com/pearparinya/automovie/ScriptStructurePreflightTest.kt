@@ -186,4 +186,18 @@ class ScriptStructurePreflightTest {
         assertTrue(ScriptStructurePreflight.storyIssues(story).isEmpty())
     }
 
+    @Test fun numericDialogueFieldsAreRejectedInsteadOfSilentlyCoerced() {
+        val story = JSONObject("""{"episodes":[{"ep":1,"scenes":[{
+            "scene":1,"story_day":"DAY01","story_time":"morning",
+            "location":"home","start_state":"standing","end_state":"sitting",
+            "characters":[{"name":"นายเปีย"}],
+            "dialogue_turns":[{"speaker":123,"text":456}]
+        }]}]}""")
+        val original = story.toString()
+        val issues = ScriptStructurePreflight.storyIssues(story)
+        assertTrue(issues.any { it.contains("speaker ต้องเป็นข้อความ") })
+        assertTrue(issues.any { it.contains("text ต้องเป็นข้อความ") })
+        assertTrue(story.toString() == original)
+    }
+
 }
