@@ -209,6 +209,22 @@ class ShortFlowPromptPreflightTest {
         ) == null)
     }
 
+    @Test fun adjacentSceneStateMismatchPromptsHumanReview() {
+        val issue = ContinuityReview.adjacentSceneStateIssue(
+            "HOME_DAY1", "Man holds a letter", "Man stands with empty hands"
+        )
+        assertTrue(issue?.contains("สถานะจบฉากก่อนหน้าไม่ตรง") == true)
+    }
+
+    @Test fun matchingAdjacentSceneStatesDoNotTriggerWarning() {
+        assertTrue(ContinuityReview.adjacentSceneStateIssue(
+            "HOME_DAY1", "Man holds a letter", "  man   holds a letter "
+        ) == null)
+        assertTrue(ContinuityReview.adjacentSceneStateIssue(
+            "", "Man holds a letter", "Man stands"
+        ) == null)
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
