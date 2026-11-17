@@ -10,6 +10,7 @@ on:
         options:
           - feature/shopping-resilience-479
           - feature/director-x-480-continuity
+          - feature/director-x-category-1-script-analysis
 
 permissions:
   contents: read
