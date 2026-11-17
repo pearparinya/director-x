@@ -46,6 +46,9 @@ internal object FlowScenePrompt {
         val soundNight = Regex("\\b(night|nighttime|midnight)\\b|กลางคืน", RegexOption.IGNORE_CASE).containsMatchIn(s.sound)
         if(startDay && soundNight) add("ภาพเริ่มต้นระบุกลางวัน แต่เสียงระบุกลางคืน • กรุณาตรวจข้อมูลซีน")
         if(s.aspect!=LandscapeProduction.ASPECT) add("คำสั่งวิดีโอต้องเป็นแนวตั้ง 9:16")
+        if (s.duration != 8) add("คำสั่งวิดีโอ Google Flow ต้องใช้เวลา 8 วินาที")
+        if (s.startState.isBlank()) add("ต้องระบุ START STATE สำหรับภาพเริ่มต้นวิดีโอ")
+        if (s.endState.isBlank()) add("ต้องระบุ END STATE เพื่อรักษาความต่อเนื่องของฉาก")
         unknownActionNames(s).forEach { add("พบชื่อภาษาอังกฤษ '$it' ที่ยังจับคู่ตัวละครไม่ได้ ใน flow_action ให้แก้เป็นชื่อตัวละครภาษาไทยตามรายชื่อในซีน แล้วเปิดคำสั่งใหม่") }
         if (s.cast.isEmpty() && speech(s.dialogue).isNotEmpty()) add("ระบุตัวละครที่ปรากฏในภาพฉากนี้")
         if (s.cast.map { it.englishName.trim().lowercase() }.filter { it.isNotEmpty() }.let { it.distinct().size!=it.size }) add("ชื่ออังกฤษของตัวละครซ้ำ กรุณาตรวจรายชื่อ")
