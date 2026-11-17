@@ -3,6 +3,7 @@ package com.pearparinya.automovie
 /** Validates generated titles without changing a user-supplied title or existing story. */
 internal object StoryTitleGuard {
     fun validate(title: String, channel: String, premise: String) {
+        require(title.isNotBlank()) { "ชื่อเรื่องว่างเปล่า • กรุณาตั้งชื่อใหม่จากเหตุการณ์ในบท" }
         val normalizedTitle=title.lowercase().replace(Regex("\\s+"), "")
         val normalizedChannel=channel.lowercase().replace(Regex("\\s+"), "")
         if(normalizedChannel.length>=5 && normalizedTitle.contains(normalizedChannel)) {
