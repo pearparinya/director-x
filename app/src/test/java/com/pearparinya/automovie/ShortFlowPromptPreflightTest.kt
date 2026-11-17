@@ -34,6 +34,31 @@ class ShortFlowPromptPreflightTest {
         assertTrue(card.command.contains("สวัสดีครับ"))
     }
 
+    @Test fun episodeWarningSummaryCountsOnlyFlaggedScenesAndPreservesOrder() {
+        val cards = listOf(
+            SceneCommandCards.Card("ซีน 1", "prompt one", listOf("Missing prop", "Camera jump")),
+            SceneCommandCards.Card("ซีน 2", "prompt two"),
+            SceneCommandCards.Card("ซีน 3", "prompt three", listOf("Daylight shift"))
+        )
+        val summary = SceneCommandCards.episodeWarningSummary(cards)
+        assertTrue(summary.flaggedScenes == 2)
+        assertTrue(summary.warningCount == 3)
+        assertTrue(summary.details.contains("1. Missing prop"))
+        assertTrue(summary.details.contains("2. Camera jump"))
+        assertTrue(summary.details.contains("1. Daylight shift"))
+        assertFalse(summary.details.contains("ซีน 2"))
+        assertTrue(summary.details.indexOf("ซีน 1") < summary.details.indexOf("ซีน 3"))
+    }
+
+    @Test fun episodeWarningSummaryIsEmptyForCleanEpisode() {
+        val summary = SceneCommandCards.episodeWarningSummary(
+            listOf(SceneCommandCards.Card("ซีน 1", "prompt"))
+        )
+        assertTrue(summary.flaggedScenes == 0)
+        assertTrue(summary.warningCount == 0)
+        assertTrue(summary.details.isEmpty())
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
