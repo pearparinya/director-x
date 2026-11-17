@@ -162,4 +162,18 @@ class FlowScenePromptTest {
         assertTrue(FlowScenePrompt.issues(scene().copy(cast=listOf(may,may.copy(name="มายด์")))).isNotEmpty())
         assertTrue(FlowScenePrompt.issues(scene().copy(cast=listOf(may,rin.copy(appearance=may.appearance,position=may.position)))).isNotEmpty())
     }
+    @Test fun videoPreflightRejectsWrongDurationAndMissingFrameStates() {
+        val issues = FlowScenePrompt.issues(scene().copy(
+            duration = 12, startState = " ", endState = ""))
+        assertTrue(issues.any { it.contains("8 วินาที") })
+        assertTrue(issues.any { it.contains("START STATE") })
+        assertTrue(issues.any { it.contains("END STATE") })
+    }
+
+    @Test fun videoPreflightAcceptsEightSecondsWithDefinedFrameStates() {
+        val issues = FlowScenePrompt.issues(scene())
+        assertTrue(issues.none { it.contains("8 วินาที") ||
+            it.contains("START STATE") || it.contains("END STATE") })
+    }
+
 }
