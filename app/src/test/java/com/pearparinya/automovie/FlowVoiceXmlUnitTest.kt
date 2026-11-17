@@ -44,8 +44,8 @@ class FlowVoiceXmlUnitTest {
     }
     @Test fun offscreenAliasRemainsOffscreenForSingleDialogue() {
         val cast=listOf(FlowPerson("เมย์","short hair","left","blue"))
-        val s=FlowSceneSpec(cast,"Gawin","อย่าเข้ามา","","May looks at the door",
-            "office","standing","standing",8,"9:16",offscreen=listOf("กวิน"))
+        val s=FlowSceneSpec(cast,"รินลดา","อย่าเข้ามา","","May looks at the door",
+            "office","standing","standing",8,"9:16",offscreen=listOf("รินรดา"))
         val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder()
             .parse(InputSource(StringReader(FlowVoiceXml.build(s,"Locked camera."))))
         val dialogue=doc.getElementsByTagName("dialogue").item(0)
@@ -57,8 +57,8 @@ class FlowVoiceXmlUnitTest {
     @Test fun offscreenAliasRemainsOffscreenForOrderedTurns() {
         val cast=listOf(FlowPerson("เมย์","short hair","left","blue"))
         val s=FlowSceneSpec(cast,"","","","May looks at the door",
-            "office","standing","standing",8,"9:16",offscreen=listOf("กวิน"),
-            turns=listOf(FlowDialogueTurn("Gawin","รอก่อน"),FlowDialogueTurn("เมย์","ค่ะ")))
+            "office","standing","standing",8,"9:16",offscreen=listOf("รินรดา"),
+            turns=listOf(FlowDialogueTurn("รินลดา","รอก่อน"),FlowDialogueTurn("เมย์","ค่ะ")))
         val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder()
             .parse(InputSource(StringReader(FlowVoiceXml.build(s,"Locked camera."))))
         val dialogues=doc.getElementsByTagName("dialogue")
