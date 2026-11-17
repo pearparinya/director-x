@@ -66,4 +66,27 @@ class CinematicScenePreflightTest {
         assertTrue(direction.contains("count not specified"))
     }
 
+    @Test fun multiSpeakerXmlCarriesValidatedInventory() {
+        val spec = FlowSceneSpec(
+            cast = listOf(
+                FlowPerson("A", "adult", "left", "shirt"),
+                FlowPerson("B", "adult", "right", "jacket")
+            ),
+            speaker = "", dialogue = "", narration = "",
+            action = "They discuss a cup", location = "room",
+            startState = "cup on table", endState = "cup remains on table",
+            duration = 8, aspect = "9:16",
+            turns = listOf(
+                FlowDialogueTurn("A", "สวัสดี"),
+                FlowDialogueTurn("B", "สวัสดีครับ")
+            ),
+            cinematicProps = listOf(
+                CinematicProp("cup", true, true, "center", "center", firstFrameCount = 1)
+            )
+        )
+        val output = FlowScenePrompt.build(spec)
+        assertTrue(output.contains("Prop cup: exactly 1 visible at start"))
+        assertTrue(output.contains("สวัสดีครับ"))
+    }
+
 }
