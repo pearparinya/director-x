@@ -239,4 +239,32 @@ class ScriptStructurePreflightTest {
         assertTrue(issues.none { it.contains("ไม่พบผู้พูด") })
     }
 
+    @Test fun malformedMetadataTypesAreRejectedWithoutMutatingStory() {
+        val story = JSONObject("""{"episodes":[{"ep":"1","scenes":[{
+            "scene":"1","story_day":123,"story_time":"morning",
+            "location":true,"start_state":"standing","end_state":"sitting",
+            "duration_seconds":"8","characters":[{"name":"นายเปีย"}]
+        }]}]}""")
+        val before = story.toString()
+        val issues = ScriptStructurePreflight.storyIssues(story)
+        listOf("ep ต้องเป็นจำนวนเต็ม", "scene ต้องเป็นจำนวนเต็ม",
+            "duration_seconds ต้องเป็นจำนวนเต็ม", "story_day ต้องเป็นข้อความ",
+            "location ต้องเป็นข้อความ").forEach { expected ->
+            assertTrue(issues.any { it.contains(expected) })
+        }
+        assertTrue(story.toString() == before)
+    }
+
+    @Test fun fractionalSceneNumbersAndDurationAreRejected() {
+        val story = JSONObject("""{"episodes":[{"ep":1.5,"scenes":[{
+            "scene":2.5,"story_day":"DAY01","story_time":"morning",
+            "location":"home","start_state":"standing","end_state":"sitting",
+            "duration_seconds":8.5,"characters":[{"name":"นายเปีย"}]
+        }]}]}""")
+        val issues = ScriptStructurePreflight.storyIssues(story)
+        assertTrue(issues.any { it.contains("ep ต้องเป็นจำนวนเต็ม") })
+        assertTrue(issues.any { it.contains("scene ต้องเป็นจำนวนเต็ม") })
+        assertTrue(issues.any { it.contains("duration_seconds ต้องเป็นจำนวนเต็ม") })
+    }
+
 }
