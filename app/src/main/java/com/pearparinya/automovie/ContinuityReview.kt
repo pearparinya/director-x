@@ -115,7 +115,7 @@ internal object ContinuityReview {
     /** Human-readable triage only: severity is heuristic, not a verified scene defect. */
     internal fun formatFinding(finding: String): String {
         val manual = finding.startsWith("ตรวจด้วยตนเอง:")
-        val high = listOf("ขาดชื่อ", "ขาดสถานะ", "ไม่มีภาพ MASTER", "ใช้ MASTER ต่าง", "ชื่อ", "ซ้ำ")
+        val high = listOf("ขาดชื่อ", "ขาดสถานะ", "ไม่มีภาพ MASTER", "ใช้ MASTER ต่าง", "ซ้ำ")
             .any { finding.contains(it) } && !manual
         val level = when {
             manual -> "ข้อมูลเพิ่มเติม"
