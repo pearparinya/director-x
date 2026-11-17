@@ -97,23 +97,14 @@ class ShortFlowPromptPreflightTest {
     }
 
     @Test fun malformedScriptDialogueTurnReportsItsExactPosition() {
-        val scene = org.json.JSONObject().apply {
-            put("dialogue_turns", org.json.JSONArray().put(
-                org.json.JSONObject().put("speaker", "สมชาย").put("text", "สวัสดี")
-            ).put("invalid turn"))
-        }
-        val issues = ProductionCommandCheck.sceneIssues(scene)
-        assertTrue(issues.any { it.contains("บทสนทนาลำดับ 2 ต้องเป็นข้อมูลผู้พูดและข้อความ") })
+        val issues = ProductionCommandCheck.malformedDialogueTurnIssues(listOf(true, false, true))
+        assertTrue(issues.size == 1)
+        assertTrue(issues.single().contains("บทสนทนาลำดับ 2 ต้องเป็นข้อมูลผู้พูดและข้อความ"))
     }
 
     @Test fun validScriptDialogueTurnDoesNotTriggerMalformedEntryWarning() {
-        val scene = org.json.JSONObject().apply {
-            put("dialogue_turns", org.json.JSONArray().put(
-                org.json.JSONObject().put("speaker", "สมชาย").put("text", "สวัสดี")
-            ))
-        }
-        val issues = ProductionCommandCheck.sceneIssues(scene)
-        assertFalse(issues.any { it.contains("ต้องเป็นข้อมูลผู้พูดและข้อความ") })
+        val issues = ProductionCommandCheck.malformedDialogueTurnIssues(listOf(true, true))
+        assertTrue(issues.isEmpty())
     }
 
     @Test fun lockedAndMovingCameraAreRejected() {
