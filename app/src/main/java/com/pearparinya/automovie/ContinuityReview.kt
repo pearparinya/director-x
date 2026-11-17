@@ -52,6 +52,15 @@ internal object ContinuityReview {
         if(meaningfulTransitionNote(transitionNote)) return null
         return "สิ่งของ $prop เปลี่ยนสถานะ ($previousState / $currentState) โดยไม่มีคำอธิบายการเปลี่ยนแปลง โปรดตรวจ"
     }
+    internal fun propEntryIssues(entries: List<Pair<String, String>>): List<String> = buildList {
+        val seen = mutableSetOf<String>()
+        entries.forEachIndexed { index, (name, state) ->
+            val key = name.trim().lowercase()
+            if(key.isEmpty()) add("สิ่งของลำดับ ${index+1} ขาดชื่อ")
+            if(state.isBlank()) add("สิ่งของลำดับ ${index+1} ขาดสถานะ")
+            if(key.isNotEmpty() && !seen.add(key)) add("สิ่งของลำดับ ${index+1} ชื่อ $name ซ้ำในฉากเดียวกัน")
+        }
+    }
     fun review(story: JSONObject): List<String> {
         val findings = mutableListOf<String>()
         val groups = mutableMapOf<String, Pair<String, String>>()
@@ -73,6 +82,13 @@ internal object ContinuityReview {
                 val storyTime = scene.optString("story_time").trim()
                 val characters = scene.optJSONArray("characters")
                 val props = scene.optJSONArray("props")
+                if(props != null) {
+                    val entries = (0 until props.length()).map { p ->
+                        val item = props.optJSONObject(p)
+                        (item?.optString("name") ?: "") to (item?.optString("state") ?: "")
+                    }
+                    findings.addAll(propEntryIssues(entries).map { "$label: $it" })
+                }
                 if(group.isNotBlank() && props != null) for(p in 0 until props.length()) {
                     val item = props.optJSONObject(p) ?: continue
                     val prop = item.optString("name").trim()
