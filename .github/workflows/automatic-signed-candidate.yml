@@ -57,12 +57,15 @@ jobs:
           UNSIGNED="$(find app/build/outputs/apk/release -name '*unsigned*.apk' -print -quit)"
           test -s "$UNSIGNED"
           "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias "$KEY_ALIAS" --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD --out "$RUNNER_TEMP/candidate.apk" "$UNSIGNED"
-          "$BUILD_TOOLS/apksigner" verify --verbose "$RUNNER_TEMP/candidate.apk"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$RUNNER_TEMP/candidate.apk"
+          (cd "$RUNNER_TEMP" && sha256sum candidate.apk > candidate.apk.sha256)
           VERSION="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -1)"
           BUILD="$(sed -n 's/.*versionCode = \([0-9][0-9]*\).*/\1/p' app/build.gradle.kts | head -1)"
           "$BUILD_TOOLS/aapt" dump badging "$RUNNER_TEMP/candidate.apk" | grep -m1 "^package: name='com.pearparinya.automovie' versionCode='$BUILD' versionName='$VERSION'"
       - uses: actions/upload-artifact@v4
         with:
           name: director-x-signed-candidate
-          path: ${{ runner.temp }}/candidate.apk
+          path: |
+            ${{ runner.temp }}/candidate.apk
+            ${{ runner.temp }}/candidate.apk.sha256
           retention-days: 7
