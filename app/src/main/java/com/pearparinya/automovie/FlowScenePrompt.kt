@@ -8,7 +8,8 @@ internal data class FlowSceneSpec(
     val cast: List<FlowPerson>, val speaker: String, val dialogue: String, val narration: String,
     val action: String, val location: String, val startState: String, val endState: String,
     val duration: Int, val aspect: String, val sound: String = "", val offscreen: List<String> = emptyList(),
-    val turns: List<FlowDialogueTurn> = emptyList()
+    val turns: List<FlowDialogueTurn> = emptyList(),
+    val cinematicProps: List<CinematicProp> = emptyList()
 ) {
     // Preserve approvals made by older versions when no ordered turns exist.
     override fun toString(): String {
@@ -45,6 +46,7 @@ internal object FlowScenePrompt {
         val startDay = Regex("\\b(daylight|daytime|midday)\\b|กลางวัน", RegexOption.IGNORE_CASE).containsMatchIn(s.startState)
         val soundNight = Regex("\\b(night|nighttime|midnight)\\b|กลางคืน", RegexOption.IGNORE_CASE).containsMatchIn(s.sound)
         if(startDay && soundNight) add("ภาพเริ่มต้นระบุกลางวัน แต่เสียงระบุกลางคืน • กรุณาตรวจข้อมูลซีน")
+        addAll(CinematicScenePreflight.issues(s.cinematicProps))
         if(s.aspect!=LandscapeProduction.ASPECT) add("คำสั่งวิดีโอต้องเป็นแนวตั้ง 9:16")
         unknownActionNames(s).forEach { add("พบชื่อภาษาอังกฤษ '$it' ที่ยังจับคู่ตัวละครไม่ได้ ใน flow_action ให้แก้เป็นชื่อตัวละครภาษาไทยตามรายชื่อในซีน แล้วเปิดคำสั่งใหม่") }
         if (s.cast.isEmpty() && speech(s.dialogue).isNotEmpty()) add("ระบุตัวละครที่ปรากฏในภาพฉากนี้")
