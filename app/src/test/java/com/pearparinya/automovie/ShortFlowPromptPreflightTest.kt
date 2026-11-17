@@ -332,6 +332,27 @@ class ShortFlowPromptPreflightTest {
         assertTrue(issues.single().contains("ยังอยู่ในฉากปัจจุบัน"))
     }
 
+    @Test fun returnedPropsRequirePriorRemovalAndCurrentPresence() {
+        val issues = ContinuityReview.returnedPropIssues(
+            setOf("จดหมาย"), setOf("โทรศัพท์"), listOf("จดหมาย", "กระเป๋า")
+        )
+        assertTrue(issues.size == 2)
+        assertTrue(issues.any { it.contains("จดหมาย ไม่ปรากฏใน props") })
+        assertTrue(issues.any { it.contains("กระเป๋า ไม่เคยถูกนำออก") })
+    }
+
+    @Test fun validReturnedPropsPassAndDuplicatesWarn() {
+        assertTrue(ContinuityReview.returnedPropIssues(
+            setOf("จดหมาย"), setOf("จดหมาย"), listOf("จดหมาย")
+        ).isEmpty())
+        val issues = ContinuityReview.returnedPropIssues(
+            setOf("จดหมาย"), setOf("จดหมาย"), listOf("จดหมาย", " จดหมาย ", "")
+        )
+        assertTrue(issues.size == 2)
+        assertTrue(issues.any { it.contains("ซ้ำ") })
+        assertTrue(issues.any { it.contains("ขาดชื่อสิ่งของ") })
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
