@@ -2871,14 +2871,11 @@ $context"""
                 prefs.edit().putString("pending_flow_code",SceneCommandCards.join(cards)).apply()
                 flowCodePicker.launch("EP%02d_%s.txt".format(number,if(kind==0) "IMAGES" else "VIDEOS"))
             }
-            val flagged=if(kind==1) cards.filter { it.visualWarnings.isNotEmpty() } else emptyList()
-            if(flagged.isNotEmpty()) {
-                val count=flagged.sumOf { it.visualWarnings.size }
+            val summary=if(kind==1) SceneCommandCards.episodeWarningSummary(cards) else null
+            if(summary != null && summary.flaggedScenes > 0) {
                 AlertDialog.Builder(this).setTitle("⚠ ตรวจคำสั่งวิดีโอทั้ง EP")
-                    .setMessage("พบ ${flagged.size} ฉากที่มีคำเตือน รวม $count จุด:\n\n" +
-                        flagged.joinToString("\n\n") { card ->
-                            "${card.title}\n" + card.visualWarnings.mapIndexed { i, note -> "${i+1}. $note" }.joinToString("\n")
-                        } + "\n\nตรวจภาพเริ่มต้นของแต่ละฉากก่อนนำไฟล์ไปใช้ Flow")
+                    .setMessage("พบ ${summary.flaggedScenes} ฉากที่มีคำเตือน รวม ${summary.warningCount} จุด:\n\n" +
+                        summary.details + "\n\nตรวจภาพเริ่มต้นของแต่ละฉากก่อนนำไฟล์ไปใช้ Flow")
                     .setPositiveButton("ยืนยันและบันทึก") { _,_ -> save() }
                     .setNegativeButton("กลับไปตรวจซีน",null).showDirector()
             } else save()
