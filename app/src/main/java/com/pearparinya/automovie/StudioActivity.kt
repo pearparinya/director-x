@@ -2866,7 +2866,16 @@ $context"""
         val dialog=AlertDialog.Builder(this).setTitle("EP.$number • ${if(kind==0) "คำสั่งภาพ" else "คำสั่งวิดีโอ"}").setView(panel)
             .setPositiveButton("คัดลอกชุดนี้",null).setNeutralButton("บันทึกทั้ง EP") { _,_ -> prefs.edit().putString("pending_flow_code",SceneCommandCards.join(cards)).apply(); flowCodePicker.launch("EP%02d_%s.txt".format(number,if(kind==0) "IMAGES" else "VIDEOS")) }
             .setNegativeButton("ปิด",null).showDirector()
-        dialog.getButton(-1).setOnClickListener { copyCommand(cards[index].command) }
+        dialog.getButton(-1).setOnClickListener {
+            val selected=cards[index]
+            if(kind==1 && selected.visualWarnings.isNotEmpty()) {
+                AlertDialog.Builder(this).setTitle("⚠ ตรวจภาพก่อนคัดลอกคำสั่ง")
+                    .setMessage(selected.visualWarnings.mapIndexed { i, note -> "${i+1}. $note" }.joinToString("\n\n") +
+                        "\n\nหากภาพเริ่มต้นไม่ตรงกับเหตุการณ์ ให้กลับไปแก้ภาพหรือบทก่อนใช้ Flow")
+                    .setPositiveButton("ยืนยันและคัดลอก") { _,_ -> copyCommand(selected.command) }
+                    .setNegativeButton("กลับไปตรวจซีน",null).showDirector()
+            } else copyCommand(selected.command)
+        }
         show(0)
     }
     private fun showFlowCode(title: String, code: String, filename: String): AlertDialog {
