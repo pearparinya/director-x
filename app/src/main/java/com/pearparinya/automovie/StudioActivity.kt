@@ -4753,14 +4753,26 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         }
         if(!image(s).isFile) { notice("สร้างภาพฉากใน Gemini / Flow แล้วนำเข้าภาพก่อน จากนั้นเทียบ MASTER และยืนยันภาพ"); return }
         if(!sceneFrameApproved(s) || FlowScenePrompt.issues(flowSpec(s)).isNotEmpty()) { compareScene(s); return }
-        val code=runCatching { ShortFlowPrompt.build(flowSpec(s),"Slow gentle pan.") }.getOrElse { notice(it.message ?: "ตรวจคำสั่ง Flow"); return }
-        val audioNotes=ShortFlowPrompt.audioWarnings(flowSpec(s))
-        if(copy && audioNotes.isNotEmpty()) {
-            AlertDialog.Builder(this).setTitle("ตรวจเสียง Flow ก่อนคัดลอก")
-                .setMessage(audioNotes.joinToString("\n") + "\n\nบทพูดต้นฉบับจะไม่ถูกแก้ไข")
-                .setPositiveButton("คัดลอกตามบทเดิม") { _,_ -> copyCommand(code) }
+        val spec = flowSpec(s)
+        val camera = "Slow gentle pan."
+        val code=runCatching { ShortFlowPrompt.build(spec,camera) }.getOrElse { notice(it.message ?: "ตรวจคำสั่ง Flow"); return }
+        val audioNotes=ShortFlowPrompt.audioWarnings(spec)
+        val visualNotes=ShortFlowPrompt.visualWarnings(spec,camera)
+        val proceed: () -> Unit = {
+            if(copy && audioNotes.isNotEmpty()) {
+                AlertDialog.Builder(this).setTitle("ตรวจเสียง Flow ก่อนคัดลอก")
+                    .setMessage(audioNotes.joinToString("\n") + "\n\nบทพูดต้นฉบับจะไม่ถูกแก้ไข")
+                    .setPositiveButton("คัดลอกตามบทเดิม") { _,_ -> copyCommand(code) }
+                    .setNegativeButton("กลับไปตรวจซีน",null).showDirector()
+            } else if(copy) copyCommand(code) else showFlowCode("วิดีโอจากภาพที่ยืนยันแล้ว",code,"${key(s)}_VIDEO.txt")
+        }
+        if(visualNotes.isNotEmpty()) {
+            AlertDialog.Builder(this).setTitle("⚠ ตรวจความต่อเนื่องของภาพ ${visualNotes.size} จุด")
+                .setMessage(visualNotes.mapIndexed { i, note -> "${i+1}. $note" }.joinToString("\n\n") +
+                    "\n\nตรวจภาพเริ่มต้นและแก้บทหรือภาพก่อนใช้ Flow หากวัตถุหรือการเคลื่อนไหวไม่ตรงกัน")
+                .setPositiveButton("ดูคำสั่งต่อ") { _,_ -> proceed() }
                 .setNegativeButton("กลับไปตรวจซีน",null).showDirector()
-        } else if(copy) copyCommand(code) else showFlowCode("วิดีโอจากภาพที่ยืนยันแล้ว",code,"${key(s)}_VIDEO.txt")
+        } else proceed()
     }
     private fun copyFlowCommand(s: JSONObject) { reviewedVideoCommand(s,true) }
     private fun mapFlowCharacters(s: JSONObject) {
