@@ -176,4 +176,15 @@ class FlowScenePromptTest {
             it.contains("START STATE") || it.contains("END STATE") })
     }
 
+    @Test fun offscreenNamesCannotDuplicateOrOverlapVisibleCast() {
+        val base = scene(speaker = "", dialogue = "")
+        assertTrue(FlowScenePrompt.issues(base.copy(offscreen = listOf("เมย์")))
+            .any { it.contains("ทั้งในภาพและนอกภาพ") })
+        assertTrue(FlowScenePrompt.issues(base.copy(offscreen = listOf("ณัฐชา", " ณัฐชา ")))
+            .any { it.contains("คนนอกภาพซ้ำ") })
+        assertTrue(FlowScenePrompt.issues(base.copy(offscreen = listOf(" ")))
+            .any { it.contains("ต้องไม่ว่าง") })
+        assertTrue(FlowScenePrompt.issues(base.copy(offscreen = listOf("ณัฐชา"))).isEmpty())
+    }
+
 }
