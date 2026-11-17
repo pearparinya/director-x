@@ -11,9 +11,27 @@ internal object ContinuityReview {
         if(previousLocation.trim().equals(currentLocation.trim(), ignoreCase = true)) return null
         return "กลุ่มต่อเนื่อง $group ใช้สถานที่ต่างกัน ($previousLocation / $currentLocation) โปรดตรวจว่ามีการย้ายสถานที่ในเนื้อเรื่อง"
     }
+    internal fun continuityGroupTimeIssue(
+        group: String, previousTime: String, currentTime: String
+    ): String? {
+        if(group.isBlank() || previousTime.isBlank() || currentTime.isBlank()) return null
+        fun period(value: String): String? {
+            val text = value.trim().lowercase()
+            return when(text) {
+                "day", "daytime", "daylight", "กลางวัน", "ตอนกลางวัน" -> "day"
+                "night", "nighttime", "กลางคืน", "ตอนกลางคืน" -> "night"
+                else -> null
+            }
+        }
+        val before = period(previousTime)
+        val after = period(currentTime)
+        if(before == null || after == null || before == after) return null
+        return "กลุ่มต่อเนื่อง $group เปลี่ยนช่วงเวลากลางวัน/กลางคืน ($previousTime / $currentTime) โปรดตรวจการเปลี่ยนเวลาในเนื้อเรื่อง"
+    }
     fun review(story: JSONObject): List<String> {
         val findings = mutableListOf<String>()
         val groups = mutableMapOf<String, Pair<String, String>>()
+        val groupTimes = mutableMapOf<String, String>()
         val dailyWardrobes = mutableMapOf<Pair<String, String>, Pair<String, String>>()
         val characterMasters = mutableMapOf<String, Pair<String, String>>()
         val episodes = story.optJSONArray("episodes") ?: return listOf("ไม่มีข้อมูล EP ให้ตรวจ")
@@ -26,6 +44,7 @@ internal object ContinuityReview {
                 val group = scene.optString("continuity_group").trim()
                 val day = scene.optString("story_day").trim()
                 val location = scene.optString("location").trim()
+                val storyTime = scene.optString("story_time").trim()
                 val characters = scene.optJSONArray("characters")
                 if (characters != null) for (c in 0 until characters.length()) {
                     val character = characters.optJSONObject(c) ?: continue
@@ -60,6 +79,11 @@ internal object ContinuityReview {
                     if(previous != null) continuityGroupLocationIssue(group, previous.second, location)?.let {
                         findings.add("$label: $it")
                     }
+                    val previousTime = groupTimes[group]
+                    if(previousTime != null) continuityGroupTimeIssue(group, previousTime, storyTime)?.let {
+                        findings.add("$label: $it")
+                    }
+                    if(storyTime.isNotBlank()) groupTimes.putIfAbsent(group, storyTime)
                     if (previous == null) groups[group] = day to location
                 }
             }
