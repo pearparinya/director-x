@@ -103,6 +103,15 @@ internal object ContinuityReview {
             }
         }
     }
+    internal fun undocumentedPropReturns(
+        removedHistory: Set<String>, currentNames: Set<String>, returnedNames: List<String>
+    ): List<String> {
+        val returned = returnedNames.map { it.trim().lowercase() }.toSet()
+        return currentNames.map { it.trim().lowercase() }
+            .filter { it.isNotBlank() && it in removedHistory && it !in returned }
+            .distinct()
+            .map { "สิ่งของ $it กลับมาปรากฏในฉากโดยไม่ระบุ returned_props โปรดตรวจลำดับเหตุการณ์" }
+    }
     fun review(story: JSONObject): List<String> {
         val findings = mutableListOf<String>()
         val groups = mutableMapOf<String, Pair<String, String>>()
@@ -145,6 +154,7 @@ internal object ContinuityReview {
                     }.orEmpty()
                     val history = groupRemovedHistory.getOrPut(group) { mutableSetOf() }
                     findings.addAll(returnedPropIssues(history, currentNames, returned).map { "$label: $it" })
+                    findings.addAll(undocumentedPropReturns(history, currentNames, returned).map { "$label: $it" })
                     groupPreviousProps[group]?.let { previous ->
                         findings.addAll(removedPropIssues(previous, currentNames, removed).map { "$label: $it" })
                         findings.addAll(missingPropIssues(previous, currentNames, removed.toSet()).map { "$label: $it" })
