@@ -59,6 +59,27 @@ class ShortFlowPromptPreflightTest {
         assertTrue(summary.details.isEmpty())
     }
 
+    @Test fun videoEpisodeExportIncludesWarningReportBeforeUnmodifiedCommands() {
+        val cards = listOf(
+            SceneCommandCards.Card("ซีน 1", "<prompt>first</prompt>", listOf("Missing first-frame prop")),
+            SceneCommandCards.Card("ซีน 2", "<prompt>second</prompt>")
+        )
+        val exported = SceneCommandCards.exportVideoEpisode(cards)
+        assertTrue(exported.startsWith("FLOW VISUAL PREFLIGHT:"))
+        assertTrue(exported.contains("1 scene(s), 1 warning(s)"))
+        assertTrue(exported.contains("Missing first-frame prop"))
+        assertTrue(exported.indexOf("Missing first-frame prop") < exported.indexOf("<prompt>first</prompt>"))
+        assertTrue(exported.endsWith(SceneCommandCards.join(cards)))
+    }
+
+    @Test fun cleanVideoEpisodeExportStillRequiresManualImageVerification() {
+        val cards = listOf(SceneCommandCards.Card("ซีน 1", "<prompt>first</prompt>"))
+        val exported = SceneCommandCards.exportVideoEpisode(cards)
+        assertTrue(exported.contains("No text-based continuity warnings detected"))
+        assertTrue(exported.contains("Verify every first-frame image manually"))
+        assertTrue(exported.endsWith(SceneCommandCards.join(cards)))
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
