@@ -34,6 +34,19 @@ class ImageProviderRotationTest {
         assertEquals(ImageProviderRotation.Decision.Use("reference"), choice)
     }
 
+    @Test fun unknownFreeQuotaIsNotUsedWithoutConfirmation() {
+        val choice = ImageProviderRotation.choose(
+            listOf(provider("unknown", remaining = null)), 1000L, false)
+        assertEquals(ImageProviderRotation.Decision.NeedsFreeProvider, choice)
+    }
+
+    @Test fun switchesToConfirmedQuotaWhenOtherProviderIsUnknown() {
+        val choice = ImageProviderRotation.choose(
+            listOf(provider("unknown", remaining = null), provider("confirmed", remaining = 2)),
+            1000L, false)
+        assertEquals(ImageProviderRotation.Decision.Use("confirmed"), choice)
+    }
+
     @Test fun zeroRemainingFreeRequestsAreNotUsed() {
         val choice = ImageProviderRotation.choose(
             listOf(provider("exhausted", remaining = 0)), 1000L, false)
