@@ -88,4 +88,27 @@ class ScriptStructurePreflightTest {
         ).any { it.contains("episodes ต้องเป็น array") })
     }
 
+    @Test fun explicitInvalidNumbersAndDurationCannotFallBackToDefaults() {
+        val story = JSONObject("""{"episodes":[{"ep":"bad","scenes":[{
+            "scene":"bad","story_day":"DAY01","story_time":"เช้า",
+            "location":"บ้าน","start_state":"ยืน","end_state":"นั่ง",
+            "duration_seconds":"bad","characters":[{"name":"นายเปีย"}]
+        }]}]}""")
+        val issues = ScriptStructurePreflight.storyIssues(story)
+        assertTrue(issues.any { it.contains("หมายเลข EP ต้องมากกว่า 0") })
+        assertTrue(issues.any { it.contains("หมายเลขฉากต้องมากกว่า 0") })
+        assertTrue(issues.any { it.contains("8 วินาที") })
+    }
+
+    @Test fun invalidArraysAndDialogueTurnsAreReported() {
+        val story = JSONObject("""{"episodes":[{"ep":1,"scenes":[{
+            "scene":1,"story_day":"DAY01","story_time":"เช้า",
+            "location":"บ้าน","start_state":"ยืน","end_state":"นั่ง",
+            "characters":"bad","dialogue_turns":[null]
+        }]}]}""")
+        val issues = ScriptStructurePreflight.storyIssues(story)
+        assertTrue(issues.any { it.contains("characters ต้องเป็น array") })
+        assertTrue(issues.any { it.contains("dialogue_turns ลำดับ 1 ต้องเป็น object") })
+    }
+
 }
