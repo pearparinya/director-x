@@ -102,8 +102,8 @@ internal object ShortFlowPrompt {
         val cameraText = camera.lowercase()
         if (Regex("(?i)\\b(?:cut to|jump cut|montage|multiple shots|new angle)\\b|ตัดภาพไป|ตัดฉาก|เปลี่ยนมุมกล้อง").containsMatchIn(scene))
             add("A first-frame 8-second video must remain one continuous shot; review scene transitions.")
-        val introducedProp = Regex("(?i)\\b(?:suddenly appears|materializ(?:es|ed|ing)|new object appears|pulls out an? |takes out an? |produces an? |conjures an? )\\b")
-        val introducedName = Regex("(?i)\\b(?:pulls out|takes out|produces|conjures) an? ([a-z]+)\\b").find(s.action)?.groupValues?.get(1)
+        val introducedProp = Regex("(?i)\\b(?:suddenly appears|materializ(?:es|ed|ing)|new object appears|pulls out (?:an? |the )|takes out (?:an? |the )|produces (?:an? |the )|conjures (?:an? |the ))\\b")
+        val introducedName = Regex("(?i)\\b(?:pulls out|takes out|produces|conjures) (?:an? |the )([a-z]+)\\b").find(s.action)?.groupValues?.get(1)
         val objectAlreadyVisible = introducedName != null && s.startState
             .split(Regex("[;.!?,]|\\b(?:while|whereas|and)\\b", RegexOption.IGNORE_CASE))
             .any { clause ->
