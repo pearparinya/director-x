@@ -43,11 +43,21 @@ internal object ContinuityReview {
         if(meaningfulTransitionNote(transitionNote)) return null // Plausible documentation only; semantics still need human review.
         return "กลุ่มต่อเนื่อง $group สถานะจบฉากก่อนหน้าไม่ตรงกับสถานะเริ่มฉากถัดไป โปรดตรวจการเปลี่ยนแปลงของตัวละครและสิ่งของ"
     }
+    internal fun propContinuityIssue(
+        prop: String, previousState: String, currentState: String, transitionNote: String
+    ): String? {
+        if(prop.isBlank() || previousState.isBlank() || currentState.isBlank()) return null
+        fun normalize(value: String) = value.trim().lowercase().replace(Regex("\\s+"), " ")
+        if(normalize(previousState) == normalize(currentState)) return null
+        if(meaningfulTransitionNote(transitionNote)) return null
+        return "สิ่งของ $prop เปลี่ยนสถานะ ($previousState / $currentState) โดยไม่มีคำอธิบายการเปลี่ยนแปลง โปรดตรวจ"
+    }
     fun review(story: JSONObject): List<String> {
         val findings = mutableListOf<String>()
         val groups = mutableMapOf<String, Pair<String, String>>()
         val groupTimes = mutableMapOf<String, String>()
         val groupEndStates = mutableMapOf<String, String>()
+        val groupPropStates = mutableMapOf<Pair<String, String>, String>()
         val dailyWardrobes = mutableMapOf<Pair<String, String>, Pair<String, String>>()
         val characterMasters = mutableMapOf<String, Pair<String, String>>()
         val episodes = story.optJSONArray("episodes") ?: return listOf("ไม่มีข้อมูล EP ให้ตรวจ")
@@ -62,6 +72,20 @@ internal object ContinuityReview {
                 val location = scene.optString("location").trim()
                 val storyTime = scene.optString("story_time").trim()
                 val characters = scene.optJSONArray("characters")
+                val props = scene.optJSONArray("props")
+                if(group.isNotBlank() && props != null) for(p in 0 until props.length()) {
+                    val item = props.optJSONObject(p) ?: continue
+                    val prop = item.optString("name").trim()
+                    val state = item.optString("state").trim()
+                    if(prop.isBlank() || state.isBlank()) continue
+                    val key = group to prop.lowercase()
+                    val previousState = groupPropStates[key]
+                    if(previousState != null) propContinuityIssue(
+                        prop, previousState, state, item.optString("transition")
+                    )?.let { findings.add("$label: $it") }
+                    groupPropStates[key] = state
+                }
+
                 val startState = scene.optString("start_state").trim()
                 val endState = scene.optString("end_state").trim()
                 if (characters != null) for (c in 0 until characters.length()) {
