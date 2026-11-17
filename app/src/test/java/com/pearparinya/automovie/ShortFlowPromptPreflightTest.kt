@@ -225,6 +225,21 @@ class ShortFlowPromptPreflightTest {
         ) == null)
     }
 
+    @Test fun documentedTransitionAllowsIntentionalStateChange() {
+        val issue = ContinuityReview.adjacentSceneStateIssue(
+            "HOME_DAY1", "Man holds a letter", "Man has empty hands",
+            "He places the letter on the table between scenes"
+        )
+        assertTrue(issue == null)
+    }
+
+    @Test fun blankTransitionDoesNotHideStateMismatch() {
+        val issue = ContinuityReview.adjacentSceneStateIssue(
+            "HOME_DAY1", "Man holds a letter", "Man has empty hands", "   "
+        )
+        assertTrue(issue?.contains("สถานะจบฉากก่อนหน้าไม่ตรง") == true)
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
