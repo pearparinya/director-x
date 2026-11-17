@@ -81,6 +81,9 @@ internal object ScriptStructurePreflight {
                 val singleDialogue = s.opt("dialogue")
                 if (singleDialogue != null && singleDialogue !is String)
                     structural.add("EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}: dialogue ต้องเป็นข้อความ")
+                val narration = s.opt("narration")
+                if (narration != null && narration !is String)
+                    structural.add("EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}: narration ต้องเป็นข้อความ")
                 val turns = s.optJSONArray("dialogue_turns")
                 val hasTurns = turns != null && turns.length() > 0
                 val label = "EP${ep.optInt("ep", i + 1)} SC${s.optInt("scene", j + 1)}"
