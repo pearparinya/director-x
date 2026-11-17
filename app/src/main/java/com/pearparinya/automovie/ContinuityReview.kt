@@ -137,6 +137,18 @@ internal object ContinuityReview {
         fields.filterValues { it != "missing" && it != "array" }
             .keys.map { "ข้อมูล $it ต้องเป็นรายการ array จึงจะตรวจสอบได้" }
 
+    internal fun propEventStructureIssues(
+        hasProps: Boolean, removedTypes: List<String>?, returnedTypes: List<String>?
+    ): List<String> = buildList {
+        if(!hasProps && (removedTypes != null || returnedTypes != null))
+            add("มี removed_props หรือ returned_props แต่ไม่มี props จึงตรวจสอบการเปลี่ยนแปลงสิ่งของไม่ได้")
+        listOf("removed_props" to removedTypes, "returned_props" to returnedTypes).forEach { (field, types) ->
+            types?.forEachIndexed { index, type ->
+                if(type != "string") add("$field ลำดับ ${index + 1} ต้องเป็นข้อความชื่อสิ่งของ")
+            }
+        }
+    }
+
     /** Pure state transition shared by the JSON review and multi-episode JVM tests. */
     internal fun advanceRemovedPropHistory(
         history: MutableSet<String>, previousNames: Set<String>?,
@@ -199,6 +211,16 @@ internal object ContinuityReview {
                     }
                 })
                 findings.addAll(malformed.map { "$label: $it" })
+                val removedArray = scene.optJSONArray("removed_props")
+                val returnedArray = scene.optJSONArray("returned_props")
+                fun elementTypes(array: org.json.JSONArray?): List<String>? = array?.let { values ->
+                    (0 until values.length()).map { index ->
+                        if(values.opt(index) is String) "string" else "invalid"
+                    }
+                }
+                findings.addAll(propEventStructureIssues(
+                    props != null, elementTypes(removedArray), elementTypes(returnedArray)
+                ).map { "$label: $it" })
                 if(props != null) {
                     val entries = (0 until props.length()).map { p ->
                         val item = props.optJSONObject(p)
