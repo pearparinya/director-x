@@ -275,6 +275,25 @@ class ShortFlowPromptPreflightTest {
         ) == null)
     }
 
+    @Test fun incompleteAndDuplicatePropsAreReportedByPosition() {
+        val issues = ContinuityReview.propEntryIssues(listOf(
+            "" to "อยู่บนโต๊ะ",
+            "จดหมาย" to "",
+            "จดหมาย" to "อยู่ในมือ"
+        ))
+        assertTrue(issues.size == 3)
+        assertTrue(issues.any { it.contains("ลำดับ 1 ขาดชื่อ") })
+        assertTrue(issues.any { it.contains("ลำดับ 2 ขาดสถานะ") })
+        assertTrue(issues.any { it.contains("ลำดับ 3 ชื่อ จดหมาย ซ้ำ") })
+    }
+
+    @Test fun distinctCompletePropsAreAllowed() {
+        assertTrue(ContinuityReview.propEntryIssues(listOf(
+            "โทรศัพท์" to "อยู่บนโต๊ะ",
+            "จดหมาย" to "อยู่ในมือ"
+        )).isEmpty())
+    }
+
     @Test fun lockedAndMovingCameraAreRejected() {
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked tripod camera with slow pan").isNotEmpty())
         assertTrue(ShortFlowPrompt.directionIssues(scene(), "Locked camera.").isEmpty())
