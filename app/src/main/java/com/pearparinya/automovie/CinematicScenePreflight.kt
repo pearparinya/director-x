@@ -28,7 +28,7 @@ internal object CinematicScenePreflight {
         if (props.size > 50) add("รายการวัตถุในฉากต้องไม่เกิน 50 รายการ")
         props.forEach { prop ->
             if (prop.id.length > 80) add("รหัสวัตถุยาวเกิน 80 ตัวอักษร")
-            if (prop.id.any { it == '<' || it == '>' || it == '\\n' || it == '\\r' })
+            if (prop.id.any { it == '<' || it == '>' || it == '\n' || it == '\r' })
                 add("รหัสวัตถุ ${prop.id.take(20)} มีอักขระที่ไม่อนุญาต")
             if (prop.expectedCount < 0 || (prop.firstFrameCount != null && prop.firstFrameCount < 0))
                 add("จำนวนวัตถุ ${prop.id} ต้องไม่ติดลบ")
