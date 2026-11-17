@@ -89,4 +89,17 @@ class CinematicScenePreflightTest {
         assertTrue(output.contains("สวัสดีครับ"))
     }
 
+    @Test fun noInventoryKeepsVoiceXmlSpacingStable() {
+        val spec = FlowSceneSpec(
+            cast = listOf(FlowPerson("A", "adult", "center", "shirt")),
+            speaker = "A", dialogue = "สวัสดี", narration = "",
+            action = "A reads a note", location = "room",
+            startState = "standing", endState = "reading",
+            duration = 8, aspect = "9:16"
+        )
+        val xml = FlowVoiceXml.build(spec, "Slow pan.")
+        assertTrue(xml.contains("${CinematicFlowGuard.direction()} Slow pan."))
+        assertTrue(!xml.contains("${CinematicFlowGuard.direction()}  Slow pan."))
+    }
+
 }
