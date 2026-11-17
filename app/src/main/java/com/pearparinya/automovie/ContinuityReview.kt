@@ -177,6 +177,12 @@ internal object ContinuityReview {
             .filter { it in history && it in current && it !in removedInThisScene }
             .forEach { history.remove(it) }
     }
+    /** Clear stale state when a scene omits its ending; subsequent scenes must not compare against it. */
+    internal fun advanceEndState(history: MutableMap<String, String>, group: String, endState: String) {
+        if (group.isBlank()) return
+        if (endState.isBlank()) history.remove(group)
+        else history[group] = endState
+    }
     fun review(story: JSONObject): List<String> {
         val findings = mutableListOf<String>()
         val groups = mutableMapOf<String, Pair<String, String>>()
@@ -317,9 +323,7 @@ internal object ContinuityReview {
                     if(previousEnd != null) adjacentSceneStateIssue(group, previousEnd, startState, scene.optString("continuity_transition"))?.let {
                         findings.add("$label: $it")
                     }
-                    // An unknown end state must not be reused as the previous state of a later scene.
-                    if (endState.isBlank()) groupEndStates.remove(group)
-                    else groupEndStates[group] = endState
+                    advanceEndState(groupEndStates, group, endState)
                     if (previous == null) groups[group] = day to location
                 }
             }
