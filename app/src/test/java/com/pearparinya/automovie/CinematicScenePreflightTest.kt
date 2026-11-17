@@ -135,4 +135,30 @@ class CinematicScenePreflightTest {
         assertTrue(errors.any { it.contains("80 ตัวอักษร") })
     }
 
+    @Test fun singleSpeakerPromptDoesNotAddInventoryWhitespaceWhenEmpty() {
+        val spec = FlowSceneSpec(
+            cast = listOf(FlowPerson("A", "adult", "center", "shirt")),
+            speaker = "A", dialogue = "สวัสดี", narration = "",
+            action = "A stands still", location = "room",
+            startState = "standing", endState = "standing",
+            duration = 8, aspect = "9:16"
+        )
+        val prompt = FlowScenePrompt.build(spec)
+        assertTrue(prompt.contains("${CinematicFlowGuard.direction()} "))
+        assertTrue(!prompt.contains("${CinematicFlowGuard.direction()}  "))
+    }
+
+    @Test fun singleSpeakerPromptIncludesExplicitInventory() {
+        val spec = FlowSceneSpec(
+            cast = listOf(FlowPerson("A", "adult", "center", "shirt")),
+            speaker = "A", dialogue = "สวัสดี", narration = "",
+            action = "A holds a cup", location = "room",
+            startState = "holding a cup", endState = "holding a cup",
+            duration = 8, aspect = "9:16",
+            cinematicProps = listOf(CinematicProp("cup", true, true, "center", "center", firstFrameCount = 1))
+        )
+        val prompt = FlowScenePrompt.build(spec)
+        assertTrue(prompt.contains("Prop cup: exactly 1 visible at start"))
+    }
+
 }
