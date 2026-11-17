@@ -11,7 +11,7 @@ internal data class CinematicProp(
     val screenSide: String = "",
     val expectedScreenSide: String = "",
     val expectedCount: Int = 1,
-    val firstFrameCount: Int = 1
+    val firstFrameCount: Int? = null
 )
 
 internal object CinematicScenePreflight {
@@ -20,15 +20,15 @@ internal object CinematicScenePreflight {
         if (ids.any { it.isEmpty() }) add("กรุณาระบุรหัสวัตถุทุกชิ้น")
         if (ids.distinct().size != ids.size) add("พบรหัสวัตถุซ้ำในฉาก")
         props.forEach { prop ->
-            if (prop.expectedCount < 0 || prop.firstFrameCount < 0)
+            if (prop.expectedCount < 0 || (prop.firstFrameCount != null && prop.firstFrameCount < 0))
                 add("จำนวนวัตถุ ${prop.id} ต้องไม่ติดลบ")
             if (prop.requiredForAction && prop.expectedCount == 0)
                 add("วัตถุ ${prop.id} จำเป็นต่อการกระทำ แต่กำหนดจำนวนที่ต้องใช้เป็นศูนย์")
             if (prop.presentInFirstFrame && prop.firstFrameCount == 0)
                 add("วัตถุ ${prop.id} ระบุว่ามีในภาพเริ่มต้น แต่จำนวนเป็นศูนย์")
-            if (!prop.presentInFirstFrame && prop.firstFrameCount > 0)
+            if (!prop.presentInFirstFrame && prop.firstFrameCount != null && prop.firstFrameCount > 0)
                 add("วัตถุ ${prop.id} ระบุว่าไม่มีในภาพเริ่มต้น แต่จำนวนมากกว่าศูนย์")
-            if (prop.requiredForAction && prop.presentInFirstFrame && prop.firstFrameCount < prop.expectedCount)
+            if (prop.requiredForAction && prop.presentInFirstFrame && prop.firstFrameCount != null && prop.firstFrameCount < prop.expectedCount)
                 add("วัตถุ ${prop.id} ในภาพเริ่มต้นมีจำนวนไม่เพียงพอสำหรับการกระทำ")
             if (prop.requiredForAction && !prop.presentInFirstFrame)
                 add("วัตถุ ${prop.id} จำเป็นต่อการกระทำ แต่ไม่มีในภาพเริ่มต้น")
