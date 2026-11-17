@@ -26,6 +26,27 @@ class ImageSceneQueueTest {
         assertNull(state.nextPendingScene)
     }
 
+    @Test fun savedProgressRestoresOnlyUnfinishedScenes() {
+        val state = ImageSceneQueue.State((1..23).toList())
+            .markCompleted(1).markCompleted(3).markCompleted(2)
+        val restored = ImageSceneQueue.restore((1..23).toList(), state.encodeProgress())
+        assertEquals("1,2,3", state.encodeProgress())
+        assertEquals(4, restored.nextPendingScene)
+        assertEquals(3, restored.completedCount)
+    }
+
+    @Test fun corruptedSavedProgressIsRejected() {
+        assertThrows(IllegalArgumentException::class.java) {
+            ImageSceneQueue.restore(listOf(1, 2), "1,invalid")
+        }
+    }
+
+    @Test fun progressFromDifferentProjectIsRejected() {
+        assertThrows(IllegalArgumentException::class.java) {
+            ImageSceneQueue.restore(listOf(1, 2), "1,3")
+        }
+    }
+
     @Test fun duplicateSceneIdsAreRejected() {
         assertThrows(IllegalArgumentException::class.java) {
             ImageSceneQueue.State(listOf(1, 1))
