@@ -157,4 +157,48 @@ class ImageSceneCompletionCoordinatorTest {
         assertEquals(0, result.completedCount)
     }
 
+    @Test fun batchLimitStopsAfterQuotaAndResumesRemainingScenes() {
+        val saved = mutableListOf<Int>()
+        val initial = ImageSceneQueue.State((1..5).toList())
+        val first = ImageSceneCompletionCoordinator.completePending(
+            initial,
+            saveImage = { scene -> saved.add(scene); true },
+            saveProgress = { true },
+            maxScenes = 2
+        )
+        assertEquals(listOf(1, 2), saved)
+        assertEquals(3, first.nextPendingScene)
+        val resumed = ImageSceneCompletionCoordinator.completePending(
+            first,
+            saveImage = { scene -> saved.add(scene); true },
+            saveProgress = { true },
+            maxScenes = 3
+        )
+        assertEquals(listOf(1, 2, 3, 4, 5), saved)
+        assertEquals(100, resumed.progressPercent)
+    }
+
+    @Test fun zeroQuotaDoesNotInvokeAnyWrites() {
+        var writes = 0
+        val result = ImageSceneCompletionCoordinator.completePending(
+            ImageSceneQueue.State(listOf(1, 2)),
+            saveImage = { writes++; true },
+            saveProgress = { writes++; true },
+            maxScenes = 0
+        )
+        assertEquals(0, writes)
+        assertEquals(0, result.completedCount)
+    }
+
+    @Test fun negativeQuotaIsRejected() {
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            ImageSceneCompletionCoordinator.completePending(
+                ImageSceneQueue.State(listOf(1)),
+                saveImage = { true },
+                saveProgress = { true },
+                maxScenes = -1
+            )
+        }
+    }
+
 }
