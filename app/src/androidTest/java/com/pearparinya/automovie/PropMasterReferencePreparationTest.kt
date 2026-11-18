@@ -9,7 +9,7 @@ class PropMasterReferencePreparationTest {
     @Test fun resolvesOneAttachmentForRepeatedP017() {
         val file = File.createTempFile("p017", ".jpg")
         try {
-            file.writeText("sample image fixture")
+            file.writeBytes(byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte(), 0, 0, 0, 0, 0, 0, 0, 0))
             val scene = JSONObject("""{"prop_links":[{"prop_master_id":"P017"},{"prop_master_id":"P017"}]}""")
             val result = PropMasterReferencePreparation.prepare(
                 scene, listOf(PropMasterReferencePreparation.Source("P017", "lantern", file))
@@ -26,6 +26,19 @@ class PropMasterReferencePreparationTest {
         val result = PropMasterReferencePreparation.prepare(scene, emptyList())
         assertFalse(result.ready)
         assertTrue(result.attachments.isEmpty())
+    }
+
+    @Test fun rejectsNonImageFilesEvenWithJpgExtension() {
+        val file = File.createTempFile("fake-master", ".jpg")
+        try {
+            file.writeText("not an image")
+            val scene = JSONObject("""{"prop_links":[{"prop_master_id":"P017"}]}""")
+            val result = PropMasterReferencePreparation.prepare(
+                scene, listOf(PropMasterReferencePreparation.Source("P017", "lantern", file))
+            )
+            assertFalse(result.ready)
+            assertTrue(result.attachments.isEmpty())
+        } finally { file.delete() }
     }
 
     @Test fun legacyPropsRemainOptional() {
