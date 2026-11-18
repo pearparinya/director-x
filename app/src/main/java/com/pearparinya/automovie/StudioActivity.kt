@@ -3100,8 +3100,11 @@ $context"""
                 .setView(panel)
                 .setPositiveButton("บันทึก") { _, _ ->
                     val value = input.text.toString().trim()
-                    if (value.isNotEmpty()) {
+                    if (value.isEmpty()) {
+                        notice("ยังไม่ได้กรอก API Key • ไม่มีการเปลี่ยนแปลง")
+                    } else {
                         runCatching { store.save(slot, value) }
+                            .onSuccess { notice("บันทึก API Key เว็บที่ $slot สำเร็จ • ยังไม่เชื่อมต่อ") }
                             .onFailure { notice("บันทึกคีย์ไม่สำเร็จ • ตรวจรูปแบบคีย์") }
                     }
                     imageApiSettings()
