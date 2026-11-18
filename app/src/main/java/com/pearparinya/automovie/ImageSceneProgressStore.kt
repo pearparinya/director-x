@@ -28,6 +28,19 @@ internal class ImageSceneProgressStore(context: Context) {
             storageKey(projectId, state.sceneIds), state.encodeProgress()
         ).commit()
 
+    /**
+     * Mark a scene complete only after its image has been durably saved by the caller.
+     * If the preference write fails, return null so the caller does not advance the queue.
+     */
+    fun recordCompletedScene(
+        projectId: String,
+        current: ImageSceneQueue.State,
+        sceneId: Int
+    ): ImageSceneQueue.State? {
+        val updated = current.markCompleted(sceneId)
+        return if (save(projectId, updated)) updated else null
+    }
+
     fun clear(projectId: String, sceneIds: List<Int>): Boolean =
         preferences.edit().remove(storageKey(projectId, sceneIds)).commit()
 
