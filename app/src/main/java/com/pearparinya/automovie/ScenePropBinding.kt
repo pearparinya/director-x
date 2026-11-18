@@ -21,4 +21,28 @@ internal object ScenePropBinding {
         }
         return result
     }
+    /**
+     * Persist a user-reviewed prop MASTER selection on an existing scene link.
+     * Do not accept an AI suggestion as a MASTER selection.
+     */
+    fun assignMaster(scene: JSONObject, linkIndex: Int, masterId: String): JSONObject {
+        val links = scene.optJSONArray("prop_links") ?: error("No reviewed prop links")
+        require(linkIndex in 0 until links.length()) { "Invalid prop link index" }
+        val link = links.optJSONObject(linkIndex) ?: error("Invalid prop link")
+        require(link.optString("item").trim().isNotEmpty()) { "Missing reviewed prop item" }
+        val id = masterId.trim().uppercase()
+        require(id.matches(Regex("^[A-Z][A-Z0-9_-]{1,63}$"))) { "Invalid prop MASTER ID" }
+        link.put("prop_master_id", id)
+        return scene
+    }
+
+    /** Remove only the MASTER assignment, leaving the approved story prop intact. */
+    fun clearMaster(scene: JSONObject, linkIndex: Int): JSONObject {
+        val links = scene.optJSONArray("prop_links") ?: error("No reviewed prop links")
+        require(linkIndex in 0 until links.length()) { "Invalid prop link index" }
+        val link = links.optJSONObject(linkIndex) ?: error("Invalid prop link")
+        link.remove("prop_master_id")
+        return scene
+    }
+
 }
