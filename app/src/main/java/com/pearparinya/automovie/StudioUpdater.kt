@@ -90,6 +90,12 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                     if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
                     updatePrefs.edit().putLong("last_successful_check", System.currentTimeMillis()).apply()
                     if (automatic && !activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) { lastCheckThisSession = 0L; return@runOnUiThread }
+                    if (automatic) {
+                        // Download a published release without a separate in-app tap.
+                        // Android still requires installation approval when applicable.
+                        download(url, build, asset.optLong("size", -1))
+                        return@runOnUiThread
+                    }
                     run {
                         val now = System.currentTimeMillis()
                         val dismissedBuild = updatePrefs.getLong("dismissed_build", -1L)
