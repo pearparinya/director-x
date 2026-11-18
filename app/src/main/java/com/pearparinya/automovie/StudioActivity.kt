@@ -4841,6 +4841,17 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             val position=EditText(this).apply { hint="ตำแหน่งจากภาพ เช่น ซ้าย / กลาง / ขวา"; setText(person.optString("screen_position")); panel.addView(this) }
             appearance to position
         }
+        // Explicit anatomical wrist selection is required: screen-left/right is never inferred.
+        val watchSides=(0 until cast.length()).map { i ->
+            val actor=cast.getJSONObject(i)
+            val choices=arrayOf("ไม่ล็อกนาฬิกา", "ข้อมือซ้ายของตัวละคร", "ข้อมือขวาของตัวละคร")
+            panel.addView(TextView(this).apply { text="ตำแหน่งนาฬิกา • ${actor.optString("name")} (ยืนยันจากภาพต้นฉบับ)" })
+            android.widget.Spinner(this).apply {
+                adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,choices)
+                setSelection(when(actor.optString("watch_side")) { "left" -> 1; "right" -> 2; else -> 0 })
+                panel.addView(this)
+            }
+        }
         val checks=listOf("ตรวจใบหน้า ผม และตัวตนตรง MASTER รายคนแล้ว","ตรวจรูปร่าง หน้าอก เอว สะโพก และแขนตามต้นฉบับแล้ว","ตรวจชุด สีภาพ มือ และอุปกรณ์แล้ว","ตรวจตำแหน่งและผู้พูดในภาพจริงแล้ว").map { label -> CheckBox(this).apply { text=label; panel.addView(this) } }
         val speaker=EditText(this).apply { hint="ผู้พูดหนึ่งคน (ชื่อในรายการ) หรือว่างเมื่อไม่มีบทพูด"; setText(s.optString("speaker")); panel.addView(this) }
         val dialog=AlertDialog.Builder(this).setTitle("ยืนยันภาพฉาก • ${key(s)}")
@@ -4850,6 +4861,16 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             val candidate=JSONObject(s.toString())
             val people=candidate.getJSONArray("characters")
             descriptions.forEachIndexed { i, fields -> people.getJSONObject(i).put("visual_description",fields.first.text.toString().trim()).put("screen_position",fields.second.text.toString().trim()) }
+            watchSides.forEachIndexed { i, spinner ->
+                val actor=people.getJSONObject(i)
+                when(spinner.selectedItemPosition) {
+                    1 -> actor.put("watch_side","left")
+                    2 -> actor.put("watch_side","right")
+                    else -> actor.remove("watch_side")
+                }
+            }
+            val contradictions=AccessoryContinuityContract.conflicts((0 until people.length()).map { people.getJSONObject(it) })
+            if(contradictions.isNotEmpty()) { notice(contradictions.joinToString("\\n")); return@setOnClickListener }
             candidate.put("speaker",speaker.text.toString().trim())
             val issues=FlowScenePrompt.issues(flowSpec(candidate))
             if (issues.isNotEmpty()) notice(issues.joinToString("\n")) else {
