@@ -3070,7 +3070,7 @@ $context"""
     private fun imageApiSettings() {
         val store = ImageApiKeySettings(this)
         val options = (1..9).map { slot ->
-            "API สร้างภาพรูปที่ $slot • " + if (store.hasKey(slot)) "มีคีย์แล้ว" else "ยังไม่มีคีย์"
+            "API สร้างภาพเว็บที่ $slot • " + if (store.hasKey(slot)) "มีคีย์แล้ว" else "ยังไม่มีคีย์"
         }
         choiceMenu("🖼️ API สร้างภาพ AI • ตั้งค่าคีย์", options) { selected ->
             val slot = selected + 1
@@ -3081,7 +3081,7 @@ $context"""
                 setPadding(dp(18), dp(16), dp(18), dp(16))
             }
             AlertDialog.Builder(this)
-                .setTitle("API สร้างภาพรูปที่ $slot")
+                .setTitle("API สร้างภาพเว็บที่ $slot")
                 .setMessage("บันทึกคีย์เข้ารหัสบนเครื่อง • ยังไม่ผูกผู้ให้บริการหรือเรียก API • ไม่เสียเครดิตจากหน้านี้")
                 .setView(input)
                 .setPositiveButton("บันทึก") { _, _ ->
