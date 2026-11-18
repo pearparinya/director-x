@@ -11,7 +11,7 @@ import java.io.File
 class ExtraApiSettingsTest {
     @Test fun keysAreEncryptedIndependentAndDeletable() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
-        val providers=ExtraApiProvider.entries
+        val providers=ExtraApiProvider.activeProviders
         val files=providers.associateWith { File(context.noBackupFilesDir,"${it.id}/settings.json") }
         val previous=files.mapValues { (_,file) -> file.takeIf { it.exists() }?.readBytes() }
         try {
@@ -24,10 +24,6 @@ class ExtraApiSettingsTest {
                 assertEquals(provider.service.defaultModel,settings.model())
                 assertFalse(files.getValue(provider).readText().contains(key))
             }
-            ExtraApiSettings(context,ExtraApiProvider.DEEPSEEK).clear()
-            assertFalse(ExtraApiSettings(context,ExtraApiProvider.DEEPSEEK).hasKey())
-            assertTrue(ExtraApiSettings(context,ExtraApiProvider.CEREBRAS).hasKey())
-            assertTrue(ExtraApiSettings(context,ExtraApiProvider.OPENROUTER).hasKey())
             val router=ExtraApiSettings(context,ExtraApiProvider.OPENROUTER)
             val oldKey=router.key()
             router.save(oldKey,"example/model:free")
@@ -35,11 +31,17 @@ class ExtraApiSettingsTest {
             assertEquals("example/model:free",router.model())
             assertTrue(runCatching { router.save(oldKey,"example/paid") }.isFailure)
             assertEquals(oldKey,router.key())
-            assertTrue(runCatching { ExtraApiSettings(context,ExtraApiProvider.CEREBRAS).save("short") }.isFailure)
-            assertTrue(ExtraApiSettings(context,ExtraApiProvider.CEREBRAS).hasKey())
+            assertTrue(runCatching { router.save("short") }.isFailure)
+            assertTrue(router.hasKey())
+            for (provider in listOf(ExtraApiProvider.CEREBRAS,ExtraApiProvider.DEEPSEEK,ExtraApiProvider.SAMBANOVA,ExtraApiProvider.MISTRAL)) {
+                assertTrue(runCatching { ExtraApiSettings(context,provider) }.isFailure)
+            }
         } finally {
-            files.forEach { (provider,file) -> previous[provider]?.let { file.parentFile!!.mkdirs(); file.writeBytes(it) }
-                ?: ExtraApiSettings(context,provider).clear() }
+            files.forEach { (provider,file) ->
+                val old=previous[provider]
+                if(old!=null) { file.parentFile!!.mkdirs(); file.writeBytes(old) }
+                else ExtraApiSettings(context,provider).clear()
+            }
         }
     }
 }

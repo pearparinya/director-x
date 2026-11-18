@@ -9,10 +9,13 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /** Optional OpenAI image analysis. Credentials and image bytes are never logged. */
-internal class OpenAiVisionClient(private val key: String, private val model: String) {
+internal class OpenAiVisionClient(private val key: String, private val model: String, private val provider: CompatibleService = CompatibleService.OPENAI) {
+    init { require(provider in setOf(CompatibleService.OPENAI, CompatibleService.OPENROUTER)) }
+
     fun buildRequest(prompt: String, schema: JSONObject, images: List<Pair<String,File>>): JSONObject {
         require(key.isNotBlank()) { "ตั้งค่า OpenAI API Key ก่อน" }
-        require(Regex("[A-Za-z0-9_.:/-]{1,120}").matches(model)) { "ชื่อโมเดล OpenAI ไม่ถูกต้อง" }
+        require(Regex("[A-Za-z0-9_.:/-]{1,120}").matches(model)) { "ชื่อโมเดล Vision ไม่ถูกต้อง" }
+        if(provider==CompatibleService.OPENROUTER) require(model=="openrouter/free" || model.endsWith(":free")) { "Vision ต้องใช้โมเดล OpenRouter ฟรีเท่านั้น" }
         require(images.isNotEmpty() && images.size<=8) { "ต้องมี MASTER จริง 1–8 ภาพ" }
         val hashes=ReferenceSnapshot.capture(images)
         val content=JSONArray().put(JSONObject().put("type","text").put("text",
@@ -38,7 +41,7 @@ internal class OpenAiVisionClient(private val key: String, private val model: St
     }
     fun generate(prompt: String, schema: JSONObject, images: List<Pair<String,File>>): JSONObject {
         val body=buildRequest(prompt,schema,images)
-        val conn=URL("https://api.openai.com/v1/chat/completions").openConnection() as HttpURLConnection
+        val conn=URL(provider.url).openConnection() as HttpURLConnection
         try {
             conn.requestMethod="POST"; conn.connectTimeout=20000; conn.readTimeout=180000
             conn.instanceFollowRedirects=false; conn.doOutput=true
@@ -54,7 +57,7 @@ internal class OpenAiVisionClient(private val key: String, private val model: St
                 require(out.size()+n<=2_000_000) { "คำตอบ OpenAI ใหญ่เกินกำหนด" }
                 out.write(buffer,0,n)
             } }
-            return CompatibleStoryClient.parse(JSONObject(out.toString("UTF-8")),CompatibleService.OPENAI)
+            return CompatibleStoryClient.parse(JSONObject(out.toString("UTF-8")),provider)
         } finally { conn.disconnect() }
     }
 }

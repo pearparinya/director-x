@@ -3310,13 +3310,14 @@ $context"""
         }
     }
     private fun extraApiSettingsMenu() {
-        val providers=ExtraApiProvider.entries.filter { it !in setOf(ExtraApiProvider.DEEPSEEK, ExtraApiProvider.MISTRAL, ExtraApiProvider.SAMBANOVA, ExtraApiProvider.CEREBRAS) }
+        val providers=ExtraApiProvider.activeProviders
         val choices=providers.map { provider ->
             provider.label + if(ExtraApiSettings(this,provider).hasKey()) " • มีคีย์แล้ว" else " • ยังไม่มีคีย์"
         }
         choiceMenu("จัดเก็บ API Key เพิ่มเติม",choices) { index -> extraApiKeyDialog(providers[index]) }
     }
     private fun extraApiKeyDialog(provider: ExtraApiProvider,afterSave: (() -> Unit)?=null) {
+        if(provider !in ExtraApiProvider.activeProviders) { notice("API นี้ถูกยกเลิกถาวร"); return }
         val settings=ExtraApiSettings(this,provider)
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
         panel.addView(TextView(this).apply { text="${provider.label} • คีย์เก็บแบบเข้ารหัสบนเครื่องและไม่รวมในไฟล์สำรอง • ระบบเลือกค่ายอัตโนมัติ • การเรียกใช้ขึ้นอยู่กับโควตาและค่าบริการของบัญชี" })
@@ -3327,8 +3328,6 @@ $context"""
             panel.addView(this)
         }
         if(provider==ExtraApiProvider.OPENAI) panel.addView(TextView(this).apply { text="OpenAI API แยกจาก ChatGPT Plus • อาจมีค่าบริการ • ภาพ MASTER จะถูกส่งเมื่อคุณเลือกวิเคราะห์ด้วย OpenAI" })
-        if(provider==ExtraApiProvider.CEREBRAS) panel.addView(TextView(this).apply { text="Cerebras • ตรวจโควตาและค่าใช้จ่ายตามบัญชี • เลือกโมเดลที่รองรับ JSON • โหมด OpenRouter ฟรีจะไม่เรียก Cerebras" })
-        if(provider==ExtraApiProvider.SAMBANOVA) panel.addView(TextView(this).apply { text="เลือก Model ID ที่บัญชี SambaNova ใช้งานได้ และรองรับ JSON • หากทดสอบไม่ผ่านให้ตรวจชื่อโมเดลและสิทธิ์บัญชี" })
         val model=EditText(this).apply { hint="ชื่อโมเดล"; setSingleLine(true); setText(settings.model()); panel.addView(this) }
         panel.addView(Button(this).apply { text="บันทึกและทดสอบ ${provider.label}"; setOnClickListener {
             runCatching { settings.save(key.text.toString().trim().ifBlank { settings.key() },model.text.toString().trim()) }
@@ -3348,6 +3347,7 @@ $context"""
         }
     }
     private fun testExtraApi(provider: ExtraApiProvider) {
+        if(provider !in ExtraApiProvider.activeProviders) { notice("API นี้ถูกยกเลิกถาวร"); return }
         if(StoryProvider.freeOnly(this) && provider!=ExtraApiProvider.OPENROUTER) { notice("โหมดฟรีเปิดอยู่ • ทดสอบได้เฉพาะ OpenRouter โมเดลฟรี") ; return }
         if(GeminiStoryService.running) { notice("กรุณารอหรือหยุดงานเขียนบทก่อนทดสอบ API"); return }
         val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
@@ -4841,6 +4841,17 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             val position=EditText(this).apply { hint="ตำแหน่งจากภาพ เช่น ซ้าย / กลาง / ขวา"; setText(person.optString("screen_position")); panel.addView(this) }
             appearance to position
         }
+        // Explicit anatomical wrist selection is required: screen-left/right is never inferred.
+        val watchSides=(0 until cast.length()).map { i ->
+            val actor=cast.getJSONObject(i)
+            val choices=arrayOf("ไม่ล็อกนาฬิกา", "ข้อมือซ้ายของตัวละคร", "ข้อมือขวาของตัวละคร")
+            panel.addView(TextView(this).apply { text="ตำแหน่งนาฬิกา • ${actor.optString("name")} (ยืนยันจากภาพต้นฉบับ)" })
+            android.widget.Spinner(this).apply {
+                adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,choices)
+                setSelection(when(actor.optString("watch_side")) { "left" -> 1; "right" -> 2; else -> 0 })
+                panel.addView(this)
+            }
+        }
         val checks=listOf("ตรวจใบหน้า ผม และตัวตนตรง MASTER รายคนแล้ว","ตรวจรูปร่าง หน้าอก เอว สะโพก และแขนตามต้นฉบับแล้ว","ตรวจชุด สีภาพ มือ และอุปกรณ์แล้ว","ตรวจตำแหน่งและผู้พูดในภาพจริงแล้ว").map { label -> CheckBox(this).apply { text=label; panel.addView(this) } }
         val speaker=EditText(this).apply { hint="ผู้พูดหนึ่งคน (ชื่อในรายการ) หรือว่างเมื่อไม่มีบทพูด"; setText(s.optString("speaker")); panel.addView(this) }
         val dialog=AlertDialog.Builder(this).setTitle("ยืนยันภาพฉาก • ${key(s)}")
@@ -4850,10 +4861,44 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             val candidate=JSONObject(s.toString())
             val people=candidate.getJSONArray("characters")
             descriptions.forEachIndexed { i, fields -> people.getJSONObject(i).put("visual_description",fields.first.text.toString().trim()).put("screen_position",fields.second.text.toString().trim()) }
+            watchSides.forEachIndexed { i, spinner ->
+                val actor=people.getJSONObject(i)
+                when(spinner.selectedItemPosition) {
+                    1 -> actor.put("watch_side","left")
+                    2 -> actor.put("watch_side","right")
+                    else -> actor.remove("watch_side")
+                }
+            }
+            val contradictions=AccessoryContinuityContract.conflicts((0 until people.length()).map { people.getJSONObject(it) })
+            if(contradictions.isNotEmpty()) { notice(contradictions.joinToString("\\n")); return@setOnClickListener }
             candidate.put("speaker",speaker.text.toString().trim())
             val issues=FlowScenePrompt.issues(flowSpec(candidate))
             if (issues.isNotEmpty()) notice(issues.joinToString("\n")) else {
+                // Carry confirmed anatomical wrist across the story, but never silently
+                // overwrite an existing contradictory lock on another scene.
+                val locks=(0 until people.length()).map { people.getJSONObject(it) }
+                    .filter { it.optString("watch_side") in setOf("left","right") }
+                    .associate { it.optString("name") to it.optString("watch_side") }
+                val episodes=plan?.optJSONArray("episodes")
+                val targets=mutableListOf<JSONObject>()
+                if(episodes!=null) for(e in 0 until episodes.length()) {
+                    val scenes=episodes.optJSONObject(e)?.optJSONArray("scenes") ?: continue
+                    for(j in 0 until scenes.length()) {
+                        val actors=scenes.optJSONObject(j)?.optJSONArray("characters") ?: continue
+                        for(k in 0 until actors.length()) {
+                            val actor=actors.optJSONObject(k) ?: continue
+                            val locked=locks[actor.optString("name")] ?: continue
+                            val prior=actor.optString("watch_side")
+                            if(prior.isNotBlank() && prior!=locked) {
+                                notice("นาฬิกาของ ${actor.optString("name")} ถูกล็อกต่างข้างในฉากอื่น • กรุณาแก้ความขัดแย้งก่อน")
+                                return@setOnClickListener
+                            }
+                            targets.add(actor)
+                        }
+                    }
+                }
                 s.put("characters",people).put("speaker",candidate.optString("speaker")).put("flow_image_revision",image(s).lastModified())
+                targets.forEach { actor -> locks[actor.optString("name")]?.let { actor.put("watch_side",it) } }
                 val approved=runCatching { SceneFrameReview.approve(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) },frameReviewFacts(s)) }
                 if(approved.isFailure) { notice(approved.exceptionOrNull()?.message ?: "ยืนยันภาพไม่ได้"); return@setOnClickListener }
                 saveStory(); dialog.dismiss(); reviewedVideoCommand(s)
