@@ -3110,9 +3110,17 @@ $context"""
                     imageApiSettings()
                 }
                 .setNeutralButton("ลบคีย์") { _, _ ->
-                    runCatching { store.clear(slot) }
-                        .onFailure { notice("ลบคีย์ไม่สำเร็จ") }
-                    imageApiSettings()
+                    AlertDialog.Builder(this)
+                        .setTitle("ยืนยันลบ API Key เว็บที่ $slot")
+                        .setMessage("ต้องการลบ API Key ที่บันทึกไว้ในเว็บที่ $slot หรือไม่? การลบไม่สามารถย้อนกลับได้")
+                        .setPositiveButton("ยืนยันลบ") { _, _ ->
+                            runCatching { store.clear(slot) }
+                                .onSuccess { notice("ลบ API Key เว็บที่ $slot แล้ว") }
+                                .onFailure { notice("ลบคีย์ไม่สำเร็จ") }
+                            imageApiSettings()
+                        }
+                        .setNegativeButton("ยกเลิก") { _, _ -> imageApiSettings() }
+                        .showDirector()
                 }
                 .setNegativeButton("ยกเลิก", null).showDirector()
         }
