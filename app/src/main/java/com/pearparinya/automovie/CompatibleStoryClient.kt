@@ -38,7 +38,7 @@ internal class CompatibleStoryClient(
 
     private fun request(prompt: String, schema: JSONObject): JSONObject {
         if (cancelled()) throw CancellationException()
-        require(service !in setOf(CompatibleService.DEEPSEEK, CompatibleService.MISTRAL, CompatibleService.SAMBANOVA, CompatibleService.CEREBRAS)) { "API นี้ไม่เปิดใช้งานแล้ว" }
+        require(service in activeServices) { "API นี้ถูกยกเลิกถาวร" }
         require(apiKey.isNotBlank()) { "ตั้งค่า ${service.label} API Key ก่อนเริ่ม" }
         val body = buildRequest(service, model, prompt, schema)
         val conn = URL(service.url).openConnection() as HttpURLConnection
@@ -63,7 +63,9 @@ internal class CompatibleStoryClient(
     }
 
     companion object {
+        val activeServices = setOf(CompatibleService.OPENAI, CompatibleService.OPENROUTER, CompatibleService.COHERE)
         fun buildRequest(service: CompatibleService, model: String, prompt: String, schema: JSONObject): JSONObject {
+            require(service in activeServices) { "API นี้ถูกยกเลิกถาวร" }
             require(Regex("[A-Za-z0-9_.:/-]{1,120}").matches(model)) { "ชื่อโมเดลไม่ถูกต้อง" }
             if (service == CompatibleService.OPENROUTER) require(model == "openrouter/free" || model.endsWith(":free")) { "โหมด OpenRouter อนุญาตเฉพาะโมเดลฟรี" }
             return JSONObject().put("model", model).put("stream", false)
