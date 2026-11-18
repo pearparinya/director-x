@@ -38,8 +38,9 @@ internal class ImageApiKeySettings(context: Context) {
     }
     fun save(slot: Int, value: String) {
         checkSlot(slot)
-        val key = value.trim()
-        require(key.length in 8..4096 && key.none { it.isWhitespace() }) { "Invalid API key format" }
+        // Reject accidental spaces rather than silently changing the provider credential.
+        require(value.length in 8..4096 && value.none { it.isWhitespace() }) { "Invalid API key format" }
+        val key = value
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, secret())
         val encrypted = Base64.encodeToString(cipher.doFinal(key.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
