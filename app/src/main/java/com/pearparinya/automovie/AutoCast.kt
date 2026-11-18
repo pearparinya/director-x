@@ -16,6 +16,32 @@ internal object AutoCast {
             put(compact)
         }
     }
+    /**
+     * Casting brief guides the text model without inferring personality or
+     * identity from a reference photo. MASTER IDs remain the sole identity key.
+     */
+    fun castingBrief(category: String, presenterId: String, requiredIds: Set<String>): String {
+        val anchor = if(presenterId.isNotBlank())
+            "The explicitly selected presenter is the central protagonist; do not replace or duplicate this identity. "
+        else ""
+        val pinned = if(requiredIds.isNotEmpty())
+            "Keep every required library ID exactly once: ${requiredIds.sorted().joinToString(", ")}. "
+        else ""
+        val genre = when {
+            category.startsWith("รักต่างวัย | หนุ่มรุ่นน้องกับสาวรุ่นพี่") ->
+                "Cast exactly one eligible younger adult man and one older adult woman as the romantic leads, with a catalog age gap of at least 15 years. "
+            category.startsWith("รักต่างวัย | หนุ่มรุ่นใหญ่กับสาวรุ่นน้อง") ->
+                "Cast exactly one eligible older adult man and one younger adult woman as the romantic leads, with a catalog age gap of at least 15 years. "
+            else -> ""
+        }
+        return anchor+pinned+genre+
+            "FIRST identify the essential story roles and relationships from the premise; THEN match each role to a distinct catalog ID. "+
+            "Choose the smallest credible cast (1 to 8); never add filler actors or duplicate roles just to reach a fixed count. "+
+            "Use catalog character ages and types only as explicitly assigned fictional metadata, not inferred from faces. "+
+            "Do not infer personality, trustworthiness or talent from appearance. "+
+            "Preserve the exact catalog MASTER ID for each actor, and keep names, roles and identity stable across all scenes. "+
+            "Favor an eligible less-recently-used actor when role fit is comparable, but never sacrifice genre requirements or pinned IDs for variety. "
+    }
     fun schema() = JSONObject("""{"type":"object","properties":{"story_concept":{"type":"string"},"cast":{"type":"array","items":{"type":"object","properties":{"library_id":{"type":"string"},"name":{"type":"string"},"english_name":{"type":"string"},"role":{"type":"string"},"romance_role":{"type":"string"}},"required":["library_id","name","role"]}}},"required":["story_concept","cast"]}""")
     fun validate(value: JSONObject, catalog: JSONArray) {
         require(value.optString("story_concept").isNotBlank()) { "ขาดแนวคิดเรื่อง" }
