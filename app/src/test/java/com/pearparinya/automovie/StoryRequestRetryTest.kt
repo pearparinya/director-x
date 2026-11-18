@@ -6,6 +6,17 @@ import java.io.IOException
 import java.util.concurrent.CancellationException
 
 class StoryRequestRetryTest {
+    @Test fun malformedJsonRetriesQuicklyWithoutQuotaLengthWait() {
+        var clock=0L; var calls=0
+        val retry=StoryRequestRetry({clock},{clock+=it})
+        val error=runCatching { retry.execute({false},{}) {
+            calls++
+            throw StoryHttpFailure(422,null,"invalid response","json_validate_failed")
+        } }.exceptionOrNull()
+        assertEquals(3,calls)
+        assertEquals(6000L,clock)
+        assertTrue(error!!.message!!.contains("ครบ 2 ครั้ง"))
+    }
     @Test fun throttledRequestCountsDownAndContinuesWithoutUserAction() {
         var clock=0L; var calls=0
         val messages=mutableListOf<String>()
