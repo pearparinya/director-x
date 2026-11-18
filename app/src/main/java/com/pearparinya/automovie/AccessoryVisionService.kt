@@ -1,5 +1,6 @@
 package com.pearparinya.automovie
 
+import android.content.Context
 import org.json.JSONObject
 import java.io.File
 
@@ -9,6 +10,16 @@ import java.io.File
  * Call from a background thread only; user approval remains necessary for REVIEW.
  */
 internal class AccessoryVisionService(private val client: OpenAiVisionClient) {
+    companion object {
+        /** Reuse the existing encrypted OpenRouter API key; never require OpenAI billing. */
+        fun fromSavedFreeApi(context: Context): AccessoryVisionService {
+            val saved=ExtraApiSettings(context,ExtraApiProvider.OPENROUTER)
+            require(saved.hasKey()) { "กรุณาตั้งค่า OpenRouter API ฟรีก่อนใช้ Vision" }
+            val model=saved.model()
+            require(model=="openrouter/free" || model.endsWith(":free")) { "เลือกโมเดล OpenRouter ฟรี" }
+            return AccessoryVisionService(OpenAiVisionClient(saved.key(),model,CompatibleService.OPENROUTER))
+        }
+    }
     fun inspect(characterName: String, approvedSide: String, sceneImage: File): AccessoryVisionReview.Result {
         require(characterName.isNotBlank())
         require(approvedSide in setOf("left","right"))
