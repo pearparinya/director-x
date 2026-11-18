@@ -8,7 +8,7 @@ internal object ContinuityReview {
         val findings = mutableListOf<String>()
         val groups = mutableMapOf<String, Pair<String, String>>()
         val dailyWardrobes = mutableMapOf<Pair<String, String>, Pair<String, String>>()
-        val characterMasters = mutableMapOf<String, Pair<String, String>>()
+        val characterMasters = mutableMapOf<String, Pair<String, String>>()\n        val watchSides = mutableMapOf<Pair<String, String>, Pair<String, String>>()
         val previousSceneByGroup = mutableMapOf<String, Pair<String, String>>()
         val previousLocationByGroup = mutableMapOf<String, Pair<String, String>>()
         val episodes = story.optJSONArray("episodes") ?: return listOf("ไม่มีข้อมูล EP ให้ตรวจ")
@@ -34,6 +34,21 @@ internal object ContinuityReview {
                         if (previousMaster != null && previousMaster.first != master)
                             findings.add("$label: $name ใช้ MASTER ต่างจาก ${previousMaster.second} โปรดตรวจการจับคู่ภาพ")
                         else characterMasters.putIfAbsent(name, master to label)
+                    }
+                    val watchSide = Regex("(?i)(?:watch|wristwatch|นาฬิกา(?:ข้อมือ)?)[^,;\\n]{0,45}?(?:\\b(left|right)\\b|ข้าง(ซ้าย|ขวา))|(?:\\b(left|right)\\b|ข้าง(ซ้าย|ขวา))[^,;\\n]{0,35}?(?:watch|wristwatch|นาฬิกา(?:ข้อมือ)?)").find(outfit)?.let { match ->
+                        val tokens=match.groupValues
+                        when {
+                            tokens.any { it.equals("left",true) || it=="ซ้าย" } -> "left"
+                            tokens.any { it.equals("right",true) || it=="ขวา" } -> "right"
+                            else -> ""
+                        }
+                    }.orEmpty()
+                    if(watchSide.isNotEmpty()) {
+                        val key=name to day
+                        val previous=watchSides[key]
+                        if(previous!=null && previous.first!=watchSide)
+                            findings.add("$label: $name ระบุข้างที่สวมนาฬิกาต่างจาก ${previous.second} • ตรวจซ้าย/ขวาของตัวละคร ไม่ใช่ด้านของภาพ")
+                        else watchSides.putIfAbsent(key,watchSide to label)
                     }
                     if (day.isBlank()) {
                         findings.add("$label: $name ไม่ระบุ story_day จึงตรวจชุดประจำวันไม่ได้")
