@@ -3099,7 +3099,7 @@ $context"""
                 .setMessage("บันทึกคีย์เข้ารหัสบนเครื่อง • ยังไม่ผูกผู้ให้บริการหรือเรียก API • ไม่เสียเครดิตจากหน้านี้")
                 .setView(panel)
                 .setPositiveButton("บันทึก") { _, _ ->
-                    val value = input.text.toString().trim()
+                    val value = input.text.toString()
                     if (value.isEmpty()) {
                         notice("ยังไม่ได้กรอก API Key • ไม่มีการเปลี่ยนแปลง")
                     } else {
