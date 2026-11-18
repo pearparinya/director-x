@@ -120,4 +120,41 @@ class ImageSceneCompletionCoordinatorTest {
         assertEquals(3, result.nextPendingScene)
     }
 
+    @Test fun cancellationStopsBeforeNextSceneAndPreservesSavedProgress() {
+        val images = mutableListOf<Int>()
+        val result = ImageSceneCompletionCoordinator.completePending(
+            ImageSceneQueue.State((1..5).toList()),
+            saveImage = { scene -> images.add(scene); true },
+            saveProgress = { true },
+            shouldContinue = { images.size < 2 }
+        )
+        assertEquals(listOf(1, 2), images)
+        assertEquals(2, result.completedCount)
+        assertEquals(3, result.nextPendingScene)
+    }
+
+    @Test fun cancellationBeforeFirstScenePerformsNoWrites() {
+        var writes = 0
+        val result = ImageSceneCompletionCoordinator.completePending(
+            ImageSceneQueue.State(listOf(1, 2)),
+            saveImage = { writes++; true },
+            saveProgress = { writes++; true },
+            shouldContinue = { false }
+        )
+        assertEquals(0, writes)
+        assertEquals(1, result.nextPendingScene)
+    }
+
+    @Test fun cancellationCheckExceptionStopsSafely() {
+        var writes = 0
+        val result = ImageSceneCompletionCoordinator.completePending(
+            ImageSceneQueue.State(listOf(1, 2)),
+            saveImage = { writes++; true },
+            saveProgress = { writes++; true },
+            shouldContinue = { throw IllegalStateException("Worker stopped") }
+        )
+        assertEquals(0, writes)
+        assertEquals(0, result.completedCount)
+    }
+
 }
