@@ -24,10 +24,13 @@ internal object ImageSceneCompletionCoordinator {
     fun completePending(
         current: ImageSceneQueue.State,
         saveImage: (sceneId: Int) -> Boolean,
-        saveProgress: (ImageSceneQueue.State) -> Boolean
+        saveProgress: (ImageSceneQueue.State) -> Boolean,
+        shouldContinue: () -> Boolean = { true }
     ): ImageSceneQueue.State {
         var state = current
         while (state.nextPendingScene != null) {
+            // Check between scenes so a cancellation never marks an unfinished scene complete.
+            if (!runCatching { shouldContinue() }.getOrDefault(false)) break
             val updated = completeNext(state, saveImage, saveProgress) ?: break
             state = updated
         }
