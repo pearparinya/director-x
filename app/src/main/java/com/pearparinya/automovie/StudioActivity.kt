@@ -3080,10 +3080,24 @@ $context"""
                     android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
                 setPadding(dp(18), dp(16), dp(18), dp(16))
             }
+            val panel = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(16), dp(8), dp(16), dp(8))
+                addView(input)
+                addView(CheckBox(this@StudioActivity).apply {
+                    text = "แสดง API Key ที่กำลังกรอก"
+                    setOnCheckedChangeListener { _, checked ->
+                        input.inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                            (if (checked) android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                             else android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD)
+                        input.setSelection(input.text.length)
+                    }
+                })
+            }
             AlertDialog.Builder(this)
                 .setTitle("API สร้างภาพเว็บที่ $slot")
                 .setMessage("บันทึกคีย์เข้ารหัสบนเครื่อง • ยังไม่ผูกผู้ให้บริการหรือเรียก API • ไม่เสียเครดิตจากหน้านี้")
-                .setView(input)
+                .setView(panel)
                 .setPositiveButton("บันทึก") { _, _ ->
                     val value = input.text.toString().trim()
                     if (value.isNotEmpty()) {
