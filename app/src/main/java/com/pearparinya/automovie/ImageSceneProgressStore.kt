@@ -64,13 +64,15 @@ internal class ImageSceneProgressStore(context: Context) {
         projectId: String,
         current: ImageSceneQueue.State,
         saveImage: (sceneId: Int) -> Boolean,
-        shouldContinue: () -> Boolean = { true }
+        shouldContinue: () -> Boolean = { true },
+        maxScenes: Int = Int.MAX_VALUE
     ): ImageSceneQueue.State =
         ImageSceneCompletionCoordinator.completePending(
             current,
             saveImage = saveImage,
             saveProgress = { updated -> save(projectId, updated) },
-            shouldContinue = shouldContinue
+            shouldContinue = shouldContinue,
+            maxScenes = maxScenes
         )
 
     fun clear(projectId: String, sceneIds: List<Int>): Boolean =
