@@ -39,9 +39,25 @@ internal object PropMasterReferencePreparation {
                 issues.add("$id: ไม่พบไฟล์ภาพ MASTER อุปกรณ์")
                 continue
             }
+            if (!isSupportedImage(source.file)) {
+                issues.add("$id: ไฟล์ MASTER ไม่ใช่ภาพ JPEG, PNG หรือ WebP ที่รองรับ")
+                continue
+            }
             attachments.add(Attachment(id, source.item, "PROP_MASTER", source.file))
         }
         return Result(attachments, issues)
+    }
+
+    /** Inspect file bytes, not the filename extension, before forwarding a reference. */
+    private fun isSupportedImage(file: File): Boolean {
+        val header = ByteArray(12)
+        val count = file.inputStream().use { it.read(header) }
+        if (count < 12) return false
+        val png = header.take(8) == listOf(137, 80, 78, 71, 13, 10, 26, 10).map { it.toByte() }
+        val jpeg = header[0] == 0xFF.toByte() && header[1] == 0xD8.toByte() && header[2] == 0xFF.toByte()
+        val webp = String(header, 0, 4, Charsets.US_ASCII) == "RIFF" &&
+            String(header, 8, 4, Charsets.US_ASCII) == "WEBP"
+        return png || jpeg || webp
     }
 
     fun bindingText(result: Result, startIndex: Int): String {
