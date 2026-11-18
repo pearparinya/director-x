@@ -246,7 +246,7 @@ class FlowProductionPackTest {
             checkExport("export assertion 20",cover.contains("BEGIN EXACT COVER TEXT\nช่อง\nซองบนโต๊ะ\nความลับในซอง\nEND EXACT COVER TEXT"))
             assertFalse(cover.contains("EP.00")); checkExport("export assertion 21",cover.contains(story.getString("title")))
             val scene=FlowReferencePrompt.scene(story.getJSONArray("episodes").getJSONObject(6).getJSONArray("scenes").getJSONObject(1),7,"video")
-            checkExport("export assertion 22",scene.startsWith("<flow><scene id=\"EP07_SC002\">"))
+            checkExport("export assertion 22: anatomical accessory lock precedes XML",scene.contains("<flow><scene id=\"EP07_SC002\">") && scene.indexOf("<flow><scene id=\"EP07_SC002\">") > 0 && scene.substringBefore("<flow>").contains("watch"))
             checkExport("export assertion 23",scene.contains("Use the attached first frame"))
             checkExport("export assertion 24",scene.contains("<duration>8</duration>"))
             checkExport("export assertion 25",ep.contains(FlowVisualDirection.referencePriority))
