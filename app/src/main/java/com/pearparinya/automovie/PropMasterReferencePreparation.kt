@@ -35,6 +35,11 @@ internal object PropMasterReferencePreparation {
                 continue
             }
             val source = matches.single()
+            val reviewedItem = link.optString("item").trim()
+            if (reviewedItem.isNotEmpty() && reviewedItem != source.item.trim()) {
+                issues.add("$id: ชื่ออุปกรณ์ในซีนไม่ตรงกับ MASTER ที่เลือก")
+                continue
+            }
             if (!source.file.isFile || source.file.length() <= 0L) {
                 issues.add("$id: ไม่พบไฟล์ภาพ MASTER อุปกรณ์")
                 continue
