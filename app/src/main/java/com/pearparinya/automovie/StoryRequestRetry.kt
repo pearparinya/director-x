@@ -19,8 +19,11 @@ internal class StoryRequestRetry(
                 if(cancelled() || e is CancellationException) throw CancellationException()
                 val temporary=canRetry(e)
                 if(!temporary) throw e
-                if(retries>=MAX_RETRIES) throw IllegalStateException("ลองทำต่ออัตโนมัติครบ $MAX_RETRIES ครั้งแล้ว • บันทึกช่วงที่เสร็จไว้ ตรวจอินเทอร์เน็ต / โควตาแล้วกดทำต่อ")
-                val fallback=65L shl retries
+                val invalidJson=e is StoryHttpFailure && e.detail=="json_validate_failed"
+                val limit=if(invalidJson) 2 else MAX_RETRIES
+                if(retries>=limit) throw IllegalStateException("ลองทำต่ออัตโนมัติครบ $limit ครั้งแล้ว • บันทึกช่วงที่เสร็จไว้ ตรวจอินเทอร์เน็ต / โควตาแล้วกดทำต่อ")
+                // Malformed JSON is not a quota throttle: retry briefly, not after minutes.
+                val fallback=if(invalidJson) 2L shl retries else 65L shl retries
                 val suggested=(e as? StoryHttpFailure)?.retryAfter?.let { retrySeconds(it,wallNow()) }
                 val seconds=maxOf(fallback,suggested ?: 0L)
                 if(seconds>MAX_WAIT_SECONDS) throw IllegalStateException("บริการขอให้รอนานกว่า 15 นาที • บันทึกช่วงที่เสร็จไว้ รอโควตาคืนแล้วกดทำต่อ")
@@ -37,7 +40,7 @@ internal class StoryRequestRetry(
                             e is StoryHttpFailure && e.detail=="json_validate_failed" -> "คำตอบ JSON ไม่ผ่านรูปแบบ"
                             else -> "บริการหรือการเชื่อมต่อขัดข้องชั่วคราว"
                         }
-                        onWait("$reason • ทำต่ออัตโนมัติใน $left วินาที • ครั้งที่ $retries/$MAX_RETRIES • กดหยุดได้")
+                        onWait("$reason • ทำต่ออัตโนมัติใน $left วินาที • ครั้งที่ $retries/$limit • กดหยุดได้")
                         reported=left
                     }
                     pause(minOf(250L,remaining))

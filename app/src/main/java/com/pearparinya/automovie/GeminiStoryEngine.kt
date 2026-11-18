@@ -37,8 +37,17 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                     val action=fix.optString("flow_action").trim()
                     // An unregistered Latin name must not be silently reassigned to a person.
                     // Keep the pending scene for review if the returned action removes it.
-                    val unresolved=Regex("พบชื่อภาษาอังกฤษ '([^']+)'").find(problemText)?.groupValues?.get(1).orEmpty()
-                    if(action.isNotEmpty() && (unresolved.isEmpty() || action.contains(unresolved,ignoreCase=true))) scene.put("flow_action",action)
+                    // Accept a rewritten action only when all named actors are recognized.
+                    // Preserve the original pending scene when ambiguity remains.
+                    if(action.isNotEmpty()) {
+                        val proposed=JSONObject(scene.toString()).put("flow_action",action)
+                        // An unknown alias may denote a different, off-screen person.
+                        // Do not let the model silently erase or reassign it.
+                        val unresolved=Regex("พบชื่อภาษาอังกฤษ '([^']+)'").find(problemText)?.groupValues?.get(1).orEmpty()
+                        if((unresolved.isEmpty() || action.contains(unresolved,ignoreCase=true)) &&
+                            FlowScenePrompt.unknownActionNames(ProductionCommandCheck.spec(proposed)).isEmpty())
+                            scene.put("flow_action",action)
+                    }
                     GeminiStoryFiles.write(pending,value)
                     check()
                     problem=try { validate(value); null } catch(e: org.json.JSONException) { IllegalArgumentException("ข้อมูลซีนไม่ครบ: "+e.message.orEmpty(),e) } catch(e: IllegalArgumentException) { e }
