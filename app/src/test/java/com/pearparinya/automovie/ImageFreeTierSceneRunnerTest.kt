@@ -21,6 +21,8 @@ class ImageFreeTierSceneRunnerTest {
         )
         assertEquals(ImageFreeTierBatchPlanner.Plan.Ready("free-a", 2), first.plan)
         assertEquals(2, first.state.completedCount)
+        assertEquals(2, first.attemptedRequests)
+        assertEquals(2, first.completedScenes)
         val second = ImageFreeTierSceneRunner.run(
             current = first.state,
             providers = listOf(provider("free-b", 3)),
@@ -32,6 +34,8 @@ class ImageFreeTierSceneRunnerTest {
         )
         assertEquals(listOf("free-a:1", "free-a:2", "free-b:3", "free-b:4", "free-b:5"), images)
         assertEquals(100, second.state.progressPercent)
+        assertEquals(3, second.attemptedRequests)
+        assertEquals(3, second.completedScenes)
     }
 
     @Test fun unknownOrPaidQuotaMakesNoCalls() {
@@ -48,6 +52,8 @@ class ImageFreeTierSceneRunnerTest {
         )
         assertEquals(ImageFreeTierBatchPlanner.Plan.NeedsFreeProvider, result.plan)
         assertEquals(0, calls)
+        assertEquals(0, result.attemptedRequests)
+        assertEquals(0, result.completedScenes)
         assertEquals(start, result.state)
     }
 
@@ -65,5 +71,37 @@ class ImageFreeTierSceneRunnerTest {
         assertEquals(listOf(1, 2), scenes)
         assertEquals(1, result.state.completedCount)
         assertEquals(2, result.state.nextPendingScene)
+        assertEquals(2, result.attemptedRequests)
+        assertEquals(1, result.completedScenes)
     }
+    @Test fun failedFirstRequestCountsAgainstPossibleProviderQuota() {
+        val result = ImageFreeTierSceneRunner.run(
+            current = ImageSceneQueue.State(listOf(1, 2)),
+            providers = listOf(provider("free", 2)),
+            nowEpochMs = 1000L,
+            requiresReferenceImage = false,
+            requestedBatchSize = 2,
+            saveImage = { _, _ -> throw IllegalStateException("Provider timeout") },
+            saveProgress = { true }
+        )
+        assertEquals(1, result.attemptedRequests)
+        assertEquals(0, result.completedScenes)
+        assertEquals(1, result.state.nextPendingScene)
+    }
+
+    @Test fun failedProgressWriteCountsAttemptButNotCompletion() {
+        val result = ImageFreeTierSceneRunner.run(
+            current = ImageSceneQueue.State(listOf(1, 2)),
+            providers = listOf(provider("free", 2)),
+            nowEpochMs = 1000L,
+            requiresReferenceImage = false,
+            requestedBatchSize = 2,
+            saveImage = { _, _ -> true },
+            saveProgress = { false }
+        )
+        assertEquals(1, result.attemptedRequests)
+        assertEquals(0, result.completedScenes)
+        assertEquals(1, result.state.nextPendingScene)
+    }
+
 }
