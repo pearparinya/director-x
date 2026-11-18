@@ -41,6 +41,21 @@ internal class ImageSceneProgressStore(context: Context) {
         return if (save(projectId, updated)) updated else null
     }
 
+    /**
+     * Run the next unfinished scene's durable image save before persisting completion.
+     * A null result means image or progress persistence failed; do not advance the UI.
+     */
+    fun saveNextSceneAndProgress(
+        projectId: String,
+        current: ImageSceneQueue.State,
+        saveImage: (sceneId: Int) -> Boolean
+    ): ImageSceneQueue.State? =
+        ImageSceneCompletionCoordinator.completeNext(
+            current,
+            saveImage = saveImage,
+            saveProgress = { updated -> save(projectId, updated) }
+        )
+
     fun clear(projectId: String, sceneIds: List<Int>): Boolean =
         preferences.edit().remove(storageKey(projectId, sceneIds)).commit()
 
