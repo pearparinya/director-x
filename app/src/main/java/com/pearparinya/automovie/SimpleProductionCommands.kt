@@ -146,6 +146,8 @@ Story day: ${scene.getString("story_day")} — exact wardrobe remains locked acr
 Location: ${scene.getString("location")}
 Start frame: ${scene.getString("start_state")}
 ${scene.optString("props").trim().takeIf { it.isNotBlank() }?.let { "Objects and holders specified in the story: $it. Include only those intended to be visible at the start; do not invent missing details." }.orEmpty()}
+${SceneReferencePolicy.propInstructions(scene)}
+${SceneReferencePolicy.wardrobeInstructions(scene)}
 Use only the listed visible cast. Other participants stay unseen off-camera; never invent extra people.
 Action planned next (not a montage): ${scene.optString("flow_action").ifBlank { scene.getString("action") }}
 Framing: ${scene.optString("framing").ifBlank { "Show all listed people, relevant hands and props with natural perspective." }}
