@@ -219,7 +219,7 @@ class FlowProductionPackTest {
             required.forEach(::requireEntry)
             val exportSummary=files.keys.sorted().joinToString()
             fun checkExport(label: String, condition: Boolean) {
-                checkExport("export assertion 1","$label | ZIP entries: $exportSummary",condition)
+                assertTrue("$label | ZIP entries: $exportSummary",condition)
             }
             assertEquals(7,files.keys.count { Regex("DIRECTOR_FLOW/EP[0-9]+_IMAGES[.]txt").matches(it) })
             assertEquals(34,files.size)
