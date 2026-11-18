@@ -21,6 +21,9 @@ internal enum class ExtraApiProvider(val id: String, val label: String) {
     SAMBANOVA("sambanova", "SambaNova"),
     MISTRAL("mistral", "Mistral"),
     COHERE("cohere", "Cohere");
+    companion object {
+        val activeProviders = listOf(OPENAI, OPENROUTER, COHERE)
+    }
     val service: CompatibleService get() = when(this) {
         OPENAI -> CompatibleService.OPENAI
         CEREBRAS -> CompatibleService.CEREBRAS
@@ -34,6 +37,7 @@ internal enum class ExtraApiProvider(val id: String, val label: String) {
 
 /** Keys stay on this device, encrypted by a non-exportable Android Keystore key. */
 internal class ExtraApiSettings(context: Context, private val provider: ExtraApiProvider) {
+    init { require(provider in ExtraApiProvider.activeProviders) { "API นี้ถูกยกเลิกถาวร" } }
     private val file = File(context.noBackupFilesDir, "${provider.id}/settings.json")
     private val alias = "director_extra_${provider.id}"
 
