@@ -204,39 +204,56 @@ class FlowProductionPackTest {
             FlowProductionPack.write(output,story,masters,JSONObject().put("mind",JSONObject().put("face","custom face")),"หมวด","ช่อง")
             val files=mutableMapOf<String,ByteArray>()
             ZipInputStream(ByteArrayInputStream(output.toByteArray())).use { zip -> while(true) { val entry=zip.nextEntry ?: break; assertFalse(entry.name.contains("..")); assertNull(files.put(entry.name,zip.readBytes())) } }
+            // Keep the complete export contract enabled; expose the precise missing
+            // entry or malformed content in CI rather than a bare AssertionError.
+            fun requireEntry(path: String): String {
+                val bytes=files[path] ?: throw AssertionError(
+                    "Missing ZIP entry $path; actual entries: ${files.keys.sorted().joinToString()}"
+                )
+                return String(bytes,Charsets.UTF_8)
+            }
+            val required=listOf("DIRECTOR_FLOW/START.txt","DIRECTOR_FLOW/COVER_STORY.txt",
+                "DIRECTOR_FLOW/BACKUP/story.json","DIRECTOR_FLOW/COMMANDS/EP07_IMAGES.txt",
+                "DIRECTOR_FLOW/COMMANDS/EP07_VIDEOS.txt","DIRECTOR_FLOW/EP07_IMAGES.txt",
+                "DIRECTOR_FLOW/EP07_VIDEOS_FLOW.txt")
+            required.forEach(::requireEntry)
+            val exportSummary=files.keys.sorted().joinToString()
+            fun checkExport(label: String, condition: Boolean) {
+                checkExport("export assertion 1","$label | ZIP entries: $exportSummary",condition)
+            }
             assertEquals(7,files.keys.count { Regex("DIRECTOR_FLOW/EP[0-9]+_IMAGES[.]txt").matches(it) })
             assertEquals(34,files.size)
             val groupedImages=String(files.getValue("DIRECTOR_FLOW/COMMANDS/EP07_IMAGES.txt"),Charsets.UTF_8)
-            assertTrue(groupedImages.contains("BEGIN EXACT COVER TEXT\nช่อง\nซองบนโต๊ะ")); assertFalse(groupedImages.contains("STOP —"))
-            assertTrue(String(files.getValue("DIRECTOR_FLOW/COMMANDS/EP07_VIDEOS.txt"),Charsets.UTF_8).contains("<duration>8</duration>"))
+            checkExport("export assertion 2",groupedImages.contains("BEGIN EXACT COVER TEXT\nช่อง\nซองบนโต๊ะ")); assertFalse(groupedImages.contains("STOP —"))
+            checkExport("export assertion 3",String(files.getValue("DIRECTOR_FLOW/COMMANDS/EP07_VIDEOS.txt"),Charsets.UTF_8).contains("<duration>8</duration>"))
             assertFalse(files.keys.any { it.contains("COVERS/") })
             val memory=JSONObject(String(files.getValue("DIRECTOR_FLOW/BACKUP/story.json"),Charsets.UTF_8)).getJSONObject("character_memory")
             masters.forEach { (id,file) -> assertArrayEquals(file.readBytes(),files.getValue("DIRECTOR_FLOW/"+memory.getJSONObject(id).getString("file"))) }
             assertEquals("custom face",memory.getJSONObject("mind").getJSONObject("profile").getString("face"))
             val ep=String(files.getValue("DIRECTOR_FLOW/EP07_IMAGES.txt"),Charsets.UTF_8)
-            assertTrue(ep.contains("184 seconds")); assertTrue(ep.contains("EP07_SC023")); assertTrue(ep.contains("COVER 16x9")); assertTrue(ep.contains("COVER 9x16"))
-            assertTrue(ep.contains("BEGIN EXACT COVER TEXT\nช่อง\nซองบนโต๊ะ\nตอนที่ 7 ตอน 7\nEND EXACT COVER TEXT"))
-            assertTrue(ep.contains("Rinrada:")); assertTrue(ep.contains("ชุดทำงานสีขาว"))
-            assertTrue(ep.startsWith("แนบภาพตัวละคร")); assertTrue(ep.contains("one compact group"))
-            assertTrue(ep.contains("No yellow/orange cast")); assertTrue(ep.contains("FINAL COLOR DIRECTION"))
+            checkExport("export assertion 4",ep.contains("184 seconds")); checkExport("export assertion 5",ep.contains("EP07_SC023")); checkExport("export assertion 6",ep.contains("COVER 16x9")); checkExport("export assertion 7",ep.contains("COVER 9x16"))
+            checkExport("export assertion 8",ep.contains("BEGIN EXACT COVER TEXT\nช่อง\nซองบนโต๊ะ\nตอนที่ 7 ตอน 7\nEND EXACT COVER TEXT"))
+            checkExport("export assertion 9",ep.contains("Rinrada:")); checkExport("export assertion 10",ep.contains("ชุดทำงานสีขาว"))
+            checkExport("export assertion 11",ep.startsWith("แนบภาพตัวละคร")); checkExport("export assertion 12",ep.contains("one compact group"))
+            checkExport("export assertion 13",ep.contains("No yellow/orange cast")); checkExport("export assertion 14",ep.contains("FINAL COLOR DIRECTION"))
             assertFalse(Regex("(?i)[.](png|jpg|jpeg|webp)").containsMatchIn(ep))
             assertFalse(ep.contains("VIDEO PROMPT"))
             val video=String(files.getValue("DIRECTOR_FLOW/EP07_VIDEOS_FLOW.txt"),Charsets.UTF_8)
-            assertTrue(video.contains("EP07_SC023")); assertTrue(video.contains("<scene")); assertFalse(video.contains("IMAGE PROMPT"))
+            checkExport("export assertion 15",video.contains("EP07_SC023")); checkExport("export assertion 16",video.contains("<scene")); assertFalse(video.contains("IMAGE PROMPT"))
             val cover=String(files.getValue("DIRECTOR_FLOW/COVER_STORY.txt"),Charsets.UTF_8)
-            assertTrue(cover.startsWith("แนบภาพตัวละคร: กวิน + รินรดา + เมย์"))
-            assertTrue(cover.contains("1920 x 1080")); assertTrue(cover.contains("1080 x 1920"))
-            assertTrue(cover.contains("BEGIN EXACT COVER TEXT\nช่อง\nซองบนโต๊ะ\nความลับในซอง\nEND EXACT COVER TEXT"))
-            assertFalse(cover.contains("EP.00")); assertTrue(cover.contains(story.getString("title")))
+            checkExport("export assertion 17",cover.startsWith("แนบภาพตัวละคร: กวิน + รินรดา + เมย์"))
+            checkExport("export assertion 18",cover.contains("1920 x 1080")); checkExport("export assertion 19",cover.contains("1080 x 1920"))
+            checkExport("export assertion 20",cover.contains("BEGIN EXACT COVER TEXT\nช่อง\nซองบนโต๊ะ\nความลับในซอง\nEND EXACT COVER TEXT"))
+            assertFalse(cover.contains("EP.00")); checkExport("export assertion 21",cover.contains(story.getString("title")))
             val scene=FlowReferencePrompt.scene(story.getJSONArray("episodes").getJSONObject(6).getJSONArray("scenes").getJSONObject(1),7,"video")
-            assertTrue(scene.startsWith("<flow><scene id=\"EP07_SC002\">"))
-            assertTrue(scene.contains("Use the attached first frame"))
-            assertTrue(scene.contains("<duration>8</duration>"))
-            assertTrue(ep.contains(FlowVisualDirection.referencePriority))
-            assertTrue(files.containsKey("DIRECTOR_FLOW/START.txt"))
+            checkExport("export assertion 22",scene.startsWith("<flow><scene id=\"EP07_SC002\">"))
+            checkExport("export assertion 23",scene.contains("Use the attached first frame"))
+            checkExport("export assertion 24",scene.contains("<duration>8</duration>"))
+            checkExport("export assertion 25",ep.contains(FlowVisualDirection.referencePriority))
+            checkExport("export assertion 26",files.containsKey("DIRECTOR_FLOW/START.txt"))
             assertFalse(files.keys.any { it.endsWith(".mp4") })
             val starter=ByteArrayOutputStream(); FlowProductionPack.write(starter,null,masters,JSONObject(),"หมวด","ช่อง")
-            assertTrue(starter.size()>0)
+            checkExport("export assertion 27",starter.size()>0)
         } finally { root.deleteRecursively() }
     }
 }
