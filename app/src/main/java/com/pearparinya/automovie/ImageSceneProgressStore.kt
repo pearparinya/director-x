@@ -49,10 +49,11 @@ internal class ImageSceneProgressStore(context: Context) {
         projectId: String,
         current: ImageSceneQueue.State,
         sceneId: Int
-    ): ImageSceneQueue.State? {
+    ): ImageSceneQueue.State? = synchronized(preferences) {
         val latest = refreshed(projectId, current)
+        // This method only records already-durable images; do not start image work here.
         val updated = latest.markCompleted(sceneId)
-        return if (save(projectId, updated)) load(projectId, current.sceneIds) else null
+        if (save(projectId, updated)) load(projectId, current.sceneIds) else null
     }
 
     /**
