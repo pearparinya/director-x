@@ -56,6 +56,21 @@ internal class ImageSceneProgressStore(context: Context) {
             saveProgress = { updated -> save(projectId, updated) }
         )
 
+    /**
+     * Batch processing entry point for a worker/background executor.
+     * The caller must save each generated image durably before returning true.
+     */
+    fun savePendingScenesAndProgress(
+        projectId: String,
+        current: ImageSceneQueue.State,
+        saveImage: (sceneId: Int) -> Boolean
+    ): ImageSceneQueue.State =
+        ImageSceneCompletionCoordinator.completePending(
+            current,
+            saveImage = saveImage,
+            saveProgress = { updated -> save(projectId, updated) }
+        )
+
     fun clear(projectId: String, sceneIds: List<Int>): Boolean =
         preferences.edit().remove(storageKey(projectId, sceneIds)).commit()
 
