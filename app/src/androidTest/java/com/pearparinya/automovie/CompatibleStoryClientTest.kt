@@ -16,25 +16,13 @@ class CompatibleStoryClientTest {
         assertTrue(runCatching { CompatibleStoryClient.buildRequest(CompatibleService.OPENROUTER,"paid/model","test",schema) }.isFailure)
         assertFalse(req.toString().contains("fake-api-key"))
     }
-    @Test fun cerebrasUsesDocumentedSharedModelAndJsonMode() {
-        val req=CompatibleStoryClient.buildRequest(CompatibleService.CEREBRAS,CompatibleService.CEREBRAS.defaultModel,"write Thai dialogue",JSONObject().put("type","object"))
-        assertEquals("https://api.cerebras.ai/v1/chat/completions",CompatibleService.CEREBRAS.url)
-        assertEquals("gpt-oss-120b",req.getString("model"))
-        assertEquals("json_object",req.getJSONObject("response_format").getString("type"))
-    }
-    @Test fun sambaNovaRequestUsesJsonMode() {
-        val req=CompatibleStoryClient.buildRequest(CompatibleService.SAMBANOVA,CompatibleService.SAMBANOVA.defaultModel,"write a scene",JSONObject().put("type","object"))
-        assertEquals("https://api.sambanova.ai/v1/chat/completions",CompatibleService.SAMBANOVA.url)
-        assertEquals("Meta-Llama-3.3-70B-Instruct",req.getString("model"))
-        assertEquals("json_object",req.getJSONObject("response_format").getString("type"))
-        assertTrue(req.getJSONArray("messages").getJSONObject(0).getString("content").contains("JSON"))
-    }
-    @Test fun mistralRequestUsesJsonMode() {
-        val req=CompatibleStoryClient.buildRequest(CompatibleService.MISTRAL,CompatibleService.MISTRAL.defaultModel,"write a scene",JSONObject().put("type","object"))
-        assertEquals("https://api.mistral.ai/v1/chat/completions",CompatibleService.MISTRAL.url)
-        assertEquals("mistral-small-latest",req.getString("model"))
-        assertEquals("json_object",req.getJSONObject("response_format").getString("type"))
-        assertTrue(req.getJSONArray("messages").getJSONObject(0).getString("content").contains("JSON"))
+    @Test fun retiredProvidersRejectNewRequests() {
+        val schema=JSONObject().put("type","object")
+        for (service in listOf(CompatibleService.CEREBRAS,CompatibleService.SAMBANOVA,CompatibleService.MISTRAL,CompatibleService.DEEPSEEK)) {
+            assertTrue(runCatching {
+                CompatibleStoryClient.buildRequest(service,service.defaultModel,"write a scene",schema)
+            }.isFailure)
+        }
     }
     @Test fun rejectsTruncatedOrNonJsonResponse() {
         fun response(reason: String, content: String)=JSONObject().put("choices",JSONArray().put(JSONObject().put("finish_reason",reason).put("message",JSONObject().put("content",content))))
