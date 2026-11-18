@@ -22,6 +22,14 @@ class SceneReferencePolicyTest {
         assertTrue(SceneReferencePolicy.propInstructions(scene).contains("PROP MASTER P017: lantern"))
     }
 
+
+    @Test fun propMasterPromptDoesNotAssumePhysicalAttachment() {
+        val scene = JSONObject("""{"prop_links":[{"item":"lantern","prop_master_id":"p017"}]}""")
+        val prompt = SceneReferencePolicy.propInstructions(scene)
+        assertTrue(prompt.contains("PROP MASTER P017: lantern"))
+        assertTrue(prompt.contains("require a verified PROP_MASTER image attachment"))
+    }
+
     @Test fun legacyScenesDoNotGainInventedBindings() {
         assertEquals("", SceneReferencePolicy.propInstructions(JSONObject()))
         assertEquals("", SceneReferencePolicy.wardrobeInstructions(JSONObject()))
