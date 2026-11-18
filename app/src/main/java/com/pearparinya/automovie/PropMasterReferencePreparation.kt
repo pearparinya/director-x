@@ -19,7 +19,7 @@ internal object PropMasterReferencePreparation {
         val byId = sources.groupBy { it.id.trim().uppercase() }
         val attachments = mutableListOf<Attachment>()
         val issues = mutableListOf<String>()
-        val seen = mutableSetOf<String>()
+        val reviewedNames = mutableMapOf<String, String>()
         for (index in 0 until links.length()) {
             val link = links.optJSONObject(index) ?: continue
             val id = link.optString("prop_master_id").trim().uppercase()
@@ -28,14 +28,23 @@ internal object PropMasterReferencePreparation {
                 issues.add("รหัส MASTER อุปกรณ์ไม่ถูกต้อง: $id")
                 continue
             }
-            if (!seen.add(id)) continue // One image per MASTER, even when held by multiple people.
+            val reviewedItem = link.optString("item").trim()
+            val previousName = reviewedNames[id]
+            if (previousName != null) {
+                if (reviewedItem.isNotEmpty() && previousName.isNotEmpty() && reviewedItem != previousName) {
+                    issues.add("$id: มีชื่ออุปกรณ์ขัดแย้งกันระหว่างรายการในซีน")
+                } else if (previousName.isEmpty() && reviewedItem.isNotEmpty()) {
+                    reviewedNames[id] = reviewedItem
+                }
+                continue // One image per MASTER, even when held by multiple people.
+            }
+            reviewedNames[id] = reviewedItem
             val matches = byId[id].orEmpty()
             if (matches.size != 1) {
                 issues.add("$id: ต้องพบไฟล์ MASTER อุปกรณ์ที่ตรงกันเพียงหนึ่งรายการ")
                 continue
             }
             val source = matches.single()
-            val reviewedItem = link.optString("item").trim()
             if (reviewedItem.isNotEmpty() && reviewedItem != source.item.trim()) {
                 issues.add("$id: ชื่ออุปกรณ์ในซีนไม่ตรงกับ MASTER ที่เลือก")
                 continue
