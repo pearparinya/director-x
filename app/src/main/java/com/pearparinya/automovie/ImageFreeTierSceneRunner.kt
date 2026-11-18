@@ -8,7 +8,10 @@ package com.pearparinya.automovie
 internal object ImageFreeTierSceneRunner {
     data class Result(
         val plan: ImageFreeTierBatchPlanner.Plan,
-        val state: ImageSceneQueue.State
+        val state: ImageSceneQueue.State,
+        /** Attempts include failed requests because providers may still charge quota. */
+        val attemptedRequests: Int,
+        val completedScenes: Int
     )
 
     fun run(
@@ -30,14 +33,18 @@ internal object ImageFreeTierSceneRunner {
             requestedBatchSize = requestedBatchSize,
             previousProviderId = previousProviderId
         )
-        if (plan !is ImageFreeTierBatchPlanner.Plan.Ready) return Result(plan, current)
+        if (plan !is ImageFreeTierBatchPlanner.Plan.Ready) return Result(plan, current, 0, 0)
+        var attemptedRequests = 0
         val updated = ImageSceneCompletionCoordinator.completePending(
             current = current,
-            saveImage = { sceneId -> saveImage(plan.providerId, sceneId) },
+            saveImage = { sceneId ->
+                attemptedRequests++
+                saveImage(plan.providerId, sceneId)
+            },
             saveProgress = saveProgress,
             shouldContinue = shouldContinue,
             maxScenes = plan.maxScenes
         )
-        return Result(plan, updated)
+        return Result(plan, updated, attemptedRequests, updated.completedCount - current.completedCount)
     }
 }
