@@ -41,6 +41,20 @@ class PropMasterReferencePreparationTest {
         } finally { file.delete() }
     }
 
+    @Test fun anyMissingMasterBlocksAllAttachments() {
+        val file = File.createTempFile("p017", ".jpg")
+        try {
+            file.writeBytes(byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte(), 0, 0, 0, 0, 0, 0, 0, 0))
+            val scene = JSONObject("""{"prop_links":[{"prop_master_id":"P017"},{"prop_master_id":"P018"}]}""")
+            val result = PropMasterReferencePreparation.prepare(
+                scene, listOf(PropMasterReferencePreparation.Source("P017", "lantern", file))
+            )
+            assertFalse(result.ready)
+            assertTrue(result.attachments.isEmpty())
+            assertTrue(result.issues.any { it.contains("P018") })
+        } finally { file.delete() }
+    }
+
     @Test fun legacyPropsRemainOptional() {
         val scene = JSONObject("""{"prop_links":[{"item":"lantern"}]}""")
         assertTrue(PropMasterReferencePreparation.prepare(scene, emptyList()).ready)
