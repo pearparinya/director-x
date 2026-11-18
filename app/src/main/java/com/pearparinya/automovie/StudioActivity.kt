@@ -3310,13 +3310,14 @@ $context"""
         }
     }
     private fun extraApiSettingsMenu() {
-        val providers=ExtraApiProvider.entries.filter { it !in setOf(ExtraApiProvider.DEEPSEEK, ExtraApiProvider.MISTRAL, ExtraApiProvider.SAMBANOVA, ExtraApiProvider.CEREBRAS) }
+        val providers=ExtraApiProvider.activeProviders
         val choices=providers.map { provider ->
             provider.label + if(ExtraApiSettings(this,provider).hasKey()) " • มีคีย์แล้ว" else " • ยังไม่มีคีย์"
         }
         choiceMenu("จัดเก็บ API Key เพิ่มเติม",choices) { index -> extraApiKeyDialog(providers[index]) }
     }
     private fun extraApiKeyDialog(provider: ExtraApiProvider,afterSave: (() -> Unit)?=null) {
+        if(provider !in ExtraApiProvider.activeProviders) { notice("API นี้ถูกยกเลิกถาวร"); return }
         val settings=ExtraApiSettings(this,provider)
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
         panel.addView(TextView(this).apply { text="${provider.label} • คีย์เก็บแบบเข้ารหัสบนเครื่องและไม่รวมในไฟล์สำรอง • ระบบเลือกค่ายอัตโนมัติ • การเรียกใช้ขึ้นอยู่กับโควตาและค่าบริการของบัญชี" })
@@ -3327,8 +3328,6 @@ $context"""
             panel.addView(this)
         }
         if(provider==ExtraApiProvider.OPENAI) panel.addView(TextView(this).apply { text="OpenAI API แยกจาก ChatGPT Plus • อาจมีค่าบริการ • ภาพ MASTER จะถูกส่งเมื่อคุณเลือกวิเคราะห์ด้วย OpenAI" })
-        if(provider==ExtraApiProvider.CEREBRAS) panel.addView(TextView(this).apply { text="Cerebras • ตรวจโควตาและค่าใช้จ่ายตามบัญชี • เลือกโมเดลที่รองรับ JSON • โหมด OpenRouter ฟรีจะไม่เรียก Cerebras" })
-        if(provider==ExtraApiProvider.SAMBANOVA) panel.addView(TextView(this).apply { text="เลือก Model ID ที่บัญชี SambaNova ใช้งานได้ และรองรับ JSON • หากทดสอบไม่ผ่านให้ตรวจชื่อโมเดลและสิทธิ์บัญชี" })
         val model=EditText(this).apply { hint="ชื่อโมเดล"; setSingleLine(true); setText(settings.model()); panel.addView(this) }
         panel.addView(Button(this).apply { text="บันทึกและทดสอบ ${provider.label}"; setOnClickListener {
             runCatching { settings.save(key.text.toString().trim().ifBlank { settings.key() },model.text.toString().trim()) }
@@ -3348,6 +3347,7 @@ $context"""
         }
     }
     private fun testExtraApi(provider: ExtraApiProvider) {
+        if(provider !in ExtraApiProvider.activeProviders) { notice("API นี้ถูกยกเลิกถาวร"); return }
         if(StoryProvider.freeOnly(this) && provider!=ExtraApiProvider.OPENROUTER) { notice("โหมดฟรีเปิดอยู่ • ทดสอบได้เฉพาะ OpenRouter โมเดลฟรี") ; return }
         if(GeminiStoryService.running) { notice("กรุณารอหรือหยุดงานเขียนบทก่อนทดสอบ API"); return }
         val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
