@@ -1,0 +1,47 @@
+name: Publish Director X 4.91
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-director-x-491.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch previously tested signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          gh run download 44317237073 -R "${GITHUB_REPOSITORY}" -n director-x-signed-candidate -D release
+          test -s release/candidate.apk
+          (cd release && sha256sum -c candidate.apk.sha256)
+      - name: Verify package and signing
+        run: |
+          set -euo pipefail
+          TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          "$TOOLS/apksigner" verify --verbose --print-certs release/candidate.apk
+          "$TOOLS/aapt" dump badging release/candidate.apk | grep -m1 "^package: name='com.pearparinya.automovie' versionCode='1107' versionName='4.91'"
+          mv release/candidate.apk release/DIRECTOR-X-4.91.apk
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view R4.91-B1107 -R "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "Release already exists; refusing to replace published assets."
+            exit 1
+          fi
+          gh release create R4.91-B1107 release/DIRECTOR-X-4.91.apk release/candidate.apk.sha256 \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${GITHUB_SHA}" \
+            --title "DIRECTOR X 4.91 • Build 1107" \
+            --notes "DIRECTOR X 4.91 (Build 1107). Signed Android update for existing DIRECTOR X installations. Android will ask for installation confirmation; do not uninstall the existing app." \
+            --latest
