@@ -11,8 +11,9 @@ internal object ImageSceneCompletionCoordinator {
         saveProgress: (ImageSceneQueue.State) -> Boolean
     ): ImageSceneQueue.State? {
         val next = current.nextPendingScene ?: return current
-        if (!saveImage(next)) return null
+        // Treat exceptions like failed writes: callers must not advance the queue.
+        if (runCatching { saveImage(next) }.getOrDefault(false).not()) return null
         val updated = current.markCompleted(next)
-        return if (saveProgress(updated)) updated else null
+        return if (runCatching { saveProgress(updated) }.getOrDefault(false)) updated else null
     }
 }
