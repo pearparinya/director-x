@@ -27,7 +27,12 @@ internal object FlowReferencePrompt {
     fun people(scene: JSONObject): List<JSONObject> = scene.getJSONArray("characters").let { a -> (0 until a.length()).map { a.getJSONObject(it) } }
     fun scene(scene: JSONObject,ep: Int,kind: String?=null): String {
         val key="EP%02d_SC%03d".format(ep,scene.getInt("scene"))
-        if (kind == "video") return ShortFlowPrompt.build(ProductionCommandCheck.spec(scene),"Slow, gentle pan.").replaceFirst("<scene>","<scene id=\"$key\">")
+        if (kind == "video") {
+            val people=people(scene)
+            val conflicts=AccessoryContinuityContract.conflicts(people)
+            require(conflicts.isEmpty()) { conflicts.joinToString("; ") }
+            return AccessoryContinuityContract.sceneInstructions(people)+"\n"+ShortFlowPrompt.build(ProductionCommandCheck.spec(scene),"Slow, gentle pan.").replaceFirst("<scene>","<scene id=\"$key\">")
+        }
 
         val accessoryContract=AccessoryContinuityContract.sceneInstructions(people(scene))
         val accessoryConflicts=AccessoryContinuityContract.conflicts(people(scene))
