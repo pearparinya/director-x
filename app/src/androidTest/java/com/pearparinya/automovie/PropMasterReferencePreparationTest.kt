@@ -1,0 +1,35 @@
+package com.pearparinya.automovie
+
+import java.io.File
+import org.json.JSONObject
+import org.junit.Assert.*
+import org.junit.Test
+
+class PropMasterReferencePreparationTest {
+    @Test fun resolvesOneAttachmentForRepeatedP017() {
+        val file = File.createTempFile("p017", ".jpg")
+        try {
+            file.writeText("sample image fixture")
+            val scene = JSONObject("""{"prop_links":[{"prop_master_id":"P017"},{"prop_master_id":"P017"}]}""")
+            val result = PropMasterReferencePreparation.prepare(
+                scene, listOf(PropMasterReferencePreparation.Source("P017", "lantern", file))
+            )
+            assertTrue(result.ready)
+            assertEquals(1, result.attachments.size)
+            assertEquals("PROP_MASTER", result.attachments.single().role)
+            assertTrue(PropMasterReferencePreparation.bindingText(result, 3).contains("Reference image 3: PROP MASTER P017"))
+        } finally { file.delete() }
+    }
+
+    @Test fun missingRequiredMasterFailsPreflight() {
+        val scene = JSONObject("""{"prop_links":[{"prop_master_id":"P017"}]}""")
+        val result = PropMasterReferencePreparation.prepare(scene, emptyList())
+        assertFalse(result.ready)
+        assertTrue(result.attachments.isEmpty())
+    }
+
+    @Test fun legacyPropsRemainOptional() {
+        val scene = JSONObject("""{"prop_links":[{"item":"lantern"}]}""")
+        assertTrue(PropMasterReferencePreparation.prepare(scene, emptyList()).ready)
+    }
+}
