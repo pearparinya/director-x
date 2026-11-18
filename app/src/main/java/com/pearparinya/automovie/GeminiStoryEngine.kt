@@ -256,7 +256,22 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                     checkDialogue(it.getJSONArray("scenes"),i+1,priorDialogue.toMutableMap())
                 } } catch(e: StoryBatchTooLarge) {
                     if(size<=1 || cachedFile.isFile) throw e
-                    if(savedBatch!=null) splitPendingBatch(savedBatch,i+1,start,size)
+                    if(savedBatch!=null) {
+                        // A malformed pending range must not block the whole story.
+                        // Keep its original bytes for recovery, then regenerate only
+                        // the affected scenes in single-scene mode.
+                        val pendingRows = GeminiStoryFiles.read(savedBatch).getJSONArray("scenes")
+                        val matchesRange = pendingRows.length()==size &&
+                            (0 until size).all { pendingRows.getJSONObject(it).optInt("scene")==start+it }
+                        if(matchesRange) splitPendingBatch(savedBatch,i+1,start,size)
+                        else {
+                            require(!cachedFile.isFile) { "ไม่แก้ไขซีนที่บันทึกสำเร็จแล้ว" }
+                            val backup = File(folder,savedBatch.name+".invalid-range-"+java.util.UUID.randomUUID())
+                            GeminiStoryFiles.write(backup,GeminiStoryFiles.read(savedBatch))
+                            check(savedBatch.delete()) { "สำรองช่วงซีนผิดพลาดแล้ว แต่ลบไฟล์ค้างไม่สำเร็จ" }
+                            progress(lastPercent,"หมายเลขซีนไม่ตรง • สำรองคำตอบเดิมแล้ว เขียนใหม่ทีละซีน")
+                        }
+                    }
                     smallerBatches=true
                     GeminiStoryFiles.write(recoveryFile,JSONObject().put("single_scene",true))
                     progress(lastPercent,"คำขอใหญ่เกินกำหนด • ลดเหลือครั้งละ 1 ซีนและทำต่อ")
