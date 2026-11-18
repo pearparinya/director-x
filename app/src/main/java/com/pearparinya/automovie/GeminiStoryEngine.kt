@@ -17,7 +17,21 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
         var value=if(pending.isFile) GeminiStoryFiles.read(pending) else generate(prompt,schema)
         GeminiStoryFiles.write(pending,value); check()
         progress(lastPercent,"ได้รับคำตอบแล้ว • กำลังตรวจ $name")
-        var problem: IllegalArgumentException? = try { validate(value); null } catch(e: org.json.JSONException) { IllegalArgumentException("ข้อมูลซีนไม่ครบ: "+e.message.orEmpty(),e) } catch(e: IllegalArgumentException) { e }
+        fun validateWithSpeechRecovery(): IllegalArgumentException? {
+            fun inspect(): IllegalArgumentException? = try { validate(value); null }
+                catch(e: org.json.JSONException) { IllegalArgumentException("ข้อมูลซีนไม่ครบ: "+e.message.orEmpty(),e) }
+                catch(e: IllegalArgumentException) { e }
+            val initial=inspect() ?: return null
+            if(!initial.message.orEmpty().contains("บทสนทนาหลายคนต้องไม่ใช้ร่วมกับบทเดี่ยวหรือบรรยาย")) return initial
+            val rows=value.optJSONArray("scenes") ?: return initial
+            val sceneNumber=Regex("ซีน ([0-9]+)").find(initial.message.orEmpty())?.groupValues?.get(1)?.toIntOrNull() ?: return initial
+            val target=(0 until rows.length()).firstOrNull { rows.getJSONObject(it).optInt("scene")==sceneNumber } ?: return initial
+            if(!ProductionCommandCheck.normalizeDuplicateSpeech(rows.getJSONObject(target))) return initial
+            GeminiStoryFiles.write(pending,value)
+            progress(lastPercent,"ซีน $sceneNumber • รวมบทพูดที่ซ้ำกันโดยไม่เรียก API เพิ่ม")
+            return inspect()
+        }
+        var problem: IllegalArgumentException? = validateWithSpeechRecovery()
         for(attempt in 1..3) {
             val issue=problem ?: break
             check()
@@ -50,7 +64,7 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                     }
                     GeminiStoryFiles.write(pending,value)
                     check()
-                    problem=try { validate(value); null } catch(e: org.json.JSONException) { IllegalArgumentException("ข้อมูลซีนไม่ครบ: "+e.message.orEmpty(),e) } catch(e: IllegalArgumentException) { e }
+                    problem=validateWithSpeechRecovery()
                     continue
                 }
                 val focused=prompt.replace(Regex("Write exactly scenes [0-9]+ to [0-9]+"),"Write exactly scenes $sceneNumber to $sceneNumber")
@@ -81,7 +95,7 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
             }
             GeminiStoryFiles.write(pending,value)
             check()
-            problem=try { validate(value); null } catch(e: org.json.JSONException) { IllegalArgumentException("ข้อมูลซีนไม่ครบ: "+e.message.orEmpty(),e) } catch(e: IllegalArgumentException) { e }
+            problem=validateWithSpeechRecovery()
         }
         problem?.let { throw IllegalArgumentException("AI ตอบกลับแล้ว แต่รูปแบบบทยังไม่ผ่านหลังแก้ 3 ครั้ง: "+it.message.orEmpty().take(300),it) }
         GeminiStoryFiles.write(file,value); pending.delete(); return value

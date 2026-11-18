@@ -28,6 +28,24 @@ class DialogueTurnsIntegrationTest {
         assertTrue(SceneOverview.detail(scene,"EP01_SC001").contains("รินรดา: สวัสดีจ้ะ"))
         assertTrue(CompactFlowPrompt.voiceText(spec).contains("เมย์: สวัสดีค่ะ"))
     }
+    @Test fun exactDuplicateSingleTurnIsNormalizedWithoutChangingSpeech() {
+        val source=scene().put("dialogue_turns",JSONArray().put(JSONObject().put("speaker","เมย์").put("text","สวัสดีค่ะ")))
+            .put("speaker","เมย์").put("dialogue","สวัสดีค่ะ")
+        assertTrue(ProductionCommandCheck.normalizeDuplicateSpeech(source))
+        assertEquals("",source.getString("speaker"))
+        assertEquals("",source.getString("dialogue"))
+        assertEquals("สวัสดีค่ะ",source.getJSONArray("dialogue_turns").getJSONObject(0).getString("text"))
+        assertTrue(FlowScenePrompt.issues(ProductionCommandCheck.spec(source)).isEmpty())
+    }
+    @Test fun multiTurnOrIndependentNarrationMustNotBeSilentlyDiscarded() {
+        val multiple=scene().put("speaker","เมย์").put("dialogue","สวัสดีค่ะ")
+        assertFalse(ProductionCommandCheck.normalizeDuplicateSpeech(multiple))
+        assertEquals("สวัสดีค่ะ",multiple.getString("dialogue"))
+        val narrated=scene().put("dialogue_turns",JSONArray().put(JSONObject().put("speaker","เมย์").put("text","สวัสดีค่ะ")))
+            .put("speaker","เมย์").put("dialogue","สวัสดีค่ะ").put("narration","เสียงบรรยายสำคัญ")
+        assertFalse(ProductionCommandCheck.normalizeDuplicateSpeech(narrated))
+        assertEquals("เสียงบรรยายสำคัญ",narrated.getString("narration"))
+    }
     @Test fun legacySingleSpeakerAndInvalidMixedMode() {
         val source=scene().apply { remove("dialogue_turns"); put("speaker","เมย์"); put("dialogue","สวัสดีค่ะ") }
         assertTrue(FlowScenePrompt.issues(ProductionCommandCheck.spec(source)).isEmpty())
