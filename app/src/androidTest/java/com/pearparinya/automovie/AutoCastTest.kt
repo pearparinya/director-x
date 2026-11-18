@@ -10,6 +10,22 @@ import java.io.File
 import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class AutoCastTest {
+    @Test fun castingBriefPreservesPinnedActorsAndAvoidsAppearanceBasedPersonality() {
+        val brief=AutoCast.castingBrief("ละครสั้นสะท้อนสังคม","CHAR_001",setOf("CHAR_002","CHAR_001"))
+        assertTrue(brief.contains("central protagonist"))
+        assertTrue(brief.contains("CHAR_001, CHAR_002"))
+        assertTrue(brief.contains("FIRST identify the essential story roles"))
+        assertTrue(brief.contains("Do not infer personality"))
+        assertTrue(brief.contains("smallest credible cast"))
+    }
+    @Test fun romanceCastingBriefRetainsAgeGapAndRoleConstraints() {
+        val younger=AutoCast.castingBrief("รักต่างวัย | หนุ่มรุ่นน้องกับสาวรุ่นพี่","",emptySet())
+        val older=AutoCast.castingBrief("รักต่างวัย | หนุ่มรุ่นใหญ่กับสาวรุ่นน้อง","",emptySet())
+        assertTrue(younger.contains("younger adult man"))
+        assertTrue(younger.contains("15 years"))
+        assertTrue(older.contains("older adult man"))
+        assertTrue(older.contains("15 years"))
+    }
     @Test fun ageGapCastingRejectsChildrenAndNonhumanEvenWhenChronologicallyOld() {
         for(type in listOf("child", "animal", "creature", "deity")) {
             assertFalse(AutoCast.adultRomanceEligible(JSONObject().put("character_type",type).put("character_age",1000)))
