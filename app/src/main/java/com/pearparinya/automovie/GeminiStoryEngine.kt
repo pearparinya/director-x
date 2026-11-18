@@ -35,10 +35,10 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                     // A unique visible character can be matched without another API request.
                     // Never guess when several actors are visible.
                     val unresolved=Regex("พบชื่อภาษาอังกฤษ '([^']+)'").find(problemText)?.groupValues?.get(1).orEmpty()
-                    if(unresolved.isNotBlank() && cast.length()==1) {
+                    if(unresolved.isNotBlank() && cast.length()==1 && (scene.optJSONArray("offscreen_characters")?.length() ?: 0)==0) {
                         val only=cast.getJSONObject(0).optString("name").trim()
                         val master=cast.getJSONObject(0).optString("master").trim()
-                        val definitions=FlowCast.definitions(GeminiStoryFiles.read(File(folder,"spec.json")))
+                        val definitions=File(folder,"spec.json").takeIf { it.isFile }?.let { FlowCast.definitions(GeminiStoryFiles.read(it)) }.orEmpty()
                         val confirmed=definitions.count { it.optString("name")==only && it.optString("master").equals(master,true) }==1
                         if(confirmed) {
                             val before=scene.optString("flow_action")
