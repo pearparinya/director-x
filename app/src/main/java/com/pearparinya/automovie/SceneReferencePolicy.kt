@@ -11,12 +11,12 @@ internal object SceneReferencePolicy {
         val rows = mutableListOf<String>()
         for (i in 0 until links.length()) {
             val row = links.optJSONObject(i) ?: continue
-            val id = row.optString("prop_master_id").trim()
+            val id = row.optString("prop_master_id").trim().uppercase()
             if (id.isEmpty()) continue
             require(masterId.matches(id)) { "Invalid prop MASTER ID at prop_links[$i]" }
             val item = row.optString("item").trim()
             require(item.isNotEmpty()) { "Missing prop name for MASTER $id" }
-            rows.add("PROP MASTER $id: $item — use the matching attached PROP_MASTER reference, never a character face reference; preserve its distinctive silhouette, material, colors and details.")
+            rows.add("PROP MASTER $id: $item — require a verified PROP_MASTER image attachment before generation; do not substitute a character face reference or invent missing object details. Preserve its distinctive silhouette, material, colors and details.")
         }
         return rows.distinct().joinToString("\n")
     }
