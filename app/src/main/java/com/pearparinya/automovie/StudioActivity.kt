@@ -3070,7 +3070,7 @@ $context"""
     private fun imageApiSettings() {
         val store = ImageApiKeySettings(this)
         val options = (1..9).map { slot ->
-            "API สร้างภาพเว็บที่ $slot • " + if (store.hasKey(slot)) "มีคีย์แล้ว" else "ยังไม่มีคีย์"
+            "API สร้างภาพเว็บที่ $slot • " + if (store.hasKey(slot)) "มีคีย์แล้ว • รอเชื่อมต่อ" else "ยังไม่มีคีย์ • รอตั้งค่า"
         }
         choiceMenu("🖼️ API สร้างภาพ AI • ตั้งค่าคีย์", options) { selected ->
             val slot = selected + 1
