@@ -1,0 +1,73 @@
+name: DIRECTOR X Automatic Signed Candidate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'scripts/check_release_config.py'
+      - '.github/workflows/automatic-signed-candidate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    if: github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'feature/director-x-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Validate release configuration
+        run: python3 scripts/check_release_config.py
+      - name: Restore signing key
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64" && test -n "$STORE_PASSWORD" && test -n "$KEY_ALIAS"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+      - name: Unit tests and release build
+        run: gradle :app:testDebugUnitTest :app:assembleRelease
+      - name: Sign and verify candidate
+        shell: bash
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          UNSIGNED="$(find app/build/outputs/apk/release -name '*unsigned*.apk' -print -quit)"
+          test -s "$UNSIGNED"
+          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias "$KEY_ALIAS" --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD --out "$RUNNER_TEMP/candidate.apk" "$UNSIGNED"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$RUNNER_TEMP/candidate.apk"
+          (cd "$RUNNER_TEMP" && sha256sum candidate.apk > candidate.apk.sha256 && sha256sum --check candidate.apk.sha256)
+          VERSION="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -1)"
+          BUILD="$(sed -n 's/.*versionCode = \([0-9][0-9]*\).*/\1/p' app/build.gradle.kts | head -1)"
+          "$BUILD_TOOLS/aapt" dump badging "$RUNNER_TEMP/candidate.apk" | grep -m1 "^package: name='com.pearparinya.automovie' versionCode='$BUILD' versionName='$VERSION'"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: director-x-signed-candidate
+          path: |
+            ${{ runner.temp }}/candidate.apk
+            ${{ runner.temp }}/candidate.apk.sha256
+          retention-days: 7

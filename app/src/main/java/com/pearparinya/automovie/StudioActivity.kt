@@ -3059,8 +3059,74 @@ $context"""
         } }
     }
     private fun apiSettingsCenter() {
-        choiceMenu("⚙️ ตั้งค่า API", listOf("🎬 API เขียนบท", "🛒 API โหมดนายเปียพาช้อป")) { index ->
-            if (index == 0) geminiSettings() else shoppingApiSettings()
+        choiceMenu("⚙️ ตั้งค่า API", listOf("🎬 API เขียนบท", "🛒 API โหมดนายเปียพาช้อป", "🖼️ API สร้างภาพ AI")) { index ->
+            when (index) {
+                0 -> geminiSettings()
+                1 -> shoppingApiSettings()
+                2 -> imageApiSettings()
+            }
+        }
+    }
+    private fun imageApiSettings() {
+        val store = ImageApiKeySettings(this)
+        val options = (1..9).map { slot ->
+            "API สร้างภาพเว็บที่ $slot • " + if (store.hasKey(slot)) "มีคีย์แล้ว • รอเชื่อมต่อ" else "ยังไม่มีคีย์ • รอตั้งค่า"
+        }
+        choiceMenu("🖼️ API สร้างภาพ AI • ตั้งค่าคีย์", options) { selected ->
+            val slot = selected + 1
+            val input = EditText(this).apply {
+                hint = if (store.hasKey(slot)) "มีคีย์แล้ว • กรอกเพื่อเปลี่ยนคีย์" else "วาง API Key"
+                inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                    android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                setPadding(dp(18), dp(16), dp(18), dp(16))
+            }
+            val panel = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(16), dp(8), dp(16), dp(8))
+                addView(input)
+                addView(CheckBox(this@StudioActivity).apply {
+                    text = "แสดง API Key ที่กำลังกรอก"
+                    setOnCheckedChangeListener { _, checked ->
+                        input.inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                            (if (checked) android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                             else android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD)
+                        input.setSelection(input.text.length)
+                    }
+                })
+            }
+            AlertDialog.Builder(this)
+                .setTitle("API สร้างภาพเว็บที่ $slot")
+                .setMessage("บันทึกคีย์เข้ารหัสบนเครื่อง • ยังไม่ผูกผู้ให้บริการหรือเรียก API • ไม่เสียเครดิตจากหน้านี้")
+                .setView(panel)
+                .setPositiveButton("บันทึก") { _, _ ->
+                    val value = input.text.toString()
+                    if (value.isEmpty()) {
+                        notice("ยังไม่ได้กรอก API Key • ไม่มีการเปลี่ยนแปลง")
+                    } else if (value.any { it.isWhitespace() }) {
+                        notice("API Key ต้องไม่มีช่องว่างหรือขึ้นบรรทัดใหม่ • ไม่ได้บันทึก")
+                    } else if (value.length !in 8..4096) {
+                        notice("API Key ต้องมีความยาว 8–4096 ตัวอักษร • ไม่ได้บันทึก")
+                    } else {
+                        runCatching { store.save(slot, value) }
+                            .onSuccess { notice("บันทึก API Key เว็บที่ $slot สำเร็จ • ยังไม่เชื่อมต่อ") }
+                            .onFailure { notice("บันทึกคีย์ไม่สำเร็จ • กรุณาลองอีกครั้ง") }
+                    }
+                    imageApiSettings()
+                }
+                .setNeutralButton("ลบคีย์") { _, _ ->
+                    AlertDialog.Builder(this)
+                        .setTitle("ยืนยันลบ API Key เว็บที่ $slot")
+                        .setMessage("ต้องการลบ API Key ที่บันทึกไว้ในเว็บที่ $slot หรือไม่? การลบไม่สามารถย้อนกลับได้")
+                        .setPositiveButton("ยืนยันลบ") { _, _ ->
+                            runCatching { store.clear(slot) }
+                                .onSuccess { notice("ลบ API Key เว็บที่ $slot แล้ว") }
+                                .onFailure { notice("ลบคีย์ไม่สำเร็จ") }
+                            imageApiSettings()
+                        }
+                        .setNegativeButton("ยกเลิก") { _, _ -> imageApiSettings() }
+                        .showDirector()
+                }
+                .setNegativeButton("ยกเลิก", null).showDirector()
         }
     }
     private fun shoppingApiSettings() {

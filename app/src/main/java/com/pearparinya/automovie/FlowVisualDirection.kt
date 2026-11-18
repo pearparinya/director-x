@@ -19,6 +19,7 @@ $references
 
 POSTER PROMPT
 ${layout(ratio)}
+${CoverTypography.safeZone(ratio)}
 ${ImagePromptPolicy.productionDirection}
 $identity
 ${BodyReferencePolicy.preciseIdentity}
