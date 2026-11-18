@@ -37,6 +37,10 @@ internal class ImageSceneProgressStore(context: Context) {
             ).commit()
         }
 
+    /** Refresh a worker snapshot before selecting its next pending scene. */
+    private fun refreshed(projectId: String, current: ImageSceneQueue.State) =
+        ImageSceneProgressMerge.merge(load(projectId, current.sceneIds), current)
+
     /**
      * Mark a scene complete only after its image has been durably saved by the caller.
      * If the preference write fails, return null so the caller does not advance the queue.
@@ -46,8 +50,9 @@ internal class ImageSceneProgressStore(context: Context) {
         current: ImageSceneQueue.State,
         sceneId: Int
     ): ImageSceneQueue.State? {
-        val updated = current.markCompleted(sceneId)
-        return if (save(projectId, updated)) updated else null
+        val latest = refreshed(projectId, current)
+        val updated = latest.markCompleted(sceneId)
+        return if (save(projectId, updated)) load(projectId, current.sceneIds) else null
     }
 
     /**
@@ -60,10 +65,10 @@ internal class ImageSceneProgressStore(context: Context) {
         saveImage: (sceneId: Int) -> Boolean
     ): ImageSceneQueue.State? =
         ImageSceneCompletionCoordinator.completeNext(
-            current,
+            refreshed(projectId, current),
             saveImage = saveImage,
             saveProgress = { updated -> save(projectId, updated) }
-        )
+        )?.let { load(projectId, current.sceneIds) }
 
     /**
      * Batch processing entry point for a worker/background executor.
@@ -75,14 +80,16 @@ internal class ImageSceneProgressStore(context: Context) {
         saveImage: (sceneId: Int) -> Boolean,
         shouldContinue: () -> Boolean = { true },
         maxScenes: Int = Int.MAX_VALUE
-    ): ImageSceneQueue.State =
+    ): ImageSceneQueue.State {
         ImageSceneCompletionCoordinator.completePending(
-            current,
+            refreshed(projectId, current),
             saveImage = saveImage,
             saveProgress = { updated -> save(projectId, updated) },
             shouldContinue = shouldContinue,
             maxScenes = maxScenes
         )
+        return load(projectId, current.sceneIds)
+    }
 
     /**
      * Executes one planned free-tier batch and commits each completed scene.
@@ -98,9 +105,9 @@ internal class ImageSceneProgressStore(context: Context) {
         saveImage: (providerId: String, sceneId: Int) -> Boolean,
         shouldContinue: () -> Boolean = { true },
         previousProviderId: String? = null
-    ): ImageFreeTierSceneRunner.Result =
-        ImageFreeTierSceneRunner.run(
-            current = current,
+    ): ImageFreeTierSceneRunner.Result {
+        val result = ImageFreeTierSceneRunner.run(
+            current = refreshed(projectId, current),
             providers = providers,
             nowEpochMs = nowEpochMs,
             requiresReferenceImage = requiresReferenceImage,
@@ -110,6 +117,8 @@ internal class ImageSceneProgressStore(context: Context) {
             shouldContinue = shouldContinue,
             previousProviderId = previousProviderId
         )
+        return result.copy(state = load(projectId, current.sceneIds))
+    }
 
     fun clear(projectId: String, sceneIds: List<Int>): Boolean =
         preferences.edit().remove(storageKey(projectId, sceneIds)).commit()
