@@ -32,13 +32,40 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                     val scene=rows.getJSONObject(target)
                     val cast=scene.optJSONArray("characters") ?: JSONArray()
                     val permitted=(0 until cast.length()).map { cast.getJSONObject(it).optString("name") }.filter { it.isNotBlank() }
+                    // A unique visible character can be matched without another API request.
+                    // Never guess when several actors are visible.
+                    val unresolved=Regex("พบชื่อภาษาอังกฤษ '([^']+)'").find(problemText)?.groupValues?.get(1).orEmpty()
+                    if(unresolved.isNotBlank() && cast.length()==1) {
+                        val only=cast.getJSONObject(0).optString("name").trim()
+                        val master=cast.getJSONObject(0).optString("master").trim()
+                        val definitions=FlowCast.definitions(GeminiStoryFiles.read(File(folder,"spec.json")))
+                        val confirmed=definitions.count { it.optString("name")==only && it.optString("master").equals(master,true) }==1
+                        if(confirmed) {
+                            val before=scene.optString("flow_action")
+                            val pattern=Regex("(?<![A-Za-z0-9_])"+Regex.escape(unresolved)+"(?![A-Za-z0-9_])",RegexOption.IGNORE_CASE)
+                            val corrected=pattern.replace(before) { only }
+                            if(corrected!=before) {
+                                scene.put("flow_action",corrected)
+                                GeminiStoryFiles.write(pending,value)
+                                problem=try { validate(value); null } catch(e: org.json.JSONException) { IllegalArgumentException("ข้อมูลซีนไม่ครบ: "+e.message.orEmpty(),e) } catch(e: IllegalArgumentException) { e }
+                                if(problem==null) continue
+                                scene.put("flow_action",before)
+                                GeminiStoryFiles.write(pending,value)
+                            }
+                        }
+                    }
                     val fixSchema=JSONObject().put("type","object").put("properties",JSONObject().put("flow_action",JSONObject().put("type","string"))).put("required",JSONArray().put("flow_action"))
                     val fix=generate("Fix ONLY flow_action for scene $sceneNumber. Use exact Thai names from this visible cast: "+permitted.joinToString(", ")+". Preserve the original events. If an English name cannot be matched uniquely to the supplied character registry, keep that name unchanged for human review; do not guess or introduce another person. Return JSON containing only flow_action. Original scene: "+scene+marker,fixSchema)
                     val action=fix.optString("flow_action").trim()
                     // An unregistered Latin name must not be silently reassigned to a person.
                     // Keep the pending scene for review if the returned action removes it.
-                    val unresolved=Regex("พบชื่อภาษาอังกฤษ '([^']+)'").find(problemText)?.groupValues?.get(1).orEmpty()
-                    if(action.isNotEmpty() && (unresolved.isEmpty() || action.contains(unresolved,ignoreCase=true))) scene.put("flow_action",action)
+                    // Accept a rewritten action only when all named actors are recognized.
+                    // Preserve the original pending scene when ambiguity remains.
+                    if(action.isNotEmpty()) {
+                        val proposed=JSONObject(scene.toString()).put("flow_action",action)
+                        if(FlowScenePrompt.unknownActionNames(ProductionCommandCheck.spec(proposed)).isEmpty())
+                            scene.put("flow_action",action)
+                    }
                     GeminiStoryFiles.write(pending,value)
                     check()
                     problem=try { validate(value); null } catch(e: org.json.JSONException) { IllegalArgumentException("ข้อมูลซีนไม่ครบ: "+e.message.orEmpty(),e) } catch(e: IllegalArgumentException) { e }
