@@ -114,7 +114,7 @@ $identity
 ${referenceBindings(selected)}
 CHARACTERS AND OUTFITS:
 ${cast(selected,true)}
-$wardrobeContinuity
+${if (visiblePeople.any { it.optString("wardrobe_source").isNotBlank() }) "WARDROBE CONTINUITY: Apply the per-character wardrobe source rules below. Do not copy MASTER clothing for SCENE_OUTFIT characters. Preserve the chosen outfit across scenes on the same story day." else wardrobeContinuity}
 ${WardrobeContext.image}
 Compose with every named face large enough, unobscured and clearly recognizable; keep all named faces in comparable focus even when depth differs. Preserve identity for each character equally. Show exactly ${selected.size} ${if(selected.size==1 && selected.first().optString("character_type").let { it.isBlank() || it=="human" }) "person" else "named characters"} from the listed references, each with their own MASTER; do not replace, merge, duplicate or invent named characters. Preserve nonhuman species, anatomy and markings. Never show extra people beyond the named cast, including crowds; other participants remain unseen off-camera.
 STORY CONTEXT FOR COMPOSITION ONLY — do not print this as visible text: $posterContext
