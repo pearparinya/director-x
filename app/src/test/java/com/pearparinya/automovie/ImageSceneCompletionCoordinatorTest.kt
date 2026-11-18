@@ -64,4 +64,24 @@ class ImageSceneCompletionCoordinatorTest {
         assertEquals(0, calls)
         assertEquals(done, result)
     }
+    @Test fun thrownImageSaveDoesNotRecordProgress() {
+        var progressCalled = false
+        val result = ImageSceneCompletionCoordinator.completeNext(
+            ImageSceneQueue.State(listOf(1, 2)),
+            saveImage = { throw IllegalStateException("Disk unavailable") },
+            saveProgress = { progressCalled = true; true }
+        )
+        assertNull(result)
+        assertFalse(progressCalled)
+    }
+
+    @Test fun thrownProgressSaveDoesNotReturnAdvancedState() {
+        val result = ImageSceneCompletionCoordinator.completeNext(
+            ImageSceneQueue.State(listOf(1, 2)),
+            saveImage = { true },
+            saveProgress = { throw IllegalStateException("Preferences unavailable") }
+        )
+        assertNull(result)
+    }
+
 }
