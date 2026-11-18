@@ -25,14 +25,18 @@ internal object ImageSceneCompletionCoordinator {
         current: ImageSceneQueue.State,
         saveImage: (sceneId: Int) -> Boolean,
         saveProgress: (ImageSceneQueue.State) -> Boolean,
-        shouldContinue: () -> Boolean = { true }
+        shouldContinue: () -> Boolean = { true },
+        maxScenes: Int = Int.MAX_VALUE
     ): ImageSceneQueue.State {
+        require(maxScenes >= 0) { "Scene batch limit must not be negative" }
         var state = current
-        while (state.nextPendingScene != null) {
-            // Check between scenes so a cancellation never marks an unfinished scene complete.
+        var processed = 0
+        while (state.nextPendingScene != null && processed < maxScenes) {
+            // Check between scenes so cancellation or quota exhaustion cannot advance progress.
             if (!runCatching { shouldContinue() }.getOrDefault(false)) break
             val updated = completeNext(state, saveImage, saveProgress) ?: break
             state = updated
+            processed++
         }
         return state
     }
