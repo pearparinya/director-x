@@ -84,4 +84,40 @@ class ImageSceneCompletionCoordinatorTest {
         assertNull(result)
     }
 
+    @Test fun batchCompletesAllPendingScenesInOrder() {
+        val images = mutableListOf<Int>()
+        val progress = mutableListOf<Int>()
+        val start = ImageSceneQueue.State((1..5).toList()).markCompleted(1)
+        val result = ImageSceneCompletionCoordinator.completePending(
+            start,
+            saveImage = { scene -> images.add(scene); true },
+            saveProgress = { state -> progress.add(state.completedCount); true }
+        )
+        assertEquals(listOf(2, 3, 4, 5), images)
+        assertEquals(listOf(2, 3, 4, 5), progress)
+        assertEquals(100, result.progressPercent)
+    }
+
+    @Test fun batchStopsOnFirstFailedImageAndReturnsSavedProgress() {
+        val images = mutableListOf<Int>()
+        val result = ImageSceneCompletionCoordinator.completePending(
+            ImageSceneQueue.State((1..5).toList()),
+            saveImage = { scene -> images.add(scene); scene != 3 },
+            saveProgress = { true }
+        )
+        assertEquals(listOf(1, 2, 3), images)
+        assertEquals(2, result.completedCount)
+        assertEquals(3, result.nextPendingScene)
+    }
+
+    @Test fun batchStopsOnProgressFailureWithoutSkippingScene() {
+        val result = ImageSceneCompletionCoordinator.completePending(
+            ImageSceneQueue.State((1..5).toList()),
+            saveImage = { true },
+            saveProgress = { state -> state.completedCount < 3 }
+        )
+        assertEquals(2, result.completedCount)
+        assertEquals(3, result.nextPendingScene)
+    }
+
 }
