@@ -2,6 +2,7 @@ package com.pearparinya.automovie
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.json.JSONObject
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -14,6 +15,15 @@ class RetiredApiGuardTest {
         retired.forEach { id ->
             assertTrue(runCatching { StoryProvider.from(id) }.isFailure)
             assertFalse(StoryProvider.activeProviders.any { it.id==id })
+        }
+    }
+    @Test fun retiredApiSettingsAreNotAccessible() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val retiredSettings=listOf(ExtraApiProvider.CEREBRAS,ExtraApiProvider.DEEPSEEK,
+            ExtraApiProvider.SAMBANOVA,ExtraApiProvider.MISTRAL)
+        retiredSettings.forEach { provider ->
+            assertFalse(provider in ExtraApiProvider.activeProviders)
+            assertTrue(runCatching { ExtraApiSettings(context,provider) }.isFailure)
         }
     }
     @Test fun retiredEndpointsCannotBuildRequests() {
