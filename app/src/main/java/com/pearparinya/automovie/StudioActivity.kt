@@ -4874,7 +4874,31 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             candidate.put("speaker",speaker.text.toString().trim())
             val issues=FlowScenePrompt.issues(flowSpec(candidate))
             if (issues.isNotEmpty()) notice(issues.joinToString("\n")) else {
+                // Carry confirmed anatomical wrist across the story, but never silently
+                // overwrite an existing contradictory lock on another scene.
+                val locks=(0 until people.length()).map { people.getJSONObject(it) }
+                    .filter { it.optString("watch_side") in setOf("left","right") }
+                    .associate { it.optString("name") to it.optString("watch_side") }
+                val episodes=plan?.optJSONArray("episodes")
+                val targets=mutableListOf<JSONObject>()
+                if(episodes!=null) for(e in 0 until episodes.length()) {
+                    val scenes=episodes.optJSONObject(e)?.optJSONArray("scenes") ?: continue
+                    for(j in 0 until scenes.length()) {
+                        val actors=scenes.optJSONObject(j)?.optJSONArray("characters") ?: continue
+                        for(k in 0 until actors.length()) {
+                            val actor=actors.optJSONObject(k) ?: continue
+                            val locked=locks[actor.optString("name")] ?: continue
+                            val prior=actor.optString("watch_side")
+                            if(prior.isNotBlank() && prior!=locked) {
+                                notice("นาฬิกาของ ${actor.optString("name")} ถูกล็อกต่างข้างในฉากอื่น • กรุณาแก้ความขัดแย้งก่อน")
+                                return@setOnClickListener
+                            }
+                            targets.add(actor)
+                        }
+                    }
+                }
                 s.put("characters",people).put("speaker",candidate.optString("speaker")).put("flow_image_revision",image(s).lastModified())
+                targets.forEach { actor -> locks[actor.optString("name")]?.let { actor.put("watch_side",it) } }
                 val approved=runCatching { SceneFrameReview.approve(s,image(s),FlowReferencePrompt.people(s).map { masterFor(it) },frameReviewFacts(s)) }
                 if(approved.isFailure) { notice(approved.exceptionOrNull()?.message ?: "ยืนยันภาพไม่ได้"); return@setOnClickListener }
                 saveStory(); dialog.dismiss(); reviewedVideoCommand(s)
