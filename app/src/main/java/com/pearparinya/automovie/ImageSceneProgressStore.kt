@@ -75,6 +75,33 @@ internal class ImageSceneProgressStore(context: Context) {
             maxScenes = maxScenes
         )
 
+    /**
+     * Executes one planned free-tier batch and commits each completed scene.
+     * Provider credentials and HTTP calls remain the responsibility of the caller.
+     */
+    fun runFreeTierBatch(
+        projectId: String,
+        current: ImageSceneQueue.State,
+        providers: List<ImageProviderRotation.Provider>,
+        nowEpochMs: Long,
+        requiresReferenceImage: Boolean,
+        requestedBatchSize: Int,
+        saveImage: (providerId: String, sceneId: Int) -> Boolean,
+        shouldContinue: () -> Boolean = { true },
+        previousProviderId: String? = null
+    ): ImageFreeTierSceneRunner.Result =
+        ImageFreeTierSceneRunner.run(
+            current = current,
+            providers = providers,
+            nowEpochMs = nowEpochMs,
+            requiresReferenceImage = requiresReferenceImage,
+            requestedBatchSize = requestedBatchSize,
+            saveImage = saveImage,
+            saveProgress = { updated -> save(projectId, updated) },
+            shouldContinue = shouldContinue,
+            previousProviderId = previousProviderId
+        )
+
     fun clear(projectId: String, sceneIds: List<Int>): Boolean =
         preferences.edit().remove(storageKey(projectId, sceneIds)).commit()
 
