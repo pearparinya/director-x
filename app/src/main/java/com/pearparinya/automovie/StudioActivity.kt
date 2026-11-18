@@ -3059,8 +3059,45 @@ $context"""
         } }
     }
     private fun apiSettingsCenter() {
-        choiceMenu("⚙️ ตั้งค่า API", listOf("🎬 API เขียนบท", "🛒 API โหมดนายเปียพาช้อป")) { index ->
-            if (index == 0) geminiSettings() else shoppingApiSettings()
+        choiceMenu("⚙️ ตั้งค่า API", listOf("🎬 API เขียนบท", "🛒 API โหมดนายเปียพาช้อป", "🖼️ API สร้างภาพ AI")) { index ->
+            when (index) {
+                0 -> geminiSettings()
+                1 -> shoppingApiSettings()
+                2 -> imageApiSettings()
+            }
+        }
+    }
+    private fun imageApiSettings() {
+        val store = ImageApiKeySettings(this)
+        val options = (1..9).map { slot ->
+            "API สร้างภาพรูปที่ $slot • " + if (store.hasKey(slot)) "มีคีย์แล้ว" else "ยังไม่มีคีย์"
+        }
+        choiceMenu("🖼️ API สร้างภาพ AI • ตั้งค่าคีย์", options) { selected ->
+            val slot = selected + 1
+            val input = EditText(this).apply {
+                hint = if (store.hasKey(slot)) "มีคีย์แล้ว • กรอกเพื่อเปลี่ยนคีย์" else "วาง API Key"
+                inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                    android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                setPadding(dp(18), dp(16), dp(18), dp(16))
+            }
+            AlertDialog.Builder(this)
+                .setTitle("API สร้างภาพรูปที่ $slot")
+                .setMessage("บันทึกคีย์เข้ารหัสบนเครื่อง • ยังไม่ผูกผู้ให้บริการหรือเรียก API • ไม่เสียเครดิตจากหน้านี้")
+                .setView(input)
+                .setPositiveButton("บันทึก") { _, _ ->
+                    val value = input.text.toString().trim()
+                    if (value.isNotEmpty()) {
+                        runCatching { store.save(slot, value) }
+                            .onFailure { notice("บันทึกคีย์ไม่สำเร็จ • ตรวจรูปแบบคีย์") }
+                    }
+                    imageApiSettings()
+                }
+                .setNeutralButton("ลบคีย์") { _, _ ->
+                    runCatching { store.clear(slot) }
+                        .onFailure { notice("ลบคีย์ไม่สำเร็จ") }
+                    imageApiSettings()
+                }
+                .setNegativeButton("ยกเลิก", null).showDirector()
         }
     }
     private fun shoppingApiSettings() {
