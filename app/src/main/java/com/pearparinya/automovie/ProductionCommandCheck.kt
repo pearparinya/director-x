@@ -18,6 +18,24 @@ internal object ProductionCommandCheck {
         val value=text.trim().lowercase().substringBefore(',').trim()
         return when(value) { "left","ซ้าย" -> "left"; "right","ขวา" -> "right"; "center","centre","middle","กลาง" -> "center"; else -> null }
     }
+    /**
+     * Remove only redundant legacy speech fields when they duplicate the first
+     * ordered turn exactly. Never discard independent narration or dialogue.
+     * Ambiguous speech remains pending for focused AI repair.
+     */
+    fun normalizeDuplicateSpeech(scene: JSONObject): Boolean {
+        val turns=dialogueTurns(scene)
+        if(turns.isEmpty()) return false
+        val speaker=speech(scene.optString("speaker"))
+        val dialogue=speech(scene.optString("dialogue"))
+        val narration=speech(scene.optString("narration"))
+        if(narration.isNotEmpty()) return false
+        if(speaker.isEmpty() && dialogue.isEmpty()) return false
+        if(turns.size!=1 || speaker!=turns[0].speaker.trim() || dialogue!=turns[0].text.trim()) return false
+        scene.put("speaker","")
+        scene.put("dialogue","")
+        return true
+    }
     fun sceneIssues(scene: JSONObject): List<String> = buildList {
         addAll(FlowScenePrompt.issues(spec(scene)))
         val people=people(scene)
