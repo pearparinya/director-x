@@ -21,11 +21,11 @@ internal enum class StoryProvider(val id: String,val label: String,val defaultMo
         COHERE -> ExtraApiProvider.COHERE
         else -> null
     }
-    fun key(context: Context): String = if(this==GEMINI) GeminiSettings.configured(context).firstOrNull()?.second.orEmpty() else extra()?.let { ExtraApiSettings(context,it).key() } ?: GeminiSettings(context,this).key()
-    fun model(context: Context): String = if(this==GEMINI) GeminiSettings.firstModel(context) else extra()?.let { ExtraApiSettings(context,it).model() } ?: GeminiSettings(context,this).model()
+    fun key(context: Context): String { require(this in activeProviders) { "API นี้ถูกยกเลิกถาวร" }; return if(this==GEMINI) GeminiSettings.configured(context).firstOrNull()?.second.orEmpty() else extra()?.let { ExtraApiSettings(context,it).key() } ?: GeminiSettings(context,this).key() }
+    fun model(context: Context): String { require(this in activeProviders) { "API นี้ถูกยกเลิกถาวร" }; return if(this==GEMINI) GeminiSettings.firstModel(context) else extra()?.let { ExtraApiSettings(context,it).model() } ?: GeminiSettings(context,this).model() }
     fun hasKey(context: Context): Boolean = runCatching { key(context).isNotBlank() }.getOrDefault(false)
     companion object {
-        fun from(id: String)=entries.firstOrNull { it.id==id } ?: throw IllegalArgumentException("ไม่รู้จักผู้ให้บริการ API")
+        fun from(id: String)=activeProviders.firstOrNull { it.id==id } ?: throw IllegalArgumentException("API ไม่รองรับหรือถูกยกเลิกถาวร")
         fun selected(context: Context)=from(context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).getString("selected","groq")!!)
         fun hybrid(context: Context)=context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).getBoolean("hybrid",false)
         fun enableHybrid(context: Context) { context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).edit().putBoolean("hybrid",true).apply() }
@@ -36,6 +36,7 @@ internal enum class StoryProvider(val id: String,val label: String,val defaultMo
         fun setFreeOnly(context: Context,enabled: Boolean) { context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).edit().putBoolean("free_only",enabled).apply() }
         fun allowedIds(context: Context): Set<String> = context.getSharedPreferences("story_provider",Context.MODE_PRIVATE)
             .getStringSet("allowed_providers",activeProviders.map { it.id }.toSet())?.toSet().orEmpty()
+            .intersect(activeProviders.map { it.id }.toSet())
         fun setAllowed(context: Context,providers: Set<String>) {
             require(providers.isNotEmpty() && providers.all { id -> activeProviders.any { it.id==id } }) { "เลือก API อย่างน้อยหนึ่งเจ้า" }
             context.getSharedPreferences("story_provider",Context.MODE_PRIVATE).edit().putStringSet("allowed_providers",providers.toSet()).apply()
