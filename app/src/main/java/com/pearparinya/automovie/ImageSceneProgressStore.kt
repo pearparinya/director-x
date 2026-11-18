@@ -56,6 +56,8 @@ internal class ImageSceneProgressStore(context: Context) {
     }
 
     /**
+     * Serialize work across store instances in this process. The lock is held
+     * through image persistence, so callers must run off the main thread.
      * Run the next unfinished scene's durable image save before persisting completion.
      * A null result means image or progress persistence failed; do not advance the UI.
      */
@@ -63,12 +65,13 @@ internal class ImageSceneProgressStore(context: Context) {
         projectId: String,
         current: ImageSceneQueue.State,
         saveImage: (sceneId: Int) -> Boolean
-    ): ImageSceneQueue.State? =
+    ): ImageSceneQueue.State? = synchronized(preferences) {
         ImageSceneCompletionCoordinator.completeNext(
             refreshed(projectId, current),
             saveImage = saveImage,
             saveProgress = { updated -> save(projectId, updated) }
         )?.let { load(projectId, current.sceneIds) }
+    }
 
     /**
      * Batch processing entry point for a worker/background executor.
@@ -80,7 +83,7 @@ internal class ImageSceneProgressStore(context: Context) {
         saveImage: (sceneId: Int) -> Boolean,
         shouldContinue: () -> Boolean = { true },
         maxScenes: Int = Int.MAX_VALUE
-    ): ImageSceneQueue.State {
+    ): ImageSceneQueue.State = synchronized(preferences) {
         ImageSceneCompletionCoordinator.completePending(
             refreshed(projectId, current),
             saveImage = saveImage,
@@ -88,7 +91,7 @@ internal class ImageSceneProgressStore(context: Context) {
             shouldContinue = shouldContinue,
             maxScenes = maxScenes
         )
-        return load(projectId, current.sceneIds)
+        load(projectId, current.sceneIds)
     }
 
     /**
@@ -105,7 +108,7 @@ internal class ImageSceneProgressStore(context: Context) {
         saveImage: (providerId: String, sceneId: Int) -> Boolean,
         shouldContinue: () -> Boolean = { true },
         previousProviderId: String? = null
-    ): ImageFreeTierSceneRunner.Result {
+    ): ImageFreeTierSceneRunner.Result = synchronized(preferences) {
         val result = ImageFreeTierSceneRunner.run(
             current = refreshed(projectId, current),
             providers = providers,
@@ -117,11 +120,13 @@ internal class ImageSceneProgressStore(context: Context) {
             shouldContinue = shouldContinue,
             previousProviderId = previousProviderId
         )
-        return result.copy(state = load(projectId, current.sceneIds))
+        result.copy(state = load(projectId, current.sceneIds))
     }
 
     fun clear(projectId: String, sceneIds: List<Int>): Boolean =
-        preferences.edit().remove(storageKey(projectId, sceneIds)).commit()
+        synchronized(preferences) {
+            preferences.edit().remove(storageKey(projectId, sceneIds)).commit()
+        }
 
     private fun storageKey(projectId: String, sceneIds: List<Int>): String {
         require(projectId.isNotBlank()) { "Project ID is required" }
