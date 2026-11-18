@@ -3102,10 +3102,14 @@ $context"""
                     val value = input.text.toString()
                     if (value.isEmpty()) {
                         notice("ยังไม่ได้กรอก API Key • ไม่มีการเปลี่ยนแปลง")
+                    } else if (value.any { it.isWhitespace() }) {
+                        notice("API Key ต้องไม่มีช่องว่างหรือขึ้นบรรทัดใหม่ • ไม่ได้บันทึก")
+                    } else if (value.length !in 8..4096) {
+                        notice("API Key ต้องมีความยาว 8–4096 ตัวอักษร • ไม่ได้บันทึก")
                     } else {
                         runCatching { store.save(slot, value) }
                             .onSuccess { notice("บันทึก API Key เว็บที่ $slot สำเร็จ • ยังไม่เชื่อมต่อ") }
-                            .onFailure { notice("บันทึกคีย์ไม่สำเร็จ • ตรวจรูปแบบคีย์") }
+                            .onFailure { notice("บันทึกคีย์ไม่สำเร็จ • กรุณาลองอีกครั้ง") }
                     }
                     imageApiSettings()
                 }
