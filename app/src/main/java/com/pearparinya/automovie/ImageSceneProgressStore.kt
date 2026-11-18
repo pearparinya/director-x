@@ -22,11 +22,20 @@ internal class ImageSceneProgressStore(context: Context) {
         }
     }
 
-    /** Commit synchronously so a completed scene survives process termination. */
+    /**
+     * Merge with saved progress before a synchronous commit. Synchronize on the
+     * SharedPreferences instance so multiple store objects in this process cannot
+     * overwrite completed scene IDs with stale worker snapshots.
+     */
     fun save(projectId: String, state: ImageSceneQueue.State): Boolean =
-        preferences.edit().putString(
-            storageKey(projectId, state.sceneIds), state.encodeProgress()
-        ).commit()
+        synchronized(preferences) {
+            val merged = ImageSceneProgressMerge.merge(
+                load(projectId, state.sceneIds), state
+            )
+            preferences.edit().putString(
+                storageKey(projectId, state.sceneIds), merged.encodeProgress()
+            ).commit()
+        }
 
     /**
      * Mark a scene complete only after its image has been durably saved by the caller.
