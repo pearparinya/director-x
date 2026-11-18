@@ -11,7 +11,7 @@ import java.io.File
 class ExtraApiSettingsTest {
     @Test fun keysAreEncryptedIndependentAndDeletable() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
-        val providers=ExtraApiSettings.activeProviders
+        val providers=ExtraApiProvider.activeProviders
         val files=providers.associateWith { File(context.noBackupFilesDir,"${it.id}/settings.json") }
         val previous=files.mapValues { (_,file) -> file.takeIf { it.exists() }?.readBytes() }
         try {
