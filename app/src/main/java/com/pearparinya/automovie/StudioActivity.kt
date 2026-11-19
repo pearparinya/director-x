@@ -2226,6 +2226,32 @@ class StudioActivity : AppCompatActivity() {
         }
         return person.optString("outfit").ifBlank { WardrobeTimeline.resolve(WardrobeBeat(character,scene.optString("story_day"),scene.optString("wardrobe_event"),WardrobeTimeline.activity(scene.optString("activity").ifBlank { scene.optString("action") }),scene.optString("continuity_group"),""),history) }
     }
+    private fun scenePropContinuity(scene: JSONObject, person: JSONObject): String {
+        val character = memoryId(person)
+        val scenes = plan?.let { rows(it) }.orEmpty()
+        val currentIndex = scenes.indexOfFirst { it === scene || (it.optInt("ep") == scene.optInt("ep") && it.optInt("scene") == scene.optInt("scene")) }
+        val storyDay = scene.optString("story_day").trim()
+        val group = scene.optString("continuity_group").trim()
+        val keys = listOf("backpack", "bag", "props", "accessories")
+        val previous = if (currentIndex > 0) scenes.take(currentIndex).asReversed().firstNotNullOfOrNull { item ->
+            val sameDay = storyDay.isNotBlank() && storyDay == item.optString("story_day").trim()
+            val sameGroup = group.isNotBlank() && group == item.optString("continuity_group").trim()
+            if (!sameDay && !sameGroup) null else {
+                val cast = item.optJSONArray("characters") ?: JSONArray()
+                (0 until cast.length()).mapNotNull { cast.optJSONObject(it) }.firstOrNull { memoryId(it) == character }
+            }
+        } else null
+        val locked = keys.mapNotNull { field ->
+            val current = person.optString(field).trim()
+            val inherited = previous?.optString(field)?.trim().orEmpty()
+            val value = if (current.isNotBlank()) current else inherited
+            if (value.isBlank()) null else "$field=$value"
+        }
+        val change = person.optBoolean("prop_change", scene.optBoolean("prop_change", false))
+        val details = if (locked.isEmpty()) "No structured prop details recorded; keep the same visible backpack/bag from the previous scene reference, including exact color, silhouette, straps and pockets. Do not invent a new color." else locked.joinToString("; ")
+        return if (change) "PROP CHANGE EXPLICITLY ALLOWED: $details. Only change items actually specified by the story."
+        else "PROP CONTINUITY LOCK [$character]: $details. Same story day or continuity group means identical carried equipment and accessories. A black backpack must remain the same black backpack, never olive/green; preserve shape, material, straps, buckles, wear and position. Do not replace, recolor or remove props unless the story explicitly records the action. If a previous scene reference exists, match it."
+    }
     private fun characterAccuracyLock(scene: JSONObject, person: JSONObject, masterId: String): String {
         val outfit = sceneWardrobe(scene,person).trim()
         val character = person.optString("name").ifBlank { memoryId(person) }
@@ -2237,6 +2263,7 @@ class StudioActivity : AppCompatActivity() {
             "BODY LOCK: preserve established natural body proportions from approved references. Never exaggerate or invent proportions.",
             "WARDROBE LOCK: follow exactly [$outfit], including specified colors, garments, collars, sleeves, fabrics, footwear and accessories. MASTER clothing must not override scene outfit.",
             "CONTINUITY LOCK: $continuity",
+            scenePropContinuity(scene, person),
             "SELF-CHECK: compare visible identity to correct MASTER and each visible clothing detail to outfit. Correct only mismatched parts; preserve already-correct details."
         ).joinToString(" | ")
     }
