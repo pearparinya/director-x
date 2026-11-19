@@ -1551,8 +1551,8 @@ class StudioActivity : AppCompatActivity() {
             setPadding(dp(12),dp(12),dp(12),dp(6))
         }
         val referenceMode=Spinner(this).apply {
-            adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ภาพครอปใบหน้า + ภาพสามมุมมอง", "ภาพครอปใบหน้าอย่างเดียว", "MASTER + ภาพฉากที่ตรวจผ่าน"))
-            setSelection(prefs.getInt("image_reference_mode_${project.name}",0).coerceIn(0,2))
+            adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ภาพครอปใบหน้า + ภาพสามมุมมอง", "ภาพครอปใบหน้าอย่างเดียว", "MASTER + ภาพฉากที่ตรวจผ่าน", "MASTER ต้นฉบับเท่านั้น • สำหรับซีนหลายคน"))
+            setSelection(if(task.references.size>=5) 3 else prefs.getInt("image_reference_mode_${project.name}",0).coerceIn(0,3))
         }
         val imageOrder=Spinner(this).apply {
             adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ภาพสามมุม → ภาพครอป", "ภาพครอป → ภาพสามมุม"))
@@ -1571,7 +1571,7 @@ class StudioActivity : AppCompatActivity() {
         fun refreshOrder() {
             refreshCards()
             imageOrder.isEnabled=referenceMode.selectedItemPosition==0
-            val refs=if(referenceMode.selectedItemPosition==1) "ครอปใบหน้า" else if(referenceMode.selectedItemPosition==2) "MASTER + ภาพฉาก" else if(imageOrder.selectedItemPosition==1) "ครอป → สามมุม" else "สามมุม → ครอป"
+            val refs=if(referenceMode.selectedItemPosition==1) "ครอปใบหน้า" else if(referenceMode.selectedItemPosition==2) "MASTER + ภาพฉาก" else if(referenceMode.selectedItemPosition==3) "MASTER ต้นฉบับเท่านั้น" else if(imageOrder.selectedItemPosition==1) "ครอป → สามมุม" else "สามมุม → ครอป"
             orderSummary.text=if(transferOrder.selectedItemPosition==1) "$refs → คำสั่ง" else "คำสั่ง → $refs"
         }
         val orderListener=object : android.widget.AdapterView.OnItemSelectedListener {
@@ -1704,10 +1704,37 @@ class StudioActivity : AppCompatActivity() {
             checkbox.setOnCheckedChangeListener { _,checked -> image.visibility=if(checked) android.view.View.VISIBLE else android.view.View.GONE; if(checked) showProp() }
             panel.addView(image)
         }
+        // Preflight count follows the scene task's actual character references.
+        // Never silently remove characters or change the user's chosen mode.
+        val imageBudget=TextView(this).apply {
+            textSize=16f
+            setTypeface(null,Typeface.BOLD)
+            setPadding(dp(12),dp(10),dp(12),dp(10))
+            setBackgroundColor(Color.rgb(34,43,59))
+        }
+        panel.addView(imageBudget,0)
+        fun updateImageBudget() {
+            val mode=referenceMode.selectedItemPosition
+            val masterCount=task.references.size
+            val cropCount=if(mode==0 || mode==1) task.references.indices.count { crops.containsKey(references[it].first) } else 0
+            val total=masterCount+cropCount // MASTER images are mandatory even in face-crop-only mode.
+            val valid=total<=9 && (mode!=1 || cropCount==masterCount) && masterCount>0
+            imageBudget.setTextColor(if(valid) Color.rgb(170,232,191) else Color.rgb(255,194,109))
+            imageBudget.text="ภาพตัวละคร $total/9 • MASTER ${if(mode==1) 0 else masterCount} • FACE ${cropCount}"+
+                (if(!valid) "\\n⚠ เกินกำหนดหรือครอปไม่ครบ • เลือกโหมด MASTER ต้นฉบับเท่านั้นสำหรับซีนหลายคน" else "")
+        }
+        val originalRefresh=refreshCards
+        refreshCards={ originalRefresh(); updateImageBudget() }
+        updateImageBudget()
         AlertDialog.Builder(this).setTitle("ตรวจ MASTER • ${task.id}").setView(ScrollView(this).apply { addView(panel) })
             .setPositiveButton("เลือกแอปและส่ง") { _,_ ->
                 val stable=runCatching { references.take(task.references.size).all { (id,file) -> file.isFile && MasterLibrary.digest(file.readBytes())==masterDigests[id] } }.getOrDefault(false)
                 if(!stable) { notice("ภาพ MASTER เปลี่ยนหรือหายระหว่างตรวจ กรุณาเปิดรายการและตรวจภาพอีกครั้ง"); return@setPositiveButton }
+                val sceneMasterIds=references.take(task.references.size).map { referenceId(it.first).lowercase() }
+                if(sceneMasterIds.size!=sceneMasterIds.distinct().size) {
+                    notice("พบ MASTER ID ซ้ำในซีนนี้ • กรุณาตรวจการผูกตัวละครก่อนส่ง เพื่อป้องกันใบหน้าสลับ")
+                    return@setPositiveButton
+                }
                 val mode=referenceMode.selectedItemPosition
                 if(mode==1 && task.references.indices.any { crops[references[it].first]==null }) { notice("โหมดครอปหน้าอย่างเดียวต้องมีภาพครอปของทุกตัวละคร"); return@setPositiveButton }
                 
@@ -1715,7 +1742,7 @@ class StudioActivity : AppCompatActivity() {
                 val cropsToVerify=if(mode==1) crops else selected
                 val cropsStable=runCatching { cropsToVerify.all { (id,crop) -> crop.second.isFile && MasterLibrary.digest(crop.second.readBytes())==cropDigests[id] } }.getOrDefault(false)
                 if(!cropsStable) { notice("ภาพครอปใบหน้าเปลี่ยนหรือหาย กรุณาเลือกจาก MASTER อีกครั้ง"); return@setPositiveButton }
-                val bindings=selected.entries.joinToString("\n") { (id,crop) -> "CHARACTER ${labels[id].orEmpty()} — FACE CROP ${crop.first} is cropped from MASTER ${referenceId(id)}; both show the same character. Use the crop for facial identity and the original MASTER for verification. Never use this crop for another character." }
+                val bindings=(if(mode==0 || mode==1) selected.entries else emptySet()).joinToString("\n") { (id,crop) -> "CHARACTER ${labels[id].orEmpty()} — FACE CROP ${crop.first} is cropped from MASTER ${referenceId(id)}; both show the same character. Use the crop for facial identity and the original MASTER for verification. Never use this crop for another character." }
                 val rawCommand=if(faceOnly.isChecked || mode==1) SimpleProductionCommands.faceOnly(task.command) else task.command
                 val modeCommand=rawCommand // Keep three-view MASTER instructions; face crops are supplemental only.
                 val baseCommand=modeCommand+(if(bindings.isBlank()) "" else "\n\n$bindings")
@@ -1758,9 +1785,10 @@ class StudioActivity : AppCompatActivity() {
                 // Preserve attachment order and never substitute another character's image.
                 val optional=extras.filter { !it.first.startsWith("OUTFIT_") || it in outfitExtras }+propRefs
                 if(orderedPeople.size>9) {
-                    notice("MASTER ต้นฉบับ ${primary.size} ภาพ + ภาพครอปใบหน้า ${orderedPeople.size-primary.size} ภาพ = ${orderedPeople.size} ภาพ เกินขีดจำกัด 9 ภาพ • หากเป็นหน้าปก ให้กลับไปเลือกตัวละครบนปกไม่เกิน 4 คน โดยไม่ต้องสร้างเรื่องใหม่ ระบบจะไม่ตัด MASTER หรือสลับใบหน้าให้อัตโนมัติ")
+                    notice("ซีนนี้มี MASTER ${primary.size} ภาพ + ภาพครอป ${orderedPeople.size-primary.size} ภาพ รวม ${orderedPeople.size}/9 ภาพ • กลับไปที่ตัวเลือกภาพอ้างอิง (ขั้นตอน 1) แล้วเลือก «MASTER ต้นฉบับเท่านั้น • สำหรับซีนหลายคน» เพื่อแนบ MASTER ทุกคนโดยไม่ตัดตัวละครหรือสลับใบหน้า หากต้องการภาพครอปครบทุกคน ต้องแบ่งงานเป็นหลายคำสั่ง")
                     return@setPositiveButton
                 }
+                if(primary.size>9) { notice("ซีนนี้มี MASTER ${primary.size} คน เกินขีดจำกัด 9 ภาพ ไม่สามารถส่งในครั้งเดียวได้ กรุณาแบ่งซีนตามบทโดยไม่ลบตัวละครจากข้อมูลต้นฉบับ"); return@setPositiveButton }
                 val remaining=9-orderedPeople.size
                 val includedOptional=optional.take(remaining)
                 val omittedOptional=optional.drop(remaining)
