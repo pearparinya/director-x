@@ -174,6 +174,10 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                 activity.runOnUiThread { busy = false; dialog.dismiss(); if (!activity.isFinishing && !activity.isDestroyed) install(file) }
             } catch (e: Exception) {
                 target?.delete()
+                // Failed downloads must not suppress the next automatic attempt for 24 hours.
+                if (updatePrefs.getLong("auto_download_build", -1L) == build) {
+                    updatePrefs.edit().remove("auto_download_build").remove("auto_download_at").apply()
+                }
                 activity.runOnUiThread { busy = false; dialog.dismiss(); if (!activity.isFinishing && !activity.isDestroyed) message("อัปเดตไม่สำเร็จ: ${e.message}") }
             }
         }.start()
