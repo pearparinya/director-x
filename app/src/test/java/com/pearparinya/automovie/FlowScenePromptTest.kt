@@ -8,6 +8,25 @@ class FlowScenePromptTest {
     private val rin=FlowPerson("รินรดา","long-haired woman","right","pink top")
     private fun scene(speaker: String="เมย์", dialogue: String="พี่ริน หนูเป็นน้องสาวของพี่", narration: String="ไม่มี") =
         FlowSceneSpec(listOf(may,rin),speaker,dialogue,narration,"May slides the envelope","living room","Envelope in the center","Envelope near Rinlada",8,"9:16")
+    @Test fun natiAliasResolvesToRegisteredThaiCharacter() {
+        val cast=listOf(FlowPerson("นที","short dark hair","left","white shirt"))
+        val spec=scene(speaker="",dialogue="",narration="").copy(cast=cast,action="Nati stands beside the door")
+        assertTrue(FlowScenePrompt.unknownActionNames(spec).isEmpty())
+        val prompt=FlowScenePrompt.build(spec)
+        assertTrue(prompt.contains("[นที] stands beside the door"))
+        assertFalse(prompt.contains("Nati stands"))
+    }
+    @Test fun unregisteredEnglishNameIsRejected() {
+        val cast=listOf(FlowPerson("นที","short dark hair","left","white shirt"))
+        val spec=scene(speaker="",dialogue="",narration="").copy(cast=cast,action="UnknownName stands by the door")
+        assertEquals(listOf("UnknownName"),FlowScenePrompt.unknownActionNames(spec))
+    }
+    @Test fun conflictingEnglishAliasIsNotAutoBound() {
+        val cast=listOf(FlowPerson("นที","short dark hair","left","white shirt"),
+            FlowPerson("ภาคิน","tall man","right","black shirt",englishName="Nati"))
+        val spec=scene(speaker="",dialogue="",narration="").copy(cast=cast,action="Nati stands by the door")
+        assertTrue(FlowScenePrompt.unknownActionNames(spec).any { it.equals("nati",ignoreCase=true) })
+    }
     @Test fun conflictingDayAndNightAmbienceRequiresReview() {
         val issue = FlowScenePrompt.issues(scene().copy(startState="daylight forest", sound="forest night insects"))
         assertTrue(issue.any { it.contains("กลางวัน") && it.contains("กลางคืน") })
