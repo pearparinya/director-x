@@ -102,8 +102,8 @@ For each listed character, use only their own attached MASTER for their identity
             val label=if(overall) (if(single) "ปกเรื่อง" else "ปกรวมทั้งเรื่อง") else "ปก EP.$number"
             val candidates=coverCandidates(story,number,overall)
             val chosen=coverSelection[scope]
-            val selected=if(chosen==null) candidates.take(9) else candidates.filter { referenceId(it.getString("master")) in chosen }
-            if(chosen!=null) require(selected.isNotEmpty() && selected.size<=9 && selected.size==chosen.size) { "ตัวละครปกเปลี่ยนหรือเกิน 9 ภาพ กรุณาเลือกรายการปกใหม่" }
+            val selected=if(chosen==null) candidates.take(4) else candidates.filter { referenceId(it.getString("master")) in chosen }
+            if(chosen!=null) require(selected.isNotEmpty() && selected.size<=4 && selected.size==chosen.size) { "ตัวละครปกที่เลือกเกิน 4 คน (MASTER + ภาพใบหน้า 2 ภาพต่อคน) กรุณาเปิดเมนูเลือกตัวละครบนปกและเลือกใหม่ โดยไม่ต้องสร้างเรื่องใหม่" }
             val posterContext=(if(overall) (0 until story.getJSONArray("episodes").length()).map { story.getJSONArray("episodes").getJSONObject(it) } else listOf(ep))
                 .map { listOf(it.optString("synopsis"),it.optString("cover_incident")).filter(String::isNotBlank).joinToString(" • ") }.filter(String::isNotBlank).joinToString(" | ").take(1500)
             val text=listOf(ChannelCatalog.currentChannel(story.getString("channel")),story.getString("title"),if(overall) story.getString("tagline") else "ตอนที่ $number ${ep.getString("title")}")
