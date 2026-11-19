@@ -1710,14 +1710,14 @@ class StudioActivity : AppCompatActivity() {
                 if(!stable) { notice("ภาพ MASTER เปลี่ยนหรือหายระหว่างตรวจ กรุณาเปิดรายการและตรวจภาพอีกครั้ง"); return@setPositiveButton }
                 val mode=referenceMode.selectedItemPosition
                 if(mode==1 && task.references.indices.any { crops[references[it].first]==null }) { notice("โหมดครอปหน้าอย่างเดียวต้องมีภาพครอปของทุกตัวละคร"); return@setPositiveButton }
-                if(mode==1 && masterAppearance.values.any { it.isChecked }) { notice("ภาพครอปไม่เห็นชุด MASTER • โปรดเลือกใช้ภาพสามมุมเมื่อใช้ชุด MASTER"); return@setPositiveButton }
-                val selected=if(mode==0) crops.toMap() else emptyMap()
+                
+                val selected=crops.toMap()
                 val cropsToVerify=if(mode==1) crops else selected
                 val cropsStable=runCatching { cropsToVerify.all { (id,crop) -> crop.second.isFile && MasterLibrary.digest(crop.second.readBytes())==cropDigests[id] } }.getOrDefault(false)
                 if(!cropsStable) { notice("ภาพครอปใบหน้าเปลี่ยนหรือหาย กรุณาเลือกจาก MASTER อีกครั้ง"); return@setPositiveButton }
                 val bindings=selected.entries.joinToString("\n") { (id,crop) -> "CHARACTER ${labels[id].orEmpty()} — FACE CROP ${crop.first} is cropped from MASTER ${referenceId(id)}; both show the same character. Use the crop for facial identity and the original MASTER for verification. Never use this crop for another character." }
                 val rawCommand=if(faceOnly.isChecked || mode==1) SimpleProductionCommands.faceOnly(task.command) else task.command
-                val modeCommand=if(mode==1) rawCommand.replace("The three views show one person; use the large clear front view for facial details.","Each attached character reference is a close-up of one person.").replace("The three views in each MASTER represent ONE person;", "Each attached face reference represents ONE person;") else rawCommand
+                val modeCommand=rawCommand // Keep three-view MASTER instructions; face crops are supplemental only.
                 val baseCommand=modeCommand+(if(bindings.isBlank()) "" else "\n\n$bindings")
                 val locked=task.references.mapIndexedNotNull { index,person ->
                     val id=references[index].first
@@ -1748,9 +1748,9 @@ class StudioActivity : AppCompatActivity() {
                 val outfitExtras=extras.filter { extra -> extra.first.startsWith("OUTFIT_") && locked.none { (_,id) -> extra.first.endsWith(id,true) } }
                 if(mode==2 && outfitExtras.none { it.first.startsWith("OUTFIT_EP") }) { notice("ยังไม่มีภาพฉากเดี่ยวที่ตรวจผ่านและชุดตรงกัน กรุณาเลือกวิธีอื่น"); return@setPositiveButton }
                 val outfitGuide=if(outfitExtras.isEmpty()) "" else (if(mode==2) "\n\nREVIEWED SCENE REFERENCE: The checked prior single-character scene was reviewed by the user for this same character and outfit. Use it as a supplemental identity and wardrobe reference; the original MASTER remains the source of identity. " else "")+"\n\nREVIEWED OUTFIT REFERENCES: For the listed characters only, these checked images override generic instructions against copying clothing. Use each labeled frame as a clothing reference for its named character, while the original character MASTER remains the identity reference. Preserve visible garments; follow the written outfit for parts not visible. Do not copy background, pose or objects. "+outfitExtras.joinToString("; ") { "${it.first} = ${labels[it.first]}" }
-                val primary=if(mode==1) references.take(task.references.size).map { (id,_) -> id to crops.getValue(id).second } else references.take(task.references.size)
-                val orderedPeople=if(mode==0) primary.flatMap { master ->
-                    val crop=selected[master.first]
+                val primary=references.take(task.references.size) // Original MASTER is mandatory in every mode.
+                val orderedPeople=if(mode==0 || mode==1) primary.flatMap { master ->
+                    val crop=if(mode==1) crops[master.first] else selected[master.first]
                     if(crop==null) listOf(master) else if(imageOrder.selectedItemPosition==1) listOf(crop,master) else listOf(master,crop)
                 } else primary
                 // Always keep every required character MASTER/face crop. Optional outfit,
@@ -1758,7 +1758,7 @@ class StudioActivity : AppCompatActivity() {
                 // Preserve attachment order and never substitute another character's image.
                 val optional=extras.filter { !it.first.startsWith("OUTFIT_") || it in outfitExtras }+propRefs
                 if(orderedPeople.size>9) {
-                    notice("ตัวละครที่จำเป็นต้องใช้มีภาพอ้างอิง ${orderedPeople.size} ภาพ เกินขีดจำกัด 9 ภาพ • เปลี่ยนเป็นโหมดครอปหน้าอย่างเดียว หรือลดจำนวนตัวละครในภาพ")
+                    notice("MASTER ต้นฉบับและภาพใบหน้าที่เลือกมี ${orderedPeople.size} ภาพ เกินขีดจำกัด 9 ภาพ • ลดจำนวนตัวละครในซีนหรือปรับภาพใบหน้าเสริมด้วยตนเอง ระบบจะไม่ตัด MASTER หรือสลับใบหน้าให้อัตโนมัติ")
                     return@setPositiveButton
                 }
                 val remaining=9-orderedPeople.size
