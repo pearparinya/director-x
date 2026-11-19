@@ -1552,7 +1552,7 @@ class StudioActivity : AppCompatActivity() {
         }
         val referenceMode=Spinner(this).apply {
             adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ภาพครอปใบหน้า + ภาพสามมุมมอง", "ภาพครอปใบหน้าอย่างเดียว", "MASTER + ภาพฉากที่ตรวจผ่าน", "MASTER ต้นฉบับเท่านั้น • สำหรับซีนหลายคน"))
-            setSelection(prefs.getInt("image_reference_mode_${project.name}",0).coerceIn(0,3))
+            setSelection(if(task.references.size>=5) 3 else prefs.getInt("image_reference_mode_${project.name}",0).coerceIn(0,3))
         }
         val imageOrder=Spinner(this).apply {
             adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ภาพสามมุม → ภาพครอป", "ภาพครอป → ภาพสามมุม"))
@@ -1717,8 +1717,8 @@ class StudioActivity : AppCompatActivity() {
             val mode=referenceMode.selectedItemPosition
             val masterCount=task.references.size
             val cropCount=if(mode==0 || mode==1) task.references.indices.count { crops.containsKey(references[it].first) } else 0
-            val total=if(mode==1) cropCount else masterCount+cropCount
-            val valid=total<=9 && (mode!=1 || cropCount==masterCount)
+            val total=masterCount+cropCount // MASTER images are mandatory even in face-crop-only mode.
+            val valid=total<=9 && (mode!=1 || cropCount==masterCount) && masterCount>0
             imageBudget.setTextColor(if(valid) Color.rgb(170,232,191) else Color.rgb(255,194,109))
             imageBudget.text="ภาพตัวละคร $total/9 • MASTER ${if(mode==1) 0 else masterCount} • FACE ${cropCount}"+
                 (if(!valid) "\\n⚠ เกินกำหนดหรือครอปไม่ครบ • เลือกโหมด MASTER ต้นฉบับเท่านั้นสำหรับซีนหลายคน" else "")
