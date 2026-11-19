@@ -1914,13 +1914,50 @@ class StudioActivity : AppCompatActivity() {
                 if(filePackage || geminiImages) prefs.edit().putString("image_receipt_app",destinationLabel).putString("gemini_receipt_pending",File(destination,"image_requests/$transferId.json").absolutePath).apply()
             }
         }
-        val preview = LinearLayout(this).apply { orientation = 1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-        // Put the character pairs first; long SHA audit must not obscure names.
-        preview.addView(TextView(this).apply {
-            text=pendingStorySummary+"\\nตรวจชื่อและคู่ภาพใบหน้า–MASTER ก่อนส่ง"
-            textSize=14f
+        val preview = LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setPadding(dp(14),dp(14),dp(14),dp(16))
+            setBackgroundColor(Color.rgb(13,18,27))
+        }
+        val titlePanel=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setPadding(dp(16),dp(16),dp(16),dp(16))
+            background=android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(36,48,69),Color.rgb(15,21,32))
+            ).apply {
+                cornerRadius=dp(14).toFloat()
+                setStroke(dp(1),Color.rgb(115,96,64))
+            }
+        }
+        preview.addView(titlePanel,LinearLayout.LayoutParams(-1,-2).apply {
+            setMargins(0,0,0,dp(12))
+        })
+        titlePanel.addView(TextView(this).apply {
+            text="DIRECTOR X  /  CINEMATIC STUDIO"
+            textSize=11f
+            letterSpacing=0.12f
+            setTypeface(null,Typeface.BOLD)
+            setTextColor(Color.rgb(231,189,102))
+        })
+        titlePanel.addView(TextView(this).apply {
+            text="ตรวจภาพอ้างอิงก่อนส่ง"
+            textSize=21f
+            setTypeface(null,Typeface.BOLD)
             setTextColor(Color.WHITE)
-            setPadding(0,0,0,dp(10))
+            setPadding(0,dp(6),0,dp(4))
+        })
+        titlePanel.addView(TextView(this).apply {
+            text=pendingStorySummary
+            textSize=12f
+            setTextColor(Color.rgb(207,214,226))
+            maxLines=3
+        })
+        titlePanel.addView(TextView(this).apply {
+            text="FACE DETAIL  /  ORIGINAL MASTER  •  ${uris.count { contentResolver.getType(it)?.startsWith("image/")==true }} ภาพ"
+            textSize=11f
+            setTextColor(Color.rgb(231,189,102))
+            setPadding(0,dp(8),0,0)
         })
         // Pair face crops (left) with the original MASTER (right) by MASTER ID.
         // Preview layout never changes attachment order, files, or the outgoing intent.
@@ -1951,24 +1988,28 @@ class StudioActivity : AppCompatActivity() {
             used.add(ref.index)
             displayRows.add(if(ref.face) ref to null else null to ref)
         }
-        fun addPreviewCell(row: LinearLayout,ref: PreviewRef?,heading: String,personName: String) {
+        // Cinematic identity cards: a single shared title above each pair prevents
+        // labels from being lost inside narrow image columns on smaller devices.
+        val ink=Color.rgb(19,24,34)
+        val panel=Color.rgb(34,41,54)
+        val gold=Color.rgb(231,189,102)
+        fun addPreviewCell(row: LinearLayout,ref: PreviewRef?,heading: String) {
             val card=LinearLayout(this).apply {
                 orientation=LinearLayout.VERTICAL
-                setPadding(dp(5),dp(6),dp(5),dp(10))
+                setPadding(dp(8),dp(8),dp(8),dp(8))
+                background=android.graphics.drawable.GradientDrawable().apply {
+                    setColor(ink); cornerRadius=dp(10).toFloat()
+                }
             }
-            row.addView(card,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f))
-            card.addView(TextView(this).apply {
-                text=personName
-                textSize=16f
-                setTextColor(Color.WHITE)
-                setTypeface(null,Typeface.BOLD)
-                setPadding(0,dp(3),0,dp(3))
+            row.addView(card,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f).apply {
+                setMargins(dp(3),0,dp(3),0)
             })
             card.addView(TextView(this).apply {
                 text=heading
-                textSize=13f
-                setTextColor(Color.rgb(255,205,90))
+                textSize=11f
+                setTextColor(gold)
                 setTypeface(null,Typeface.BOLD)
+                maxLines=1
             })
             if(ref==null) {
                 card.addView(TextView(this).apply {
@@ -1976,25 +2017,23 @@ class StudioActivity : AppCompatActivity() {
                     textSize=12f
                     setTextColor(Color.LTGRAY)
                 })
-                return
+            } else {
+                card.addView(ImageView(this).apply {
+                    setImageBitmap(previewBitmap(ref.uri))
+                    scaleType=ImageView.ScaleType.FIT_CENTER
+                    layoutParams=LinearLayout.LayoutParams(-1,dp(132))
+                    contentDescription="${heading} • ${ref.label}"
+                    setBackgroundColor(Color.rgb(26,30,39))
+                })
+                card.addView(TextView(this).apply {
+                    text="ภาพที่ ${ref.index+1}"
+                    textSize=11f
+                    setTextColor(Color.WHITE)
+                    setPadding(0,dp(4),0,0)
+                })
             }
-            card.addView(TextView(this).apply {
-                text="ภาพที่ ${ref.index+1} • ${ref.label}"
-                textSize=12f
-                setTextColor(Color.WHITE)
-                maxLines=4
-                ellipsize=android.text.TextUtils.TruncateAt.END
-            })
-            card.addView(ImageView(this).apply {
-                setImageBitmap(previewBitmap(ref.uri))
-                scaleType=ImageView.ScaleType.FIT_CENTER
-                adjustViewBounds=true
-                layoutParams=LinearLayout.LayoutParams(-1,dp(150))
-                contentDescription="${personName} • ${heading} • ${ref.label}"
-            })
         }
-        displayRows.forEach { (face,master) ->
-            // Crop labels contain the real character name. Do not guess names from faces.
+        displayRows.forEachIndexed { rowIndex,(face,master) ->
             val cropName=face?.label?.takeIf { it.startsWith("ภาพครอปใบหน้า ") }
                 ?.removePrefix("ภาพครอปใบหน้า ")?.substringBefore(" จาก MASTER ")?.trim().orEmpty()
             val masterName=master?.label?.trim().orEmpty()
@@ -2002,10 +2041,36 @@ class StudioActivity : AppCompatActivity() {
                 masterName.takeIf { it.isNotBlank() && !it.startsWith("MASTER") && !it.startsWith("SUPPORT_") }
                     ?: "ตัวละคร • ${master?.masterId ?: face?.masterId ?: "ไม่ทราบรหัส"}"
             }
+            val block=LinearLayout(this).apply {
+                orientation=LinearLayout.VERTICAL
+                setPadding(dp(8),dp(8),dp(8),dp(10))
+                background=android.graphics.drawable.GradientDrawable().apply {
+                    setColor(panel); cornerRadius=dp(12).toFloat()
+                    setStroke(dp(1),Color.rgb(71,79,95))
+                }
+            }
+            imageGrid.addView(block,LinearLayout.LayoutParams(-1,-2).apply {
+                setMargins(0,dp(5),0,dp(5))
+            })
+            block.addView(TextView(this).apply {
+                text=String.format("%02d  •  %s",rowIndex+1,personName)
+                textSize=16f
+                setTextColor(Color.WHITE)
+                setTypeface(null,Typeface.BOLD)
+                setPadding(dp(4),0,dp(4),dp(6))
+                maxLines=2
+            })
             val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
-            imageGrid.addView(row)
-            addPreviewCell(row,face,"ซ้าย • ใบหน้า",personName)
-            addPreviewCell(row,master,"ขวา • MASTER",personName)
+            block.addView(row)
+            addPreviewCell(row,face,"FACE DETAIL • ใบหน้า")
+            addPreviewCell(row,master,"ORIGINAL MASTER")
+            block.addView(TextView(this).apply {
+                text="MASTER ID  •  ${master?.masterId ?: face?.masterId ?: "ไม่พบ"}"
+                textSize=10f
+                setTextColor(Color.LTGRAY)
+                setPadding(dp(5),dp(6),0,0)
+                maxLines=2
+            })
         }
         val unmatchedCrops=imageRefs.filter { it.face && imageRefs.none { master ->
             !master.face && master.masterId.equals(it.masterId,true)
@@ -2053,8 +2118,12 @@ class StudioActivity : AppCompatActivity() {
         commandDetails.setOnClickListener {
             commandText.visibility=if(commandText.visibility==android.view.View.VISIBLE) android.view.View.GONE else android.view.View.VISIBLE
         }
-        AlertDialog.Builder(this).setTitle("ตรวจคำสั่งและภาพก่อนส่ง")
-            .setView(ScrollView(this).apply { addView(preview) })
+        AlertDialog.Builder(this).setTitle("DIRECTOR X • CINEMATIC REVIEW")
+            .setView(ScrollView(this).apply {
+                isFillViewport=true
+                setBackgroundColor(Color.rgb(13,18,27))
+                addView(preview)
+            })
             .setPositiveButton("ส่งและเปิด $destinationLabel") { _,_ -> launchShare() }
             .setNeutralButton("คัดลอก") { _,_ -> copyCommand(text) }
             .setNegativeButton("ยกเลิก",null).showDirector()
