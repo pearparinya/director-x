@@ -2226,6 +2226,20 @@ class StudioActivity : AppCompatActivity() {
         }
         return person.optString("outfit").ifBlank { WardrobeTimeline.resolve(WardrobeBeat(character,scene.optString("story_day"),scene.optString("wardrobe_event"),WardrobeTimeline.activity(scene.optString("activity").ifBlank { scene.optString("action") }),scene.optString("continuity_group"),""),history) }
     }
+    private fun characterAccuracyLock(scene: JSONObject, person: JSONObject, masterId: String): String {
+        val outfit = sceneWardrobe(scene,person).trim()
+        val character = person.optString("name").ifBlank { memoryId(person) }
+        val group = scene.optString("continuity_group").trim()
+        val continuity = if(group.isNotBlank()) "Group $group: preserve outfit between scenes unless wardrobe_change is true." else "Preserve outfit during the same story day unless explicitly changed."
+        return listOf(
+            "CHARACTER ACCURACY LOCK [$character]",
+            "FACE LOCK: use only $masterId MASTER for this person's facial identity, skin tone, eyes, nose, lips, jaw and hairstyle. No face swapping or blending.",
+            "BODY LOCK: preserve established natural body proportions from approved references. Never exaggerate or invent proportions.",
+            "WARDROBE LOCK: follow exactly [$outfit], including specified colors, garments, collars, sleeves, fabrics, footwear and accessories. MASTER clothing must not override scene outfit.",
+            "CONTINUITY LOCK: $continuity",
+            "SELF-CHECK: compare visible identity to correct MASTER and each visible clothing detail to outfit. Correct only mismatched parts; preserve already-correct details."
+        ).joinToString(" | ")
+    }
     private fun sceneCastDescription(scene: JSONObject): String {
         val cast = scene.optJSONArray("characters") ?: return ""
         return (0 until cast.length()).joinToString("\n") { i ->
@@ -2233,7 +2247,7 @@ class StudioActivity : AppCompatActivity() {
             val master=masterFor(person)
             val exported=masterExportName(master,person.optString("master").startsWith("CHARACTER",true)) ?: person.optString("master")
             listOf("${person.optString("name")} → ${referenceId(exported)}",(if(detailedImageProfiles) memoryBrief(person) else ""),
-                "ชุด: ${sceneWardrobe(scene,person)}",PerformanceDirection.text(person).takeIf { it.isNotBlank() }?.let { "การแสดง: $it" }.orEmpty())
+                "ชุด: ${sceneWardrobe(scene,person)}",characterAccuracyLock(scene,person,referenceId(exported)),PerformanceDirection.text(person).takeIf { it.isNotBlank() }?.let { "การแสดง: $it" }.orEmpty())
                 .filter { it.isNotBlank() }.joinToString(" | ") }
     }
     private fun storySceneCommand(p: JSONObject, scene: JSONObject): String {
