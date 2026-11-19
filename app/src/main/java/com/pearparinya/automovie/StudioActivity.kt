@@ -1756,6 +1756,10 @@ class StudioActivity : AppCompatActivity() {
                 val mode=referenceMode.selectedItemPosition
                 if(mode==1 && task.references.indices.any { crops[references[it].first]==null }) { notice("โหมดครอปหน้าอย่างเดียวต้องมีภาพครอปของทุกตัวละคร"); return@setPositiveButton }
                 
+                if(mode==4 && selectedFaceIds().isEmpty() && task.references.size>=5) {
+                    notice("ยังไม่ได้เลือก FACE DETAIL เลย • กรุณากดเลือกใบหน้าจาก MASTER อย่างน้อย 1 คน หรือเปลี่ยนเป็นโหมด MASTER ต้นฉบับเท่านั้น")
+                    return@setPositiveButton
+                }
                 if(mode==4 && selectedFaceIds().any { crops[it]==null }) {
                     notice("ตัวละครที่เลือก FACE DETAIL ยังไม่มีภาพครอป กรุณาเลือกกรอบใบหน้าหรือยกเลิกเครื่องหมาย")
                     return@setPositiveButton
@@ -2063,9 +2067,10 @@ class StudioActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams(-1,dp(30)))
             if(ref==null) {
                 card.addView(TextView(this).apply {
-                    text="ไม่มีภาพอ้างอิง"
+                    text=if(heading.startsWith("FACE DETAIL")) "⚠ ยังไม่ได้แนบภาพใบหน้า\nกลับไปเลือกครอปใบหน้าจาก MASTER ก่อนส่ง" else "ไม่มีภาพอ้างอิง"
                     textSize=12f
-                    setTextColor(Color.LTGRAY)
+                    setTextColor(Color.rgb(255,194,109))
+                    setPadding(dp(6),dp(8),dp(6),dp(8))
                 })
             } else {
                 card.addView(ImageView(this).apply {
@@ -2122,6 +2127,15 @@ class StudioActivity : AppCompatActivity() {
                 setPadding(dp(5),dp(6),0,0)
                 maxLines=2
             })
+        }
+        val missingFaceCount=displayRows.count { (face,master) -> master!=null && face==null }
+        if(missingFaceCount>0) {
+            preview.addView(TextView(this).apply {
+                text="⚠ ยังไม่มี FACE DETAIL สำหรับ $missingFaceCount ตัวละคร • ภาพ MASTER ไม่ใช่ภาพครอปใบหน้า หากต้องการแนบ FACE DETAIL ให้กลับไปหน้าจอเลือกภาพและครอปหน้าตรงก่อนส่ง"
+                textSize=14f
+                setTextColor(Color.rgb(255,194,109))
+                setPadding(dp(8),dp(10),dp(8),dp(10))
+            },1)
         }
         val unmatchedCrops=imageRefs.filter { it.face && imageRefs.none { master ->
             !master.face && master.masterId.equals(it.masterId,true)
