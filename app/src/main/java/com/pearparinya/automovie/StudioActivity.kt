@@ -1919,36 +1919,69 @@ class StudioActivity : AppCompatActivity() {
             this.text = if(geminiImages) "$pendingStorySummary\n$imageList\nส่งคำสั่งสร้างภาพพร้อมภาพอ้างอิงไป Gemini และคัดลอกคำสั่งไว้ให้ด้วย\n\n1. ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง\n2. หาก Gemini ไม่แสดงคำสั่ง ให้แตะช่องข้อความค้างแล้วเลือก วาง\n3. หาก Gemini ตอบเป็นข้อความ ให้เปิดโหมดสร้างภาพแล้วลองใหม่" else if(filePackage) "$pendingStorySummary\n$imageList\nแนบไฟล์ READ_FIRST_IMAGE_COMMAND.txt พร้อม MASTER ไปในชุดเดียวกัน ตรวจว่า $destinationLabel แสดงไฟล์คำสั่งและรูปครบก่อนกดส่ง หากช่องข้อความว่างให้ระบุคำสั่งก่อนส่ง" else "$pendingStorySummary\n$imageList\nตรวจภาพและข้อความใน $destinationLabel ก่อนกดส่ง คำสั่งคัดลอกไว้ในคลิปบอร์ดแล้ว"
             textSize = 13f
         })
-        // Display the existing attachment order in a compact two-column grid.
-        // This is presentation only: never reorder, remove, crop, or change any shared MASTER.
+        // Pair face crops (left) with the original MASTER (right) by MASTER ID.
+        // Preview layout never changes attachment order, files, or the outgoing intent.
         val imageGrid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
         preview.addView(imageGrid)
-        var imageRow: LinearLayout?=null
-        uris.filter { contentResolver.getType(it)?.startsWith("image/")==true }.forEachIndexed { imageIndex,uri ->
-            if(imageIndex%2==0) {
-                imageRow=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
-                imageGrid.addView(imageRow)
+        data class PreviewRef(val index: Int,val uri: Uri,val label: String,val masterId: String,val face: Boolean)
+        val imageRefs=uris.filter { contentResolver.getType(it)?.startsWith("image/")==true }
+            .mapIndexed { index,uri ->
+                val filename=uri.lastPathSegment?.substringAfterLast('/').orEmpty()
+                val label=referenceLabels[referenceId(filename)].orEmpty()
+                val face=label.startsWith("ภาพครอปใบหน้า") || referenceId(filename).endsWith("_FACE_CROP",true)
+                val masterId=if(face) {
+                    label.substringAfter(" จาก MASTER ","").ifBlank { referenceId(filename).removeSuffix("_FACE_CROP") }
+                } else referenceId(filename)
+                PreviewRef(index,uri,label.ifBlank { filename },masterId,face)
             }
-            val filename=uri.lastPathSegment?.substringAfterLast('/').orEmpty()
-            val label=referenceLabels[referenceId(filename)]
+        val used=mutableSetOf<Int>()
+        val displayRows=mutableListOf<Pair<PreviewRef?,PreviewRef?>>()
+        // Use the MASTER's stable ID rather than adjacency: order may be face-first or master-first.
+        imageRefs.filter { !it.face }.forEach { master ->
+            if(master.index in used) return@forEach
+            val face=imageRefs.firstOrNull { it.face && it.index !in used && it.masterId.equals(master.masterId,true) }
+            used.add(master.index)
+            if(face!=null) used.add(face.index)
+            displayRows.add(face to master)
+        }
+        imageRefs.filter { it.index !in used }.forEach { ref ->
+            used.add(ref.index)
+            displayRows.add(if(ref.face) ref to null else null to ref)
+        }
+        fun addPreviewCell(row: LinearLayout,ref: PreviewRef?,heading: String) {
             val card=LinearLayout(this).apply {
                 orientation=LinearLayout.VERTICAL
                 setPadding(dp(5),dp(6),dp(5),dp(10))
             }
-            imageRow?.addView(card,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f))
+            row.addView(card,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f))
             card.addView(TextView(this).apply {
-                this.text="ภาพที่ ${imageIndex+1} • "+(if(label.isNullOrBlank()) filename else label)
+                text=heading
+                textSize=13f
+                setTypeface(null,Typeface.BOLD)
+            })
+            if(ref==null) {
+                card.addView(TextView(this).apply { text="ไม่มีภาพอ้างอิง"; textSize=12f })
+                return
+            }
+            card.addView(TextView(this).apply {
+                text="ภาพที่ ${ref.index+1} • ${ref.label}"
                 textSize=12f
                 maxLines=3
                 ellipsize=android.text.TextUtils.TruncateAt.END
             })
             card.addView(ImageView(this).apply {
-                setImageBitmap(previewBitmap(uri))
+                setImageBitmap(previewBitmap(ref.uri))
                 scaleType=ImageView.ScaleType.FIT_CENTER
                 adjustViewBounds=true
                 layoutParams=LinearLayout.LayoutParams(-1,dp(150))
-                contentDescription=label ?: uri.lastPathSegment
+                contentDescription=ref.label
             })
+        }
+        displayRows.forEach { (face,master) ->
+            val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
+            imageGrid.addView(row)
+            addPreviewCell(row,face,"ซ้าย • ใบหน้า")
+            addPreviewCell(row,master,"ขวา • MASTER")
         }
         preview.addView(TextView(this).apply { this.text = text; textSize = 14f; setTextIsSelectable(true) })
         AlertDialog.Builder(this).setTitle("ตรวจคำสั่งและภาพก่อนส่ง")
