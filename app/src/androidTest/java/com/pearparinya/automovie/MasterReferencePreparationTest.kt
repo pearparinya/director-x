@@ -41,4 +41,52 @@ class MasterReferencePreparationTest {
             assertTrue(result.warnings.any { it.contains("เดียวกับตัวละครอื่น") })
         } finally { dir.deleteRecursively() }
     }
+    @Test fun fiveCharactersUseFiveOriginalMastersWithoutFaceCrops() {
+        val dir = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir, "ref-five-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val sources = (1..5).map { index ->
+                MasterReferencePreparation.CharacterSource(
+                    "Character $index", File(dir, "master-$index.jpg").apply { writeText("unique master $index") }
+                )
+            }
+            val result = MasterReferencePreparation.prepareOriginalMastersOnly(sources)
+            assertTrue(result.warnings.toString(), result.ready)
+            assertEquals(5, result.attachments.size)
+            assertEquals(sources.map { it.name }, result.attachments.map { it.character })
+            assertTrue(result.attachments.all { it.role == "ORIGINAL_MASTER" })
+            assertTrue(MasterReferencePreparation.bindingText(result).contains("Reference image 5: Character 5"))
+        } finally { dir.deleteRecursively() }
+    }
+
+    @Test fun overNineMastersWarnsWithoutSilentlyDroppingCharacters() {
+        val dir = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir, "ref-ten-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val sources = (1..10).map { index ->
+                MasterReferencePreparation.CharacterSource(
+                    "Character $index", File(dir, "$index.jpg").apply { writeText("unique master $index") }
+                )
+            }
+            val result = MasterReferencePreparation.prepareOriginalMastersOnly(sources)
+            assertFalse(result.ready)
+            assertEquals(10, result.attachments.size)
+            assertTrue(result.warnings.any { it.contains("9") })
+        } finally { dir.deleteRecursively() }
+    }
+
+    @Test fun masterOnlyRejectsDuplicateBytesAndNames() {
+        val dir = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir, "ref-check-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val a = File(dir, "a.jpg").apply { writeText("same") }
+            val b = File(dir, "b.jpg").apply { writeText("same") }
+            val result = MasterReferencePreparation.prepareOriginalMastersOnly(listOf(
+                MasterReferencePreparation.CharacterSource("A", a),
+                MasterReferencePreparation.CharacterSource("B", b),
+                MasterReferencePreparation.CharacterSource("A", a)
+            ))
+            assertFalse(result.ready)
+            assertEquals(1, result.attachments.size)
+            assertEquals(2, result.warnings.size)
+        } finally { dir.deleteRecursively() }
+    }
+
 }
