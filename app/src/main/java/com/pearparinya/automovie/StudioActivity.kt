@@ -2284,6 +2284,19 @@ class StudioActivity : AppCompatActivity() {
         val emotionalCause = scene.optString("emotion").ifBlank { scene.optString("mood") }
         val nextEmotion = next?.optString("emotion")?.ifBlank { next.optString("mood") }.orEmpty()
         val performance = "Emotion now: ${emotionalCause.ifBlank { "derive from current conflict" }}; next beat: ${nextEmotion.ifBlank { "respond to consequence" }}. Show changes through facial reaction, gesture and timing rather than exposition."
+        val dialogueEstimate = speech.trim().length
+        val dialogueQuality = when {
+            dialogueEstimate == 0 -> "No scripted dialogue: preserve purposeful silence, sound and visual action; do not invent speech."
+            dialogueEstimate > 85 -> "Dialogue length warning: $dialogueEstimate characters may exceed 8 seconds in Thai. Reduce to the essential exchange while retaining meaning and speaker identity; avoid clipped lines."
+            else -> "Dialogue length: $dialogueEstimate characters. Allow natural Thai delivery and reaction pauses within 8 seconds; verify against rendered audio."
+        }
+        val previousGroup = previous?.optString("continuity_group").orEmpty()
+        val currentGroup = scene.optString("continuity_group")
+        val continuityAudit = if(currentGroup.isNotBlank() && previousGroup == currentGroup)
+            "Same continuity group: preserve physical positions, prop ownership, wardrobe, lighting direction and unresolved actions across the cut."
+        else "If time or location changes, establish the transition clearly; never assume an unexplained teleport or prop change."
+        val scenePayoff = scene.optString("payoff").ifBlank { scene.optString("reveal") }
+        val payoffRule = if(scenePayoff.isNotBlank()) "Required story payoff: $scenePayoff. Show it within the 8-second beat." else "Advance an existing conflict or question; do not invent an unrelated twist."
         val interaction = if(names.size > 1)
             "Cast: ${names.joinToString(", ")}. Avoid consecutive solo monologues; use natural question-answer, interruption, reaction, or meaningful silent interaction when supported by the story. Assign only one speaker per utterance."
         else "Single visible character: favor meaningful physical action, discovery, off-screen sound, or silent reaction over repetitive monologue; do not invent extra characters."
@@ -2292,7 +2305,10 @@ class StudioActivity : AppCompatActivity() {
             "Scene dramatic mode: $type (adapt to story logic; do not force a mode that contradicts the written scene).",
             "Timing: 0-2s visual hook or initiating action; 2-5s core exchange or event; 5-7s reaction or consequence; 7-8s meaningful end beat. Adjust timing naturally, never cram too many actions.",
             "Dialogue: $speech. Keep spoken Thai concise enough to fit actual 8-second delivery including pauses. Do not add unscripted speeches. If too long, preserve intent and shorten rather than cutting mid-sentence.",
+            "Dialogue quality: $dialogueQuality",
             "Interaction: $interaction",
+            "Continuity audit: $continuityAudit",
+            "Payoff: $payoffRule",
             "Continuity: previous scene end -> current start [${start.ifBlank { "follow preceding action naturally" }}]. Current end [${end.ifBlank { "finish with a clear state" }}]. Next scene setup [${nextHook.ifBlank { "carry forward the dramatic consequence" }}]. Maintain props, positions, emotions and knowledge.",
             "Variety: $varietyWarning Alternate speaking, listening, movement, discovery and silence; choose camera movement only when motivated by the action.",
             "Performance: $performance",
