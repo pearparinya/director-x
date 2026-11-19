@@ -1919,46 +1919,35 @@ class StudioActivity : AppCompatActivity() {
             setPadding(dp(14),dp(14),dp(14),dp(16))
             setBackgroundColor(Color.rgb(13,18,27))
         }
+        // A compact, explicit-height header prevents a blank oversized panel.
+        // All essential labels have measured heights rather than relying on
+        // implicit child measurement inside the dialog ScrollView.
         val titlePanel=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
-            setPadding(dp(16),dp(16),dp(16),dp(16))
-            background=android.graphics.drawable.GradientDrawable(
-                android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.rgb(36,48,69),Color.rgb(15,21,32))
-            ).apply {
-                cornerRadius=dp(14).toFloat()
-                setStroke(dp(1),Color.rgb(115,96,64))
+            setPadding(dp(12),dp(9),dp(12),dp(9))
+            background=android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.rgb(31,42,59))
+                cornerRadius=dp(10).toFloat()
+                setStroke(dp(1),Color.rgb(124,100,64))
             }
         }
         preview.addView(titlePanel,LinearLayout.LayoutParams(-1,-2).apply {
-            setMargins(0,0,0,dp(12))
+            setMargins(0,0,0,dp(8))
         })
         titlePanel.addView(TextView(this).apply {
-            text="DIRECTOR X  /  CINEMATIC STUDIO"
-            textSize=11f
-            letterSpacing=0.12f
-            setTypeface(null,Typeface.BOLD)
-            setTextColor(Color.rgb(231,189,102))
-        })
-        titlePanel.addView(TextView(this).apply {
-            text="ตรวจภาพอ้างอิงก่อนส่ง"
-            textSize=21f
+            text="DIRECTOR X  •  ตรวจภาพก่อนส่ง"
+            textSize=16f
             setTypeface(null,Typeface.BOLD)
             setTextColor(Color.WHITE)
-            setPadding(0,dp(6),0,dp(4))
-        })
+            gravity=android.view.Gravity.CENTER_VERTICAL
+            includeFontPadding=true
+        },LinearLayout.LayoutParams(-1,dp(34)))
         titlePanel.addView(TextView(this).apply {
-            text=pendingStorySummary
-            textSize=12f
-            setTextColor(Color.rgb(207,214,226))
-            maxLines=3
-        })
-        titlePanel.addView(TextView(this).apply {
-            text="FACE DETAIL  /  ORIGINAL MASTER  •  ${uris.count { contentResolver.getType(it)?.startsWith("image/")==true }} ภาพ"
+            text="FACE DETAIL ซ้าย  /  ORIGINAL MASTER ขวา"
             textSize=11f
             setTextColor(Color.rgb(231,189,102))
-            setPadding(0,dp(8),0,0)
-        })
+            gravity=android.view.Gravity.CENTER_VERTICAL
+        },LinearLayout.LayoutParams(-1,dp(24)))
         // Pair face crops (left) with the original MASTER (right) by MASTER ID.
         // Preview layout never changes attachment order, files, or the outgoing intent.
         val imageGrid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
@@ -2010,7 +1999,8 @@ class StudioActivity : AppCompatActivity() {
                 setTextColor(gold)
                 setTypeface(null,Typeface.BOLD)
                 maxLines=1
-            })
+                gravity=android.view.Gravity.CENTER_VERTICAL
+            },LinearLayout.LayoutParams(-1,dp(30)))
             if(ref==null) {
                 card.addView(TextView(this).apply {
                     text="ไม่มีภาพอ้างอิง"
@@ -2021,7 +2011,7 @@ class StudioActivity : AppCompatActivity() {
                 card.addView(ImageView(this).apply {
                     setImageBitmap(previewBitmap(ref.uri))
                     scaleType=ImageView.ScaleType.FIT_CENTER
-                    layoutParams=LinearLayout.LayoutParams(-1,dp(132))
+                    layoutParams=LinearLayout.LayoutParams(-1,dp(150))
                     contentDescription="${heading} • ${ref.label}"
                     setBackgroundColor(Color.rgb(26,30,39))
                 })
@@ -2052,13 +2042,21 @@ class StudioActivity : AppCompatActivity() {
             imageGrid.addView(block,LinearLayout.LayoutParams(-1,-2).apply {
                 setMargins(0,dp(5),0,dp(5))
             })
-            block.addView(TextView(this).apply {
-                text=String.format("%02d  •  %s",rowIndex+1,personName)
-                textSize=16f
+            val nameBanner=TextView(this).apply {
+                text="${rowIndex+1}.  ${personName}"
+                textSize=17f
                 setTextColor(Color.WHITE)
                 setTypeface(null,Typeface.BOLD)
-                setPadding(dp(4),0,dp(4),dp(6))
+                gravity=android.view.Gravity.CENTER_VERTICAL
+                setPadding(dp(9),0,dp(6),0)
+                background=android.graphics.drawable.GradientDrawable().apply {
+                    setColor(Color.rgb(53,66,85))
+                    cornerRadius=dp(7).toFloat()
+                }
                 maxLines=2
+            }
+            block.addView(nameBanner,LinearLayout.LayoutParams(-1,dp(48)).apply {
+                setMargins(0,0,0,dp(7))
             })
             val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
             block.addView(row)
@@ -2118,7 +2116,7 @@ class StudioActivity : AppCompatActivity() {
         commandDetails.setOnClickListener {
             commandText.visibility=if(commandText.visibility==android.view.View.VISIBLE) android.view.View.GONE else android.view.View.VISIBLE
         }
-        AlertDialog.Builder(this).setTitle("DIRECTOR X • CINEMATIC REVIEW")
+        AlertDialog.Builder(this).setTitle("DIRECTOR X • ตรวจภาพก่อนส่ง")
             .setView(ScrollView(this).apply {
                 isFillViewport=true
                 setBackgroundColor(Color.rgb(13,18,27))
