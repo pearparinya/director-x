@@ -1778,7 +1778,14 @@ class StudioActivity : AppCompatActivity() {
                     "Reference image ${index+1}: ${owner?.let { "$it | " }.orEmpty()}${labels[id] ?: cropLabels[id] ?: propLabels[id] ?: id} | ${if(task.references.indices.any { i -> crops[references[i].first]?.first==id }) "FACE CROP" else "SOURCE REFERENCE"}"
                 }.joinToString("\n")
                 prefs.edit().putInt("image_reference_mode_${project.name}",mode).putInt("image_attachment_order",imageOrder.selectedItemPosition).putInt("image_transfer_order",transferOrder.selectedItemPosition).apply()
-                shareImageCommand(command+outfitGuide+propInstruction+(if(owners.isBlank()) "" else "\n$owners")+(if(coverOwners.isBlank()) "" else "\n$coverOwners")+"\n\nATTACHMENT ORDER (verify in receiving app):\n"+exactBindings,payload,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
+                val includedIds=payload.map { it.first }.toSet()
+                val includedOutfitExtras=outfitExtras.filter { it.first in includedIds }
+                val safeOutfitGuide=if(includedOutfitExtras.isEmpty()) "" else (if(mode==2) "\n\nREVIEWED SCENE REFERENCE: This prior single-character scene was reviewed for the same character and outfit; original MASTER remains identity source. " else "")+"\n\nREVIEWED OUTFIT REFERENCES: "+includedOutfitExtras.joinToString("; ") { "${it.first} = ${labels[it.first]}" }
+                val includedPropRefs=propRefs.filter { it.first in includedIds }
+                val safePropInstruction=if(includedPropRefs.isEmpty()) "" else "\n\nPROP MASTER REFERENCES: "+includedPropRefs.joinToString("; ") { "${it.first} = ${propLabels[it.first]}" }+". Use each object's own MASTER; do not swap identities."
+                val safeOwners=if(includedPropRefs.isEmpty()) "" else owners
+                val safeCoverOwners=if(includedPropRefs.isEmpty()) "" else coverOwners
+                shareImageCommand(command+safeOutfitGuide+safePropInstruction+(if(safeOwners.isBlank()) "" else "\n$safeOwners")+(if(safeCoverOwners.isBlank()) "" else "\n$safeCoverOwners")+"\n\nATTACHMENT ORDER (verify in receiving app):\n"+exactBindings,payload,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
             }
             .setNegativeButton("กลับไปตรวจ",null).showDirector()
     }
