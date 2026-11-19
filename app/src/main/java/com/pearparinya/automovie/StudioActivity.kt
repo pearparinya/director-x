@@ -1715,7 +1715,7 @@ class StudioActivity : AppCompatActivity() {
                 val cropsToVerify=if(mode==1) crops else selected
                 val cropsStable=runCatching { cropsToVerify.all { (id,crop) -> crop.second.isFile && MasterLibrary.digest(crop.second.readBytes())==cropDigests[id] } }.getOrDefault(false)
                 if(!cropsStable) { notice("ภาพครอปใบหน้าเปลี่ยนหรือหาย กรุณาเลือกจาก MASTER อีกครั้ง"); return@setPositiveButton }
-                val bindings=selected.entries.joinToString("\n") { (id,crop) -> "CHARACTER ${labels[id].orEmpty()} — FACE CROP ${crop.first} is cropped from MASTER ${referenceId(id)}; both show the same character. Use the crop for facial identity and the original MASTER for verification. Never use this crop for another character." }
+                val bindings=(if(mode==0 || mode==1) selected.entries else emptySet()).joinToString("\n") { (id,crop) -> "CHARACTER ${labels[id].orEmpty()} — FACE CROP ${crop.first} is cropped from MASTER ${referenceId(id)}; both show the same character. Use the crop for facial identity and the original MASTER for verification. Never use this crop for another character." }
                 val rawCommand=if(faceOnly.isChecked || mode==1) SimpleProductionCommands.faceOnly(task.command) else task.command
                 val modeCommand=rawCommand // Keep three-view MASTER instructions; face crops are supplemental only.
                 val baseCommand=modeCommand+(if(bindings.isBlank()) "" else "\n\n$bindings")
