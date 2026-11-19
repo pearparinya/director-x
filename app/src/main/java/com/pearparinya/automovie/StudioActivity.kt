@@ -1948,25 +1948,38 @@ class StudioActivity : AppCompatActivity() {
             used.add(ref.index)
             displayRows.add(if(ref.face) ref to null else null to ref)
         }
-        fun addPreviewCell(row: LinearLayout,ref: PreviewRef?,heading: String) {
+        fun addPreviewCell(row: LinearLayout,ref: PreviewRef?,heading: String,personName: String) {
             val card=LinearLayout(this).apply {
                 orientation=LinearLayout.VERTICAL
                 setPadding(dp(5),dp(6),dp(5),dp(10))
             }
             row.addView(card,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f))
             card.addView(TextView(this).apply {
+                text=personName
+                textSize=16f
+                setTextColor(Color.WHITE)
+                setTypeface(null,Typeface.BOLD)
+                setPadding(0,dp(3),0,dp(3))
+            })
+            card.addView(TextView(this).apply {
                 text=heading
                 textSize=13f
+                setTextColor(Color.rgb(255,205,90))
                 setTypeface(null,Typeface.BOLD)
             })
             if(ref==null) {
-                card.addView(TextView(this).apply { text="ไม่มีภาพอ้างอิง"; textSize=12f })
+                card.addView(TextView(this).apply {
+                    text="ไม่มีภาพอ้างอิง"
+                    textSize=12f
+                    setTextColor(Color.LTGRAY)
+                })
                 return
             }
             card.addView(TextView(this).apply {
                 text="ภาพที่ ${ref.index+1} • ${ref.label}"
                 textSize=12f
-                maxLines=3
+                setTextColor(Color.WHITE)
+                maxLines=4
                 ellipsize=android.text.TextUtils.TruncateAt.END
             })
             card.addView(ImageView(this).apply {
@@ -1974,14 +1987,22 @@ class StudioActivity : AppCompatActivity() {
                 scaleType=ImageView.ScaleType.FIT_CENTER
                 adjustViewBounds=true
                 layoutParams=LinearLayout.LayoutParams(-1,dp(150))
-                contentDescription=ref.label
+                contentDescription="${personName} • ${heading} • ${ref.label}"
             })
         }
         displayRows.forEach { (face,master) ->
+            // Crop labels contain the real character name. Do not guess names from faces.
+            val cropName=face?.label?.takeIf { it.startsWith("ภาพครอปใบหน้า ") }
+                ?.removePrefix("ภาพครอปใบหน้า ")?.substringBefore(" จาก MASTER ")?.trim().orEmpty()
+            val masterName=master?.label?.trim().orEmpty()
+            val personName=cropName.ifBlank {
+                masterName.takeIf { it.isNotBlank() && !it.startsWith("MASTER") && !it.startsWith("SUPPORT_") }
+                    ?: "ตัวละคร • ${master?.masterId ?: face?.masterId ?: "ไม่ทราบรหัส"}"
+            }
             val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
             imageGrid.addView(row)
-            addPreviewCell(row,face,"ซ้าย • ใบหน้า")
-            addPreviewCell(row,master,"ขวา • MASTER")
+            addPreviewCell(row,face,"ซ้าย • ใบหน้า",personName)
+            addPreviewCell(row,master,"ขวา • MASTER",personName)
         }
         preview.addView(TextView(this).apply { this.text = text; textSize = 14f; setTextIsSelectable(true) })
         AlertDialog.Builder(this).setTitle("ตรวจคำสั่งและภาพก่อนส่ง")
