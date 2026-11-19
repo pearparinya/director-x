@@ -49,6 +49,12 @@ internal object CharacterAliasRegistry {
                 all.add(Triple(alias,entry.optString("name"),entry.optString("master")))
         }
         val grouped=all.groupBy { key(it.first) }
+        val actionText=scene.optString("flow_action")
+        for((alias,rows) in grouped) {
+            val identities=rows.map { it.second to it.third.lowercase(Locale.ROOT) }.distinct()
+            if(identities.size>1 && Regex("(?<![A-Za-z0-9_])"+Regex.escape(alias)+"(?![A-Za-z0-9_])",RegexOption.IGNORE_CASE).containsMatchIn(actionText))
+                throw IllegalArgumentException("ชื่ออังกฤษ '$alias' ซ้ำกันระหว่างตัวละคร กรุณาตรวจทะเบียนชื่อและ MASTER ก่อนสร้างซีน")
+        }
         val valid=grouped.values.mapNotNull { rows ->
             val identities=rows.map { it.second to it.third.lowercase(Locale.ROOT) }.distinct()
             if(identities.size!=1) null else rows.first()
