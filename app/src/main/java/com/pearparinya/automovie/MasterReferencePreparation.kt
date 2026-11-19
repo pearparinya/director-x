@@ -45,6 +45,39 @@ internal object MasterReferencePreparation {
         return Result(attachments, warnings)
     }
 
+    /**
+     * Explicit MASTER-only sharing for crowded scenes. Every character retains
+     * exactly one original source; missing crops do not block this mode.
+     * Reject duplicate identities rather than borrowing another person's image.
+     */
+    fun prepareOriginalMastersOnly(characters: List<CharacterSource>, maxImages: Int = 9): Result {
+        val attachments = mutableListOf<Attachment>()
+        val warnings = mutableListOf<String>()
+        val names = mutableSetOf<String>()
+        val digests = mutableSetOf<String>()
+        if (maxImages < 1) return Result(emptyList(), listOf("จำนวนภาพสูงสุดต้องมากกว่า 0"))
+        characters.forEach { character ->
+            val name = character.name.trim()
+            if (name.isEmpty() || !names.add(name)) {
+                warnings.add("ชื่อตัวละครว่างหรือซ้ำ: กรุณาตรวจการจับคู่ MASTER")
+                return@forEach
+            }
+            val source = character.master
+            if (!source.isFile || source.length() == 0L) {
+                warnings.add("$name: ไม่พบไฟล์ MASTER ต้นฉบับ")
+                return@forEach
+            }
+            if (!digests.add(MasterLibrary.digest(source.readBytes()))) {
+                warnings.add("$name: ใช้ไฟล์ MASTER เดียวกับตัวละครอื่น โปรดตรวจสอบ")
+                return@forEach
+            }
+            attachments.add(Attachment(name, "ORIGINAL_MASTER", source))
+        }
+        if (attachments.size > maxImages)
+            warnings.add("จำนวน MASTER เกินขีดจำกัด $maxImages ภาพ: ไม่ตัดตัวละครออกโดยอัตโนมัติ")
+        return Result(attachments, warnings)
+    }
+
     fun bindingText(result: Result): String =
         result.attachments.mapIndexed { index, attachment ->
             "Reference image ${index + 1}: ${attachment.character} | ${attachment.role} | identity only; never blend with another character."
