@@ -1704,10 +1704,37 @@ class StudioActivity : AppCompatActivity() {
             checkbox.setOnCheckedChangeListener { _,checked -> image.visibility=if(checked) android.view.View.VISIBLE else android.view.View.GONE; if(checked) showProp() }
             panel.addView(image)
         }
+        // Preflight count follows the scene task's actual character references.
+        // Never silently remove characters or change the user's chosen mode.
+        val imageBudget=TextView(this).apply {
+            textSize=16f
+            setTypeface(null,Typeface.BOLD)
+            setPadding(dp(12),dp(10),dp(12),dp(10))
+            setBackgroundColor(Color.rgb(34,43,59))
+        }
+        panel.addView(imageBudget,0)
+        fun updateImageBudget() {
+            val mode=referenceMode.selectedItemPosition
+            val masterCount=task.references.size
+            val cropCount=if(mode==0 || mode==1) task.references.indices.count { crops.containsKey(references[it].first) } else 0
+            val total=if(mode==1) cropCount else masterCount+cropCount
+            val valid=total<=9 && (mode!=1 || cropCount==masterCount)
+            imageBudget.setTextColor(if(valid) Color.rgb(170,232,191) else Color.rgb(255,194,109))
+            imageBudget.text="ภาพตัวละคร $total/9 • MASTER ${if(mode==1) 0 else masterCount} • FACE ${cropCount}"+
+                (if(!valid) "\\n⚠ เกินกำหนดหรือครอปไม่ครบ • เลือกโหมด MASTER ต้นฉบับเท่านั้นสำหรับซีนหลายคน" else "")
+        }
+        val originalRefresh=refreshCards
+        refreshCards={ originalRefresh(); updateImageBudget() }
+        updateImageBudget()
         AlertDialog.Builder(this).setTitle("ตรวจ MASTER • ${task.id}").setView(ScrollView(this).apply { addView(panel) })
             .setPositiveButton("เลือกแอปและส่ง") { _,_ ->
                 val stable=runCatching { references.take(task.references.size).all { (id,file) -> file.isFile && MasterLibrary.digest(file.readBytes())==masterDigests[id] } }.getOrDefault(false)
                 if(!stable) { notice("ภาพ MASTER เปลี่ยนหรือหายระหว่างตรวจ กรุณาเปิดรายการและตรวจภาพอีกครั้ง"); return@setPositiveButton }
+                val sceneMasterIds=references.take(task.references.size).map { referenceId(it.first).lowercase() }
+                if(sceneMasterIds.size!=sceneMasterIds.distinct().size) {
+                    notice("พบ MASTER ID ซ้ำในซีนนี้ • กรุณาตรวจการผูกตัวละครก่อนส่ง เพื่อป้องกันใบหน้าสลับ")
+                    return@setPositiveButton
+                }
                 val mode=referenceMode.selectedItemPosition
                 if(mode==1 && task.references.indices.any { crops[references[it].first]==null }) { notice("โหมดครอปหน้าอย่างเดียวต้องมีภาพครอปของทุกตัวละคร"); return@setPositiveButton }
                 
