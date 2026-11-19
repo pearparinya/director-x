@@ -1919,12 +1919,38 @@ class StudioActivity : AppCompatActivity() {
             setPadding(dp(14),dp(14),dp(14),dp(16))
             setBackgroundColor(Color.rgb(13,18,27))
         }
-        // A compact, explicit-height header prevents a blank oversized panel.
-        // All essential labels have measured heights rather than relying on
-        // implicit child measurement inside the dialog ScrollView.
+        // Render essential identity captions on Canvas independently of TextView.
+        // This isolates the repeated device-specific blank TextView symptom.
+        fun paintedCaption(value: String, sizeSp: Float, color: Int, bold: Boolean = false): android.view.View =
+            object : android.view.View(this@StudioActivity) {
+                private val captionPaint=android.text.TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                    this.color=color
+                    textSize=sizeSp*resources.displayMetrics.scaledDensity
+                    typeface=if(bold) Typeface.create(Typeface.DEFAULT,Typeface.BOLD) else Typeface.DEFAULT
+                }
+                init {
+                    setLayerType(android.view.View.LAYER_TYPE_SOFTWARE,null)
+                    contentDescription=value
+                    importantForAccessibility=android.view.View.IMPORTANT_FOR_ACCESSIBILITY_YES
+                }
+                override fun onDraw(canvas: android.graphics.Canvas) {
+                    super.onDraw(canvas)
+                    val available=(width-dp(8)).coerceAtLeast(1)
+                    val layout=android.text.StaticLayout.Builder.obtain(value,0,value.length,captionPaint,available)
+                        .setAlignment(android.text.Layout.Alignment.ALIGN_NORMAL)
+                        .setIncludePad(true)
+                        .setMaxLines(2)
+                        .setEllipsize(android.text.TextUtils.TruncateAt.END)
+                        .build()
+                    canvas.save()
+                    canvas.translate(dp(4).toFloat(),((height-layout.height)/2).coerceAtLeast(0).toFloat())
+                    layout.draw(canvas)
+                    canvas.restore()
+                }
+            }
         val titlePanel=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
-            setPadding(dp(12),dp(9),dp(12),dp(9))
+            setPadding(dp(12),dp(8),dp(12),dp(8))
             background=android.graphics.drawable.GradientDrawable().apply {
                 setColor(Color.rgb(31,42,59))
                 cornerRadius=dp(10).toFloat()
@@ -1934,20 +1960,10 @@ class StudioActivity : AppCompatActivity() {
         preview.addView(titlePanel,LinearLayout.LayoutParams(-1,-2).apply {
             setMargins(0,0,0,dp(8))
         })
-        titlePanel.addView(TextView(this).apply {
-            text="DIRECTOR X  •  ตรวจภาพก่อนส่ง"
-            textSize=16f
-            setTypeface(null,Typeface.BOLD)
-            setTextColor(Color.WHITE)
-            gravity=android.view.Gravity.CENTER_VERTICAL
-            includeFontPadding=true
-        },LinearLayout.LayoutParams(-1,dp(34)))
-        titlePanel.addView(TextView(this).apply {
-            text="FACE DETAIL ซ้าย  /  ORIGINAL MASTER ขวา"
-            textSize=11f
-            setTextColor(Color.rgb(231,189,102))
-            gravity=android.view.Gravity.CENTER_VERTICAL
-        },LinearLayout.LayoutParams(-1,dp(24)))
+        titlePanel.addView(paintedCaption("DIRECTOR X  •  ตรวจภาพก่อนส่ง",16f,Color.WHITE,true),
+            LinearLayout.LayoutParams(-1,dp(36)))
+        titlePanel.addView(paintedCaption("FACE DETAIL ซ้าย  /  ORIGINAL MASTER ขวา",11f,Color.rgb(231,189,102),true),
+            LinearLayout.LayoutParams(-1,dp(26)))
         // Pair face crops (left) with the original MASTER (right) by MASTER ID.
         // Preview layout never changes attachment order, files, or the outgoing intent.
         val imageGrid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
@@ -1993,14 +2009,8 @@ class StudioActivity : AppCompatActivity() {
             row.addView(card,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f).apply {
                 setMargins(dp(3),0,dp(3),0)
             })
-            card.addView(TextView(this).apply {
-                text=heading
-                textSize=11f
-                setTextColor(gold)
-                setTypeface(null,Typeface.BOLD)
-                maxLines=1
-                gravity=android.view.Gravity.CENTER_VERTICAL
-            },LinearLayout.LayoutParams(-1,dp(30)))
+            card.addView(paintedCaption(heading,11f,gold,true),
+                LinearLayout.LayoutParams(-1,dp(30)))
             if(ref==null) {
                 card.addView(TextView(this).apply {
                     text="ไม่มีภาพอ้างอิง"
@@ -2042,20 +2052,13 @@ class StudioActivity : AppCompatActivity() {
             imageGrid.addView(block,LinearLayout.LayoutParams(-1,-2).apply {
                 setMargins(0,dp(5),0,dp(5))
             })
-            val nameBanner=TextView(this).apply {
-                text="${rowIndex+1}.  ${personName}"
-                textSize=17f
-                setTextColor(Color.WHITE)
-                setTypeface(null,Typeface.BOLD)
-                gravity=android.view.Gravity.CENTER_VERTICAL
-                setPadding(dp(9),0,dp(6),0)
+            val nameBanner=paintedCaption("${rowIndex+1}.  ${personName}",17f,Color.WHITE,true).apply {
                 background=android.graphics.drawable.GradientDrawable().apply {
                     setColor(Color.rgb(53,66,85))
                     cornerRadius=dp(7).toFloat()
                 }
-                maxLines=2
             }
-            block.addView(nameBanner,LinearLayout.LayoutParams(-1,dp(48)).apply {
+            block.addView(nameBanner,LinearLayout.LayoutParams(-1,dp(52)).apply {
                 setMargins(0,0,0,dp(7))
             })
             val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
