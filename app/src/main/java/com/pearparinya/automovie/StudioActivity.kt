@@ -2277,6 +2277,13 @@ class StudioActivity : AppCompatActivity() {
         val start = scene.optString("start_state").ifBlank { previous?.optString("end_state").orEmpty() }
         val end = scene.optString("end_state")
         val nextHook = next?.optString("start_state").orEmpty()
+        val recentModes = scenes.take(if(index < 0) 0 else index).takeLast(3).map { it.optString("beat_type").trim() }.filter { it.isNotBlank() }
+        val varietyWarning = if(recentModes.size >= 2 && recentModes.all { it == type })
+            "Recent scenes repeatedly use $type. If story allows, vary camera framing, meaningful physical action, listening reaction or silence without altering established events."
+        else "Avoid repeating the same static speaking pose or camera framing in adjacent scenes."
+        val emotionalCause = scene.optString("emotion").ifBlank { scene.optString("mood") }
+        val nextEmotion = next?.optString("emotion")?.ifBlank { next.optString("mood") }.orEmpty()
+        val performance = "Emotion now: ${emotionalCause.ifBlank { "derive from current conflict" }}; next beat: ${nextEmotion.ifBlank { "respond to consequence" }}. Show changes through facial reaction, gesture and timing rather than exposition."
         val interaction = if(names.size > 1)
             "Cast: ${names.joinToString(", ")}. Avoid consecutive solo monologues; use natural question-answer, interruption, reaction, or meaningful silent interaction when supported by the story. Assign only one speaker per utterance."
         else "Single visible character: favor meaningful physical action, discovery, off-screen sound, or silent reaction over repetitive monologue; do not invent extra characters."
@@ -2287,7 +2294,8 @@ class StudioActivity : AppCompatActivity() {
             "Dialogue: $speech. Keep spoken Thai concise enough to fit actual 8-second delivery including pauses. Do not add unscripted speeches. If too long, preserve intent and shorten rather than cutting mid-sentence.",
             "Interaction: $interaction",
             "Continuity: previous scene end -> current start [${start.ifBlank { "follow preceding action naturally" }}]. Current end [${end.ifBlank { "finish with a clear state" }}]. Next scene setup [${nextHook.ifBlank { "carry forward the dramatic consequence" }}]. Maintain props, positions, emotions and knowledge.",
-            "Variety: alternate speaking, listening, movement, discovery and silence across scenes; choose camera movement only when motivated by the action.",
+            "Variety: $varietyWarning Alternate speaking, listening, movement, discovery and silence; choose camera movement only when motivated by the action.",
+            "Performance: $performance",
             "End beat: create a cause, decision, reveal or emotional question that advances the next scene, without inventing a new plot twist every clip.",
             "Image output remains the FIRST FRAME / START STATE of this scene; never depict the full eight-second sequence in one still."
         ).joinToString("\n")
