@@ -2297,6 +2297,13 @@ class StudioActivity : AppCompatActivity() {
         else "If time or location changes, establish the transition clearly; never assume an unexplained teleport or prop change."
         val scenePayoff = scene.optString("payoff").ifBlank { scene.optString("reveal") }
         val payoffRule = if(scenePayoff.isNotBlank()) "Required story payoff: $scenePayoff. Show it within the 8-second beat." else "Advance an existing conflict or question; do not invent an unrelated twist."
+        val previousDialogue = previous?.optString("dialogue")?.ifBlank { previous.optString("dialog") }.orEmpty().trim()
+        val repeatWarning = if(speech.isNotBlank() && previousDialogue.isNotBlank() && speech.trim() == previousDialogue)
+            "Repeated dialogue matches the preceding scene exactly. Keep only if intentional; otherwise advance the exchange without inventing unrelated plot."
+        else "Avoid repeated solo speeches and identical responses across consecutive scenes."
+        val endStateQuality = if(end.isBlank())
+            "No explicit end_state supplied: finish on a clear visible character position, prop state and emotional reaction that can become the next scene start."
+        else "Required end_state: $end. Preserve it as the handoff into the next clip."
         val interaction = if(names.size > 1)
             "Cast: ${names.joinToString(", ")}. Avoid consecutive solo monologues; use natural question-answer, interruption, reaction, or meaningful silent interaction when supported by the story. Assign only one speaker per utterance."
         else "Single visible character: favor meaningful physical action, discovery, off-screen sound, or silent reaction over repetitive monologue; do not invent extra characters."
@@ -2306,6 +2313,8 @@ class StudioActivity : AppCompatActivity() {
             "Timing: 0-2s visual hook or initiating action; 2-5s core exchange or event; 5-7s reaction or consequence; 7-8s meaningful end beat. Adjust timing naturally, never cram too many actions.",
             "Dialogue: $speech. Keep spoken Thai concise enough to fit actual 8-second delivery including pauses. Do not add unscripted speeches. If too long, preserve intent and shorten rather than cutting mid-sentence.",
             "Dialogue quality: $dialogueQuality",
+            "Dialogue repetition: $repeatWarning",
+            "End-state validation: $endStateQuality",
             "Interaction: $interaction",
             "Continuity audit: $continuityAudit",
             "Payoff: $payoffRule",
