@@ -1612,6 +1612,11 @@ class StudioActivity : AppCompatActivity() {
                 isChecked=false
                 isEnabled=false
                 setOnCheckedChangeListener { _, checked ->
+                    // A checked FACE DETAIL must be part of the outgoing payload.
+                    // Previously MASTER-only modes silently dropped checked crops.
+                    if(checked && referenceMode.selectedItemPosition in 2..3) {
+                        referenceMode.setSelection(4)
+                    }
                     if(checked && selectedFaceIds().size>(9-task.references.size).coerceAtLeast(0)) {
                         isChecked=false
                         notice("เลือก FACE DETAIL ได้สูงสุด ${(9-task.references.size).coerceAtLeast(0)} คน")
@@ -1754,6 +1759,10 @@ class StudioActivity : AppCompatActivity() {
                     return@setPositiveButton
                 }
                 val mode=referenceMode.selectedItemPosition
+                if(mode in 2..3 && selectedFaceIds().isNotEmpty()) {
+                    notice("มี FACE DETAIL ที่เลือกไว้ แต่โหมดนี้ไม่แนบใบหน้า • เปลี่ยนเป็น MASTER + FACE DETAIL ก่อนส่ง")
+                    return@setPositiveButton
+                }
                 if(mode==1 && task.references.indices.any { crops[references[it].first]==null }) { notice("โหมดครอปหน้าอย่างเดียวต้องมีภาพครอปของทุกตัวละคร"); return@setPositiveButton }
                 
                 if(mode==4 && selectedFaceIds().isEmpty() && task.references.size>=5) {
