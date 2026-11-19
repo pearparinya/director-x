@@ -1551,8 +1551,8 @@ class StudioActivity : AppCompatActivity() {
             setPadding(dp(12),dp(12),dp(12),dp(6))
         }
         val referenceMode=Spinner(this).apply {
-            adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ภาพครอปใบหน้า + ภาพสามมุมมอง", "ภาพครอปใบหน้าอย่างเดียว", "MASTER + ภาพฉากที่ตรวจผ่าน"))
-            setSelection(prefs.getInt("image_reference_mode_${project.name}",0).coerceIn(0,2))
+            adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ภาพครอปใบหน้า + ภาพสามมุมมอง", "ภาพครอปใบหน้าอย่างเดียว", "MASTER + ภาพฉากที่ตรวจผ่าน", "MASTER ต้นฉบับเท่านั้น • สำหรับซีนหลายคน"))
+            setSelection(prefs.getInt("image_reference_mode_${project.name}",0).coerceIn(0,3))
         }
         val imageOrder=Spinner(this).apply {
             adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ภาพสามมุม → ภาพครอป", "ภาพครอป → ภาพสามมุม"))
@@ -1758,9 +1758,10 @@ class StudioActivity : AppCompatActivity() {
                 // Preserve attachment order and never substitute another character's image.
                 val optional=extras.filter { !it.first.startsWith("OUTFIT_") || it in outfitExtras }+propRefs
                 if(orderedPeople.size>9) {
-                    notice("MASTER ต้นฉบับ ${primary.size} ภาพ + ภาพครอปใบหน้า ${orderedPeople.size-primary.size} ภาพ = ${orderedPeople.size} ภาพ เกินขีดจำกัด 9 ภาพ • หากเป็นหน้าปก ให้กลับไปเลือกตัวละครบนปกไม่เกิน 4 คน โดยไม่ต้องสร้างเรื่องใหม่ ระบบจะไม่ตัด MASTER หรือสลับใบหน้าให้อัตโนมัติ")
+                    notice("ซีนนี้มี MASTER ${primary.size} ภาพ + ภาพครอป ${orderedPeople.size-primary.size} ภาพ รวม ${orderedPeople.size}/9 ภาพ • กลับไปที่ตัวเลือกภาพอ้างอิง (ขั้นตอน 1) แล้วเลือก «MASTER ต้นฉบับเท่านั้น • สำหรับซีนหลายคน» เพื่อแนบ MASTER ทุกคนโดยไม่ตัดตัวละครหรือสลับใบหน้า หากต้องการภาพครอปครบทุกคน ต้องแบ่งงานเป็นหลายคำสั่ง")
                     return@setPositiveButton
                 }
+                if(primary.size>9) { notice("ซีนนี้มี MASTER ${primary.size} คน เกินขีดจำกัด 9 ภาพ ไม่สามารถส่งในครั้งเดียวได้ กรุณาแบ่งซีนตามบทโดยไม่ลบตัวละครจากข้อมูลต้นฉบับ"); return@setPositiveButton }
                 val remaining=9-orderedPeople.size
                 val includedOptional=optional.take(remaining)
                 val omittedOptional=optional.drop(remaining)
