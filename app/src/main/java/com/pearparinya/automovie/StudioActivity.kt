@@ -2261,7 +2261,18 @@ class StudioActivity : AppCompatActivity() {
         }
         val sceneTypes = listOf("DIALOGUE_EXCHANGE", "PHYSICAL_ACTION", "DISCOVERY", "REACTION", "CONFRONTATION", "INTERRUPTION", "SILENT_TENSION", "REVEAL")
         val explicitType = scene.optString("beat_type").trim()
-        val type = explicitType.ifBlank { sceneTypes[(if(index < 0) 0 else index) % sceneTypes.size] }
+        val actionText = listOf(scene.optString("action"),scene.optString("activity"),scene.optString("image_prompt")).joinToString(" ").lowercase()
+        val type = explicitType.ifBlank {
+            when {
+                listOf("พบ", "เจอ", "ค้นพบ", "หลักฐาน", "discover", "find").any { it in actionText } -> "DISCOVERY"
+                listOf("โกรธ", "ทะเลาะ", "เถียง", "กล่าวหา", "confront").any { it in actionText } -> "CONFRONTATION"
+                listOf("ตกใจ", "ชะงัก", "สะดุ้ง", "reaction").any { it in actionText } -> "REACTION"
+                listOf("วิ่ง", "เดิน", "หยิบ", "เปิดประตู", "action").any { it in actionText } -> "PHYSICAL_ACTION"
+                listOf("เงียบ", "สบตา", "นิ่ง", "silent").any { it in actionText } -> "SILENT_TENSION"
+                scene.optString("dialogue").isNotBlank() || scene.optString("dialog").isNotBlank() -> "DIALOGUE_EXCHANGE"
+                else -> sceneTypes[(if(index < 0) 0 else index) % sceneTypes.size]
+            }
+        }
         val speech = scene.optString("dialogue").ifBlank { scene.optString("dialog") }
         val start = scene.optString("start_state").ifBlank { previous?.optString("end_state").orEmpty() }
         val end = scene.optString("end_state")
@@ -2279,7 +2290,7 @@ class StudioActivity : AppCompatActivity() {
             "Variety: alternate speaking, listening, movement, discovery and silence across scenes; choose camera movement only when motivated by the action.",
             "End beat: create a cause, decision, reveal or emotional question that advances the next scene, without inventing a new plot twist every clip.",
             "Image output remains the FIRST FRAME / START STATE of this scene; never depict the full eight-second sequence in one still."
-        ).joinToString("\\n")
+        ).joinToString("\n")
     }
     private fun storySceneCommand(p: JSONObject, scene: JSONObject): String {
         val setting=listOf(scene.optString("location"),scene.optString("story_day"),scene.optString("story_time"),scene.optString("activity"),scene.optString("props")).filter { it.isNotBlank() }.joinToString(" • ")
