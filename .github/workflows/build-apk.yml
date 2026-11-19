@@ -1,4 +1,5 @@
 name: DIRECTOR X Release Signed APK
+# Release trigger verification for Director X 5.09 Build 1125 (manual approval 2026-11-19).
 
 on:
   workflow_dispatch:
