@@ -2250,6 +2250,81 @@ class StudioActivity : AppCompatActivity() {
                 "ชุด: ${sceneWardrobe(scene,person)}",characterAccuracyLock(scene,person,referenceId(exported)),PerformanceDirection.text(person).takeIf { it.isNotBlank() }?.let { "การแสดง: $it" }.orEmpty())
                 .filter { it.isNotBlank() }.joinToString(" | ") }
     }
+    private fun cinematicBeatGuide(p: JSONObject, scene: JSONObject): String {
+        val scenes = rows(p)
+        val index = scenes.indexOfFirst { key(it) == key(scene) }
+        val previous = scenes.getOrNull(index - 1)
+        val next = scenes.getOrNull(index + 1)
+        val cast = scene.optJSONArray("characters")
+        val names = if(cast == null) emptyList() else (0 until cast.length()).mapNotNull { i ->
+            cast.optJSONObject(i)?.optString("name")?.takeIf { it.isNotBlank() }
+        }
+        val sceneTypes = listOf("DIALOGUE_EXCHANGE", "PHYSICAL_ACTION", "DISCOVERY", "REACTION", "CONFRONTATION", "INTERRUPTION", "SILENT_TENSION", "REVEAL")
+        val explicitType = scene.optString("beat_type").trim()
+        val actionText = listOf(scene.optString("action"),scene.optString("activity"),scene.optString("image_prompt")).joinToString(" ").lowercase()
+        val type = explicitType.ifBlank {
+            when {
+                listOf("พบ", "เจอ", "ค้นพบ", "หลักฐาน", "discover", "find").any { it in actionText } -> "DISCOVERY"
+                listOf("โกรธ", "ทะเลาะ", "เถียง", "กล่าวหา", "confront").any { it in actionText } -> "CONFRONTATION"
+                listOf("ตกใจ", "ชะงัก", "สะดุ้ง", "reaction").any { it in actionText } -> "REACTION"
+                listOf("วิ่ง", "เดิน", "หยิบ", "เปิดประตู", "action").any { it in actionText } -> "PHYSICAL_ACTION"
+                listOf("เงียบ", "สบตา", "นิ่ง", "silent").any { it in actionText } -> "SILENT_TENSION"
+                scene.optString("dialogue").isNotBlank() || scene.optString("dialog").isNotBlank() -> "DIALOGUE_EXCHANGE"
+                else -> sceneTypes[(if(index < 0) 0 else index) % sceneTypes.size]
+            }
+        }
+        val speech = scene.optString("dialogue").ifBlank { scene.optString("dialog") }
+        val start = scene.optString("start_state").ifBlank { previous?.optString("end_state").orEmpty() }
+        val end = scene.optString("end_state")
+        val nextHook = next?.optString("start_state").orEmpty()
+        val recentModes = scenes.take(if(index < 0) 0 else index).takeLast(3).map { it.optString("beat_type").trim() }.filter { it.isNotBlank() }
+        val varietyWarning = if(recentModes.size >= 2 && recentModes.all { it == type })
+            "Recent scenes repeatedly use $type. If story allows, vary camera framing, meaningful physical action, listening reaction or silence without altering established events."
+        else "Avoid repeating the same static speaking pose or camera framing in adjacent scenes."
+        val emotionalCause = scene.optString("emotion").ifBlank { scene.optString("mood") }
+        val nextEmotion = next?.optString("emotion")?.ifBlank { next.optString("mood") }.orEmpty()
+        val performance = "Emotion now: ${emotionalCause.ifBlank { "derive from current conflict" }}; next beat: ${nextEmotion.ifBlank { "respond to consequence" }}. Show changes through facial reaction, gesture and timing rather than exposition."
+        val dialogueEstimate = speech.trim().length
+        val dialogueQuality = when {
+            dialogueEstimate == 0 -> "No scripted dialogue: preserve purposeful silence, sound and visual action; do not invent speech."
+            dialogueEstimate > 85 -> "Dialogue length warning: $dialogueEstimate characters may exceed 8 seconds in Thai. Reduce to the essential exchange while retaining meaning and speaker identity; avoid clipped lines."
+            else -> "Dialogue length: $dialogueEstimate characters. Allow natural Thai delivery and reaction pauses within 8 seconds; verify against rendered audio."
+        }
+        val previousGroup = previous?.optString("continuity_group").orEmpty()
+        val currentGroup = scene.optString("continuity_group")
+        val continuityAudit = if(currentGroup.isNotBlank() && previousGroup == currentGroup)
+            "Same continuity group: preserve physical positions, prop ownership, wardrobe, lighting direction and unresolved actions across the cut."
+        else "If time or location changes, establish the transition clearly; never assume an unexplained teleport or prop change."
+        val scenePayoff = scene.optString("payoff").ifBlank { scene.optString("reveal") }
+        val payoffRule = if(scenePayoff.isNotBlank()) "Required story payoff: $scenePayoff. Show it within the 8-second beat." else "Advance an existing conflict or question; do not invent an unrelated twist."
+        val previousDialogue = previous?.optString("dialogue")?.ifBlank { previous.optString("dialog") }.orEmpty().trim()
+        val repeatWarning = if(speech.isNotBlank() && previousDialogue.isNotBlank() && speech.trim() == previousDialogue)
+            "Repeated dialogue matches the preceding scene exactly. Keep only if intentional; otherwise advance the exchange without inventing unrelated plot."
+        else "Avoid repeated solo speeches and identical responses across consecutive scenes."
+        val endStateQuality = if(end.isBlank())
+            "No explicit end_state supplied: finish on a clear visible character position, prop state and emotional reaction that can become the next scene start."
+        else "Required end_state: $end. Preserve it as the handoff into the next clip."
+        val interaction = if(names.size > 1)
+            "Cast: ${names.joinToString(", ")}. Avoid consecutive solo monologues; use natural question-answer, interruption, reaction, or meaningful silent interaction when supported by the story. Assign only one speaker per utterance."
+        else "Single visible character: favor meaningful physical action, discovery, off-screen sound, or silent reaction over repetitive monologue; do not invent extra characters."
+        return listOf(
+            "DIRECTOR X CINEMATIC STORY ENGINE — EXACTLY 8 SECONDS",
+            "Scene dramatic mode: $type (adapt to story logic; do not force a mode that contradicts the written scene).",
+            "Timing: 0-2s visual hook or initiating action; 2-5s core exchange or event; 5-7s reaction or consequence; 7-8s meaningful end beat. Adjust timing naturally, never cram too many actions.",
+            "Dialogue: $speech. Keep spoken Thai concise enough to fit actual 8-second delivery including pauses. Do not add unscripted speeches. If too long, preserve intent and shorten rather than cutting mid-sentence.",
+            "Dialogue quality: $dialogueQuality",
+            "Dialogue repetition: $repeatWarning",
+            "End-state validation: $endStateQuality",
+            "Interaction: $interaction",
+            "Continuity audit: $continuityAudit",
+            "Payoff: $payoffRule",
+            "Continuity: previous scene end -> current start [${start.ifBlank { "follow preceding action naturally" }}]. Current end [${end.ifBlank { "finish with a clear state" }}]. Next scene setup [${nextHook.ifBlank { "carry forward the dramatic consequence" }}]. Maintain props, positions, emotions and knowledge.",
+            "Variety: $varietyWarning Alternate speaking, listening, movement, discovery and silence; choose camera movement only when motivated by the action.",
+            "Performance: $performance",
+            "End beat: create a cause, decision, reveal or emotional question that advances the next scene, without inventing a new plot twist every clip.",
+            "Image output remains the FIRST FRAME / START STATE of this scene; never depict the full eight-second sequence in one still."
+        ).joinToString("\n")
+    }
     private fun storySceneCommand(p: JSONObject, scene: JSONObject): String {
         val setting=listOf(scene.optString("location"),scene.optString("story_day"),scene.optString("story_time"),scene.optString("activity"),scene.optString("props")).filter { it.isNotBlank() }.joinToString(" • ")
         val details=sceneCastDescription(scene)
@@ -2262,7 +2337,7 @@ class StudioActivity : AppCompatActivity() {
                 "${person.optString("name")}: ${review.optString("note")} • แก้ให้กลับมาตรง MASTER โดยไม่เพิ่มสัดส่วนเอง" else null
         }.joinToString("; ")
         val action=scene.optString("action").ifBlank { scene.optString("image_prompt") }
-        val continuity=listOf(scene.optString("start_state"),
+        val continuity=listOf(cinematicBeatGuide(p,scene),scene.optString("start_state"),
             "ภาพก่อนหน้าใช้ดูสถานที่และสิ่งของ ชุดยึดฉากปัจจุบัน ตัวบุคคลยึด MASTER รายคน",corrections).filter { it.isNotBlank() }.joinToString(" • ")
         return ImagePromptPolicy.scene(details,setting,action,p.optString("aspect_ratio","9:16"),
             if(p.optString("character_mode","original")=="new") "CHARACTER MASTER ที่แนบ" else "ภาพ MASTER ที่แนบ",
