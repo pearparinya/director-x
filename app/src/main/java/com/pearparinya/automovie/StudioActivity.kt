@@ -1915,9 +1915,12 @@ class StudioActivity : AppCompatActivity() {
             }
         }
         val preview = LinearLayout(this).apply { orientation = 1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
+        // Put the character pairs first; long SHA audit must not obscure names.
         preview.addView(TextView(this).apply {
-            this.text = if(geminiImages) "$pendingStorySummary\n$imageList\nส่งคำสั่งสร้างภาพพร้อมภาพอ้างอิงไป Gemini และคัดลอกคำสั่งไว้ให้ด้วย\n\n1. ตรวจว่าภาพและคำสั่งปรากฏครบก่อนกดส่ง\n2. หาก Gemini ไม่แสดงคำสั่ง ให้แตะช่องข้อความค้างแล้วเลือก วาง\n3. หาก Gemini ตอบเป็นข้อความ ให้เปิดโหมดสร้างภาพแล้วลองใหม่" else if(filePackage) "$pendingStorySummary\n$imageList\nแนบไฟล์ READ_FIRST_IMAGE_COMMAND.txt พร้อม MASTER ไปในชุดเดียวกัน ตรวจว่า $destinationLabel แสดงไฟล์คำสั่งและรูปครบก่อนกดส่ง หากช่องข้อความว่างให้ระบุคำสั่งก่อนส่ง" else "$pendingStorySummary\n$imageList\nตรวจภาพและข้อความใน $destinationLabel ก่อนกดส่ง คำสั่งคัดลอกไว้ในคลิปบอร์ดแล้ว"
-            textSize = 13f
+            text=pendingStorySummary+"\\nตรวจชื่อและคู่ภาพใบหน้า–MASTER ก่อนส่ง"
+            textSize=14f
+            setTextColor(Color.WHITE)
+            setPadding(0,0,0,dp(10))
         })
         // Pair face crops (left) with the original MASTER (right) by MASTER ID.
         // Preview layout never changes attachment order, files, or the outgoing intent.
@@ -2004,7 +2007,52 @@ class StudioActivity : AppCompatActivity() {
             addPreviewCell(row,face,"ซ้าย • ใบหน้า",personName)
             addPreviewCell(row,master,"ขวา • MASTER",personName)
         }
-        preview.addView(TextView(this).apply { this.text = text; textSize = 14f; setTextIsSelectable(true) })
+        val unmatchedCrops=imageRefs.filter { it.face && imageRefs.none { master ->
+            !master.face && master.masterId.equals(it.masterId,true)
+        } }
+        if(unmatchedCrops.isNotEmpty()) {
+            preview.addView(TextView(this).apply {
+                text="⚠ ภาพครอปใบหน้า ${unmatchedCrops.size} ภาพไม่มี MASTER ที่มีรหัสตรงกัน • โปรดตรวจสอบก่อนส่ง"
+                textSize=14f
+                setTextColor(Color.YELLOW)
+            })
+        }
+        val auditDetails=TextView(this).apply {
+            text="รายละเอียดไฟล์ / SHA (แตะเพื่อขยาย)"
+            textSize=14f
+            setTextColor(Color.CYAN)
+            setPadding(0,dp(12),0,dp(8))
+        }
+        preview.addView(auditDetails)
+        val auditText=TextView(this).apply {
+            text=imageList
+            textSize=12f
+            setTextColor(Color.LTGRAY)
+            setTextIsSelectable(true)
+            visibility=android.view.View.GONE
+        }
+        preview.addView(auditText)
+        auditDetails.setOnClickListener {
+            auditText.visibility=if(auditText.visibility==android.view.View.VISIBLE) android.view.View.GONE else android.view.View.VISIBLE
+        }
+        val commandDetails=TextView(this).apply {
+            text="คำสั่งสร้างภาพ (แตะเพื่อขยาย)"
+            textSize=14f
+            setTextColor(Color.CYAN)
+            setPadding(0,dp(10),0,dp(8))
+        }
+        preview.addView(commandDetails)
+        val commandText=TextView(this).apply {
+            text=text
+            textSize=13f
+            setTextColor(Color.WHITE)
+            setTextIsSelectable(true)
+            visibility=android.view.View.GONE
+        }
+        preview.addView(commandText)
+        commandDetails.setOnClickListener {
+            commandText.visibility=if(commandText.visibility==android.view.View.VISIBLE) android.view.View.GONE else android.view.View.VISIBLE
+        }
         AlertDialog.Builder(this).setTitle("ตรวจคำสั่งและภาพก่อนส่ง")
             .setView(ScrollView(this).apply { addView(preview) })
             .setPositiveButton("ส่งและเปิด $destinationLabel") { _,_ -> launchShare() }
