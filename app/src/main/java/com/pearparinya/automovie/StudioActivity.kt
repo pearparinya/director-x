@@ -1914,13 +1914,50 @@ class StudioActivity : AppCompatActivity() {
                 if(filePackage || geminiImages) prefs.edit().putString("image_receipt_app",destinationLabel).putString("gemini_receipt_pending",File(destination,"image_requests/$transferId.json").absolutePath).apply()
             }
         }
-        val preview = LinearLayout(this).apply { orientation = 1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-        // Put the character pairs first; long SHA audit must not obscure names.
-        preview.addView(TextView(this).apply {
-            text="DIRECTOR X  •  IMAGE IDENTITY REVIEW\\n"+pendingStorySummary+"\\nตรวจชื่อและคู่ภาพใบหน้า–MASTER ก่อนส่ง"
-            textSize=14f
+        val preview = LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setPadding(dp(14),dp(14),dp(14),dp(16))
+            setBackgroundColor(Color.rgb(13,18,27))
+        }
+        val titlePanel=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setPadding(dp(16),dp(16),dp(16),dp(16))
+            background=android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(36,48,69),Color.rgb(15,21,32))
+            ).apply {
+                cornerRadius=dp(14).toFloat()
+                setStroke(dp(1),Color.rgb(115,96,64))
+            }
+        }
+        preview.addView(titlePanel,LinearLayout.LayoutParams(-1,-2).apply {
+            setMargins(0,0,0,dp(12))
+        })
+        titlePanel.addView(TextView(this).apply {
+            text="DIRECTOR X  /  CINEMATIC STUDIO"
+            textSize=11f
+            letterSpacing=0.12f
+            setTypeface(null,Typeface.BOLD)
+            setTextColor(Color.rgb(231,189,102))
+        })
+        titlePanel.addView(TextView(this).apply {
+            text="ตรวจภาพอ้างอิงก่อนส่ง"
+            textSize=21f
+            setTypeface(null,Typeface.BOLD)
             setTextColor(Color.WHITE)
-            setPadding(0,0,0,dp(10))
+            setPadding(0,dp(6),0,dp(4))
+        })
+        titlePanel.addView(TextView(this).apply {
+            text=pendingStorySummary
+            textSize=12f
+            setTextColor(Color.rgb(207,214,226))
+            maxLines=3
+        })
+        titlePanel.addView(TextView(this).apply {
+            text="FACE DETAIL  /  ORIGINAL MASTER  •  ${uris.count { contentResolver.getType(it)?.startsWith("image/")==true }} ภาพ"
+            textSize=11f
+            setTextColor(Color.rgb(231,189,102))
+            setPadding(0,dp(8),0,0)
         })
         // Pair face crops (left) with the original MASTER (right) by MASTER ID.
         // Preview layout never changes attachment order, files, or the outgoing intent.
@@ -2081,8 +2118,12 @@ class StudioActivity : AppCompatActivity() {
         commandDetails.setOnClickListener {
             commandText.visibility=if(commandText.visibility==android.view.View.VISIBLE) android.view.View.GONE else android.view.View.VISIBLE
         }
-        AlertDialog.Builder(this).setTitle("ตรวจคำสั่งและภาพก่อนส่ง")
-            .setView(ScrollView(this).apply { addView(preview) })
+        AlertDialog.Builder(this).setTitle("DIRECTOR X • CINEMATIC REVIEW")
+            .setView(ScrollView(this).apply {
+                isFillViewport=true
+                setBackgroundColor(Color.rgb(13,18,27))
+                addView(preview)
+            })
             .setPositiveButton("ส่งและเปิด $destinationLabel") { _,_ -> launchShare() }
             .setNeutralButton("คัดลอก") { _,_ -> copyCommand(text) }
             .setNegativeButton("ยกเลิก",null).showDirector()
