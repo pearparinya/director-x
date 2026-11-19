@@ -1753,7 +1753,21 @@ class StudioActivity : AppCompatActivity() {
                     val crop=selected[master.first]
                     if(crop==null) listOf(master) else if(imageOrder.selectedItemPosition==1) listOf(crop,master) else listOf(master,crop)
                 } else primary
-                val payload=orderedPeople+extras.filter { !it.first.startsWith("OUTFIT_") || it in outfitExtras }+propRefs
+                // Always keep every required character MASTER/face crop. Optional outfit,
+                // scene and prop references must not push a share past the nine-image limit.
+                // Preserve attachment order and never substitute another character's image.
+                val optional=extras.filter { !it.first.startsWith("OUTFIT_") || it in outfitExtras }+propRefs
+                if(orderedPeople.size>9) {
+                    notice("ตัวละครที่จำเป็นต้องใช้มีภาพอ้างอิง ${orderedPeople.size} ภาพ เกินขีดจำกัด 9 ภาพ • เปลี่ยนเป็นโหมดครอปหน้าอย่างเดียว หรือลดจำนวนตัวละครในภาพ")
+                    return@setPositiveButton
+                }
+                val remaining=9-orderedPeople.size
+                val includedOptional=optional.take(remaining)
+                val omittedOptional=optional.drop(remaining)
+                val payload=orderedPeople+includedOptional
+                if(omittedOptional.isNotEmpty()) {
+                    notice("ส่ง MASTER ตัวละครครบแล้ว • จำกัดภาพอ้างอิงไว้ที่ 9 ภาพ โดยงดภาพเสริม ${omittedOptional.size} ภาพ")
+                }
                 // Bind every attachment to its actual position after the user's order choice.
                 // Do not rely on filenames or a presumed MASTER-first ordering.
                 val exactBindings=payload.mapIndexed { index, (id, _) ->
@@ -1764,7 +1778,6 @@ class StudioActivity : AppCompatActivity() {
                     "Reference image ${index+1}: ${owner?.let { "$it | " }.orEmpty()}${labels[id] ?: cropLabels[id] ?: propLabels[id] ?: id} | ${if(task.references.indices.any { i -> crops[references[i].first]?.first==id }) "FACE CROP" else "SOURCE REFERENCE"}"
                 }.joinToString("\n")
                 prefs.edit().putInt("image_reference_mode_${project.name}",mode).putInt("image_attachment_order",imageOrder.selectedItemPosition).putInt("image_transfer_order",transferOrder.selectedItemPosition).apply()
-                if(payload.size>9) { notice("มีภาพอ้างอิง ${payload.size} ภาพ ซึ่งเกิน 9 ภาพ • ยกเลิกภาพอ้างอิงบางรายการแล้วลองอีกครั้ง"); return@setPositiveButton }
                 shareImageCommand(command+outfitGuide+propInstruction+(if(owners.isBlank()) "" else "\n$owners")+(if(coverOwners.isBlank()) "" else "\n$coverOwners")+"\n\nATTACHMENT ORDER (verify in receiving app):\n"+exactBindings,payload,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
             }
             .setNegativeButton("กลับไปตรวจ",null).showDirector()
