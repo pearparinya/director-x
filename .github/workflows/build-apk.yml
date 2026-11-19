@@ -1,18 +1,10 @@
 name: DIRECTOR X Release Signed APK
-# Release trigger verification for Director X 5.09 Build 1125 (manual approval 2026-11-19).
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
-    paths:
-      - 'app/**'
-      - 'build.gradle.kts'
-      - 'settings.gradle.kts'
-      - 'gradle.properties'
-      - 'gradle/**'
-      - '.github/workflows/build-apk.yml'
 
 permissions:
   contents: read
@@ -55,7 +47,13 @@ jobs:
           # a missing release and accidentally trigger another signed build.
           API_STATUS="$(gh api -i "repos/${GITHUB_REPOSITORY}/releases/tags/$TAG" 2>&1)" && API_EXIT=0 || API_EXIT=$?
           if [ "$API_EXIT" -eq 0 ]; then
-            echo "Release $TAG already exists; skipping duplicate build."
+            ASSET_NAME="DIRECTOR-X-${VERSION}.apk"
+            ASSET_COUNT="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/$TAG" --jq "[.assets[] | select(.name == \"$ASSET_NAME\" and .size > 0)] | length")"
+            if [ "$ASSET_COUNT" != "1" ]; then
+              echo "::error::Release $TAG exists but its signed APK asset is missing or empty."
+              exit 1
+            fi
+            echo "Release $TAG and its APK asset already exist; skipping duplicate build."
             echo "should_build=false" >> "$GITHUB_OUTPUT"
             echo "### Skipped duplicate release: $TAG" >> "$GITHUB_STEP_SUMMARY"
           elif printf '%s' "$API_STATUS" | grep -Eq 'HTTP/[0-9.]+ 404|HTTP 404'; then
