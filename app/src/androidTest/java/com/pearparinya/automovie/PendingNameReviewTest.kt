@@ -41,7 +41,7 @@ class PendingNameReviewTest {
         val duplicate=person("คนอื่น","SUPPORT_00000003_MASTER.png").put("english_name","PINMANEE").put("auto_cast",true)
         spec.getJSONArray("supporting_characters").put(duplicate)
         val ambiguous=JSONObject(row.toString())
-        CharacterAliasRegistry.applyRegistered(ambiguous,FlowCast.definitions(spec),registry)
+        assertTrue(runCatching { CharacterAliasRegistry.applyRegistered(ambiguous,FlowCast.definitions(spec),registry) }.isFailure)
         assertEquals("Pinmanee walks",ambiguous.getString("flow_action"))
         spec.getJSONArray("supporting_characters").remove(1)
         val wrong=scene(9,"ปิ่นมณี","SUPPORT_00000003_MASTER.png","Pinmanee walks")

@@ -11,7 +11,6 @@ internal object PendingNameReview {
         val result=mutableListOf<Item>()
         for(i in 0 until scenes.length()) {
             val scene=JSONObject(scenes.getJSONObject(i).toString())
-            CharacterAliasRegistry.apply(scene,registry)
             CharacterAliasRegistry.applyRegistered(scene,definitions,registry)
             val cast=scene.optJSONArray("characters") ?: continue
             val people=(0 until cast.length()).map { cast.getJSONObject(it) }

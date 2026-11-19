@@ -235,7 +235,6 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                     }
                     val confirmedAliases=CharacterAliasRegistry.read(folder)
                     for(n in 0 until nameRows.length()) {
-                        CharacterAliasRegistry.apply(nameRows.getJSONObject(n),confirmedAliases)
                         CharacterAliasRegistry.applyRegistered(nameRows.getJSONObject(n),FlowCast.definitions(spec),confirmedAliases)
                     }
                     for(n in 0 until nameRows.length()) {

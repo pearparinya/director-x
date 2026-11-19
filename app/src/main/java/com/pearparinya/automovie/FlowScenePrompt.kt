@@ -77,12 +77,26 @@ internal object FlowScenePrompt {
                 "rinlada" -> listOf("rinlada", "rinrada")
                 "mind" -> listOf("mind", "may")
                 "พัชรินทร์" -> listOf("patcharin")
-                "นที" -> listOf("natee")
+                "นที" -> listOf("natee", "nati")
                 "ปิยวรรณ" -> listOf("piyawan")
                 else -> emptyList()
             }
             aliases + listOf(p.name,refName(p.name),p.englishName)
         }.map { it.lowercase() }.toSet()
+        // Fail closed if two cast members claim the same English alias.
+        val collisions=s.cast.flatMap { p ->
+            val aliases=when(identity(p.name)) {
+                "gawin" -> listOf("gawin", "kawin")
+                "rinlada" -> listOf("rinlada", "rinrada")
+                "mind" -> listOf("mind", "may")
+                "พัชรินทร์" -> listOf("patcharin")
+                "นที" -> listOf("natee", "nati")
+                "ปิยวรรณ" -> listOf("piyawan")
+                else -> emptyList()
+            }
+            (aliases + p.englishName).filter { it.isNotBlank() }.map { it.trim().lowercase() to p.name }
+        }.groupBy({ it.first }, { it.second }).filterValues { it.distinct().size > 1 }.keys
+        if(collisions.isNotEmpty()) return collisions.toList()
         val generic=setOf("trousers","pants","jeans","shirt","jacket","coat","dress","skirt","shoes","boots","sleeves","collar","fabric","clothing","outfit","wardrobe","i","me","my","mine","myself","you","your","yours","yourself","yourselves","he","him","his","himself","she","her","hers","herself","it","its","itself","we","us","our","ours","ourselves","they","them","their","theirs","themselves","who","whom","whose","which","that","what","whoever","whatever","it","this","there","man","woman","person","character","people","someone","everyone","camera","phone","door","screen","light","wind","paper","music","sound","document","folder","manager","boss","coworker","colleague","worker","narrator", "and", "or", "then", "also", "but", "with")
         val pattern=Regex("(?<![\\w\\]])\\b([A-Za-z][A-Za-z0-9_]*)\\s+(?:holds|looks|watches|stares|speaks|says|asks|replies|walks|stands|sits|leans|smiles|reacts|turns|opens|closes|reads|inspects|observes|hands|places|shows|checks|nods|waves|slides|reaches|takes|points)\\b",RegexOption.IGNORE_CASE)
         return pattern.findAll(s.action).filterNot { match ->
@@ -129,7 +143,7 @@ internal object FlowScenePrompt {
                 "rinlada" -> listOf("รินรดา", "รินลดา", "Rinlada", "Rinrada", "Woman 1")
                 "mind" -> listOf("เมย์", "มายด์", "May", "Mind", "Woman 2")
                 "พัชรินทร์" -> listOf("พัชรินทร์", "Patcharin")
-                "นที" -> listOf("นที", "Natee")
+                "นที" -> listOf("นที", "Natee", "Nati")
                 "ปิยวรรณ" -> listOf("ปิยวรรณ", "Piyawan")
                 else -> emptyList()
             }
