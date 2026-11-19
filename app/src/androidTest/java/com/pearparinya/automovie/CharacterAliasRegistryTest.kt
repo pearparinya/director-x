@@ -51,7 +51,7 @@ class CharacterAliasRegistryTest {
             .put(JSONObject().put("name","นที").put("master","A_MASTER.png"))
             .put(JSONObject().put("name","ภาคิน").put("master","B_MASTER.png")))
             .put("flow_action","Nati stands")
-        CharacterAliasRegistry.applyRegistered(scene,defs,JSONObject())
+        assertTrue(runCatching { CharacterAliasRegistry.applyRegistered(scene,defs,JSONObject()) }.isFailure)
         assertEquals("Nati stands",scene.getString("flow_action"))
     }
     @Test fun confirmedAliasCannotOverrideDifferentRegisteredActor() {
@@ -64,8 +64,8 @@ class CharacterAliasRegistryTest {
             .put(JSONObject().put("name","นที").put("master","A_MASTER.png"))
             .put(JSONObject().put("name","ภาคิน").put("master","B_MASTER.png")))
             .put("flow_action","Nati stands. Pakin looks.")
-        CharacterAliasRegistry.applyRegistered(scene,defs,confirmed)
-        assertEquals("Nati stands. ภาคิน looks.",scene.getString("flow_action"))
+        assertTrue(runCatching { CharacterAliasRegistry.applyRegistered(scene,defs,confirmed) }.isFailure)
+        assertEquals("Nati stands. Pakin looks.",scene.getString("flow_action"))
     }
     @Test fun aliasWithWrongMasterIsNotRewritten() {
         val defs=listOf(JSONObject().put("name","นที").put("master","A_MASTER.png").put("english_name","Natee"))
