@@ -3,9 +3,7 @@ package com.pearparinya.automovie
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.view.Gravity
 import android.view.ViewGroup
-import android.widget.LinearLayout
 import androidx.appcompat.app.AlertDialog
 
 /** Shared filled action buttons for Studio forms, confirmations and updates. */
@@ -40,15 +38,18 @@ fun AlertDialog.Builder.showDirector(): AlertDialog {
     }
     val metrics = context.resources.displayMetrics
     dialog.window?.setLayout((metrics.widthPixels * 0.94f).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
-    val panel = dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.parent as? LinearLayout
-    if (panel != null) {
-        panel.orientation = LinearLayout.HORIZONTAL
-        panel.gravity = Gravity.END or Gravity.CENTER_VERTICAL
-        for (which in listOf(AlertDialog.BUTTON_NEGATIVE, AlertDialog.BUTTON_NEUTRAL, AlertDialog.BUTTON_POSITIVE)) {
-            val button = dialog.getButton(which) ?: continue
-            if (button.visibility != android.view.View.VISIBLE || button.text.isNullOrBlank()) continue
-            (button.parent as? ViewGroup)?.removeView(button)
-            panel.addView(button, LinearLayout.LayoutParams(0, dp(44), 1f).apply { setMargins(dp(2),dp(3),dp(2),dp(3)) })
+    // Keep AppCompat's native button bar intact. Reparenting its buttons into a
+    // weighted row can hide the entire bottom action/navigation area on phones.
+    // Bound dialog height so long previews scroll instead of pushing actions away.
+    val availableHeight = metrics.heightPixels
+    val maxHeight = (availableHeight * 0.88f).toInt()
+    dialog.window?.decorView?.post {
+        val decor = dialog.window?.decorView ?: return@post
+        if (decor.height > maxHeight) {
+            dialog.window?.setLayout(
+                (metrics.widthPixels * 0.94f).toInt(),
+                maxHeight
+            )
         }
     }
     return dialog
