@@ -125,7 +125,7 @@ class AutoDirectorContentTest {
         assertTrue(solo.command.contains("MASTER ID: "+referenceId(only.getString("master"))))
         assertTrue(SimpleProductionCommands.images(project,1).contains("ChatGPT / Gemini"))
     }
-    @Test fun coverCanBindFiveStoryCharactersIncludingNonhuman() {
+    @Test fun coverDefaultsToFourCharactersAndSupportsExplicitFiveCharacterLegacySelection() {
         val project=story()
         val ep=project.getJSONArray("episodes").getJSONObject(0)
         val scene=ep.getJSONArray("scenes").getJSONObject(0)
@@ -133,10 +133,14 @@ class AutoDirectorContentTest {
         cast.put(JSONObject().put("name","หมาป่า").put("master","SUPPORT_00000001_MASTER.png").put("outfit","none").put("character_type","animal"))
         cast.put(JSONObject().put("name","อสูร").put("master","SUPPORT_00000002_MASTER.png").put("outfit","armor").put("character_type","creature"))
         val cover=SimpleProductionCommands.imageTasks(project,1).first { it.id=="STORY_COVER_9x16" }
-        assertEquals(5,cover.references.size)
+        assertEquals(4,cover.references.size)
         assertTrue(cover.command.contains("Character 4: หมาป่า"))
-        assertTrue(cover.command.contains("Character 5: อสูร"))
         assertTrue(cover.command.contains("Preserve nonhuman species"))
+        val all=SimpleProductionCommands.coverCandidates(project,1,true)
+        val legacy=mapOf("STORY" to all.map { referenceId(it.getString("master")) }.toSet())
+        val restored=SimpleProductionCommands.imageTasks(project,1,legacy).first { it.id=="STORY_COVER_9x16" }
+        assertEquals(5,restored.references.size)
+        assertTrue(restored.command.contains("Character 5: อสูร"))
     }
     @Test fun bothChannelsKeepVisibleCastPositionsAndStoryPropsInSceneCommand() {
         for(channel in listOf("นายเปีย บ้านคลองขุด","ร้อยฉาก")) {
