@@ -43,10 +43,16 @@ internal class FaceReferenceStore(private val root: File) {
             val candidates = faces.take(count).filterNotNull().filter {
                 it.confidence() >= FaceDetector.Face.CONFIDENCE_THRESHOLD &&
                     it.eyesDistance() >= 12f
-            }.sortedByDescending { it.eyesDistance() }
-            val face = candidates.firstOrNull() ?: return null
-            if (candidates.size > 1 &&
-                face.eyesDistance() < candidates[1].eyesDistance() * 1.65f) return null
+            }
+            // FaceDetector reports Euler Y rotation: favor the front view rather than
+            // selecting a larger side profile from a three-view reference sheet.
+            val frontal = candidates.filter { kotlin.math.abs(it.pose(FaceDetector.Face.EULER_Y)) <= 12f }
+                .sortedByDescending { it.eyesDistance() * it.confidence() }
+            val face = frontal.firstOrNull() ?: return null
+            // Do not auto-crop when two frontal candidates are similarly plausible.
+            if (frontal.size > 1 &&
+                face.eyesDistance() * face.confidence() <
+                frontal[1].eyesDistance() * frontal[1].confidence() * 1.45f) return null
             val midpoint = android.graphics.PointF()
             face.getMidPoint(midpoint)
             val radius = face.eyesDistance() * 1.65f
