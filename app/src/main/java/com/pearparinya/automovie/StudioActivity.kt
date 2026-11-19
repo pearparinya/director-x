@@ -1758,7 +1758,7 @@ class StudioActivity : AppCompatActivity() {
                 // Preserve attachment order and never substitute another character's image.
                 val optional=extras.filter { !it.first.startsWith("OUTFIT_") || it in outfitExtras }+propRefs
                 if(orderedPeople.size>9) {
-                    notice("MASTER ต้นฉบับและภาพใบหน้าที่เลือกมี ${orderedPeople.size} ภาพ เกินขีดจำกัด 9 ภาพ • ลดจำนวนตัวละครในซีนหรือปรับภาพใบหน้าเสริมด้วยตนเอง ระบบจะไม่ตัด MASTER หรือสลับใบหน้าให้อัตโนมัติ")
+                    notice("MASTER ต้นฉบับ ${primary.size} ภาพ + ภาพครอปใบหน้า ${orderedPeople.size-primary.size} ภาพ = ${orderedPeople.size} ภาพ เกินขีดจำกัด 9 ภาพ • หากเป็นหน้าปก ให้กลับไปเลือกตัวละครบนปกไม่เกิน 4 คน โดยไม่ต้องสร้างเรื่องใหม่ ระบบจะไม่ตัด MASTER หรือสลับใบหน้าให้อัตโนมัติ")
                     return@setPositiveButton
                 }
                 val remaining=9-orderedPeople.size
@@ -2807,7 +2807,7 @@ $context"""
                         val candidates=SimpleProductionCommands.coverCandidates(story,number,overall)
                         val chosen=task.references.map { referenceId(it.getString("master")) }.toMutableSet()
                         val list=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-                        list.addView(TextView(this).apply { text="เลือกตัวละครสำคัญจาก${if(overall) "ทั้งเรื่อง" else "ทุกฉากในตอน"} • สูงสุด 9 ภาพ MASTER • แตะภาพเพื่อขยาย" })
+                        list.addView(TextView(this).apply { text="เลือกตัวละครสำคัญจาก${if(overall) "ทั้งเรื่อง" else "ทุกฉากในตอน"} • แนะนำสูงสุด 4 ตัวละคร (MASTER + ภาพครอปใบหน้า รวมไม่เกิน 9 ภาพ) • แตะภาพเพื่อขยาย" })
                         var coverRow: LinearLayout?=null
                         candidates.forEachIndexed { index, person ->
                             if(index%2==0) { coverRow=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; list.addView(coverRow) }
@@ -2821,7 +2821,7 @@ $context"""
                         }
                         val picker=AlertDialog.Builder(this).setTitle("เลือกตัวละครบนปก").setView(ScrollView(this).apply { addView(list) }).setPositiveButton("บันทึก",null).setNegativeButton("ยกเลิก",null).showDirector()
                         picker.getButton(-1).setOnClickListener {
-                            if(chosen.isEmpty() || chosen.size>9) notice("กรุณาเลือกภาพ MASTER 1–9 ตัว")
+                            if(chosen.isEmpty() || chosen.size>4) notice("กรุณาเลือกตัวละครบนปก 1–4 คน เพื่อเก็บ MASTER ต้นฉบับและภาพครอปใบหน้าของทุกคนไว้ครบ โดยไม่ต้องสร้างเรื่องใหม่")
                             else if(candidates.filter { referenceId(it.getString("master")) in chosen }.any { !masterFor(it).isFile }) notice("ภาพ MASTER บางตัวหาย กรุณาเลือกใหม่")
                             else { prefs.edit().putStringSet("cover_cast_${project.name}_$scope",chosen.toSet()).apply(); picker.dismiss(); notice("บันทึกรายการปกแล้ว • เปิดปกอีกครั้งเพื่อตรวจและส่ง") }
                         }
