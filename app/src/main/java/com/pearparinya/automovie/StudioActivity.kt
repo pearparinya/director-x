@@ -1608,8 +1608,9 @@ class StudioActivity : AppCompatActivity() {
             val masterColumn=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
             imageRow.addView(cropColumn,LinearLayout.LayoutParams(0,-2,1f)); imageRow.addView(masterColumn,LinearLayout.LayoutParams(0,-2,1f)); panel.addView(imageRow)
             val faceChoice=android.widget.CheckBox(this).apply {
-                text="แนบ FACE DETAIL ของ ${person.optString("name")} (เลือกเมื่อมีภาพแล้ว)"
+                text="แนบ FACE DETAIL • ${person.optString("name")}"
                 isChecked=false
+                isEnabled=false
                 setOnCheckedChangeListener { _, checked ->
                     if(checked && selectedFaceIds().size>(9-task.references.size).coerceAtLeast(0)) {
                         isChecked=false
@@ -1620,8 +1621,8 @@ class StudioActivity : AppCompatActivity() {
                 cropColumn.addView(this)
             }
             faceSelections[id]=faceChoice
-            val status=TextView(this).apply { text="ครอปใบหน้า • ยังไม่ได้เลือก"; cropColumn.addView(this) }
-            val cropPreview=ImageView(this).apply { adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(110)); cropColumn.addView(this) }
+            val status=TextView(this).apply { text="ยังไม่มี FACE DETAIL • กดปุ่มเลือกใบหน้าด้านล่าง"; cropColumn.addView(this) }
+            val cropPreview=ImageView(this).apply { adjustViewBounds=true; visibility=android.view.View.GONE; layoutParams=LinearLayout.LayoutParams(-1,dp(110)); cropColumn.addView(this) }
             val masterStatus=TextView(this).apply { text="MASTER • สามมุมมอง"; masterColumn.addView(this) }
             val previousRefresh=refreshCards
             refreshCards={
@@ -1630,7 +1631,7 @@ class StudioActivity : AppCompatActivity() {
                 val offset=index + (0 until index).count { previous -> (mode==0 || mode==4 && references[previous].first in selectedFaceIds()) && crops.containsKey(references[previous].first) }
                 val hasCrop=crops.containsKey(id)
                 val cropFirst=imageOrder.selectedItemPosition==1
-                status.text=if(!hasCrop) "ครอปใบหน้า • ยังไม่ได้เลือก" else if(mode==0 || mode==4 && id in selectedFaceIds()) "ครอปใบหน้า • ส่ง ${offset+if(cropFirst) 1 else 2}" else if(mode==1) "ครอปใบหน้า • ส่ง ${offset+1}" else "ครอปใบหน้า • ไม่ได้ส่ง"
+                status.text=if(!hasCrop) "ยังไม่มี FACE DETAIL • เลือกใบหน้าจาก MASTER" else if(mode==0 || mode==4 && id in selectedFaceIds()) "ครอปใบหน้า • ส่ง ${offset+if(cropFirst) 1 else 2}" else if(mode==1) "ครอปใบหน้า • ส่ง ${offset+1}" else "ครอปใบหน้า • ไม่ได้ส่ง"
                 masterStatus.text=if(mode==1) "MASTER • ไม่ได้ส่ง" else "MASTER • ส่ง ${offset+if((mode==0 || mode==4 && id in selectedFaceIds()) && cropFirst && hasCrop) 2 else 1}"
             }
             masterColumn.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(110)); setOnClickListener { fullImage(file,person.optString("name")) } })
@@ -1640,6 +1641,7 @@ class StudioActivity : AppCompatActivity() {
                 cropDigests[id]=MasterLibrary.digest(target.readBytes())
                 cropLabels[cropId]="ภาพครอปใบหน้า ${person.optString("name")} จาก MASTER $id"
                 refreshOrder()
+                faceChoice.isEnabled=true
                 cropPreview.setImageBitmap(previewBitmap(Uri.fromFile(target)))
                 cropPreview.visibility=android.view.View.VISIBLE
                 if(selectedFaceIds().size < (9-task.references.size).coerceAtLeast(0)) faceChoice.isChecked=true
@@ -1650,8 +1652,8 @@ class StudioActivity : AppCompatActivity() {
                 // Multi-face three-view sheets stay manual to avoid picking the wrong view.
                 cropStore.prepare(file)?.let { showCrop(it) }
             }.onFailure { notice("เตรียมภาพใบหน้าอัตโนมัติไม่ได้: ${person.optString("name")}") }
-            panel.addView(Button(this).apply {
-                text="เลือกใบหน้าจาก MASTER"
+            cropColumn.addView(Button(this).apply {
+                text="✂ เลือกใบหน้าจาก MASTER"
                 setOnClickListener {
                     runCatching {
                         val cropView=FaceReferenceCropView(this@StudioActivity,file)
