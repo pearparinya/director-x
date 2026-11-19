@@ -1551,8 +1551,8 @@ class StudioActivity : AppCompatActivity() {
             setPadding(dp(12),dp(12),dp(12),dp(6))
         }
         val referenceMode=Spinner(this).apply {
-            adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ภาพครอปใบหน้า + ภาพสามมุมมอง", "ภาพครอปใบหน้าอย่างเดียว", "MASTER + ภาพฉากที่ตรวจผ่าน", "MASTER ต้นฉบับเท่านั้น • สำหรับซีนหลายคน"))
-            setSelection(if(task.references.size>=5) 3 else prefs.getInt("image_reference_mode_${project.name}",0).coerceIn(0,3))
+            adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ภาพครอปใบหน้า + ภาพสามมุมมอง", "ภาพครอปใบหน้าอย่างเดียว", "MASTER + ภาพฉากที่ตรวจผ่าน", "MASTER ต้นฉบับเท่านั้น • สำหรับซีนหลายคน", "MASTER ทุกคน + เลือก FACE DETAIL ตามจำนวนภาพ"))
+            setSelection(if(task.references.size>=5) 4 else prefs.getInt("image_reference_mode_${project.name}",0).coerceIn(0,4))
         }
         val imageOrder=Spinner(this).apply {
             adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ภาพสามมุม → ภาพครอป", "ภาพครอป → ภาพสามมุม"))
@@ -1568,10 +1568,12 @@ class StudioActivity : AppCompatActivity() {
         val orderSummary=TextView(this).apply { setPadding(dp(12),dp(10),dp(12),dp(10)); setTextColor(Color.CYAN) }
         panel.addView(orderSummary)
         var refreshCards: () -> Unit = {}
+        val faceSelections=linkedMapOf<String,android.widget.CheckBox>()
+        fun selectedFaceIds(): Set<String> = faceSelections.filterValues { it.isChecked }.keys
         fun refreshOrder() {
             refreshCards()
-            imageOrder.isEnabled=referenceMode.selectedItemPosition==0
-            val refs=if(referenceMode.selectedItemPosition==1) "ครอปใบหน้า" else if(referenceMode.selectedItemPosition==2) "MASTER + ภาพฉาก" else if(referenceMode.selectedItemPosition==3) "MASTER ต้นฉบับเท่านั้น" else if(imageOrder.selectedItemPosition==1) "ครอป → สามมุม" else "สามมุม → ครอป"
+            imageOrder.isEnabled=referenceMode.selectedItemPosition==0 || referenceMode.selectedItemPosition==4
+            val refs=if(referenceMode.selectedItemPosition==1) "ครอปใบหน้า" else if(referenceMode.selectedItemPosition==2) "MASTER + ภาพฉาก" else if(referenceMode.selectedItemPosition==3) "MASTER ต้นฉบับเท่านั้น" else if(referenceMode.selectedItemPosition==4) "MASTER + FACE DETAIL ที่เลือก" else if(imageOrder.selectedItemPosition==1) "ครอป → สามมุม" else "สามมุม → ครอป"
             orderSummary.text=if(transferOrder.selectedItemPosition==1) "$refs → คำสั่ง" else "คำสั่ง → $refs"
         }
         val orderListener=object : android.widget.AdapterView.OnItemSelectedListener {
@@ -1605,6 +1607,13 @@ class StudioActivity : AppCompatActivity() {
             val cropColumn=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
             val masterColumn=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
             imageRow.addView(cropColumn,LinearLayout.LayoutParams(0,-2,1f)); imageRow.addView(masterColumn,LinearLayout.LayoutParams(0,-2,1f)); panel.addView(imageRow)
+            val faceChoice=android.widget.CheckBox(this).apply {
+                text="แนบ FACE DETAIL ของ ${person.optString("name")}"
+                isChecked=index < (9-task.references.size).coerceAtLeast(0)
+                setOnCheckedChangeListener { _,_ -> refreshOrder() }
+                cropColumn.addView(this)
+            }
+            faceSelections[id]=faceChoice
             val status=TextView(this).apply { text="ครอปใบหน้า • ยังไม่ได้เลือก"; cropColumn.addView(this) }
             val cropPreview=ImageView(this).apply { adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(160)); cropColumn.addView(this) }
             val masterStatus=TextView(this).apply { text="MASTER • สามมุมมอง"; masterColumn.addView(this) }
@@ -1612,11 +1621,11 @@ class StudioActivity : AppCompatActivity() {
             refreshCards={
                 previousRefresh()
                 val mode=referenceMode.selectedItemPosition
-                val offset=index + (0 until index).count { previous -> mode==0 && crops.containsKey(references[previous].first) }
+                val offset=index + (0 until index).count { previous -> (mode==0 || mode==4 && references[previous].first in selectedFaceIds()) && crops.containsKey(references[previous].first) }
                 val hasCrop=crops.containsKey(id)
                 val cropFirst=imageOrder.selectedItemPosition==1
-                status.text=if(!hasCrop) "ครอปใบหน้า • ยังไม่ได้เลือก" else if(mode==0) "ครอปใบหน้า • ส่ง ${offset+if(cropFirst) 1 else 2}" else if(mode==1) "ครอปใบหน้า • ส่ง ${offset+1}" else "ครอปใบหน้า • ไม่ได้ส่ง"
-                masterStatus.text=if(mode==1) "MASTER • ไม่ได้ส่ง" else "MASTER • ส่ง ${offset+if(mode==0 && cropFirst && hasCrop) 2 else 1}"
+                status.text=if(!hasCrop) "ครอปใบหน้า • ยังไม่ได้เลือก" else if(mode==0 || mode==4 && id in selectedFaceIds()) "ครอปใบหน้า • ส่ง ${offset+if(cropFirst) 1 else 2}" else if(mode==1) "ครอปใบหน้า • ส่ง ${offset+1}" else "ครอปใบหน้า • ไม่ได้ส่ง"
+                masterStatus.text=if(mode==1) "MASTER • ไม่ได้ส่ง" else "MASTER • ส่ง ${offset+if((mode==0 || mode==4 && id in selectedFaceIds()) && cropFirst && hasCrop) 2 else 1}"
             }
             masterColumn.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(160)); setOnClickListener { fullImage(file,person.optString("name")) } })
             fun showCrop(target: File) {
@@ -1716,7 +1725,7 @@ class StudioActivity : AppCompatActivity() {
         fun updateImageBudget() {
             val mode=referenceMode.selectedItemPosition
             val masterCount=task.references.size
-            val cropCount=if(mode==0 || mode==1) task.references.indices.count { crops.containsKey(references[it].first) } else 0
+            val cropCount=if(mode==0 || mode==1 || mode==4) task.references.indices.count { crops.containsKey(references[it].first) && (mode!=4 || references[it].first in selectedFaceIds()) } else 0
             val total=masterCount+cropCount // MASTER images are mandatory even in face-crop-only mode.
             val valid=total<=9 && (mode!=1 || cropCount==masterCount) && masterCount>0
             imageBudget.setTextColor(if(valid) Color.rgb(170,232,191) else Color.rgb(255,194,109))
@@ -1738,11 +1747,15 @@ class StudioActivity : AppCompatActivity() {
                 val mode=referenceMode.selectedItemPosition
                 if(mode==1 && task.references.indices.any { crops[references[it].first]==null }) { notice("โหมดครอปหน้าอย่างเดียวต้องมีภาพครอปของทุกตัวละคร"); return@setPositiveButton }
                 
+                if(mode==4 && selectedFaceIds().any { crops[it]==null }) {
+                    notice("ตัวละครที่เลือก FACE DETAIL ยังไม่มีภาพครอป กรุณาเลือกกรอบใบหน้าหรือยกเลิกเครื่องหมาย")
+                    return@setPositiveButton
+                }
                 val selected=crops.toMap()
                 val cropsToVerify=if(mode==1) crops else selected
                 val cropsStable=runCatching { cropsToVerify.all { (id,crop) -> crop.second.isFile && MasterLibrary.digest(crop.second.readBytes())==cropDigests[id] } }.getOrDefault(false)
                 if(!cropsStable) { notice("ภาพครอปใบหน้าเปลี่ยนหรือหาย กรุณาเลือกจาก MASTER อีกครั้ง"); return@setPositiveButton }
-                val bindings=(if(mode==0 || mode==1) selected.entries else emptySet()).joinToString("\n") { (id,crop) -> "CHARACTER ${labels[id].orEmpty()} — FACE CROP ${crop.first} is cropped from MASTER ${referenceId(id)}; both show the same character. Use the crop for facial identity and the original MASTER for verification. Never use this crop for another character." }
+                val bindings=(if(mode==0 || mode==1) selected.entries else if(mode==4) selected.entries.filter { it.key in selectedFaceIds() } else emptyList()).joinToString("\n") { (id,crop) -> "CHARACTER ${labels[id].orEmpty()} — FACE CROP ${crop.first} is cropped from MASTER ${referenceId(id)}; both show the same character. Use the crop for facial identity and the original MASTER for verification. Never use this crop for another character." }
                 val rawCommand=if(faceOnly.isChecked || mode==1) SimpleProductionCommands.faceOnly(task.command) else task.command
                 val modeCommand=rawCommand // Keep three-view MASTER instructions; face crops are supplemental only.
                 val baseCommand=modeCommand+(if(bindings.isBlank()) "" else "\n\n$bindings")
@@ -1776,8 +1789,8 @@ class StudioActivity : AppCompatActivity() {
                 if(mode==2 && outfitExtras.none { it.first.startsWith("OUTFIT_EP") }) { notice("ยังไม่มีภาพฉากเดี่ยวที่ตรวจผ่านและชุดตรงกัน กรุณาเลือกวิธีอื่น"); return@setPositiveButton }
                 val outfitGuide=if(outfitExtras.isEmpty()) "" else (if(mode==2) "\n\nREVIEWED SCENE REFERENCE: The checked prior single-character scene was reviewed by the user for this same character and outfit. Use it as a supplemental identity and wardrobe reference; the original MASTER remains the source of identity. " else "")+"\n\nREVIEWED OUTFIT REFERENCES: For the listed characters only, these checked images override generic instructions against copying clothing. Use each labeled frame as a clothing reference for its named character, while the original character MASTER remains the identity reference. Preserve visible garments; follow the written outfit for parts not visible. Do not copy background, pose or objects. "+outfitExtras.joinToString("; ") { "${it.first} = ${labels[it.first]}" }
                 val primary=references.take(task.references.size) // Original MASTER is mandatory in every mode.
-                val orderedPeople=if(mode==0 || mode==1) primary.flatMap { master ->
-                    val crop=if(mode==1) crops[master.first] else selected[master.first]
+                val orderedPeople=if(mode==0 || mode==1 || mode==4) primary.flatMap { master ->
+                    val crop=if(mode==1) crops[master.first] else if(mode==4 && master.first !in selectedFaceIds()) null else selected[master.first]
                     if(crop==null) listOf(master) else if(imageOrder.selectedItemPosition==1) listOf(crop,master) else listOf(master,crop)
                 } else primary
                 // Always keep every required character MASTER/face crop. Optional outfit,
