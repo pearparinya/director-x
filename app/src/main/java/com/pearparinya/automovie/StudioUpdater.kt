@@ -91,8 +91,14 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                     updatePrefs.edit().putLong("last_successful_check", System.currentTimeMillis()).apply()
                     if (automatic && !activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) { lastCheckThisSession = 0L; return@runOnUiThread }
                     if (automatic) {
-                        // Download a published release without a separate in-app tap.
-                        // Android still requires installation approval when applicable.
+                        // Do not download the same release on every resume.
+                        val now = System.currentTimeMillis()
+                        val attemptedBuild = updatePrefs.getLong("auto_download_build", -1L)
+                        val attemptedAt = updatePrefs.getLong("auto_download_at", 0L)
+                        if (attemptedBuild == build && attemptedAt in 1..now &&
+                            now - attemptedAt < reminderIntervalMs) return@runOnUiThread
+                        updatePrefs.edit().putLong("auto_download_build", build)
+                            .putLong("auto_download_at", now).apply()
                         download(url, build, asset.optLong("size", -1))
                         return@runOnUiThread
                     }
@@ -155,6 +161,7 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                     }
                 } finally { connection.disconnect() }
                 require(file.length() > 100000 && (expectedSize <= 0 || file.length() == expectedSize)) { "ดาวน์โหลดไฟล์ไม่ครบ" }
+                require(java.util.zip.ZipFile(file).use { it.getEntry("AndroidManifest.xml") != null }) { "ไฟล์ APK เสียหาย" }
                 val pm = activity.packageManager
                 val candidate = pm.getPackageArchiveInfo(file.path,PackageManager.GET_SIGNATURES) ?: error("ไฟล์ APK ไม่ถูกต้อง")
                 val installed = pm.getPackageInfo(activity.packageName,PackageManager.GET_SIGNATURES)
