@@ -36,10 +36,17 @@ internal class FaceReferenceStore(private val root: File) {
         try {
             val faces = arrayOfNulls<FaceDetector.Face>(4)
             val count = FaceDetector(bitmap.width, bitmap.height, faces.size).findFaces(bitmap, faces)
-            // A three-view sheet may show multiple faces; do not guess which view is frontal.
-            if (count != 1) return null
-            val face = faces[0] ?: return null
-            if (face.confidence() < FaceDetector.Face.CONFIDENCE_THRESHOLD) return null
+            // A MASTER may contain front, full-body and side views of ONE person.
+            // Pick a dominant frontal face only when it is unambiguous; otherwise
+            // return null and leave the user in control of manual cropping.
+            if (count < 1) return null
+            val candidates = faces.take(count).filterNotNull().filter {
+                it.confidence() >= FaceDetector.Face.CONFIDENCE_THRESHOLD &&
+                    it.eyesDistance() >= 12f
+            }.sortedByDescending { it.eyesDistance() }
+            val face = candidates.firstOrNull() ?: return null
+            if (candidates.size > 1 &&
+                face.eyesDistance() < candidates[1].eyesDistance() * 1.65f) return null
             val midpoint = android.graphics.PointF()
             face.getMidPoint(midpoint)
             val radius = face.eyesDistance() * 1.65f
