@@ -1571,7 +1571,7 @@ class StudioActivity : AppCompatActivity() {
         fun refreshOrder() {
             refreshCards()
             imageOrder.isEnabled=referenceMode.selectedItemPosition==0
-            val refs=if(referenceMode.selectedItemPosition==1) "ครอปใบหน้า" else if(referenceMode.selectedItemPosition==2) "MASTER + ภาพฉาก" else if(imageOrder.selectedItemPosition==1) "ครอป → สามมุม" else "สามมุม → ครอป"
+            val refs=if(referenceMode.selectedItemPosition==1) "ครอปใบหน้า" else if(referenceMode.selectedItemPosition==2) "MASTER + ภาพฉาก" else if(referenceMode.selectedItemPosition==3) "MASTER ต้นฉบับเท่านั้น" else if(imageOrder.selectedItemPosition==1) "ครอป → สามมุม" else "สามมุม → ครอป"
             orderSummary.text=if(transferOrder.selectedItemPosition==1) "$refs → คำสั่ง" else "คำสั่ง → $refs"
         }
         val orderListener=object : android.widget.AdapterView.OnItemSelectedListener {
