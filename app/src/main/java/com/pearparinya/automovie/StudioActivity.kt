@@ -1727,7 +1727,7 @@ class StudioActivity : AppCompatActivity() {
             val masterCount=task.references.size
             val cropCount=if(mode==0 || mode==1 || mode==4) task.references.indices.count { crops.containsKey(references[it].first) && (mode!=4 || references[it].first in selectedFaceIds()) } else 0
             val total=masterCount+cropCount // MASTER images are mandatory even in face-crop-only mode.
-            val valid=total<=9 && (mode!=1 || cropCount==masterCount) && masterCount>0
+            val valid=total<=9 && (mode!=1 || cropCount==masterCount) && masterCount>0 && (mode!=4 || selectedFaceIds().all { crops.containsKey(it) })
             imageBudget.setTextColor(if(valid) Color.rgb(170,232,191) else Color.rgb(255,194,109))
             imageBudget.text="ภาพตัวละคร $total/9 • MASTER ${if(mode==1) 0 else masterCount} • FACE ${cropCount}"+
                 (if(!valid) "\\n⚠ เกินกำหนดหรือครอปไม่ครบ • เลือกโหมด MASTER ต้นฉบับเท่านั้นสำหรับซีนหลายคน" else "")
@@ -1798,7 +1798,7 @@ class StudioActivity : AppCompatActivity() {
                 // Preserve attachment order and never substitute another character's image.
                 val optional=extras.filter { !it.first.startsWith("OUTFIT_") || it in outfitExtras }+propRefs
                 if(orderedPeople.size>9) {
-                    notice("ซีนนี้มี MASTER ${primary.size} ภาพ + ภาพครอป ${orderedPeople.size-primary.size} ภาพ รวม ${orderedPeople.size}/9 ภาพ • กลับไปที่ตัวเลือกภาพอ้างอิง (ขั้นตอน 1) แล้วเลือก «MASTER ต้นฉบับเท่านั้น • สำหรับซีนหลายคน» เพื่อแนบ MASTER ทุกคนโดยไม่ตัดตัวละครหรือสลับใบหน้า หากต้องการภาพครอปครบทุกคน ต้องแบ่งงานเป็นหลายคำสั่ง")
+                    notice("แนบภาพ ${orderedPeople.size}/9 เกินกำหนด • เลือก FACE DETAIL ไม่เกิน ${9-primary.size} คน โดย MASTER ทุกคนยังแนบครบ")
                     return@setPositiveButton
                 }
                 if(primary.size>9) { notice("ซีนนี้มี MASTER ${primary.size} คน เกินขีดจำกัด 9 ภาพ ไม่สามารถส่งในครั้งเดียวได้ กรุณาแบ่งซีนตามบทโดยไม่ลบตัวละครจากข้อมูลต้นฉบับ"); return@setPositiveButton }
