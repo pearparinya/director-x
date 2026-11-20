@@ -2611,54 +2611,44 @@ $context"""
                 if(proposals.isEmpty()) { notice("ไม่พบข้อเสนอที่มีหลักฐานตรงกับบท • ตรวจหรือเพิ่มเองรายฉากได้"); return@runOnUiThread }
                 // Always require explicit selection, even when the evidence is literal.
                 // AI evidence is not visual verification or approval.
+                val confirmed=proposals.filter { PropSuggestionReview.directlySupported(it,allowed[it.optString("scene_id")]) }
+                val needsReview=proposals.filterNot { PropSuggestionReview.directlySupported(it,allowed[it.optString("scene_id")]) }
+                fun thaiItem(v: String): String = when(v.trim().lowercase()) {
+                    "megaphone" -> "โทรโข่ง"
+                    "topo map", "topographic map" -> "แผนที่ภูมิประเทศ"
+                    "backpack" -> "กระเป๋าเป้"
+                    "radio" -> "วิทยุสื่อสาร"
+                    "communication devices" -> "อุปกรณ์สื่อสาร"
+                    else -> v.ifBlank { "ยังไม่ระบุชื่อสิ่งของ" }
+                }
                 val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
                 panel.addView(TextView(this).apply {
-                    text="AI เสนอรายการจากบท • กรุณาเลือกรายการที่ต้องการเองก่อนบันทึก\nตรวจกลุ่มความต่อเนื่องและรายละเอียดสิ่งของด้วยตนเอง\nยังไม่ได้ตรวจภาพจริง • รายการเดิมและ MASTER ไม่ถูกลบ"
+                    text="AI วิเคราะห์จากบทแล้ว • กดยืนยันครั้งเดียวเพื่อบันทึกเฉพาะรายการที่มีหลักฐานตรงบท\\n" +
+                        "พร้อมบันทึก ${confirmed.size} รายการ • ต้องตรวจเพิ่มเติม ${needsReview.size} รายการ\\n" +
+                        "ยังไม่ได้ตรวจภาพจริง และไม่ถือว่าอนุมัติ MASTER หรือภาพ"
                     setPadding(0,0,0,dp(12))
                 })
-                fun propThai(value: String): String {
-                    val v=value.trim()
-                    return when(v.lowercase()) {
-                        "checks communication devices" -> "ตรวจสอบอุปกรณ์สื่อสาร"
-                        "raises the radio" -> "ยกวิทยุสื่อสารขึ้น"
-                        "maintains radio contact" -> "ติดต่อประสานงานผ่านวิทยุอย่างต่อเนื่อง"
-                        "radio" -> "วิทยุสื่อสาร"
-                        "communication devices" -> "อุปกรณ์สื่อสาร"
-                        else -> v
-                    }
+                proposals.forEach { row ->
+                    val safe=confirmed.contains(row)
+                    val id=row.optString("scene_id")
+                    val holder=row.optString("holder").ifBlank { "ยังไม่ระบุผู้ใช้" }
+                    val item=thaiItem(row.optString("item"))
+                    panel.addView(TextView(this).apply {
+                        text=(if(safe) "✓ พร้อมบันทึก" else "⚠ ต้องตรวจเพิ่มเติม")+
+                            "\\n$id • $item\\nผู้ใช้: $holder\\n" +
+                            "รายละเอียด: "+row.optString("details").ifBlank { "ยังไม่ระบุ" }+
+                            "\\nกลุ่มต่อเนื่อง: "+row.optString("continuity_id").ifBlank { "ยังไม่ระบุ" }
+                        setPadding(dp(12),dp(12),dp(12),dp(12))
+                    })
                 }
-                val selectionStatus=TextView(this).apply {
-                    text="กรุณาเลือกรายการที่ต้องการบันทึกก่อน"
-                    setTextColor(navy)
-                    setPadding(0,dp(8),0,dp(8))
-                }
-                panel.addView(selectionStatus)
-                val selectAll=android.widget.CheckBox(this).apply {
-                    text="เลือกทั้งหมด (ต้องตรวจรายละเอียดก่อนบันทึก)"
-                    setTextColor(navy)
-                    setPadding(dp(8),dp(8),dp(8),dp(8))
-                }
-                panel.addView(selectAll)
-                val boxes=proposals.map { row ->
-                    val matched=allowed[row.optString("scene_id")]?.let { scene -> FlowReferencePrompt.people(scene).firstOrNull { it.optString("name")==row.optString("holder") } }
-                    val linkedMaster=if(fantasy && matched!=null) characterProp(matched.optString("master")) else ""
-                    val label="${row.optString("scene_id")} • ${propThai(row.optString("item"))}\nผู้ใช้: ${row.optString("holder").ifBlank { "ยังไม่ระบุ" }}\nรายละเอียด: ${propThai(row.optString("details")).ifBlank { "ยังไม่ระบุ" }}\nกลุ่มต่อเนื่อง: ${row.optString("continuity_id").ifBlank { "ยังไม่ระบุ • ตรวจเอง" }}\nหลักฐานในบท: ${propThai(row.optString("evidence"))}"+(if(linkedMaster.isBlank()) "" else "\nMASTER ที่ผูกกับตัวละคร: $linkedMaster • ตรวจว่าตรงกับสิ่งของนี้")
-                    android.widget.CheckBox(this).apply { text=label; isChecked=false; textSize=15f; setTextColor(navy); setPadding(dp(12),dp(12),dp(12),dp(12)); background=backdrop(Color.rgb(248,246,239),Color.rgb(226,234,243),Color.rgb(173,187,204)); layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) }; panel.addView(this) }
-                }
-                boxes.forEach { box -> box.setOnCheckedChangeListener { _,_ ->
-                    val count=boxes.count { it.isChecked }
-                    selectionStatus.text="เลือกแล้ว $count/${boxes.size} รายการ"
-                    selectAll.setOnCheckedChangeListener(null)
-                    selectAll.isChecked=count==boxes.size
-                    selectAll.setOnCheckedChangeListener { _,checked -> boxes.forEach { it.isChecked=checked } }
-                } }
-                selectAll.setOnCheckedChangeListener { _,checked -> boxes.forEach { it.isChecked=checked } }
+                val feedback=TextView(this).apply { setPadding(0,dp(8),0,dp(8)) }
+                panel.addView(feedback)
                 val dialog=AlertDialog.Builder(this).setTitle("✨ ตรวจสิ่งของที่ AI เสนอ • ${proposals.size} รายการ")
-                    .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึกรายการที่เลือก",null).setNegativeButton("ยกเลิก",null).showDirector()
+                    .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันและบันทึก ${confirmed.size} รายการ",null).setNegativeButton("ยกเลิก",null).showDirector()
                 dialog.getButton(-1).setOnClickListener {
                     if(project.name!=projectId || !sameOpenStory(snapshot)) { notice("เรื่องเปลี่ยนระหว่างตรวจ กรุณาเริ่มใหม่"); return@setOnClickListener }
-                    val selected=proposals.filterIndexed { i,_ -> boxes[i].isChecked }
-                    if(selected.isEmpty()) { selectionStatus.text="ยังไม่ได้เลือกรายการ กรุณาเลือกอย่างน้อย 1 รายการ หรือกดยกเลิก"; return@setOnClickListener }
+                    val selected=confirmed
+                    if(selected.isEmpty()) { feedback.text="ไม่มีรายการที่มีหลักฐานตรงบทเพียงพอ กรุณาตรวจรายละเอียดก่อนบันทึก"; return@setOnClickListener }
                     runCatching {
                         val previous=plan ?: error("ไม่พบเรื่อง")
                         val candidate=JSONObject(previous.toString())
