@@ -2609,41 +2609,56 @@ $context"""
                 val allowed=scenes.associateBy { key(it) }
                 val proposals=PropSuggestionReview.valid(result,allowed)
                 if(proposals.isEmpty()) { notice("ไม่พบข้อเสนอที่มีหลักฐานตรงกับบท • ตรวจหรือเพิ่มเองรายฉากได้"); return@runOnUiThread }
-                // Only apply automatically if every proposal has literal supporting evidence.
-                // Ambiguous suggestions stay on screen for the user to decide.
-                if(proposals.all { PropSuggestionReview.directlySupported(it,allowed[it.optString("scene_id")]) }) {
-                    val previous=plan ?: return@runOnUiThread
-                    runCatching {
-                        val candidate=JSONObject(previous.toString())
-                        val targets=rows(candidate).associateBy { key(it) }
-                        proposals.groupBy { it.optString("scene_id") }.forEach { (id,items) ->
-                            PropSuggestionReview.apply(targets.getValue(id),items)
-                        }
-                        plan=candidate
-                        try { saveStory() } catch(e: Exception) { plan=previous; throw e }
-                    }.onSuccess {
-                        render()
-                        showPropsNext("บันทึกสิ่งของที่มีหลักฐานตรงบทอัตโนมัติ ${proposals.size} รายการ • ตรวจภาพจริงก่อนใช้")
-                    }.onFailure { notice(it.message ?: "บันทึกไม่ได้ • บทเดิมไม่เปลี่ยน") }
-                    return@runOnUiThread
-                }
+                // Always require explicit selection, even when the evidence is literal.
+                // AI evidence is not visual verification or approval.
                 val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
                 panel.addView(TextView(this).apply {
                     text="รายการที่มีหลักฐานชัดเจนถูกเลือกไว้ให้ • ตรวจและปรับได้ก่อนบันทึก\nรายการที่ไม่ชัดเจนยังไม่ถูกเลือก • กลุ่มต่อเนื่องต้องตรวจเอง\nยังไม่ได้ตรวจภาพจริง • รายการเดิมและ MASTER ไม่ถูกลบ"
                     setPadding(0,0,0,dp(12))
                 })
+                fun propThai(value: String): String {
+                    val v=value.trim()
+                    return when(v.lowercase()) {
+                        "checks communication devices" -> "ตรวจสอบอุปกรณ์สื่อสาร"
+                        "raises the radio" -> "ยกวิทยุสื่อสารขึ้น"
+                        "maintains radio contact" -> "ติดต่อประสานงานผ่านวิทยุอย่างต่อเนื่อง"
+                        "radio" -> "วิทยุสื่อสาร"
+                        "communication devices" -> "อุปกรณ์สื่อสาร"
+                        else -> v
+                    }
+                }
+                val selectionStatus=TextView(this).apply {
+                    text="กรุณาเลือกรายการที่ต้องการบันทึกก่อน"
+                    setTextColor(navy)
+                    setPadding(0,dp(8),0,dp(8))
+                }
+                panel.addView(selectionStatus)
+                val selectAll=android.widget.CheckBox(this).apply {
+                    text="เลือกทั้งหมด (ต้องตรวจรายละเอียดก่อนบันทึก)"
+                    setTextColor(navy)
+                    setPadding(dp(8),dp(8),dp(8),dp(8))
+                }
+                panel.addView(selectAll)
                 val boxes=proposals.map { row ->
                     val matched=allowed[row.optString("scene_id")]?.let { scene -> FlowReferencePrompt.people(scene).firstOrNull { it.optString("name")==row.optString("holder") } }
                     val linkedMaster=if(fantasy && matched!=null) characterProp(matched.optString("master")) else ""
-                    val label="${row.optString("scene_id")} • ${row.optString("item")}\nผู้ใช้: ${row.optString("holder").ifBlank { "ยังไม่ระบุ" }}\nรายละเอียด: ${row.optString("details").ifBlank { "ยังไม่ระบุ" }}\nกลุ่มต่อเนื่อง: ${row.optString("continuity_id").ifBlank { "ยังไม่ระบุ • ตรวจเอง" }}\nหลักฐานในบท: ${row.optString("evidence")}"+(if(linkedMaster.isBlank()) "" else "\nMASTER ที่ผูกกับตัวละคร: $linkedMaster • ตรวจว่าตรงกับสิ่งของนี้")
+                    val label="${row.optString("scene_id")} • ${propThai(row.optString("item"))}\nผู้ใช้: ${row.optString("holder").ifBlank { "ยังไม่ระบุ" }}\nรายละเอียด: ${propThai(row.optString("details")).ifBlank { "ยังไม่ระบุ" }}\nกลุ่มต่อเนื่อง: ${row.optString("continuity_id").ifBlank { "ยังไม่ระบุ • ตรวจเอง" }}\nหลักฐานในบท: ${propThai(row.optString("evidence"))}"+(if(linkedMaster.isBlank()) "" else "\nMASTER ที่ผูกกับตัวละคร: $linkedMaster • ตรวจว่าตรงกับสิ่งของนี้")
                     android.widget.CheckBox(this).apply { text=label; isChecked=PropSuggestionReview.directlySupported(row,allowed[row.optString("scene_id")]); textSize=15f; setTextColor(navy); setPadding(dp(12),dp(12),dp(12),dp(12)); background=backdrop(Color.rgb(248,246,239),Color.rgb(226,234,243),Color.rgb(173,187,204)); layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) }; panel.addView(this) }
                 }
+                boxes.forEach { box -> box.setOnCheckedChangeListener { _,_ ->
+                    val count=boxes.count { it.isChecked }
+                    selectionStatus.text="เลือกแล้ว $count/${boxes.size} รายการ"
+                    selectAll.setOnCheckedChangeListener(null)
+                    selectAll.isChecked=count==boxes.size
+                    selectAll.setOnCheckedChangeListener { _,checked -> boxes.forEach { it.isChecked=checked } }
+                } }
+                selectAll.setOnCheckedChangeListener { _,checked -> boxes.forEach { it.isChecked=checked } }
                 val dialog=AlertDialog.Builder(this).setTitle("✨ ตรวจสิ่งของที่ AI เสนอ • ${proposals.size} รายการ")
                     .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึกรายการที่เลือก",null).setNegativeButton("ยกเลิก",null).showDirector()
                 dialog.getButton(-1).setOnClickListener {
                     if(project.name!=projectId || !sameOpenStory(snapshot)) { notice("เรื่องเปลี่ยนระหว่างตรวจ กรุณาเริ่มใหม่"); return@setOnClickListener }
                     val selected=proposals.filterIndexed { i,_ -> boxes[i].isChecked }
-                    if(selected.isEmpty()) { notice("ยังไม่ได้เลือกรายการ • บทเดิมไม่เปลี่ยน"); return@setOnClickListener }
+                    if(selected.isEmpty()) { selectionStatus.text="ยังไม่ได้เลือกรายการ กรุณาเลือกอย่างน้อย 1 รายการ หรือกดยกเลิก"; return@setOnClickListener }
                     runCatching {
                         val previous=plan ?: error("ไม่พบเรื่อง")
                         val candidate=JSONObject(previous.toString())
