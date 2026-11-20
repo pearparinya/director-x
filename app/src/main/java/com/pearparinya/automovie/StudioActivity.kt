@@ -3330,18 +3330,42 @@ $context"""
         }
     }
     private fun confirmEpisode(story: JSONObject,number: Int) {
-        val pending=rows(story).filter { it.optInt("ep")==number && propReviewStatus(it)!="ผู้ใช้ตรวจบทแล้ว" }.size
-        val wardrobe=wardrobeReviewStatus(story)
-        fun open() {
-            productionTaskDeck(story,number,false)
+        val episodeScenes=rows(story).filter { it.optInt("ep")==number }
+        fun open() { productionTaskDeck(story,number,false) }
+        fun check() {
+            val pending=episodeScenes.filter { propReviewStatus(it)!="ผู้ใช้ตรวจบทแล้ว" }
+            val wardrobe=wardrobeReviewStatus(story)
+            if(!HomeReviewState.shouldWarn(wardrobe,pending.size)) { open(); return }
+            val detail=pending.take(12).joinToString("\n") { scene ->
+                "• ${key(scene)}: ${propReviewStatus(scene)}" +
+                    if(scene.optString("props").isBlank()) " (ยังไม่ระบุสิ่งของ)" else " (มีข้อมูลสิ่งของในบท)"
+            }
+            val overflow=if(pending.size>12) "\nและอีก ${pending.size-12} ฉาก" else ""
+            val summary="ชุดตัวละคร: $wardrobe\nสิ่งของ EP.$number: รอตรวจ ${pending.size}/${episodeScenes.size} ฉาก" +
+                if(pending.isEmpty()) "" else "\n\nฉากที่ต้องตรวจ:\n$detail$overflow"
+            AlertDialog.Builder(this).setTitle("ตรวจความพร้อมก่อนสร้างภาพและ Flow")
+                .setMessage(summary+"\n\nข้อมูลบทและภาพจริงเป็นการตรวจคนละขั้นตอน การข้ามไม่ถือว่าอนุมัติข้อมูลหรือยืนยันภาพ")
+                .setPositiveButton("ตรวจรายการที่ยังค้าง") { _,_ ->
+                    val options=mutableListOf<String>()
+                    if(wardrobe!="ยืนยันแล้ว") options.add("ตรวจชุดตัวละคร • $wardrobe")
+                    if(pending.isNotEmpty()) options.add("ตรวจสิ่งของ • ${pending.size} ฉาก")
+                    options.add("ตรวจสถานะอีกครั้ง")
+                    choiceMenu("เลือกส่วนที่ต้องการตรวจ",options) { selected ->
+                        when {
+                            options[selected].startsWith("ตรวจชุด") -> wardrobeMenu(story)
+                            options[selected].startsWith("ตรวจสิ่งของ") -> reviewSceneProps(story)
+                            else -> check()
+                        }
+                    }
+                }
+                .setNeutralButton("ดำเนินการต่อโดยยังไม่ยืนยัน") { _,_ ->
+                    prefs.edit().putString("preflight_skipped_${project.name}_ep$number",
+                        "wardrobe=$wardrobe;pending=${pending.joinToString(",") { key(it) }}").apply()
+                    open()
+                }
+                .setNegativeButton("ยกเลิก",null).showDirector()
         }
-        if(HomeReviewState.shouldWarn(wardrobe,pending)) {
-            AlertDialog.Builder(this).setTitle("ตรวจข้อมูลก่อนสร้างภาพและ Flow")
-                .setMessage("ชุดในบท: $wardrobe\nสิ่งของ EP.$number ยังไม่ได้ตรวจหรือต้องตรวจซ้ำ: $pending ฉาก\n\nข้ามไปทำงานต่อได้ • การตรวจบทไม่ได้ยืนยันภาพจริง กรุณาตรวจภาพก่อนใช้ Flow")
-                .setPositiveButton("ข้ามและดำเนินการต่อ") { _,_ -> open() }.setNegativeButton("กลับไปตรวจ") { _,_ ->
-                    choiceMenu("เลือกสิ่งที่ต้องการตรวจ",listOf("ตรวจชุดตัวละคร", "ตรวจสิ่งของในบท")) { selected -> if(selected==0) wardrobeMenu(story) else reviewSceneProps(story) }
-                }.showDirector()
-        } else open()
+        check()
     }
     private fun extraToolsMenu(current: JSONObject?) {
         val options=mutableListOf("📥 นำเข้าบทที่มีอยู่","⚙️ DIRECTOR X • ภาพและวิดีโอ","🧪 ทดสอบสร้างวิดีโอ","🎭 แม่แบบและคลังตัวละคร")
