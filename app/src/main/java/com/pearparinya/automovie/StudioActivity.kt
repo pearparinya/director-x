@@ -2609,10 +2609,22 @@ $context"""
                 val allowed=scenes.associateBy { key(it) }
                 val proposals=PropSuggestionReview.valid(result,allowed)
                 if(proposals.isEmpty()) { notice("ไม่พบข้อเสนอที่มีหลักฐานตรงกับบท • ตรวจหรือเพิ่มเองรายฉากได้"); return@runOnUiThread }
-                // Always require explicit selection, even when the evidence is literal.
-                // AI evidence is not visual verification or approval.
-                val confirmed=proposals.filter { PropSuggestionReview.directlySupported(it,allowed[it.optString("scene_id")]) }
-                val needsReview=proposals.filterNot { PropSuggestionReview.directlySupported(it,allowed[it.optString("scene_id")]) }
+                // valid() has already checked that evidence is a verbatim substring of this scene.
+                // Accept evidence from action/end_state/props as well as start_state.
+                // Do not persist inferred color, brand, model or continuity without literal evidence.
+                val confirmed=proposals.map { row ->
+                    val evidence=row.optString("evidence")
+                    val safe=JSONObject(row.toString())
+                    if(!evidence.contains(row.optString("details"),ignoreCase=true) || row.optString("details").isBlank())
+                        safe.put("details","")
+                    // Continuity is a cross-scene claim; do not approve it from one scene's text.
+                    safe.put("continuity_id","")
+                    safe
+                }
+                val needsReview=proposals.filter { row ->
+                    row.optString("continuity_id").isNotBlank() ||
+                        (row.optString("details").isNotBlank() && !row.optString("evidence").contains(row.optString("details"),ignoreCase=true))
+                }
                 fun thaiItem(v: String): String = when(v.trim().lowercase()) {
                     "megaphone" -> "โทรโข่ง"
                     "topo map", "topographic map" -> "แผนที่ภูมิประเทศ"
@@ -2623,21 +2635,21 @@ $context"""
                 }
                 val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
                 panel.addView(TextView(this).apply {
-                    text="AI วิเคราะห์จากบทแล้ว • กดยืนยันครั้งเดียวเพื่อบันทึกเฉพาะรายการที่มีหลักฐานตรงบท\\n" +
-                        "พร้อมบันทึก ${confirmed.size} รายการ • ต้องตรวจเพิ่มเติม ${needsReview.size} รายการ\\n" +
+                    text="AI วิเคราะห์จากบทแล้ว • กดยืนยันครั้งเดียวเพื่อบันทึกเฉพาะรายการที่มีหลักฐานตรงบท\n" +
+                        "พร้อมบันทึก ${confirmed.size} รายการ • รายละเอียด/กลุ่มที่ยังไม่ยืนยัน ${needsReview.size} รายการ\n" +
                         "ยังไม่ได้ตรวจภาพจริง และไม่ถือว่าอนุมัติ MASTER หรือภาพ"
                     setPadding(0,0,0,dp(12))
                 })
                 proposals.forEach { row ->
-                    val safe=confirmed.contains(row)
+                    val safe=true
                     val id=row.optString("scene_id")
                     val holder=row.optString("holder").ifBlank { "ยังไม่ระบุผู้ใช้" }
                     val item=thaiItem(row.optString("item"))
                     panel.addView(TextView(this).apply {
-                        text=(if(safe) "✓ พร้อมบันทึก" else "⚠ ต้องตรวจเพิ่มเติม")+
-                            "\\n$id • $item\\nผู้ใช้: $holder\\n" +
-                            "รายละเอียด: "+row.optString("details").ifBlank { "ยังไม่ระบุ" }+
-                            "\\nกลุ่มต่อเนื่อง: "+row.optString("continuity_id").ifBlank { "ยังไม่ระบุ" }
+                        text="✓ พร้อมบันทึกชื่อสิ่งของจากบท"+
+                            "\n$id • $item\nผู้ใช้: $holder\n" +
+                            "รายละเอียด AI เสนอ (ยังไม่ยืนยัน): "+row.optString("details").ifBlank { "ยังไม่ระบุ" }+
+                            "\nกลุ่มต่อเนื่อง AI เสนอ (ยังไม่ยืนยัน): "+row.optString("continuity_id").ifBlank { "ยังไม่ระบุ" }
                         setPadding(dp(12),dp(12),dp(12),dp(12))
                     })
                 }
