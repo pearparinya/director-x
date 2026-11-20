@@ -2799,28 +2799,40 @@ $context"""
     // Planning only: ChatGPT Plus does not provide an in-app image-generation API.
     private fun imageBatchFivePlan(story: JSONObject) {
         val eps=story.optJSONArray("episodes") ?: return notice("ยังไม่มีตอน")
+        val progressStore=ImageSceneProgressStore(this)
         val lines=mutableListOf<String>()
         var totalScenes=0
+        var totalPending=0
         var totalBatches=0
         for(i in 0 until eps.length()) {
             val episode=eps.optJSONObject(i) ?: continue
             val number=episode.optInt("ep",i+1)
-            val count=runCatching { SimpleProductionCommands.videoTasks(story,number).size }.getOrDefault(0)
-            totalScenes+=count
-            val batches=if(count==0) 0 else (count+4)/5
-            totalBatches+=batches
-            val ranges=(0 until batches).joinToString(", ") { batch ->
-                val first=batch*5+1
-                val last=minOf(count,first+4)
-                "$first–$last"
+            val scenes=episode.optJSONArray("scenes")
+            val sceneIds=(0 until (scenes?.length() ?: 0)).mapNotNull { index ->
+                scenes?.optJSONObject(index)?.optInt("scene",0)?.takeIf { it>0 }
             }
-            lines.add("EP.$number • $count ซีน • $batches ชุด\nซีน: $ranges")
+            if(sceneIds.size != (scenes?.length() ?: 0) || sceneIds.distinct().size != sceneIds.size) {
+                lines.add("EP.$number • หมายเลขซีนไม่ถูกต้องหรือซ้ำ กรุณาตรวจบท")
+                continue
+            }
+            val state=progressStore.load("${project.name}:EP$number",sceneIds)
+            val pending=sceneIds.filter { it !in state.completedSceneIds }
+            totalScenes+=sceneIds.size
+            totalPending+=pending.size
+            val batches=pending.chunked(5)
+            totalBatches+=batches.size
+            val ranges=batches.mapIndexed { index, group ->
+                "ชุด ${index+1}: ${group.joinToString(", ")}"
+            }.joinToString("\n")
+            lines.add("EP.$number • เสร็จ ${state.completedCount}/${sceneIds.size} • ค้าง ${pending.size} ซีน • ${batches.size} ชุด"+
+                if(ranges.isBlank()) " (ไม่มีงานค้าง)" else "\n$ranges")
         }
-        AlertDialog.Builder(this).setTitle("แผนสร้างภาพ • ชุดละ 5 ซีน")
-            .setMessage("รวม $totalScenes ซีน • $totalBatches ชุด\n\n"+
-                lines.joinToString("\n")+"\n\n"+
-                "1 ซีน = 1 ภาพแยกไฟล์\n"+
-                "นี่คือแผนจัดชุดคำสั่งเท่านั้น ยังไม่ได้เรียก API สร้างภาพ")
+        AlertDialog.Builder(this).setTitle("คิวภาพ 5 ซีน • Dual Engine")
+            .setMessage("รวม $totalScenes ซีน • รอสร้าง $totalPending ซีน • $totalBatches ชุด\n\n"+
+                lines.joinToString("\n\n")+"\n\n"+
+                "ChatGPT Plus: เตรียมคำสั่งและนำภาพเข้าด้วยตนเอง\n"+
+                "Image API: ต้องเชื่อมผู้ให้บริการก่อนจึงจะสร้างอัตโนมัติได้\n"+
+                "สถานะเสร็จอ้างอิงบันทึกความคืบหน้า ไม่ได้ตรวจไฟล์ภาพจริงในหน้านี้")
             .setPositiveButton("เปิดคำสั่ง Flow") { _,_ -> commandCardsMenu() }
             .setNegativeButton("ปิด",null).showDirector()
     }
