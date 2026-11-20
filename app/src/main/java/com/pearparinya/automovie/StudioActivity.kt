@@ -2714,14 +2714,56 @@ $context"""
             }
         }
     }
+    // Round 1: generate all episode Flow commands in one action; never claim video was rendered.
+    private fun autoFlowEpisode(story: JSONObject, number: Int) {
+        val tasks=runCatching { SimpleProductionCommands.videoTasks(story,number) }.getOrElse {
+            notice("ยังสร้างคำสั่ง Flow ไม่ได้: ${it.message ?: "ตรวจบทอีกครั้ง"}")
+            return
+        }
+        if(tasks.isEmpty()) { notice("EP.$number ยังไม่มีฉากสำหรับคำสั่ง Flow"); return }
+        val issues=ProductionCommandCheck.issues(story)
+        if(issues.isNotEmpty()) {
+            AlertDialog.Builder(this).setTitle("ต้องตรวจบทก่อนสร้างคำสั่ง Flow")
+                .setMessage("พบข้อควรแก้ ${issues.size} รายการ\\n"+issues.take(8).joinToString("\\n"))
+                .setPositiveButton("เปิดรายการตรวจ") { _,_ -> productionCheckMenu(story) }
+                .setNegativeButton("กลับ",null).showDirector()
+            return
+        }
+        val content=tasks.mapIndexed { index,task ->
+            "ฉาก ${index+1}/${tasks.size} • ${task.id}\\n"+
+                SimpleProductionCommands.block(task,index,false)
+        }.joinToString("\\n\\n--------------------\\n\\n")
+        val file=File(project,"EP%02d_FLOW_AUTO.txt".format(number))
+        val saved=runCatching {
+            val temp=File(project,file.name+".tmp")
+            temp.writeText(content,Charsets.UTF_8)
+            if(!temp.renameTo(file)) { file.writeText(content,Charsets.UTF_8); temp.delete() }
+            prefs.edit().putInt("auto_flow_count_${project.name}_$number",tasks.size)
+                .putLong("auto_flow_saved_at_${project.name}_$number",System.currentTimeMillis()).commit()
+        }.getOrElse { notice("บันทึกคำสั่ง Flow ไม่สำเร็จ: ${it.message}"); return }
+        if(!saved) { notice("บันทึกสถานะคำสั่ง Flow ไม่สำเร็จ"); return }
+        val stamp=java.text.SimpleDateFormat("dd/MM/yyyy HH:mm",java.util.Locale("th","TH")).format(java.util.Date())
+        val dialog=showFlowCode("คำสั่ง Flow EP.$number • ${tasks.size} ฉาก",
+            "สร้างคำสั่ง Flow แล้ว ${tasks.size}/${tasks.size} ฉาก\\nบันทึก: $stamp\\nไฟล์: ${file.name}\\nสถานะ: พร้อมตรวจและคัดลอก (ยังไม่ได้สร้างวิดีโอ)\\n\\n$content",
+            file.name)
+        dialog.getButton(-2)?.text="ปิด"
+    }
+
     private fun commandCardsMenu() {
         val story=plan ?: return notice("สร้างหรือนำเข้าบทก่อนครับ")
         if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
         val eps=story.getJSONArray("episodes")
         val channel=ChannelCatalog.currentChannel(story.optString("channel"))
-        val options=(0 until eps.length()).map { "🎬 EP.${eps.getJSONObject(it).getInt("ep")} • ${eps.getJSONObject(it).optString("title")}" }
-        choiceMenu("คำสั่ง Flow • เลือก EP\nช่อง: ${channel.ifBlank { "ช่องไม่ระบุ" }}\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}",options) { index ->
-            confirmEpisode(story,eps.getJSONObject(index).getInt("ep"))
+        val options=(0 until eps.length()).map { i ->
+            val ep=eps.getJSONObject(i).getInt("ep")
+            val count=prefs.getInt("auto_flow_count_${project.name}_$ep",0)
+            val at=prefs.getLong("auto_flow_saved_at_${project.name}_$ep",0L)
+            val time=if(at>0L) java.text.SimpleDateFormat("dd/MM HH:mm",java.util.Locale("th","TH")).format(java.util.Date(at)) else "ยังไม่สร้าง"
+            "🎬 EP.$ep • ${eps.getJSONObject(i).optString("title")}\\nคำสั่ง Flow: ${if(count>0) "$count ฉาก • $time" else time}"
+        }
+        choiceMenu("คำสั่ง Flow • เลือก EP\\nช่อง: ${channel.ifBlank { "ช่องไม่ระบุ" }}\\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}",
+            options) { index ->
+            autoFlowEpisode(story,eps.getJSONObject(index).getInt("ep"))
         }
     }
 
