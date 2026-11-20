@@ -3336,8 +3336,8 @@ $context"""
         val scenes=rows(current)
         val reviewed=scenes.count { propReviewStatus(it)=="ผู้ใช้ตรวจบทแล้ว" }
         AlertDialog.Builder(this).setTitle("🧰 ขั้นตอน 2 • สิ่งของในบท")
-            .setMessage(message+"\n\nตรวจบทแล้ว $reviewed/${scenes.size} ฉาก • การตรวจบทยังไม่ได้ตรวจภาพจริง")
-            .setPositiveButton("ไปสร้างภาพ + Flow →") { _,_ -> commandCardsMenu() }
+            .setMessage(message+"\n\nยืนยันสิ่งของในบทแล้ว $reviewed/${scenes.size} ฉาก • สถานะนี้เป็นการตรวจบท ไม่ใช่การตรวจคำสั่ง Flow")
+            .setPositiveButton("ไปคำสั่ง Flow →") { _,_ -> commandCardsMenu() }
             .setNeutralButton("ตรวจฉากอื่น") { _,_ -> plan?.let { reviewSceneProps(it) } ?: notice("ไม่พบเรื่อง") }
             .setNegativeButton("กลับหน้าแรก",null).showDirector()
     }
