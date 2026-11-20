@@ -5381,7 +5381,30 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
                         require(bounds.outWidth > 0) { "อ่านภาพไม่ได้" }
                         if (target.exists()) archiveVersion(target, importFolder, key(s), "image")
                         check(tmp.renameTo(target)) { "บันทึกภาพไม่ได้" }
-                        runOnUiThread { savedCount++; next() }
+                        // Record completion only after a durable image save.
+                        val episodeNumber = s.getInt("ep")
+                        val sceneId = s.getInt("scene")
+                        val episodes = plan?.optJSONArray("episodes")
+                        val episode = (0 until (episodes?.length() ?: 0)).mapNotNull { episodes?.optJSONObject(it) }
+                            .firstOrNull { it.optInt("ep") == episodeNumber }
+                        val episodeScenes = episode?.optJSONArray("scenes")
+                        val sceneIds = (0 until (episodeScenes?.length() ?: 0)).mapNotNull { index ->
+                            episodeScenes?.optJSONObject(index)?.optInt("scene", 0)?.takeIf { it > 0 }
+                        }
+                        val progressSaved = if (sceneIds.isNotEmpty() &&
+                            sceneIds.size == episodeScenes?.length() &&
+                            sceneIds.distinct().size == sceneIds.size && sceneId in sceneIds
+                        ) {
+                            val store = ImageSceneProgressStore(this@StudioActivity)
+                            val projectId = "${project.name}:EP$episodeNumber"
+                            val current = store.load(projectId, sceneIds)
+                            store.recordCompletedScene(projectId, current, sceneId) != null
+                        } else false
+                        runOnUiThread {
+                            savedCount++
+                            if (!progressSaved) failures.add("$name: บันทึกภาพแล้ว แต่บันทึกสถานะคิวไม่สำเร็จ")
+                            next()
+                        }
                     } catch (e: Exception) { runOnUiThread { failures.add("$name: ${e.message}"); next() } }
                 }.start()
             }
