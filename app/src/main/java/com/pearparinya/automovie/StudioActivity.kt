@@ -2775,9 +2775,9 @@ $context"""
                 val tasks=SimpleProductionCommands.videoTasks(story,ep)
                 require(tasks.isNotEmpty()) { "ไม่มีฉาก" }
                 val content=tasks.mapIndexed { index,task ->
-                    "ฉาก ${index+1}/${tasks.size} • ${task.id}\\n"+
+                    "ฉาก ${index+1}/${tasks.size} • ${task.id}\n"+
                         SimpleProductionCommands.block(task,index,false)
-                }.joinToString("\\n\\n--------------------\\n\\n")
+                }.joinToString("\n\n--------------------\n\n")
                 val temp=File(project,file.name+".tmp")
                 try {
                     temp.writeText(content,Charsets.UTF_8)
@@ -2789,9 +2789,9 @@ $context"""
             }.onFailure { failures.add("EP.$ep • ${it.message ?: "สร้างไม่สำเร็จ"}") }
         }
         val summary="สร้างใหม่ $created ตอน • ข้ามไฟล์เดิม $skipped ตอน • ผิดพลาด ${failures.size} ตอน"+
-            if(failures.isEmpty()) "" else "\\n\\n"+failures.take(8).joinToString("\\n")
+            if(failures.isEmpty()) "" else "\n\n"+failures.take(8).joinToString("\n")
         AlertDialog.Builder(this).setTitle("Flow ทั้งเรื่อง • ผลการทำงาน")
-            .setMessage(summary+"\\n\\nไฟล์คำสั่งพร้อมตรวจและคัดลอก ยังไม่ได้ส่งไปสร้างวิดีโอ")
+            .setMessage(summary+"\n\nไฟล์คำสั่งพร้อมตรวจและคัดลอก ยังไม่ได้ส่งไปสร้างวิดีโอ")
             .setPositiveButton("เปิดรายการตอน") { _,_ -> commandCardsMenu() }
             .setNegativeButton("ปิด",null).showDirector()
     }
