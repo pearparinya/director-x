@@ -2844,22 +2844,44 @@ $context"""
             val ep=eps?.optJSONObject(index)?.optInt("ep",0) ?: 0
             ep>0 && File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile
         }
+        val progressStore=ImageSceneProgressStore(this)
+        var imageTotal=0
+        var imageCompleted=0
+        var invalidSceneLists=0
+        for(index in 0 until total) {
+            val ep=eps?.optJSONObject(index) ?: continue
+            val number=ep.optInt("ep",index+1)
+            val scenes=ep.optJSONArray("scenes")
+            val ids=(0 until (scenes?.length() ?: 0)).mapNotNull { i ->
+                scenes?.optJSONObject(i)?.optInt("scene",0)?.takeIf { it>0 }
+            }
+            if(ids.size != (scenes?.length() ?: 0) || ids.distinct().size != ids.size) {
+                invalidSceneLists++
+                continue
+            }
+            imageTotal+=ids.size
+            imageCompleted+=progressStore.load("${project.name}:EP$number",ids).completedCount
+        }
         val issues=ProductionCommandCheck.issues(story)
         val next=when {
-            issues.isNotEmpty() -> "ตรวจและแก้บทก่อนสร้างคำสั่ง"
+            issues.isNotEmpty() || invalidSceneLists>0 -> "ตรวจและแก้บทก่อนดำเนินการ"
             total==0 -> "สร้างหรือนำเข้าบทที่มีตอน"
             saved<total -> "สร้างชุดคำสั่ง Flow ที่ยังขาด • ระบบข้ามไฟล์เดิม"
-            else -> "เปิดคำสั่งที่บันทึกไว้เพื่อตรวจและนำไปใช้กับ Flow"
+            imageCompleted<imageTotal -> "ตรวจคิวภาพ 5 ซีน และดำเนินการกับผู้ให้บริการภาพ"
+            else -> "เปิดคำสั่ง Flow ที่บันทึกไว้เพื่อตรวจและนำไปใช้"
         }
         AlertDialog.Builder(this).setTitle("สถานะงานอัตโนมัติ • ระดับ 1")
             .setMessage("บท: ${if(total>0) "มี $total ตอน" else "ยังไม่มีตอน"}\n"+
                 "คำสั่ง Flow: $saved/$total ตอน\n"+
+                "ภาพ (ตามสถานะบันทึก): $imageCompleted/$imageTotal ซีน\n"+
+                "ตอนที่หมายเลขซีนผิดพลาด: $invalidSceneLists\n"+
                 "ข้อควรแก้ในบท: ${issues.size} รายการ\n\n"+
                 "ขั้นตอนถัดไป: $next\n\n"+
-                "หมายเหตุ: ระบบยังไม่ได้ส่งงานไปสร้างวิดีโอจริง")
+                "หมายเหตุ: สถานะภาพไม่ใช่การยืนยันว่ามีไฟล์ภาพจริง และระบบยังไม่สร้างวิดีโอ")
             .setPositiveButton("ดำเนินการขั้นตอนถัดไป") { _,_ ->
-                if(issues.isNotEmpty()) productionCheckMenu(story)
+                if(issues.isNotEmpty() || invalidSceneLists>0) productionCheckMenu(story)
                 else if(saved<total) autoFlowAllEpisodes(story)
+                else if(imageCompleted<imageTotal) imageBatchFivePlan(story)
                 else commandCardsMenu()
             }
             .setNegativeButton("ปิด",null).showDirector()
