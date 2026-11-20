@@ -2891,12 +2891,44 @@ $context"""
             .setNegativeButton("ปิด",null).showDirector()
     }
 
+    // Fast path: one tap chooses the next safe existing workflow without a status dialog.
+    private fun continueFlowOneTap(story: JSONObject) {
+        val episodes = story.optJSONArray("episodes") ?: return notice("ยังไม่มีตอนในบท")
+        if (episodes.length() == 0) return notice("ยังไม่มีตอนในบท")
+        if (ProductionCommandCheck.issues(story).isNotEmpty()) {
+            productionCheckMenu(story)
+            return
+        }
+        val progressStore = ImageSceneProgressStore(this)
+        var hasPendingImages = false
+        for (index in 0 until episodes.length()) {
+            val episode = episodes.optJSONObject(index) ?: return productionCheckMenu(story)
+            val number = episode.optInt("ep", 0)
+            val scenes = episode.optJSONArray("scenes") ?: return productionCheckMenu(story)
+            val ids = (0 until scenes.length()).mapNotNull { i ->
+                scenes.optJSONObject(i)?.optInt("scene", 0)?.takeIf { it > 0 }
+            }
+            if (number <= 0 || ids.size != scenes.length() || ids.distinct().size != ids.size) {
+                productionCheckMenu(story)
+                return
+            }
+            if (!File(project, "EP%02d_FLOW_AUTO.txt".format(number)).isFile) {
+                autoFlowAllEpisodes(story)
+                return
+            }
+            if (progressStore.load("${project.name}:EP$number", ids).completedCount < ids.size) {
+                hasPendingImages = true
+            }
+        }
+        if (hasPendingImages) imageBatchFivePlan(story) else phaseOneWorkflowStatus(story)
+    }
+
     private fun commandCardsMenu() {
         val story=plan ?: return notice("สร้างหรือนำเข้าบทก่อนครับ")
         if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
         val eps=story.getJSONArray("episodes")
         val channel=ChannelCatalog.currentChannel(story.optString("channel"))
-        val options=listOf("📋 ตรวจสถานะงานและทำขั้นตอนถัดไป","🖼️ วางแผนสร้างภาพชุดละ 5 ซีน","⚡ สร้างคำสั่ง Flow ทุกตอนอัตโนมัติ • ข้ามตอนที่มีไฟล์แล้ว")+(0 until eps.length()).map { i ->
+        val options=listOf("⚡ ทำงานต่อทันที • เลือกขั้นตอนอัตโนมัติ","📋 ตรวจสถานะงานและทำขั้นตอนถัดไป","🖼️ วางแผนสร้างภาพชุดละ 5 ซีน","⚡ สร้างคำสั่ง Flow ทุกตอนอัตโนมัติ • ข้ามตอนที่มีไฟล์แล้ว")+(0 until eps.length()).map { i ->
             val ep=eps.getJSONObject(i).getInt("ep")
             val count=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getInt("auto_flow_count_${project.name}_$ep",0) else 0
             val at=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getLong("auto_flow_saved_at_${project.name}_$ep",0L) else 0L
@@ -2905,10 +2937,11 @@ $context"""
         }
         choiceMenu("คำสั่ง Flow • เลือก EP\nช่อง: ${channel.ifBlank { "ช่องไม่ระบุ" }}\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}",
             options) { index ->
-            if(index==0) { phaseOneWorkflowStatus(story); return@choiceMenu }
-            if(index==1) { imageBatchFivePlan(story); return@choiceMenu }
-            if(index==2) { autoFlowAllEpisodes(story); return@choiceMenu }
-            val ep=eps.getJSONObject(index-3).getInt("ep")
+            if(index==0) { continueFlowOneTap(story); return@choiceMenu }
+            if(index==1) { phaseOneWorkflowStatus(story); return@choiceMenu }
+            if(index==2) { imageBatchFivePlan(story); return@choiceMenu }
+            if(index==3) { autoFlowAllEpisodes(story); return@choiceMenu }
+            val ep=eps.getJSONObject(index-4).getInt("ep")
             val file=File(project,"EP%02d_FLOW_AUTO.txt".format(ep))
             if(!file.isFile) {
                 autoFlowEpisode(story,ep)
