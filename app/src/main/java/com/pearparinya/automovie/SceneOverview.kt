@@ -34,7 +34,7 @@ internal object SceneOverview {
                     ?: namedTarget ?: "เด็ก"
                 "$actor ยื่นมือไปหา$targetและพูดปลอบใจ เพื่อเตรียมพาไปยังที่ปลอดภัย"
             }
-            !containsEnglishProse(action) -> action
+            !containsEnglishProse(action) && action.any { it in '\u0E00'..'\u0E7F' } -> action
             else -> "ยังไม่มีคำอธิบายเหตุการณ์ภาษาไทยที่ตรวจสอบได้ กรุณาเพิ่มข้อมูล action_th ในบทก่อนดำเนินซีนนี้"
         }
     }
@@ -44,7 +44,7 @@ internal object SceneOverview {
         val explicit=field(scene,"location_th").ifBlank { field(scene,"thai_location") }
         if(explicit.isNotBlank()) return explicit
         val location=field(scene,"location")
-        if(location.any { it in '\u0E00'..'\u0E7F' }) return location
+        if(location.any { it in '\u0E00'..'\u0E7F' } && !containsEnglishProse(location)) return location
         return when(location.lowercase()) {
             "flooded street near canal" -> "ถนนน้ำท่วมใกล้คลอง"
             "flooded porch of tonkla's house" -> "ชานบ้านต้นกล้าที่มีน้ำท่วม"
@@ -55,7 +55,7 @@ internal object SceneOverview {
         "ตัวละคร: "+names(scene).replace("、", " และ ").ifBlank { "ยังไม่ระบุ" },
         "สถานที่: "+thaiLocation(scene),
         "เหตุการณ์: "+thaiAction(scene)
-    ).joinToString("\\n")
+    ).joinToString("\n")
     fun detail(scene: JSONObject, imageId: String): String {
         val dialogue=field(scene,"dialogue")
         val speaker=field(scene,"speaker")
