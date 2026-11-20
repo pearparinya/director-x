@@ -2753,7 +2753,7 @@ $context"""
     }
 
     // Phase 1: one-tap batch generation; existing episode files are never overwritten.
-    private fun autoFlowAllEpisodes(story: JSONObject) {
+    private fun autoFlowAllEpisodes(story: JSONObject, autoContinue: Boolean = false) {
         val issues=ProductionCommandCheck.issues(story)
         if(issues.isNotEmpty()) {
             AlertDialog.Builder(this).setTitle("ตรวจบทก่อนสร้าง Flow ทั้งเรื่อง")
@@ -2790,10 +2790,17 @@ $context"""
         }
         val summary="สร้างใหม่ $created ตอน • ข้ามไฟล์เดิม $skipped ตอน • ผิดพลาด ${failures.size} ตอน"+
             if(failures.isEmpty()) "" else "\n\n"+failures.take(8).joinToString("\n")
-        AlertDialog.Builder(this).setTitle("Flow ทั้งเรื่อง • ผลการทำงาน")
-            .setMessage(summary+"\n\nไฟล์คำสั่งพร้อมตรวจและคัดลอก ยังไม่ได้ส่งไปสร้างวิดีโอ")
-            .setPositiveButton("เปิดรายการตอน") { _,_ -> commandCardsMenu() }
-            .setNegativeButton("ปิด",null).showDirector()
+        if (autoContinue && failures.isEmpty()) {
+            // Resume directly at the first unfinished image batch. This does not call an image API.
+            imageBatchFivePlan(story)
+        } else {
+            AlertDialog.Builder(this).setTitle("Flow ทั้งเรื่อง • ผลการทำงาน")
+                .setMessage(summary+"\n\nไฟล์คำสั่งพร้อมตรวจและคัดลอก ยังไม่ได้ส่งไปสร้างวิดีโอ")
+                .setPositiveButton("ทำงานต่อ") { _,_ ->
+                    if (failures.isEmpty()) imageBatchFivePlan(story) else commandCardsMenu()
+                }
+                .setNegativeButton("ปิด",null).showDirector()
+        }
     }
 
     // Planning only: ChatGPT Plus does not provide an in-app image-generation API.
@@ -2913,7 +2920,7 @@ $context"""
                 return
             }
             if (!File(project, "EP%02d_FLOW_AUTO.txt".format(number)).isFile) {
-                autoFlowAllEpisodes(story)
+                autoFlowAllEpisodes(story, autoContinue = true)
                 return
             }
             if (progressStore.load("${project.name}:EP$number", ids).completedCount < ids.size) {
