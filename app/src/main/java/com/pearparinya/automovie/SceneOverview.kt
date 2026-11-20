@@ -25,14 +25,14 @@ internal object SceneOverview {
         return when {
             "wades forward through the strong current" in lower ->
                 "$actor ลุยฝ่ากระแสน้ำที่ไหลแรงไปข้างหน้า พร้อมพูดระหว่างปฏิบัติภารกิจ" +
-                (companion?.let { " โดยมี$itร่วมอยู่ในซีน" } ?: "")
+                (companion?.let { " โดยมี${it}ร่วมอยู่ในซีน" } ?: "")
             "wades into the strong current" in lower ->
                 "$actor ลุยลงไปในกระแสน้ำที่ไหลแรง และพูดสื่อสาร" +
-                (companion?.let { "กับ$itซึ่งติดตามการติดต่อสื่อสาร" } ?: "กับทีม")
+                (companion?.let { "กับ${it}ซึ่งติดตามการติดต่อสื่อสาร" } ?: "กับทีม")
             "reaches out to" in lower && "carry him to safety" in lower -> {
                 val target=castNames.drop(1).firstOrNull { action.contains(it,ignoreCase=true) }
                     ?: namedTarget ?: "เด็ก"
-                "$actor ยื่นมือไปหา$targetและพูดปลอบใจ เพื่อเตรียมพาไปยังที่ปลอดภัย"
+                "$actor ยื่นมือไปหา${target}และพูดปลอบใจ เพื่อเตรียมพาไปยังที่ปลอดภัย"
             }
             !containsEnglishProse(action) && action.any { it in '\u0E00'..'\u0E7F' } -> action
             else -> "ยังไม่มีคำอธิบายเหตุการณ์ภาษาไทยที่ตรวจสอบได้ กรุณาเพิ่มข้อมูล action_th ในบทก่อนดำเนินซีนนี้"
