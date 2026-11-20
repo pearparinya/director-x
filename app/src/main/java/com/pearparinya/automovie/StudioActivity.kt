@@ -2724,27 +2724,27 @@ $context"""
         val issues=ProductionCommandCheck.issues(story)
         if(issues.isNotEmpty()) {
             AlertDialog.Builder(this).setTitle("ต้องตรวจบทก่อนสร้างคำสั่ง Flow")
-                .setMessage("พบข้อควรแก้ ${issues.size} รายการ\\n"+issues.take(8).joinToString("\\n"))
+                .setMessage("พบข้อควรแก้ ${issues.size} รายการ\n"+issues.take(8).joinToString("\n"))
                 .setPositiveButton("เปิดรายการตรวจ") { _,_ -> productionCheckMenu(story) }
                 .setNegativeButton("กลับ",null).showDirector()
             return
         }
         val content=tasks.mapIndexed { index,task ->
-            "ฉาก ${index+1}/${tasks.size} • ${task.id}\\n"+
+            "ฉาก ${index+1}/${tasks.size} • ${task.id}\n"+
                 SimpleProductionCommands.block(task,index,false)
-        }.joinToString("\\n\\n--------------------\\n\\n")
+        }.joinToString("\n\n--------------------\n\n")
         val file=File(project,"EP%02d_FLOW_AUTO.txt".format(number))
         val saved=runCatching {
             val temp=File(project,file.name+".tmp")
             temp.writeText(content,Charsets.UTF_8)
-            if(!temp.renameTo(file)) { file.writeText(content,Charsets.UTF_8); temp.delete() }
+            if(!temp.renameTo(file)) {\n                temp.delete()\n                error("ไม่สามารถบันทึกไฟล์คำสั่ง Flow ได้")\n            }
             prefs.edit().putInt("auto_flow_count_${project.name}_$number",tasks.size)
                 .putLong("auto_flow_saved_at_${project.name}_$number",System.currentTimeMillis()).commit()
         }.getOrElse { notice("บันทึกคำสั่ง Flow ไม่สำเร็จ: ${it.message}"); return }
         if(!saved) { notice("บันทึกสถานะคำสั่ง Flow ไม่สำเร็จ"); return }
         val stamp=java.text.SimpleDateFormat("dd/MM/yyyy HH:mm",java.util.Locale("th","TH")).format(java.util.Date())
         val dialog=showFlowCode("คำสั่ง Flow EP.$number • ${tasks.size} ฉาก",
-            "สร้างคำสั่ง Flow แล้ว ${tasks.size}/${tasks.size} ฉาก\\nบันทึก: $stamp\\nไฟล์: ${file.name}\\nสถานะ: พร้อมตรวจและคัดลอก (ยังไม่ได้สร้างวิดีโอ)\\n\\n$content",
+            "สร้างคำสั่ง Flow แล้ว ${tasks.size}/${tasks.size} ฉาก\nบันทึก: $stamp\nไฟล์: ${file.name}\nสถานะ: พร้อมตรวจและคัดลอก (ยังไม่ได้สร้างวิดีโอ)\n\n$content",
             file.name)
         dialog.getButton(-2)?.text="ปิด"
     }
@@ -2756,7 +2756,7 @@ $context"""
         val channel=ChannelCatalog.currentChannel(story.optString("channel"))
         val options=(0 until eps.length()).map { i ->
             val ep=eps.getJSONObject(i).getInt("ep")
-            val count=prefs.getInt("auto_flow_count_${project.name}_$ep",0)
+            val count=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getInt("auto_flow_count_${project.name}_$ep",0) else 0
             val at=prefs.getLong("auto_flow_saved_at_${project.name}_$ep",0L)
             val time=if(at>0L) java.text.SimpleDateFormat("dd/MM HH:mm",java.util.Locale("th","TH")).format(java.util.Date(at)) else "ยังไม่สร้าง"
             "🎬 EP.$ep • ${eps.getJSONObject(i).optString("title")}\\nคำสั่ง Flow: ${if(count>0) "$count ฉาก • $time" else time}"
