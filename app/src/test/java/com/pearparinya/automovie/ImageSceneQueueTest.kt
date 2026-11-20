@@ -52,4 +52,24 @@ class ImageSceneQueueTest {
             ImageSceneQueue.State(listOf(1, 1))
         }
     }
+    @Test fun twentyThreeScenesAfterResumeAreSplitIntoTwoBatches() {
+        val restored = ImageSceneQueue.restore((1..23).toList(), (1..15).joinToString(","))
+        val pending = restored.sceneIds.filter { it !in restored.completedSceneIds }
+        assertEquals(listOf((16..20).toList(), (21..23).toList()), pending.chunked(5))
+    }
+
+    @Test fun sparseSceneNumbersKeepOriginalIdsAcrossBatches() {
+        val ids = listOf(2, 4, 6, 8, 10, 12, 14)
+        val restored = ImageSceneQueue.restore(ids, "4,10")
+        val pending = restored.sceneIds.filter { it !in restored.completedSceneIds }
+        assertEquals(listOf(listOf(2, 6, 8, 12, 14)), pending.chunked(5))
+    }
+
+    @Test fun allCompletedScenesProduceNoPendingBatch() {
+        val ids = (1..5).toList()
+        val restored = ImageSceneQueue.restore(ids, ids.joinToString(","))
+        val pending = restored.sceneIds.filter { it !in restored.completedSceneIds }
+        assertEquals(emptyList<List<Int>>(), pending.chunked(5))
+    }
+
 }
