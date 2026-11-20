@@ -2232,7 +2232,7 @@ class StudioActivity : AppCompatActivity() {
         val currentIndex = scenes.indexOfFirst { it === scene || (it.optInt("ep") == scene.optInt("ep") && it.optInt("scene") == scene.optInt("scene")) }
         val storyDay = scene.optString("story_day").trim()
         val group = scene.optString("continuity_group").trim()
-        val keys = listOf("backpack", "bag", "props", "accessories")
+        val keys = listOf("backpack", "bag", "props", "accessories", "shoes", "footwear", "shoe_brand", "shoe_model", "shoe_color")
         val previous = if (currentIndex > 0) scenes.take(currentIndex).asReversed().firstNotNullOfOrNull { item ->
             val sameDay = storyDay.isNotBlank() && storyDay == item.optString("story_day").trim()
             val sameGroup = group.isNotBlank() && group == item.optString("continuity_group").trim()
@@ -2248,9 +2248,9 @@ class StudioActivity : AppCompatActivity() {
             if (value.isBlank()) null else "$field=$value"
         }
         val change = person.optBoolean("prop_change", scene.optBoolean("prop_change", false))
-        val details = if (locked.isEmpty()) "No structured prop details recorded; keep the same visible backpack/bag from the previous scene reference, including exact color, silhouette, straps and pockets. Do not invent a new color." else locked.joinToString("; ")
+        val details = if (locked.isEmpty()) "No structured prop details recorded; keep the same visible backpack, bag and footwear from the previous scene reference. Match each item’s exact color, silhouette, straps, pockets, shoe upper, sole, laces and any visible logo; do not invent a brand or change the color." else locked.joinToString("; ")
         return if (change) "PROP CHANGE EXPLICITLY ALLOWED: $details. Only change items actually specified by the story."
-        else "PROP CONTINUITY LOCK [$character]: $details. Same story day or continuity group means identical carried equipment and accessories. A black backpack must remain the same black backpack, never olive/green; preserve shape, material, straps, buckles, wear and position. Do not replace, recolor or remove props unless the story explicitly records the action. If a previous scene reference exists, match it."
+        else "PROP CONTINUITY LOCK [$character]: $details. Same story day or continuity group means identical carried equipment and accessories. Preserve the previously established backpack color and design, and keep the same shoes: brand/model only when verified in story or approved reference, shoe color, upper, sole, laces, logo placement, wear and wet/muddy condition. Never hallucinate or swap shoe brands. Do not replace, recolor or remove props unless the story explicitly records the action. If a previous scene reference exists, match it."
     }
     private fun characterAccuracyLock(scene: JSONObject, person: JSONObject, masterId: String): String {
         val outfit = sceneWardrobe(scene,person).trim()
