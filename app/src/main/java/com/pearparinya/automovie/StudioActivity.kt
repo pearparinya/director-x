@@ -2766,7 +2766,24 @@ $context"""
         }
         choiceMenu("คำสั่ง Flow • เลือก EP\\nช่อง: ${channel.ifBlank { "ช่องไม่ระบุ" }}\\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}",
             options) { index ->
-            autoFlowEpisode(story,eps.getJSONObject(index).getInt("ep"))
+            val ep=eps.getJSONObject(index).getInt("ep")
+            val file=File(project,"EP%02d_FLOW_AUTO.txt".format(ep))
+            if(!file.isFile) {
+                autoFlowEpisode(story,ep)
+            } else {
+                choiceMenu("คำสั่ง Flow EP.$ep",listOf("เปิดคำสั่งที่บันทึกไว้ • ไม่สร้างซ้ำ","สร้างคำสั่งใหม่ทั้งหมด • แทนที่ไฟล์เดิม")) { action ->
+                    if(action==0) {
+                        runCatching { file.readText(Charsets.UTF_8) }
+                            .onSuccess { content -> showFlowCode("คำสั่ง Flow EP.$ep • บันทึกไว้แล้ว",content,file.name) }
+                            .onFailure { notice("เปิดคำสั่งที่บันทึกไว้ไม่ได้: ${it.message}") }
+                    } else {
+                        AlertDialog.Builder(this).setTitle("สร้างคำสั่ง Flow ใหม่?")
+                            .setMessage("คำสั่งเดิมของ EP.$ep จะถูกแทนที่ หลังสร้างคำสั่งใหม่สำเร็จ")
+                            .setPositiveButton("สร้างใหม่") { _,_ -> autoFlowEpisode(story,ep) }
+                            .setNegativeButton("ยกเลิก",null).showDirector()
+                    }
+                }
+            }
         }
     }
 
