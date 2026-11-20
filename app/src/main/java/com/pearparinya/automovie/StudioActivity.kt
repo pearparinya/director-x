@@ -2881,7 +2881,7 @@ $context"""
             imageCompleted<imageTotal -> "ตรวจคิวภาพ 5 ซีน และดำเนินการกับผู้ให้บริการภาพ"
             else -> "เปิดคำสั่ง Flow ที่บันทึกไว้เพื่อตรวจและนำไปใช้"
         }
-        AlertDialog.Builder(this).setTitle("สถานะงานอัตโนมัติ • ระดับ 1")
+        AlertDialog.Builder(this).setTitle("DIRECTOR X • สถานะงานรวม")
             .setMessage("บท: ${if(total>0) "มี $total ตอน" else "ยังไม่มีตอน"}\n"+
                 "คำสั่ง Flow: $saved/$total ตอน\n"+
                 "ภาพ (ตามสถานะบันทึก): $imageCompleted/$imageTotal ซีน\n"+
@@ -2889,9 +2889,9 @@ $context"""
                 "ข้อควรแก้ในบท: ${issues.size} รายการ\n\n"+
                 "ขั้นตอนถัดไป: $next\n\n"+
                 "หมายเหตุ: สถานะภาพไม่ใช่การยืนยันว่ามีไฟล์ภาพจริง และระบบยังไม่สร้างวิดีโอ")
-            .setPositiveButton("ดำเนินการขั้นตอนถัดไป") { _,_ ->
+            .setPositiveButton("▶ ทำงานต่อทันที") { _,_ ->
                 if(issues.isNotEmpty() || invalidSceneLists>0) productionCheckMenu(story)
-                else if(saved<total) autoFlowAllEpisodes(story)
+                else if(saved<total) autoFlowAllEpisodes(story, autoContinue = true)
                 else if(imageCompleted<imageTotal) imageBatchFivePlan(story)
                 else commandCardsMenu()
             }
@@ -5396,6 +5396,8 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             return
         }
         val importFolder = project
+        val importStory = plan ?: return notice("กรุณาเปิดโครงการก่อนนำเข้าภาพ")
+        val importProjectId = importFolder.name
         importing = true
         val remaining = uris.toMutableList()
         var savedCount=0; var skippedCount=0
@@ -5405,7 +5407,11 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             if (remaining.isEmpty()) {
                 importing = false; pendingRecovery.deleteRecursively(); render()
                 progressDialog.dismiss()
-                showImportReceipt("ครั้งนี้ • บันทึกภาพ $savedCount • ข้าม $skippedCount • ล้มเหลว ${failures.size}" + if(failures.isEmpty()) "" else "\n"+failures.joinToString("\n"))
+                if (failures.isEmpty() && savedCount > 0) {
+                    notice("นำเข้าภาพ $savedCount ไฟล์ • บันทึกความคืบหน้าแล้ว")
+                } else {
+                    showImportReceipt("ครั้งนี้ • บันทึกภาพ $savedCount • ข้าม $skippedCount • ล้มเหลว ${failures.size}" + if(failures.isEmpty()) "" else "\n"+failures.joinToString("\n"))
+                }
                 return
             }
             progressDialog.setMessage("กำลังบันทึก ${uris.size-remaining.size+1}/${uris.size} ไฟล์")
@@ -5428,7 +5434,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
                         // Record completion only after a durable image save.
                         val episodeNumber = s.getInt("ep")
                         val sceneId = s.getInt("scene")
-                        val episodes = plan?.optJSONArray("episodes")
+                        val episodes = importStory.optJSONArray("episodes")
                         val episode = (0 until (episodes?.length() ?: 0)).mapNotNull { episodes?.optJSONObject(it) }
                             .firstOrNull { it.optInt("ep") == episodeNumber }
                         val episodeScenes = episode?.optJSONArray("scenes")
@@ -5440,7 +5446,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
                             sceneIds.distinct().size == sceneIds.size && sceneId in sceneIds
                         ) {
                             val store = ImageSceneProgressStore(this@StudioActivity)
-                            val projectId = "${project.name}:EP$episodeNumber"
+                            val projectId = "$importProjectId:EP$episodeNumber"
                             val current = store.load(projectId, sceneIds)
                             store.recordCompletedScene(projectId, current, sceneId) != null
                         } else false
