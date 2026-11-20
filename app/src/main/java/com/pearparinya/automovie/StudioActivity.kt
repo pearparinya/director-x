@@ -2796,6 +2796,31 @@ $context"""
             .setNegativeButton("ปิด",null).showDirector()
     }
 
+    // Planning only: ChatGPT Plus does not provide an in-app image-generation API.
+    private fun imageBatchFivePlan(story: JSONObject) {
+        val eps=story.optJSONArray("episodes") ?: return notice("ยังไม่มีตอน")
+        val lines=mutableListOf<String>()
+        var totalScenes=0
+        for(i in 0 until eps.length()) {
+            val episode=eps.optJSONObject(i) ?: continue
+            val number=episode.optInt("ep",i+1)
+            val count=runCatching { SimpleProductionCommands.videoTasks(story,number).size }.getOrDefault(0)
+            totalScenes+=count
+            val batches=if(count==0) 0 else (count+4)/5
+            lines.add("EP.$number • $count ซีน • $batches ชุด (สูงสุด 5 ซีน/ชุด)")
+        }
+        val totalBatches=lines.sumOf { line ->
+            Regex("• (\\d+) ชุด").find(line)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+        }
+        AlertDialog.Builder(this).setTitle("แผนสร้างภาพ • ชุดละ 5 ซีน")
+            .setMessage("รวม $totalScenes ซีน • $totalBatches ชุด\n\n"+
+                lines.joinToString("\n")+"\n\n"+
+                "1 ซีน = 1 ภาพแยกไฟล์\n"+
+                "นี่คือแผนจัดชุดคำสั่งเท่านั้น ยังไม่ได้เรียก API สร้างภาพ")
+            .setPositiveButton("เปิดคำสั่ง Flow") { _,_ -> commandCardsMenu() }
+            .setNegativeButton("ปิด",null).showDirector()
+    }
+
     private fun phaseOneWorkflowStatus(story: JSONObject) {
         val eps=story.optJSONArray("episodes")
         val total=eps?.length() ?: 0
@@ -2829,7 +2854,7 @@ $context"""
         if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
         val eps=story.getJSONArray("episodes")
         val channel=ChannelCatalog.currentChannel(story.optString("channel"))
-        val options=listOf("📋 ตรวจสถานะงานและทำขั้นตอนถัดไป","⚡ สร้างคำสั่ง Flow ทุกตอนอัตโนมัติ • ข้ามตอนที่มีไฟล์แล้ว")+(0 until eps.length()).map { i ->
+        val options=listOf("📋 ตรวจสถานะงานและทำขั้นตอนถัดไป","🖼️ วางแผนสร้างภาพชุดละ 5 ซีน","⚡ สร้างคำสั่ง Flow ทุกตอนอัตโนมัติ • ข้ามตอนที่มีไฟล์แล้ว")+(0 until eps.length()).map { i ->
             val ep=eps.getJSONObject(i).getInt("ep")
             val count=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getInt("auto_flow_count_${project.name}_$ep",0) else 0
             val at=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getLong("auto_flow_saved_at_${project.name}_$ep",0L) else 0L
@@ -2839,8 +2864,9 @@ $context"""
         choiceMenu("คำสั่ง Flow • เลือก EP\nช่อง: ${channel.ifBlank { "ช่องไม่ระบุ" }}\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}",
             options) { index ->
             if(index==0) { phaseOneWorkflowStatus(story); return@choiceMenu }
-            if(index==1) { autoFlowAllEpisodes(story); return@choiceMenu }
-            val ep=eps.getJSONObject(index-2).getInt("ep")
+            if(index==1) { imageBatchFivePlan(story); return@choiceMenu }
+            if(index==2) { autoFlowAllEpisodes(story); return@choiceMenu }
+            val ep=eps.getJSONObject(index-3).getInt("ep")
             val file=File(project,"EP%02d_FLOW_AUTO.txt".format(ep))
             if(!file.isFile) {
                 autoFlowEpisode(story,ep)
