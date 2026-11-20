@@ -2635,8 +2635,8 @@ $context"""
                 }
                 val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
                 panel.addView(TextView(this).apply {
-                    text="AI วิเคราะห์จากบทแล้ว • กดยืนยันครั้งเดียวเพื่อบันทึกเฉพาะรายการที่มีหลักฐานตรงบท\\n" +
-                        "พร้อมบันทึก ${confirmed.size} รายการ • รายละเอียด/กลุ่มที่ยังไม่ยืนยัน ${needsReview.size} รายการ\\n" +
+                    text="AI วิเคราะห์จากบทแล้ว • กดยืนยันครั้งเดียวเพื่อบันทึกเฉพาะรายการที่มีหลักฐานตรงบท\n" +
+                        "พร้อมบันทึก ${confirmed.size} รายการ • รายละเอียด/กลุ่มที่ยังไม่ยืนยัน ${needsReview.size} รายการ\n" +
                         "ยังไม่ได้ตรวจภาพจริง และไม่ถือว่าอนุมัติ MASTER หรือภาพ"
                     setPadding(0,0,0,dp(12))
                 })
@@ -2647,9 +2647,9 @@ $context"""
                     val item=thaiItem(row.optString("item"))
                     panel.addView(TextView(this).apply {
                         text="✓ พร้อมบันทึกชื่อสิ่งของจากบท"+
-                            "\\n$id • $item\\nผู้ใช้: $holder\\n" +
+                            "\n$id • $item\nผู้ใช้: $holder\n" +
                             "รายละเอียด AI เสนอ (ยังไม่ยืนยัน): "+row.optString("details").ifBlank { "ยังไม่ระบุ" }+
-                            "\\nกลุ่มต่อเนื่อง AI เสนอ (ยังไม่ยืนยัน): "+row.optString("continuity_id").ifBlank { "ยังไม่ระบุ" }
+                            "\nกลุ่มต่อเนื่อง AI เสนอ (ยังไม่ยืนยัน): "+row.optString("continuity_id").ifBlank { "ยังไม่ระบุ" }
                         setPadding(dp(12),dp(12),dp(12),dp(12))
                     })
                 }
