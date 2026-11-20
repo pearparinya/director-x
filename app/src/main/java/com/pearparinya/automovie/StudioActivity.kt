@@ -2737,7 +2737,10 @@ $context"""
         val saved=runCatching {
             val temp=File(project,file.name+".tmp")
             temp.writeText(content,Charsets.UTF_8)
-            if(!temp.renameTo(file)) {\n                temp.delete()\n                error("ไม่สามารถบันทึกไฟล์คำสั่ง Flow ได้")\n            }
+            if(!temp.renameTo(file)) {
+                temp.delete()
+                error("ไม่สามารถบันทึกไฟล์คำสั่ง Flow ได้")
+            }
             prefs.edit().putInt("auto_flow_count_${project.name}_$number",tasks.size)
                 .putLong("auto_flow_saved_at_${project.name}_$number",System.currentTimeMillis()).commit()
         }.getOrElse { notice("บันทึกคำสั่ง Flow ไม่สำเร็จ: ${it.message}"); return }
