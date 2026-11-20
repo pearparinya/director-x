@@ -2796,12 +2796,40 @@ $context"""
             .setNegativeButton("ปิด",null).showDirector()
     }
 
+    private fun phaseOneWorkflowStatus(story: JSONObject) {
+        val eps=story.optJSONArray("episodes")
+        val total=eps?.length() ?: 0
+        val saved=(0 until total).count { index ->
+            val ep=eps?.optJSONObject(index)?.optInt("ep",0) ?: 0
+            ep>0 && File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile
+        }
+        val issues=ProductionCommandCheck.issues(story)
+        val next=when {
+            issues.isNotEmpty() -> "ตรวจและแก้บทก่อนสร้างคำสั่ง"
+            total==0 -> "สร้างหรือนำเข้าบทที่มีตอน"
+            saved<total -> "สร้างชุดคำสั่ง Flow ที่ยังขาด • ระบบข้ามไฟล์เดิม"
+            else -> "เปิดคำสั่งที่บันทึกไว้เพื่อตรวจและนำไปใช้กับ Flow"
+        }
+        AlertDialog.Builder(this).setTitle("สถานะงานอัตโนมัติ • ระดับ 1")
+            .setMessage("บท: ${if(total>0) "มี $total ตอน" else "ยังไม่มีตอน"}\n"+
+                "คำสั่ง Flow: $saved/$total ตอน\n"+
+                "ข้อควรแก้ในบท: ${issues.size} รายการ\n\n"+
+                "ขั้นตอนถัดไป: $next\n\n"+
+                "หมายเหตุ: ระบบยังไม่ได้ส่งงานไปสร้างวิดีโอจริง")
+            .setPositiveButton("ดำเนินการขั้นตอนถัดไป") { _,_ ->
+                if(issues.isNotEmpty()) productionCheckMenu(story)
+                else if(saved<total) autoFlowAllEpisodes(story)
+                else commandCardsMenu()
+            }
+            .setNegativeButton("ปิด",null).showDirector()
+    }
+
     private fun commandCardsMenu() {
         val story=plan ?: return notice("สร้างหรือนำเข้าบทก่อนครับ")
         if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
         val eps=story.getJSONArray("episodes")
         val channel=ChannelCatalog.currentChannel(story.optString("channel"))
-        val options=listOf("⚡ สร้างคำสั่ง Flow ทุกตอนอัตโนมัติ • ข้ามตอนที่มีไฟล์แล้ว")+(0 until eps.length()).map { i ->
+        val options=listOf("📋 ตรวจสถานะงานและทำขั้นตอนถัดไป","⚡ สร้างคำสั่ง Flow ทุกตอนอัตโนมัติ • ข้ามตอนที่มีไฟล์แล้ว")+(0 until eps.length()).map { i ->
             val ep=eps.getJSONObject(i).getInt("ep")
             val count=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getInt("auto_flow_count_${project.name}_$ep",0) else 0
             val at=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getLong("auto_flow_saved_at_${project.name}_$ep",0L) else 0L
@@ -2810,8 +2838,9 @@ $context"""
         }
         choiceMenu("คำสั่ง Flow • เลือก EP\\nช่อง: ${channel.ifBlank { "ช่องไม่ระบุ" }}\\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}",
             options) { index ->
-            if(index==0) { autoFlowAllEpisodes(story); return@choiceMenu }
-            val ep=eps.getJSONObject(index-1).getInt("ep")
+            if(index==0) { phaseOneWorkflowStatus(story); return@choiceMenu }
+            if(index==1) { autoFlowAllEpisodes(story); return@choiceMenu }
+            val ep=eps.getJSONObject(index-2).getInt("ep")
             val file=File(project,"EP%02d_FLOW_AUTO.txt".format(ep))
             if(!file.isFile) {
                 autoFlowEpisode(story,ep)
