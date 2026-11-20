@@ -2809,7 +2809,12 @@ $context"""
             totalScenes+=count
             val batches=if(count==0) 0 else (count+4)/5
             totalBatches+=batches
-            lines.add("EP.$number • $count ซีน • $batches ชุด (สูงสุด 5 ซีน/ชุด)")
+            val ranges=(0 until batches).joinToString(", ") { batch ->
+                val first=batch*5+1
+                val last=minOf(count,first+4)
+                "$first–$last"
+            }
+            lines.add("EP.$number • $count ซีน • $batches ชุด\nซีน: $ranges")
         }
         AlertDialog.Builder(this).setTitle("แผนสร้างภาพ • ชุดละ 5 ซีน")
             .setMessage("รวม $totalScenes ซีน • $totalBatches ชุด\n\n"+
