@@ -13,19 +13,33 @@ internal object SceneOverview {
     private fun thaiAction(scene: JSONObject): String {
         val explicit=listOf("action_th", "action_thai", "thai_description", "description_th", "scene_description_th")
             .firstNotNullOfOrNull { field(scene,it).takeIf(String::isNotBlank) }
-        if(explicit!=null) return explicit
+        if(explicit!=null && !containsEnglishProse(explicit)) return explicit
         val action=field(scene,"action")
         if(action.isBlank()) return "ยังไม่ได้ระบุเหตุการณ์ภาษาไทย"
-        if(action.any { it in '\u0E00'..'\u0E7F' }) return action
         val lower=action.lowercase()
-        val actor=names(scene).replace("、"," และ ").ifBlank { "ตัวละครในซีน" }
+        val cast=scene.optJSONArray("characters")
+        val castNames=(0 until (cast?.length() ?: 0)).mapNotNull { cast?.optJSONObject(it)?.optString("name")?.trim()?.takeIf(String::isNotBlank) }
+        val actor=castNames.firstOrNull().orEmpty().ifBlank { "ตัวละครหลัก" }
+        val companion=castNames.drop(1).firstOrNull()
+        val namedTarget=Regex("reaches out to\\s+([\\p{L}]+)", RegexOption.IGNORE_CASE).find(action)?.groupValues?.getOrNull(1)
         return when {
-            "wades into the strong current" in lower -> "$actor ลุยลงไปในกระแสน้ำที่ไหลแรง พร้อมสื่อสารกับผู้ร่วมทีม"
-            "wades forward through the strong current" in lower -> "$actor ลุยฝ่ากระแสน้ำที่ไหลแรงไปข้างหน้าและพูดระหว่างปฏิบัติภารกิจ"
-            "reaches out to" in lower && "carry him to safety" in lower -> "$actor ยื่นมือเข้าช่วยเด็กที่ติดอยู่บริเวณบ้าน และเตรียมพาเด็กไปยังที่ปลอดภัย"
-            else -> "ยังไม่มีคำอธิบายภาษาไทยสำหรับเหตุการณ์นี้ โปรดตรวจบทภาษาอังกฤษด้านล่างก่อนสร้างซีนต่อ"
+            "wades forward through the strong current" in lower ->
+                "$actor ลุยฝ่ากระแสน้ำที่ไหลแรงไปข้างหน้า พร้อมพูดระหว่างปฏิบัติภารกิจ" +
+                (companion?.let { " โดยมี$itร่วมอยู่ในซีน" } ?: "")
+            "wades into the strong current" in lower ->
+                "$actor ลุยลงไปในกระแสน้ำที่ไหลแรง และพูดสื่อสาร" +
+                (companion?.let { "กับ$itซึ่งติดตามการติดต่อสื่อสาร" } ?: "กับทีม")
+            "reaches out to" in lower && "carry him to safety" in lower -> {
+                val target=castNames.drop(1).firstOrNull { action.contains(it,ignoreCase=true) }
+                    ?: namedTarget ?: "เด็ก"
+                "$actor ยื่นมือไปหา$targetและพูดปลอบใจ เพื่อเตรียมพาไปยังที่ปลอดภัย"
+            }
+            !containsEnglishProse(action) -> action
+            else -> "ยังไม่มีคำอธิบายเหตุการณ์ภาษาไทยที่ตรวจสอบได้ กรุณาเพิ่มข้อมูล action_th ในบทก่อนดำเนินซีนนี้"
         }
     }
+    private fun containsEnglishProse(value: String): Boolean =
+        Regex("[A-Za-z]{3,}\\s+[A-Za-z]{3,}").containsMatchIn(value)
     private fun thaiLocation(scene: JSONObject): String {
         val explicit=field(scene,"location_th").ifBlank { field(scene,"thai_location") }
         if(explicit.isNotBlank()) return explicit
@@ -38,10 +52,10 @@ internal object SceneOverview {
         }
     }
     fun short(scene: JSONObject): String = listOf(
-        names(scene).takeIf { it.isNotBlank() },
-        thaiLocation(scene),
-        thaiAction(scene).let { if(it.length>120) it.take(120)+"…" else it }
-    ).filterNotNull().joinToString(" • ").ifBlank { "ยังไม่มีรายละเอียดซีน" }
+        "ตัวละคร: "+names(scene).replace("、", " และ ").ifBlank { "ยังไม่ระบุ" },
+        "สถานที่: "+thaiLocation(scene),
+        "เหตุการณ์: "+thaiAction(scene)
+    ).joinToString("\\n")
     fun detail(scene: JSONObject, imageId: String): String {
         val dialogue=field(scene,"dialogue")
         val speaker=field(scene,"speaker")
