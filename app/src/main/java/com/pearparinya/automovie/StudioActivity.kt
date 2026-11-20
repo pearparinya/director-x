@@ -2760,7 +2760,7 @@ $context"""
         val options=(0 until eps.length()).map { i ->
             val ep=eps.getJSONObject(i).getInt("ep")
             val count=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getInt("auto_flow_count_${project.name}_$ep",0) else 0
-            val at=prefs.getLong("auto_flow_saved_at_${project.name}_$ep",0L)
+            val at=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getLong("auto_flow_saved_at_${project.name}_$ep",0L) else 0L
             val time=if(at>0L) java.text.SimpleDateFormat("dd/MM HH:mm",java.util.Locale("th","TH")).format(java.util.Date(at)) else "ยังไม่สร้าง"
             "🎬 EP.$ep • ${eps.getJSONObject(i).optString("title")}\\nคำสั่ง Flow: ${if(count>0) "$count ฉาก • $time" else time}"
         }
