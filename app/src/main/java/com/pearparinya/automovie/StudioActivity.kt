@@ -2834,12 +2834,11 @@ $context"""
             lines.add("EP.$number • เสร็จ ${state.completedCount}/${sceneIds.size} • ค้าง ${pending.size} ซีน • ${batches.size} ชุด"+
                 if(ranges.isBlank()) " (ไม่มีงานค้าง)" else "\n$ranges")
         }
-        AlertDialog.Builder(this).setTitle("คิวภาพ 5 ซีน • Dual Engine")
-            .setMessage("รวม $totalScenes ซีน • รอสร้าง $totalPending ซีน • $totalBatches ชุด\n\n"+
-                lines.joinToString("\n\n")+"\n\n"+
-                "ChatGPT Plus: เตรียมคำสั่งและนำภาพเข้าด้วยตนเอง\n"+
-                "Image API: ต้องเชื่อมผู้ให้บริการก่อนจึงจะสร้างอัตโนมัติได้\n"+
-                "สถานะเสร็จอ้างอิงบันทึกความคืบหน้า ไม่ได้ตรวจไฟล์ภาพจริงในหน้านี้")
+        val completed = totalScenes - totalPending
+        AlertDialog.Builder(this).setTitle("DIRECTOR X • คิวภาพ")
+            .setMessage("เสร็จ $completed/$totalScenes ฉาก • เหลือ $totalPending • $totalBatches ชุด\n\n"+
+                lines.joinToString("\n")+
+                "\n\nระบบยังไม่สร้างภาพผ่าน AI API")
             .setPositiveButton("นำเข้าภาพฉาก") { _,_ ->
                 if(plan == null) notice("กรุณาเปิดโครงการก่อนนำเข้าภาพ")
                 else imagesPicker.launch(arrayOf("image/*"))
@@ -5432,7 +5431,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
                         val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
                         android.graphics.BitmapFactory.decodeFile(tmp.path,bounds)
                         require(bounds.outWidth > 0) { "อ่านภาพไม่ได้" }
-                        if (target.exists()) archiveVersion(target, importFolder, key(s), "image")
+                        check(!target.exists()) { "ฉากนี้มีภาพแล้ว • ไม่เขียนทับ" }
                         check(tmp.renameTo(target)) { "บันทึกภาพไม่ได้" }
                         // Record completion only after a durable image save.
                         val episodeNumber = s.getInt("ep")
