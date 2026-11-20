@@ -5366,7 +5366,9 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         }
     }
     private fun importImages(uris: List<Uri>, confirmedOrder: Boolean = false) {
-        val scenes = rows(plan!!)
+        if (importing) return notice("กำลังนำเข้าภาพ กรุณารอให้เสร็จก่อน")
+        val activeStory = plan ?: return notice("กรุณาเปิดโครงการก่อนนำเข้าภาพ")
+        val scenes = rows(activeStory)
         val assignments = linkedMapOf<Uri,JSONObject>()
         val unknown = mutableListOf<Uri>()
         for (uri in uris) {
@@ -5396,25 +5398,26 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             return
         }
         val importFolder = project
-        val importStory = plan ?: return notice("กรุณาเปิดโครงการก่อนนำเข้าภาพ")
+        val importStory = activeStory
         val importProjectId = importFolder.name
         importing = true
         val remaining = uris.toMutableList()
         var savedCount=0; var skippedCount=0
         val failures=mutableListOf<String>()
-        val progressDialog=AlertDialog.Builder(this).setTitle("กำลังบันทึกภาพ").setMessage("0/${uris.size} ไฟล์").setCancelable(false).showDirector()
+        val progressDialog=AlertDialog.Builder(this).setTitle("Smart Image Import • ชุดละ 5").setMessage("กำลังเตรียม ${uris.size} ภาพ • ${((uris.size+4)/5)} ชุด").setCancelable(false).showDirector()
         fun next() {
             if (remaining.isEmpty()) {
                 importing = false; pendingRecovery.deleteRecursively(); render()
                 progressDialog.dismiss()
                 if (failures.isEmpty() && savedCount > 0) {
-                    notice("นำเข้าภาพ $savedCount ไฟล์ • บันทึกความคืบหน้าแล้ว")
+                    notice("Smart Import: สำเร็จ $savedCount ภาพ • ข้าม $skippedCount • เปิดคิวอีกครั้งเพื่อตรวจสถานะ")
                 } else {
                     showImportReceipt("ครั้งนี้ • บันทึกภาพ $savedCount • ข้าม $skippedCount • ล้มเหลว ${failures.size}" + if(failures.isEmpty()) "" else "\n"+failures.joinToString("\n"))
                 }
                 return
             }
-            progressDialog.setMessage("กำลังบันทึก ${uris.size-remaining.size+1}/${uris.size} ไฟล์")
+            val processed = uris.size - remaining.size
+            progressDialog.setMessage("ชุด ${processed/5+1}/${(uris.size+4)/5} • ภาพ ${processed+1}/${uris.size}\nบันทึกสำเร็จ $savedCount • ข้าม $skippedCount • ผิดพลาด ${failures.size}")
             val uri = remaining.removeAt(0)
             val name = displayName(uri)
             val match = StoryFiles.sceneNumber(name)
@@ -5459,7 +5462,8 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
                 }.start()
             }
             fun assign(s: JSONObject) {
-                if (image(s).exists()) AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setMessage("${key(s)} มีภาพแล้ว แทนด้วย $name หรือไม่?").setPositiveButton("แทนภาพ") { _,_ -> save(s) }.setNegativeButton("ข้าม") { _,_ -> skippedCount++; next() }.setCancelable(false).showDirector()
+                // Smart import never overwrites an existing image; replacement remains a separate manual action.
+                if (image(s).exists()) { skippedCount++; next() }
                 else save(s)
             }
             if (assignments[uri] != null) assign(assignments.getValue(uri))
