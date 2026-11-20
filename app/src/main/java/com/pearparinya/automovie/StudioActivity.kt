@@ -2762,19 +2762,8 @@ $context"""
             "🎬 EP.$ep • ${eps.getJSONObject(i).optString("title")}\\nคำสั่ง Flow: ${if(count>0) "$count ฉาก • $time" else time}"
         }
         choiceMenu("คำสั่ง Flow • เลือก EP\\nช่อง: ${channel.ifBlank { "ช่องไม่ระบุ" }}\\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}",
-            listOf("⚡ สร้างคำสั่ง Flow ทุก EP อัตโนมัติ")+options) { index ->
-            if(index==0) {
-                val summary=mutableListOf<String>()
-                (0 until eps.length()).forEach { i ->
-                    val ep=eps.getJSONObject(i).getInt("ep")
-                    val tasks=runCatching { SimpleProductionCommands.videoTasks(story,ep) }.getOrNull()
-                    if(tasks!=null && tasks.isNotEmpty()) summary.add("EP.$ep: ${tasks.size} ฉาก")
-                }
-                if(eps.length()==1) autoFlowEpisode(story,eps.getJSONObject(0).getInt("ep"))
-                else choiceMenu("เลือก EP เพื่อสร้างคำสั่ง Flow อัตโนมัติ",options) { selected ->
-                    autoFlowEpisode(story,eps.getJSONObject(selected).getInt("ep"))
-                }
-            } else autoFlowEpisode(story,eps.getJSONObject(index-1).getInt("ep"))
+            options) { index ->
+            autoFlowEpisode(story,eps.getJSONObject(index).getInt("ep"))
         }
     }
 
