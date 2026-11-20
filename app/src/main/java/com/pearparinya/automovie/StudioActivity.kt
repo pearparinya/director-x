@@ -2834,9 +2834,9 @@ $context"""
             val count=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getInt("auto_flow_count_${project.name}_$ep",0) else 0
             val at=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getLong("auto_flow_saved_at_${project.name}_$ep",0L) else 0L
             val time=if(at>0L) java.text.SimpleDateFormat("dd/MM HH:mm",java.util.Locale("th","TH")).format(java.util.Date(at)) else "ยังไม่สร้าง"
-            "🎬 EP.$ep • ${eps.getJSONObject(i).optString("title")}\\nคำสั่ง Flow: ${if(count>0) "$count ฉาก • $time" else time}"
+            "🎬 EP.$ep • ${eps.getJSONObject(i).optString("title")}\nคำสั่ง Flow: ${if(count>0) "$count ฉาก • $time" else time}"
         }
-        choiceMenu("คำสั่ง Flow • เลือก EP\\nช่อง: ${channel.ifBlank { "ช่องไม่ระบุ" }}\\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}",
+        choiceMenu("คำสั่ง Flow • เลือก EP\nช่อง: ${channel.ifBlank { "ช่องไม่ระบุ" }}\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}",
             options) { index ->
             if(index==0) { phaseOneWorkflowStatus(story); return@choiceMenu }
             if(index==1) { autoFlowAllEpisodes(story); return@choiceMenu }
