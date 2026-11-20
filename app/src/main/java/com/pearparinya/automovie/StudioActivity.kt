@@ -3329,6 +3329,37 @@ $context"""
             when(selected) { 0 -> confirmAllWardrobe(story); 1 -> choiceMenu("เลือกวิธีวิเคราะห์ชุด",listOf("วิเคราะห์ภาพ MASTER ด้วย Gemini • ส่งภาพไป Google","วิเคราะห์ภาพ MASTER ด้วย OpenAI API • อาจมีค่าบริการ","วิเคราะห์จากข้อความบทเท่านั้น • ไม่ส่งภาพ")) { mode -> suggestStoryWardrobe(story,mode) }; else -> productionCheckMenu(story) }
         }
     }
+    private fun smartPreflightReview(story: JSONObject,number: Int) {
+        val scenes=rows(story).filter { it.optInt("ep")==number }
+        val propFields=listOf("props","backpack","bag","shoes","footwear","accessories")
+        val keywords=listOf("กระเป๋า","เป้","รองเท้า","วิทยุ","โทรศัพท์","เครื่องมือ","เชือก","ไฟฉาย","อาวุธ",
+            "backpack","bag","shoe","radio","phone","rope","flashlight","tool")
+        val missing=mutableListOf<String>()
+        val documented=mutableListOf<String>()
+        val noEvidence=mutableListOf<String>()
+        scenes.forEach { scene ->
+            val description=listOf("action","start_state","end_state").joinToString(" ") { scene.optString(it) }
+            val hasEvidence=keywords.any { description.contains(it,ignoreCase=true) }
+            val fields=propFields.mapNotNull { field -> scene.optString(field).trim().takeIf { it.isNotBlank() }?.let { "$field: $it" } }
+            val id=key(scene)
+            when {
+                fields.isNotEmpty() -> documented.add("• $id: "+fields.joinToString("; ").take(130))
+                hasEvidence -> missing.add("• $id: บทกล่าวถึงสิ่งของ แต่ยังไม่มีรายละเอียดในช่องสิ่งของ")
+                else -> noEvidence.add("• $id: ไม่พบหลักฐานสิ่งของจากข้อความบท (ยังไม่ได้ตรวจภาพ)")
+            }
+        }
+        val summary="ตรวจจากข้อความบท EP.$number เท่านั้น ไม่ใช่การตรวจภาพจริง\\n\\n" +
+            "มีข้อมูลสิ่งของ ${documented.size} ฉาก\\n" +
+            "ควรเติมข้อมูล ${missing.size} ฉาก\\n" +
+            "ไม่พบหลักฐานสิ่งของ ${noEvidence.size} ฉาก\\n\\n" +
+            (documented+missing+noEvidence).joinToString("\\n").take(6500) +
+            "\\n\\nระบบไม่ยืนยันแทนผู้ใช้ และไม่สรุปว่าฉากที่ไม่พบสิ่งของไม่มีอุปกรณ์จริง"
+        AlertDialog.Builder(this).setTitle("ตรวจสิ่งของอัตโนมัติจากบท")
+            .setMessage(summary)
+            .setPositiveButton("ให้ AI ช่วยเสนอสิ่งของ") { _,_ -> suggestSceneObjects(story) }
+            .setNeutralButton("ตรวจและยืนยันด้วยตนเอง") { _,_ -> reviewSceneProps(story) }
+            .setNegativeButton("กลับ",null).showDirector()
+    }
     private fun confirmEpisode(story: JSONObject,number: Int) {
         val episodeScenes=rows(story).filter { it.optInt("ep")==number }
         fun open() { productionTaskDeck(story,number,false) }
@@ -3349,10 +3380,12 @@ $context"""
                     val options=mutableListOf<String>()
                     if(wardrobe!="ยืนยันแล้ว") options.add("ตรวจชุดตัวละคร • $wardrobe")
                     if(pending.isNotEmpty()) options.add("ตรวจสิ่งของ • ${pending.size} ฉาก")
+                    options.add("ตรวจสิ่งของอัตโนมัติจากบท • ไม่ยืนยันภาพจริง")
                     options.add("ตรวจสถานะอีกครั้ง")
                     choiceMenu("เลือกส่วนที่ต้องการตรวจ",options) { selected ->
                         when {
                             options[selected].startsWith("ตรวจชุด") -> wardrobeMenu(story)
+                            options[selected].startsWith("ตรวจสิ่งของอัตโนมัติ") -> smartPreflightReview(story,number)
                             options[selected].startsWith("ตรวจสิ่งของ") -> reviewSceneProps(story)
                             else -> check()
                         }
