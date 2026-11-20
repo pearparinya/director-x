@@ -2669,7 +2669,11 @@ $context"""
                         plan=candidate
                         try { saveStory() } catch(e: Exception) { plan=previous; throw e }
                     }.onSuccess {
-                        dialog.dismiss(); render(); showPropsNext("บันทึกข้อเสนอที่เลือกแล้ว • ยังต้องตรวจและยืนยันแต่ละฉาก หากมีภาพเดิมให้ตรวจภาพและคำสั่ง Flow อีกครั้ง")
+                        prefs.edit().putLong("flow_props_saved_at_${project.name}",System.currentTimeMillis()).apply()
+                        dialog.dismiss()
+                        render()
+                        notice("บันทึกสิ่งของจากบท ${selected.size} รายการแล้ว • เปิดคำสั่ง Flow")
+                        commandCardsMenu()
                     }.onFailure { notice(it.message ?: "บันทึกไม่ได้ • บทเดิมไม่เปลี่ยน") }
                 }
             }
@@ -2702,7 +2706,7 @@ $context"""
                 val old=scene.optString("props")
                 scene.put("props",editor.text.toString().trim())
                 runCatching { saveStory() }.onSuccess {
-                    val statusSaved=prefs.edit().putString("props_review_${project.name}_${key(scene)}",propReviewStamp(scene)).commit()
+                    val statusSaved=prefs.edit().putString("props_review_${project.name}_${key(scene)}",propReviewStamp(scene)).putLong("flow_props_saved_at_${project.name}",System.currentTimeMillis()).commit()
                     val imageNote=if(image(scene).isFile) "ฉาก ${key(scene)} มีภาพบันทึกไว้ • ตรวจภาพเดิมและคำสั่ง Flow อีกครั้ง" else "ฉาก ${key(scene)} ยังไม่พบภาพที่บันทึกในแอป"
                     dialog.dismiss(); render()
                     showPropsNext(if(statusSaved) "บันทึกและยืนยันตรวจบท ${key(scene)} แล้ว\n$imageNote" else "บันทึกบทแล้ว แต่บันทึกสถานะตรวจไม่สำเร็จ กรุณาตรวจอีกครั้ง")
@@ -3335,8 +3339,10 @@ $context"""
         val current=plan ?: return notice("ไม่พบเรื่อง")
         val scenes=rows(current)
         val reviewed=scenes.count { propReviewStatus(it)=="ผู้ใช้ตรวจบทแล้ว" }
+        val savedAt=prefs.getLong("flow_props_saved_at_${project.name}",0L)
+        val savedTime=if(savedAt>0L) java.text.SimpleDateFormat("dd/MM/yyyy HH:mm",java.util.Locale("th","TH")).format(java.util.Date(savedAt)) else "ยังไม่มีเวลาบันทึก"
         AlertDialog.Builder(this).setTitle("🧰 ขั้นตอน 2 • สิ่งของในบท")
-            .setMessage(message+"\n\nยืนยันสิ่งของในบทแล้ว $reviewed/${scenes.size} ฉาก • สถานะนี้เป็นการตรวจบท ไม่ใช่การตรวจคำสั่ง Flow")
+            .setMessage(message+"\n\nสถานะ: ยืนยันสิ่งของในบท $reviewed/${scenes.size} ฉาก\nบันทึกล่าสุด: $savedTime\nขั้นตอนถัดไป: เปิดคำสั่ง Flow")
             .setPositiveButton("ไปคำสั่ง Flow →") { _,_ -> commandCardsMenu() }
             .setNeutralButton("ตรวจฉากอื่น") { _,_ -> plan?.let { reviewSceneProps(it) } ?: notice("ไม่พบเรื่อง") }
             .setNegativeButton("กลับหน้าแรก",null).showDirector()
