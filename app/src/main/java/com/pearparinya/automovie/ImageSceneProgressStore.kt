@@ -96,6 +96,25 @@ internal class ImageSceneProgressStore(context: Context) {
     }
 
     /**
+     * Run at most five pending scenes in queue order. A scene is marked completed
+     * only after the caller durably saves its image and progress is committed.
+     * Safe to call again after interruption: already-completed IDs are skipped.
+     * Must be called from a background worker, never the main thread.
+     */
+    fun saveNextFiveScenesAndProgress(
+        projectId: String,
+        current: ImageSceneQueue.State,
+        saveImage: (sceneId: Int) -> Boolean,
+        shouldContinue: () -> Boolean = { true }
+    ): ImageSceneQueue.State = savePendingScenesAndProgress(
+        projectId = projectId,
+        current = current,
+        saveImage = saveImage,
+        shouldContinue = shouldContinue,
+        maxScenes = 5
+    )
+
+    /**
      * Executes one planned free-tier batch and commits each completed scene.
      * Provider credentials and HTTP calls remain the responsibility of the caller.
      */
