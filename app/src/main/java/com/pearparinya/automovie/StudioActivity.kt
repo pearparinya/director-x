@@ -2752,12 +2752,56 @@ $context"""
         dialog.getButton(-2)?.text="ปิด"
     }
 
+    // Phase 1: one-tap batch generation; existing episode files are never overwritten.
+    private fun autoFlowAllEpisodes(story: JSONObject) {
+        val issues=ProductionCommandCheck.issues(story)
+        if(issues.isNotEmpty()) {
+            AlertDialog.Builder(this).setTitle("ตรวจบทก่อนสร้าง Flow ทั้งเรื่อง")
+                .setMessage("พบข้อควรแก้ ${issues.size} รายการ")
+                .setPositiveButton("เปิดรายการตรวจ") { _,_ -> productionCheckMenu(story) }
+                .setNegativeButton("ปิด",null).showDirector()
+            return
+        }
+        val eps=story.optJSONArray("episodes") ?: return notice("ยังไม่มีตอน")
+        var created=0
+        var skipped=0
+        val failures=mutableListOf<String>()
+        for(i in 0 until eps.length()) {
+            val ep=eps.optJSONObject(i)?.optInt("ep",0) ?: continue
+            if(ep<=0) continue
+            val file=File(project,"EP%02d_FLOW_AUTO.txt".format(ep))
+            if(file.isFile) { skipped++; continue }
+            runCatching {
+                val tasks=SimpleProductionCommands.videoTasks(story,ep)
+                require(tasks.isNotEmpty()) { "ไม่มีฉาก" }
+                val content=tasks.mapIndexed { index,task ->
+                    "ฉาก ${index+1}/${tasks.size} • ${task.id}\n"+
+                        SimpleProductionCommands.block(task,index,false)
+                }.joinToString("\n\n--------------------\n\n")
+                val temp=File(project,file.name+".tmp")
+                try {
+                    temp.writeText(content,Charsets.UTF_8)
+                    check(temp.renameTo(file)) { "บันทึกไฟล์ไม่สำเร็จ" }
+                } finally { if(temp.exists()) temp.delete() }
+                prefs.edit().putInt("auto_flow_count_${project.name}_$ep",tasks.size)
+                    .putLong("auto_flow_saved_at_${project.name}_$ep",System.currentTimeMillis()).commit()
+                created++
+            }.onFailure { failures.add("EP.$ep • ${it.message ?: "สร้างไม่สำเร็จ"}") }
+        }
+        val summary="สร้างใหม่ $created ตอน • ข้ามไฟล์เดิม $skipped ตอน • ผิดพลาด ${failures.size} ตอน"+
+            if(failures.isEmpty()) "" else "\n\n"+failures.take(8).joinToString("\n")
+        AlertDialog.Builder(this).setTitle("Flow ทั้งเรื่อง • ผลการทำงาน")
+            .setMessage(summary+"\n\nไฟล์คำสั่งพร้อมตรวจและคัดลอก ยังไม่ได้ส่งไปสร้างวิดีโอ")
+            .setPositiveButton("เปิดรายการตอน") { _,_ -> commandCardsMenu() }
+            .setNegativeButton("ปิด",null).showDirector()
+    }
+
     private fun commandCardsMenu() {
         val story=plan ?: return notice("สร้างหรือนำเข้าบทก่อนครับ")
         if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
         val eps=story.getJSONArray("episodes")
         val channel=ChannelCatalog.currentChannel(story.optString("channel"))
-        val options=(0 until eps.length()).map { i ->
+        val options=listOf("⚡ สร้างคำสั่ง Flow ทุกตอนอัตโนมัติ • ข้ามตอนที่มีไฟล์แล้ว")+(0 until eps.length()).map { i ->
             val ep=eps.getJSONObject(i).getInt("ep")
             val count=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getInt("auto_flow_count_${project.name}_$ep",0) else 0
             val at=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getLong("auto_flow_saved_at_${project.name}_$ep",0L) else 0L
@@ -2766,7 +2810,8 @@ $context"""
         }
         choiceMenu("คำสั่ง Flow • เลือก EP\\nช่อง: ${channel.ifBlank { "ช่องไม่ระบุ" }}\\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}",
             options) { index ->
-            val ep=eps.getJSONObject(index).getInt("ep")
+            if(index==0) { autoFlowAllEpisodes(story); return@choiceMenu }
+            val ep=eps.getJSONObject(index-1).getInt("ep")
             val file=File(project,"EP%02d_FLOW_AUTO.txt".format(ep))
             if(!file.isFile) {
                 autoFlowEpisode(story,ep)
