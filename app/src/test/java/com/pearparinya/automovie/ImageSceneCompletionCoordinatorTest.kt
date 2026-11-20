@@ -201,4 +201,40 @@ class ImageSceneCompletionCoordinatorTest {
         }
     }
 
+    @Test fun fiveSceneBatchStopsAtFiveAndResumesRemaining() {
+        val saved = mutableListOf<Int>()
+        val initial = ImageSceneQueue.State((1..13).toList())
+        val first = ImageSceneCompletionCoordinator.completePending(
+            initial, saveImage = { saved.add(it); true },
+            saveProgress = { true }, maxScenes = 5
+        )
+        assertEquals(listOf(1, 2, 3, 4, 5), saved)
+        assertEquals(6, first.nextPendingScene)
+        val restored = ImageSceneQueue.restore(initial.sceneIds, first.encodeProgress())
+        val second = ImageSceneCompletionCoordinator.completePending(
+            restored, saveImage = { saved.add(it); true },
+            saveProgress = { true }, maxScenes = 5
+        )
+        assertEquals((1..10).toList(), saved)
+        assertEquals(11, second.nextPendingScene)
+    }
+
+    @Test fun fiveSceneBatchStopsOnFailedProgressAndResumesFailedScene() {
+        val attempted = mutableListOf<Int>()
+        val initial = ImageSceneQueue.State((1..8).toList())
+        val first = ImageSceneCompletionCoordinator.completePending(
+            initial, saveImage = { attempted.add(it); true },
+            saveProgress = { it.completedCount < 3 }, maxScenes = 5
+        )
+        assertEquals(2, first.completedCount)
+        assertEquals(3, first.nextPendingScene)
+        val resumed = ImageSceneCompletionCoordinator.completePending(
+            ImageSceneQueue.restore(initial.sceneIds, first.encodeProgress()),
+            saveImage = { attempted.add(it); true },
+            saveProgress = { true }, maxScenes = 5
+        )
+        assertEquals(listOf(1, 2, 3, 3, 4, 5, 6, 7), attempted)
+        assertEquals(8, resumed.nextPendingScene)
+    }
+
 }
