@@ -2801,16 +2801,15 @@ $context"""
         val eps=story.optJSONArray("episodes") ?: return notice("ยังไม่มีตอน")
         val lines=mutableListOf<String>()
         var totalScenes=0
+        var totalBatches=0
         for(i in 0 until eps.length()) {
             val episode=eps.optJSONObject(i) ?: continue
             val number=episode.optInt("ep",i+1)
             val count=runCatching { SimpleProductionCommands.videoTasks(story,number).size }.getOrDefault(0)
             totalScenes+=count
             val batches=if(count==0) 0 else (count+4)/5
+            totalBatches+=batches
             lines.add("EP.$number • $count ซีน • $batches ชุด (สูงสุด 5 ซีน/ชุด)")
-        }
-        val totalBatches=lines.sumOf { line ->
-            Regex("• (\\d+) ชุด").find(line)?.groupValues?.get(1)?.toIntOrNull() ?: 0
         }
         AlertDialog.Builder(this).setTitle("แผนสร้างภาพ • ชุดละ 5 ซีน")
             .setMessage("รวม $totalScenes ซีน • $totalBatches ชุด\n\n"+
