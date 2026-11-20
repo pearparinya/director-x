@@ -2833,7 +2833,11 @@ $context"""
                 "ChatGPT Plus: เตรียมคำสั่งและนำภาพเข้าด้วยตนเอง\n"+
                 "Image API: ต้องเชื่อมผู้ให้บริการก่อนจึงจะสร้างอัตโนมัติได้\n"+
                 "สถานะเสร็จอ้างอิงบันทึกความคืบหน้า ไม่ได้ตรวจไฟล์ภาพจริงในหน้านี้")
-            .setPositiveButton("เปิดคำสั่ง Flow") { _,_ -> commandCardsMenu() }
+            .setPositiveButton("นำเข้าภาพฉาก") { _,_ ->
+                if(plan == null) notice("กรุณาเปิดโครงการก่อนนำเข้าภาพ")
+                else imagesPicker.launch(arrayOf("image/*"))
+            }
+            .setNeutralButton("เปิดคำสั่ง Flow") { _,_ -> commandCardsMenu() }
             .setNegativeButton("ปิด",null).showDirector()
     }
 
