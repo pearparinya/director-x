@@ -3821,9 +3821,9 @@ $context"""
         }
         panel.addView(copy, LinearLayout.LayoutParams(-1, dp(58)))
         // Resolve episode metadata from the currently opened story, never invent titles.
-        val episodeNumber = Regex("EP[._-]?(\\\\d+)", RegexOption.IGNORE_CASE)
+        val episodeNumber = Regex("EP[._-]?(\\d+)", RegexOption.IGNORE_CASE)
             .find(filename)?.groupValues?.getOrNull(1)?.toIntOrNull()
-            ?: Regex("EP\\\\.?(\\\\d+)", RegexOption.IGNORE_CASE)
+            ?: Regex("EP\\.?(\\d+)", RegexOption.IGNORE_CASE)
                 .find(title)?.groupValues?.getOrNull(1)?.toIntOrNull()
         val storyTitle = plan?.optString("title").orEmpty().trim()
         val episodeTitle = plan?.optJSONArray("episodes")?.let { episodes ->
