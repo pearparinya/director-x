@@ -160,13 +160,15 @@ internal object ShortFlowPrompt {
             label.takeIf { it!="Off-screen speaker" && it!="Off-screen narrator" }
         }.distinct() else emptyList()
         val megaphoneDirection=if(megaphoneSpeakers.isNotEmpty())
-            "MEGAPHONE PROP AND MOUTH CONTACT LOCK: "+megaphoneSpeakers.joinToString(", ")+" speaks through the megaphone already visible in the attached first frame. "+
-            "Before the first spoken syllable, hold the megaphone mouthpiece directly against or immediately in front of the speaker's lips. "+
-            "Keep the mouthpiece aligned with the lips throughout EVERY spoken syllable, including pauses between words; maintain a firm grip and stable arm position. "+
-            "NEVER lower, set down, turn away, or remove the megaphone while the speaker is talking. "+
-            "The speaker's voice MUST sound electronically amplified through a real handheld megaphone: narrow-band filtered, slightly distorted, compressed, projected and resonant, with subtle horn coloration; NOT a clean natural conversational voice. "+
-            "Lip movements occur behind the mouthpiece and must remain synchronized with the megaphone-filtered dialogue. "+
-            "Only after the final spoken syllable may the speaker lower the megaphone, if the shot has time. Do not introduce a new megaphone if it is absent from the first frame."
+            "MEGAPHONE FIRST-FRAME CONTACT LOCK: "+megaphoneSpeakers.joinToString(", ")+" must ALREADY hold the megaphone mouthpiece directly at the lips in the ATTACHED FIRST FRAME, at timestamp 00:00. "+
+            "Start with the megaphone in its final speaking position; NO lifting, reaching, repositioning, or preparatory movement is allowed at the beginning. "+
+            "The first spoken syllable may begin only while the mouthpiece is fully aligned with the lips; NEVER start dialogue while raising the megaphone. "+
+            "Maintain mouthpiece-to-lips alignment, a firm hand grip, and a fixed arm position for the ENTIRE 8-SECOND SHOT, before, during, and after the dialogue. "+
+            "NEVER lower, set down, turn away, remove, or reposition the megaphone at any time in this shot, including after the final syllable. "+
+            "The voice must come exclusively from the megaphone loudspeaker, with consistent narrow-band electronic amplification, compression and slight horn distortion; NEVER use dry natural speech. "+
+            "Keep lip synchronization behind the mouthpiece. No off-megaphone speech, voice-over, or extra words. "+
+            "If the attached first frame shows the megaphone away from the lips, that frame is NOT READY: correct or replace the first-frame image before generating video; do not animate a raise-to-mouth transition. "+
+            "Do not introduce a megaphone absent from the first frame."
         else ""
         val location=typed(s,aliases(s,s.location.trim())).takeIf { it.isNotBlank() && !thai.containsMatchIn(it) }.orEmpty()
         val visual=listOf("Use the attached first frame as the starting point. One continuous 8-second vertical 9:16 shot",cast,location.takeIf { it.isNotBlank() }?.let { "Environment: $it" }.orEmpty(),action,
