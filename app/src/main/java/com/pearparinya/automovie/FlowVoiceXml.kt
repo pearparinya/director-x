@@ -61,9 +61,7 @@ internal object FlowVoiceXml {
                     "Only one speaker at a time; no overlapping speech, listener lip-sync, ad-libs, extra voices or subtitles. " +
                     "Do not force dialogue to fit by rushing; if the written lines exceed eight seconds, revise or split the scene before generating."
             }
-            dialogue.isNotEmpty() && !offscreen -> "STRICT SPEAKER AND LIP-SYNC LOCK: ONLY $speakerLabel speaks and lip-syncs. " +
-                s.cast.indices.filter { label(it)!=speakerLabel }.joinToString(" ") { "${label(it)} stays silent with lips closed and still, reacting only without vocal sounds." } +
-                " No extra voices, dialogue swaps or subtitles."
+            dialogue.isNotEmpty() && !offscreen -> "Only [$speakerLabel] speaks with natural lip movement; other visible characters stay silent."
             else -> "Visible characters remain silent with mouths closed and lips still. No visible character lip-syncs or speaks."
         }
         val accentDirection=if(dialogue.isNotEmpty() || narration.isNotEmpty() || s.turns.isNotEmpty()) " $accent ${ThaiSpeechPacing.direction}" else ""
