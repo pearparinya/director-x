@@ -2858,6 +2858,10 @@ $context"""
                 .getOrNull() ?: return@any false
             if (result.optInt("width") != EpisodeRules.WIDTH ||
                 result.optInt("height") != EpisodeRules.HEIGHT) return@any false
+            val originalFingerprint = result.optString("fingerprint")
+            if (originalFingerprint.isBlank() ||
+                !runCatching { movieFingerprint(episode) == originalFingerprint }
+                    .getOrDefault(false)) return@any false
             runCatching {
                 val reader = android.media.MediaMetadataRetriever()
                 try {
@@ -2982,7 +2986,8 @@ $context"""
     }
 
     private fun continueFlowOneTap(story: JSONObject) {
-        rememberProductionProject()
+        // Preserve the last cursor until the current artifacts determine the next stage.
+        prefs.edit().putString("production_resume_project", project.name).apply()
         val episodes = story.optJSONArray("episodes") ?: return notice("ยังไม่มีตอนในบท")
         if (episodes.length() == 0) return notice("ยังไม่มีตอนในบท")
         if (ProductionCommandCheck.issues(story).isNotEmpty()) {
