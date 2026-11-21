@@ -2831,6 +2831,23 @@ $context"""
         }.getOrDefault(false)
     }
 
+    private fun verifiedSceneVideo(episode: Int, scene: Int): Boolean {
+        val file = File(project, "videos/EP%02d_SC%03d.mp4".format(episode, scene))
+        if (!file.isFile || file.length() <= 0L) return false
+        return runCatching {
+            val reader = android.media.MediaMetadataRetriever()
+            try {
+                reader.setDataSource(file.path)
+                val duration = reader.extractMetadata(
+                    android.media.MediaMetadataRetriever.METADATA_KEY_DURATION
+                )?.toLongOrNull() ?: 0L
+                duration > 0L
+            } finally {
+                reader.release()
+            }
+        }.getOrDefault(false)
+    }
+
     private fun imageBatchFivePlan(story: JSONObject) {
         val eps=story.optJSONArray("episodes") ?: return notice("ยังไม่มีตอน")
         val lines=mutableListOf<String>()
@@ -3001,12 +3018,22 @@ $context"""
                         number = number,
                         sceneIds = ids,
                         flowVerified = verifiedFlowFile(number),
-                        imageIdsVerified = ids.filter { verifiedSceneImage(number, it) }.toSet()
+                        imageIdsVerified = ids.filter { verifiedSceneImage(number, it) }.toSet(),
+                        videoIdsVerified = ids.filter { verifiedSceneVideo(number, it) }.toSet()
                     )
                 }
             )
             rememberProductionProject(next.episode, next.scene, next.stage.name.lowercase())
-            notice("ภาพครบทุกฉาก • ขั้นตอนถัดไป: ${next.stage} EP.${next.episode} SC.${next.scene}\nยังไม่มีระบบตรวจสอบวิดีโอจริง จึงไม่ทำเครื่องหมายว่าสำเร็จ")
+            val verifiedVideos = (0 until episodes.length()).sumOf { index ->
+                val ep = episodes.getJSONObject(index)
+                val number = ep.optInt("ep", 0)
+                val scenes = ep.optJSONArray("scenes")
+                (0 until (scenes?.length() ?: 0)).count { i ->
+                    val scene = scenes?.optJSONObject(i)?.optInt("scene", 0) ?: 0
+                    scene > 0 && verifiedSceneVideo(number, scene)
+                }
+            }
+            notice("ภาพครบทุกฉาก • วิดีโอที่ตรวจสอบผ่าน $verifiedVideos ฉาก\\nขั้นตอนถัดไป: ${next.stage} EP.${next.episode} SC.${next.scene}\\nขั้นตอน FINAL OUTPUT ยังต้องตรวจสอบไฟล์ผลลัพธ์จริง")
         }
     }
 
