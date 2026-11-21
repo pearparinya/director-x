@@ -3849,7 +3849,20 @@ $context"""
         }
         previous.setOnClickListener { if (index > 0) { index--; refresh() } }
         next.setOnClickListener { if (index < scenes.lastIndex) { index++; refresh() } }
-        copy.setOnClickListener { copyCommand(scenes[index].trim()) }
+        copy.setOnClickListener {
+            val selected = scenes[index].trim()
+            val speech = Regex("<dialogue>\\\\s*<speaker>(.*?)</speaker>\\\\s*<text>(.*?)</text>", RegexOption.DOT_MATCHES_ALL)
+                .findAll(selected).map { it.groupValues[1].trim() to it.groupValues[2].trim() }.toList()
+            val charCount = speech.sumOf { it.second.length }
+            val estimate = charCount / 11.0 + (speech.size - 1).coerceAtLeast(0) * 0.55 + 0.8
+            val duplicate = speech.any { it.first.isBlank() }
+            if (speech.isNotEmpty() && (estimate > 8.0 || duplicate)) {
+                AlertDialog.Builder(this)
+                    .setTitle("ตรวจบทพูดก่อนคัดลอก • ฉากที่ ${index + 1}")
+                    .setMessage("พบ ${speech.size} ช่วงพูด รวม $charCount อักขระ ประเมินประมาณ ${"%.1f".format(java.util.Locale.US, estimate)} วินาที (คลิป 8 วินาที)\\n\\nบทพูดอาจไม่ครบหรือสลับผู้พูด กรุณาย่อบทหรือแบ่งฉากในเมนูแก้บทก่อนสร้าง Flow ใหม่ ระบบไม่แก้คำพูดต้นฉบับเอง")
+                    .setPositiveButton("รับทราบ", null).showDirector()
+            } else copyCommand(selected)
+        }
         val dialog = AlertDialog.Builder(this).setView(panel)
             .setNeutralButton("บันทึกทั้งตอน") { _, _ ->
                 prefs.edit().putString("pending_flow_code", code).apply()
