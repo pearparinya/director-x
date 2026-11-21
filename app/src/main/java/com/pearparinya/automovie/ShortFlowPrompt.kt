@@ -151,10 +151,27 @@ internal object ShortFlowPrompt {
                 "repeated answers, speaker swaps, overlapping voices or improvised dialogue. " +
                 "Performance voice cues and action descriptions are NOT additional dialogue."
         } else ""
+        // Megaphone dialogue requires continuous physical mouthpiece contact and processed audio.
+        // Apply only when the scene explicitly establishes a megaphone and a visible speaker.
+        val megaphonePresent=Regex("\\bmegaphone\\b|\\bbullhorn\\b|\\bloudhailer\\b",RegexOption.IGNORE_CASE)
+            .containsMatchIn(listOf(s.action,s.location,s.sound,s.startState,s.endState).joinToString(" ")+" "+s.cast.joinToString(" ") { it.appearance+" "+it.performance })
+        val megaphoneSpeakers=if(megaphonePresent) allSpokenTurns.mapNotNull { (name,_) ->
+            val label=speakerLabel(s,name)
+            label.takeIf { it!="Off-screen speaker" && it!="Off-screen narrator" }
+        }.distinct() else emptyList()
+        val megaphoneDirection=if(megaphoneSpeakers.isNotEmpty())
+            "MEGAPHONE PROP AND MOUTH CONTACT LOCK: "+megaphoneSpeakers.joinToString(", ")+" speaks through the megaphone already visible in the attached first frame. "+
+            "Before the first spoken syllable, hold the megaphone mouthpiece directly against or immediately in front of the speaker's lips. "+
+            "Keep the mouthpiece aligned with the lips throughout EVERY spoken syllable, including pauses between words; maintain a firm grip and stable arm position. "+
+            "NEVER lower, set down, turn away, or remove the megaphone while the speaker is talking. "+
+            "The speaker's voice MUST sound electronically amplified through a real handheld megaphone: narrow-band filtered, slightly distorted, compressed, projected and resonant, with subtle horn coloration; NOT a clean natural conversational voice. "+
+            "Lip movements occur behind the mouthpiece and must remain synchronized with the megaphone-filtered dialogue. "+
+            "Only after the final spoken syllable may the speaker lower the megaphone, if the shot has time. Do not introduce a new megaphone if it is absent from the first frame."
+        else ""
         val location=typed(s,aliases(s,s.location.trim())).takeIf { it.isNotBlank() && !thai.containsMatchIn(it) }.orEmpty()
         val visual=listOf("Use the attached first frame as the starting point. One continuous 8-second vertical 9:16 shot",cast,location.takeIf { it.isNotBlank() }?.let { "Environment: $it" }.orEmpty(),action,
             "Preserve each character's identity, face or species-specific features, hair or fur, body proportions, position, clothing and props from the first frame. Keep the location and lighting consistent throughout",ScenePropContinuity.video,performance,direction,
-            motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}",speakerSequence,if(speakerSequence.isBlank()) instructions else "")
+            motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}",megaphoneDirection,speakerSequence,if(speakerSequence.isBlank()) instructions else "")
             .filter { it.isNotBlank() }.joinToString(". ")
         val lines=allSpokenTurns.joinToString("") { (name,text) ->
             val label=if(name.isBlank()) "Off-screen narrator" else speakerLabel(s,name)
@@ -166,7 +183,8 @@ internal object ShortFlowPrompt {
         val ambient=soundParts?.groupValues?.get(1) ?: sound.ifBlank { "none specified" }
         val sfx=soundParts?.groupValues?.get(2) ?: "none specified"
         val music=soundParts?.groupValues?.get(3) ?: "none specified"
-        val effects=if(silent) "" else "<sound_effects><ambient>${xml(ambient)}</ambient><sfx>${xml(sfx)}</sfx><music>${xml(music)}</music><mix>Keep sound below dialogue; no additional voices.</mix></sound_effects>"
+        val megaphoneMix=if(megaphoneSpeakers.isNotEmpty()) " Route the assigned speaker voice through a distinctly amplified megaphone/bullhorn filter for the ENTIRE utterance, never switch to dry speech. Preserve intelligible Thai articulation; no additional spoken words." else ""
+        val effects=if(silent) "" else "<sound_effects><ambient>${xml(ambient)}</ambient><sfx>${xml(sfx)}</sfx><music>${xml(music)}</music><mix>Keep sound below dialogue; no additional voices.${xml(megaphoneMix)}</mix></sound_effects>"
         return "<flow><scene><aspect_ratio>9:16</aspect_ratio><duration>8</duration><lighting>5500K daylight white balance, pure bright studio lighting, no yellow light. Preserve the first frame's lighting direction and scene continuity.</lighting><typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone><prompt>${xml(visual+". "+audio)}</prompt>$lines$effects</scene></flow>"
     }
 }
