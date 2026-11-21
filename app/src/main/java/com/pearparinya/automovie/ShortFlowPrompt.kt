@@ -133,10 +133,28 @@ internal object ShortFlowPrompt {
                 "Turn ${order+1}: ONLY $label ($cue) speaks; animate the mouth only if visible and anatomically appropriate. " + if(others.isNotBlank()) "$others remain silent; do not invent mouths" else "No other voices"
             } else "Turn ${order+1}: Only $label speaks; visible characters stay silent; do not invent mouths"
         }.joinToString(". ")
+        // Ordered dialogue entries are authoritative, never repeat speech from action/performance.
+        val speakerSequence=if(!silent && s.turns.isNotEmpty()) {
+            val identities=s.cast.mapIndexed { i,p ->
+                "${labels(s)[i]} = ${p.name.trim()}, ${positions[i]}, wearing ${clothes[i]}"
+            }.joinToString("; ")
+            val ordered=s.turns.mapIndexed { i,turn ->
+                val who=speakerLabel(s,turn.speaker)
+                val listeners=labels(s).filter { it!=who }.joinToString(", ")
+                "SPEECH TURN ${i+1}: ONLY $who speaks dialogue entry ${i+1} exactly once. " +
+                    "$listeners listen silently without lip movement. Do not repeat any earlier line."
+            }.joinToString(" ")
+            "SPEAKER SEQUENCE IS AUTHORITATIVE. Identity: $identities. " +
+                "FIRST AUDIBLE VOICE MUST BE ${speakerLabel(s,s.turns.first().speaker)}. " +
+                "Begin with dialogue entry 1, never a later speaker. $ordered " +
+                "Speak each XML dialogue entry once in exact order; no repeated questions, " +
+                "repeated answers, speaker swaps, overlapping voices or improvised dialogue. " +
+                "Performance voice cues and action descriptions are NOT additional dialogue."
+        } else ""
         val location=typed(s,aliases(s,s.location.trim())).takeIf { it.isNotBlank() && !thai.containsMatchIn(it) }.orEmpty()
         val visual=listOf("Use the attached first frame as the starting point. One continuous 8-second vertical 9:16 shot",cast,location.takeIf { it.isNotBlank() }?.let { "Environment: $it" }.orEmpty(),action,
             "Preserve each character's identity, face or species-specific features, hair or fur, body proportions, position, clothing and props from the first frame. Keep the location and lighting consistent throughout",ScenePropContinuity.video,performance,direction,
-            motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}",instructions)
+            motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}",speakerSequence,instructions)
             .filter { it.isNotBlank() }.joinToString(". ")
         val lines=allSpokenTurns.joinToString("") { (name,text) ->
             val label=if(name.isBlank()) "Off-screen narrator" else speakerLabel(s,name)
