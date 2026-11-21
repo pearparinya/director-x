@@ -2940,7 +2940,18 @@ $context"""
         if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
         val eps=story.getJSONArray("episodes")
         val channel=ChannelCatalog.currentChannel(story.optString("channel"))
-        val options=listOf("▶ ทำงานต่ออัตโนมัติ • ตรวจงานค้าง","📊 ตรวจสถานะและขั้นตอนถัดไป","🖼 ตรวจภาพจริง • สถานะบันทึกไม่ใช่ไฟล์","⚙ สร้างคำสั่ง Flow ที่ยังขาด")+(0 until eps.length()).map { i ->
+        val storyPassed = eps.length() > 0 && ProductionCommandCheck.issues(story).isEmpty()
+        val savedFlowCount = (0 until eps.length()).count { index ->
+            val number = eps.getJSONObject(index).optInt("ep", 0)
+            number > 0 && File(project, "EP%02d_FLOW_AUTO.txt".format(number)).isFile
+        }
+        val flowPassed = storyPassed && savedFlowCount == eps.length()
+        val options=listOf(
+            "▶ ทำงานต่ออัตโนมัติ • เลือกงานที่ยังค้าง",
+            "${if (storyPassed) "✅ ผ่านแล้ว" else "▶ ต้องตรวจ"} • ตรวจบทและสถานะ",
+            "${if (storyPassed) "▶ รอตรวจไฟล์จริง" else "🔒 รอตรวจบท"} • ภาพฉาก",
+            "${if (flowPassed) "✅ ผ่านแล้ว" else if (storyPassed) "⏳ รอสร้าง" else "🔒 รอตรวจบท"} • คำสั่ง Flow $savedFlowCount/${eps.length()} ตอน"
+        )+(0 until eps.length()).map { i ->
             val ep=eps.getJSONObject(i).getInt("ep")
             val count=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getInt("auto_flow_count_${project.name}_$ep",0) else 0
             val at=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getLong("auto_flow_saved_at_${project.name}_$ep",0L) else 0L
