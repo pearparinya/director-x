@@ -2848,6 +2848,30 @@ $context"""
         }.getOrDefault(false)
     }
 
+    private fun verifiedFinalOutput(episode: Int): Boolean {
+        if (episode <= 0) return false
+        return movieJobs(episode).any { job ->
+            val output = File(job, "output.mp4")
+            if (!output.isFile || output.length() <= 0L ||
+                readMovieState(job).optString("state") != "complete") return@any false
+            val result = runCatching { JSONObject(File(job, "result.json").readText()) }
+                .getOrNull() ?: return@any false
+            if (result.optInt("width") != EpisodeRules.WIDTH ||
+                result.optInt("height") != EpisodeRules.HEIGHT) return@any false
+            runCatching {
+                val reader = android.media.MediaMetadataRetriever()
+                try {
+                    reader.setDataSource(output.path)
+                    (reader.extractMetadata(
+                        android.media.MediaMetadataRetriever.METADATA_KEY_DURATION
+                    )?.toLongOrNull() ?: 0L) > 0L
+                } finally {
+                    reader.release()
+                }
+            }.getOrDefault(false)
+        }
+    }
+
     private fun imageBatchFivePlan(story: JSONObject) {
         val eps=story.optJSONArray("episodes") ?: return notice("ยังไม่มีตอน")
         val lines=mutableListOf<String>()
@@ -3007,10 +3031,12 @@ $context"""
             }
             imageBatchFivePlan(story)
         } else {
-            // No verified video artifacts are available to this workflow yet.
-            // The pipeline planner therefore stops at VIDEO, never claiming DONE.
+            // Recheck media and rendered movie artifacts on every continuation.
             val next = ProductionPipelinePlanner.next(
                 storyValid = true,
+                finalOutputVerified = (0 until episodes.length()).all { index ->
+                    verifiedFinalOutput(episodes.getJSONObject(index).optInt("ep", 0))
+                },
                 episodes = (0 until episodes.length()).map { index ->
                     val ep = episodes.getJSONObject(index)
                     val number = ep.optInt("ep", 0)
