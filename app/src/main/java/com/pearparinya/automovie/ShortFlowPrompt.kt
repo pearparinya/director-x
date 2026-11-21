@@ -98,7 +98,7 @@ internal object ShortFlowPrompt {
         val totalChars = turns.sumOf { it.second.trim().length }
         val handoffs = (turns.size - 1).coerceAtLeast(0)
         val speakingSeconds = (s.duration - handoffs * 0.55 - 0.8).coerceAtLeast(1.0)
-        val estimatedSeconds = totalChars / 11.0 + handoffs * 0.55 + 0.8
+        val estimatedSeconds = totalChars / 9.0 + handoffs * 0.55 + 1.5
         if (turns.isNotEmpty() && estimatedSeconds > s.duration) {
             add("บทพูด $totalChars อักขระ / ${turns.size} ช่วงพูด ประเมิน ~${"%.1f".format(java.util.Locale.US, estimatedSeconds)} วินาที เกินคลิป ${s.duration} วินาที • ควรย่อบทโดยผู้ใช้ยืนยันหรือแบ่งฉาก ห้ามเร่งเสียง/พูดทับ/สลับผู้พูด")
         }
@@ -119,7 +119,7 @@ internal object ShortFlowPrompt {
     internal fun fitEightSecondDialogue(turns: List<Pair<String, String>>, duration: Int): List<Pair<String, String>> {
         if (turns.isEmpty()) return turns
         fun estimate(lines: List<Pair<String, String>>) =
-            lines.sumOf { it.second.length } / 11.0 + (lines.size - 1).coerceAtLeast(0) * 0.55 + 0.8
+            lines.sumOf { it.second.length } / 9.0 + (lines.size - 1).coerceAtLeast(0) * 0.55 + 1.5
         if (estimate(turns) <= duration) return turns
         val shortened = turns.map { (speaker, line) ->
             val clauses = line.trim().split(Regex("(?<=[.!?！？。])\\s*|[,，;；]|\\s*[—–]\\s*"))
