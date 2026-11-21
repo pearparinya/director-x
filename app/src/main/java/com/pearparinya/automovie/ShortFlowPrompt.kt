@@ -93,8 +93,8 @@ internal object ShortFlowPrompt {
         val turns=if(s.turns.isNotEmpty()) s.turns.map { it.speaker to it.text }
             else if(spoken(s.dialogue).isNotEmpty()) listOf(s.speaker to spoken(s.dialogue))
             else emptyList()
-        if(turns.size>=3 && turns.sumOf { it.second.length }>120)
-            add("บทพูดหลายคนยาวสำหรับวิดีโอ 8 วินาที อาจพูดไม่ครบหรือสลับผู้พูด • ตรวจสอบโดยไม่แก้บทอัตโนมัติ")
+        val timing = EightSecondDialoguePlanner.assess(turns.map { EightSecondDialoguePlanner.Turn(it.first, it.second) })
+        timing.warning?.let { add(it) }
         if(turns.any { Regex("[\\u0600-\\u06FF]").containsMatchIn(it.second) && thai.containsMatchIn(it.second) })
             add("บทพูดมีอักษรอาหรับปนกับภาษาไทย • ตรวจสอบการออกเสียง โดยไม่เปลี่ยนข้อความต้นฉบับ")
         val names=s.cast.map { it.name.trim() }
