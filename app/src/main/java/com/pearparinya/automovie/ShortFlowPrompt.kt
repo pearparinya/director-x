@@ -93,8 +93,17 @@ internal object ShortFlowPrompt {
         val turns=if(s.turns.isNotEmpty()) s.turns.map { it.speaker to it.text }
             else if(spoken(s.dialogue).isNotEmpty()) listOf(s.speaker to spoken(s.dialogue))
             else emptyList()
-        if(turns.size>=3 && turns.sumOf { it.second.length }>120)
-            add("บทพูดหลายคนยาวสำหรับวิดีโอ 8 วินาที อาจพูดไม่ครบหรือสลับผู้พูด • ตรวจสอบโดยไม่แก้บทอัตโนมัติ")
+        // Reserve time for speaker hand-offs and reactions; thresholds are advisory,
+        // not a claim about a provider's exact speech speed.
+        val totalChars = turns.sumOf { it.second.trim().length }
+        val handoffs = (turns.size - 1).coerceAtLeast(0)
+        val speakingSeconds = (s.duration - handoffs * 0.55 - 0.8).coerceAtLeast(1.0)
+        val estimatedSeconds = totalChars / 11.0 + handoffs * 0.55 + 0.8
+        if (turns.isNotEmpty() && estimatedSeconds > s.duration) {
+            add("บทพูด $totalChars อักขระ / ${turns.size} ช่วงพูด ประเมิน ~${"%.1f".format(java.util.Locale.US, estimatedSeconds)} วินาที เกินคลิป ${s.duration} วินาที • ควรย่อบทโดยผู้ใช้ยืนยันหรือแบ่งฉาก ห้ามเร่งเสียง/พูดทับ/สลับผู้พูด")
+        }
+        if (turns.size >= 3 && totalChars > (speakingSeconds * 11).toInt())
+            add("ฉากมีผู้พูดหลายคน ต้องเผื่อเวลาสลับปากและปฏิกิริยา • ควรลดจำนวนช่วงพูดหรือแยกคลิป")
         if(turns.any { Regex("[\\u0600-\\u06FF]").containsMatchIn(it.second) && thai.containsMatchIn(it.second) })
             add("บทพูดมีอักษรอาหรับปนกับภาษาไทย • ตรวจสอบการออกเสียง โดยไม่เปลี่ยนข้อความต้นฉบับ")
         val names=s.cast.map { it.name.trim() }
