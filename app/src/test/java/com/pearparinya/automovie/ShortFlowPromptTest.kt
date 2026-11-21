@@ -102,4 +102,23 @@ class ShortFlowPromptTest {
         assertTrue(ShortFlowPrompt.motion("smoke and wind").contains("smoke drifts"))
         assertFalse(ShortFlowPrompt.build(scene(),"Locked",true).contains("<dialogue>"))
     }
+    @Test fun episodeRegenerationLocksFirstVoiceAndPreventsRepeatedQuestions() {
+        val sample=scene().copy(dialogue="",speaker="",turns=listOf(
+            FlowDialogueTurn("มานี","ลุงเพิ่ม ฉันกังวลว่าน้ำจะท่วมบ้านเราเลย!"),
+            FlowDialogueTurn("สมชาย","อย่ากังวล แม่จันทร์ ฉันจะช่วยย้ายสิ่งของไปที่สูงก่อน นายเปียก็กำลังจัดการอยู่")
+        ))
+        val output=ShortFlowPrompt.build(sample,"Slow pan")
+        val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(InputSource(StringReader(output)))
+        val prompt=doc.getElementsByTagName("prompt").item(0).textContent
+        assertTrue(prompt.contains("FIRST AUDIBLE VOICE MUST BE Character 2"))
+        assertTrue(prompt.contains("SPEECH TURN 1: ONLY Character 2"))
+        assertTrue(prompt.contains("SPEECH TURN 2: ONLY Character 1"))
+        assertTrue(prompt.contains("no repeated questions"))
+        assertTrue(prompt.contains("wearing dress"))
+        val lines=doc.getElementsByTagName("text")
+        assertEquals(2,lines.length)
+        assertEquals("ลุงเพิ่ม ฉันกังวลว่าน้ำจะท่วมบ้านเราเลย!",lines.item(0).textContent)
+        assertEquals("อย่ากังวล แม่จันทร์ ฉันจะช่วยย้ายสิ่งของไปที่สูงก่อน นายเปียก็กำลังจัดการอยู่",lines.item(1).textContent)
+    }
+
 }
