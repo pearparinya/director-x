@@ -98,4 +98,24 @@ class ProductionPipelinePlannerTest {
             p.next(true, listOf(invalid), finalOutputVerified = true).stage)
     }
 
+    @Test fun firstMissingFinalOutputTargetsCorrectEpisode() {
+        val first = ProductionPipelinePlanner.Episode(1, listOf(1), true, setOf(1), setOf(1), true)
+        val second = ProductionPipelinePlanner.Episode(2, listOf(1), true, setOf(1), setOf(1), false)
+        assertEquals(ProductionPipelinePlanner.Decision(ProductionPipelinePlanner.Stage.FINAL_OUTPUT, 2),
+            p.next(true, listOf(first, second)))
+    }
+
+    @Test fun allVerifiedEpisodeOutputsAllowDone() {
+        val first = ProductionPipelinePlanner.Episode(1, listOf(1), true, setOf(1), setOf(1), true)
+        val second = ProductionPipelinePlanner.Episode(2, listOf(1), true, setOf(1), setOf(1), true)
+        assertEquals(ProductionPipelinePlanner.Stage.DONE, p.next(true, listOf(first, second)).stage)
+    }
+
+    @Test fun missingFirstEpisodeOutputDoesNotSkipToSecond() {
+        val first = ProductionPipelinePlanner.Episode(1, listOf(1), true, setOf(1), setOf(1), false)
+        val second = ProductionPipelinePlanner.Episode(2, listOf(1), true, setOf(1), setOf(1), true)
+        assertEquals(ProductionPipelinePlanner.Decision(ProductionPipelinePlanner.Stage.FINAL_OUTPUT, 1),
+            p.next(true, listOf(first, second)))
+    }
+
 }
