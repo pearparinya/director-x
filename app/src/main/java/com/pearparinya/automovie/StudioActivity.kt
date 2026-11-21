@@ -2933,7 +2933,7 @@ $context"""
             .setMessage("บท: ${if(total>0) "มี $total ตอน" else "ยังไม่มีตอน"}\n"+
                 "คำสั่ง Flow: $saved/$total ตอน\n"+
                 "ภาพที่ตรวจสอบไฟล์จริง: $imageCompleted/$imageTotal ซีน\n"+
-                "วิดีโอที่ตรวจสอบไฟล์จริง: $videoCompleted/$imageTotal ซีน\\n"+
+                "วิดีโอที่ตรวจสอบไฟล์จริง: $videoCompleted/$imageTotal ซีน\n"+
                 "ตอนที่หมายเลขซีนผิดพลาด: $invalidSceneLists\n"+
                 "ข้อควรแก้ในบท: ${issues.size} รายการ\n\n"+
                 "ขั้นตอนถัดไป: $next\n\n"+
