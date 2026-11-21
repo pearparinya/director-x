@@ -40,7 +40,10 @@ internal object ProductionPipelinePlanner {
                 return Decision(Stage.VIDEO, ep.number, it)
             }
         }
-        return if (finalOutputVerified) Decision(Stage.DONE)
-        else Decision(Stage.FINAL_OUTPUT)
+        if (finalOutputVerified) return Decision(Stage.DONE)
+        episodes.firstOrNull { !it.finalOutputVerified }?.let {
+            return Decision(Stage.FINAL_OUTPUT, it.number)
+        }
+        return Decision(Stage.DONE)
     }
 }
