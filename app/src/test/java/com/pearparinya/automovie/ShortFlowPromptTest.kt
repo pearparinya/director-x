@@ -140,15 +140,19 @@ class ShortFlowPromptTest {
         val output=ShortFlowPrompt.build(sample,"Slow pan")
         val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(InputSource(StringReader(output)))
         val prompt=doc.getElementsByTagName("prompt").item(0).textContent
-        assertTrue(prompt.contains("MEGAPHONE PROP AND MOUTH CONTACT LOCK"))
-        assertTrue(prompt.contains("Keep the mouthpiece aligned with the lips throughout EVERY spoken syllable"))
-        assertTrue(prompt.contains("NEVER lower, set down, turn away, or remove the megaphone"))
-        assertTrue(prompt.contains("electronically amplified through a real handheld megaphone"))
+        assertTrue(prompt.contains("MEGAPHONE FIRST-FRAME CONTACT LOCK"))
+        assertTrue(prompt.contains("Maintain mouthpiece-to-lips alignment"))
+        assertTrue(prompt.contains("NEVER lower, set down, turn away, remove, or reposition the megaphone"))
+        assertTrue(prompt.contains("voice must come exclusively from the megaphone loudspeaker"))
+        assertTrue(prompt.contains("ATTACHED FIRST FRAME, at timestamp 00:00"))
+        assertTrue(prompt.contains("ENTIRE 8-SECOND SHOT"))
+        assertTrue(prompt.contains("NEVER start dialogue while raising the megaphone"))
+        assertTrue(prompt.contains("correct or replace the first-frame image before generating video"))
         assertTrue(doc.getElementsByTagName("mix").item(0).textContent.contains("ENTIRE utterance"))
         assertEquals("8",doc.getElementsByTagName("duration").item(0).textContent)
         assertEquals("ระวังน้ำท่วม!",doc.getElementsByTagName("text").item(0).textContent)
         val ordinary=ShortFlowPrompt.build(scene(),"Slow pan")
-        assertFalse(ordinary.contains("MEGAPHONE PROP AND MOUTH CONTACT LOCK"))
+        assertFalse(ordinary.contains("MEGAPHONE FIRST-FRAME CONTACT LOCK"))
     }
 
 }
