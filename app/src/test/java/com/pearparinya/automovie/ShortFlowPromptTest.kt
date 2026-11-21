@@ -30,9 +30,9 @@ class ShortFlowPromptTest {
         assertTrue(output.contains("Character 3: right, wearing blue shirt"))
         assertTrue(output.contains("<speaker>Character 1</speaker><text>เร็ว!</text>"))
         assertTrue(output.contains("<speaker>Character 2</speaker><text>ตามฉัน!</text>"))
-        assertTrue(output.contains("ONLY Character 1 (center front, wearing cream shirt) speaks; animate the mouth only if visible and anatomically appropriate"))
-        assertTrue(output.contains("Character 2, Character 3 remain silent; do not invent mouths"))
-        assertTrue(output.contains("ONLY Character 2 (left, wearing black shirt) speaks; animate the mouth only if visible and anatomically appropriate"))
+        assertTrue(output.contains("SPEECH TURN 1: ONLY Character 1 speaks dialogue entry 1 exactly once"))
+        assertTrue(output.contains("Character 2, Character 3 listen silently without lip movement"))
+        assertTrue(output.contains("SPEECH TURN 2: ONLY Character 2 speaks dialogue entry 2 exactly once"))
         assertTrue(output.contains("Use only the props and objects already visible in the attached first frame"))
         assertTrue(output.contains("If an action requires an object missing from the first frame"))
         assertFalse(output.contains("green trousers"))
@@ -58,7 +58,7 @@ class ShortFlowPromptTest {
         assertFalse(output.contains("<constraint>"))
         assertFalse(output.contains("[Woman 1]"))
         assertTrue(output.contains("<language>th-TH</language>"))
-        assertTrue(output.contains("Animal 1, Demon 1 remain silent"))
+        assertTrue(output.contains("Animal 1, Demon 1 listen silently without lip movement"))
     }
     @Test fun includesSceneLocationAndRecordedActingInXml() {
         val base=scene()
@@ -121,4 +121,17 @@ class ShortFlowPromptTest {
         assertEquals("อย่ากังวล แม่จันทร์ ฉันจะช่วยย้ายสิ่งของไปที่สูงก่อน นายเปียก็กำลังจัดการอยู่",lines.item(1).textContent)
     }
 
+    @Test fun orderedDialogueUsesOneTurnDirectivePerSpeakerAndKeepsEightSeconds() {
+        val sample=scene().copy(dialogue="",speaker="",turns=listOf(
+            FlowDialogueTurn("มานี","คำถามเดิม"),FlowDialogueTurn("สมชาย","คำตอบเดิม")))
+        val output=ShortFlowPrompt.build(sample,"Locked camera")
+        val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(InputSource(StringReader(output)))
+        val prompt=doc.getElementsByTagName("prompt").item(0).textContent
+        assertEquals(1,Regex("SPEECH TURN 1:").findAll(prompt).count())
+        assertEquals(1,Regex("SPEECH TURN 2:").findAll(prompt).count())
+        assertFalse(prompt.contains("Turn 1: ONLY"))
+        assertEquals("8",doc.getElementsByTagName("duration").item(0).textContent)
+        assertEquals("คำถามเดิม",doc.getElementsByTagName("text").item(0).textContent)
+        assertEquals("คำตอบเดิม",doc.getElementsByTagName("text").item(1).textContent)
+    }
 }
