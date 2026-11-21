@@ -2814,9 +2814,70 @@ $context"""
     }
 
     // Planning only: ChatGPT Plus does not provide an in-app image-generation API.
+    private fun verifiedFlowFile(episode: Int): Boolean {
+        val file = File(project, "EP%02d_FLOW_AUTO.txt".format(episode))
+        return file.isFile && file.length() > 0L &&
+            runCatching { file.inputStream().bufferedReader(Charsets.UTF_8).use { it.readLine() != null } }
+                .getOrDefault(false)
+    }
+
+    private fun verifiedSceneImage(episode: Int, scene: Int): Boolean {
+        val file = File(project, "images/EP%02d_SC%03d.img".format(episode, scene))
+        if (!file.isFile || file.length() <= 0L) return false
+        return runCatching {
+            val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            android.graphics.BitmapFactory.decodeFile(file.path, bounds)
+            bounds.outWidth > 0 && bounds.outHeight > 0
+        }.getOrDefault(false)
+    }
+
+    private fun verifiedSceneVideo(episode: Int, scene: Int): Boolean {
+        val file = File(project, "videos/EP%02d_SC%03d.mp4".format(episode, scene))
+        if (!file.isFile || file.length() <= 0L) return false
+        return runCatching {
+            val reader = android.media.MediaMetadataRetriever()
+            try {
+                reader.setDataSource(file.path)
+                val duration = reader.extractMetadata(
+                    android.media.MediaMetadataRetriever.METADATA_KEY_DURATION
+                )?.toLongOrNull() ?: 0L
+                duration > 0L
+            } finally {
+                reader.release()
+            }
+        }.getOrDefault(false)
+    }
+
+    private fun verifiedFinalOutput(episode: Int): Boolean {
+        if (episode <= 0) return false
+        return movieJobs(episode).any { job ->
+            val output = File(job, "output.mp4")
+            if (!output.isFile || output.length() <= 0L ||
+                readMovieState(job).optString("state") != "complete") return@any false
+            val result = runCatching { JSONObject(File(job, "result.json").readText()) }
+                .getOrNull() ?: return@any false
+            if (result.optInt("width") != EpisodeRules.WIDTH ||
+                result.optInt("height") != EpisodeRules.HEIGHT) return@any false
+            val originalFingerprint = result.optString("fingerprint")
+            if (originalFingerprint.isBlank() ||
+                !runCatching { movieFingerprint(episode) == originalFingerprint }
+                    .getOrDefault(false)) return@any false
+            runCatching {
+                val reader = android.media.MediaMetadataRetriever()
+                try {
+                    reader.setDataSource(output.path)
+                    (reader.extractMetadata(
+                        android.media.MediaMetadataRetriever.METADATA_KEY_DURATION
+                    )?.toLongOrNull() ?: 0L) > 0L
+                } finally {
+                    reader.release()
+                }
+            }.getOrDefault(false)
+        }
+    }
+
     private fun imageBatchFivePlan(story: JSONObject) {
         val eps=story.optJSONArray("episodes") ?: return notice("ยังไม่มีตอน")
-        val progressStore=ImageSceneProgressStore(this)
         val lines=mutableListOf<String>()
         var totalScenes=0
         var totalPending=0
@@ -2832,8 +2893,12 @@ $context"""
                 lines.add("EP.$number • หมายเลขซีนไม่ถูกต้องหรือซ้ำ กรุณาตรวจบท")
                 continue
             }
-            val state=progressStore.load("${project.name}:EP$number",sceneIds)
-            val pending=sceneIds.filter { it !in state.completedSceneIds }
+            val verified=sceneIds.filter { verifiedSceneImage(number, it) }.toSet()
+            val snapshot=ProductionStateEngine.evaluate(
+                sceneIds, ProductionCommandCheck.issues(story).isEmpty(), verified,
+                verifiedFlowFile(number)
+            )
+            val pending=snapshot.missingSceneIds
             totalScenes+=sceneIds.size
             totalPending+=pending.size
             val batches=pending.chunked(5)
@@ -2841,7 +2906,7 @@ $context"""
             val ranges=batches.mapIndexed { index, group ->
                 "ชุด ${index+1}: ${group.joinToString(", ")}"
             }.joinToString("\n")
-            lines.add("EP.$number • เสร็จ ${state.completedCount}/${sceneIds.size} • ค้าง ${pending.size} ซีน • ${batches.size} ชุด"+
+            lines.add("EP.$number • ตรวจไฟล์ภาพจริงผ่าน ${snapshot.verifiedImages}/${sceneIds.size} • ค้าง ${pending.size} ซีน • ${batches.size} ชุด"+
                 if(ranges.isBlank()) " (ไม่มีงานค้าง)" else "\n$ranges")
         }
         val completed = totalScenes - totalPending
@@ -2862,11 +2927,11 @@ $context"""
         val total=eps?.length() ?: 0
         val saved=(0 until total).count { index ->
             val ep=eps?.optJSONObject(index)?.optInt("ep",0) ?: 0
-            ep>0 && File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile
+            ep>0 && verifiedFlowFile(ep)
         }
-        val progressStore=ImageSceneProgressStore(this)
         var imageTotal=0
         var imageCompleted=0
+        var videoCompleted=0
         var invalidSceneLists=0
         for(index in 0 until total) {
             val ep=eps?.optJSONObject(index) ?: continue
@@ -2880,43 +2945,66 @@ $context"""
                 continue
             }
             imageTotal+=ids.size
-            imageCompleted+=progressStore.load("${project.name}:EP$number",ids).completedCount
+            imageCompleted+=ids.count { verifiedSceneImage(number,it) }
+            videoCompleted+=ids.count { verifiedSceneVideo(number,it) }
         }
+        val finalCompleted = (0 until total).count { index ->
+            val ep = eps?.optJSONObject(index)?.optInt("ep", 0) ?: 0
+            ep > 0 && verifiedFinalOutput(ep)
+        }
+        val completedTasks = saved + imageCompleted + videoCompleted + finalCompleted
+        val totalTasks = total * 2 + imageTotal * 2
+        val progress = if (totalTasks == 0) 0 else completedTasks * 100 / totalTasks
+        val pendingTasks = (totalTasks - completedTasks).coerceAtLeast(0)
         val issues=ProductionCommandCheck.issues(story)
         val next=when {
             issues.isNotEmpty() || invalidSceneLists>0 -> "ตรวจและแก้บทก่อนดำเนินการ"
             total==0 -> "สร้างหรือนำเข้าบทที่มีตอน"
             saved<total -> "สร้างชุดคำสั่ง Flow ที่ยังขาด • ระบบข้ามไฟล์เดิม"
             imageCompleted<imageTotal -> "ตรวจคิวภาพ 5 ซีน และดำเนินการกับผู้ให้บริการภาพ"
-            else -> "เปิดคำสั่ง Flow ที่บันทึกไว้เพื่อตรวจและนำไปใช้"
+            videoCompleted<imageTotal -> "ตรวจวิดีโอที่ยังขาดหรือเสียหาย"
+            finalCompleted<total -> "ตรวจไฟล์ FINAL OUTPUT ก่อนปิดงาน"
+            else -> "ตรวจสอบครบทุกตอนแล้ว • พร้อมใช้งานไฟล์ FINAL OUTPUT"
         }
         AlertDialog.Builder(this).setTitle("DIRECTOR X • สถานะงานรวม")
-            .setMessage("บท: ${if(total>0) "มี $total ตอน" else "ยังไม่มีตอน"}\n"+
+            .setMessage("โครงการ: ${project.name}\nบท: ${if(total>0) "มี $total ตอน" else "ยังไม่มีตอน"}\n"+
                 "คำสั่ง Flow: $saved/$total ตอน\n"+
-                "ภาพ (ตามสถานะบันทึก): $imageCompleted/$imageTotal ซีน\n"+
+                "ภาพที่ตรวจสอบไฟล์จริง: $imageCompleted/$imageTotal ซีน\n"+
+                "วิดีโอที่ตรวจสอบไฟล์จริง: $videoCompleted/$imageTotal ซีน\n"+
+                "FINAL OUTPUT: $finalCompleted/$total ตอน\n"+
+                "สำเร็จ $completedTasks • ค้าง $pendingTasks • ความคืบหน้า $progress%\n"+
                 "ตอนที่หมายเลขซีนผิดพลาด: $invalidSceneLists\n"+
                 "ข้อควรแก้ในบท: ${issues.size} รายการ\n\n"+
                 "ขั้นตอนถัดไป: $next\n\n"+
-                "หมายเหตุ: สถานะภาพไม่ใช่การยืนยันว่ามีไฟล์ภาพจริง และระบบยังไม่สร้างวิดีโอ")
+                "หมายเหตุ: FINAL OUTPUT ตรวจสอบไฟล์และ Fingerprint จริง")
             .setPositiveButton("▶ ทำงานต่อทันที") { _,_ ->
                 if(issues.isNotEmpty() || invalidSceneLists>0) productionCheckMenu(story)
                 else if(saved<total) autoFlowAllEpisodes(story, autoContinue = true)
-                else if(imageCompleted<imageTotal) imageBatchFivePlan(story)
-                else commandCardsMenu()
+                else continueFlowOneTap(story)
             }
             .setNegativeButton("ปิด",null).showDirector()
     }
 
     // Fast path: one tap chooses the next safe existing workflow without a status dialog.
+    // Persist only the last requested project. Every resume re-checks source artifacts.
+    private fun rememberProductionProject(episode: Int = 0, scene: Int = 0, stage: String = "story") {
+        prefs.edit()
+            .putString("production_resume_project", project.name)
+            .putInt("production_resume_episode", episode)
+            .putInt("production_resume_scene", scene)
+            .putString("production_resume_stage", stage)
+            .apply()
+    }
+
     private fun continueFlowOneTap(story: JSONObject) {
+        // Preserve the last cursor until the current artifacts determine the next stage.
+        prefs.edit().putString("production_resume_project", project.name).apply()
         val episodes = story.optJSONArray("episodes") ?: return notice("ยังไม่มีตอนในบท")
         if (episodes.length() == 0) return notice("ยังไม่มีตอนในบท")
         if (ProductionCommandCheck.issues(story).isNotEmpty()) {
             productionCheckMenu(story)
             return
         }
-        val progressStore = ImageSceneProgressStore(this)
-        var hasPendingImages = false
         for (index in 0 until episodes.length()) {
             val episode = episodes.optJSONObject(index) ?: return productionCheckMenu(story)
             val number = episode.optInt("ep", 0)
@@ -2928,15 +3016,88 @@ $context"""
                 productionCheckMenu(story)
                 return
             }
-            if (!File(project, "EP%02d_FLOW_AUTO.txt".format(number)).isFile) {
+            if (!verifiedFlowFile(number)) {
+                rememberProductionProject(number, 0, "flow")
                 autoFlowAllEpisodes(story, autoContinue = true)
                 return
             }
-            if (progressStore.load("${project.name}:EP$number", ids).completedCount < ids.size) {
-                hasPendingImages = true
+        }
+        // Re-evaluate artifacts on every resume; saved flags alone never imply completion.
+        val incompleteImages = (0 until episodes.length()).any { index ->
+            val episode = episodes.getJSONObject(index)
+            val ep = episode.optInt("ep", 0)
+            val scenes = episode.optJSONArray("scenes")
+            (0 until (scenes?.length() ?: 0)).any { i ->
+                val scene = scenes?.optJSONObject(i)?.optInt("scene", 0) ?: 0
+                scene <= 0 || !verifiedSceneImage(ep, scene)
             }
         }
-        if (hasPendingImages) imageBatchFivePlan(story) else phaseOneWorkflowStatus(story)
+        if (incompleteImages) {
+            for (index in 0 until episodes.length()) {
+                val episode = episodes.getJSONObject(index)
+                val number = episode.optInt("ep", 0)
+                val scenes = episode.optJSONArray("scenes")
+                val pendingScene = (0 until (scenes?.length() ?: 0)).mapNotNull { i ->
+                    scenes?.optJSONObject(i)?.optInt("scene", 0)?.takeIf { it > 0 }
+                }.firstOrNull { !verifiedSceneImage(number, it) }
+                if (pendingScene != null) {
+                    rememberProductionProject(number, pendingScene, "image")
+                    break
+                }
+            }
+            imageBatchFivePlan(story)
+        } else {
+            // Recheck media and rendered movie artifacts on every continuation.
+            val next = ProductionPipelinePlanner.next(
+                storyValid = true,
+                finalOutputVerified = (0 until episodes.length()).all { index ->
+                    verifiedFinalOutput(episodes.getJSONObject(index).optInt("ep", 0))
+                },
+                episodes = (0 until episodes.length()).map { index ->
+                    val ep = episodes.getJSONObject(index)
+                    val number = ep.optInt("ep", 0)
+                    val scenes = ep.optJSONArray("scenes")
+                    val ids = (0 until (scenes?.length() ?: 0)).map { i ->
+                        scenes?.optJSONObject(i)?.optInt("scene", 0) ?: 0
+                    }
+                    ProductionPipelinePlanner.Episode(
+                        number = number,
+                        sceneIds = ids,
+                        flowVerified = verifiedFlowFile(number),
+                        imageIdsVerified = ids.filter { verifiedSceneImage(number, it) }.toSet(),
+                        videoIdsVerified = ids.filter { verifiedSceneVideo(number, it) }.toSet(),
+                        finalOutputVerified = verifiedFinalOutput(number)
+                    )
+                }
+            )
+            rememberProductionProject(next.episode, next.scene, next.stage.name.lowercase())
+            val verifiedVideos = (0 until episodes.length()).sumOf { index ->
+                val ep = episodes.getJSONObject(index)
+                val number = ep.optInt("ep", 0)
+                val scenes = ep.optJSONArray("scenes")
+                (0 until (scenes?.length() ?: 0)).count { i ->
+                    val scene = scenes?.optJSONObject(i)?.optInt("scene", 0) ?: 0
+                    scene > 0 && verifiedSceneVideo(number, scene)
+                }
+            }
+            when (next.stage) {
+                ProductionPipelinePlanner.Stage.VIDEO,
+                ProductionPipelinePlanner.Stage.FINAL_OUTPUT -> {
+                    val target = (0 until episodes.length()).map { episodes.getJSONObject(it) }
+                        .firstOrNull { it.optInt("ep", 0) == next.episode }
+                        ?: episodes.getJSONObject(0)
+                    AlertDialog.Builder(this)
+                        .setTitle("DIRECTOR X • ทำงานต่อ")
+                        .setMessage("ตรวจวิดีโอผ่าน $verifiedVideos ฉาก\nขั้นตอน: ${next.stage}\nEP.${target.optInt("ep", 0)} SC.${next.scene}")
+                        .setPositiveButton("เปิดจัดการวิดีโอ") { _, _ -> movieEpisode(target) }
+                        .setNegativeButton("ภายหลัง", null)
+                        .show()
+                }
+                ProductionPipelinePlanner.Stage.DONE ->
+                    notice("ตรวจสอบภาพ วิดีโอ และ FINAL OUTPUT ผ่านครบทุกตอน")
+                else -> notice("ขั้นตอนถัดไป: ${next.stage}")
+            }
+        }
     }
 
     private fun commandCardsMenu() {
@@ -2944,7 +3105,58 @@ $context"""
         if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
         val eps=story.getJSONArray("episodes")
         val channel=ChannelCatalog.currentChannel(story.optString("channel"))
-        val options=listOf("▶ ทำงานต่อทันที • ระบบเลือกขั้นตอนให้","📊 สถานะและขั้นตอนถัดไป","🖼 คิวภาพ • ครั้งละ 5 ซีน","⚙ สร้างคำสั่ง Flow ที่ยังขาด")+(0 until eps.length()).map { i ->
+        val storyPassed = eps.length() > 0 && ProductionCommandCheck.issues(story).isEmpty()
+        val savedFlowCount = (0 until eps.length()).count { index ->
+            val number = eps.getJSONObject(index).optInt("ep", 0)
+            number > 0 && verifiedFlowFile(number)
+        }
+        val flowPassed = storyPassed && savedFlowCount == eps.length()
+        val imageSceneCount = (0 until eps.length()).sumOf { index ->
+            eps.getJSONObject(index).optJSONArray("scenes")?.length() ?: 0
+        }
+        val verifiedImageCount = (0 until eps.length()).sumOf { index ->
+            val ep = eps.getJSONObject(index)
+            val number = ep.optInt("ep", 0)
+            val scenes = ep.optJSONArray("scenes")
+            (0 until (scenes?.length() ?: 0)).count { i ->
+                val id = scenes?.optJSONObject(i)?.optInt("scene", 0) ?: 0
+                number > 0 && id > 0 && verifiedSceneImage(number, id)
+            }
+        }
+        val verifiedVideoCount = (0 until eps.length()).sumOf { index ->
+            val ep = eps.getJSONObject(index)
+            val number = ep.optInt("ep", 0)
+            val scenes = ep.optJSONArray("scenes")
+            (0 until (scenes?.length() ?: 0)).count { i ->
+                val id = scenes?.optJSONObject(i)?.optInt("scene", 0) ?: 0
+                number > 0 && id > 0 && verifiedSceneVideo(number, id)
+            }
+        }
+        val videoStatus = when {
+            !storyPassed || !flowPassed || verifiedImageCount < imageSceneCount -> "🔒 LOCKED"
+            imageSceneCount > 0 && verifiedVideoCount == imageSceneCount -> "✅ COMPLETED"
+            verifiedVideoCount > 0 -> "▶ IN PROGRESS"
+            else -> "⏳ PENDING"
+        }
+        val imageStatus = when {
+            !storyPassed -> "🔒 รอตรวจบท"
+            imageSceneCount > 0 && verifiedImageCount == imageSceneCount -> "✅ COMPLETED"
+            verifiedImageCount > 0 -> "▶ IN PROGRESS"
+            else -> "⏳ PENDING"
+        }
+
+        val lastProject = prefs.getString("production_resume_project", null)
+        val resumeEpisode = prefs.getInt("production_resume_episode", 0)
+        val resumeScene = prefs.getInt("production_resume_scene", 0)
+        val resumeLabel = if(lastProject == project.name) "▶ ทำงานต่อ • EP.$resumeEpisode SC.$resumeScene • ตรวจไฟล์ใหม่"
+            else "▶ ทำงานต่ออัตโนมัติ • เลือกงานที่ยังค้าง"
+        val options=listOf(
+            resumeLabel,
+            "${if (storyPassed) "✅ ผ่านแล้ว" else "▶ ต้องตรวจ"} • ตรวจบทและสถานะ",
+            "$imageStatus • ภาพฉาก $verifiedImageCount/$imageSceneCount",
+            "$videoStatus • วิดีโอฉาก $verifiedVideoCount/$imageSceneCount",
+            "${if (flowPassed) "✅ ผ่านแล้ว" else if (storyPassed) "⏳ รอสร้าง" else "🔒 รอตรวจบท"} • คำสั่ง Flow $savedFlowCount/${eps.length()} ตอน"
+        )+(0 until eps.length()).map { i ->
             val ep=eps.getJSONObject(i).getInt("ep")
             val count=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getInt("auto_flow_count_${project.name}_$ep",0) else 0
             val at=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getLong("auto_flow_saved_at_${project.name}_$ep",0L) else 0L
@@ -2955,9 +3167,10 @@ $context"""
             options) { index ->
             if(index==0) { continueFlowOneTap(story); return@choiceMenu }
             if(index==1) { phaseOneWorkflowStatus(story); return@choiceMenu }
-            if(index==2) { imageBatchFivePlan(story); return@choiceMenu }
-            if(index==3) { autoFlowAllEpisodes(story); return@choiceMenu }
-            val ep=eps.getJSONObject(index-4).getInt("ep")
+            if(index==2) { if(storyPassed) imageBatchFivePlan(story) else productionCheckMenu(story); return@choiceMenu }
+            if(index==3) { continueFlowOneTap(story); return@choiceMenu }
+            if(index==4) { if(storyPassed && !flowPassed) autoFlowAllEpisodes(story) else if(!storyPassed) productionCheckMenu(story) else notice("คำสั่ง Flow ที่บันทึกไว้ผ่านการตรวจสอบแล้ว • ไม่สร้างซ้ำ"); return@choiceMenu }
+            val ep=eps.getJSONObject(index-5).getInt("ep")
             val file=File(project,"EP%02d_FLOW_AUTO.txt".format(ep))
             if(!file.isFile) {
                 autoFlowEpisode(story,ep)
