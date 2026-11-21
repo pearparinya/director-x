@@ -42,4 +42,26 @@ class FlowVoiceXmlUnitTest {
         assertTrue(FlowScenePrompt.build(s).contains(ScenePropContinuity.video))
         assertTrue(CompactFlowPrompt.build(s,"Locked camera.",true).contains(ScenePropContinuity.video))
     }
+    @Test fun speakerLockKeepsListenerSilentAndUsesCharacterNames() {
+        val cast=listOf(
+            FlowPerson("แม่จันทร์","worried woman","left","floral blouse"),
+            FlowPerson("ลุงเพิ่ม","older man","right","blue shirt")
+        )
+        val turns=listOf(
+            FlowDialogueTurn("แม่จันทร์","ลุงเพิ่ม ฉันกังวลว่าน้ำจะท่วมบ้านเราเลย!"),
+            FlowDialogueTurn("ลุงเพิ่ม","อย่ากังวล แม่จันทร์")
+        )
+        val scene=FlowSceneSpec(cast,"","","","standing by house","home","standing","standing",8,"9:16",turns=turns)
+        val xml=FlowVoiceXml.build(scene,"Locked camera.")
+        val prompt=DocumentBuilderFactory.newInstance().newDocumentBuilder()
+            .parse(InputSource(StringReader(xml))).getElementsByTagName("prompt").item(0).textContent
+        assertTrue(prompt.contains("STRICT SPEAKER AND LIP-SYNC LOCK"))
+        assertTrue(prompt.contains("TURN 1: ONLY Character 1 (แม่จันทร์)"))
+        assertTrue(prompt.contains("TURN 2: ONLY Character 2 (ลุงเพิ่ม)"))
+        assertTrue(prompt.contains("Character 2 must remain silent"))
+        assertTrue(prompt.contains("Character 1 must remain silent"))
+        assertTrue(prompt.contains("Never swap dialogue"))
+        assertEquals(2,DocumentBuilderFactory.newInstance().newDocumentBuilder()
+            .parse(InputSource(StringReader(xml))).getElementsByTagName("dialogue").length)
+    }
 }
