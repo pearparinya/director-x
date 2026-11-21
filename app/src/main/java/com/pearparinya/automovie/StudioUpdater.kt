@@ -99,7 +99,7 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                             now - attemptedAt < reminderIntervalMs) return@runOnUiThread
                         updatePrefs.edit().putLong("auto_download_build", build)
                             .putLong("auto_download_at", now).apply()
-                        download(url, build, asset.optLong("size", -1))
+                        download(url, build, asset.optLong("size", -1), asset.optString("digest"))
                         return@runOnUiThread
                     }
                     run {
@@ -108,7 +108,7 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                         val dismissedAt = updatePrefs.getLong("dismissed_at", 0L)
                         if (automatic && dismissedBuild == build && dismissedAt in 1..now && now - dismissedAt < reminderIntervalMs) return@runOnUiThread
                         AlertDialog.Builder(activity).setIcon(R.drawable.studio_update).setTitle("DIRECTOR X รุ่นใหม่พร้อมแล้ว").setMessage("${release.optString("name", "รุ่นใหม่")}\nดาวน์โหลดและติดตั้งทับเพื่ออัปเดต งานที่บันทึกไว้จะยังอยู่")
-                            .setPositiveButton("อัปเดต") { _,_ -> download(url,build,asset.optLong("size",-1)) }
+                            .setPositiveButton("อัปเดต") { _,_ -> download(url,build,asset.optLong("size",-1),asset.optString("digest")) }
                             .setNegativeButton("ภายหลัง") { _,_ -> updatePrefs.edit().putLong("dismissed_build",build).putLong("dismissed_at",System.currentTimeMillis()).apply() }.showDirector()
                     }
                 }
@@ -125,7 +125,7 @@ class StudioUpdater(private val activity: AppCompatActivity) {
         setRequestProperty("Cache-Control","no-cache")
         require(responseCode in 200..299) { "เครือข่าย HTTP $responseCode" }
     }
-    private fun download(url: String, build: Long, expectedSize: Long) {
+    private fun download(url: String, build: Long, expectedSize: Long, expectedDigest: String) {
         if (busy) return
         busy = true
         val dialog = AlertDialog.Builder(activity).setIcon(R.drawable.studio_update).setTitle("อัปเดต DIRECTOR X").setMessage("กำลังดาวน์โหลด…").setCancelable(false).showDirector()
@@ -161,6 +161,22 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                     }
                 } finally { connection.disconnect() }
                 require(file.length() > 100000 && (expectedSize <= 0 || file.length() == expectedSize)) { "ดาวน์โหลดไฟล์ไม่ครบ" }
+                if (expectedDigest.isNotBlank()) {
+                    require(expectedDigest.matches(Regex("sha256:[a-fA-F0-9]{64}"))) { "รูปแบบ SHA-256 ไม่ถูกต้อง" }
+                    val digest = MessageDigest.getInstance("SHA-256")
+                    file.inputStream().use { input ->
+                        val buffer = ByteArray(64 * 1024)
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            digest.update(buffer, 0, count)
+                        }
+                    }
+                    val actual = digest.digest().joinToString("") { "%02x".format(it) }
+                    require(actual.equals(expectedDigest.substringAfter(":"), ignoreCase = true)) {
+                        "SHA-256 ไม่ตรงกับไฟล์ GitHub Release"
+                    }
+                }
                 require(java.util.zip.ZipFile(file).use { it.getEntry("AndroidManifest.xml") != null }) { "ไฟล์ APK เสียหาย" }
                 val pm = activity.packageManager
                 val candidate = pm.getPackageArchiveInfo(file.path,PackageManager.GET_SIGNATURES) ?: error("ไฟล์ APK ไม่ถูกต้อง")
