@@ -155,4 +155,35 @@ class ShortFlowPromptTest {
         assertFalse(ordinary.contains("MEGAPHONE FIRST-FRAME CONTACT LOCK"))
     }
 
+    @Test fun fivePersonSceneKeepsFirstFrameIdentityAndFourOrderedSpeakers() {
+        val people=listOf(
+            FlowPerson("นายเปีย","adult man","center-left","dark green polo",characterGender="man"),
+            FlowPerson("ลุงสมบัติ","elderly man","far left","grey t-shirt",characterGender="man"),
+            FlowPerson("ธำรง","older man","center at map","khaki shirt",characterGender="man"),
+            FlowPerson("ภาคิน","adult man","far right","dark grey shirt",characterGender="man"),
+            FlowPerson("นที","adult man","right of center","navy polo",characterGender="man")
+        )
+        val turns=listOf(
+            FlowDialogueTurn("นายเปีย","ต้นกล้าติดบ้านข้างคลอง น้ำขึ้นเร็ว กระแสแรง ทีมต้องเข้าไปก่อนفجر"),
+            FlowDialogueTurn("ธำรง","ทางน้ำสองเส้น ทางบกตัดขาด เหลือแนวสายไฟเก่าเสี่ยงช็อต"),
+            FlowDialogueTurn("ภาคิน","ผมรับทางน้ำ นทีจัดสัญญาณ ลุงสมบัติรู้ทางลัด"),
+            FlowDialogueTurn("นที","ส่งพิกัดดรอนแล้ว ไฟฟ้าตัดโซนนั้นยังไม่เลย ควรเร่ง")
+        )
+        val sample=scene().copy(cast=people,speaker="",dialogue="",action="นายเปีย briefs the team while ธำรง points at a map",turns=turns)
+        val output=ShortFlowPrompt.build(sample,"Slow pan")
+        val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(InputSource(StringReader(output)))
+        val prompt=doc.getElementsByTagName("prompt").item(0).textContent
+        assertTrue(prompt.contains("MULTI-CHARACTER FIRST-FRAME SPATIAL LOCK"))
+        assertTrue(prompt.contains("Never exchange faces, bodies, clothing, positions, dialogue voices"))
+        assertTrue(prompt.contains("Only the speaker named in the current XML dialogue entry moves their lips"))
+        assertEquals(4,doc.getElementsByTagName("dialogue").length)
+        assertEquals("8",doc.getElementsByTagName("duration").item(0).textContent)
+        assertEquals(turns[0].text,doc.getElementsByTagName("text").item(0).textContent)
+        assertEquals(listOf("The Man 1","The Man 3","The Man 4","The Man 5"),
+            (0 until 4).map { doc.getElementsByTagName("speaker").item(it).textContent })
+        assertTrue(ShortFlowPrompt.dialogueWarnings(sample).any { it.contains("8 วินาที") })
+        assertTrue(ShortFlowPrompt.dialogueWarnings(sample).any { it.contains("อักษรอาหรับ") })
+        assertTrue(ShortFlowPrompt.dialogueWarnings(scene()).isEmpty())
+    }
+
 }
