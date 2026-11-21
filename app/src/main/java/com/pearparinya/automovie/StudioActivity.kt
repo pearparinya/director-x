@@ -2801,8 +2801,8 @@ $context"""
         }.getOrElse { notice("บันทึกคำสั่ง Flow ไม่สำเร็จ: ${it.message}"); return }
         if(!saved) { notice("บันทึกสถานะคำสั่ง Flow ไม่สำเร็จ"); return }
         val stamp=java.text.SimpleDateFormat("dd/MM/yyyy HH:mm",java.util.Locale("th","TH")).format(java.util.Date())
-        val dialog=showFlowCode("คำสั่ง Flow EP.$number • ${tasks.size} ฉาก",
-            "สร้างคำสั่ง Flow แล้ว ${tasks.size}/${tasks.size} ฉาก\nบันทึก: $stamp\nไฟล์: ${file.name}\nสถานะ: พร้อมตรวจและคัดลอก (ยังไม่ได้สร้างวิดีโอ)\n\n$content",
+        val dialog=showFlowScenes("คำสั่ง Flow EP.$number • ${tasks.size} ฉาก",
+            content,
             file.name)
         dialog.getButton(-2)?.text="ปิด"
     }
@@ -3210,7 +3210,7 @@ $context"""
                         ) { action ->
                             if (action == 0) {
                                 runCatching { file.readText(Charsets.UTF_8) }
-                                    .onSuccess { content -> showFlowCode("คำสั่ง Flow EP.$ep", content, file.name) }
+                                    .onSuccess { content -> showFlowScenes("คำสั่ง Flow EP.$ep", content, file.name) }
                                     .onFailure { notice("เปิดคำสั่งไม่ได้: ${it.message}") }
                             } else {
                                 AlertDialog.Builder(this).setTitle("สร้างคำสั่ง Flow ใหม่?")
@@ -3775,6 +3775,67 @@ $context"""
         dialog.getButton(-1).setOnClickListener { copyCommand(cards[index].command) }
         show(0)
     }
+    private fun showFlowScenes(title: String, code: String, filename: String): AlertDialog {
+        // Only the generated episode format is split; other Flow documents remain unchanged.
+        val separator = Regex("\\n\\s*-{20}\\s*\\n")
+        val scenes = separator.split(code.trim()).filter { it.isNotBlank() }
+        if (scenes.size < 2 || scenes.any { !it.trimStart().startsWith("ฉาก ") }) {
+            return showFlowCode(title, code, filename)
+        }
+        val key = "flow_scene_index_${project.name}_$filename"
+        var index = prefs.getInt(key, 0).coerceIn(0, scenes.lastIndex)
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(14), dp(12), dp(10))
+            background = backdrop(Color.rgb(24, 24, 32), navy, Color.rgb(95, 74, 47))
+        }
+        val heading = TextView(this).apply {
+            textSize = 19f; setTypeface(null, Typeface.BOLD); setTextColor(gold)
+            setPadding(dp(6), 0, dp(6), dp(10))
+        }
+        panel.addView(heading)
+        val prompt = TextView(this).apply {
+            textSize = 14f; typeface = Typeface.MONOSPACE; setTextColor(ice)
+            setTextIsSelectable(true); setPadding(dp(12), dp(12), dp(12), dp(12))
+            setBackgroundColor(navy)
+        }
+        val scroll = ScrollView(this).apply { addView(prompt) }
+        panel.addView(scroll, LinearLayout.LayoutParams(-1, (resources.displayMetrics.heightPixels * 0.43f).toInt()))
+        val navigation = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val previous = Button(this).apply { text = "◀ ก่อนหน้า"; isAllCaps = false }
+        val next = Button(this).apply { text = "ถัดไป ▶"; isAllCaps = false }
+        navigation.addView(previous, LinearLayout.LayoutParams(0, dp(54), 1f))
+        navigation.addView(next, LinearLayout.LayoutParams(0, dp(54), 1f))
+        panel.addView(navigation)
+        val copy = Button(this).apply {
+            text = "คัดลอกคำสั่งซีนนี้"; textSize = 17f; isAllCaps = false
+            setTypeface(null, Typeface.BOLD); setTextColor(Color.rgb(20, 30, 50))
+            backgroundTintList = null
+            background = backdrop(Color.rgb(255, 210, 93), Color.rgb(224, 157, 45))
+        }
+        panel.addView(copy, LinearLayout.LayoutParams(-1, dp(58)))
+        fun refresh() {
+            heading.text = "$title • SC.${index + 1}/${scenes.size}"
+            prompt.text = scenes[index].trim()
+            previous.isEnabled = index > 0
+            next.isEnabled = index < scenes.lastIndex
+            scroll.scrollTo(0, 0)
+            prefs.edit().putInt(key, index).apply()
+        }
+        previous.setOnClickListener { if (index > 0) { index--; refresh() } }
+        next.setOnClickListener { if (index < scenes.lastIndex) { index++; refresh() } }
+        copy.setOnClickListener { copyCommand(scenes[index].trim()) }
+        val dialog = AlertDialog.Builder(this).setView(panel)
+            .setNeutralButton("บันทึกทั้งตอน") { _, _ ->
+                prefs.edit().putString("pending_flow_code", code).apply()
+                flowCodePicker.launch(filename)
+            }
+            .setNegativeButton("ปิด", null).showDirector()
+        refresh()
+        dialog.window?.setLayout(resources.displayMetrics.widthPixels - dp(24), -2)
+        return dialog
+    }
+
     private fun showFlowCode(title: String, code: String, filename: String): AlertDialog {
         val text=TextView(this).apply {
             this.text=code; textSize=13f; typeface=Typeface.MONOSPACE; setTextIsSelectable(true)
