@@ -154,7 +154,7 @@ internal object ShortFlowPrompt {
         val location=typed(s,aliases(s,s.location.trim())).takeIf { it.isNotBlank() && !thai.containsMatchIn(it) }.orEmpty()
         val visual=listOf("Use the attached first frame as the starting point. One continuous 8-second vertical 9:16 shot",cast,location.takeIf { it.isNotBlank() }?.let { "Environment: $it" }.orEmpty(),action,
             "Preserve each character's identity, face or species-specific features, hair or fur, body proportions, position, clothing and props from the first frame. Keep the location and lighting consistent throughout",ScenePropContinuity.video,performance,direction,
-            motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}",speakerSequence,if(speakerSequence.isBlank()) instructions else "")
+            motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}",speakerSequence,instructions)
             .filter { it.isNotBlank() }.joinToString(". ")
         val lines=allSpokenTurns.joinToString("") { (name,text) ->
             val label=if(name.isBlank()) "Off-screen narrator" else speakerLabel(s,name)
