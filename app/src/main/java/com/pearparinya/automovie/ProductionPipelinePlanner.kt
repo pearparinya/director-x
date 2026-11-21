@@ -13,7 +13,8 @@ internal object ProductionPipelinePlanner {
         val sceneIds: List<Int>,
         val flowVerified: Boolean,
         val imageIdsVerified: Set<Int>,
-        val videoIdsVerified: Set<Int> = emptySet()
+        val videoIdsVerified: Set<Int> = emptySet(),
+        val finalOutputVerified: Boolean = false
     )
 
     fun next(
