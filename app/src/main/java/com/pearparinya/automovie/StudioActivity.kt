@@ -3229,10 +3229,8 @@ $context"""
         }
         mainOptions.add("🔵 ตรวจสอบ / แก้ไขคำสั่ง Flow")
         mainActions.add { moreTools() }
-        mainOptions.add("⚙ ตัวเลือกเพิ่มเติม")
-        mainActions.add { moreTools() }
         choiceMenu(
-            "DIRECTOR X • ศูนย์คำสั่ง Flow\\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}\\nตรวจบท: ${if (storyPassed) "ผ่าน" else "รอตรวจ"} • ภาพ: $imageStatus • คำสั่ง: $savedFlowCount/${eps.length()} ตอน",
+            "DIRECTOR X • ศูนย์คำสั่ง Flow\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}\nตรวจบท: ${if (storyPassed) "ผ่าน" else "รอตรวจ"} • ภาพ: $imageStatus • คำสั่ง: $savedFlowCount/${eps.length()} ตอน",
             mainOptions
         ) { selected -> mainActions[selected].invoke() }
     }
