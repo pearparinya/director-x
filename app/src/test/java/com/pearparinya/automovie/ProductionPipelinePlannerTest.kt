@@ -1,0 +1,50 @@
+package com.pearparinya.automovie
+
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class ProductionPipelinePlannerTest {
+    private val p = ProductionPipelinePlanner
+    private fun episode(
+        flow: Boolean = true,
+        images: Set<Int> = setOf(1, 2),
+        videos: Set<Int> = emptySet()
+    ) = ProductionPipelinePlanner.Episode(1, listOf(1, 2), flow, images, videos)
+
+    @Test fun invalidStoryCannotAdvance() {
+        assertEquals(ProductionPipelinePlanner.Stage.STORY,
+            p.next(false, listOf(episode())).stage)
+    }
+
+    @Test fun missingFlowTakesPriorityOverImages() {
+        assertEquals(ProductionPipelinePlanner.Decision(ProductionPipelinePlanner.Stage.FLOW, 1),
+            p.next(true, listOf(episode(flow = false, images = emptySet()))))
+    }
+
+    @Test fun missingImageResumesAtFirstUnverifiedScene() {
+        assertEquals(ProductionPipelinePlanner.Decision(ProductionPipelinePlanner.Stage.IMAGE, 1, 2),
+            p.next(true, listOf(episode(images = setOf(1)))))
+    }
+
+    @Test fun imagesDoNotProveVideosExist() {
+        assertEquals(ProductionPipelinePlanner.Decision(ProductionPipelinePlanner.Stage.VIDEO, 1, 1),
+            p.next(true, listOf(episode())))
+    }
+
+    @Test fun finalOutputRequiresSeparateVerification() {
+        val all = listOf(episode(videos = setOf(1, 2)))
+        assertEquals(ProductionPipelinePlanner.Stage.FINAL_OUTPUT, p.next(true, all).stage)
+        assertEquals(ProductionPipelinePlanner.Stage.DONE,
+            p.next(true, all, finalOutputVerified = true).stage)
+    }
+
+    @Test fun invalidOrDuplicateSceneIdsBlockProduction() {
+        val invalid = ProductionPipelinePlanner.Episode(1, listOf(1, 1), true, setOf(1))
+        assertEquals(ProductionPipelinePlanner.Stage.STORY, p.next(true, listOf(invalid)).stage)
+    }
+
+    @Test fun resumedCursorDoesNotOverrideActualArtifacts() {
+        assertEquals(ProductionPipelinePlanner.Decision(ProductionPipelinePlanner.Stage.IMAGE, 1, 1),
+            p.next(true, listOf(episode(images = emptySet()))))
+    }
+}
