@@ -1131,12 +1131,6 @@ class StudioActivity : AppCompatActivity() {
             setPadding(dp(10),dp(6),dp(10),dp(6))
             background = backdrop(navy,navy)
         })
-        host.addView(Button(this).apply {
-            text = "🧪 API TEST CENTER • ตรวจสอบแบบไม่ใช้เครดิต"
-            setOnClickListener {
-                startActivity(Intent(this@StudioActivity, ApiTestCenterActivity::class.java))
-            }
-        })
         setContentView(host)
         ViewCompat.setOnApplyWindowInsetsListener(host) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -1150,7 +1144,7 @@ class StudioActivity : AppCompatActivity() {
             adjustViewBounds=true
             contentDescription="DIRECTOR X • ภาพผู้กำกับในโรงภาพยนตร์"
         }
-        root.addView(hero,LinearLayout.LayoutParams(-1,-2))
+        root.addView(hero,LinearLayout.LayoutParams(-1,dp(140)))
         val versionRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL or Gravity.END
@@ -3997,7 +3991,7 @@ $context"""
         check()
     }
     private fun extraToolsMenu(current: JSONObject?) {
-        val options=mutableListOf("📥 นำเข้าบทที่มีอยู่","⚙️ DIRECTOR X • ภาพและวิดีโอ","🧪 ทดสอบสร้างวิดีโอ","🎭 แม่แบบและคลังตัวละคร")
+        val options=mutableListOf("📥 นำเข้าบทที่มีอยู่","⚙️ DIRECTOR X • ภาพและวิดีโอ","🧪 ทดสอบสร้างวิดีโอ","🧪 API TEST CENTER","🎭 แม่แบบและคลังตัวละคร")
         if(current!=null) options.add("📋 ข้อมูลโพสต์ Facebook / TikTok")
         if(current!=null && current.optString("clip_format")=="short") options.add("💬 ชื่อเรื่อง เรื่องย่อ และแคปชั่น")
         if(current!=null && prefs.getInt("last_image_deck_${project.name}",0)>0) options.add("↩ กลับรายการรูป / ซีนล่าสุด")
@@ -4008,6 +4002,7 @@ $context"""
                 "📥 นำเข้าบทที่มีอยู่" -> packagePicker.launch(arrayOf("*/*"))
                 "⚙️ DIRECTOR X • ภาพและวิดีโอ" -> autoDirectorMenu()
                 "🧪 ทดสอบสร้างวิดีโอ" -> flowTestMenu()
+                "🧪 API TEST CENTER" -> startActivity(Intent(this@StudioActivity, ApiTestCenterActivity::class.java))
                 "🎭 แม่แบบและคลังตัวละคร" -> choiceMenu("ตัวละคร",listOf("สร้างตัวละครจากแม่แบบ","คลังตัวละครใหม่","ตัวละครของเรื่องที่เปิด")) { when(it) { 0 -> bodyTemplateMenu(); 1 -> actorCatalogMenu(); else -> castMenu() } }
                 "📋 ข้อมูลโพสต์ Facebook / TikTok" -> if(current!=null) postDetails(current)
                 "💬 ชื่อเรื่อง เรื่องย่อ และแคปชั่น" -> if(current!=null) AlertDialog.Builder(this).setTitle("ข้อมูลและแคปชั่นคลิปสั้น").setMessage(ShortStoryDetails.text(current)).setPositiveButton("คัดลอกทั้งหมด") { _,_ -> copyCommand(ShortStoryDetails.text(current)) }.setNegativeButton("ปิด",null).showDirector()
@@ -4019,45 +4014,113 @@ $context"""
     }
     private fun flowHome() {
         val current=plan
-        val fantasy=current?.let { ChannelFeaturePolicy.hasFantasyTools(it.optString("channel")) } == true
-        val channel=current?.optString("channel")?.takeIf { it.isNotBlank() } ?: "ยังไม่ระบุ"
         val title=current?.optString("title")?.takeIf { it.isNotBlank() } ?: "ยังไม่มีเรื่องที่เปิด"
+        val channel=current?.optString("channel")?.takeIf { it.isNotBlank() } ?: "เริ่มสร้างภาพยนตร์เรื่องแรก"
         val episodes=current?.optJSONArray("episodes")?.length() ?: 0
-        val storyFile=File(project,"story.json")
-        val exported=current!=null && storyFile.isFile && File(project,"flow_pack_exported.sha256").takeIf { it.isFile }?.readText()==EpisodeMedia.digest(storyFile)
         val scenes=current?.let { rows(it) }.orEmpty()
         val reviewed=scenes.count { propReviewStatus(it)=="ผู้ใช้ตรวจบทแล้ว" }
         val wardrobe=current?.let { wardrobeReviewStatus(it) } ?: "รอสร้างบท"
+        val job=File(project,"gemini_job/spec.json").isFile
+        val goldLight=Color.rgb(255,194,76)
+        val cyan=Color.rgb(59,214,246)
         val card=LinearLayout(this).apply {
-            orientation=LinearLayout.VERTICAL; setPadding(dp(16),dp(14),dp(16),dp(14))
-            background=backdrop(if(fantasy) Color.rgb(35,24,68) else Color.rgb(17,34,55),Color.rgb(13,20,39),Color.rgb(155,113,55))
-            layoutParams=LinearLayout.LayoutParams(-1,-2).apply { topMargin=dp(10); bottomMargin=dp(8) }
+            orientation=LinearLayout.VERTICAL
+            setPadding(dp(15),dp(13),dp(15),dp(13))
+            background=backdrop(Color.rgb(16,43,78),Color.rgb(10,21,42),Color.rgb(55,186,228))
         }
-        card.addView(TextView(this).apply { text="✦ เรื่องที่เปิดอยู่ ✦"; textSize=13f; setTextColor(gold); setTypeface(null,Typeface.BOLD) })
-        card.addView(TextView(this).apply { text="ช่อง: $channel\nหมวด: ${DisplayText.category(current?.optString("category")?.takeIf { it.isNotBlank() } ?: "ยังไม่ระบุ")}\nเรื่อง: $title"; textSize=16f; setTextColor(ice); setTypeface(null,Typeface.BOLD); setPadding(0,dp(8),0,dp(6)) })
-        card.addView(TextView(this).apply { text=if(current==null) "สร้างบทใหม่ หรือเปิดเรื่องที่บันทึกไว้" else "$episodes EP • ${scenes.size} ฉาก • ${current.optString("aspect_ratio","9:16")}"+(if(exported) " • เคยส่งออกบทนี้แล้ว" else ""); textSize=12f; setTextColor(muted) })
-        root.addView(card)
-        if(File(project,"gemini_job/spec.json").isFile) {
-            root.addView(TextView(this).apply { text="🤖 งานเขียนบทล่าสุด"; textSize=16f; setTextColor(gold); setTypeface(null,Typeface.BOLD); setPadding(dp(8),dp(12),dp(8),0) })
-            geminiStatusView=TextView(this).apply { text=geminiStatusText(readGeminiStatus()); setTextColor(ice); textSize=14f; setPadding(dp(8),dp(8),dp(8),dp(8)) }
-            root.addView(geminiStatusView)
-            geminiProgressView=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply {
-                max=100; progress=readGeminiStatus()?.optInt("percent")?.coerceIn(0,100) ?: 0
-                progressTintList=ColorStateList.valueOf(Color.rgb(0,210,240)); contentDescription="ความคืบหน้าบทที่บันทึกแล้ว"
+        card.addView(TextView(this).apply {
+            text="🎬  กำลังทำงาน  •  $channel"
+            textSize=12f; setTextColor(goldLight); setTypeface(null,Typeface.BOLD)
+            maxLines=1; ellipsize=android.text.TextUtils.TruncateAt.END
+        })
+        card.addView(TextView(this).apply {
+            text=title; textSize=24f; setTextColor(Color.WHITE); setTypeface(null,Typeface.BOLD)
+            maxLines=2; ellipsize=android.text.TextUtils.TruncateAt.END
+            setPadding(0,dp(4),0,dp(2))
+        })
+        card.addView(TextView(this).apply {
+            text=if(current==null) "เริ่มสร้างเรื่องใหม่ หรือเปิดเรื่องที่บันทึก" else "$episodes ตอน  •  ${scenes.size} ฉาก  •  ${current.optString("aspect_ratio","9:16")}  •  บทพร้อมแล้ว"
+            textSize=12f; setTextColor(ice)
+        })
+        val progress=LinearLayout(this).apply {
+            orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL
+            setPadding(0,dp(10),0,dp(3))
+        }
+        listOf(
+            "ตัวละคร" to (current!=null && wardrobe=="ยืนยันชุดในบทแล้ว"),
+            "ภาพฉาก" to (scenes.isNotEmpty() && reviewed==scenes.size),
+            "คำสั่ง Flow" to (current!=null)
+        ).forEachIndexed { index,item ->
+            progress.addView(TextView(this).apply {
+                text=(if(item.second) "✓ " else "○ ")+item.first
+                textSize=11f; gravity=Gravity.CENTER
+                setTextColor(if(item.second) cyan else muted)
+            },LinearLayout.LayoutParams(0,dp(28),1f))
+        }
+        card.addView(progress)
+        root.addView(card,LinearLayout.LayoutParams(-1,-2).apply { topMargin=dp(5); bottomMargin=dp(9) })
+        // Compact, accessible production status: keep the original workflow visible
+        // without restoring the oversized step cards removed by the dashboard redesign.
+        val exportStamp=File(project,"flow_pack_exported.sha256").takeIf { it.isFile }?.let {
+            runCatching { it.readText().trim() }.getOrNull()
+        }
+        val exportCurrent=current!=null && exportStamp!=null &&
+            exportStamp==File(project,"story.json").takeIf { it.isFile }?.let {
+                runCatching { EpisodeMedia.digest(it) }.getOrNull()
             }
-            root.addView(geminiProgressView,LinearLayout.LayoutParams(-1,dp(10)).apply { setMargins(dp(8),0,dp(8),dp(8)) })
-            button("🤖 งานเขียนบท • ดูสถานะ / ทำต่อ",false) { geminiJobMenu() }
+        val wardrobeDetail=if(current==null) "รอสร้างบท" else wardrobe
+        val exportDetail=if(exportCurrent) "เคยส่งออกบทนี้แล้ว" else "ยังไม่ส่งออกบทปัจจุบัน"
+        val summary=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setPadding(dp(12),dp(8),dp(12),dp(8))
+            background=backdrop(Color.rgb(19,37,59),Color.rgb(12,24,41),Color.rgb(63,104,148))
+        }
+        fun statusLine(label: String,detail: String,onTap: ()->Unit) {
+            summary.addView(TextView(this).apply {
+                text="$label  •  $detail"
+                textSize=11f; setTextColor(ice)
+                setPadding(dp(3),dp(5),dp(3),dp(5))
+                maxLines=2
+                isClickable=true; isFocusable=true
+                setOnClickListener { onTap() }
+            })
+        }
+        statusLine("ตรวจชุดตัวละคร",wardrobeDetail) {
+            current?.let { wardrobeMenu(it) } ?: notice("รอสร้างบท")
+        }
+        statusLine("ตรวจสิ่งของในบท","ตรวจบทแล้ว $reviewed/${scenes.size}  •  ${if(current!=null) "เปิดใช้งานได้" else "รอสร้างบท"}") {
+            current?.let { reviewSceneProps(it) } ?: notice("รอสร้างบท")
+        }
+        if(current!=null) statusLine("ส่งออกบท",exportDetail) { productionCheckMenu(current) }
+        root.addView(summary,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(8) })
+        if(job) {
+            val status=readGeminiStatus()
+            val jobRow=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL }
+            geminiStatusView=TextView(this).apply {
+                text="🤖 งานเขียนบท  •  ${status?.optInt("percent")?.coerceIn(0,100) ?: 0}%  •  แตะเพื่อดูสถานะ"
+                textSize=12f; setTextColor(ice); maxLines=1
+                ellipsize=android.text.TextUtils.TruncateAt.END
+                setPadding(dp(9),dp(8),dp(9),dp(8))
+            }
+            jobRow.addView(geminiStatusView,LinearLayout.LayoutParams(-1,-2))
+            jobRow.background=backdrop(Color.rgb(31,35,47),Color.rgb(16,21,32),Color.rgb(80,94,115))
+            jobRow.setOnClickListener { geminiJobMenu() }
+            root.addView(jobRow,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(7) })
+            geminiProgressView=null
         } else { geminiStatusView=null; geminiProgressView=null }
         button("🎬 สร้างเรื่องใหม่",true) { flowPlanning() }
-        root.addView(TextView(this).apply { text="เลือกช่องและแนวเรื่อง ให้ AI ช่วยสร้างบท"; textSize=12f; gravity=Gravity.CENTER; setTextColor(ice); setPadding(0,0,0,dp(8)) })
+        root.addView(TextView(this).apply {
+            text="เครื่องมือผู้กำกับ"; textSize=17f; setTextColor(goldLight)
+            setTypeface(null,Typeface.BOLD); setPadding(dp(3),dp(8),0,dp(7))
+        })
         fun menuRow(items: List<Triple<Int,Pair<String,String>,()->Unit>>) {
             val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
             items.forEachIndexed { index,item ->
                 val tile=LinearLayout(this).apply {
-                    orientation=LinearLayout.VERTICAL
-                    minimumHeight=dp(208)
-                    background=backdrop(Color.rgb(32,27,20),Color.rgb(11,11,13),Color.rgb(176,129,49))
-                    setPadding(dp(5),dp(5),dp(5),dp(8))
+                    orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL
+                    minimumHeight=dp(88)
+                    background=backdrop(Color.rgb(20,49,80),Color.rgb(12,22,40),Color.rgb(181,131,53))
+                    setPadding(dp(7),dp(7),dp(7),dp(7))
                     isClickable=true; isFocusable=true
                     contentDescription=item.second.first+" • "+item.second.second
                     setOnClickListener { if(!importing) item.third() }
@@ -4065,25 +4128,29 @@ $context"""
                 tile.addView(ImageView(this).apply {
                     setImageResource(item.first); scaleType=ImageView.ScaleType.CENTER_CROP
                     contentDescription=null
-                },LinearLayout.LayoutParams(-1,dp(104)))
-                tile.addView(TextView(this).apply {
-                    text=item.second.first; textSize=16f; setTextColor(ice)
-                    setTypeface(null,Typeface.BOLD); setPadding(dp(5),dp(5),dp(5),0)
+                },LinearLayout.LayoutParams(dp(57),dp(68)))
+                tile.addView(LinearLayout(this).apply {
+                    orientation=LinearLayout.VERTICAL; setPadding(dp(7),0,0,0)
+                    addView(TextView(this@StudioActivity).apply {
+                        text=item.second.first; textSize=14f; setTextColor(Color.WHITE)
+                        setTypeface(null,Typeface.BOLD); maxLines=2
+                    })
+                    addView(TextView(this@StudioActivity).apply {
+                        text=item.second.second; textSize=10f; setTextColor(ice); maxLines=2
+                    })
+                },LinearLayout.LayoutParams(0,-2,1f))
+                row.addView(tile,LinearLayout.LayoutParams(0,-2,1f).apply {
+                    if(index==0) marginEnd=dp(5) else marginStart=dp(5)
                 })
-                tile.addView(TextView(this).apply {
-                    text=item.second.second; textSize=12f; setTextColor(ice)
-                    setPadding(dp(5),dp(3),dp(5),0)
-                })
-                row.addView(tile,LinearLayout.LayoutParams(0,-1,1f).apply { if(index==0) marginEnd=dp(5) else marginStart=dp(5) })
             }
-            root.addView(row,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) })
+            root.addView(row,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(8) })
         }
         menuRow(listOf(
-            Triple(R.drawable.menu_cast,"ตัวละคร" to "จัดการตัวละคร MASTER",{ unifiedMasterMenu() }),
-            Triple(R.drawable.menu_script,"บทภาพยนตร์" to "ตรวจบทและฉาก",{ current?.let { productionCheckMenu(it) } ?: notice("เปิดเรื่องที่มีบทก่อน") })
+            Triple(R.drawable.menu_cast,"ตัวละคร" to "จัดการ MASTER",{ unifiedMasterMenu() }),
+            Triple(R.drawable.menu_script,"บทภาพยนตร์" to "เขียนบท • ตรวจบท",{ current?.let { productionCheckMenu(it) } ?: notice("เปิดเรื่องที่มีบทก่อน") })
         ))
         menuRow(listOf(
-            Triple(R.drawable.menu_cover,"สร้างภาพ" to "ภาพปกและภาพฉาก",{ current?.let { story ->
+            Triple(R.drawable.menu_cover,"สร้างภาพ" to "ภาพปก • ภาพฉาก",{ current?.let { story ->
                 val eps=story.optJSONArray("episodes")
                 if(eps==null || eps.length()==0) notice("ยังไม่มีตอนในบท")
                 else choiceMenu("สร้างภาพ • ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}", (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" } + "จัดการอุปกรณ์อ้างอิง") { i ->
@@ -4093,13 +4160,11 @@ $context"""
             } ?: notice("เปิดเรื่องที่มีบทก่อน") }),
             Triple(R.drawable.menu_scene,"คำสั่ง Flow" to "สร้างคำสั่งวิดีโอ",{ commandCardsMenu() })
         ))
-        root.addView(TextView(this).apply { text="ขั้นตอนการทำงาน"; textSize=18f; setTextColor(gold); setTypeface(null,Typeface.BOLD); setPadding(0,dp(6),0,dp(4)) })
-        val active=if(current==null || wardrobe!="ยืนยันชุดในบทแล้ว") 1 else if(reviewed<scenes.size) 2 else 3
-        stepCard(1,"👕","ตรวจชุดตัวละคร","ตรวจชุด หรือให้ AI ช่วยเลือก",enabled=current!=null,completed=current!=null && wardrobe=="ยืนยันชุดในบทแล้ว",currentStep=active,statusText=wardrobe) { current?.let { wardrobeMenu(it) } }
-        stepCard(2,"🧰","ตรวจสิ่งของในบท","ตรวจสิ่งของ หรือให้ AI ช่วยเลือก",enabled=current!=null,completed=current!=null && scenes.isNotEmpty() && reviewed==scenes.size,currentStep=active,statusText=if(current==null) "รอสร้างบท" else "ตรวจบทแล้ว $reviewed/${scenes.size} ฉาก") { current?.let { reviewSceneProps(it) } }
-        stepCard(3,"🎬","คำสั่ง Flow","เลือกฉากและตรวจภาพก่อนใช้ Flow",enabled=current!=null,currentStep=active,statusText=if(current==null) "รอสร้างบท" else "เปิดใช้งานได้ • ตรวจข้อมูลก่อนใช้") { commandCardsMenu() }
-        button("🧰 เครื่องมือเพิ่มเติม",false) { extraToolsMenu(current) }
-        splitActions("📚 เรื่องที่บันทึก","⚙️ ตั้งค่า",{ storiesMenu() },{ flowSettings() })
+        splitActions("▶ ทำงานต่อ","📚 เรื่องที่บันทึก",
+            { if(job) geminiJobMenu() else if(current!=null) productionCheckMenu(current) else flowPlanning() },
+            { storiesMenu() })
+        splitActions("🧰 เครื่องมือเพิ่มเติม","⚙️ ตั้งค่า",
+            { extraToolsMenu(current) },{ flowSettings() })
     }
     private fun flowSettings() {
         choiceMenu("ตั้งค่า DIRECTOR X",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","ตั้งค่า API")) { i -> when(i) {
