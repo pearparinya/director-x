@@ -56,10 +56,10 @@ internal object FlowVoiceXml {
                         (if(off) "Speaker is off-screen; no visible character lip-syncs. " else "Only $active lip-syncs. ") +
                         (if(others.isBlank()) "" else "$others must remain silent with mouths closed and lips still; they may react using eyes, head, hands and posture only. ")
                 }.joinToString(" ")
-                "STRICT SPEAKER AND LIP-SYNC LOCK. $identities $instructions " +
+                val first=s.turns.first()\n                val firstRole=role(first.speaker)\n                val firstVoice="FIRST AUDIBLE VOICE MUST BE $firstRole (${first.speaker.trim()}). " +\n                    "The video starts with this speaker speaking the exact first written line; " +\n                    "every other character stays completely silent with no lip movement until that line ends. " +\n                    "Never begin with a later speaker, even if their action or performance is described earlier. " +\n                    "The second speaker may start ONLY AFTER the first speaker finishes. " +\n                    "Keep every dialogue line exactly as written, including its full length and natural pacing. "\n                "STRICT SPEAKER AND LIP-SYNC LOCK. $firstVoice $identities $instructions " +
                     "Never swap dialogue, speakers, voices, screen positions or lip movements. " +
                     "Only one speaker at a time; no overlapping speech, listener lip-sync, ad-libs, extra voices or subtitles. " +
-                    "Do not force dialogue to fit by rushing; if the written lines exceed eight seconds, revise or split the scene before generating."
+                    "Do not rush, truncate, rewrite or omit dialogue to fit the shot."
             }
             dialogue.isNotEmpty() && !offscreen -> "Only [$speakerLabel] speaks with natural lip movement; other visible characters stay silent."
             else -> "Visible characters remain silent with mouths closed and lips still. No visible character lip-syncs or speaks."
