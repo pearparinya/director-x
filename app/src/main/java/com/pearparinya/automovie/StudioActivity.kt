@@ -3068,7 +3068,23 @@ $context"""
                     scene > 0 && verifiedSceneVideo(number, scene)
                 }
             }
-            notice("ภาพครบทุกฉาก • วิดีโอที่ตรวจสอบผ่าน $verifiedVideos ฉาก\\nขั้นตอนถัดไป: ${next.stage} EP.${next.episode} SC.${next.scene}\\nขั้นตอน FINAL OUTPUT ยังต้องตรวจสอบไฟล์ผลลัพธ์จริง")
+            when (next.stage) {
+                ProductionPipelinePlanner.Stage.VIDEO,
+                ProductionPipelinePlanner.Stage.FINAL_OUTPUT -> {
+                    val target = (0 until episodes.length()).map { episodes.getJSONObject(it) }
+                        .firstOrNull { it.optInt("ep", 0) == next.episode }
+                        ?: episodes.getJSONObject(0)
+                    AlertDialog.Builder(this)
+                        .setTitle("DIRECTOR X • ทำงานต่อ")
+                        .setMessage("ตรวจวิดีโอผ่าน $verifiedVideos ฉาก\\nขั้นตอน: ${next.stage}\\nEP.${target.optInt("ep", 0)} SC.${next.scene}")
+                        .setPositiveButton("เปิดจัดการวิดีโอ") { _, _ -> movieEpisode(target) }
+                        .setNegativeButton("ภายหลัง", null)
+                        .show()
+                }
+                ProductionPipelinePlanner.Stage.DONE ->
+                    notice("ตรวจสอบภาพ วิดีโอ และ FINAL OUTPUT ผ่านครบทุกตอน")
+                else -> notice("ขั้นตอนถัดไป: ${next.stage}")
+            }
         }
     }
 
