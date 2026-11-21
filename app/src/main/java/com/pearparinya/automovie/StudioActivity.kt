@@ -193,15 +193,19 @@ class StudioActivity : AppCompatActivity() {
         panel.addView(scroll,LinearLayout.LayoutParams(-1,-2))
         val dialog = AlertDialog.Builder(this).setView(panel).setCancelable(cancelable).create()
         choices.forEachIndexed { index, value ->
-            val palette=when(MenuChoiceStyle.role(value)) {
+            val flowTools=title=="เครื่องมือเพิ่มเติม • Flow"
+            val palette=if(flowTools) when(index) {
+                0 -> intArrayOf(Color.rgb(18,111,177),Color.rgb(10,68,125),Color.rgb(100,216,255))
+                else -> intArrayOf(Color.rgb(152,89,23),Color.rgb(100,55,16),Color.rgb(255,196,91))
+            } else when(MenuChoiceStyle.role(value)) {
                 MenuChoiceStyle.AI -> intArrayOf(Color.rgb(70,41,112),Color.rgb(40,27,74),Color.rgb(176,137,225))
                 MenuChoiceStyle.EDIT -> intArrayOf(Color.rgb(98,67,35),Color.rgb(61,42,31),Color.rgb(222,174,94))
                 else -> intArrayOf(Color.rgb(25,66,103),Color.rgb(18,40,72),Color.rgb(91,175,220))
             }
             val row=LinearLayout(this).apply {
                 orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL
-                minimumHeight=dp(68); setPadding(dp(12),dp(10),dp(12),dp(10))
-                background=backdrop(palette[0],palette[1],palette[2])
+                minimumHeight=dp(if(flowTools) 76 else 68); setPadding(dp(12),dp(10),dp(12),dp(10))
+                background=backdrop(palette[0],palette[1],palette[2]).apply { if(flowTools) setStroke(dp(2),palette[2]) }
                 layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) }
                 isClickable=true; isFocusable=true
                 contentDescription="ตัวเลือก ${index+1}: $value"
@@ -227,7 +231,7 @@ class StudioActivity : AppCompatActivity() {
                 },LinearLayout.LayoutParams(-1,-2))
                 row.addView(labels,LinearLayout.LayoutParams(0,-2,1f))
             } else row.addView(TextView(this).apply {
-                text=value; textSize=16f; setTextColor(Color.WHITE); setTypeface(null,Typeface.BOLD)
+                text=value; textSize=if(flowTools) 17f else 16f; setTextColor(Color.WHITE); setTypeface(null,Typeface.BOLD)
                 gravity=Gravity.CENTER_VERTICAL
                 importantForAccessibility=android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
             },LinearLayout.LayoutParams(0,-2,1f))
@@ -3184,17 +3188,15 @@ $context"""
                 .onFailure { notice("เปิดคำสั่งไม่ได้: ${it.message}") }
         }
         fun moreTools() {
+            // Keep advanced image review and missing-episode generation in their existing workflows.
+            // This Flow popup exposes only the two actions most useful after export.
             choiceMenu("เครื่องมือเพิ่มเติม • Flow", listOf(
                 "ตรวจบทและความต่อเนื่อง",
-                "ตรวจภาพฉาก",
-                "สร้างคำสั่งตอนที่ยังไม่มี",
-                "สร้างคำสั่งใหม่แทนที่ไฟล์เดิม (ต้องยืนยัน)"
+                "สร้างคำสั่ง Flow ใหม่ (ยืนยันก่อนแทนที่)"
             )) { action ->
                 when (action) {
                     0 -> phaseOneWorkflowStatus(story)
-                    1 -> if (storyPassed) imageBatchFivePlan(story) else productionCheckMenu(story)
-                    2 -> if (storyPassed) autoFlowAllEpisodes(story) else productionCheckMenu(story)
-                    3 -> {
+                    1 -> {
                         val existing = episodeNumbers.filter { verifiedFlowFile(it) }
                         if (existing.isEmpty()) {
                             notice("ยังไม่มีคำสั่งเดิมให้สร้างใหม่")
