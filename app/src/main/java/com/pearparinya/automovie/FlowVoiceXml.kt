@@ -44,9 +44,25 @@ internal object FlowVoiceXml {
             return "Off-screen character ${outside+1}"
         }
         val visible=when {
-            s.turns.isNotEmpty() -> "Speak the written dialogue turns in order, one speaker at a time without overlap. Only the current visible speaker moves their lips; all other visible characters stay silent."
+            s.turns.isNotEmpty() -> {
+                val identities=s.cast.mapIndexed { index, person ->
+                    "${label(index)} = ${person.name.trim()} (position: ${person.position.trim()}, outfit: ${person.outfit.trim()})."
+                }.joinToString(" ")
+                val instructions=s.turns.mapIndexed { index, turn ->
+                    val active=role(turn.speaker)
+                    val off=s.offscreen.any { it.trim()==turn.speaker.trim() || StoryIdentity.keyFor(it)?.let { key -> key==StoryIdentity.keyFor(turn.speaker) }==true }
+                    val others=s.cast.indices.filter { label(it)!=active }.joinToString(", ") { label(it) }
+                    "TURN ${index+1}: ONLY $active (${turn.speaker.trim()}) speaks the assigned Thai text. " +
+                        (if(off) "Speaker is off-screen; no visible character lip-syncs. " else "Only $active lip-syncs. ") +
+                        (if(others.isBlank()) "" else "$others must remain silent with mouths closed and lips still; they may react using eyes, head, hands and posture only. ")
+                }.joinToString(" ")
+                "STRICT SPEAKER AND LIP-SYNC LOCK. $identities $instructions " +
+                    "Never swap dialogue, speakers, voices, screen positions or lip movements. " +
+                    "Only one speaker at a time; no overlapping speech, listener lip-sync, ad-libs, extra voices or subtitles. " +
+                    "Do not force dialogue to fit by rushing; if the written lines exceed eight seconds, revise or split the scene before generating."
+            }
             dialogue.isNotEmpty() && !offscreen -> "Only [$speakerLabel] speaks with natural lip movement; other visible characters stay silent."
-            else -> "Visible characters remain silent with mouths closed."
+            else -> "Visible characters remain silent with mouths closed and lips still. No visible character lip-syncs or speaks."
         }
         val accentDirection=if(dialogue.isNotEmpty() || narration.isNotEmpty() || s.turns.isNotEmpty()) " $accent ${ThaiSpeechPacing.direction}" else ""
         val prompt="$mapping $action. $visible$accentDirection Preserve the attached first frame, faces, hair, body proportions, positions, clothes, shoes, props, lighting and location. ${ScenePropContinuity.video} ${CinematicFlowGuard.direction()}${CinematicScenePreflight.promptDirection(s.cinematicProps).takeIf { it.isNotBlank() }?.let { " $it" }.orEmpty()} ${camera.trim()}".trim()
