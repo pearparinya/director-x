@@ -3076,7 +3076,7 @@ $context"""
                         ?: episodes.getJSONObject(0)
                     AlertDialog.Builder(this)
                         .setTitle("DIRECTOR X • ทำงานต่อ")
-                        .setMessage("ตรวจวิดีโอผ่าน $verifiedVideos ฉาก\\nขั้นตอน: ${next.stage}\\nEP.${target.optInt("ep", 0)} SC.${next.scene}")
+                        .setMessage("ตรวจวิดีโอผ่าน $verifiedVideos ฉาก\nขั้นตอน: ${next.stage}\nEP.${target.optInt("ep", 0)} SC.${next.scene}")
                         .setPositiveButton("เปิดจัดการวิดีโอ") { _, _ -> movieEpisode(target) }
                         .setNegativeButton("ภายหลัง", null)
                         .show()
