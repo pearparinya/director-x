@@ -33,6 +33,25 @@ class EightSecondDialoguePlannerTest {
         assertEquals("จับมือผม", turns[1].text)
     }
 
+    @Test fun speakerHandoffsReduceAvailableTime() {
+        val line = "สวัสดี"
+        val one = EightSecondDialoguePlanner.assess(listOf(
+            EightSecondDialoguePlanner.Turn("กวิน", line),
+            EightSecondDialoguePlanner.Turn("กวิน", line)
+        ))
+        val two = EightSecondDialoguePlanner.assess(listOf(
+            EightSecondDialoguePlanner.Turn("กวิน", line),
+            EightSecondDialoguePlanner.Turn("ภาคิน", line)
+        ))
+        assertTrue(two.availableSpeechSeconds < one.availableSpeechSeconds)
+    }
+
+    @Test fun punctuationConsumesSpeechTime() {
+        val plain = EightSecondDialoguePlanner.assess(listOf(EightSecondDialoguePlanner.Turn("กวิน", "ไปกัน")))
+        val paused = EightSecondDialoguePlanner.assess(listOf(EightSecondDialoguePlanner.Turn("กวิน", "ไปกัน...")))
+        assertTrue(paused.estimatedSeconds > plain.estimatedSeconds)
+    }
+
     @Test fun noSpeechFits() {
         assertTrue(EightSecondDialoguePlanner.assess(emptyList()).fits)
     }
