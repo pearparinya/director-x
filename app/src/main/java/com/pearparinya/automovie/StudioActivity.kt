@@ -3060,6 +3060,21 @@ $context"""
                 number > 0 && id > 0 && verifiedSceneImage(number, id)
             }
         }
+        val verifiedVideoCount = (0 until eps.length()).sumOf { index ->
+            val ep = eps.getJSONObject(index)
+            val number = ep.optInt("ep", 0)
+            val scenes = ep.optJSONArray("scenes")
+            (0 until (scenes?.length() ?: 0)).count { i ->
+                val id = scenes?.optJSONObject(i)?.optInt("scene", 0) ?: 0
+                number > 0 && id > 0 && verifiedSceneVideo(number, id)
+            }
+        }
+        val videoStatus = when {
+            !storyPassed || !flowPassed || verifiedImageCount < imageSceneCount -> "🔒 LOCKED"
+            imageSceneCount > 0 && verifiedVideoCount == imageSceneCount -> "✅ COMPLETED"
+            verifiedVideoCount > 0 -> "▶ IN PROGRESS"
+            else -> "⏳ PENDING"
+        }
         val imageStatus = when {
             !storyPassed -> "🔒 รอตรวจบท"
             imageSceneCount > 0 && verifiedImageCount == imageSceneCount -> "✅ COMPLETED"
@@ -3076,6 +3091,7 @@ $context"""
             resumeLabel,
             "${if (storyPassed) "✅ ผ่านแล้ว" else "▶ ต้องตรวจ"} • ตรวจบทและสถานะ",
             "$imageStatus • ภาพฉาก $verifiedImageCount/$imageSceneCount",
+            "$videoStatus • วิดีโอฉาก $verifiedVideoCount/$imageSceneCount",
             "${if (flowPassed) "✅ ผ่านแล้ว" else if (storyPassed) "⏳ รอสร้าง" else "🔒 รอตรวจบท"} • คำสั่ง Flow $savedFlowCount/${eps.length()} ตอน"
         )+(0 until eps.length()).map { i ->
             val ep=eps.getJSONObject(i).getInt("ep")
@@ -3089,8 +3105,9 @@ $context"""
             if(index==0) { continueFlowOneTap(story); return@choiceMenu }
             if(index==1) { phaseOneWorkflowStatus(story); return@choiceMenu }
             if(index==2) { if(storyPassed) imageBatchFivePlan(story) else productionCheckMenu(story); return@choiceMenu }
-            if(index==3) { if(storyPassed && !flowPassed) autoFlowAllEpisodes(story) else if(!storyPassed) productionCheckMenu(story) else notice("คำสั่ง Flow ที่บันทึกไว้ผ่านการตรวจสอบแล้ว • ไม่สร้างซ้ำ"); return@choiceMenu }
-            val ep=eps.getJSONObject(index-4).getInt("ep")
+            if(index==3) { continueFlowOneTap(story); return@choiceMenu }
+            if(index==4) { if(storyPassed && !flowPassed) autoFlowAllEpisodes(story) else if(!storyPassed) productionCheckMenu(story) else notice("คำสั่ง Flow ที่บันทึกไว้ผ่านการตรวจสอบแล้ว • ไม่สร้างซ้ำ"); return@choiceMenu }
+            val ep=eps.getJSONObject(index-5).getInt("ep")
             val file=File(project,"EP%02d_FLOW_AUTO.txt".format(ep))
             if(!file.isFile) {
                 autoFlowEpisode(story,ep)
