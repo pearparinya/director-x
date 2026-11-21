@@ -3168,53 +3168,41 @@ $context"""
                 number > 0 && id > 0 && verifiedSceneImage(number, id)
             }
         }
-        // Flow Studio tracks prompt preparation only. Video creation/editing happens externally.
-        val imageStatus = when {
-            !storyPassed -> "รอตรวจบท"
-            imageSceneCount > 0 && verifiedImageCount == imageSceneCount -> "ภาพพร้อมทั้งหมด"
-            verifiedImageCount > 0 -> "ภาพพร้อมบางส่วน"
-            else -> "รอตรวจภาพ"
+        // Present completed work as status, not as redundant menu actions.
+        val imageStatus = "$verifiedImageCount/$imageSceneCount"
+        val episodeNumbers = (0 until eps.length()).mapNotNull { i ->
+            eps.optJSONObject(i)?.optInt("ep", 0)?.takeIf { it > 0 }
         }
-        val episodeRows = (0 until eps.length()).map { i ->
-            val episode = eps.getJSONObject(i)
-            val ep = episode.getInt("ep")
+        fun openEpisode(ep: Int) {
             val file = File(project, "EP%02d_FLOW_AUTO.txt".format(ep))
-            val count = if (file.isFile) prefs.getInt("auto_flow_count_${project.name}_$ep", 0) else 0
-            val state = if (file.isFile) "พร้อมดูและคัดลอก" else "ยังไม่มีคำสั่ง"
-            "EP.$ep • ${episode.optString("title")}\n$state • $count ฉาก"
+            if (!file.isFile) {
+                if (storyPassed) autoFlowEpisode(story, ep) else productionCheckMenu(story)
+                return
+            }
+            runCatching { file.readText(Charsets.UTF_8) }
+                .onSuccess { content -> showFlowScenes("คำสั่ง Flow EP.$ep", content, file.name) }
+                .onFailure { notice("เปิดคำสั่งไม่ได้: ${it.message}") }
         }
-        val options = listOf(
-            "✨ สร้างคำสั่ง Flow ทั้งตอน • ข้ามตอนที่บันทึกแล้ว",
-            "📋 ตรวจบทและความต่อเนื่อง • ${if (storyPassed) "ผ่านแล้ว" else "ต้องตรวจ"}",
-            "🖼️ ตรวจภาพฉาก • $imageStatus ($verifiedImageCount/$imageSceneCount)",
-            "📚 ดูและคัดลอกคำสั่งรายตอน • $savedFlowCount/${eps.length()} ตอน"
-        ) + episodeRows
-        choiceMenu(
-            "DIRECTOR X • ศูนย์คำสั่ง Flow\nช่อง: ${channel.ifBlank { "ช่องไม่ระบุ" }}\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}\nภาพพร้อม $verifiedImageCount/$imageSceneCount ฉาก • คำสั่ง $savedFlowCount/${eps.length()} ตอน",
-            options
-        ) { index ->
-            when (index) {
-                0 -> if (storyPassed) autoFlowAllEpisodes(story) else productionCheckMenu(story)
-                1 -> phaseOneWorkflowStatus(story)
-                2 -> if (storyPassed) imageBatchFivePlan(story) else productionCheckMenu(story)
-                3 -> notice("เลือก EP. ด้านล่างเพื่อดูและคัดลอกคำสั่งที่บันทึกไว้")
-                else -> {
-                    val ep = eps.getJSONObject(index - 4).getInt("ep")
-                    val file = File(project, "EP%02d_FLOW_AUTO.txt".format(ep))
-                    if (!file.isFile) {
-                        autoFlowEpisode(story, ep)
-                    } else {
-                        choiceMenu(
-                            "คำสั่ง Flow EP.$ep",
-                            listOf("📋 เปิดและคัดลอกคำสั่งเดิม", "🔄 สร้างใหม่ • ต้องยืนยันก่อนแทนที่")
-                        ) { action ->
-                            if (action == 0) {
-                                runCatching { file.readText(Charsets.UTF_8) }
-                                    .onSuccess { content -> showFlowScenes("คำสั่ง Flow EP.$ep", content, file.name) }
-                                    .onFailure { notice("เปิดคำสั่งไม่ได้: ${it.message}") }
-                            } else {
-                                AlertDialog.Builder(this).setTitle("สร้างคำสั่ง Flow ใหม่?")
-                                    .setMessage("คำสั่งเดิมของ EP.$ep จะถูกแทนที่หลังสร้างสำเร็จ")
+        fun moreTools() {
+            choiceMenu("เครื่องมือเพิ่มเติม • Flow", listOf(
+                "ตรวจบทและความต่อเนื่อง",
+                "ตรวจภาพฉาก",
+                "สร้างคำสั่งตอนที่ยังไม่มี",
+                "สร้างคำสั่งใหม่แทนที่ไฟล์เดิม (ต้องยืนยัน)"
+            )) { action ->
+                when (action) {
+                    0 -> phaseOneWorkflowStatus(story)
+                    1 -> if (storyPassed) imageBatchFivePlan(story) else productionCheckMenu(story)
+                    2 -> if (storyPassed) autoFlowAllEpisodes(story) else productionCheckMenu(story)
+                    3 -> {
+                        val existing = episodeNumbers.filter { verifiedFlowFile(it) }
+                        if (existing.isEmpty()) {
+                            notice("ยังไม่มีคำสั่งเดิมให้สร้างใหม่")
+                        } else {
+                            choiceMenu("เลือกตอนที่จะสร้างคำสั่งใหม่", existing.map { "EP.$it" }) { selected ->
+                                val ep = existing[selected]
+                                AlertDialog.Builder(this).setTitle("ยืนยันสร้างคำสั่ง Flow ใหม่?")
+                                    .setMessage("คำสั่ง EP.$ep ที่บันทึกไว้จะถูกแทนที่ โปรดตรวจสอบก่อนดำเนินการ")
                                     .setPositiveButton("สร้างใหม่") { _, _ -> autoFlowEpisode(story, ep) }
                                     .setNegativeButton("ยกเลิก", null).showDirector()
                             }
@@ -3223,6 +3211,28 @@ $context"""
                 }
             }
         }
+        val readyEpisodes = episodeNumbers.filter { verifiedFlowFile(it) }
+        val mainOptions = mutableListOf<String>()
+        val mainActions = mutableListOf<() -> Unit>()
+        if (readyEpisodes.isNotEmpty()) {
+            readyEpisodes.forEach { ep ->
+                mainOptions.add("📋 เปิดและคัดลอก Flow • EP.$ep")
+                mainActions.add { openEpisode(ep) }
+            }
+        }
+        if (!storyPassed) {
+            mainOptions.add("🔵 ตรวจสอบบทก่อนสร้างคำสั่ง")
+            mainActions.add { productionCheckMenu(story) }
+        } else if (readyEpisodes.size < episodeNumbers.size) {
+            mainOptions.add("✨ สร้างคำสั่ง Flow สำหรับตอนที่ยังไม่มี")
+            mainActions.add { autoFlowAllEpisodes(story) }
+        }
+        mainOptions.add("🔵 ตรวจสอบ / แก้ไขคำสั่ง Flow")
+        mainActions.add { moreTools() }
+        choiceMenu(
+            "DIRECTOR X • ศูนย์คำสั่ง Flow\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}\nตรวจบท: ${if (storyPassed) "ผ่าน" else "รอตรวจ"} • ภาพ: $imageStatus • คำสั่ง: $savedFlowCount/${eps.length()} ตอน",
+            mainOptions
+        ) { selected -> mainActions[selected].invoke() }
     }
 
     private fun suggestStoryWardrobe(story: JSONObject, mode: Int) {
