@@ -3123,68 +3123,57 @@ $context"""
                 number > 0 && id > 0 && verifiedSceneImage(number, id)
             }
         }
-        val verifiedVideoCount = (0 until eps.length()).sumOf { index ->
-            val ep = eps.getJSONObject(index)
-            val number = ep.optInt("ep", 0)
-            val scenes = ep.optJSONArray("scenes")
-            (0 until (scenes?.length() ?: 0)).count { i ->
-                val id = scenes?.optJSONObject(i)?.optInt("scene", 0) ?: 0
-                number > 0 && id > 0 && verifiedSceneVideo(number, id)
-            }
-        }
-        val videoStatus = when {
-            !storyPassed || !flowPassed || verifiedImageCount < imageSceneCount -> "🔒 LOCKED"
-            imageSceneCount > 0 && verifiedVideoCount == imageSceneCount -> "✅ COMPLETED"
-            verifiedVideoCount > 0 -> "▶ IN PROGRESS"
-            else -> "⏳ PENDING"
-        }
+        // Flow Studio tracks prompt preparation only. Video creation/editing happens externally.
         val imageStatus = when {
-            !storyPassed -> "🔒 รอตรวจบท"
-            imageSceneCount > 0 && verifiedImageCount == imageSceneCount -> "✅ COMPLETED"
-            verifiedImageCount > 0 -> "▶ IN PROGRESS"
-            else -> "⏳ PENDING"
+            !storyPassed -> "รอตรวจบท"
+            imageSceneCount > 0 && verifiedImageCount == imageSceneCount -> "ภาพพร้อมทั้งหมด"
+            verifiedImageCount > 0 -> "ภาพพร้อมบางส่วน"
+            else -> "รอตรวจภาพ"
         }
-
-        val lastProject = prefs.getString("production_resume_project", null)
-        val resumeEpisode = prefs.getInt("production_resume_episode", 0)
-        val resumeScene = prefs.getInt("production_resume_scene", 0)
-        val resumeLabel = if(lastProject == project.name) "▶ ทำงานต่อ • EP.$resumeEpisode SC.$resumeScene • ตรวจไฟล์ใหม่"
-            else "▶ ทำงานต่ออัตโนมัติ • เลือกงานที่ยังค้าง"
-        val options=listOf(
-            resumeLabel,
-            "${if (storyPassed) "✅ ผ่านแล้ว" else "▶ ต้องตรวจ"} • ตรวจบทและสถานะ",
-            "$imageStatus • ภาพฉาก $verifiedImageCount/$imageSceneCount",
-            "$videoStatus • วิดีโอฉาก $verifiedVideoCount/$imageSceneCount",
-            "${if (flowPassed) "✅ ผ่านแล้ว" else if (storyPassed) "⏳ รอสร้าง" else "🔒 รอตรวจบท"} • คำสั่ง Flow $savedFlowCount/${eps.length()} ตอน"
-        )+(0 until eps.length()).map { i ->
-            val ep=eps.getJSONObject(i).getInt("ep")
-            val count=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getInt("auto_flow_count_${project.name}_$ep",0) else 0
-            val at=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getLong("auto_flow_saved_at_${project.name}_$ep",0L) else 0L
-            val time=if(at>0L) java.text.SimpleDateFormat("dd/MM HH:mm",java.util.Locale("th","TH")).format(java.util.Date(at)) else "ยังไม่สร้าง"
-            "🎬 EP.$ep • ${eps.getJSONObject(i).optString("title")}\nคำสั่ง Flow: ${if(count>0) "$count ฉาก • $time" else time}"
+        val episodeRows = (0 until eps.length()).map { i ->
+            val episode = eps.getJSONObject(i)
+            val ep = episode.getInt("ep")
+            val file = File(project, "EP%02d_FLOW_AUTO.txt".format(ep))
+            val count = if (file.isFile) prefs.getInt("auto_flow_count_${project.name}_$ep", 0) else 0
+            val state = if (file.isFile) "พร้อมดูและคัดลอก" else "ยังไม่มีคำสั่ง"
+            "EP.$ep • ${episode.optString("title")}\n$state • $count ฉาก"
         }
-        choiceMenu("DIRECTOR X • ศูนย์งาน Flow\nช่อง: ${channel.ifBlank { "ช่องไม่ระบุ" }}\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}\nเลือกทำงานต่อได้ทันที",
-            options) { index ->
-            if(index==0) { continueFlowOneTap(story); return@choiceMenu }
-            if(index==1) { phaseOneWorkflowStatus(story); return@choiceMenu }
-            if(index==2) { if(storyPassed) imageBatchFivePlan(story) else productionCheckMenu(story); return@choiceMenu }
-            if(index==3) { continueFlowOneTap(story); return@choiceMenu }
-            if(index==4) { if(storyPassed && !flowPassed) autoFlowAllEpisodes(story) else if(!storyPassed) productionCheckMenu(story) else notice("คำสั่ง Flow ที่บันทึกไว้ผ่านการตรวจสอบแล้ว • ไม่สร้างซ้ำ"); return@choiceMenu }
-            val ep=eps.getJSONObject(index-5).getInt("ep")
-            val file=File(project,"EP%02d_FLOW_AUTO.txt".format(ep))
-            if(!file.isFile) {
-                autoFlowEpisode(story,ep)
-            } else {
-                choiceMenu("คำสั่ง Flow EP.$ep",listOf("เปิดคำสั่งที่บันทึกไว้ • ไม่สร้างซ้ำ","สร้างคำสั่งใหม่ทั้งหมด • แทนที่ไฟล์เดิม")) { action ->
-                    if(action==0) {
-                        runCatching { file.readText(Charsets.UTF_8) }
-                            .onSuccess { content -> showFlowCode("คำสั่ง Flow EP.$ep • บันทึกไว้แล้ว",content,file.name) }
-                            .onFailure { notice("เปิดคำสั่งที่บันทึกไว้ไม่ได้: ${it.message}") }
+        val options = listOf(
+            "✨ สร้างคำสั่ง Flow ทั้งตอน • ข้ามตอนที่บันทึกแล้ว",
+            "📋 ตรวจบทและความต่อเนื่อง • ${if (storyPassed) "ผ่านแล้ว" else "ต้องตรวจ"}",
+            "🖼️ ตรวจภาพฉาก • $imageStatus ($verifiedImageCount/$imageSceneCount)",
+            "📚 ดูและคัดลอกคำสั่งรายตอน • $savedFlowCount/${eps.length()} ตอน"
+        ) + episodeRows
+        choiceMenu(
+            "DIRECTOR X • ศูนย์คำสั่ง Flow\nช่อง: ${channel.ifBlank { "ช่องไม่ระบุ" }}\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}\nภาพพร้อม $verifiedImageCount/$imageSceneCount ฉาก • คำสั่ง $savedFlowCount/${eps.length()} ตอน",
+            options
+        ) { index ->
+            when (index) {
+                0 -> if (storyPassed) autoFlowAllEpisodes(story) else productionCheckMenu(story)
+                1 -> phaseOneWorkflowStatus(story)
+                2 -> if (storyPassed) imageBatchFivePlan(story) else productionCheckMenu(story)
+                3 -> notice("เลือก EP. ด้านล่างเพื่อดูและคัดลอกคำสั่งที่บันทึกไว้")
+                else -> {
+                    val ep = eps.getJSONObject(index - 4).getInt("ep")
+                    val file = File(project, "EP%02d_FLOW_AUTO.txt".format(ep))
+                    if (!file.isFile) {
+                        autoFlowEpisode(story, ep)
                     } else {
-                        AlertDialog.Builder(this).setTitle("สร้างคำสั่ง Flow ใหม่?")
-                            .setMessage("คำสั่งเดิมของ EP.$ep จะถูกแทนที่ หลังสร้างคำสั่งใหม่สำเร็จ")
-                            .setPositiveButton("สร้างใหม่") { _,_ -> autoFlowEpisode(story,ep) }
-                            .setNegativeButton("ยกเลิก",null).showDirector()
+                        choiceMenu(
+                            "คำสั่ง Flow EP.$ep",
+                            listOf("📋 เปิดและคัดลอกคำสั่งเดิม", "🔄 สร้างใหม่ • ต้องยืนยันก่อนแทนที่")
+                        ) { action ->
+                            if (action == 0) {
+                                runCatching { file.readText(Charsets.UTF_8) }
+                                    .onSuccess { content -> showFlowCode("คำสั่ง Flow EP.$ep", content, file.name) }
+                                    .onFailure { notice("เปิดคำสั่งไม่ได้: ${it.message}") }
+                            } else {
+                                AlertDialog.Builder(this).setTitle("สร้างคำสั่ง Flow ใหม่?")
+                                    .setMessage("คำสั่งเดิมของ EP.$ep จะถูกแทนที่หลังสร้างสำเร็จ")
+                                    .setPositiveButton("สร้างใหม่") { _, _ -> autoFlowEpisode(story, ep) }
+                                    .setNegativeButton("ยกเลิก", null).showDirector()
+                            }
+                        }
                     }
                 }
             }
