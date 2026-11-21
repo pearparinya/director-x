@@ -3820,8 +3820,27 @@ $context"""
             background = backdrop(Color.rgb(255, 210, 93), Color.rgb(224, 157, 45))
         }
         panel.addView(copy, LinearLayout.LayoutParams(-1, dp(58)))
+        // Resolve episode metadata from the currently opened story, never invent titles.
+        val episodeNumber = Regex("EP[._-]?(\\\\d+)", RegexOption.IGNORE_CASE)
+            .find(filename)?.groupValues?.getOrNull(1)?.toIntOrNull()
+            ?: Regex("EP\\\\.?(\\\\d+)", RegexOption.IGNORE_CASE)
+                .find(title)?.groupValues?.getOrNull(1)?.toIntOrNull()
+        val storyTitle = plan?.optString("title").orEmpty().trim()
+        val episodeTitle = plan?.optJSONArray("episodes")?.let { episodes ->
+            (0 until episodes.length()).mapNotNull { episodes.optJSONObject(it) }
+                .firstOrNull { it.optInt("ep") == episodeNumber }
+                ?.optString("title").orEmpty().trim()
+        }.orEmpty()
         fun refresh() {
-            heading.text = "$title • SC.${index + 1}/${scenes.size}"
+            val episodeLabel = episodeNumber?.let { "ตอนที่ $it" } ?: title
+            heading.text = buildString {
+                append("คำสั่งสร้างวิดีโอ Flow")
+                if(storyTitle.isNotBlank()) append("\nเรื่อง: $storyTitle")
+                append("\n$episodeLabel")
+                if(episodeTitle.isNotBlank()) append(" • $episodeTitle")
+                append("\nฉากที่ ${index + 1} จาก ${scenes.size} ฉาก")
+            }
+            copy.text = "📋 คัดลอกคำสั่ง $episodeLabel • ฉากที่ ${index + 1}"
             prompt.text = scenes[index].trim()
             previous.isEnabled = index > 0
             next.isEnabled = index < scenes.lastIndex
