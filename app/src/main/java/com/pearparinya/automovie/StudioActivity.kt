@@ -3851,7 +3851,7 @@ $context"""
         next.setOnClickListener { if (index < scenes.lastIndex) { index++; refresh() } }
         copy.setOnClickListener {
             val selected = scenes[index].trim()
-            val speech = Regex("<dialogue>\\\\s*<speaker>(.*?)</speaker>\\\\s*<text>(.*?)</text>", RegexOption.DOT_MATCHES_ALL)
+            val speech = Regex("<dialogue>\\s*<speaker>(.*?)</speaker>\\s*<text>(.*?)</text>", RegexOption.DOT_MATCHES_ALL)
                 .findAll(selected).map { it.groupValues[1].trim() to it.groupValues[2].trim() }.toList()
             val charCount = speech.sumOf { it.second.length }
             val estimate = charCount / 11.0 + (speech.size - 1).coerceAtLeast(0) * 0.55 + 0.8
