@@ -2948,6 +2948,14 @@ $context"""
             imageCompleted+=ids.count { verifiedSceneImage(number,it) }
             videoCompleted+=ids.count { verifiedSceneVideo(number,it) }
         }
+        val finalCompleted = (0 until total).count { index ->
+            val ep = eps?.optJSONObject(index)?.optInt("ep", 0) ?: 0
+            ep > 0 && verifiedFinalOutput(ep)
+        }
+        val completedTasks = saved + imageCompleted + videoCompleted + finalCompleted
+        val totalTasks = total * 2 + imageTotal * 2
+        val progress = if (totalTasks == 0) 0 else completedTasks * 100 / totalTasks
+        val pendingTasks = (totalTasks - completedTasks).coerceAtLeast(0)
         val issues=ProductionCommandCheck.issues(story)
         val next=when {
             issues.isNotEmpty() || invalidSceneLists>0 -> "ตรวจและแก้บทก่อนดำเนินการ"
@@ -2962,10 +2970,12 @@ $context"""
                 "คำสั่ง Flow: $saved/$total ตอน\n"+
                 "ภาพที่ตรวจสอบไฟล์จริง: $imageCompleted/$imageTotal ซีน\n"+
                 "วิดีโอที่ตรวจสอบไฟล์จริง: $videoCompleted/$imageTotal ซีน\n"+
+                "FINAL OUTPUT: $finalCompleted/$total ตอน\\n"+
+                "สำเร็จ $completedTasks • ค้าง $pendingTasks • ความคืบหน้า $progress%\\n"+
                 "ตอนที่หมายเลขซีนผิดพลาด: $invalidSceneLists\n"+
                 "ข้อควรแก้ในบท: ${issues.size} รายการ\n\n"+
                 "ขั้นตอนถัดไป: $next\n\n"+
-                "หมายเหตุ: ตรวจสอบไฟล์ภาพและวิดีโอจริง • FINAL OUTPUT ยังไม่ยืนยัน")
+                "หมายเหตุ: FINAL OUTPUT ตรวจสอบไฟล์และ Fingerprint จริง")
             .setPositiveButton("▶ ทำงานต่อทันที") { _,_ ->
                 if(issues.isNotEmpty() || invalidSceneLists>0) productionCheckMenu(story)
                 else if(saved<total) autoFlowAllEpisodes(story, autoContinue = true)
