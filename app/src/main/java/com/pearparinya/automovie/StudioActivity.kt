@@ -2970,8 +2970,8 @@ $context"""
                 "คำสั่ง Flow: $saved/$total ตอน\n"+
                 "ภาพที่ตรวจสอบไฟล์จริง: $imageCompleted/$imageTotal ซีน\n"+
                 "วิดีโอที่ตรวจสอบไฟล์จริง: $videoCompleted/$imageTotal ซีน\n"+
-                "FINAL OUTPUT: $finalCompleted/$total ตอน\\n"+
-                "สำเร็จ $completedTasks • ค้าง $pendingTasks • ความคืบหน้า $progress%\\n"+
+                "FINAL OUTPUT: $finalCompleted/$total ตอน\n"+
+                "สำเร็จ $completedTasks • ค้าง $pendingTasks • ความคืบหน้า $progress%\n"+
                 "ตอนที่หมายเลขซีนผิดพลาด: $invalidSceneLists\n"+
                 "ข้อควรแก้ในบท: ${issues.size} รายการ\n\n"+
                 "ขั้นตอนถัดไป: $next\n\n"+
