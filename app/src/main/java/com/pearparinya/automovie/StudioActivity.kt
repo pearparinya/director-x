@@ -2926,7 +2926,13 @@ $context"""
     }
 
     // Fast path: one tap chooses the next safe existing workflow without a status dialog.
+    // Persist only the last requested project. Every resume re-checks source artifacts.
+    private fun rememberProductionProject() {
+        prefs.edit().putString("production_resume_project", project.name).apply()
+    }
+
     private fun continueFlowOneTap(story: JSONObject) {
+        rememberProductionProject()
         val episodes = story.optJSONArray("episodes") ?: return notice("ยังไม่มีตอนในบท")
         if (episodes.length() == 0) return notice("ยังไม่มีตอนในบท")
         if (ProductionCommandCheck.issues(story).isNotEmpty()) {
@@ -2949,8 +2955,21 @@ $context"""
                 return
             }
         }
-        // Recorded image completion is not proof of file existence. Always open image verification, never loop into the status dialog.
-        imageBatchFivePlan(story)
+        // Re-evaluate artifacts on every resume; saved flags alone never imply completion.
+        val incompleteImages = (0 until episodes.length()).any { index ->
+            val episode = episodes.getJSONObject(index)
+            val ep = episode.optInt("ep", 0)
+            val scenes = episode.optJSONArray("scenes")
+            (0 until (scenes?.length() ?: 0)).any { i ->
+                val scene = scenes?.optJSONObject(i)?.optInt("scene", 0) ?: 0
+                scene <= 0 || !verifiedSceneImage(ep, scene)
+            }
+        }
+        if (incompleteImages) {
+            imageBatchFivePlan(story)
+        } else {
+            notice("ตรวจสอบภาพครบทุกฉากแล้ว • ยังไม่มีระบบยืนยันการสร้างวิดีโออัตโนมัติ")
+        }
     }
 
     private fun commandCardsMenu() {
@@ -2983,8 +3002,11 @@ $context"""
             else -> "⏳ PENDING"
         }
 
+        val lastProject = prefs.getString("production_resume_project", null)
+        val resumeLabel = if(lastProject == project.name) "▶ ทำงานต่อจากครั้งก่อน • ตรวจไฟล์จริงใหม่"
+            else "▶ ทำงานต่ออัตโนมัติ • เลือกงานที่ยังค้าง"
         val options=listOf(
-            "▶ ทำงานต่ออัตโนมัติ • เลือกงานที่ยังค้าง",
+            resumeLabel,
             "${if (storyPassed) "✅ ผ่านแล้ว" else "▶ ต้องตรวจ"} • ตรวจบทและสถานะ",
             "$imageStatus • ภาพฉาก $verifiedImageCount/$imageSceneCount",
             "${if (flowPassed) "✅ ผ่านแล้ว" else if (storyPassed) "⏳ รอสร้าง" else "🔒 รอตรวจบท"} • คำสั่ง Flow $savedFlowCount/${eps.length()} ตอน"
