@@ -909,11 +909,56 @@ class StudioActivity : AppCompatActivity() {
         if (uris.isNotEmpty()) importImages(uris)
     }
     private fun launchSmartImagePicker() {
-        AlertDialog.Builder(this).setTitle("เลือกภาพหลายภาพพร้อมกัน")
-            .setItems(arrayOf("แกลเลอรี • เลือกหลายภาพ", "ไฟล์ในเครื่อง • เลือกหลายไฟล์")) { _, option ->
-                if (option == 0) galleryImagesPicker.launch("image/*")
-                else imagesPicker.launch(arrayOf("image/*"))
-            }.setNegativeButton("ยกเลิก", null).showDirector()
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(20), dp(20), dp(16))
+            background = backdrop(Color.rgb(24, 24, 32), navy, Color.rgb(95, 74, 47))
+        }
+        panel.addView(TextView(this).apply {
+            text = "เลือกภาพหลายภาพพร้อมกัน"
+            textSize = 21f
+            setTextColor(gold)
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 0, 0, dp(8))
+        })
+        panel.addView(TextView(this).apply {
+            text = "เลือกแหล่งที่มาของภาพ • รองรับการเลือกหลายภาพ"
+            textSize = 14f
+            setTextColor(Color.rgb(210, 220, 238))
+            setPadding(0, 0, 0, dp(14))
+        })
+        val dialog = AlertDialog.Builder(this).setView(panel).create()
+        fun addBrowseButton(label: String, top: Int, bottom: Int, onSelect: () -> Unit) {
+            panel.addView(Button(this).apply {
+                text = label
+                textSize = 17f
+                isAllCaps = false
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(Color.WHITE)
+                backgroundTintList = null
+                background = backdrop(top, bottom)
+                minimumHeight = dp(58)
+                setOnClickListener { dialog.dismiss(); onSelect() }
+            }, LinearLayout.LayoutParams(-1, dp(62)).apply { bottomMargin = dp(12) })
+        }
+        addBrowseButton("🖼 เลือกภาพจากแกลเลอรี", Color.rgb(27, 126, 218), Color.rgb(10, 71, 158)) {
+            galleryImagesPicker.launch("image/*")
+        }
+        addBrowseButton("📁 เลือกไฟล์จากเครื่อง", Color.rgb(139, 71, 212), Color.rgb(81, 42, 155)) {
+            imagesPicker.launch(arrayOf("image/*"))
+        }
+        panel.addView(Button(this).apply {
+            text = "ยกเลิก"
+            textSize = 16f
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            backgroundTintList = null
+            background = backdrop(Color.rgb(76, 79, 91), Color.rgb(48, 51, 62))
+            setOnClickListener { dialog.dismiss() }
+        }, LinearLayout.LayoutParams(-1, dp(54)))
+        dialog.show()
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setLayout(resources.displayMetrics.widthPixels - dp(32), -2)
     }
     private val zipPicker = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri != null) { val backup = backupMode; backupMode = false; background { if (backup) contentResolver.openOutputStream(uri)!!.use { StudioArchive.write(project,it,File(filesDir,"short_catalog_ids.json")) } else export(uri) } }
