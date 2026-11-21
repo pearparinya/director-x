@@ -88,6 +88,19 @@ internal object ShortFlowPrompt {
         val index=s.cast.indexOfFirst { it.name.trim()==name.trim() || StoryIdentity.keyFor(it.name)?.let { key -> key==StoryIdentity.keyFor(name) }==true }
         return if(index>=0) labels(s)[index] else "Off-screen speaker"
     }
+    /** Non-destructive checks for dense or mixed-script multi-speaker scenes. */
+    internal fun dialogueWarnings(s: FlowSceneSpec): List<String> = buildList {
+        val turns=if(s.turns.isNotEmpty()) s.turns.map { it.speaker to it.text }
+            else if(spoken(s.dialogue).isNotEmpty()) listOf(s.speaker to spoken(s.dialogue))
+            else emptyList()
+        if(turns.size>=3 && turns.sumOf { it.second.length }>120)
+            add("บทพูดหลายคนยาวสำหรับวิดีโอ 8 วินาที อาจพูดไม่ครบหรือสลับผู้พูด • ตรวจสอบโดยไม่แก้บทอัตโนมัติ")
+        if(turns.any { Regex("[\\u0600-\\u06FF]").containsMatchIn(it.second) && thai.containsMatchIn(it.second) })
+            add("บทพูดมีอักษรอาหรับปนกับภาษาไทย • ตรวจสอบการออกเสียง โดยไม่เปลี่ยนข้อความต้นฉบับ")
+        val names=s.cast.map { it.name.trim() }
+        if(turns.any { (name,_) -> name.isNotBlank() && name !in names && speakerLabel(s,name)=="Off-screen speaker" })
+            add("พบผู้พูดที่จับคู่กับตัวละครในฉากไม่ได้ • ตรวจสอบชื่อและภาพ MASTER")
+    }
     fun voiceOnly(s: FlowSceneSpec): String = when {
         s.turns.isNotEmpty() -> s.turns.joinToString("\n") { "${speakerLabel(s,it.speaker)}: ${speechText(it.text)}" }
         spoken(s.dialogue).isNotEmpty() -> "${speakerLabel(s,s.speaker)}: ${speechText(spoken(s.dialogue))}"
@@ -151,6 +164,19 @@ internal object ShortFlowPrompt {
                 "repeated answers, speaker swaps, overlapping voices or improvised dialogue. " +
                 "Performance voice cues and action descriptions are NOT additional dialogue."
         } else ""
+        val multiCharacterLock=if(s.cast.size>=3 && allSpokenTurns.isNotEmpty()) {
+            val anchors=s.cast.mapIndexed { i,p ->
+                "${labels(s)[i]} (${p.name.trim()}): ${positions[i]}" +
+                    clothes[i].takeIf { it.isNotBlank() }?.let { ", ${it}" }.orEmpty()
+            }.joinToString("; ")
+            "MULTI-CHARACTER FIRST-FRAME SPATIAL LOCK: $anchors. " +
+                "The attached first frame is the authoritative source for each person's face, outfit, left-to-right placement and visible props. " +
+                "Never exchange faces, bodies, clothing, positions, dialogue voices, or mouth movements between people. " +
+                "Keep each actor anchored to their own first-frame position throughout this continuous shot; no teleporting or identity blending. " +
+                "Only the speaker named in the current XML dialogue entry moves their lips; all other visible actors keep their mouths closed and react silently. " +
+                "Do not infer celebrity identity or impersonate any real public figure from the scene description. " +
+                "If a reference image depicts a real person, use it only with the person's permission; do not alter the supplied face to evade provider review."
+        } else ""
         // Megaphone dialogue requires continuous physical mouthpiece contact and processed audio.
         // Apply only when the scene explicitly establishes a megaphone and a visible speaker.
         val megaphonePresent=Regex("\\bmegaphone\\b|\\bbullhorn\\b|\\bloudhailer\\b",RegexOption.IGNORE_CASE)
@@ -173,7 +199,7 @@ internal object ShortFlowPrompt {
         val location=typed(s,aliases(s,s.location.trim())).takeIf { it.isNotBlank() && !thai.containsMatchIn(it) }.orEmpty()
         val visual=listOf("Use the attached first frame as the starting point. One continuous 8-second vertical 9:16 shot",cast,location.takeIf { it.isNotBlank() }?.let { "Environment: $it" }.orEmpty(),action,
             "Preserve each character's identity, face or species-specific features, hair or fur, body proportions, position, clothing and props from the first frame. Keep the location and lighting consistent throughout",ScenePropContinuity.video,performance,direction,
-            motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}",megaphoneDirection,speakerSequence,if(speakerSequence.isBlank()) instructions else "")
+            motion(s.action,s.location,s.startState,s.endState,s.sound),"Camera: ${camera.trim()}",multiCharacterLock,megaphoneDirection,speakerSequence,if(speakerSequence.isBlank()) instructions else "")
             .filter { it.isNotBlank() }.joinToString(". ")
         val lines=allSpokenTurns.joinToString("") { (name,text) ->
             val label=if(name.isBlank()) "Off-screen narrator" else speakerLabel(s,name)
