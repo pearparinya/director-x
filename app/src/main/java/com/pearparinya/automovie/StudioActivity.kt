@@ -2814,9 +2814,18 @@ $context"""
     }
 
     // Planning only: ChatGPT Plus does not provide an in-app image-generation API.
+    private fun verifiedSceneImage(episode: Int, scene: Int): Boolean {
+        val file = File(project, "images/EP%02d_SC%03d.img".format(episode, scene))
+        if (!file.isFile || file.length() <= 0L) return false
+        return runCatching {
+            val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            android.graphics.BitmapFactory.decodeFile(file.path, bounds)
+            bounds.outWidth > 0 && bounds.outHeight > 0
+        }.getOrDefault(false)
+    }
+
     private fun imageBatchFivePlan(story: JSONObject) {
         val eps=story.optJSONArray("episodes") ?: return notice("ยังไม่มีตอน")
-        val progressStore=ImageSceneProgressStore(this)
         val lines=mutableListOf<String>()
         var totalScenes=0
         var totalPending=0
@@ -2832,8 +2841,12 @@ $context"""
                 lines.add("EP.$number • หมายเลขซีนไม่ถูกต้องหรือซ้ำ กรุณาตรวจบท")
                 continue
             }
-            val state=progressStore.load("${project.name}:EP$number",sceneIds)
-            val pending=sceneIds.filter { it !in state.completedSceneIds }
+            val verified=sceneIds.filter { verifiedSceneImage(number, it) }.toSet()
+            val snapshot=ProductionStateEngine.evaluate(
+                sceneIds, ProductionCommandCheck.issues(story).isEmpty(), verified,
+                File(project,"EP%02d_FLOW_AUTO.txt".format(number)).isFile
+            )
+            val pending=snapshot.missingSceneIds
             totalScenes+=sceneIds.size
             totalPending+=pending.size
             val batches=pending.chunked(5)
@@ -2841,7 +2854,7 @@ $context"""
             val ranges=batches.mapIndexed { index, group ->
                 "ชุด ${index+1}: ${group.joinToString(", ")}"
             }.joinToString("\n")
-            lines.add("EP.$number • เสร็จ ${state.completedCount}/${sceneIds.size} • ค้าง ${pending.size} ซีน • ${batches.size} ชุด"+
+            lines.add("EP.$number • ตรวจไฟล์ภาพจริงผ่าน ${snapshot.verifiedImages}/${sceneIds.size} • ค้าง ${pending.size} ซีน • ${batches.size} ชุด"+
                 if(ranges.isBlank()) " (ไม่มีงานค้าง)" else "\n$ranges")
         }
         val completed = totalScenes - totalPending
@@ -2864,7 +2877,6 @@ $context"""
             val ep=eps?.optJSONObject(index)?.optInt("ep",0) ?: 0
             ep>0 && File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile
         }
-        val progressStore=ImageSceneProgressStore(this)
         var imageTotal=0
         var imageCompleted=0
         var invalidSceneLists=0
@@ -2880,7 +2892,7 @@ $context"""
                 continue
             }
             imageTotal+=ids.size
-            imageCompleted+=progressStore.load("${project.name}:EP$number",ids).completedCount
+            imageCompleted+=ids.count { verifiedSceneImage(number,it) }
         }
         val issues=ProductionCommandCheck.issues(story)
         val next=when {
@@ -2893,16 +2905,16 @@ $context"""
         AlertDialog.Builder(this).setTitle("DIRECTOR X • สถานะงานรวม")
             .setMessage("บท: ${if(total>0) "มี $total ตอน" else "ยังไม่มีตอน"}\n"+
                 "คำสั่ง Flow: $saved/$total ตอน\n"+
-                "ภาพ (ตามสถานะบันทึก): $imageCompleted/$imageTotal ซีน\n"+
+                "ภาพที่ตรวจสอบไฟล์จริง: $imageCompleted/$imageTotal ซีน\n"+
                 "ตอนที่หมายเลขซีนผิดพลาด: $invalidSceneLists\n"+
                 "ข้อควรแก้ในบท: ${issues.size} รายการ\n\n"+
                 "ขั้นตอนถัดไป: $next\n\n"+
-                "หมายเหตุ: สถานะภาพไม่ใช่การยืนยันว่ามีไฟล์ภาพจริง และระบบยังไม่สร้างวิดีโอ")
+                "หมายเหตุ: ตรวจสอบไฟล์ภาพที่เปิดอ่านได้จริงแล้ว • ระบบยังไม่สร้างวิดีโอ")
             .setPositiveButton("▶ ทำงานต่อทันที") { _,_ ->
                 if(issues.isNotEmpty() || invalidSceneLists>0) productionCheckMenu(story)
                 else if(saved<total) autoFlowAllEpisodes(story, autoContinue = true)
                 else if(imageCompleted<imageTotal) imageBatchFivePlan(story)
-                else commandCardsMenu()
+                else imageBatchFivePlan(story)
             }
             .setNegativeButton("ปิด",null).showDirector()
     }
