@@ -4059,6 +4059,40 @@ $context"""
         }
         card.addView(progress)
         root.addView(card,LinearLayout.LayoutParams(-1,-2).apply { topMargin=dp(5); bottomMargin=dp(9) })
+        // Compact, accessible production status: keep the original workflow visible
+        // without restoring the oversized step cards removed by the dashboard redesign.
+        val exportStamp=File(project,"flow_pack_exported.sha256").takeIf { it.isFile }?.let {
+            runCatching { it.readText().trim() }.getOrNull()
+        }
+        val exportCurrent=current!=null && exportStamp!=null &&
+            exportStamp==File(project,"story.json").takeIf { it.isFile }?.let {
+                runCatching { EpisodeMedia.digest(it) }.getOrNull()
+            }
+        val wardrobeDetail=if(current==null) "รอสร้างบท" else wardrobe
+        val exportDetail=if(exportCurrent) "เคยส่งออกบทนี้แล้ว" else "ยังไม่ส่งออกบทปัจจุบัน"
+        val summary=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setPadding(dp(12),dp(8),dp(12),dp(8))
+            background=backdrop(Color.rgb(19,37,59),Color.rgb(12,24,41),Color.rgb(63,104,148))
+        }
+        fun statusLine(label: String,detail: String,onTap: ()->Unit) {
+            summary.addView(TextView(this).apply {
+                text="$label  •  $detail"
+                textSize=11f; setTextColor(ice)
+                setPadding(dp(3),dp(5),dp(3),dp(5))
+                maxLines=2
+                isClickable=true; isFocusable=true
+                setOnClickListener { onTap() }
+            })
+        }
+        statusLine("ตรวจชุดตัวละคร",wardrobeDetail) {
+            current?.let { wardrobeMenu(it) } ?: notice("รอสร้างบท")
+        }
+        statusLine("ตรวจสิ่งของในบท","ตรวจบทแล้ว $reviewed/${scenes.size}  •  ${if(current!=null) "เปิดใช้งานได้" else "รอสร้างบท"}") {
+            current?.let { reviewSceneProps(it) } ?: notice("รอสร้างบท")
+        }
+        if(current!=null) statusLine("ส่งออกบท",exportDetail) { productionCheckMenu(current) }
+        root.addView(summary,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(8) })
         if(job) {
             val status=readGeminiStatus()
             val jobRow=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL }
