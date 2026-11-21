@@ -76,4 +76,26 @@ class ProductionPipelinePlannerTest {
         assertEquals(ProductionPipelinePlanner.Stage.FINAL_OUTPUT, p.next(true, all).stage)
     }
 
+    @Test fun emptyEpisodesCannotAdvance() {
+        assertEquals(ProductionPipelinePlanner.Stage.STORY, p.next(true, emptyList()).stage)
+    }
+
+    @Test fun missingVideoAfterVerifiedFirstSceneResumesSecondScene() {
+        assertEquals(ProductionPipelinePlanner.Decision(ProductionPipelinePlanner.Stage.VIDEO, 1, 2),
+            p.next(true, listOf(episode(videos = setOf(1)))))
+    }
+
+    @Test fun completedEpisodeDoesNotSkipIncompleteSecondEpisode() {
+        val first = episode(videos = setOf(1, 2))
+        val second = ProductionPipelinePlanner.Episode(2, listOf(1, 2), false, emptySet())
+        assertEquals(ProductionPipelinePlanner.Decision(ProductionPipelinePlanner.Stage.FLOW, 2),
+            p.next(true, listOf(first, second), finalOutputVerified = true))
+    }
+
+    @Test fun invalidSceneNumberBlocksDoneEvenWithFinalOutputFlag() {
+        val invalid = ProductionPipelinePlanner.Episode(1, listOf(0, 2), true, setOf(2), setOf(2))
+        assertEquals(ProductionPipelinePlanner.Stage.STORY,
+            p.next(true, listOf(invalid), finalOutputVerified = true).stage)
+    }
+
 }
