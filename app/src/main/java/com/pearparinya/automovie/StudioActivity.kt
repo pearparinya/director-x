@@ -2927,8 +2927,13 @@ $context"""
 
     // Fast path: one tap chooses the next safe existing workflow without a status dialog.
     // Persist only the last requested project. Every resume re-checks source artifacts.
-    private fun rememberProductionProject() {
-        prefs.edit().putString("production_resume_project", project.name).apply()
+    private fun rememberProductionProject(episode: Int = 0, scene: Int = 0, stage: String = "story") {
+        prefs.edit()
+            .putString("production_resume_project", project.name)
+            .putInt("production_resume_episode", episode)
+            .putInt("production_resume_scene", scene)
+            .putString("production_resume_stage", stage)
+            .apply()
     }
 
     private fun continueFlowOneTap(story: JSONObject) {
@@ -2951,6 +2956,7 @@ $context"""
                 return
             }
             if (!verifiedFlowFile(number)) {
+                rememberProductionProject(number, 0, "flow")
                 autoFlowAllEpisodes(story, autoContinue = true)
                 return
             }
@@ -2966,8 +2972,21 @@ $context"""
             }
         }
         if (incompleteImages) {
+            for (index in 0 until episodes.length()) {
+                val episode = episodes.getJSONObject(index)
+                val number = episode.optInt("ep", 0)
+                val scenes = episode.optJSONArray("scenes")
+                val pendingScene = (0 until (scenes?.length() ?: 0)).mapNotNull { i ->
+                    scenes?.optJSONObject(i)?.optInt("scene", 0)?.takeIf { it > 0 }
+                }.firstOrNull { !verifiedSceneImage(number, it) }
+                if (pendingScene != null) {
+                    rememberProductionProject(number, pendingScene, "image")
+                    break
+                }
+            }
             imageBatchFivePlan(story)
         } else {
+            rememberProductionProject(stage = "video_pending")
             notice("ตรวจสอบภาพครบทุกฉากแล้ว • ยังไม่มีระบบยืนยันการสร้างวิดีโออัตโนมัติ")
         }
     }
@@ -3003,7 +3022,9 @@ $context"""
         }
 
         val lastProject = prefs.getString("production_resume_project", null)
-        val resumeLabel = if(lastProject == project.name) "▶ ทำงานต่อจากครั้งก่อน • ตรวจไฟล์จริงใหม่"
+        val resumeEpisode = prefs.getInt("production_resume_episode", 0)
+        val resumeScene = prefs.getInt("production_resume_scene", 0)
+        val resumeLabel = if(lastProject == project.name) "▶ ทำงานต่อ • EP.$resumeEpisode SC.$resumeScene • ตรวจไฟล์ใหม่"
             else "▶ ทำงานต่ออัตโนมัติ • เลือกงานที่ยังค้าง"
         val options=listOf(
             resumeLabel,
