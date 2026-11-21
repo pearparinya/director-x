@@ -2986,8 +2986,27 @@ $context"""
             }
             imageBatchFivePlan(story)
         } else {
-            rememberProductionProject(stage = "video_pending")
-            notice("ตรวจสอบภาพครบทุกฉากแล้ว • ยังไม่มีระบบยืนยันการสร้างวิดีโออัตโนมัติ")
+            // No verified video artifacts are available to this workflow yet.
+            // The pipeline planner therefore stops at VIDEO, never claiming DONE.
+            val next = ProductionPipelinePlanner.next(
+                storyValid = true,
+                episodes = (0 until episodes.length()).map { index ->
+                    val ep = episodes.getJSONObject(index)
+                    val number = ep.optInt("ep", 0)
+                    val scenes = ep.optJSONArray("scenes")
+                    val ids = (0 until (scenes?.length() ?: 0)).map { i ->
+                        scenes?.optJSONObject(i)?.optInt("scene", 0) ?: 0
+                    }
+                    ProductionPipelinePlanner.Episode(
+                        number = number,
+                        sceneIds = ids,
+                        flowVerified = verifiedFlowFile(number),
+                        imageIdsVerified = ids.filter { verifiedSceneImage(number, it) }.toSet()
+                    )
+                }
+            )
+            rememberProductionProject(next.episode, next.scene, next.stage.name.lowercase())
+            notice("ภาพครบทุกฉาก • ขั้นตอนถัดไป: ${next.stage} EP.${next.episode} SC.${next.scene}\nยังไม่มีระบบตรวจสอบวิดีโอจริง จึงไม่ทำเครื่องหมายว่าสำเร็จ")
         }
     }
 
