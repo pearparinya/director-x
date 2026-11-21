@@ -110,6 +110,27 @@ internal object ShortFlowPrompt {
         if(turns.any { (name,_) -> name.isNotBlank() && name !in names && speakerLabel(s,name)=="Off-screen speaker" })
             add("พบผู้พูดที่จับคู่กับตัวละครในฉากไม่ได้ • ตรวจสอบชื่อและภาพ MASTER")
     }
+    /**
+     * Conservative, channel-independent Flow delivery adaptation.
+     * Keep original story dialogue untouched. Only remove later complete clauses
+     * from a speaker's line; never change speaker ownership or synthesize words.
+     * When this cannot fit, fail instead of rushing or silently clipping speech.
+     */
+    internal fun fitEightSecondDialogue(turns: List<Pair<String, String>>, duration: Int): List<Pair<String, String>> {
+        if (turns.isEmpty()) return turns
+        fun estimate(lines: List<Pair<String, String>>) =
+            lines.sumOf { it.second.length } / 11.0 + (lines.size - 1).coerceAtLeast(0) * 0.55 + 0.8
+        if (estimate(turns) <= duration) return turns
+        val shortened = turns.map { (speaker, line) ->
+            val clauses = line.trim().split(Regex("(?<=[.!?！？。])\\\\s*|[,，;；]|\\\\s*[—–]\\\\s*"))
+                .map { it.trim() }.filter { it.isNotEmpty() }
+            speaker to (clauses.firstOrNull() ?: line.trim())
+        }
+        require(estimate(shortened) <= duration) {
+            "บทพูดหลายคนยาวเกิน $duration วินาที แม้ย่อเป็นประโยคแรกแล้ว • กรุณาแบ่งฉากหรือแก้บทพูด ไม่อนุญาตให้เร่งเสียงหรือสลับผู้พูด"
+        }
+        return shortened
+    }
     fun voiceOnly(s: FlowSceneSpec): String = when {
         s.turns.isNotEmpty() -> s.turns.joinToString("\n") { "${speakerLabel(s,it.speaker)}: ${speechText(it.text)}" }
         spoken(s.dialogue).isNotEmpty() -> "${speakerLabel(s,s.speaker)}: ${speechText(spoken(s.dialogue))}"
@@ -145,7 +166,8 @@ internal object ShortFlowPrompt {
             spoken(s.narration).isNotEmpty() -> listOf("" to spoken(s.narration))
             else -> emptyList()
         }
-        val allSpokenTurns=if(!silent && spoken(s.narration).isNotEmpty() && spokenTurns.none { it.first.isBlank() }) spokenTurns + listOf("" to spoken(s.narration)) else spokenTurns
+        val rawSpokenTurns=if(!silent && spoken(s.narration).isNotEmpty() && spokenTurns.none { it.first.isBlank() }) spokenTurns + listOf("" to spoken(s.narration)) else spokenTurns
+        val allSpokenTurns=fitEightSecondDialogue(rawSpokenTurns,s.duration)
         val instructions=allSpokenTurns.mapIndexed { order,turn ->
             val label=if(turn.first.isBlank()) "Off-screen narrator" else speakerLabel(s,turn.first)
             val index=labels(s).indexOf(label)
@@ -160,14 +182,14 @@ internal object ShortFlowPrompt {
             val identities=s.cast.mapIndexed { i,p ->
                 "${labels(s)[i]} = ${p.name.trim()}, ${positions[i]}, wearing ${clothes[i]}"
             }.joinToString("; ")
-            val ordered=s.turns.mapIndexed { i,turn ->
+            val ordered=allSpokenTurns.mapIndexed { i,turn ->
                 val who=speakerLabel(s,turn.speaker)
                 val listeners=labels(s).filter { it!=who }.joinToString(", ")
                 "SPEECH TURN ${i+1}: ONLY $who speaks dialogue entry ${i+1} exactly once. " +
                     "$listeners listen silently without lip movement. Do not repeat any earlier line."
             }.joinToString(" ")
             "SPEAKER SEQUENCE IS AUTHORITATIVE. Identity: $identities. " +
-                "FIRST AUDIBLE VOICE MUST BE ${speakerLabel(s,s.turns.first().speaker)}. " +
+                "FIRST AUDIBLE VOICE MUST BE ${speakerLabel(s,allSpokenTurns.first().first)}. " +
                 "Begin with dialogue entry 1, never a later speaker. $ordered " +
                 "Speak each XML dialogue entry once in exact order; no repeated questions, " +
                 "repeated answers, speaker swaps, overlapping voices or improvised dialogue. " +
