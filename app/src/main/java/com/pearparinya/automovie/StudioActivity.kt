@@ -2936,7 +2936,7 @@ $context"""
                 hasPendingImages = true
             }
         }
-        if (hasPendingImages) imageBatchFivePlan(story) else phaseOneWorkflowStatus(story)
+        if (hasPendingImages) imageBatchFivePlan(story) else imageBatchFivePlan(story) // Never loop back into the status dialog; verify recorded images first.
     }
 
     private fun commandCardsMenu() {
@@ -2944,7 +2944,7 @@ $context"""
         if(story.optString("aspect_ratio")!="9:16") { landscapeCopyMenu(); return }
         val eps=story.getJSONArray("episodes")
         val channel=ChannelCatalog.currentChannel(story.optString("channel"))
-        val options=listOf("▶ ทำงานต่อทันที • ระบบเลือกขั้นตอนให้","📊 สถานะและขั้นตอนถัดไป","🖼 คิวภาพ • ครั้งละ 5 ซีน","⚙ สร้างคำสั่ง Flow ที่ยังขาด")+(0 until eps.length()).map { i ->
+        val options=listOf("▶ ทำงานต่ออัตโนมัติ • ตรวจงานค้าง","📊 ตรวจสถานะและขั้นตอนถัดไป","🖼 ตรวจภาพจริง • สถานะบันทึกไม่ใช่ไฟล์","⚙ สร้างคำสั่ง Flow ที่ยังขาด")+(0 until eps.length()).map { i ->
             val ep=eps.getJSONObject(i).getInt("ep")
             val count=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getInt("auto_flow_count_${project.name}_$ep",0) else 0
             val at=if(File(project,"EP%02d_FLOW_AUTO.txt".format(ep)).isFile) prefs.getLong("auto_flow_saved_at_${project.name}_$ep",0L) else 0L
