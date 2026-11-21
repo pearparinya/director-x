@@ -161,7 +161,7 @@ internal object ShortFlowPrompt {
             val offscreen=name.isBlank() || s.offscreen.any { it.trim()==name.trim() }
             "<dialogue${if(offscreen) " off_screen=\"true\"" else ""}><speaker>${xml(label)}</speaker><text>${xml(speechText(text))}</text><language>th-TH</language></dialogue>"
         }
-        val audio=if(silent) "No speech, narration, music or sound effects; visible characters remain silent." else if(lines.isEmpty()) "No dialogue or narration; visible characters remain silent." else "Speak the exact written Thai words in the XML dialogue order, once per assigned speaker. No earlier line replay, extra voices, overlap or subtitles. Keep listeners silent and their lips still. Preserve anatomy and natural delivery; do not invent words to fill time."
+        val audio=if(silent) "No speech, narration, music or sound effects; visible characters remain silent." else if(lines.isEmpty()) "No dialogue or narration; visible characters remain silent." else "Speak the exact written Thai words in the XML dialogue order, once per assigned speaker. No earlier line replay, extra voices, overlap or subtitles. Other visible characters remain silent while the current speaker speaks; their lips remain still. Preserve anatomy and natural delivery; do not invent words to fill time."
         val soundParts=Regex("(?is)^Ambience: (.*?); SFX: (.*?); Music: (.*?)[.]?$").matchEntire(sound)
         val ambient=soundParts?.groupValues?.get(1) ?: sound.ifBlank { "none specified" }
         val sfx=soundParts?.groupValues?.get(2) ?: "none specified"
