@@ -47,4 +47,33 @@ class ProductionPipelinePlannerTest {
         assertEquals(ProductionPipelinePlanner.Decision(ProductionPipelinePlanner.Stage.IMAGE, 1, 1),
             p.next(true, listOf(episode(images = emptySet()))))
     }
+    @Test fun missingVideoInSecondEpisodeResumesExactScene() {
+        val first = episode(videos = setOf(1, 2))
+        val second = ProductionPipelinePlanner.Episode(
+            2, listOf(1, 2), true, setOf(1, 2), setOf(1)
+        )
+        assertEquals(ProductionPipelinePlanner.Decision(ProductionPipelinePlanner.Stage.VIDEO, 2, 2),
+            p.next(true, listOf(first, second)))
+    }
+
+    @Test fun finalOutputFlagCannotBypassMissingVideo() {
+        assertEquals(ProductionPipelinePlanner.Stage.VIDEO,
+            p.next(true, listOf(episode()), finalOutputVerified = true).stage)
+    }
+
+    @Test fun duplicateEpisodeIdsBlockProduction() {
+        assertEquals(ProductionPipelinePlanner.Stage.STORY,
+            p.next(true, listOf(episode(), episode())).stage)
+    }
+
+    @Test fun missingImageCannotBeBypassedByCompletedVideo() {
+        assertEquals(ProductionPipelinePlanner.Decision(ProductionPipelinePlanner.Stage.IMAGE, 1, 2),
+            p.next(true, listOf(episode(images = setOf(1), videos = setOf(1, 2)))))
+    }
+
+    @Test fun completeVideosWithoutFinalOutputNeverMarkDone() {
+        val all = listOf(episode(videos = setOf(1, 2)))
+        assertEquals(ProductionPipelinePlanner.Stage.FINAL_OUTPUT, p.next(true, all).stage)
+    }
+
 }
