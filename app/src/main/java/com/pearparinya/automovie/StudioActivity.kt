@@ -902,8 +902,18 @@ class StudioActivity : AppCompatActivity() {
             } catch (e: Exception) { runOnUiThread { importing = false; dialog.dismiss(); render(); notice("นำเข้าบทและภาพไม่สำเร็จ: ${e.message}") } }
         }.start()
     }
+    private val galleryImagesPicker = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+        if (uris.isNotEmpty()) importImages(uris)
+    }
     private val imagesPicker = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) importImages(uris)
+    }
+    private fun launchSmartImagePicker() {
+        AlertDialog.Builder(this).setTitle("เลือกภาพหลายภาพพร้อมกัน")
+            .setItems(arrayOf("แกลเลอรี • เลือกหลายภาพ", "ไฟล์ในเครื่อง • เลือกหลายไฟล์")) { _, option ->
+                if (option == 0) galleryImagesPicker.launch("image/*")
+                else imagesPicker.launch(arrayOf("image/*"))
+            }.setNegativeButton("ยกเลิก", null).showDirector()
     }
     private val zipPicker = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri != null) { val backup = backupMode; backupMode = false; background { if (backup) contentResolver.openOutputStream(uri)!!.use { StudioArchive.write(project,it,File(filesDir,"short_catalog_ids.json")) } else export(uri) } }
@@ -2841,7 +2851,7 @@ $context"""
                 "\n\nระบบยังไม่สร้างภาพผ่าน AI API")
             .setPositiveButton("นำเข้าภาพฉาก") { _,_ ->
                 if(plan == null) notice("กรุณาเปิดโครงการก่อนนำเข้าภาพ")
-                else imagesPicker.launch(arrayOf("image/*"))
+                else launchSmartImagePicker()
             }
             .setNeutralButton("เปิดคำสั่ง Flow") { _,_ -> commandCardsMenu() }
             .setNegativeButton("ปิด",null).showDirector()
