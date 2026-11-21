@@ -122,7 +122,7 @@ internal object ShortFlowPrompt {
             lines.sumOf { it.second.length } / 11.0 + (lines.size - 1).coerceAtLeast(0) * 0.55 + 0.8
         if (estimate(turns) <= duration) return turns
         val shortened = turns.map { (speaker, line) ->
-            val clauses = line.trim().split(Regex("(?<=[.!?！？。])\\\\s*|[,，;；]|\\\\s*[—–]\\\\s*"))
+            val clauses = line.trim().split(Regex("(?<=[.!?！？。])\\s*|[,，;；]|\\s*[—–]\\s*"))
                 .map { it.trim() }.filter { it.isNotEmpty() }
             speaker to (clauses.firstOrNull() ?: line.trim())
         }
