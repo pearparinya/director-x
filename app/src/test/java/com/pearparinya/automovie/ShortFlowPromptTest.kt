@@ -134,4 +134,21 @@ class ShortFlowPromptTest {
         assertEquals("คำถามเดิม",doc.getElementsByTagName("text").item(0).textContent)
         assertEquals("คำตอบเดิม",doc.getElementsByTagName("text").item(1).textContent)
     }
+    @Test fun megaphoneSpeakerKeepsMouthpieceAtLipsAndAmplifiedVoiceForEightSeconds() {
+        val sample=scene().copy(action="สมชาย uses a megaphone to warn the community",
+            dialogue="ระวังน้ำท่วม!",sound="Ambience: river; SFX: megaphone static; Music: none")
+        val output=ShortFlowPrompt.build(sample,"Slow pan")
+        val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(InputSource(StringReader(output)))
+        val prompt=doc.getElementsByTagName("prompt").item(0).textContent
+        assertTrue(prompt.contains("MEGAPHONE PROP AND MOUTH CONTACT LOCK"))
+        assertTrue(prompt.contains("Keep the mouthpiece aligned with the lips throughout EVERY spoken syllable"))
+        assertTrue(prompt.contains("NEVER lower, set down, turn away, or remove the megaphone"))
+        assertTrue(prompt.contains("electronically amplified through a real handheld megaphone"))
+        assertTrue(doc.getElementsByTagName("mix").item(0).textContent.contains("ENTIRE utterance"))
+        assertEquals("8",doc.getElementsByTagName("duration").item(0).textContent)
+        assertEquals("ระวังน้ำท่วม!",doc.getElementsByTagName("text").item(0).textContent)
+        val ordinary=ShortFlowPrompt.build(scene(),"Slow pan")
+        assertFalse(ordinary.contains("MEGAPHONE PROP AND MOUTH CONTACT LOCK"))
+    }
+
 }
