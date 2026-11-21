@@ -2903,6 +2903,7 @@ $context"""
         }
         var imageTotal=0
         var imageCompleted=0
+        var videoCompleted=0
         var invalidSceneLists=0
         for(index in 0 until total) {
             val ep=eps?.optJSONObject(index) ?: continue
@@ -2917,6 +2918,7 @@ $context"""
             }
             imageTotal+=ids.size
             imageCompleted+=ids.count { verifiedSceneImage(number,it) }
+            videoCompleted+=ids.count { verifiedSceneVideo(number,it) }
         }
         val issues=ProductionCommandCheck.issues(story)
         val next=when {
@@ -2924,20 +2926,22 @@ $context"""
             total==0 -> "สร้างหรือนำเข้าบทที่มีตอน"
             saved<total -> "สร้างชุดคำสั่ง Flow ที่ยังขาด • ระบบข้ามไฟล์เดิม"
             imageCompleted<imageTotal -> "ตรวจคิวภาพ 5 ซีน และดำเนินการกับผู้ให้บริการภาพ"
-            else -> "เปิดคำสั่ง Flow ที่บันทึกไว้เพื่อตรวจและนำไปใช้"
+            videoCompleted<imageTotal -> "ตรวจวิดีโอที่ยังขาดหรือเสียหาย"
+            else -> "ตรวจไฟล์ FINAL OUTPUT ก่อนปิดงาน"
         }
         AlertDialog.Builder(this).setTitle("DIRECTOR X • สถานะงานรวม")
             .setMessage("บท: ${if(total>0) "มี $total ตอน" else "ยังไม่มีตอน"}\n"+
                 "คำสั่ง Flow: $saved/$total ตอน\n"+
                 "ภาพที่ตรวจสอบไฟล์จริง: $imageCompleted/$imageTotal ซีน\n"+
+                "วิดีโอที่ตรวจสอบไฟล์จริง: $videoCompleted/$imageTotal ซีน\\n"+
                 "ตอนที่หมายเลขซีนผิดพลาด: $invalidSceneLists\n"+
                 "ข้อควรแก้ในบท: ${issues.size} รายการ\n\n"+
                 "ขั้นตอนถัดไป: $next\n\n"+
-                "หมายเหตุ: ตรวจสอบไฟล์ภาพที่เปิดอ่านได้จริงแล้ว • ระบบยังไม่สร้างวิดีโอ")
+                "หมายเหตุ: ตรวจสอบไฟล์ภาพและวิดีโอจริง • FINAL OUTPUT ยังไม่ยืนยัน")
             .setPositiveButton("▶ ทำงานต่อทันที") { _,_ ->
                 if(issues.isNotEmpty() || invalidSceneLists>0) productionCheckMenu(story)
                 else if(saved<total) autoFlowAllEpisodes(story, autoContinue = true)
-                else imageBatchFivePlan(story)
+                else continueFlowOneTap(story)
             }
             .setNegativeButton("ปิด",null).showDirector()
     }
