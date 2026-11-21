@@ -3065,7 +3065,8 @@ $context"""
                         sceneIds = ids,
                         flowVerified = verifiedFlowFile(number),
                         imageIdsVerified = ids.filter { verifiedSceneImage(number, it) }.toSet(),
-                        videoIdsVerified = ids.filter { verifiedSceneVideo(number, it) }.toSet()
+                        videoIdsVerified = ids.filter { verifiedSceneVideo(number, it) }.toSet(),
+                        finalOutputVerified = verifiedFinalOutput(number)
                     )
                 }
             )
