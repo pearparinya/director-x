@@ -2915,8 +2915,6 @@ $context"""
             productionCheckMenu(story)
             return
         }
-        val progressStore = ImageSceneProgressStore(this)
-        var hasPendingImages = false
         for (index in 0 until episodes.length()) {
             val episode = episodes.optJSONObject(index) ?: return productionCheckMenu(story)
             val number = episode.optInt("ep", 0)
@@ -2932,11 +2930,9 @@ $context"""
                 autoFlowAllEpisodes(story, autoContinue = true)
                 return
             }
-            if (progressStore.load("${project.name}:EP$number", ids).completedCount < ids.size) {
-                hasPendingImages = true
-            }
         }
-        if (hasPendingImages) imageBatchFivePlan(story) else imageBatchFivePlan(story) // Never loop back into the status dialog; verify recorded images first.
+        // Recorded image completion is not proof of file existence. Always open image verification, never loop into the status dialog.
+        imageBatchFivePlan(story)
     }
 
     private fun commandCardsMenu() {
