@@ -64,4 +64,18 @@ class FlowVoiceXmlUnitTest {
         assertEquals(2,DocumentBuilderFactory.newInstance().newDocumentBuilder()
             .parse(InputSource(StringReader(xml))).getElementsByTagName("dialogue").length)
     }
+    @Test fun firstAudibleVoiceFollowsFirstTurnWithoutShorteningLines() {
+        val cast=listOf(FlowPerson("แม่จันทร์","woman","left","floral blouse"),FlowPerson("ลุงเพิ่ม","man","right","blue shirt"))
+        val first="ลุงเพิ่ม ฉันกังวลว่าน้ำจะท่วมบ้านเราเลย!"
+        val second="อย่ากังวล แม่จันทร์ ฉันจะช่วยย้ายสิ่งของไปที่สูงก่อน นายเปียก็กำลังจัดการอยู่"
+        val scene=FlowSceneSpec(cast,"","","","Woman looks at water","house","standing","standing",8,"9:16",turns=listOf(FlowDialogueTurn("แม่จันทร์",first),FlowDialogueTurn("ลุงเพิ่ม",second)))
+        val xml=FlowVoiceXml.build(scene,"Locked camera.")
+        assertTrue(xml.contains("FIRST AUDIBLE VOICE MUST BE Character 1 (แม่จันทร์)"))
+        assertTrue(xml.contains("The second speaker may start ONLY AFTER"))
+        assertTrue(xml.contains("Keep every dialogue line exactly as written"))
+        assertFalse(xml.contains("revise or split the scene"))
+        val doc=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(InputSource(StringReader(xml)))
+        assertEquals(first,doc.getElementsByTagName("text").item(0).textContent)
+        assertEquals(second,doc.getElementsByTagName("text").item(1).textContent)
+    }
 }
