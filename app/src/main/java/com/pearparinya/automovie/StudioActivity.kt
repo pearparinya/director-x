@@ -2963,10 +2963,11 @@ $context"""
             saved<total -> "สร้างชุดคำสั่ง Flow ที่ยังขาด • ระบบข้ามไฟล์เดิม"
             imageCompleted<imageTotal -> "ตรวจคิวภาพ 5 ซีน และดำเนินการกับผู้ให้บริการภาพ"
             videoCompleted<imageTotal -> "ตรวจวิดีโอที่ยังขาดหรือเสียหาย"
-            else -> "ตรวจไฟล์ FINAL OUTPUT ก่อนปิดงาน"
+            finalCompleted<total -> "ตรวจไฟล์ FINAL OUTPUT ก่อนปิดงาน"
+            else -> "ตรวจสอบครบทุกตอนแล้ว • พร้อมใช้งานไฟล์ FINAL OUTPUT"
         }
         AlertDialog.Builder(this).setTitle("DIRECTOR X • สถานะงานรวม")
-            .setMessage("บท: ${if(total>0) "มี $total ตอน" else "ยังไม่มีตอน"}\n"+
+            .setMessage("โครงการ: ${project.name}\nบท: ${if(total>0) "มี $total ตอน" else "ยังไม่มีตอน"}\n"+
                 "คำสั่ง Flow: $saved/$total ตอน\n"+
                 "ภาพที่ตรวจสอบไฟล์จริง: $imageCompleted/$imageTotal ซีน\n"+
                 "วิดีโอที่ตรวจสอบไฟล์จริง: $videoCompleted/$imageTotal ซีน\n"+
