@@ -4641,7 +4641,7 @@ $context"""
             { extraToolsMenu(current) },{ flowSettings() })
     }
     private fun flowSettings() {
-        choiceMenu("ตั้งค่า DIRECTOR X",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","ตั้งค่า API")) { i -> when(i) {
+        choiceMenu("ตั้งค่า DIRECTOR X",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","ตั้งค่า API","🩺 ศูนย์ตรวจสอบระบบ • API / Kotlin")) { i -> when(i) {
             0 -> updater.check()
             1 -> { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
             2 -> if(plan==null) notice("ยังไม่มีเรื่องให้สำรอง") else { backupMode=true; zipPicker.launch(StoryFiles.zipName(plan!!.optString("title")+"_สำรอง")) }
@@ -4651,7 +4651,31 @@ $context"""
                 .setPositiveButton("เริ่มใหม่") { _,_ -> prefs.edit().putString("project",UUID.randomUUID().toString()).apply(); render() }
                 .setNegativeButton("ยกเลิก",null).showDirector()
             5 -> apiSettingsCenter()
+            6 -> systemDiagnosticsCenter()
         } }
+    }
+    private fun systemDiagnosticsCenter() {
+        // Read-only checks: never make a paid network request or reveal stored API keys.
+        val story=plan
+        val gate=story?.let { imagePromptGate(it) }
+        val eligible=StoryProvider.eligible(this)
+        val configured=eligible.count { provider -> runCatching { provider.hasKey(this) }.getOrDefault(false) }
+        val imageKeys=ImageApiKeySettings(this)
+        val imageSlots=(1..9).count { slot -> runCatching { imageKeys.hasKey(slot) }.getOrDefault(false) }
+        val checks=listOf(
+            "1. Kotlin / Prompt • "+(gate?.reason ?: "ยังไม่มีเรื่องให้ตรวจ"),
+            "2. API เขียนบท • ตั้งค่าคีย์ $configured/${eligible.size} ผู้ให้บริการ (ไม่ได้ทดสอบเครือข่าย)",
+            "3. API สร้างภาพ • มีคีย์ $imageSlots/9 ช่อง (ยังไม่ยืนยันการเชื่อมต่อ)",
+            "4. งาน AI • "+(if(aiPromptRunning) "กำลังทำงาน" else "ไม่มีงาน AI Prompt ค้างในหน้านี้"),
+            "5. สถานะล่าสุด • Kotlin: $aiPromptKotlin | API: $aiPromptApi"
+        )
+        val message=checks.joinToString("\n\n")+
+            "\n\nผลตรวจนี้อ่านจากข้อมูลในเครื่องเท่านั้น ไม่เรียก API ไม่เสียเครดิต และไม่รับรองว่าบริการภายนอกพร้อมใช้งาน"
+        AlertDialog.Builder(this).setTitle("🩺 ศูนย์ตรวจสอบระบบ • API / Kotlin")
+            .setMessage(message)
+            .setPositiveButton("ปิด",null)
+            .setNeutralButton("คัดลอกผล") { _,_ -> copyCommand(message) }
+            .showDirector()
     }
     private fun apiSettingsCenter() {
         choiceMenu("⚙️ ตั้งค่า API", listOf("🎬 API เขียนบท", "🛒 API โหมดนายเปียพาช้อป", "🖼️ API สร้างภาพ AI")) { index ->
