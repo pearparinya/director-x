@@ -40,6 +40,12 @@ internal object SceneLocks {
         return record.optBoolean("approved") &&
             record.optString("sha256") == runCatching { digest(artifact) }.getOrNull()
     }
+    /** Generation entry points must call this before replacing an existing artifact. */
+    fun requireUnlocked(state: JSONObject, sceneId: String, medium: Medium, artifact: File?) {
+        check(!isLocked(state, sceneId, medium, artifact)) {
+            "ซีน $sceneId ถูกอนุมัติและล็อกแล้ว • ปลดล็อกก่อนสร้างทับ"
+        }
+    }
     fun unlock(state: JSONObject, sceneId: String, medium: Medium) {
         state.remove(key(sceneId, medium))
     }
