@@ -4761,11 +4761,39 @@ $context"""
             if(people.isEmpty() || people.map { it.optString("name") }.distinct().size!=people.size) {
                 notice("รายชื่อตัวละครในซีนไม่ครบหรือซ้ำ กรุณาตรวจบทก่อน"); return@choiceMenu
             }
-            AlertDialog.Builder(this).setTitle("ตรวจ ${issue.alias} • ซีน ${issue.scene}")
-                .setMessage("การกระทำในซีน:\n${issue.action}\n\nเลือกเฉพาะเมื่อแน่ใจว่าเป็นคนเดียวกัน")
-                .setPositiveButton("เลือกรายชื่อ") { _,_ ->
-                    chooseStoryCharacterGrid("เลือกตัวละครที่ตรงกับ ${issue.alias}",people) { selected ->
-                        val person=people[selected]
+            val suggestions=CharacterIdentitySuggestions.suggested(issue.alias,people,definitions)
+            val recommended=if(suggestions.size==1)
+                "ชื่อที่อาจตรงกับ MASTER: ${suggestions.single().optString("name")} • ต้องยืนยันก่อน"
+                else if(suggestions.size>1) "มีหลายชื่อที่อาจตรงกัน • กรุณาตรวจ MASTER" else "ยังไม่พบชื่อที่ตรงกัน • กรุณาเลือกจาก MASTER"
+            val panel=LinearLayout(this).apply {
+                orientation=LinearLayout.VERTICAL
+                setPadding(dp(16),dp(8),dp(16),dp(8))
+            }
+            panel.addView(TextView(this).apply {
+                text="ชื่อในบท: ${issue.alias}\n$recommended"
+                textSize=15f; setTextColor(gold); setPadding(0,0,0,dp(8))
+            })
+            panel.addView(TextView(this).apply {
+                text="คำอธิบายฉาก (แตะเพื่ออ่าน)"
+                textSize=13f; setTextColor(ice)
+                setPadding(0,dp(6),0,dp(8))
+                setOnClickListener {
+                    AlertDialog.Builder(this@StudioActivity).setTitle("การกระทำในซีน ${issue.scene}")
+                        .setMessage(issue.action).setPositiveButton("ปิด",null).showDirector()
+                }
+            })
+            panel.addView(TextView(this).apply {
+                text="ตรวจภาพ MASTER และชื่อให้แน่ใจก่อนยืนยัน • ระบบจะจดจำภายในเรื่องนี้"
+                textSize=12f; setTextColor(muted)
+            })
+            AlertDialog.Builder(this).setTitle("🎭 ตรวจตัวละคร • ซีน ${issue.scene}")
+                .setView(panel)
+                .setPositiveButton("เลือกจาก MASTER") { _,_ ->
+                    val ordered=suggestions + people.filterNot { candidate ->
+                        suggestions.any { it.optString("name")==candidate.optString("name") && it.optString("master")==candidate.optString("master") }
+                    }
+                    chooseStoryCharacterGrid("เลือกตัวละครที่ตรงกับ ${issue.alias}",ordered) { selected ->
+                        val person=ordered[selected]
                         val chosen=person.getString("name")
                         val master=person.getString("master")
                         AlertDialog.Builder(this).setTitle("ยืนยันตัวละคร")
