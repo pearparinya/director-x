@@ -109,11 +109,18 @@ class StudioActivity : AppCompatActivity() {
     private val storyUiHandler=android.os.Handler(android.os.Looper.getMainLooper())
     private var geminiStatusView: TextView?=null
     private var geminiProgressView: ProgressBar?=null
+    private var miniStoryBar: RainbowStoryProgress?=null
+    private var miniStoryPercent: TextView?=null
+    private var miniStoryTime: TextView?=null
     private var geminiLiveDialog: TextView?=null
     private val storyPoll=object: Runnable { override fun run() {
         if(!isFinishing) {
             val status=readGeminiStatus()
-            geminiStatusView?.text=geminiStatusText(status)
+            val alive=GeminiStoryService.running && GeminiStoryService.projectId==project.name
+            geminiStatusView?.text="${MiniStoryProgress.provider(status)} • ${MiniStoryProgress.stage(status,alive)}"
+            miniStoryBar?.show(MiniStoryProgress.percent(status),MiniStoryProgress.waiting(status) && alive)
+            miniStoryPercent?.text="${MiniStoryProgress.percent(status)}%"
+            miniStoryTime?.text="⏱ ${MiniStoryProgress.elapsed(status)}  •  แตะเพื่อดูรายละเอียด"
             geminiProgressView?.progress=status?.optInt("percent")?.coerceIn(0,100) ?: 0
             geminiLiveDialog?.text=geminiStatusText(status,true)+if(status?.optString("state")=="running" && GeminiStoryService.running) "\n\nระบบจะทำต่อเองระหว่างรอ • กดหยุดเมื่อต้องการพักงาน" else ""
             if(plan==null && File(project,"story.json").isFile && !importing) render()
@@ -4114,19 +4121,46 @@ $context"""
         root.addView(summary,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(8) })
         if(job) {
             val status=readGeminiStatus()
-            val jobRow=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL }
-            geminiStatusView=TextView(this).apply {
-                text="🤖 งานเขียนบท  •  ${status?.optInt("percent")?.coerceIn(0,100) ?: 0}%  •  แตะเพื่อดูสถานะ"
-                textSize=12f; setTextColor(ice); maxLines=1
-                ellipsize=android.text.TextUtils.TruncateAt.END
-                setPadding(dp(9),dp(8),dp(9),dp(8))
+            val alive=GeminiStoryService.running && GeminiStoryService.projectId==project.name
+            val mini=LinearLayout(this).apply {
+                orientation=LinearLayout.VERTICAL
+                setPadding(dp(11),dp(8),dp(11),dp(8))
+                background=backdrop(Color.rgb(30,33,48),Color.rgb(13,20,37),Color.rgb(87,104,146))
+                isClickable=true; isFocusable=true
+                contentDescription="สถานะเขียนบทภาพยนตร์ แตะเพื่อดูรายละเอียด"
+                setOnClickListener { geminiJobMenu() }
             }
-            jobRow.addView(geminiStatusView,LinearLayout.LayoutParams(-1,-2))
-            jobRow.background=backdrop(Color.rgb(31,35,47),Color.rgb(16,21,32),Color.rgb(80,94,115))
-            jobRow.setOnClickListener { geminiJobMenu() }
-            root.addView(jobRow,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(7) })
+            val top=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL }
+            geminiStatusView=TextView(this).apply {
+                text="${MiniStoryProgress.provider(status)} • ${MiniStoryProgress.stage(status,alive)}"
+                textSize=12f; setTextColor(ice); setTypeface(null,Typeface.BOLD)
+                maxLines=1; ellipsize=android.text.TextUtils.TruncateAt.END
+            }
+            top.addView(geminiStatusView,LinearLayout.LayoutParams(0,-2,1f))
+            miniStoryPercent=TextView(this).apply {
+                text="${MiniStoryProgress.percent(status)}%"
+                textSize=14f; setTextColor(goldLight); setTypeface(null,Typeface.BOLD)
+                gravity=Gravity.END
+            }
+            top.addView(miniStoryPercent,LinearLayout.LayoutParams(dp(50),-2))
+            mini.addView(top)
+            miniStoryBar=RainbowStoryProgress(this).apply {
+                show(MiniStoryProgress.percent(status),MiniStoryProgress.waiting(status) && alive)
+            }
+            mini.addView(miniStoryBar,LinearLayout.LayoutParams(-1,dp(12)).apply { topMargin=dp(5) })
+            miniStoryTime=TextView(this).apply {
+                text="⏱ ${MiniStoryProgress.elapsed(status)}  •  แตะเพื่อดูรายละเอียด"
+                textSize=10f; setTextColor(muted)
+                maxLines=1; ellipsize=android.text.TextUtils.TruncateAt.END
+                setPadding(0,dp(3),0,0)
+            }
+            mini.addView(miniStoryTime)
+            root.addView(mini,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(7) })
             geminiProgressView=null
-        } else { geminiStatusView=null; geminiProgressView=null }
+        } else {
+            geminiStatusView=null; geminiProgressView=null
+            miniStoryBar=null; miniStoryPercent=null; miniStoryTime=null
+        }
         button("🎬 สร้างเรื่องใหม่",true) { flowPlanning() }
         root.addView(TextView(this).apply {
             text="เครื่องมือผู้กำกับ"; textSize=17f; setTextColor(goldLight)
