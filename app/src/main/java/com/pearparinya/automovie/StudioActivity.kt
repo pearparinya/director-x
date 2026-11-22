@@ -425,7 +425,7 @@ class StudioActivity : AppCompatActivity() {
                     }
                 })
             }
-            dialog.showDirector()
+            dialog.show()
         }.onFailure { notice("ตั้งค่า MASTER ไม่สำเร็จ: ${it.message}") }
     }
     private val piaIdentityFile get() = File(filesDir,"pia_identity_master.image")
