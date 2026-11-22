@@ -404,7 +404,8 @@ class StudioActivity : AppCompatActivity() {
             require(bounds.outWidth>0 && bounds.outHeight>0) { "ไฟล์ไม่ใช่ภาพ" }
             val extension=when(bounds.outMimeType) { "image/jpeg" -> "jpg"; "image/webp" -> "webp"; "image/png" -> "png"; else -> error("รองรับภาพ PNG, JPG หรือ WebP") }
             val records=actorCatalog()
-            require((0 until records.length()).none { records.getJSONObject(it).getString("display_name")==person.getString("display_name") }) { "ชื่อนี้มีในคลังแล้ว" }
+            require((0 until records.length()).none { records.getJSONObject(it).getString("id")==person.getString("id") }) { "รหัส MASTER ซ้ำ" }
+            require(person.getString("display_name")=="นายเปีย บ้านคลองขุด" || (0 until records.length()).none { records.getJSONObject(it).getString("display_name")==person.getString("display_name") }) { "ชื่อนี้มีในคลังแล้ว" }
             val fileName=person.getString("id") + "." + extension
             val dir=File(filesDir,"actor_master_v2").apply { mkdirs() }
             val target=File(dir,fileName)
@@ -460,8 +461,9 @@ class StudioActivity : AppCompatActivity() {
             fun profile(): JSONObject? {
                 val n=name.text.toString().trim(); val years=age.text.toString().toIntOrNull(); val appearance=face.text.toString().trim()
                 if(n.isEmpty() || years==null || !CharacterAge.valid(years) || appearance.isEmpty()) { notice("กรอกชื่อ อายุ 0–1,000 ปี และลักษณะใบหน้า/ทรงผม"); return null }
-                if((0 until actorCatalog().length()).any { actorCatalog().getJSONObject(it).optString("display_name")==n }) { notice("ชื่อนี้มีในคลังแล้ว"); return null }
-                val id="CHAR_"+(System.currentTimeMillis()%2000000000L).toString()
+                if(n!="นายเปีย บ้านคลองขุด" && (0 until actorCatalog().length()).any { actorCatalog().getJSONObject(it).optString("display_name")==n }) { notice("ชื่อนี้มีในคลังแล้ว"); return null }
+                val usedIds=(0 until castingCatalog().length()).map { castingCatalog().getJSONObject(it).getString("id") }.toSet() + piaActorId
+                val id=generateSequence(0) { it+1 }.map { offset -> "CHAR_"+((System.currentTimeMillis()+offset)%2000000000L).toString() }.first { it !in usedIds }
                 return JSONObject().put("id",id).put("display_name",n).put("character_age",years).put("character_gender",if(index==0) "man" else "woman").put("casting_description",appearance).put("body_template",index+1)
             }
             dialog.getButton(-1).setOnClickListener {
