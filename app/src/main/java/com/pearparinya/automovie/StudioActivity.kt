@@ -4600,9 +4600,9 @@ $context"""
                         handler.postDelayed(this,800L)
                     }
                 }
-                card.addOnAttachStateChangeListener(object: View.OnAttachStateChangeListener {
-                    override fun onViewAttachedToWindow(v: View) { handler.post(updater) }
-                    override fun onViewDetachedFromWindow(v: View) { handler.removeCallbacks(updater) }
+                card.addOnAttachStateChangeListener(object: android.view.View.OnAttachStateChangeListener {
+                    override fun onViewAttachedToWindow(v: android.view.View) { handler.post(updater) }
+                    override fun onViewDetachedFromWindow(v: android.view.View) { handler.removeCallbacks(updater) }
                 })
             }
             addLiveDiagnosticBar(
