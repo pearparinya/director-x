@@ -3757,6 +3757,27 @@ $context"""
             }
         }
     }
+    private fun openImageEpisodeSafely(story: JSONObject, number: Int) {
+        if(number<=0) { notice("หมายเลข EP ไม่ถูกต้อง"); return }
+        try {
+            productionTaskDeck(story,number,true)
+        } catch(error: Exception) {
+            android.util.Log.e("DirectorXImageMenu","Cannot open image EP.$number",error)
+            val report=runCatching {
+                val output=File(filesDir,"last_image_menu_error.txt")
+                output.writeText("EP.$number\\n"+android.util.Log.getStackTraceString(error),Charsets.UTF_8)
+                output.absolutePath
+            }.getOrDefault("บันทึกรายละเอียดไม่ได้")
+            if(!isFinishing && !isDestroyed) {
+                AlertDialog.Builder(this)
+                    .setTitle("เปิดรายการภาพ EP.$number ไม่สำเร็จ")
+                    .setMessage("แอปยังทำงานอยู่ ข้อมูลบทและ MASTER ไม่ถูกเปลี่ยน\\n"+
+                        "สาเหตุ: "+(error.message ?: error.javaClass.simpleName).take(220)+
+                        "\\nบันทึกข้อผิดพลาด: "+report)
+                    .setPositiveButton("รับทราบ",null).showDirector()
+            }
+        }
+    }
     private fun productionTaskType(story: JSONObject,number: Int) {
         choiceMenu("EP.$number • เปิดหรือแก้เฉพาะรายการ",listOf("รูปและปก ChatGPT / Gemini","วิดีโอ Flow")) { productionTaskDeck(story,number,it==0) }
     }
@@ -4530,7 +4551,7 @@ $context"""
                 val eps=story.optJSONArray("episodes")
                 if(eps==null || eps.length()==0) notice("ยังไม่มีตอนในบท")
                 else choiceMenu("สร้างภาพ • ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}", (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" } + "จัดการอุปกรณ์อ้างอิง") { i ->
-                    if(i<eps.length()) productionTaskDeck(story,eps.getJSONObject(i).optInt("ep"),true)
+                    if(i<eps.length()) openImageEpisodeSafely(story,eps.getJSONObject(i).optInt("ep"))
                     else choiceMenu("จัดการอุปกรณ์",listOf("ผูกอุปกรณ์กับตัวละคร","ให้ AI เสนออุปกรณ์รายซีน")) { mode -> if(mode==0) characterPropMenu(story) else suggestStoryProps(story) }
                 }
             } ?: notice("เปิดเรื่องที่มีบทก่อน") }),
