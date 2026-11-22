@@ -272,7 +272,7 @@ class StudioActivity : AppCompatActivity() {
                 refresh()
                 doneButton.setOnClickListener {
                     toggleImageDone(index)
-                    refresh()
+                    dialog.dismiss()
                 }
                 val card = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
@@ -3766,9 +3766,13 @@ $context"""
         val legacyPreference="production_cursor_${project.name}_${number}_$images"
         val groupDigest=java.security.MessageDigest.getInstance("SHA-256").digest(tasks.map { it.id }.sorted().joinToString("|").toByteArray(Charsets.UTF_8)).take(8).joinToString("") { "%02x".format(it) }
         val preference="${legacyPreference}_$groupDigest"
-        val previous=prefs.getString(preference,null) ?: prefs.getString(legacyPreference,"")
-        val start=tasks.indexOfFirst { it.id==previous }.coerceAtLeast(0)
-        val options=listOf("ทำต่อจากล่าสุดที่เปิด • ${tasks[start].id}")+tasks.map { task ->
+        // The next action follows saved completion, not the last opened scene.
+        val doneKey = "${if(images) "image" else "flow"}_done_${project.name}_$number"
+        fun doneIds(): Set<String> = prefs.getStringSet(doneKey,emptySet()).orEmpty().toSet()
+        val start = tasks.indexOfFirst { it.id !in doneIds() }
+        val options=listOf(
+            if(start < 0) "✅ ทำครบทุกซีนแล้ว" else "▶ ทำต่อซีนที่ยังไม่เสร็จ • ${tasks[start].id}"
+        )+tasks.map { task ->
             val scene=rows(story).firstOrNull { key(it)==task.id }
             val status=if(scene==null || !images) "" else when {
                 sceneFrameApproved(scene) -> " • ตรวจผ่าน"
@@ -3778,9 +3782,6 @@ $context"""
             }
             "${task.id} • ${task.title}$status"+(scene?.let { "\n"+SceneOverview.short(it) } ?: "")
         }
-        // Image and Flow checklists are intentionally independent.
-        val doneKey = "${if(images) "image" else "flow"}_done_${project.name}_$number"
-        fun doneIds(): Set<String> = prefs.getStringSet(doneKey,emptySet()).orEmpty().toSet()
         val completedCount = tasks.count { it.id in doneIds() }
         choiceMenu(
             "EP.$number • เลือก${if(images) "รูป" else "คำสั่ง Flow"} ในชุด" +
@@ -3793,8 +3794,10 @@ $context"""
                 if(!updated.add(id)) updated.remove(id)
                 val saved = prefs.edit().putStringSet(doneKey,updated).commit()
                 if(!saved) notice("บันทึกสถานะไม่สำเร็จ กรุณาลองใหม่")
+                productionTaskDeck(story,number,images,queueIds)
             }
         ) { selected ->
+            if(selected==0 && start<0) { notice("ทำครบทุกซีนแล้ว"); return@choiceMenu }
             val index=if(selected==0) start else selected-1; val task=tasks[index]
             prefs.edit().putString(preference,task.id).putString(legacyPreference,task.id).apply()
             val next=tasks.getOrNull(index+1)?.id ?: "จบชุดนี้ • เลือกชุดถัดไป"
