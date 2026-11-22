@@ -203,18 +203,25 @@ class StudioActivity : AppCompatActivity() {
         val dialog = AlertDialog.Builder(this).setView(panel).setCancelable(cancelable).create()
         choices.forEachIndexed { index, value ->
             val flowTools=title=="เครื่องมือเพิ่มเติม • Flow"
-            val palette=if(flowTools) when(index) {
-                0 -> intArrayOf(Color.rgb(18,111,177),Color.rgb(10,68,125),Color.rgb(100,216,255))
-                else -> intArrayOf(Color.rgb(152,89,23),Color.rgb(100,55,16),Color.rgb(255,196,91))
-            } else when(MenuChoiceStyle.role(value)) {
-                MenuChoiceStyle.AI -> intArrayOf(Color.rgb(93,51,155),Color.rgb(45,27,92),Color.rgb(202,148,255))
-                MenuChoiceStyle.EDIT -> intArrayOf(Color.rgb(163,95,28),Color.rgb(90,53,19),Color.rgb(255,203,96))
-                else -> intArrayOf(Color.rgb(16,102,155),Color.rgb(10,48,96),Color.rgb(91,204,245))
+            // A consistent cinematic palette across every shared submenu. Alternate
+            // colors by position so category and scene menus are not all blue.
+            val menuColors = arrayOf(
+                intArrayOf(Color.rgb(8,112,164),Color.rgb(5,59,112),Color.rgb(66,206,246)),  // cyan
+                intArrayOf(Color.rgb(156,89,22),Color.rgb(92,49,14),Color.rgb(255,198,77)), // gold
+                intArrayOf(Color.rgb(104,55,164),Color.rgb(54,29,105),Color.rgb(201,151,255)), // violet
+                intArrayOf(Color.rgb(159,48,101),Color.rgb(92,27,70),Color.rgb(255,136,193)), // rose
+                intArrayOf(Color.rgb(11,118,105),Color.rgb(6,65,77),Color.rgb(75,224,199)), // teal
+                intArrayOf(Color.rgb(163,69,46),Color.rgb(94,35,39),Color.rgb(255,154,106)) // coral
+            )
+            val palette=when(MenuChoiceStyle.role(value)) {
+                MenuChoiceStyle.AI -> menuColors[2]
+                MenuChoiceStyle.EDIT -> menuColors[1]
+                else -> menuColors[index % menuColors.size]
             }
             val row=LinearLayout(this).apply {
                 orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL
                 minimumHeight=dp(if(flowTools) 76 else 72); setPadding(dp(12),dp(10),dp(12),dp(10))
-                background=backdrop(palette[0],palette[1],palette[2]).apply { if(flowTools) setStroke(dp(2),palette[2]) }
+                background=backdrop(palette[0],palette[1],palette[2]).apply { setStroke(dp(2),palette[2]) }
                 layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) }
                 isClickable=true; isFocusable=true
                 contentDescription="ตัวเลือก ${index+1}: $value"
