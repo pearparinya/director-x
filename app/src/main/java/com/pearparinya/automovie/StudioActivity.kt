@@ -120,7 +120,9 @@ class StudioActivity : AppCompatActivity() {
             geminiStatusView?.text="${MiniStoryProgress.provider(status)} • ${MiniStoryProgress.stage(status,alive)}"
             miniStoryBar?.show(MiniStoryProgress.percent(status),MiniStoryProgress.waiting(status) && alive)
             miniStoryPercent?.text="${MiniStoryProgress.percent(status)}%"
-            miniStoryTime?.text="⏱ ${MiniStoryProgress.elapsed(status)}  •  แตะเพื่อดูรายละเอียด"
+            miniStoryTime?.text=if(MiniStoryRecovery.needsAttention(status,alive))
+                "⚠ ${MiniStoryRecovery.reason(status)} • แตะเพื่อแก้ไข" else
+                "⏱ ${MiniStoryProgress.elapsed(status)}  •  แตะเพื่อดูรายละเอียด"
             geminiProgressView?.progress=status?.optInt("percent")?.coerceIn(0,100) ?: 0
             geminiLiveDialog?.text=geminiStatusText(status,true)+if(status?.optString("state")=="running" && GeminiStoryService.running) "\n\nระบบจะทำต่อเองระหว่างรอ • กดหยุดเมื่อต้องการพักงาน" else ""
             if(plan==null && File(project,"story.json").isFile && !importing) render()
@@ -4149,7 +4151,9 @@ $context"""
             }
             mini.addView(miniStoryBar,LinearLayout.LayoutParams(-1,dp(12)).apply { topMargin=dp(5) })
             miniStoryTime=TextView(this).apply {
-                text="⏱ ${MiniStoryProgress.elapsed(status)}  •  แตะเพื่อดูรายละเอียด"
+                text=if(MiniStoryRecovery.needsAttention(status,alive))
+                    "⚠ ${MiniStoryRecovery.reason(status)} • แตะเพื่อแก้ไข" else
+                    "⏱ ${MiniStoryProgress.elapsed(status)}  •  แตะเพื่อดูรายละเอียด"
                 textSize=10f; setTextColor(muted)
                 maxLines=1; ellipsize=android.text.TextUtils.TruncateAt.END
                 setPadding(0,dp(3),0,0)
@@ -4813,6 +4817,52 @@ $context"""
                 }.onFailure { notice("เตรียมซีนใหม่ไม่ได้: "+(it.message ?: "กรุณาตรวจงานเดิม")) }
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
+    /** Shared recovery presentation for the home mini card and paused-job dialog. */
+    private fun showCharacterRecovery(status: JSONObject?) {
+        val outer=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setPadding(dp(16),dp(10),dp(16),dp(12))
+        }
+        outer.addView(TextView(this).apply {
+            text="${MiniStoryProgress.provider(status)} • บันทึกแล้ว ${MiniStoryProgress.percent(status)}%"
+            textSize=15f; setTypeface(null,Typeface.BOLD); setTextColor(gold)
+            setPadding(0,0,0,dp(7))
+        })
+        outer.addView(RainbowStoryProgress(this).apply {
+            show(MiniStoryProgress.percent(status),false)
+        },LinearLayout.LayoutParams(-1,dp(12)).apply { bottomMargin=dp(12) })
+        outer.addView(TextView(this).apply {
+            text="⚠ ${MiniStoryRecovery.reason(status)}\\n${MiniStoryRecovery.explanation(status)}"
+            textSize=13f; setTextColor(ice)
+            setPadding(0,0,0,dp(12))
+        })
+        fun recoveryButton(title: String,primary: Boolean=false,action: ()->Unit) {
+            outer.addView(TextView(this).apply {
+                text=title
+                textSize=15f; setTypeface(null,Typeface.BOLD)
+                gravity=Gravity.CENTER_VERTICAL
+                setTextColor(if(primary) Color.rgb(28,25,23) else ice)
+                background=if(primary) backdrop(Color.rgb(255,198,76),Color.rgb(231,150,21))
+                    else backdrop(Color.rgb(17,79,123),Color.rgb(15,41,76),Color.rgb(58,172,221))
+                setPadding(dp(15),dp(15),dp(12),dp(15))
+                isClickable=true; isFocusable=true
+                setOnClickListener { action() }
+            },LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(9) })
+        }
+        val dialog=AlertDialog.Builder(this).setTitle("🎬 DIRECTOR X • จัดการงานค้าง")
+            .setView(outer).setNegativeButton("กลับหน้าหลัก",null).create()
+        recoveryButton("① ▶ เขียนเฉพาะซีนที่ค้างใหม่\\nเก็บซีนที่ผ่านการตรวจสอบแล้ว",true) {
+            dialog.dismiss(); regeneratePendingScene()
+        }
+        recoveryButton("② จับคู่ชื่อตัวละครด้วยตนเอง") {
+            dialog.dismiss(); resolvePendingCharacterName()
+        }
+        recoveryButton("③ ⚙ ตั้งค่า API") {
+            dialog.dismiss(); geminiSettings()
+        }
+        dialog.showDirector()
+    }
+
     private fun geminiJobMenu() {
         val state=readGeminiStatus()?.optString("state")
         if(state=="complete" && plan!=null) { if(plan!!.optString("content_profile")==AutoDirectorContent.profile) autoDirectorMenu() else episodesMenu(); return }
@@ -4825,18 +4875,9 @@ $context"""
                 .setNegativeButton("ปิด",null).showDirector()
             dialog.setOnDismissListener { if(geminiLiveDialog===live) geminiLiveDialog=null }
         } else {
-            if(readGeminiStatus()?.optString("message")?.contains("พบชื่อภาษาอังกฤษ")==true) {
-                choiceMenu("งานค้างเพราะชื่อตัวละคร • เลือกวิธีทำต่อ",listOf(
-                    "เขียนซีนที่ค้างใหม่ • เก็บซีนที่ผ่านแล้ว",
-                    "จับคู่ชื่อตัวละครด้วยตัวเอง",
-                    "ตั้งค่า API"
-                )) { selected ->
-                    when(selected) {
-                        0 -> regeneratePendingScene()
-                        1 -> resolvePendingCharacterName()
-                        else -> geminiSettings()
-                    }
-                }
+            val status=readGeminiStatus()
+            if(MiniStoryRecovery.characterNameIssue(status)) {
+                showCharacterRecovery(status)
                 return
             }
             AlertDialog.Builder(this).setTitle("เขียนบทต่อจากที่บันทึก")
