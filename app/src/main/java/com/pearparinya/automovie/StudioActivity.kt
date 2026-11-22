@@ -3806,8 +3806,9 @@ $context"""
             "\n\nAI CAMERA CLARITY (original MASTER, cast, wardrobe, props, action and location always override):\n"+addition
     }
 
-    private fun refineImagePromptsAll(story: JSONObject) {
-        val eps=story.optJSONArray("episodes") ?: return notice("ไม่มี EP ให้ปรับปรุง")
+
+    private fun allImagePromptEntries(story: JSONObject): List<Pair<Int,SimpleProductionCommands.Task>> {
+        val eps=story.optJSONArray("episodes") ?: return emptyList()
         val entries=mutableListOf<Pair<Int,SimpleProductionCommands.Task>>()
         for(i in 0 until eps.length()) {
             val ep=eps.optJSONObject(i)?.optInt("ep") ?: continue
@@ -3815,13 +3816,31 @@ $context"""
                 val key="cover_cast_${project.name}_$scope"
                 if(prefs.contains(key)) scope to prefs.getStringSet(key,emptySet()).orEmpty().toSet() else null
             }.toMap()
-            val tasks=runCatching { SimpleProductionCommands.imageTasks(story,ep,coverSelection) }.getOrElse {
-                aiPromptKotlin="ข้อมูล EP.$ep ไม่พร้อม: "+(it.message ?: "ตรวจบท")
-                notice(aiPromptKotlin); return
-            }
-            tasks.forEach { task ->
+            SimpleProductionCommands.imageTasks(story,ep,coverSelection).forEach { task ->
                 if(entries.none { it.second.id==task.id }) entries.add(ep to task)
             }
+        }
+        return entries
+    }
+
+    private fun verifiedImagePromptCount(entries: List<Pair<Int,SimpleProductionCommands.Task>>): Int =
+        entries.count { (ep,task) ->
+            val file=File(project,"ai_prompt_EP%02d_%s.json".format(ep,task.id))
+            val record=runCatching { JSONObject(file.readText(Charsets.UTF_8)) }.getOrNull()
+            record?.optString("source_sha256")==promptHash(task.command) &&
+                (record?.optString("enhancement")?.length ?: 0) in 25..700
+        }
+
+    private fun imageAiUnlocked(story: JSONObject): Boolean = runCatching {
+        if(aiPromptRunning) return@runCatching false
+        val entries=allImagePromptEntries(story)
+        entries.isNotEmpty() && verifiedImagePromptCount(entries)==entries.size
+    }.getOrDefault(false)
+
+    private fun refineImagePromptsAll(story: JSONObject) {
+        val entries=runCatching { allImagePromptEntries(story) }.getOrElse {
+            aiPromptKotlin="ตรวจข้อมูลไม่สำเร็จ: "+(it.message ?: "unknown")
+            notice(aiPromptKotlin); return
         }
         if(entries.isEmpty()) return notice("ไม่มี Prompt ภาพให้ปรับปรุง")
         if(aiPromptRunning) { notice("AI กำลังทำงานอยู่แล้ว"); return }
@@ -3833,7 +3852,7 @@ $context"""
         }
         val projectId=project.name
         val snapshot=story.toString()
-        aiPromptRunning=true; aiPromptDone=0; aiPromptTotal=entries.size
+        aiPromptRunning=true; aiPromptDone=verifiedImagePromptCount(entries); aiPromptTotal=entries.size
         aiPromptStart=System.currentTimeMillis()
         aiPromptKotlin="ตรวจข้อมูล MASTER"; aiPromptApi="เตรียมเชื่อมต่อ"
         Thread {
@@ -3842,6 +3861,10 @@ $context"""
                 .put("required",org.json.JSONArray().put("enhancement"))
             var failures=0
             for((ep,task) in entries) {
+                val previous=File(project,"ai_prompt_EP%02d_%s.json".format(ep,task.id))
+                val existing=runCatching { JSONObject(previous.readText(Charsets.UTF_8)) }.getOrNull()
+                if(existing?.optString("source_sha256")==promptHash(task.command) &&
+                    (existing?.optString("enhancement")?.length ?: 0) in 25..700) continue
                 if(project.name!=projectId || plan!==story || story.toString()!=snapshot) {
                     aiPromptKotlin="หยุด: ข้อมูลเรื่องเปลี่ยน"; break
                 }
@@ -3879,10 +3902,13 @@ $context"""
                     }.isSuccess
                     if(!saved) failures++
                 }
-                aiPromptDone++
+                aiPromptDone=verifiedImagePromptCount(entries)
             }
-            aiPromptApi=if(failures==0 && aiPromptDone==entries.size) "สำเร็จ" else "ล้มเหลว "+failures+" รายการ"
-            aiPromptKotlin=if(aiPromptDone==entries.size) "ตรวจครบ "+entries.size+" รายการ" else "หยุดก่อนครบ"
+            val verified=runCatching { verifiedImagePromptCount(entries) }.getOrDefault(0)
+            val complete=failures==0 && verified==entries.size &&
+                project.name==projectId && plan===story && story.toString()==snapshot
+            aiPromptApi=if(complete) "สำเร็จ • ตรวจผ่าน" else "ยังไม่ครบ • ผ่าน $verified/"+entries.size
+            aiPromptKotlin=if(complete) "ปลดล็อกแล้ว" else "ยังล็อก • ลองใหม่ได้"
             aiPromptRunning=false
         }.start()
     }
@@ -4551,16 +4577,23 @@ $context"""
             Triple(R.drawable.menu_cover,"สร้างภาพ" to "ภาพปก • ภาพฉาก",{ current?.let { story ->
                 val eps=story.optJSONArray("episodes")
                 if(eps==null || eps.length()==0) notice("ยังไม่มีตอนในบท")
-                else choiceMenu("สร้างภาพ • ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}",
-                    listOf("🔄 AI ปรับปรุง Prompt ภาพทั้งเรื่อง • ปกและทุก EP")+
-                        (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" }+
-                        "จัดการอุปกรณ์อ้างอิง",
-                    inlineImageProgress=({ aiPromptDone to aiPromptTotal })
-                ) { i ->
-                    when {
-                        i==0 -> refineImagePromptsAll(story)
-                        i<=eps.length() -> openImageEpisodeSafely(story,eps.getJSONObject(i-1).optInt("ep"))
-                        else -> choiceMenu("จัดการอุปกรณ์",listOf("ผูกอุปกรณ์กับตัวละคร","ให้ AI เสนออุปกรณ์รายซีน")) { mode -> if(mode==0) characterPropMenu(story) else suggestStoryProps(story) }
+                else {
+                    val ready=imageAiUnlocked(story)
+                    val entries=runCatching { allImagePromptEntries(story) }.getOrDefault(emptyList())
+                    aiPromptTotal=entries.size
+                    aiPromptDone=verifiedImagePromptCount(entries)
+                    choiceMenu("สร้างภาพ • ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}",
+                        listOf("🔄 AI ปรับปรุง Prompt ภาพทั้งเรื่อง • ปกและทุก EP")+
+                            (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); (if(ready) "🔓 " else "🔒 ")+"EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" }+
+                            (if(ready) "🔓 จัดการอุปกรณ์อ้างอิง" else "🔒 จัดการอุปกรณ์อ้างอิง"),
+                        inlineImageProgress=({ aiPromptDone to aiPromptTotal })
+                    ) { i ->
+                        when {
+                            i==0 -> refineImagePromptsAll(story)
+                            !imageAiUnlocked(story) -> notice("🔒 รอ AI และ Kotlin ตรวจ Prompt ให้ครบ 100% ก่อน")
+                            i<=eps.length() -> openImageEpisodeSafely(story,eps.getJSONObject(i-1).optInt("ep"))
+                            else -> choiceMenu("จัดการอุปกรณ์",listOf("ผูกอุปกรณ์กับตัวละคร","ให้ AI เสนออุปกรณ์รายซีน")) { mode -> if(mode==0) characterPropMenu(story) else suggestStoryProps(story) }
+                        }
                     }
                 }
             } ?: notice("เปิดเรื่องที่มีบทก่อน") }),
