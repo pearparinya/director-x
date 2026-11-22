@@ -3756,29 +3756,19 @@ $context"""
             val episode=story.optJSONArray("episodes")?.let { eps -> (0 until eps.length()).mapNotNull { eps.optJSONObject(it) }.firstOrNull { it.optInt("ep")==number } }
             val episodeTitle=episode?.optString("title")?.takeIf { it.isNotBlank() } ?: "ยังไม่ได้ตั้งชื่อตอน"
             val storyTitle=story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }
-            val menuOptions=if(images) listOf("🔄 AI เจนใหม่ทั้ง EP • เตรียมคำสั่งภาพทุกซีน") + options else options
+            val menuOptions=if(images) listOf("🔄 AI ปรับปรุง Prompt ภาพทั้ง EP • ปกและทุกซีน") + options else options
             choiceMenu("เรื่อง: $storyTitle\nEP.$number • $episodeTitle\nเลือกชุด${if(images) "ภาพ" else "คำสั่ง Flow"}",menuOptions) { selected ->
                 if(images && selected==0) {
-                    val sceneTasks=allTasks.filter { !it.id.contains("_COVER_") }
                     val wardrobeIssues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(story))
                     if(wardrobeIssues.isNotEmpty()) {
-                        AlertDialog.Builder(this).setTitle("ตรวจความต่อเนื่องก่อนเจนใหม่")
+                        AlertDialog.Builder(this).setTitle("ตรวจความต่อเนื่องก่อนปรับปรุง Prompt")
                             .setMessage("พบปัญหาชุด/รองเท้า ${wardrobeIssues.size} รายการ\n"+wardrobeIssues.take(10).joinToString("\n"))
                             .setPositiveButton("รับทราบ",null).showDirector()
                     } else {
-                        val batch=buildString {
-                            appendLine("DIRECTOR X • EP.$number • AI BATCH IMAGE REGENERATION")
-                            appendLine("Generate every scene as a separate 9:16 image. Keep each character's own face MASTER and exact day-specific Top, Bottom, Shoes, Accessories, belt and footwear construction. Never invent wardrobe changes. Preserve story and scene framing. Do not use MASTER clothing as wardrobe authority.")
-                            appendLine("This is a batch prompt export, not an automatic image-generation API call. Generate and review the resulting images using the selected external AI image tool.")
-                            appendLine("Do not overwrite previously approved images. Review new results before marking scenes complete.")
-                            sceneTasks.forEachIndexed { i,task ->
-                                appendLine("\n========== ${task.id} ==========")
-                                appendLine(SimpleProductionCommands.block(task,i,true))
-                            }
-                        }
-                        val file=File(project,"EP%02d_IMAGES_REGENERATE.txt".format(number))
-                        runCatching { file.writeText(batch,Charsets.UTF_8) }.onFailure { notice("บันทึกคำสั่งทั้ง EP ไม่สำเร็จ: ${it.message}"); return@choiceMenu }
-                        showFlowCode("AI เจนใหม่ทั้ง EP • ${sceneTasks.size} ซีน",batch,file.name)
+                        // Reuse the existing per-image deck, completion checkboxes and
+                        // one-scene/one-prompt copy action. Include story/EP covers.
+                        // Do not concatenate prompts or reset saved completion.
+                        productionTaskDeck(story,number,true,allTasks.map { it.id }.toSet())
                     }
                 } else {
                     val groupIndex=if(images) selected-1 else selected
