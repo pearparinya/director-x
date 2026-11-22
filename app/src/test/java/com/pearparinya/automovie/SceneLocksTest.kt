@@ -34,6 +34,36 @@ class SceneLocksTest {
             assertFalse(SceneLocks.isLocked(restored, "EP01_SC001", SceneLocks.Medium.IMAGE, image))
         } finally { workspace.deleteRecursively() }
     }
+    @Test fun approvedSceneCannotBeOverwrittenAfterFileChangesOrDisappears() {
+        val workspace = Files.createTempDirectory("scene-lock-guard").toFile()
+        try {
+            val artifact = java.io.File(workspace, "frame.png").apply { writeText("original") }
+            val state = JSONObject()
+            SceneLocks.approve(state, "EP01_SC001", SceneLocks.Medium.IMAGE, artifact)
+            artifact.writeText("changed externally")
+            assertTrue(SceneLocks.isApproved(state, "EP01_SC001", SceneLocks.Medium.IMAGE))
+            assertThrows(IllegalStateException::class.java) {
+                SceneLocks.requireUnlocked(state, "EP01_SC001", SceneLocks.Medium.IMAGE, artifact)
+            }
+            artifact.delete()
+            assertThrows(IllegalStateException::class.java) {
+                SceneLocks.requireUnlocked(state, "EP01_SC001", SceneLocks.Medium.IMAGE, artifact)
+            }
+            SceneLocks.unlock(state, "EP01_SC001", SceneLocks.Medium.IMAGE)
+            SceneLocks.requireUnlocked(state, "EP01_SC001", SceneLocks.Medium.IMAGE, artifact)
+        } finally { workspace.deleteRecursively() }
+    }
+
+    @Test fun corruptedLockFileMustNotResetApprovals() {
+        val workspace = Files.createTempDirectory("scene-lock-corrupt").toFile()
+        try {
+            java.io.File(workspace, "scene_locks.json").writeText("{invalid json")
+            assertThrows(org.json.JSONException::class.java) {
+                SceneLocks.load(workspace)
+            }
+        } finally { workspace.deleteRecursively() }
+    }
+
     @Test fun invalidSceneAndMissingFileCannotBeApproved() {
         val workspace = Files.createTempDirectory("scene-locks").toFile()
         try {
