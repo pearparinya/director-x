@@ -3882,7 +3882,7 @@ $context"""
                 aiPromptDone++
             }
             aiPromptApi=if(failures==0 && aiPromptDone==entries.size) "สำเร็จ" else "ล้มเหลว "+failures+" รายการ"
-            aiPromptKotlin=if(aiPromptDone==tasks.size) "ตรวจครบ "+entries.size+" รายการ" else "หยุดก่อนครบ"
+            aiPromptKotlin=if(aiPromptDone==entries.size) "ตรวจครบ "+entries.size+" รายการ" else "หยุดก่อนครบ"
             aiPromptRunning=false
         }.start()
     }
