@@ -1,0 +1,47 @@
+name: DIRECTOR X Auto Merge Verified PR
+
+on:
+  workflow_run:
+    workflows:
+      - DIRECTOR X Automatic Signed Candidate
+      - Studio validation
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+concurrency:
+  group: director-x-auto-merge
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge only when both verification workflows pass for exact PR head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          prs="$(gh api "repos/$REPO/commits/$SHA/pulls" --jq '.[] | select(.state=="open" and .base.ref=="main" and .head.sha==env.SHA) | .number')"
+          test -n "$prs" || { echo "No matching open PR"; exit 0; }
+          runs="$(gh api "repos/$REPO/actions/runs?head_sha=$SHA&per_page=100" --jq '.workflow_runs | map({name, status, conclusion, event, head_sha})')"
+          for workflow in "DIRECTOR X Automatic Signed Candidate" "Studio validation"; do
+            echo "$runs" | jq -e --arg name "$workflow" --arg sha "$SHA" 'any(.[]; .name==$name and .head_sha==$sha and .event=="pull_request" and .status=="completed" and .conclusion=="success")' | grep -qx true || {
+              echo "Waiting for successful $workflow on exact commit $SHA"; exit 0;
+            }
+            echo "$runs" | jq -e --arg name "$workflow" --arg sha "$SHA" 'any(.[]; .name==$name and .head_sha==$sha and .event=="pull_request" and (.conclusion=="failure" or .conclusion=="cancelled" or .conclusion=="timed_out"))' | grep -qx false || {
+              echo "Failure found in $workflow"; exit 0;
+            }
+          done
+          for pr in $prs; do
+            branch="$(gh pr view "$pr" --repo "$REPO" --json headRefName --jq '.headRefName')"
+            case "$branch" in feature/*|fix/*) ;; *) echo "Not an approved feature/fix branch"; continue ;; esac
+            gh pr merge "$pr" --repo "$REPO" --merge --match-head-commit "$SHA"
+          done
