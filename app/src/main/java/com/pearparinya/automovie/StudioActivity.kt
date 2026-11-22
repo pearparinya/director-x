@@ -308,7 +308,7 @@ class StudioActivity : AppCompatActivity() {
                 fun refreshProgress() {
                     val elapsed=if(aiPromptStart==0L) 0 else ((System.currentTimeMillis()-aiPromptStart)/1000).coerceAtLeast(0)
                     val pct=if(aiPromptTotal==0) 0 else aiPromptDone*100/aiPromptTotal
-                    aiStatus.text="AI Prompt $aiPromptDone/$aiPromptTotal • $pct% • %02d:%02d".format(elapsed/60,elapsed%60)+
+                    aiStatus.text="AI Prompt $aiPromptDone/$aiPromptTotal • $pct% • "+("%02d:%02d".format(elapsed/60,elapsed%60))+
                         "\nKotlin: $aiPromptKotlin • API: $aiPromptApi"
                     val (done,total)=inlineImageProgress()
                     val count=total.coerceAtLeast(0)
