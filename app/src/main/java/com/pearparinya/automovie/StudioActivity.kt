@@ -358,7 +358,7 @@ class StudioActivity : AppCompatActivity() {
             }
             val dialog=AlertDialog.Builder(this).setTitle("🎭 ตั้งค่า MASTER ประจำช่อง • นายเปีย")
                 .setView(ScrollView(this).apply { addView(grid) })
-                .setNegativeButton("ยกเลิก",null).create()
+                .setNegativeButton("ยกเลิก",null).showDirector()
             var row: LinearLayout?=null
             choices.forEachIndexed { index, (key,file) ->
                 if(index%2==0) {
@@ -425,7 +425,6 @@ class StudioActivity : AppCompatActivity() {
                     }
                 })
             }
-            dialog.show()
         }.onFailure { notice("ตั้งค่า MASTER ไม่สำเร็จ: ${it.message}") }
     }
     private val piaIdentityFile get() = File(filesDir,"pia_identity_master.image")
