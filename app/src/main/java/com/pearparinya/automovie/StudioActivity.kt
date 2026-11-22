@@ -325,10 +325,7 @@ class StudioActivity : AppCompatActivity() {
             if(!target.isFile) assets.open("pia_outfits/01.png").use { input -> target.outputStream().use { input.copyTo(it) } }
         }
         val black=presenterOutfitFile(piaActorId,13).also { target ->
-            if(!target.isFile) {
-                target.parentFile?.mkdirs()
-                assets.open("pia_outfits/13.webp").use { input -> target.outputStream().use { input.copyTo(it) } }
-            }
+            // H003 is the existing user-managed outfit image; never fabricate or overwrite it.
         }
         val result=mutableListOf("original" to original,"black" to black)
         val records=actorCatalog()
@@ -345,7 +342,48 @@ class StudioActivity : AppCompatActivity() {
     private fun piaSelectedMaster(): File {
         val choices=piaMasterChoices()
         val wanted=piaStoryMasterOverride ?: prefs.getString(piaChannelMasterKey,"original").orEmpty()
-        return choices.firstOrNull { it.first==wanted }?.second ?: choices.first().second
+        return choices.firstOrNull { it.first==wanted && it.second.isFile }?.second
+            ?: error("MASTER ที่ล็อกไว้ไม่พร้อมใช้งาน กรุณาเปิดตั้งค่า MASTER ประจำช่องและเลือกใหม่")
+    }
+    private fun piaMasterSettings(onStoryOnly: (() -> Unit)? = null) {
+        runCatching {
+            installPiaDefaults()
+            val choices=piaMasterChoices()
+            val existing=choices.filter { it.second.isFile }
+            val status=prefs.getString(piaChannelMasterKey,"original").orEmpty()
+            val items=choices.mapIndexed { index,entry ->
+                val label=when(entry.first) {
+                    "original" -> "MASTER ประจำช่องเดิม"
+                    "black" -> "H003 • นายเปียชุดดำ 3 มุมมอง"
+                    else -> (shortCatalogLabel(entry.first) ?: "MASTER ใหม่")+" • นายเปียชุดสูท"
+                }
+                (if(entry.first==status) "✓ กำลังใช้งาน • " else "")+label to entry.second.takeIf { it.isFile }
+            }
+            if(existing.size!=3) notice("พบ MASTER ที่พร้อมใช้ ${existing.size}/3 ตัว • กรุณาตรวจสอบไฟล์ MASTER ที่ขาด")
+            chooseNamedCharacterGrid("🎭 ตั้งค่า MASTER ประจำช่อง • นายเปีย",items) { index ->
+                val (key,file)=choices[index]
+                if(!file.isFile) { notice("ไม่พบไฟล์ MASTER ที่เลือก กรุณาตรวจคลัง"); return@chooseNamedCharacterGrid }
+                if(onStoryOnly==null) {
+                    if(prefs.edit().putString(piaChannelMasterKey,key).commit()) {
+                        piaStoryMasterOverride=null
+                        notice("บันทึก MASTER ประจำช่องแล้ว")
+                    } else notice("บันทึก MASTER ไม่สำเร็จ")
+                } else {
+                    AlertDialog.Builder(this)
+                        .setTitle("เลือก MASTER ช่องนายเปีย")
+                        .setMessage("เลือกการใช้งานสำหรับ MASTER นี้")
+                        .setPositiveButton("🔒 ตั้งเป็นค่าเริ่มต้น") { _,_ ->
+                            if(prefs.edit().putString(piaChannelMasterKey,key).commit()) {
+                                piaStoryMasterOverride=null; onStoryOnly()
+                            } else notice("บันทึก MASTER ไม่สำเร็จ")
+                        }
+                        .setNeutralButton("เฉพาะเรื่องนี้") { _,_ ->
+                            piaStoryMasterOverride=key; onStoryOnly()
+                        }
+                        .setNegativeButton("ยกเลิก",null).showDirector()
+                }
+            }
+        }.onFailure { notice("ตั้งค่า MASTER ไม่สำเร็จ: ${it.message}") }
     }
     private val piaIdentityFile get() = File(filesDir,"pia_identity_master.image")
     private val piaIdentityPicker=registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -5120,17 +5158,19 @@ $context"""
                 socialDramaGroups.flatMap { it.second },
                 listOf("เครื่องมือช่าง", "เครื่องมือสวนและเกษตร", "ของใช้ในบ้าน", "เครื่องใช้ไฟฟ้าในครัว", "อุปกรณ์ไอทีและมือถือ", "ของใช้ส่วนตัว", "ของใช้ในรถ", "เปรียบเทียบและเลือกซื้อสินค้า")
             )
-            choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",labels) { selected ->
-                val index=ChannelCatalog.allCategories.indexOfFirst { it.id==ids[selected] }
+            choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",listOf("🎭 ตั้งค่า MASTER ประจำช่อง\nเลือกตัวเอกของช่องได้ทันที")+labels) { selected ->
+                if(selected==0) { piaMasterSettings(); return@choiceMenu }
+                val categorySelection=selected-1
+                val index=ChannelCatalog.allCategories.indexOfFirst { it.id==ids[categorySelection] }
                 require(index>=0) { "ไม่พบหมวดที่เลือก" }
                 val acceptTopic: (String) -> Unit = { topic ->
                     selectedStoryTopic=topic
                     done(index)
                 }
-                if(ids[selected]=="personal_social_drama") {
+                if(ids[categorySelection]=="personal_social_drama") {
                     chooseSocialDramaTopic(channel,ChannelCatalog.allCategories[index].name,acceptTopic)
                 } else {
-                    chooseTopicWithRandom(channel,ChannelCatalog.allCategories[index].name,subcategories[selected],acceptTopic)
+                    chooseTopicWithRandom(channel,ChannelCatalog.allCategories[index].name,subcategories[categorySelection],acceptTopic)
                 }
             }
             return
@@ -5219,60 +5259,23 @@ $context"""
             var presenters=runCatching { if(chosenChannel=="นายเปีย บ้านคลองขุด") { installPiaDefaults(); JSONArray().put(piaCatalog().getJSONObject(0)) } else castingCatalog() }.getOrDefault(JSONArray())
             if(chosenChannel=="นายเปีย บ้านคลองขุด") {
                 val masterStatus=TextView(this).apply { setTextColor(Color.WHITE); setPadding(dp(12),dp(8),dp(12),dp(8)) }
-                fun refreshPiaStatus() {
+                fun refreshMaster() {
+                    presenters=JSONArray().put(piaCatalog().getJSONObject(0))
                     val key=piaStoryMasterOverride ?: prefs.getString(piaChannelMasterKey,"original").orEmpty()
-                    masterStatus.text="🔒 MASTER ช่องนายเปีย: "+when(key) {
+                    masterStatus.text="🔒 MASTER ที่ใช้งาน: "+when(key) {
                         "original" -> "MASTER ประจำช่องเดิม"
-                        "black" -> "H003 • ชุดดำ 3 มุมมอง"
-                        else -> "MASTER ใหม่ • ชุดสูท 6 มุมมอง"
-                    }+(if(piaStoryMasterOverride!=null) " • เฉพาะเรื่องนี้" else " • ค่าเริ่มต้น")
+                        "black" -> "H003 • นายเปียชุดดำ"
+                        else -> (shortCatalogLabel(key) ?: "MASTER ใหม่")+" • นายเปียชุดสูท"
+                    }
                 }
-                refreshPiaStatus()
+                refreshMaster()
                 panel.addView(masterStatus)
                 panel.addView(Button(this).apply {
-                    text="🎭 เลือก / ล็อก MASTER ช่องนายเปีย"
+                    text="เปลี่ยน MASTER เฉพาะเรื่องนี้"
                     colorAction(this,Color.rgb(29,85,132))
-                    setOnClickListener {
-                        val choices=piaMasterChoices()
-                        val labels=choices.mapIndexed { index,item ->
-                            when(index) {
-                                0 -> "MASTER ประจำช่องเดิม"
-                                1 -> "H003 • นายเปีย ชุดดำ 3 มุมมอง"
-                                else -> "MASTER ใหม่ • นายเปีย ชุดสูท 6 มุมมอง"
-                            } to item.second
-                        }
-                        chooseNamedCharacterGrid("MASTER ช่องนายเปีย • เลือกเฉพาะ 3 ตัว",labels) { selected ->
-                            val key=choices[selected].first
-                            AlertDialog.Builder(this@StudioActivity)
-                                .setTitle("ใช้ MASTER ที่เลือก")
-                                .setMessage("ล็อกเป็นค่าเริ่มต้นของช่องนายเปีย หรือใช้เฉพาะเรื่องนี้? ช่องอื่นไม่เปลี่ยน")
-                                .setPositiveButton("🔒 ล็อกเป็นค่าเริ่มต้น") { _,_ ->
-                                    prefs.edit().putString(piaChannelMasterKey,key).apply()
-                                    piaStoryMasterOverride=null
-                                    presenters=JSONArray().put(piaCatalog().getJSONObject(0))
-                                    refreshPiaStatus()
-                                }
-                                .setNeutralButton("ใช้เฉพาะเรื่องนี้") { _,_ ->
-                                    piaStoryMasterOverride=key
-                                    presenters=JSONArray().put(piaCatalog().getJSONObject(0))
-                                    refreshPiaStatus()
-                                }
-                                .setNegativeButton("ยกเลิก",null).showDirector()
-                        }
-                    }
-                })
-                panel.addView(Button(this).apply {
-                    text="🔓 ปลดล็อก • กลับไปใช้ MASTER ประจำช่องเดิม"
-                    colorAction(this,Color.rgb(63,82,105))
-                    setOnClickListener {
-                        prefs.edit().remove(piaChannelMasterKey).apply()
-                        piaStoryMasterOverride=null
-                        presenters=JSONArray().put(piaCatalog().getJSONObject(0))
-                        refreshPiaStatus()
-                    }
+                    setOnClickListener { piaMasterSettings { runCatching { refreshMaster() }.onFailure { notice(it.message ?: "MASTER ไม่พร้อมใช้งาน") } } }
                 })
             }
-
             val presenter=Spinner(this).apply {
                 val labels=listOf(if(chosenChannel=="นายเปีย บ้านคลองขุด") "เลือก MASTER ผู้ดำเนินเรื่อง" else "ให้ AI เลือกตัวละครหลัก")+(0 until presenters.length()).map { presenters.getJSONObject(it).optString("display_name").ifBlank { presenters.getJSONObject(it).optString("id") } }
                 adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,labels)
