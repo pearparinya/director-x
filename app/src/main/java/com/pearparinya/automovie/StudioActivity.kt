@@ -179,7 +179,9 @@ class StudioActivity : AppCompatActivity() {
         intArrayOf(Color.rgb(255,185,209),Color.rgb(245,139,175)))
     private fun menuIcon(index: Int) = listOf("🎭", "🎨", "📚", "🎬", "💡")[index % 5]
     private fun choiceMenu(title: String, choices: List<String>, cancel: String = "✖️ ยกเลิก",
-        cancelable: Boolean = true, onCancel: (() -> Unit)? = null, action: (Int) -> Unit) {
+        cancelable: Boolean = true, onCancel: (() -> Unit)? = null,
+        imageDone: ((Int) -> Boolean)? = null, toggleImageDone: ((Int) -> Unit)? = null,
+        action: (Int) -> Unit) {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(dp(16),dp(18),dp(16),dp(12))
             background = backdrop(Color.rgb(7,31,59),navy,Color.rgb(71,169,224))
@@ -251,7 +253,36 @@ class StudioActivity : AppCompatActivity() {
                 gravity=Gravity.CENTER_VERTICAL
                 importantForAccessibility=android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
             },LinearLayout.LayoutParams(0,-2,1f))
-            list.addView(row)
+            if (imageDone != null && toggleImageDone != null && index > 0) {
+                val doneButton = TextView(this).apply {
+                    textSize = 14f
+                    setTextColor(Color.WHITE)
+                    setTypeface(null, Typeface.BOLD)
+                    gravity = Gravity.CENTER
+                    minHeight = dp(44)
+                    setPadding(dp(10),dp(7),dp(10),dp(7))
+                }
+                fun refresh() {
+                    val done = imageDone(index)
+                    doneButton.text = if (done) "✅ สร้างรูปเสร็จแล้ว • แตะเพื่อยกเลิก" else "💾 บันทึกว่าเสร็จแล้ว"
+                    doneButton.background = if (done)
+                        backdrop(Color.rgb(12,110,89),Color.rgb(7,70,67),Color.rgb(75,224,199))
+                    else backdrop(Color.rgb(22,90,151),Color.rgb(11,52,102),Color.rgb(66,206,246))
+                }
+                refresh()
+                doneButton.setOnClickListener {
+                    toggleImageDone(index)
+                    refresh()
+                }
+                val card = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(-1,-2)
+                }
+                (row.layoutParams as LinearLayout.LayoutParams).bottomMargin = dp(2)
+                card.addView(row)
+                card.addView(doneButton, LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(12) })
+                list.addView(card)
+            } else list.addView(row)
         }
         if (choices.isEmpty()) list.addView(TextView(this).apply {
             text = "📭 ยังไม่มีรายการ"; textSize = 16f; setTextColor(ice); setPadding(0,dp(12),0,dp(12))
@@ -3747,7 +3778,22 @@ $context"""
             }
             "${task.id} • ${task.title}$status"+(scene?.let { "\n"+SceneOverview.short(it) } ?: "")
         }
-        choiceMenu("EP.$number • เลือก${if(images) "รูป" else "คำสั่ง Flow"} ในชุด",options) { selected ->
+        val imageDoneKey = "image_done_${project.name}_$number"
+        fun imageDoneIds(): Set<String> = prefs.getStringSet(imageDoneKey,emptySet()).orEmpty().toSet()
+        val completedCount = tasks.count { it.id in imageDoneIds() }
+        choiceMenu(
+            "EP.$number • เลือก${if(images) "รูป" else "คำสั่ง Flow"} ในชุด" +
+                if(images) " • ทำแล้ว $completedCount/${tasks.size}" else "",
+            options,
+            imageDone = if(images) ({ index -> tasks[index-1].id in imageDoneIds() }) else null,
+            toggleImageDone = if(images) ({ index ->
+                val id = tasks[index-1].id
+                val updated = imageDoneIds().toMutableSet()
+                if(!updated.add(id)) updated.remove(id)
+                val saved = prefs.edit().putStringSet(imageDoneKey,updated).commit()
+                if(!saved) notice("บันทึกสถานะไม่สำเร็จ กรุณาลองใหม่")
+            }) else null
+        ) { selected ->
             val index=if(selected==0) start else selected-1; val task=tasks[index]
             prefs.edit().putString(preference,task.id).putString(legacyPreference,task.id).apply()
             val next=tasks.getOrNull(index+1)?.id ?: "จบชุดนี้ • เลือกชุดถัดไป"
