@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   candidate:
-    if: github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'feature/director-x-')
+    if: github.event.pull_request.head.repo.full_name == github.repository && (startsWith(github.head_ref, 'feature/') || startsWith(github.head_ref, 'fix/'))
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
