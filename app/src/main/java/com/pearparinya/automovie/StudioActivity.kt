@@ -5216,6 +5216,7 @@ $context"""
                     text=if(show) "⚙ ซ่อนตัวเลือกเพิ่มเติม" else "⚙ ตัวเลือกเพิ่มเติม • แตะเพื่อเปิด"
                 }
             })
+            var presenters=runCatching { if(chosenChannel=="นายเปีย บ้านคลองขุด") { installPiaDefaults(); JSONArray().put(piaCatalog().getJSONObject(0)) } else castingCatalog() }.getOrDefault(JSONArray())
             if(chosenChannel=="นายเปีย บ้านคลองขุด") {
                 val masterStatus=TextView(this).apply { setTextColor(Color.WHITE); setPadding(dp(12),dp(8),dp(12),dp(8)) }
                 fun refreshPiaStatus() {
@@ -5248,10 +5249,12 @@ $context"""
                                 .setPositiveButton("🔒 ล็อกเป็นค่าเริ่มต้น") { _,_ ->
                                     prefs.edit().putString(piaChannelMasterKey,key).apply()
                                     piaStoryMasterOverride=null
+                                    presenters=JSONArray().put(piaCatalog().getJSONObject(0))
                                     refreshPiaStatus()
                                 }
                                 .setNeutralButton("ใช้เฉพาะเรื่องนี้") { _,_ ->
                                     piaStoryMasterOverride=key
+                                    presenters=JSONArray().put(piaCatalog().getJSONObject(0))
                                     refreshPiaStatus()
                                 }
                                 .setNegativeButton("ยกเลิก",null).showDirector()
@@ -5264,11 +5267,12 @@ $context"""
                     setOnClickListener {
                         prefs.edit().remove(piaChannelMasterKey).apply()
                         piaStoryMasterOverride=null
+                        presenters=JSONArray().put(piaCatalog().getJSONObject(0))
                         refreshPiaStatus()
                     }
                 })
             }
-            val presenters=runCatching { if(chosenChannel=="นายเปีย บ้านคลองขุด") { installPiaDefaults(); JSONArray().put(piaCatalog().getJSONObject(0)) } else castingCatalog() }.getOrDefault(JSONArray())
+
             val presenter=Spinner(this).apply {
                 val labels=listOf(if(chosenChannel=="นายเปีย บ้านคลองขุด") "เลือก MASTER ผู้ดำเนินเรื่อง" else "ให้ AI เลือกตัวละครหลัก")+(0 until presenters.length()).map { presenters.getJSONObject(it).optString("display_name").ifBlank { presenters.getJSONObject(it).optString("id") } }
                 adapter=ArrayAdapter(this@StudioActivity,android.R.layout.simple_spinner_dropdown_item,labels)
