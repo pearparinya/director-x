@@ -4047,7 +4047,7 @@ $context"""
                 if(notes.isEmpty()) original else original.copy(action=original.action+". Prop continuity: "+notes.joinToString("; ")+". Preserve the actual first frame; do not create missing objects.")
             }
             val flowCamera=when(sceneForFlow?.optString("camera_movement")) { "track" -> "Gentle tracking movement."; "locked" -> "Locked camera."; "push_in" -> "Slow push-in."; else -> "Slow gentle pan." }
-            val preview=if(images) task.copy(command=refinedImageCommand(number,task))
+            val preview=if(images) task.copy(command=if(prefs.getBoolean("image_api_assist_${project.name}",true)) refinedImageCommand(number,task) else task.command)
                 else if(flowSpec!=null && FlowScenePrompt.issues(flowSpec).isEmpty()) task.copy(command=runCatching { ShortFlowPrompt.build(flowSpec,flowCamera) }.getOrElse { "Flow prompt needs review: non-English scene direction." }) else task
             val wardrobeNotice=if(images) task.references.mapNotNull { person ->
                 val outfit=person.optString("outfit")
@@ -4572,7 +4572,7 @@ $context"""
             geminiStatusView=null; geminiProgressView=null
             miniStoryBar=null; miniStoryPercent=null; miniStoryTime=null
         }
-        if(current!=null) {
+        if(current!=null && aiPromptRunning) {
             // Both bars are grounded in actual saved prompt records or completed API attempts.
             // The API bar deliberately never borrows Kotlin's verified percentage.
             fun addLiveDiagnosticBar(title: () -> String, progress: () -> Pair<Int,Int>, detail: () -> String) {
@@ -4669,16 +4669,40 @@ $context"""
                     if(ready && !aiPromptRunning) {
                         aiPromptKotlin="ปลดล็อกแล้ว • ตรวจข้อมูลที่บันทึกไว้ครบ"
                     }
-                    choiceMenu("สร้างภาพ • ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}",
-                        (if(ready) emptyList() else listOf("🔄 AI ปรับปรุง Prompt ภาพทั้งเรื่อง • ปกและทุก EP"))+
-                            (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" }+
-                            "จัดการอุปกรณ์อ้างอิง",
+                    val status=if(aiPromptRunning) "กำลังประมวลผล • API: $aiPromptApi • Kotlin: $aiPromptKotlin • ${gate.verified}/${gate.total}"
+                        else if(ready) "✓ Prompt ผ่านครบ ${gate.verified}/${gate.total} • พร้อมสร้างภาพ"
+                        else "Prompt ผ่าน ${gate.verified}/${gate.total} • เลือก API ช่วยตรวจหรือใช้ Kotlin เดิม"
+                    choiceMenu("สร้างภาพ • ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\\n$status",
+                        (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" }+
+                            listOf("✨ API ช่วยปรับปรุง Prompt • ${if(aiPromptRunning) "กำลังทำงาน" else if(ready) "ผ่านแล้ว ไม่เรียกซ้ำ" else "เริ่มตรวจ"}",
+                                "จัดการอุปกรณ์อ้างอิง"),
                     ) { i ->
-                        val offset=if(ready) 0 else 1
                         when {
-                            !ready && i==0 -> refineImagePromptsAll(story)
-                            !imageAiUnlocked(story) -> notice("ยังไม่พร้อม: "+imagePromptGate(story).reason)
-                            i-offset in 0 until eps.length() -> openImageEpisodeSafely(story,eps.getJSONObject(i-offset).optInt("ep"))
+                            i in 0 until eps.length() -> {
+                                val number=eps.getJSONObject(i).optInt("ep")
+                                choiceMenu("EP.$number • เลือกวิธีเตรียมคำสั่งภาพ",
+                                    listOf("✨ ใช้คำสั่ง Kotlin + Prompt ที่ API ตรวจแล้ว",
+                                        "⚙️ ใช้คำสั่ง Kotlin เดิมโดยตรง")) { mode ->
+                                    if(mode==0 && !imageAiUnlocked(story)) {
+                                        AlertDialog.Builder(this)
+                                            .setTitle("Prompt ยังตรวจไม่ครบ")
+                                            .setMessage("API ยังตรวจผ่านเพียง ${imagePromptGate(story).reason}\\nต้องการเริ่ม API ช่วยตรวจ Prompt ก่อนหรือไม่? ไม่มีการเรียก API จนกว่าจะยืนยัน")
+                                            .setPositiveButton("เริ่ม API") { _,_ -> refineImagePromptsAll(story) }
+                                            .setNegativeButton("ใช้ Kotlin เดิม") { _,_ ->
+                                                prefs.edit().putBoolean("image_api_assist_${project.name}",false).apply()
+                                                openImageEpisodeSafely(story,number)
+                                            }.showDirector()
+                                    } else {
+                                        prefs.edit().putBoolean("image_api_assist_${project.name}",mode==0).apply()
+                                        openImageEpisodeSafely(story,number)
+                                    }
+                                }
+                            }
+                            i==eps.length() -> {
+                                if(aiPromptRunning) notice("API กำลังทำงาน • $aiPromptApi")
+                                else if(ready) notice("Prompt ผ่านครบแล้ว • ไม่เรียก API ซ้ำ")
+                                else refineImagePromptsAll(story)
+                            }
                             else -> choiceMenu("จัดการอุปกรณ์",listOf("ผูกอุปกรณ์กับตัวละคร","ให้ AI เสนออุปกรณ์รายซีน")) { mode -> if(mode==0) characterPropMenu(story) else suggestStoryProps(story) }
                         }
                     }
