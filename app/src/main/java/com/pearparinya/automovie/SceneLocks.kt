@@ -3,6 +3,8 @@ package com.pearparinya.automovie
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 /**
  * Per-scene, per-medium approval state. A saved image never implicitly approves Flow.
@@ -54,9 +56,11 @@ internal object SceneLocks {
         val target = File(workspace, "scene_locks.json")
         val temp = File(workspace, "scene_locks.json.tmp")
         temp.writeText(state.toString(), Charsets.UTF_8)
-        if (!temp.renameTo(target)) {
-            temp.copyTo(target, overwrite = true)
-            temp.delete()
+        try {
+            Files.move(temp.toPath(), target.toPath(),
+                StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+        } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+            Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
     }
 }
