@@ -42,10 +42,14 @@ internal object SceneLocks {
     }
     /** Generation entry points must call this before replacing an existing artifact. */
     fun requireUnlocked(state: JSONObject, sceneId: String, medium: Medium, artifact: File?) {
-        check(!isLocked(state, sceneId, medium, artifact)) {
+        check(!isApproved(state, sceneId, medium)) {
             "ซีน $sceneId ถูกอนุมัติและล็อกแล้ว • ปลดล็อกก่อนสร้างทับ"
         }
     }
+    /** An approval blocks replacement even when the original file is missing or changed. */
+    fun isApproved(state: JSONObject, sceneId: String, medium: Medium): Boolean =
+        state.optJSONObject(key(sceneId, medium))?.optBoolean("approved") == true
+
     fun unlock(state: JSONObject, sceneId: String, medium: Medium) {
         state.remove(key(sceneId, medium))
     }
@@ -53,9 +57,12 @@ internal object SceneLocks {
         if (isLocked(state, sceneId, medium, artifact)) "🔒 อนุมัติแล้ว" else "⏳ รอตรวจสอบ"
 
     /** Persist separately from story.json so pending story regeneration cannot erase approvals. */
-    fun load(workspace: File): JSONObject = runCatching {
-        JSONObject(File(workspace, "scene_locks.json").readText(Charsets.UTF_8))
-    }.getOrDefault(JSONObject())
+    fun load(workspace: File): JSONObject {
+        val file = File(workspace, "scene_locks.json")
+        if (!file.exists()) return JSONObject()
+        // Never silently erase approvals on a corrupt or unreadable lock file.
+        return JSONObject(file.readText(Charsets.UTF_8))
+    }
 
     fun save(workspace: File, state: JSONObject) {
         require(workspace.isDirectory) { "ไม่พบพื้นที่งาน" }
