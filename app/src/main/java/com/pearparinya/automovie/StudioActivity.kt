@@ -4832,7 +4832,7 @@ $context"""
             show(MiniStoryProgress.percent(status),false)
         },LinearLayout.LayoutParams(-1,dp(12)).apply { bottomMargin=dp(12) })
         outer.addView(TextView(this).apply {
-            text="⚠ ${MiniStoryRecovery.reason(status)}\\n${MiniStoryRecovery.explanation(status)}"
+            text="⚠ ${MiniStoryRecovery.reason(status)}\n${MiniStoryRecovery.explanation(status)}"
             textSize=13f; setTextColor(ice)
             setPadding(0,0,0,dp(12))
         })
@@ -4851,7 +4851,7 @@ $context"""
         }
         val dialog=AlertDialog.Builder(this).setTitle("🎬 DIRECTOR X • จัดการงานค้าง")
             .setView(outer).setNegativeButton("กลับหน้าหลัก",null).create()
-        recoveryButton("① ▶ เขียนเฉพาะซีนที่ค้างใหม่\\nเก็บซีนที่ผ่านการตรวจสอบแล้ว",true) {
+        recoveryButton("① ▶ เขียนเฉพาะซีนที่ค้างใหม่\nเก็บซีนที่ผ่านการตรวจสอบแล้ว",true) {
             dialog.dismiss(); regeneratePendingScene()
         }
         recoveryButton("② จับคู่ชื่อตัวละครด้วยตนเอง") {
