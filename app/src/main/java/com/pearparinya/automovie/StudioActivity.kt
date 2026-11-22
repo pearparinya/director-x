@@ -3828,7 +3828,7 @@ $context"""
             val file=File(project,"ai_prompt_EP%02d_%s.json".format(ep,task.id))
             val record=runCatching { JSONObject(file.readText(Charsets.UTF_8)) }.getOrNull()
             record?.optString("source_sha256")==promptHash(task.command) &&
-                record.optString("enhancement").length in 25..700
+                (record?.optString("enhancement")?.length ?: 0) in 25..700
         }
 
     private fun imageAiUnlocked(story: JSONObject): Boolean = runCatching {
@@ -3864,7 +3864,7 @@ $context"""
                 val previous=File(project,"ai_prompt_EP%02d_%s.json".format(ep,task.id))
                 val existing=runCatching { JSONObject(previous.readText(Charsets.UTF_8)) }.getOrNull()
                 if(existing?.optString("source_sha256")==promptHash(task.command) &&
-                    existing.optString("enhancement").length in 25..700) continue
+                    (existing?.optString("enhancement")?.length ?: 0) in 25..700) continue
                 if(project.name!=projectId || plan!==story || story.toString()!=snapshot) {
                     aiPromptKotlin="หยุด: ข้อมูลเรื่องเปลี่ยน"; break
                 }
