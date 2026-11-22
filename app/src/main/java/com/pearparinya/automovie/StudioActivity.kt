@@ -6416,19 +6416,72 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         dialog.show()
     }
     private fun chooseStoryCharacterGrid(title: String, people: List<JSONObject>, onSelect: (Int) -> Unit) {
-        val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-        val dialog=AlertDialog.Builder(this).setTitle(title).setView(ScrollView(this).apply { addView(grid) }).setNegativeButton("ยกเลิก",null).create()
+        val grid=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setPadding(dp(14),dp(12),dp(14),dp(12))
+            setBackgroundColor(Color.rgb(8,24,45))
+        }
+        grid.addView(TextView(this).apply {
+            text="🎭 $title"
+            textSize=19f; setTypeface(null,Typeface.BOLD); setTextColor(gold)
+            setPadding(dp(4),dp(5),dp(4),dp(10))
+        })
+        grid.addView(TextView(this).apply {
+            text="ตรวจสอบภาพ MASTER และชื่อให้ตรงกับบทก่อนเลือก • ระบบจะไม่เดาตัวละครแทนคุณ"
+            textSize=13f; setTextColor(ice); setPadding(dp(4),0,dp(4),dp(14))
+        })
+        val dialog=AlertDialog.Builder(this).setView(ScrollView(this).apply { addView(grid) })
+            .setNegativeButton("กลับ",null).create()
         var row: LinearLayout?=null
         people.forEachIndexed { index, person ->
-            if(index%2==0) { row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; grid.addView(row) }
+            if(index%2==0) {
+                row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
+                grid.addView(row)
+            }
             val file=runCatching { masterFor(person) }.getOrNull()
-            val label=person.optString("name")+"\n"+person.optString("master")+(if(file?.isFile==true) "" else "\nไม่พบ MASTER")
-            val card=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(4),dp(6),dp(4),dp(6)); layoutParams=LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f) }
+            val valid=file?.isFile==true
+            val name=person.optString("name")
+            val label="$name\\n"+person.optString("master")
+            val card=LinearLayout(this).apply {
+                orientation=LinearLayout.VERTICAL
+                setPadding(dp(8),dp(9),dp(8),dp(9))
+                background=backdrop(Color.rgb(14,63,103),Color.rgb(8,37,73),Color.rgb(58,172,221))
+                layoutParams=LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f).apply {
+                    setMargins(dp(3),dp(4),dp(3),dp(7))
+                }
+            }
             row?.addView(card)
-            if(file?.isFile==true) card.addView(ImageView(this).apply { setImageBitmap(castingThumbnail(file)); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(140)); contentDescription=label })
-            card.addView(Button(this).apply { text=label; setOnClickListener { dialog.dismiss(); onSelect(index) } })
+            if(valid) card.addView(ImageView(this).apply {
+                setImageBitmap(castingThumbnail(file!!))
+                adjustViewBounds=true
+                scaleType=ImageView.ScaleType.FIT_CENTER
+                layoutParams=LinearLayout.LayoutParams(-1,dp(165))
+                contentDescription="MASTER ของ $name"
+            })
+            card.addView(TextView(this).apply {
+                text=name
+                textSize=15f; setTypeface(null,Typeface.BOLD); setTextColor(gold)
+                gravity=Gravity.CENTER
+                setPadding(dp(3),dp(8),dp(3),dp(3))
+            })
+            card.addView(TextView(this).apply {
+                text=if(valid) person.optString("master") else "⚠ ไม่พบ MASTER • เลือกไม่ได้"
+                textSize=11f; setTextColor(ice); gravity=Gravity.CENTER
+                setPadding(dp(2),0,dp(2),dp(9))
+            })
+            card.addView(TextView(this).apply {
+                text=if(valid) "✓ เลือกตัวละครนี้" else "ต้องเพิ่ม MASTER ก่อน"
+                textSize=13f; setTypeface(null,Typeface.BOLD); gravity=Gravity.CENTER
+                setTextColor(if(valid) Color.rgb(23,29,42) else muted)
+                background=if(valid) backdrop(Color.rgb(255,204,83),Color.rgb(235,147,25))
+                    else backdrop(Color.rgb(56,67,82),Color.rgb(44,53,68))
+                setPadding(dp(5),dp(11),dp(5),dp(11))
+                isEnabled=valid
+                isClickable=valid
+                if(valid) setOnClickListener { dialog.dismiss(); onSelect(index) }
+            })
         }
-        dialog.show()
+        dialog.showDirector()
     }
     private fun repairSceneCharacter(s: JSONObject) {
         if (!image(s).isFile) return notice("นำเข้าภาพฉากก่อนแก้ตัวละคร")
