@@ -181,6 +181,7 @@ class StudioActivity : AppCompatActivity() {
     private fun choiceMenu(title: String, choices: List<String>, cancel: String = "✖️ ยกเลิก",
         cancelable: Boolean = true, onCancel: (() -> Unit)? = null,
         imageDone: ((Int) -> Boolean)? = null, toggleImageDone: ((Int) -> Unit)? = null,
+        doneLabel: String = "สร้างรูป",
         action: (Int) -> Unit) {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(dp(16),dp(18),dp(16),dp(12))
@@ -264,7 +265,7 @@ class StudioActivity : AppCompatActivity() {
                 }
                 fun refresh() {
                     val done = imageDone(index)
-                    doneButton.text = if (done) "✅ สร้างรูปเสร็จแล้ว • แตะเพื่อยกเลิก" else "💾 บันทึกว่าเสร็จแล้ว"
+                    doneButton.text = if (done) "✅ ${doneLabel}เสร็จแล้ว • แตะเพื่อยกเลิก" else "💾 บันทึกว่าเสร็จแล้ว"
                     doneButton.background = if (done)
                         backdrop(Color.rgb(12,110,89),Color.rgb(7,70,67),Color.rgb(75,224,199))
                     else backdrop(Color.rgb(22,90,151),Color.rgb(11,52,102),Color.rgb(66,206,246))
@@ -3788,6 +3789,7 @@ $context"""
                 " • ทำแล้ว $completedCount/${tasks.size}",
             options,
             imageDone = { index -> tasks[index-1].id in doneIds() },
+            doneLabel = if(images) "สร้างรูป" else "คำสั่ง Flow",
             toggleImageDone = { index ->
                 val id = tasks[index-1].id
                 val updated = doneIds().toMutableSet()
