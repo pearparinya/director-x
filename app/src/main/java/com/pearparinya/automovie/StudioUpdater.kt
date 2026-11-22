@@ -52,7 +52,7 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                 val release = try { JSONObject(connection.inputStream.bufferedReader().use { it.readText() }) } finally { connection.disconnect() }
                 require(!release.optBoolean("draft") && !release.optBoolean("prerelease")) { "รุ่นนี้ยังไม่พร้อมเผยแพร่" }
                 // The immutable release tag is authoritative; release notes may mention older builds.
-                val build = Regex("-B(\\d+)", RegexOption.IGNORE_CASE)
+                val build = Regex("(?:-B|-build)(\\d+)$", RegexOption.IGNORE_CASE)
                     .find(release.getString("tag_name"))?.groupValues?.get(1)?.toLongOrNull()
                     ?: Regex("BUILD\\s*[:#]?\\s*(\\d+)", RegexOption.IGNORE_CASE)
                         .find(release.optString("body"))?.groupValues?.get(1)?.toLongOrNull()
@@ -72,9 +72,10 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                     return@Thread
                 }
                 val assets = release.getJSONArray("assets")
-                val releaseVersion = release.getString("tag_name")
-                    .removePrefix("R").substringBefore("-B")
-                val expectedApkName = "DIRECTOR-X-$releaseVersion.apk"
+                val tag = release.getString("tag_name")
+                val expectedApkName = if (Regex("^v.+-build\\d+$", RegexOption.IGNORE_CASE).matches(tag))
+                    "DIRECTOR-X-$tag.apk"
+                else "DIRECTOR-X-${tag.removePrefix("R").substringBefore("-B")}.apk"
                 // Fail closed: never install a different APK accidentally attached to a release.
                 val asset = (0 until assets.length())
                     .map { assets.getJSONObject(it) }
