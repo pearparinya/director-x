@@ -155,6 +155,10 @@ class StudioActivity : AppCompatActivity() {
     @Volatile private var aiPromptKotlin="รอเริ่ม"
     @Volatile private var aiPromptApi="ยังไม่เรียก API"
     @Volatile private var aiPromptRunning=false
+    @Volatile private var aiApiAttempts=0
+    @Volatile private var aiApiTotal=0
+    @Volatile private var aiApiProvider="ยังไม่เรียก API"
+    @Volatile private var aiApiError=""
     private var pendingStoryShare: (() -> Unit)? = null
     private var pendingStorySummary = ""
     private var pendingReceipt: (() -> Unit)? = null
@@ -3889,6 +3893,8 @@ $context"""
         val snapshot=story.toString()
         aiPromptRunning=true; aiPromptDone=verifiedImagePromptCount(entries); aiPromptTotal=entries.size
         aiPromptStart=System.currentTimeMillis()
+        aiApiAttempts=0; aiApiTotal=(entries.size-aiPromptDone).coerceAtLeast(0)
+        aiApiError=""; aiApiProvider="รอเลือกผู้ให้บริการ"
         aiPromptKotlin="ตรวจข้อมูล MASTER"; aiPromptApi="เตรียมเชื่อมต่อ"
         Thread {
             val schema=JSONObject().put("type","object")
@@ -3910,6 +3916,7 @@ $context"""
                     "Do not invent any missing information. Original prompt:\n"+task.command.take(14000)
                 var addition=""
                 for(provider in providers) {
+                    aiApiProvider=provider.label
                     aiPromptApi=provider.label+" • "+task.id
                     val result=runCatching {
                         StoryClientFactory.create(provider,provider.key(this@StudioActivity),
@@ -3937,6 +3944,7 @@ $context"""
                     }.isSuccess
                     if(!saved) failures++
                 }
+                aiApiAttempts++
                 aiPromptDone=verifiedImagePromptCount(entries)
             }
             val verified=runCatching { verifiedImagePromptCount(entries) }.getOrDefault(0)
@@ -4563,6 +4571,50 @@ $context"""
             geminiStatusView=null; geminiProgressView=null
             miniStoryBar=null; miniStoryPercent=null; miniStoryTime=null
         }
+        if(current!=null) {
+            // Both bars are grounded in actual saved prompt records or completed API attempts.
+            // The API bar deliberately never borrows Kotlin's verified percentage.
+            fun addLiveDiagnosticBar(title: () -> String, progress: () -> Pair<Int,Int>, detail: () -> String) {
+                val card=LinearLayout(this).apply {
+                    orientation=LinearLayout.VERTICAL
+                    setPadding(dp(11),dp(8),dp(11),dp(8))
+                    background=backdrop(Color.rgb(30,33,48),Color.rgb(13,20,37),Color.rgb(87,104,146))
+                }
+                val heading=TextView(this).apply { textSize=12f; setTextColor(ice); setTypeface(null,Typeface.BOLD) }
+                val bar=RainbowStoryProgress(this)
+                val caption=TextView(this).apply { textSize=10f; setTextColor(muted) }
+                card.addView(heading)
+                card.addView(bar,LinearLayout.LayoutParams(-1,dp(12)).apply { topMargin=dp(5) })
+                card.addView(caption)
+                root.addView(card,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(7) })
+                val handler=android.os.Handler(android.os.Looper.getMainLooper())
+                val updater=object: Runnable {
+                    override fun run() {
+                        if(!card.isAttachedToWindow) return
+                        val (done,total)=progress()
+                        val pct=if(total>0) (done*100/total).coerceIn(0,100) else 0
+                        heading.text=title()+" • "+(if(total>0) "$done/$total • $pct%" else "ยังไม่มีงาน")
+                        bar.show(pct,aiPromptRunning)
+                        caption.text=detail()
+                        handler.postDelayed(this,800L)
+                    }
+                }
+                card.addOnAttachStateChangeListener(object: View.OnAttachStateChangeListener {
+                    override fun onViewAttachedToWindow(v: View) { handler.post(updater) }
+                    override fun onViewDetachedFromWindow(v: View) { handler.removeCallbacks(updater) }
+                })
+            }
+            addLiveDiagnosticBar(
+                { "🌈 "+aiApiProvider+" • API ปรับปรุง Prompt" },
+                { aiApiAttempts to aiApiTotal },
+                { if(aiPromptRunning) aiPromptApi else if(aiApiError.isNotBlank()) aiApiError else "งาน API ล่าสุด • "+aiPromptApi }
+            )
+            addLiveDiagnosticBar(
+                { "🌈 Kotlin • ตรวจสอบ Prompt" },
+                { val gate=imagePromptGate(current); gate.verified to gate.total },
+                { if(aiPromptRunning) aiPromptKotlin else imagePromptGate(current).reason }
+            )
+        }
         button("🎬 สร้างเรื่องใหม่",true) { flowPlanning() }
         root.addView(TextView(this).apply {
             text="เครื่องมือผู้กำกับ"; textSize=17f; setTextColor(goldLight)
@@ -4615,7 +4667,6 @@ $context"""
                     val ready=gate.unlocked
                     if(ready && !aiPromptRunning) {
                         aiPromptKotlin="ปลดล็อกแล้ว • ตรวจข้อมูลที่บันทึกไว้ครบ"
-                        aiPromptApi="ผ่านจากข้อมูลเดิม • ไม่ต้องเรียก API"
                     }
                     choiceMenu("สร้างภาพ • ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}",
                         (if(ready) emptyList() else listOf("🔄 AI ปรับปรุง Prompt ภาพทั้งเรื่อง • ปกและทุก EP"))+
