@@ -3769,6 +3769,7 @@ $context"""
                         val batch=buildString {
                             appendLine("DIRECTOR X • EP.$number • AI BATCH IMAGE REGENERATION")
                             appendLine("Generate every scene as a separate 9:16 image. Keep each character's own face MASTER and exact day-specific Top, Bottom, Shoes, Accessories, belt and footwear construction. Never invent wardrobe changes. Preserve story and scene framing. Do not use MASTER clothing as wardrobe authority.")
+                            appendLine("This is a batch prompt export, not an automatic image-generation API call. Generate and review the resulting images using the selected external AI image tool.")
                             appendLine("Do not overwrite previously approved images. Review new results before marking scenes complete.")
                             sceneTasks.forEachIndexed { i,task ->
                                 appendLine("\n========== ${task.id} ==========")
