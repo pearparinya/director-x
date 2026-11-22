@@ -49,6 +49,7 @@ class MainActivity : AppCompatActivity() {
     private val stepButtons = mutableMapOf<Int, Button>()
 
     private lateinit var sceneApprovalLabel: TextView
+    private lateinit var sceneApprovalCards: LinearLayout
     private lateinit var sceneLabel: TextView
     private lateinit var status: TextView
     private lateinit var progress: ProgressBar
@@ -274,6 +275,14 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(navy)
         }
         root.addView(sceneApprovalLabel, full())
+
+        sceneApprovalCards = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        root.addView(sceneApprovalCards, full())
+        root.addView(action("🔒 จัดการล็อกซีนภาพ / Flow", "แสดงการ์ดอนุมัติของซีนปัจจุบัน") {
+            showSceneApprovalCards()
+        }, full())
 
 
         progress = ProgressBar(
@@ -1345,6 +1354,26 @@ AUTO-MOVIE • START
     // ============================================================
     // UPDATE UI
     // ============================================================
+
+    private fun showSceneApprovalCards() {
+        val workspace = File(filesDir, "scene_artifacts")
+        if (!workspace.exists() && !workspace.mkdirs()) {
+            status.text = "⚠ ไม่สามารถสร้างพื้นที่เก็บซีนได้"
+            return
+        }
+        val sceneId = "EP${fmt(currentEp)}_SC${currentScene.toString().padStart(3, '0')}"
+        sceneApprovalCards.removeAllViews()
+        listOf(SceneLocks.Medium.IMAGE to "png", SceneLocks.Medium.FLOW to "txt")
+            .forEach { (medium, ext) ->
+                val artifact = File(workspace, "$sceneId.$ext")
+                sceneApprovalCards.addView(
+                    SceneLockCard.create(this, workspace, sceneId, medium, artifact) {
+                        updateSceneApprovalSummary()
+                    }, full()
+                )
+            }
+        status.text = "🎬 $sceneId • ตรวจไฟล์ภาพและ Flow ก่อนอนุมัติ"
+    }
 
     private fun updateSceneApprovalSummary() {
         if (!::sceneApprovalLabel.isInitialized) return
