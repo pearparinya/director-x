@@ -3756,8 +3756,33 @@ $context"""
             val episode=story.optJSONArray("episodes")?.let { eps -> (0 until eps.length()).mapNotNull { eps.optJSONObject(it) }.firstOrNull { it.optInt("ep")==number } }
             val episodeTitle=episode?.optString("title")?.takeIf { it.isNotBlank() } ?: "ยังไม่ได้ตั้งชื่อตอน"
             val storyTitle=story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }
-            choiceMenu("เรื่อง: $storyTitle\nEP.$number • $episodeTitle\nเลือกชุด${if(images) "ภาพ" else "คำสั่ง Flow"}",options) { selected ->
-                productionTaskDeck(story,number,images,groupsWithCovers[selected].map { it.id }.toSet())
+            val menuOptions=if(images) listOf("🔄 AI เจนใหม่ทั้ง EP • เตรียมคำสั่งภาพทุกซีน") + options else options
+            choiceMenu("เรื่อง: $storyTitle\nEP.$number • $episodeTitle\nเลือกชุด${if(images) "ภาพ" else "คำสั่ง Flow"}",menuOptions) { selected ->
+                if(images && selected==0) {
+                    val sceneTasks=allTasks.filter { !it.id.contains("_COVER_") }
+                    val wardrobeIssues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(story))
+                    if(wardrobeIssues.isNotEmpty()) {
+                        AlertDialog.Builder(this).setTitle("ตรวจความต่อเนื่องก่อนเจนใหม่")
+                            .setMessage("พบปัญหาชุด/รองเท้า ${wardrobeIssues.size} รายการ\n"+wardrobeIssues.take(10).joinToString("\n"))
+                            .setPositiveButton("รับทราบ",null).showDirector()
+                    } else {
+                        val batch=buildString {
+                            appendLine("DIRECTOR X • EP.$number • AI BATCH IMAGE REGENERATION")
+                            appendLine("Generate every scene as a separate 9:16 image. Keep each character's own face MASTER and exact day-specific Top, Bottom, Shoes, Accessories, belt and footwear construction. Never invent wardrobe changes. Preserve story and scene framing. Do not use MASTER clothing as wardrobe authority.")
+                            appendLine("Do not overwrite previously approved images. Review new results before marking scenes complete.")
+                            sceneTasks.forEachIndexed { i,task ->
+                                appendLine("\n========== ${task.id} ==========")
+                                appendLine(SimpleProductionCommands.block(task,i,true))
+                            }
+                        }
+                        val file=File(project,"EP%02d_IMAGES_REGENERATE.txt".format(number))
+                        runCatching { file.writeText(batch,Charsets.UTF_8) }.onFailure { notice("บันทึกคำสั่งทั้ง EP ไม่สำเร็จ: ${it.message}"); return@choiceMenu }
+                        showFlowCode("AI เจนใหม่ทั้ง EP • ${sceneTasks.size} ซีน",batch,file.name)
+                    }
+                } else {
+                    val groupIndex=if(images) selected-1 else selected
+                    productionTaskDeck(story,number,images,groupsWithCovers[groupIndex].map { it.id }.toSet())
+                }
             }
             return
         }
