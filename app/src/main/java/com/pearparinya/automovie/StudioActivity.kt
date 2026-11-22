@@ -182,7 +182,7 @@ class StudioActivity : AppCompatActivity() {
         cancelable: Boolean = true, onCancel: (() -> Unit)? = null, action: (Int) -> Unit) {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(dp(16),dp(18),dp(16),dp(12))
-            background = backdrop(Color.rgb(24,24,27),navy,Color.rgb(74,61,39))
+            background = backdrop(Color.rgb(21,23,31),Color.rgb(11,14,24),Color.rgb(179,137,65))
         }
         panel.addView(TextView(this).apply {
             val start=title.indexOf("สถานะ:")
@@ -190,7 +190,7 @@ class StudioActivity : AppCompatActivity() {
             if(start>=0) decorated.setSpan(
                 android.text.style.ForegroundColorSpan(if(title.contains("สถานะ: ยืนยันชุดในบทแล้ว")) Color.rgb(129,225,167) else Color.rgb(255,196,104)),
                 start,title.length,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            text = decorated; textSize = 20f; setTextColor(gold); setTypeface(null,Typeface.BOLD)
+            text = decorated; textSize = 21f; setTextColor(Color.rgb(255,190,75)); setTypeface(null,Typeface.BOLD)
             setPadding(0,0,0,dp(14))
         })
         if(choices.size>1) panel.addView(TextView(this).apply {
@@ -207,14 +207,14 @@ class StudioActivity : AppCompatActivity() {
                 0 -> intArrayOf(Color.rgb(18,111,177),Color.rgb(10,68,125),Color.rgb(100,216,255))
                 else -> intArrayOf(Color.rgb(152,89,23),Color.rgb(100,55,16),Color.rgb(255,196,91))
             } else when(MenuChoiceStyle.role(value)) {
-                MenuChoiceStyle.AI -> intArrayOf(Color.rgb(70,41,112),Color.rgb(40,27,74),Color.rgb(176,137,225))
-                MenuChoiceStyle.EDIT -> intArrayOf(Color.rgb(98,67,35),Color.rgb(61,42,31),Color.rgb(222,174,94))
-                else -> intArrayOf(Color.rgb(25,66,103),Color.rgb(18,40,72),Color.rgb(91,175,220))
+                MenuChoiceStyle.AI -> intArrayOf(Color.rgb(20,91,135),Color.rgb(13,53,94),Color.rgb(80,204,249))
+                MenuChoiceStyle.EDIT -> intArrayOf(Color.rgb(123,76,33),Color.rgb(69,43,29),Color.rgb(241,178,78))
+                else -> intArrayOf(Color.rgb(8,76,119),Color.rgb(9,43,83),Color.rgb(57,189,243))
             }
             val row=LinearLayout(this).apply {
                 orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL
-                minimumHeight=dp(if(flowTools) 76 else 68); setPadding(dp(12),dp(10),dp(12),dp(10))
-                background=backdrop(palette[0],palette[1],palette[2]).apply { if(flowTools) setStroke(dp(2),palette[2]) }
+                minimumHeight=dp(if(flowTools) 76 else 72); setPadding(dp(12),dp(12),dp(12),dp(12))
+                background=backdrop(palette[0],palette[1],palette[2]).apply { setStroke(dp(1),palette[2]) }
                 layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) }
                 isClickable=true; isFocusable=true
                 contentDescription="ตัวเลือก ${index+1}: $value"
@@ -224,11 +224,11 @@ class StudioActivity : AppCompatActivity() {
                 setOnClickListener { dialog.dismiss(); action(index) }
             }
             row.addView(TextView(this).apply {
-                text=(index+1).toString(); textSize=18f; setTextColor(Color.WHITE)
+                text=(index+1).toString(); textSize=19f; setTextColor(Color.WHITE)
                 setTypeface(null,Typeface.BOLD); gravity=Gravity.CENTER
                 background=backdrop(palette[2],palette[0])
                 importantForAccessibility=android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            },LinearLayout.LayoutParams(dp(38),dp(38)).apply { marginEnd=dp(12) })
+            },LinearLayout.LayoutParams(dp(42),dp(42)).apply { marginEnd=dp(12) })
             if((title=="ตั้งค่าคีย์ API • ใช้อัตโนมัติ" && index<StoryProvider.activeProviders.size) || title=="หมวดช่อง • นายเปีย บ้านคลองขุด") {
                 val parts=value.split("\n", limit=2)
                 val labels=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
@@ -251,7 +251,7 @@ class StudioActivity : AppCompatActivity() {
         })
         panel.addView(TextView(this).apply {
             text = cancel; textSize = 16f; setTextColor(ice); gravity = Gravity.CENTER
-            minHeight = dp(48); background = backdrop(Color.rgb(36,36,40),Color.rgb(28,28,32))
+            minHeight = dp(54); background = backdrop(Color.rgb(39,39,46),Color.rgb(28,28,35),Color.rgb(69,69,79))
             isFocusable = true; setOnClickListener { dialog.dismiss(); onCancel?.invoke() }
         })
         dialog.setOnCancelListener { onCancel?.invoke() }
