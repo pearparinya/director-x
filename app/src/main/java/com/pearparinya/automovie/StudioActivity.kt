@@ -156,6 +156,7 @@ class StudioActivity : AppCompatActivity() {
     @Volatile private var aiPromptApi="ยังไม่เรียก API"
     @Volatile private var aiPromptRunning=false
     @Volatile private var aiApiAttempts=0
+    @Volatile private var aiApiSuccesses=0
     @Volatile private var aiApiTotal=0
     @Volatile private var aiApiProvider="ยังไม่เรียก API"
     @Volatile private var aiApiError=""
@@ -3893,7 +3894,7 @@ $context"""
         val snapshot=story.toString()
         aiPromptRunning=true; aiPromptDone=verifiedImagePromptCount(entries); aiPromptTotal=entries.size
         aiPromptStart=System.currentTimeMillis()
-        aiApiAttempts=0; aiApiTotal=(entries.size-aiPromptDone).coerceAtLeast(0)
+        aiApiAttempts=0; aiApiSuccesses=0; aiApiTotal=(entries.size-aiPromptDone).coerceAtLeast(0)
         aiApiError=""; aiApiProvider="รอเลือกผู้ให้บริการ"
         aiPromptKotlin="ตรวจข้อมูล MASTER"; aiPromptApi="เตรียมเชื่อมต่อ"
         Thread {
@@ -3931,7 +3932,7 @@ $context"""
                     }
                 }
                 if(addition.isBlank()) {
-                    failures++; aiPromptKotlin="API ไม่ผ่าน • คง Prompt เดิม"
+                    failures++; aiApiError="API ไม่ผ่าน • คง Prompt เดิม"; aiPromptKotlin="API ไม่ผ่าน • คง Prompt เดิม"
                 } else {
                     aiPromptKotlin="ตรวจและบันทึก "+task.id
                     val file=File(project,"ai_prompt_EP%02d_%s.json".format(ep,task.id))
@@ -3942,7 +3943,7 @@ $context"""
                         temp.writeText(record.toString(),Charsets.UTF_8)
                         if(!temp.renameTo(file)) { file.writeText(record.toString(),Charsets.UTF_8); temp.delete() }
                     }.isSuccess
-                    if(!saved) failures++
+                    if(!saved) failures++ else aiApiSuccesses++
                 }
                 aiApiAttempts++
                 aiPromptDone=verifiedImagePromptCount(entries)
@@ -4606,8 +4607,8 @@ $context"""
             }
             addLiveDiagnosticBar(
                 { "🌈 "+aiApiProvider+" • API ปรับปรุง Prompt" },
-                { aiApiAttempts to aiApiTotal },
-                { if(aiPromptRunning) aiPromptApi else if(aiApiError.isNotBlank()) aiApiError else "งาน API ล่าสุด • "+aiPromptApi }
+                { aiApiSuccesses to aiApiTotal },
+                { if(aiPromptRunning) "เรียกแล้ว $aiApiAttempts/$aiApiTotal • "+aiPromptApi else if(aiApiError.isNotBlank()) aiApiError else "งาน API ล่าสุด • "+aiPromptApi }
             )
             addLiveDiagnosticBar(
                 { "🌈 Kotlin • ตรวจสอบ Prompt" },
