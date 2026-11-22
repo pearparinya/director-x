@@ -48,6 +48,8 @@ class MainActivity : AppCompatActivity() {
     private val clockHandler = Handler(Looper.getMainLooper())
     private val stepButtons = mutableMapOf<Int, Button>()
 
+    private lateinit var sceneApprovalLabel: TextView
+    private lateinit var sceneApprovalCards: LinearLayout
     private lateinit var sceneLabel: TextView
     private lateinit var status: TextView
     private lateinit var progress: ProgressBar
@@ -263,6 +265,25 @@ class MainActivity : AppCompatActivity() {
         }
 
         root.addView(sceneLabel, full())
+
+        // Approval overview is separate from the legacy PASS & LOCK workflow.
+        sceneApprovalLabel = TextView(this).apply {
+            textSize = 11f
+            setTextColor(gold)
+            gravity = Gravity.CENTER
+            setPadding(dp(8), dp(5), dp(8), dp(5))
+            setBackgroundColor(navy)
+        }
+        root.addView(sceneApprovalLabel, full())
+
+        sceneApprovalCards = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        root.addView(sceneApprovalCards, full())
+        root.addView(action("💾 บันทึกสถานะซีน", "ทำแล้ว / ยังไม่ทำ แยกภาพและ Flow") {
+            showSceneApprovalCards()
+        }, full())
+
 
         progress = ProgressBar(
             this,
@@ -1334,6 +1355,52 @@ AUTO-MOVIE • START
     // UPDATE UI
     // ============================================================
 
+    private fun showSceneApprovalCards() {
+        val workspace = File(filesDir, "scene_artifacts")
+        sceneApprovalCards.removeAllViews()
+        val sceneId = "EP${fmt(currentEp)}_SC${currentScene.toString().padStart(3, '0')}"
+        val state = try {
+            SceneChecklist.load(workspace)
+        } catch (error: Exception) {
+            status.text = "⚠ อ่านรายการสถานะไม่ได้: ${error.message}"
+            return
+        }
+        listOf(SceneChecklist.Kind.IMAGE to "ภาพ", SceneChecklist.Kind.FLOW to "Flow")
+            .forEach { (kind, label) ->
+                val done = SceneChecklist.isDone(state, sceneId, kind)
+                sceneApprovalCards.addView(action(
+                    if (done) "✅ $label • ทำแล้ว (แตะเพื่อยกเลิก)" else "⏳ $label • ยังไม่ทำ (แตะเมื่อเสร็จ)",
+                    "บันทึกสถานะเท่านั้น ไม่แก้ไขไฟล์ผลงาน"
+                ) {
+                    try {
+                        val latest = SceneChecklist.load(workspace)
+                        SceneChecklist.setDone(latest, sceneId, kind,
+                            !SceneChecklist.isDone(latest, sceneId, kind))
+                        SceneChecklist.save(workspace, latest)
+                        showSceneApprovalCards()
+                        updateSceneApprovalSummary()
+                    } catch (error: Exception) {
+                        status.text = "⛔ บันทึกสถานะไม่สำเร็จ: ${error.message}"
+                    }
+                }, full())
+            }
+        status.text = "💾 $sceneId • เลือกทำแล้วหรือยังไม่ทำ"
+    }
+
+    private fun updateSceneApprovalSummary() {
+        if (!::sceneApprovalLabel.isInitialized) return
+        val state = try {
+            SceneChecklist.load(File(filesDir, "scene_artifacts"))
+        } catch (error: Exception) {
+            sceneApprovalLabel.text = "⚠ อ่านสถานะซีนไม่ได้"
+            return
+        }
+        val images = SceneChecklist.count(state, currentEp, SceneChecklist.Kind.IMAGE)
+        val flows = SceneChecklist.count(state, currentEp, SceneChecklist.Kind.FLOW)
+        sceneApprovalLabel.text =
+            "EP ${fmt(currentEp)}  •  ภาพเสร็จ $images/20  |  Flow เสร็จ $flows/20"
+    }
+
     private fun updateUi() {
 
         sceneLabel.text =
@@ -1341,6 +1408,8 @@ AUTO-MOVIE • START
 
         progress.progress =
             currentScene
+
+        updateSceneApprovalSummary()
 
         updateNextButton()
         refreshStepIndicator()
