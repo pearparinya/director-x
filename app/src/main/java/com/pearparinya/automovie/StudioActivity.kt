@@ -3831,8 +3831,9 @@ $context"""
                 (record?.optString("enhancement")?.length ?: 0) in 25..700
         }
 
+    // Persisted, hash-matched prompts are the source of truth for unlocking.
+    // A stale in-memory running flag must not lock a fully verified project.
     private fun imageAiUnlocked(story: JSONObject): Boolean = runCatching {
-        if(aiPromptRunning) return@runCatching false
         val entries=allImagePromptEntries(story)
         entries.isNotEmpty() && verifiedImagePromptCount(entries)==entries.size
     }.getOrDefault(false)
@@ -3843,6 +3844,15 @@ $context"""
             notice(aiPromptKotlin); return
         }
         if(entries.isEmpty()) return notice("ไม่มี Prompt ภาพให้ปรับปรุง")
+        aiPromptTotal=entries.size
+        aiPromptDone=verifiedImagePromptCount(entries)
+        if(aiPromptDone==entries.size) {
+            aiPromptRunning=false
+            aiPromptKotlin="ปลดล็อกแล้ว • ตรวจข้อมูลที่บันทึกไว้ครบ"
+            aiPromptApi="ผ่านจากข้อมูลเดิม • ไม่ต้องเรียก API"
+            notice("Prompt ผ่านครบ ${entries.size}/${entries.size} แล้ว • เปิดเมนูสร้างภาพใหม่เพื่อดูสถานะปลดล็อก")
+            return
+        }
         if(aiPromptRunning) { notice("AI กำลังทำงานอยู่แล้ว"); return }
         val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
         if(providers.isEmpty()) {
@@ -4578,10 +4588,14 @@ $context"""
                 val eps=story.optJSONArray("episodes")
                 if(eps==null || eps.length()==0) notice("ยังไม่มีตอนในบท")
                 else {
-                    val ready=imageAiUnlocked(story)
                     val entries=runCatching { allImagePromptEntries(story) }.getOrDefault(emptyList())
                     aiPromptTotal=entries.size
                     aiPromptDone=verifiedImagePromptCount(entries)
+                    val ready=entries.isNotEmpty() && aiPromptDone==entries.size
+                    if(ready && !aiPromptRunning) {
+                        aiPromptKotlin="ปลดล็อกแล้ว • ตรวจข้อมูลที่บันทึกไว้ครบ"
+                        aiPromptApi="ผ่านจากข้อมูลเดิม • ไม่ต้องเรียก API"
+                    }
                     choiceMenu("สร้างภาพ • ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}",
                         listOf("🔄 AI ปรับปรุง Prompt ภาพทั้งเรื่อง • ปกและทุก EP")+
                             (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); (if(ready) "🔓 " else "🔒 ")+"EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" }+
