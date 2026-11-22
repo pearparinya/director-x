@@ -6,7 +6,7 @@ import sys
 
 root = pathlib.Path(__file__).resolve().parents[1]
 gradle = (root / "app/build.gradle.kts").read_text(encoding="utf-8")
-workflow = (root / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
+workflow = (root / ".github/workflows/publish-signed-release.yml").read_text(encoding="utf-8")
 
 def one(pattern, label):
     matches = re.findall(pattern, gradle, flags=re.MULTILINE)
@@ -25,10 +25,14 @@ try:
     if int(code) < 1:
         raise ValueError("versionCode must be positive")
     for required in (
-        "Verify signed APK",
-        "Verify signed APK metadata",
-        "gh release download",
-        "cmp -s",
+        "Sign and verify release APK",
+        "apksigner",
+        "verify --verbose --print-certs",
+        "aapt",
+        "sha256sum --check",
+        "gh release create",
+        "releases/latest",
+        "assets[]",
         "ANDROID_KEYSTORE_BASE64",
         "ANDROID_KEYSTORE_PASSWORD",
     ):
