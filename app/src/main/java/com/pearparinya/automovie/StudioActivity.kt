@@ -3778,21 +3778,22 @@ $context"""
             }
             "${task.id} • ${task.title}$status"+(scene?.let { "\n"+SceneOverview.short(it) } ?: "")
         }
-        val imageDoneKey = "image_done_${project.name}_$number"
-        fun imageDoneIds(): Set<String> = prefs.getStringSet(imageDoneKey,emptySet()).orEmpty().toSet()
-        val completedCount = tasks.count { it.id in imageDoneIds() }
+        // Image and Flow checklists are intentionally independent.
+        val doneKey = "${if(images) "image" else "flow"}_done_${project.name}_$number"
+        fun doneIds(): Set<String> = prefs.getStringSet(doneKey,emptySet()).orEmpty().toSet()
+        val completedCount = tasks.count { it.id in doneIds() }
         choiceMenu(
             "EP.$number • เลือก${if(images) "รูป" else "คำสั่ง Flow"} ในชุด" +
-                if(images) " • ทำแล้ว $completedCount/${tasks.size}" else "",
+                " • ทำแล้ว $completedCount/${tasks.size}",
             options,
-            imageDone = if(images) ({ index -> tasks[index-1].id in imageDoneIds() }) else null,
-            toggleImageDone = if(images) ({ index ->
+            imageDone = { index -> tasks[index-1].id in doneIds() },
+            toggleImageDone = { index ->
                 val id = tasks[index-1].id
-                val updated = imageDoneIds().toMutableSet()
+                val updated = doneIds().toMutableSet()
                 if(!updated.add(id)) updated.remove(id)
-                val saved = prefs.edit().putStringSet(imageDoneKey,updated).commit()
+                val saved = prefs.edit().putStringSet(doneKey,updated).commit()
                 if(!saved) notice("บันทึกสถานะไม่สำเร็จ กรุณาลองใหม่")
-            }) else null
+            }
         ) { selected ->
             val index=if(selected==0) start else selected-1; val task=tasks[index]
             prefs.edit().putString(preference,task.id).putString(legacyPreference,task.id).apply()
