@@ -46,6 +46,27 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                     val scene=rows.getJSONObject(target)
                     val cast=scene.optJSONArray("characters") ?: JSONArray()
                     val permitted=(0 until cast.length()).map { cast.getJSONObject(it).optString("name") }.filter { it.isNotBlank() }
+                    // A selected MASTER may carry a canonical English alias. Resolve it
+                    // locally before asking another model, but only for a unique
+                    // (name, MASTER) identity present in the current visible scene.
+                    val unknown=Regex("พบชื่อภาษาอังกฤษ '([^']+)'").find(problemText)?.groupValues?.get(1).orEmpty()
+                    val matching=(0 until cast.length()).map { cast.getJSONObject(it) }
+                        .filter { it.optString("english_name").equals(unknown,true) &&
+                            it.optString("name").isNotBlank() && it.optString("master").isNotBlank() }
+                        .distinctBy { it.optString("name") to it.optString("master").lowercase() }
+                    if(unknown.isNotBlank() && matching.size==1) {
+                        val canonical=matching.single().getString("name")
+                        val regex=Regex("(?<![A-Za-z0-9_])"+Regex.escape(unknown)+"(?![A-Za-z0-9_])",RegexOption.IGNORE_CASE)
+                        val candidate=regex.replace(scene.optString("flow_action")) { canonical }
+                        val proposed=JSONObject(scene.toString()).put("flow_action",candidate)
+                        if(FlowScenePrompt.unknownActionNames(ProductionCommandCheck.spec(proposed)).isEmpty()) {
+                            scene.put("flow_action",candidate)
+                            GeminiStoryFiles.write(pending,value)
+                            progress(lastPercent,"ซีน $sceneNumber • จับคู่ชื่อกับ MASTER ที่เลือกแล้ว • ไม่เรียก API เพิ่ม")
+                            problem=validateWithSpeechRecovery()
+                            continue
+                        }
+                    }
                     val fixSchema=JSONObject().put("type","object").put("properties",JSONObject().put("flow_action",JSONObject().put("type","string"))).put("required",JSONArray().put("flow_action"))
                     val fix=generate("Fix ONLY flow_action for scene $sceneNumber. Use exact Thai names from this visible cast: "+permitted.joinToString(", ")+". Preserve the original events. If an English name cannot be matched uniquely to the supplied character registry, keep that name unchanged for human review; do not guess or introduce another person. Return JSON containing only flow_action. Original scene: "+scene+marker,fixSchema)
                     val action=fix.optString("flow_action").trim()
