@@ -77,6 +77,44 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private var pendingSceneImport: Pair<String, SceneLocks.Medium>? = null
+    private val sceneArtifactPicker = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        val request = pendingSceneImport
+        pendingSceneImport = null
+        if (uri != null && request != null) importSceneArtifact(request.first, request.second, uri)
+    }
+
+    private fun importSceneArtifact(sceneId: String, medium: SceneLocks.Medium, uri: Uri) {
+        val workspace = File(filesDir, "scene_artifacts")
+        val ext = if (medium == SceneLocks.Medium.IMAGE) "png" else "txt"
+        val target = File(workspace, "$sceneId.$ext")
+        val temporary = File(workspace, "$sceneId.$ext.pending")
+        try {
+            if (!workspace.exists() && !workspace.mkdirs()) error("สร้างพื้นที่เก็บไฟล์ไม่ได้")
+            val state = SceneLocks.load(workspace)
+            SceneLocks.requireUnlocked(state, sceneId, medium, target)
+            contentResolver.openInputStream(uri)?.use { input ->
+                temporary.outputStream().use { output -> input.copyTo(output) }
+            } ?: error("อ่านไฟล์ต้นฉบับไม่ได้")
+            require(temporary.length() > 0L) { "ไฟล์ว่าง ไม่สามารถนำเข้าได้" }
+            // Check again immediately before replacement; never bypass approved records.
+            SceneLocks.requireUnlocked(SceneLocks.load(workspace), sceneId, medium, target)
+            java.nio.file.Files.move(
+                temporary.toPath(), target.toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING
+            )
+            status.text = "✓ นำเข้า $sceneId สำเร็จ • ตรวจสอบแล้วกดบันทึกและล็อก"
+            showSceneApprovalCards()
+            updateSceneApprovalSummary()
+        } catch (error: Exception) {
+            status.text = "⛔ นำเข้าไม่สำเร็จ: ${error.message ?: error.javaClass.simpleName}"
+        } finally {
+            temporary.delete()
+        }
+    }
+
     private val navy = Color.rgb(12, 15, 38)
     private val panel = Color.rgb(37, 32, 78)
     private val gold = Color.rgb(255, 190, 74)
@@ -1363,6 +1401,14 @@ AUTO-MOVIE • START
         }
         val sceneId = "EP${fmt(currentEp)}_SC${currentScene.toString().padStart(3, '0')}"
         sceneApprovalCards.removeAllViews()
+        listOf(SceneLocks.Medium.IMAGE to "image/png", SceneLocks.Medium.FLOW to "text/plain")
+            .forEach { (medium, mime) ->
+                val label = if (medium == SceneLocks.Medium.IMAGE) "🖼 นำเข้าภาพ PNG" else "🎞 นำเข้า Flow TXT"
+                sceneApprovalCards.addView(action(label, "นำเข้าผลงานจากไฟล์ที่สร้างเสร็จแล้ว") {
+                    pendingSceneImport = sceneId to medium
+                    sceneArtifactPicker.launch(arrayOf(mime))
+                }, full())
+            }
         listOf(SceneLocks.Medium.IMAGE to "png", SceneLocks.Medium.FLOW to "txt")
             .forEach { (medium, ext) ->
                 val artifact = File(workspace, "$sceneId.$ext")
