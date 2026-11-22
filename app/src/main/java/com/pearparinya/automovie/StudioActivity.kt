@@ -182,7 +182,7 @@ class StudioActivity : AppCompatActivity() {
         cancelable: Boolean = true, onCancel: (() -> Unit)? = null, action: (Int) -> Unit) {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(dp(16),dp(18),dp(16),dp(12))
-            background = backdrop(Color.rgb(24,24,27),navy,Color.rgb(74,61,39))
+            background = backdrop(Color.rgb(7,31,59),navy,Color.rgb(71,169,224))
         }
         panel.addView(TextView(this).apply {
             val start=title.indexOf("สถานะ:")
@@ -194,7 +194,7 @@ class StudioActivity : AppCompatActivity() {
             setPadding(0,0,0,dp(14))
         })
         if(choices.size>1) panel.addView(TextView(this).apply {
-            text = "เลือกหนึ่งรายการ • หมายเลขใช้ระบุตัวเลือก"
+            text = "✦ เลือกเมนูเพื่อดำเนินการ • กดย้อนกลับได้ทุกเมื่อ"
             textSize = 12f; setTextColor(Color.rgb(187,200,221)); setPadding(0,0,0,dp(10))
         })
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -207,13 +207,13 @@ class StudioActivity : AppCompatActivity() {
                 0 -> intArrayOf(Color.rgb(18,111,177),Color.rgb(10,68,125),Color.rgb(100,216,255))
                 else -> intArrayOf(Color.rgb(152,89,23),Color.rgb(100,55,16),Color.rgb(255,196,91))
             } else when(MenuChoiceStyle.role(value)) {
-                MenuChoiceStyle.AI -> intArrayOf(Color.rgb(70,41,112),Color.rgb(40,27,74),Color.rgb(176,137,225))
-                MenuChoiceStyle.EDIT -> intArrayOf(Color.rgb(98,67,35),Color.rgb(61,42,31),Color.rgb(222,174,94))
-                else -> intArrayOf(Color.rgb(25,66,103),Color.rgb(18,40,72),Color.rgb(91,175,220))
+                MenuChoiceStyle.AI -> intArrayOf(Color.rgb(93,51,155),Color.rgb(45,27,92),Color.rgb(202,148,255))
+                MenuChoiceStyle.EDIT -> intArrayOf(Color.rgb(163,95,28),Color.rgb(90,53,19),Color.rgb(255,203,96))
+                else -> intArrayOf(Color.rgb(16,102,155),Color.rgb(10,48,96),Color.rgb(91,204,245))
             }
             val row=LinearLayout(this).apply {
                 orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL
-                minimumHeight=dp(if(flowTools) 76 else 68); setPadding(dp(12),dp(10),dp(12),dp(10))
+                minimumHeight=dp(if(flowTools) 76 else 72); setPadding(dp(12),dp(10),dp(12),dp(10))
                 background=backdrop(palette[0],palette[1],palette[2]).apply { if(flowTools) setStroke(dp(2),palette[2]) }
                 layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) }
                 isClickable=true; isFocusable=true
@@ -251,7 +251,7 @@ class StudioActivity : AppCompatActivity() {
         })
         panel.addView(TextView(this).apply {
             text = cancel; textSize = 16f; setTextColor(ice); gravity = Gravity.CENTER
-            minHeight = dp(48); background = backdrop(Color.rgb(36,36,40),Color.rgb(28,28,32))
+            minHeight = dp(48); background = backdrop(Color.rgb(23,75,114),Color.rgb(11,43,81),Color.rgb(75,170,222))
             isFocusable = true; setOnClickListener { dialog.dismiss(); onCancel?.invoke() }
         })
         dialog.setOnCancelListener { onCancel?.invoke() }
@@ -4849,7 +4849,8 @@ $context"""
     private fun showCharacterRecovery(status: JSONObject?) {
         val outer=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
-            setPadding(dp(16),dp(10),dp(16),dp(12))
+            setPadding(dp(16),dp(14),dp(16),dp(16))
+            background=backdrop(Color.rgb(8,36,67),Color.rgb(6,21,43),Color.rgb(66,175,226))
         }
         outer.addView(TextView(this).apply {
             text="${MiniStoryProgress.provider(status)} • บันทึกแล้ว ${MiniStoryProgress.percent(status)}%"
@@ -4879,11 +4880,11 @@ $context"""
         }
         val dialog=AlertDialog.Builder(this).setTitle("🎬 DIRECTOR X • จัดการงานค้าง")
             .setView(outer).setNegativeButton("กลับหน้าหลัก",null).showDirector()
-        recoveryButton("① ▶ เขียนเฉพาะซีนที่ค้างใหม่\nเก็บซีนที่ผ่านการตรวจสอบแล้ว",true) {
-            dialog.dismiss(); regeneratePendingScene()
-        }
-        recoveryButton("② จับคู่ชื่อตัวละครด้วยตนเอง") {
+        recoveryButton("① 🎭 ตรวจ MASTER และจับคู่ชื่อตัวละคร\\nรักษาบทและซีนที่ผ่านแล้ว",true) {
             dialog.dismiss(); resolvePendingCharacterName()
+        }
+        recoveryButton("② ▶ เขียนเฉพาะซีนที่ค้างใหม่\\nใช้เมื่อไม่สามารถแก้ชื่อได้ • บทซีนอาจเปลี่ยน") {
+            dialog.dismiss(); regeneratePendingScene()
         }
         recoveryButton("③ ⚙ ตั้งค่า API") {
             dialog.dismiss(); geminiSettings()
