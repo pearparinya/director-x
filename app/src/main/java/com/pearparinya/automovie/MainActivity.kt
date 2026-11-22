@@ -48,6 +48,7 @@ class MainActivity : AppCompatActivity() {
     private val clockHandler = Handler(Looper.getMainLooper())
     private val stepButtons = mutableMapOf<Int, Button>()
 
+    private lateinit var sceneApprovalLabel: TextView
     private lateinit var sceneLabel: TextView
     private lateinit var status: TextView
     private lateinit var progress: ProgressBar
@@ -263,6 +264,17 @@ class MainActivity : AppCompatActivity() {
         }
 
         root.addView(sceneLabel, full())
+
+        // Approval overview is separate from the legacy PASS & LOCK workflow.
+        sceneApprovalLabel = TextView(this).apply {
+            textSize = 11f
+            setTextColor(gold)
+            gravity = Gravity.CENTER
+            setPadding(dp(8), dp(5), dp(8), dp(5))
+            setBackgroundColor(navy)
+        }
+        root.addView(sceneApprovalLabel, full())
+
 
         progress = ProgressBar(
             this,
@@ -1334,6 +1346,26 @@ AUTO-MOVIE • START
     // UPDATE UI
     // ============================================================
 
+    private fun updateSceneApprovalSummary() {
+        if (!::sceneApprovalLabel.isInitialized) return
+        val workspace = File(filesDir, "scene_artifacts")
+        val state = try {
+            SceneLocks.load(workspace)
+        } catch (error: Exception) {
+            sceneApprovalLabel.text = "⚠ ข้อมูลล็อกซีนอ่านไม่ได้ • หยุดตรวจสอบก่อนสร้างทับ"
+            return
+        }
+        val ids = (1..20).map { "EP${fmt(currentEp)}_SC${it.toString().padStart(3, '0')}" }
+        fun summary(medium: SceneLocks.Medium, extension: String) =
+            SceneLockProgress.summarize(state, ids, medium) { id ->
+                File(workspace, "$id.$extension")
+            }
+        val images = summary(SceneLocks.Medium.IMAGE, "png")
+        val flows = summary(SceneLocks.Medium.FLOW, "txt")
+        sceneApprovalLabel.text =
+            "EP ${fmt(currentEp)}  •  ภาพ ${images.label}  |  Flow ${flows.label}"
+    }
+
     private fun updateUi() {
 
         sceneLabel.text =
@@ -1341,6 +1373,8 @@ AUTO-MOVIE • START
 
         progress.progress =
             currentScene
+
+        updateSceneApprovalSummary()
 
         updateNextButton()
         refreshStepIndicator()
