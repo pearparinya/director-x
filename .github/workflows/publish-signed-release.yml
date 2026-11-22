@@ -109,3 +109,9 @@ jobs:
           APK="$RUNNER_TEMP/DIRECTOR-X-v${VERSION}-build${BUILD}.apk"
           test -s "$APK"
           gh release create "$TAG" "$APK" "$APK.sha256" --target "$GITHUB_SHA" --title "DIRECTOR X $VERSION Build $BUILD" --notes "Signed Android APK built from main at $GITHUB_SHA. Unit tests, package/version checks, APK signature verification and SHA-256 validation passed." --latest
+          # Verify that the exact signed asset is published and is the latest release.
+          ASSET="DIRECTOR-X-v${VERSION}-build${BUILD}.apk"
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.assets[] | select(.name == "'"${ASSET}"'" and .size > 100000) | .name' | grep -Fx "$ASSET"
+          LATEST="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name')"
+          test "$LATEST" = "$TAG" || { echo "::error::Latest release is $LATEST, expected $TAG"; exit 1; }
+          echo "Verified latest release $TAG with signed APK $ASSET" >> "$GITHUB_STEP_SUMMARY"
