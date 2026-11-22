@@ -6481,7 +6481,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
                 if(valid) setOnClickListener { dialog.dismiss(); onSelect(index) }
             })
         }
-        dialog.showDirector()
+        dialog.show()
     }
     private fun repairSceneCharacter(s: JSONObject) {
         if (!image(s).isFile) return notice("นำเข้าภาพฉากก่อนแก้ตัวละคร")
