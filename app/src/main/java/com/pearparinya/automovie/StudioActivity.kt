@@ -349,40 +349,83 @@ class StudioActivity : AppCompatActivity() {
         runCatching {
             installPiaDefaults()
             val choices=piaMasterChoices()
-            val existing=choices.filter { it.second.isFile }
-            val status=prefs.getString(piaChannelMasterKey,"original").orEmpty()
-            val items=choices.mapIndexed { index,entry ->
-                val label=when(entry.first) {
+            val selectedKey=piaStoryMasterOverride?.takeIf { onStoryOnly!=null }
+                ?: prefs.getString(piaChannelMasterKey,"original").orEmpty()
+            val grid=LinearLayout(this).apply {
+                orientation=LinearLayout.VERTICAL
+                setPadding(dp(14),dp(12),dp(14),dp(12))
+                setBackgroundColor(Color.rgb(8,24,45))
+            }
+            val dialog=AlertDialog.Builder(this).setTitle("🎭 ตั้งค่า MASTER ประจำช่อง • นายเปีย")
+                .setView(ScrollView(this).apply { addView(grid) })
+                .setNegativeButton("ยกเลิก",null).create()
+            var row: LinearLayout?=null
+            choices.forEachIndexed { index, (key,file) ->
+                if(index%2==0) {
+                    row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
+                    grid.addView(row)
+                }
+                val ready=file.isFile && runCatching {
+                    val info=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
+                    android.graphics.BitmapFactory.decodeFile(file.absolutePath,info)
+                    info.outWidth>0 && info.outHeight>0
+                }.getOrDefault(false)
+                val active=key==selectedKey
+                val label=when(key) {
                     "original" -> "MASTER ประจำช่องเดิม"
-                    "black" -> "H003 • นายเปียชุดดำ 3 มุมมอง"
-                    else -> (shortCatalogLabel(entry.first) ?: "MASTER ใหม่")+" • นายเปียชุดสูท"
+                    "black" -> "H003 • นายเปียชุดดำ"
+                    else -> (shortCatalogLabel(key) ?: "MASTER ใหม่")+" • นายเปียชุดสูท"
                 }
-                (if(entry.first==status) "✓ กำลังใช้งาน • " else "")+label to entry.second.takeIf { it.isFile }
-            }
-            if(existing.size!=3) notice("พบ MASTER ที่พร้อมใช้ ${existing.size}/3 ตัว • กรุณาตรวจสอบไฟล์ MASTER ที่ขาด")
-            chooseNamedCharacterGrid("🎭 ตั้งค่า MASTER ประจำช่อง • นายเปีย",items) { index ->
-                val (key,file)=choices[index]
-                if(!file.isFile) { notice("ไม่พบไฟล์ MASTER ที่เลือก กรุณาตรวจคลัง"); return@chooseNamedCharacterGrid }
-                if(onStoryOnly==null) {
-                    if(prefs.edit().putString(piaChannelMasterKey,key).commit()) {
-                        piaStoryMasterOverride=null
-                        notice("บันทึก MASTER ประจำช่องแล้ว")
-                    } else notice("บันทึก MASTER ไม่สำเร็จ")
-                } else {
-                    AlertDialog.Builder(this)
-                        .setTitle("เลือก MASTER ช่องนายเปีย")
-                        .setMessage("เลือกการใช้งานสำหรับ MASTER นี้")
-                        .setPositiveButton("🔒 ตั้งเป็นค่าเริ่มต้น") { _,_ ->
+                val accent=when { !ready -> Color.rgb(75,79,88); active -> Color.rgb(232,181,74); else -> Color.rgb(23,75,114) }
+                val ink=if(active && ready) Color.rgb(10,33,61) else Color.WHITE
+                val card=LinearLayout(this).apply {
+                    orientation=LinearLayout.VERTICAL
+                    setPadding(dp(5),dp(6),dp(5),dp(6))
+                    background=android.graphics.drawable.GradientDrawable().apply {
+                        setColor(Color.rgb(12,38,69)); cornerRadius=dp(10).toFloat()
+                        setStroke(dp(if(active && ready) 3 else 1),accent)
+                    }
+                }
+                row?.addView(card,LinearLayout.LayoutParams(0,-2,1f).apply {
+                    setMargins(dp(4),dp(5),dp(4),dp(5))
+                })
+                if(ready) card.addView(ImageView(this).apply {
+                    setImageBitmap(castingThumbnail(file))
+                    scaleType=ImageView.ScaleType.FIT_CENTER
+                    layoutParams=LinearLayout.LayoutParams(-1,dp(155))
+                    contentDescription=label
+                    setOnClickListener { fullImage(file,label) }
+                }) else card.addView(TextView(this).apply {
+                    text="ไม่พบไฟล์ MASTER"; setTextColor(Color.LTGRAY)
+                    gravity=Gravity.CENTER; minHeight=dp(155)
+                })
+                card.addView(Button(this).apply {
+                    text=when {
+                        !ready -> "ไม่พร้อมใช้งาน • $label"
+                        active -> "✓ กำลังใช้งาน • $label"
+                        else -> "เลือกใช้งาน • $label"
+                    }
+                    textSize=12f
+                    isAllCaps=false
+                    setTextColor(ink)
+                    backgroundTintList=android.content.res.ColorStateList.valueOf(accent)
+                    isEnabled=ready
+                    setOnClickListener {
+                        if(onStoryOnly==null) {
                             if(prefs.edit().putString(piaChannelMasterKey,key).commit()) {
-                                piaStoryMasterOverride=null; onStoryOnly()
+                                piaStoryMasterOverride=null
+                                dialog.dismiss()
+                                piaMasterSettings()
                             } else notice("บันทึก MASTER ไม่สำเร็จ")
+                        } else {
+                            piaStoryMasterOverride=key
+                            dialog.dismiss()
+                            onStoryOnly()
                         }
-                        .setNeutralButton("เฉพาะเรื่องนี้") { _,_ ->
-                            piaStoryMasterOverride=key; onStoryOnly()
-                        }
-                        .setNegativeButton("ยกเลิก",null).showDirector()
-                }
+                    }
+                })
             }
+            dialog.showDirector()
         }.onFailure { notice("ตั้งค่า MASTER ไม่สำเร็จ: ${it.message}") }
     }
     private val piaIdentityFile get() = File(filesDir,"pia_identity_master.image")
@@ -412,7 +455,15 @@ class StudioActivity : AppCompatActivity() {
             .put("character_age",35).put("age_basis","fictional_casting_placeholder_not_real_age")
             .put("character_gender","man").put("casting_description","Use the attached original MASTER for this presenter identity.")
         val result=JSONArray().put(row)
-        for(i in 0 until catalog.length()) result.put(catalog.getJSONObject(i))
+        for(i in 0 until catalog.length()) {
+            val actor=catalog.getJSONObject(i)
+            val type=actor.optString("character_type","human")
+            // The channel lead is represented only by piaActorId; alternate Pia
+            // masters are outfit/identity variants, not supporting actors.
+            if(actor.optString("display_name")=="นายเปีย บ้านคลองขุด") continue
+            if(type !in listOf("","human")) continue
+            result.put(actor)
+        }
         return result
     }
     private fun installPiaDefaults() {
