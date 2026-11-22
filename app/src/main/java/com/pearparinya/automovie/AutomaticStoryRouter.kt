@@ -46,6 +46,7 @@ internal class AutomaticStoryRouter(
             return future.get(requestTimeoutMillis,java.util.concurrent.TimeUnit.MILLISECONDS)
         } catch(e: java.util.concurrent.TimeoutException) {
             future.cancel(true)
+            progress(provider,"หมดเวลารอ ${requestTimeoutMillis/1000} วินาที • กำลังลอง API สำรอง")
             throw java.net.SocketTimeoutException("หมดเวลารอผู้ให้บริการ")
         } catch(e: java.util.concurrent.ExecutionException) {
             val cause=e.cause
@@ -94,7 +95,7 @@ internal class AutomaticStoryRouter(
             try {
                 val cache=draftFile(writer,prompt,schema)
                 val draft=if(cache.isFile) GeminiStoryFiles.read(cache) else {
-                    progress(writer,"กำลังเขียนบท")
+                    progress(writer,"กำลังเขียนบท • รอคำตอบสูงสุด ${requestTimeoutMillis/1000} วินาที ก่อนสลับ API")
                     generateChecked(writer,prompt,schema).also { GeminiStoryFiles.write(cache,it) }
                 }
                 if(cancelled()) throw CancellationException()
@@ -103,7 +104,7 @@ internal class AutomaticStoryRouter(
                     val xmlSchema=JSONObject().put("type","object").put("properties",JSONObject().put("xml",JSONObject().put("type","string"))).put("required",JSONArray().put("xml"))
                     fun formatWith(provider: StoryProvider): JSONObject {
                         current=provider
-                        progress(provider,"กำลังจัดรูปแบบ XML")
+                        progress(provider,"กำลังจัดรูปแบบ XML • รอคำตอบสูงสุด ${requestTimeoutMillis/1000} วินาที")
                         val formatted=generateChecked(provider,request,xmlSchema)
                         return try { SceneXml.apply(draft,formatted.getString("xml")) }
                         catch(e: Exception) { throw InvalidSceneXml(e) }

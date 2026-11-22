@@ -6,6 +6,26 @@ import java.io.IOException
 import java.util.concurrent.CancellationException
 
 class StoryRequestRetryTest {
+    @Test fun automaticModeRetriesQuicklyWithoutChangingLegacyBackoff() {
+        var clock=0L; var calls=0
+        val retry=StoryRequestRetry({clock},{clock+=it},maxRetries=2,baseDelaySeconds=8L)
+        val error=runCatching { retry.execute({false},{}) {
+            calls++; throw IOException("temporary network failure")
+        } }.exceptionOrNull()
+        assertEquals(3,calls)
+        assertEquals(24_000L,clock)
+        assertTrue(error!!.message!!.contains("ครบ 2 ครั้ง"))
+    }
+    @Test fun automaticModeStillHonorsProviderRetryAfter() {
+        var clock=0L; var calls=0
+        val retry=StoryRequestRetry({clock},{clock+=it},maxRetries=2,baseDelaySeconds=8L)
+        assertEquals("ok",retry.execute({false},{}) {
+            calls++
+            if(calls==1) throw StoryHttpFailure(429,"30","quota")
+            "ok"
+        })
+        assertEquals(30_000L,clock)
+    }
     @Test fun malformedJsonRetriesQuicklyWithoutQuotaLengthWait() {
         var clock=0L; var calls=0
         val retry=StoryRequestRetry({clock},{clock+=it})

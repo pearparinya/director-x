@@ -9,7 +9,9 @@ internal class StoryHttpFailure(val status: Int, val retryAfter: String?, messag
 internal class StoryRequestRetry(
     private val now: () -> Long = { android.os.SystemClock.elapsedRealtime() },
     private val pause: (Long) -> Unit = { Thread.sleep(it) },
-    private val wallNow: () -> Long = { System.currentTimeMillis() }
+    private val wallNow: () -> Long = { System.currentTimeMillis() },
+    private val maxRetries: Int = MAX_RETRIES,
+    private val baseDelaySeconds: Long = 65L
 ) {
     fun <T> execute(cancelled: () -> Boolean, onWait: (String) -> Unit, request: () -> T): T {
         var retries=0
@@ -20,10 +22,10 @@ internal class StoryRequestRetry(
                 val temporary=canRetry(e)
                 if(!temporary) throw e
                 val invalidJson=e is StoryHttpFailure && e.detail=="json_validate_failed"
-                val limit=if(invalidJson) 2 else MAX_RETRIES
+                val limit=if(invalidJson) minOf(2,maxRetries) else maxRetries
                 if(retries>=limit) throw IllegalStateException("ลองทำต่ออัตโนมัติครบ $limit ครั้งแล้ว • บันทึกช่วงที่เสร็จไว้ ตรวจอินเทอร์เน็ต / โควตาแล้วกดทำต่อ")
                 // Malformed JSON is not a quota throttle: retry briefly, not after minutes.
-                val fallback=if(invalidJson) 2L shl retries else 65L shl retries
+                val fallback=if(invalidJson) 2L shl retries else baseDelaySeconds shl retries
                 val suggested=(e as? StoryHttpFailure)?.retryAfter?.let { retrySeconds(it,wallNow()) }
                 val seconds=maxOf(fallback,suggested ?: 0L)
                 if(seconds>MAX_WAIT_SECONDS) throw IllegalStateException("บริการขอให้รอนานกว่า 15 นาที • บันทึกช่วงที่เสร็จไว้ รอโควตาคืนแล้วกดทำต่อ")
@@ -46,7 +48,7 @@ internal class StoryRequestRetry(
                     pause(minOf(250L,remaining))
                 }
                 if(cancelled()) throw CancellationException()
-                onWait("กำลังทำต่ออัตโนมัติ • ครั้งที่ $retries/$MAX_RETRIES")
+                onWait("กำลังทำต่ออัตโนมัติ • ครั้งที่ $retries/$limit")
             }
         }
     }

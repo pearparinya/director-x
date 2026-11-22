@@ -136,7 +136,7 @@ class GeminiStoryService : Service() {
                         status("running",0,if(automatic) "กำลังเขียนและจัดบทอัตโนมัติ" else if(hybrid) "Groq + Gemini • Gemini วางเรื่อง / Groq เขียนซีน • สลับเมื่อโควตาเต็ม" else "กำลังเขียนบท • ไม่ได้สร้างวิดีโอ")
                         val story=GeminiStoryEngine(folder,{ prompt,schema ->
                             status("running",lastPercent,"กำลังส่งคำขอ / รอคำตอบบท","requesting")
-                            if(automatic) StoryRequestRetry().execute({cancelled},retryStatus) { autoRouter.generate(prompt,schema) }
+                            if(automatic) StoryRequestRetry(maxRetries=2,baseDelaySeconds=8L).execute({cancelled},retryStatus) { autoRouter.generate(prompt,schema) }
                             else if(hybrid) StoryRequestRetry().execute({cancelled},retryStatus) {
                                 router.generate(StoryProviderRouter.preferred(schema.getJSONObject("properties").has("scenes"))) { target -> connections.getValue(target).generate(prompt,schema) }
                             } else singleProviderRequest(prompt,schema)
