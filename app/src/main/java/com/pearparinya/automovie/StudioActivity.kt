@@ -4641,7 +4641,7 @@ $context"""
             { extraToolsMenu(current) },{ flowSettings() })
     }
     private fun flowSettings() {
-        choiceMenu("ตั้งค่า DIRECTOR X",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","ตั้งค่า API","🩺 ศูนย์ตรวจสอบระบบ • API / Kotlin")) { i -> when(i) {
+        choiceMenu("ตั้งค่า DIRECTOR X",listOf("อัปเดตแอป","ดาวน์โหลดแม่บท + MASTER","สำรองเรื่องทั้งหมด","กู้คืนชุดสำรอง","เริ่มเรื่องใหม่","ตั้งค่า API")) { i -> when(i) {
             0 -> updater.check()
             1 -> { starterFlowPack=true; flowPackPicker.launch("DIRECTOR_FLOW_STARTER.zip") }
             2 -> if(plan==null) notice("ยังไม่มีเรื่องให้สำรอง") else { backupMode=true; zipPicker.launch(StoryFiles.zipName(plan!!.optString("title")+"_สำรอง")) }
@@ -4651,7 +4651,6 @@ $context"""
                 .setPositiveButton("เริ่มใหม่") { _,_ -> prefs.edit().putString("project",UUID.randomUUID().toString()).apply(); render() }
                 .setNegativeButton("ยกเลิก",null).showDirector()
             5 -> apiSettingsCenter()
-            6 -> systemDiagnosticsCenter()
         } }
     }
     private fun systemDiagnosticsCenter() {
@@ -4678,11 +4677,12 @@ $context"""
             .showDirector()
     }
     private fun apiSettingsCenter() {
-        choiceMenu("⚙️ ตั้งค่า API", listOf("🎬 API เขียนบท", "🛒 API โหมดนายเปียพาช้อป", "🖼️ API สร้างภาพ AI")) { index ->
+        choiceMenu("⚙️ ตั้งค่า API", listOf("🎬 API เขียนบท", "🛒 API โหมดนายเปียพาช้อป", "🖼️ API สร้างภาพ AI", "🩺 ศูนย์ตรวจสอบระบบ • API / Kotlin")) { index ->
             when (index) {
                 0 -> geminiSettings()
                 1 -> shoppingApiSettings()
                 2 -> imageApiSettings()
+                3 -> systemDiagnosticsCenter()
             }
         }
     }
