@@ -34,13 +34,13 @@ internal class RainbowStoryProgress(context: Context) : View(context) {
         super.onDraw(canvas)
         val segments=20
         val gap=3f*resources.displayMetrics.density
-        val width=(width-(segments-1)*gap)/segments
-        if(width<=0f) return
+        val segmentWidth=(measuredWidth-(segments-1)*gap)/segments
+        if(segmentWidth<=0f) return
         val filled=(percent*segments)/100
         val radius=2.5f*resources.displayMetrics.density
         for(i in 0 until segments) {
-            val x=i*(width+gap)
-            rect.set(x,1f,x+width,height-1f)
+            val x=i*(segmentWidth+gap)
+            rect.set(x,1f,x+segmentWidth,height-1f)
             paint.color=if(i<filled) {
                 val position=i.toFloat()/(segments-1)*(palette.size-1)
                 val from=position.toInt().coerceAtMost(palette.size-1)
