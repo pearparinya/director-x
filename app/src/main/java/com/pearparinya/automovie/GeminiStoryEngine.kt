@@ -50,14 +50,10 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                     // locally before asking another model, but only for a unique
                     // (name, MASTER) identity present in the current visible scene.
                     val unknown=Regex("พบชื่อภาษาอังกฤษ '([^']+)'").find(problemText)?.groupValues?.get(1).orEmpty()
-                    val definitions=FlowCast.definitions(spec)
-                    val matching=definitions.filter { it.optString("english_name").equals(unknown,true) &&
-                        (0 until cast.length()).count { j ->
-                            val person=cast.getJSONObject(j)
-                            person.optString("name")==it.optString("name") &&
-                                person.optString("master").equals(it.optString("master"),true)
-                        }==1
-                    }.distinctBy { it.optString("name") to it.optString("master").lowercase() }
+                    val matching=(0 until cast.length()).map { cast.getJSONObject(it) }
+                        .filter { it.optString("english_name").equals(unknown,true) &&
+                            it.optString("name").isNotBlank() && it.optString("master").isNotBlank() }
+                        .distinctBy { it.optString("name") to it.optString("master").lowercase() }
                     if(unknown.isNotBlank() && matching.size==1) {
                         val canonical=matching.single().getString("name")
                         val regex=Regex("(?<![A-Za-z0-9_])"+Regex.escape(unknown)+"(?![A-Za-z0-9_])",RegexOption.IGNORE_CASE)
