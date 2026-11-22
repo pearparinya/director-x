@@ -4880,10 +4880,10 @@ $context"""
         }
         val dialog=AlertDialog.Builder(this).setTitle("🎬 DIRECTOR X • จัดการงานค้าง")
             .setView(outer).setNegativeButton("กลับหน้าหลัก",null).showDirector()
-        recoveryButton("① 🎭 ตรวจ MASTER และจับคู่ชื่อตัวละคร\\nรักษาบทและซีนที่ผ่านแล้ว",true) {
+        recoveryButton("① 🎭 ตรวจ MASTER และจับคู่ชื่อตัวละคร\nรักษาบทและซีนที่ผ่านแล้ว",true) {
             dialog.dismiss(); resolvePendingCharacterName()
         }
-        recoveryButton("② ▶ เขียนเฉพาะซีนที่ค้างใหม่\\nใช้เมื่อไม่สามารถแก้ชื่อได้ • บทซีนอาจเปลี่ยน") {
+        recoveryButton("② ▶ เขียนเฉพาะซีนที่ค้างใหม่\nใช้เมื่อไม่สามารถแก้ชื่อได้ • บทซีนอาจเปลี่ยน") {
             dialog.dismiss(); regeneratePendingScene()
         }
         recoveryButton("③ ⚙ ตั้งค่า API") {
