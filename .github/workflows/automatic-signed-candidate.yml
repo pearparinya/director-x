@@ -12,6 +12,8 @@ on:
       - 'gradle.properties'
       - 'scripts/check_release_config.py'
       - '.github/workflows/automatic-signed-candidate.yml'
+      - '.github/workflows/auto-merge-verified.yml'
+      - '.github/workflows/publish-signed-release.yml'
 
 permissions:
   contents: read
