@@ -18,9 +18,10 @@ internal object CharacterIdentitySuggestions {
             val matching=definitions.filter {
                 it.optString("name")==name && it.optString("master").equals(master,true)
             }
-            matching.size==1 && listOf(
-                matching.single().optString("english_name"),name
-            ).any { normalized(it)==target }
+            matching.size==1 &&
+                definitions.count { it.optString("name")==name }==1 &&
+                listOf(matching.single().optString("english_name"),name)
+                    .any { normalized(it)==target }
         }.distinctBy { it.optString("name") to it.optString("master").lowercase(Locale.ROOT) }
     }
 }
