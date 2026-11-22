@@ -4771,7 +4771,7 @@ $context"""
             }
             panel.addView(TextView(this).apply {
                 text="ชื่อในบท: ${issue.alias}\n$recommended"
-                textSize=15f; setTextColor(goldLight); setPadding(0,0,0,dp(8))
+                textSize=15f; setTextColor(gold); setPadding(0,0,0,dp(8))
             })
             panel.addView(TextView(this).apply {
                 text="คำอธิบายฉาก (แตะเพื่ออ่าน)"
