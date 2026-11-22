@@ -13,24 +13,25 @@ fun AlertDialog.Builder.showDirector(): AlertDialog {
     val density = context.resources.displayMetrics.density
     fun dp(value: Int) = (value * density).toInt()
     listOf(
-        Triple(AlertDialog.BUTTON_POSITIVE, "✅", Color.rgb(255,205,99)),
-        Triple(AlertDialog.BUTTON_NEGATIVE, "↩️", Color.rgb(145,216,249)),
-        Triple(AlertDialog.BUTTON_NEUTRAL, "💡", Color.rgb(208,185,255))
+        Triple(AlertDialog.BUTTON_POSITIVE, "✓", Color.rgb(255,198,83)),
+        Triple(AlertDialog.BUTTON_NEGATIVE, "↩", Color.rgb(47,169,226)),
+        Triple(AlertDialog.BUTTON_NEUTRAL, "•", Color.rgb(71,188,225))
     ).forEach { (which, emoji, color) ->
         val button = dialog.getButton(which) ?: return@forEach
         if (button.text.isNullOrBlank()) return@forEach
         button.text = "$emoji ${button.text}"
         button.isAllCaps = false
-        button.setTextColor(Color.rgb(12,15,38))
+        button.setTextColor(if (which == AlertDialog.BUTTON_POSITIVE) Color.rgb(20,25,38) else Color.WHITE)
         button.setTypeface(null,Typeface.BOLD)
         button.backgroundTintList = null
         button.background = GradientDrawable().apply {
-            setColor(color); cornerRadius = dp(12).toFloat()
+            setColor(color); cornerRadius = dp(14).toFloat()
+            setStroke(dp(1), if (which == AlertDialog.BUTTON_POSITIVE) Color.rgb(255,218,135) else Color.rgb(115,216,251))
         }
         button.setPadding(dp(6),dp(5),dp(6),dp(5))
-        button.minHeight = dp(42)
+        button.minHeight = dp(48)
         button.minimumWidth = 0
-        button.textSize = 12f
+        button.textSize = 13f
         button.maxLines = 2
         (button.layoutParams as? ViewGroup.MarginLayoutParams)?.let {
             it.setMargins(dp(2),dp(3),dp(2),dp(3)); button.layoutParams = it
