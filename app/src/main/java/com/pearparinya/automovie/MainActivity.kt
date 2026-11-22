@@ -318,7 +318,7 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
         }
         root.addView(sceneApprovalCards, full())
-        root.addView(action("🔒 จัดการล็อกซีนภาพ / Flow", "แสดงการ์ดอนุมัติของซีนปัจจุบัน") {
+        root.addView(action("💾 บันทึกสถานะซีน", "ทำแล้ว / ยังไม่ทำ แยกภาพและ Flow") {
             showSceneApprovalCards()
         }, full())
 
@@ -1418,50 +1418,48 @@ AUTO-MOVIE • START
 
     private fun showSceneApprovalCards() {
         val workspace = File(filesDir, "scene_artifacts")
-        if (!workspace.exists() && !workspace.mkdirs()) {
-            status.text = "⚠ ไม่สามารถสร้างพื้นที่เก็บซีนได้"
+        sceneApprovalCards.removeAllViews()
+        val sceneId = "EP${fmt(currentEp)}_SC${currentScene.toString().padStart(3, '0')}"
+        val state = try {
+            SceneChecklist.load(workspace)
+        } catch (error: Exception) {
+            status.text = "⚠ อ่านรายการสถานะไม่ได้: ${error.message}"
             return
         }
-        val sceneId = "EP${fmt(currentEp)}_SC${currentScene.toString().padStart(3, '0')}"
-        sceneApprovalCards.removeAllViews()
-        listOf(SceneLocks.Medium.IMAGE to "image/png", SceneLocks.Medium.FLOW to "text/plain")
-            .forEach { (medium, mime) ->
-                val label = if (medium == SceneLocks.Medium.IMAGE) "🖼 นำเข้าภาพ PNG" else "🎞 นำเข้า Flow TXT"
-                sceneApprovalCards.addView(action(label, "นำเข้าผลงานจากไฟล์ที่สร้างเสร็จแล้ว") {
-                    pendingSceneImport = sceneId to medium
-                    sceneArtifactPicker.launch(arrayOf(mime))
+        listOf(SceneChecklist.Kind.IMAGE to "ภาพ", SceneChecklist.Kind.FLOW to "Flow")
+            .forEach { (kind, label) ->
+                val done = SceneChecklist.isDone(state, sceneId, kind)
+                sceneApprovalCards.addView(action(
+                    if (done) "✅ $label • ทำแล้ว (แตะเพื่อยกเลิก)" else "⏳ $label • ยังไม่ทำ (แตะเมื่อเสร็จ)",
+                    "บันทึกสถานะเท่านั้น ไม่แก้ไขไฟล์ผลงาน"
+                ) {
+                    try {
+                        val latest = SceneChecklist.load(workspace)
+                        SceneChecklist.setDone(latest, sceneId, kind,
+                            !SceneChecklist.isDone(latest, sceneId, kind))
+                        SceneChecklist.save(workspace, latest)
+                        showSceneApprovalCards()
+                        updateSceneApprovalSummary()
+                    } catch (error: Exception) {
+                        status.text = "⛔ บันทึกสถานะไม่สำเร็จ: ${error.message}"
+                    }
                 }, full())
             }
-        listOf(SceneLocks.Medium.IMAGE to "png", SceneLocks.Medium.FLOW to "txt")
-            .forEach { (medium, ext) ->
-                val artifact = File(workspace, "$sceneId.$ext")
-                sceneApprovalCards.addView(
-                    SceneLockCard.create(this, workspace, sceneId, medium, artifact) {
-                        updateSceneApprovalSummary()
-                    }, full()
-                )
-            }
-        status.text = "🎬 $sceneId • ตรวจไฟล์ภาพและ Flow ก่อนอนุมัติ"
+        status.text = "💾 $sceneId • เลือกทำแล้วหรือยังไม่ทำ"
     }
 
     private fun updateSceneApprovalSummary() {
         if (!::sceneApprovalLabel.isInitialized) return
-        val workspace = File(filesDir, "scene_artifacts")
         val state = try {
-            SceneLocks.load(workspace)
+            SceneChecklist.load(File(filesDir, "scene_artifacts"))
         } catch (error: Exception) {
-            sceneApprovalLabel.text = "⚠ ข้อมูลล็อกซีนอ่านไม่ได้ • หยุดตรวจสอบก่อนสร้างทับ"
+            sceneApprovalLabel.text = "⚠ อ่านสถานะซีนไม่ได้"
             return
         }
-        val ids = (1..20).map { "EP${fmt(currentEp)}_SC${it.toString().padStart(3, '0')}" }
-        fun summary(medium: SceneLocks.Medium, extension: String) =
-            SceneLockProgress.summarize(state, ids, medium) { id ->
-                File(workspace, "$id.$extension")
-            }
-        val images = summary(SceneLocks.Medium.IMAGE, "png")
-        val flows = summary(SceneLocks.Medium.FLOW, "txt")
+        val images = SceneChecklist.count(state, currentEp, SceneChecklist.Kind.IMAGE)
+        val flows = SceneChecklist.count(state, currentEp, SceneChecklist.Kind.FLOW)
         sceneApprovalLabel.text =
-            "EP ${fmt(currentEp)}  •  ภาพ ${images.label}  |  Flow ${flows.label}"
+            "EP ${fmt(currentEp)}  •  ภาพเสร็จ $images/20  |  Flow เสร็จ $flows/20"
     }
 
     private fun updateUi() {
