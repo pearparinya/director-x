@@ -312,11 +312,11 @@ class StudioActivity : AppCompatActivity() {
                 val aiStatus=TextView(this).apply { textSize=12f; setTextColor(Color.rgb(187,200,221)); setPadding(0,0,0,dp(8)) }
                 if(title.startsWith("สร้างภาพ •")) list.addView(aiStatus)
                 fun refreshProgress() {
+                    val (done,total)=inlineImageProgress()
                     val elapsed=if(aiPromptStart==0L) 0 else ((System.currentTimeMillis()-aiPromptStart)/1000).coerceAtLeast(0)
                     val pct=if(aiPromptTotal==0) 0 else aiPromptDone*100/aiPromptTotal
                     aiStatus.text="AI Prompt $aiPromptDone/$aiPromptTotal • $pct% • "+("%02d:%02d".format(elapsed/60,elapsed%60))+
                         "\nKotlin: $aiPromptKotlin • API: $aiPromptApi"
-                    val (done,total)=inlineImageProgress()
                     if(title.startsWith("สร้างภาพ •")) {
                         val unlocked=total>0 && done==total
                         liveImageMenuLabels.forEach { menuLabel ->
@@ -3846,10 +3846,22 @@ $context"""
 
     // Persisted, hash-matched prompts are the source of truth for unlocking.
     // A stale in-memory running flag must not lock a fully verified project.
-    private fun imageAiUnlocked(story: JSONObject): Boolean = runCatching {
+    private data class ImagePromptGate(val verified: Int, val total: Int, val error: String? = null) {
+        val unlocked: Boolean get() = error==null && total>0 && verified==total
+        val reason: String get() = when {
+            error!=null -> "ตรวจ Prompt ไม่สำเร็จ: $error"
+            total==0 -> "ไม่มีรายการ Prompt ภาพ"
+            unlocked -> "Prompt ผ่านครบ $verified/$total"
+            else -> "Prompt ผ่าน $verified/$total • ยังขาด ${total-verified} รายการ"
+        }
+    }
+
+    private fun imagePromptGate(story: JSONObject): ImagePromptGate = runCatching {
         val entries=allImagePromptEntries(story)
-        entries.isNotEmpty() && verifiedImagePromptCount(entries)==entries.size
-    }.getOrDefault(false)
+        ImagePromptGate(verifiedImagePromptCount(entries),entries.size)
+    }.getOrElse { ImagePromptGate(0,0,it.message ?: it.javaClass.simpleName) }
+
+    private fun imageAiUnlocked(story: JSONObject): Boolean = imagePromptGate(story).unlocked
 
     private fun refineImagePromptsAll(story: JSONObject) {
         val entries=runCatching { allImagePromptEntries(story) }.getOrElse {
@@ -4601,10 +4613,10 @@ $context"""
                 val eps=story.optJSONArray("episodes")
                 if(eps==null || eps.length()==0) notice("ยังไม่มีตอนในบท")
                 else {
-                    val entries=runCatching { allImagePromptEntries(story) }.getOrDefault(emptyList())
-                    aiPromptTotal=entries.size
-                    aiPromptDone=verifiedImagePromptCount(entries)
-                    val ready=entries.isNotEmpty() && aiPromptDone==entries.size
+                    val gate=imagePromptGate(story)
+                    aiPromptTotal=gate.total
+                    aiPromptDone=gate.verified
+                    val ready=gate.unlocked
                     if(ready && !aiPromptRunning) {
                         aiPromptKotlin="ปลดล็อกแล้ว • ตรวจข้อมูลที่บันทึกไว้ครบ"
                         aiPromptApi="ผ่านจากข้อมูลเดิม • ไม่ต้องเรียก API"
@@ -4613,11 +4625,20 @@ $context"""
                         listOf("🔄 AI ปรับปรุง Prompt ภาพทั้งเรื่อง • ปกและทุก EP")+
                             (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); (if(ready) "🔓 " else "🔒 ")+"EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" }+
                             (if(ready) "🔓 จัดการอุปกรณ์อ้างอิง" else "🔒 จัดการอุปกรณ์อ้างอิง"),
-                        inlineImageProgress=({ aiPromptDone to aiPromptTotal })
+                        inlineImageProgress=({
+                            val currentGate=imagePromptGate(story)
+                            aiPromptDone=currentGate.verified
+                            aiPromptTotal=currentGate.total
+                            if(currentGate.unlocked && !aiPromptRunning) {
+                                aiPromptKotlin="ปลดล็อกแล้ว • ตรวจข้อมูลที่บันทึกไว้ครบ"
+                                aiPromptApi="ผ่านจากข้อมูลเดิม • ไม่ต้องเรียก API"
+                            }
+                            currentGate.verified to currentGate.total
+                        })
                     ) { i ->
                         when {
                             i==0 -> refineImagePromptsAll(story)
-                            !imageAiUnlocked(story) -> notice("🔒 รอ AI และ Kotlin ตรวจ Prompt ให้ครบ 100% ก่อน")
+                            !imageAiUnlocked(story) -> notice("🔒 "+imagePromptGate(story).reason)
                             i<=eps.length() -> openImageEpisodeSafely(story,eps.getJSONObject(i-1).optInt("ep"))
                             else -> choiceMenu("จัดการอุปกรณ์",listOf("ผูกอุปกรณ์กับตัวละคร","ให้ AI เสนออุปกรณ์รายซีน")) { mode -> if(mode==0) characterPropMenu(story) else suggestStoryProps(story) }
                         }
