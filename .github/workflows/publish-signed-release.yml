@@ -54,7 +54,10 @@ jobs:
           echo "build=$BUILD" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists; refusing to overwrite it."
+            echo "Release $TAG already exists; verifying immutable published assets."
+            ASSET="DIRECTOR-X-v${VERSION}-build${BUILD}.apk"
+            gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.assets[].name' | grep -Fx "$ASSET"
+            gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.assets[].name' | grep -Fx "$ASSET.sha256"
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -112,6 +115,11 @@ jobs:
           # Verify that the exact signed asset is published and is the latest release.
           ASSET="DIRECTOR-X-v${VERSION}-build${BUILD}.apk"
           gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.assets[] | select(.name == "'"${ASSET}"'" and .size > 100000) | .name' | grep -Fx "$ASSET"
+          CHECKSUM_ASSET="$ASSET.sha256"
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.assets[].name' | grep -Fx "$CHECKSUM_ASSET"
+          mkdir -p "$RUNNER_TEMP/release-verification"
+          gh release download "$TAG" --pattern "$ASSET" --pattern "$CHECKSUM_ASSET" --dir "$RUNNER_TEMP/release-verification"
+          (cd "$RUNNER_TEMP/release-verification" && sha256sum --check "$CHECKSUM_ASSET")
           LATEST="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name')"
           test "$LATEST" = "$TAG" || { echo "::error::Latest release is $LATEST, expected $TAG"; exit 1; }
           echo "Verified latest release $TAG with signed APK $ASSET" >> "$GITHUB_STEP_SUMMARY"
