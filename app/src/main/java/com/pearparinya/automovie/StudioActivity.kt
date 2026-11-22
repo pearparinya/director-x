@@ -149,6 +149,12 @@ class StudioActivity : AppCompatActivity() {
     private var plan: JSONObject? = null
     private var importing = false
     private var activeProductionDialog: AlertDialog? = null
+    @Volatile private var aiPromptDone=0
+    @Volatile private var aiPromptTotal=0
+    @Volatile private var aiPromptStart=0L
+    @Volatile private var aiPromptKotlin="รอเริ่ม"
+    @Volatile private var aiPromptApi="ยังไม่เรียก API"
+    @Volatile private var aiPromptRunning=false
     private var pendingStoryShare: (() -> Unit)? = null
     private var pendingStorySummary = ""
     private var pendingReceipt: (() -> Unit)? = null
@@ -297,7 +303,13 @@ class StudioActivity : AppCompatActivity() {
                 }
                 list.addView(label)
                 list.addView(bar)
+                val aiStatus=TextView(this).apply { textSize=12f; setTextColor(Color.rgb(187,200,221)); setPadding(0,0,0,dp(8)) }
+                list.addView(aiStatus)
                 fun refreshProgress() {
+                    val elapsed=if(aiPromptStart==0L) 0 else ((System.currentTimeMillis()-aiPromptStart)/1000).coerceAtLeast(0)
+                    val pct=if(aiPromptTotal==0) 0 else aiPromptDone*100/aiPromptTotal
+                    aiStatus.text="AI Prompt $aiPromptDone/$aiPromptTotal • $pct% • %02d:%02d".format(elapsed/60,elapsed%60)+
+                        "\nKotlin: $aiPromptKotlin • API: $aiPromptApi"
                     val (done,total)=inlineImageProgress()
                     val count=total.coerceAtLeast(0)
                     val complete=done.coerceIn(0,count)
@@ -3759,6 +3771,83 @@ $context"""
         productionTaskDeck(story,number,true,saved.takeIf { it.isNotEmpty() })
         return true
     }
+
+    private fun promptHash(value: String): String =
+        java.security.MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+
+    private fun refinedImageCommand(ep: Int, task: SimpleProductionCommands.Task): String {
+        val file=File(project,"ai_prompt_EP%02d_%s.json".format(ep,task.id))
+        val record=runCatching { JSONObject(file.readText(Charsets.UTF_8)) }.getOrNull()
+        val addition=record?.takeIf { it.optString("source_sha256")==promptHash(task.command) }
+            ?.optString("enhancement").orEmpty()
+        return if(addition.isBlank()) task.command else task.command+
+            "\n\nAI CAMERA CLARITY (original MASTER, cast, wardrobe, props, action and location always override):\n"+addition
+    }
+
+    private fun refineImagePrompts(story: JSONObject, ep: Int, tasks: List<SimpleProductionCommands.Task>) {
+        if(aiPromptRunning) { notice("AI กำลังทำงานอยู่แล้ว"); return }
+        val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
+        if(providers.isEmpty()) {
+            aiPromptApi="ยังไม่ได้ตั้งค่า API"; aiPromptKotlin="คง Prompt เดิม"
+            notice("กรุณาตั้งค่า API ก่อนใช้ AI ปรับปรุง Prompt")
+            return
+        }
+        val projectId=project.name
+        val snapshot=story.toString()
+        aiPromptRunning=true; aiPromptDone=0; aiPromptTotal=tasks.size
+        aiPromptStart=System.currentTimeMillis()
+        aiPromptKotlin="ตรวจข้อมูล MASTER"; aiPromptApi="เตรียมเชื่อมต่อ"
+        Thread {
+            val schema=JSONObject().put("type","object")
+                .put("properties",JSONObject().put("enhancement",JSONObject().put("type","string")))
+                .put("required",org.json.JSONArray().put("enhancement"))
+            var failures=0
+            for(task in tasks) {
+                if(project.name!=projectId || plan!==story || story.toString()!=snapshot) {
+                    aiPromptKotlin="หยุด: ข้อมูลเรื่องเปลี่ยน"; break
+                }
+                aiPromptKotlin="ล็อก MASTER/ชุด "+task.id
+                val instruction="Review this existing film still prompt. Return JSON with only enhancement: "+
+                    "1-3 short English sentences clarifying camera composition and neutral lighting. "+
+                    "Do NOT change or add characters, clothing, props, action, location, story, references, or plot. "+
+                    "Do not invent any missing information. Original prompt:\n"+task.command.take(14000)
+                var addition=""
+                for(provider in providers) {
+                    aiPromptApi=provider.label+" • "+task.id
+                    val result=runCatching {
+                        StoryClientFactory.create(provider,provider.key(this@StudioActivity),
+                            provider.model(this@StudioActivity),
+                            { project.name!=projectId || plan!==story },
+                            automaticRetry=false,context=this@StudioActivity)
+                            .generate(instruction,schema).optString("enhancement").trim()
+                    }.getOrDefault("")
+                    val banned=listOf("wardrobe","outfit","shoe","master id","reference image","additional person")
+                    if(result.length in 25..700 && banned.none { result.contains(it,true) }) {
+                        addition=result; break
+                    }
+                }
+                if(addition.isBlank()) {
+                    failures++; aiPromptKotlin="API ไม่ผ่าน • คง Prompt เดิม"
+                } else {
+                    aiPromptKotlin="ตรวจและบันทึก "+task.id
+                    val file=File(project,"ai_prompt_EP%02d_%s.json".format(ep,task.id))
+                    val record=JSONObject().put("source_sha256",promptHash(task.command))
+                        .put("enhancement",addition)
+                    val saved=runCatching {
+                        val temp=File(project,file.name+".tmp")
+                        temp.writeText(record.toString(),Charsets.UTF_8)
+                        if(!temp.renameTo(file)) { file.writeText(record.toString(),Charsets.UTF_8); temp.delete() }
+                    }.isSuccess
+                    if(!saved) failures++
+                }
+                aiPromptDone++
+            }
+            aiPromptApi=if(failures==0 && aiPromptDone==tasks.size) "สำเร็จ" else "ล้มเหลว "+failures+" รายการ"
+            aiPromptKotlin=if(aiPromptDone==tasks.size) "ตรวจครบ "+tasks.size+" รายการ" else "หยุดก่อนครบ"
+            aiPromptRunning=false
+        }.start()
+    }
     private fun productionTaskDeck(story: JSONObject,number: Int,images: Boolean,queueIds: Set<String>?=null) {
         val coverSelection=listOf("STORY","EP%02d".format(number)).mapNotNull { scope ->
             val key="cover_cast_${project.name}_$scope"
@@ -3806,7 +3895,7 @@ $context"""
                         // Reuse the existing per-image deck, completion checkboxes and
                         // one-scene/one-prompt copy action. Include story/EP covers.
                         // Do not concatenate prompts or reset saved completion.
-                        notice("พร้อมปรับปรุง Prompt • เลือกชุดภาพเดิมด้านล่างได้เลย")
+                        refineImagePrompts(story,number,allTasks)
                     }
                 } else {
                     val groupIndex=if(images) selected-1 else selected
@@ -3870,7 +3959,8 @@ $context"""
                 if(notes.isEmpty()) original else original.copy(action=original.action+". Prop continuity: "+notes.joinToString("; ")+". Preserve the actual first frame; do not create missing objects.")
             }
             val flowCamera=when(sceneForFlow?.optString("camera_movement")) { "track" -> "Gentle tracking movement."; "locked" -> "Locked camera."; "push_in" -> "Slow push-in."; else -> "Slow gentle pan." }
-            val preview=if(!images && flowSpec!=null && FlowScenePrompt.issues(flowSpec).isEmpty()) task.copy(command=runCatching { ShortFlowPrompt.build(flowSpec,flowCamera) }.getOrElse { "Flow prompt needs review: non-English scene direction." }) else task
+            val preview=if(images) task.copy(command=refinedImageCommand(number,task))
+                else if(flowSpec!=null && FlowScenePrompt.issues(flowSpec).isEmpty()) task.copy(command=runCatching { ShortFlowPrompt.build(flowSpec,flowCamera) }.getOrElse { "Flow prompt needs review: non-English scene direction." }) else task
             val wardrobeNotice=if(images) task.references.mapNotNull { person ->
                 val outfit=person.optString("outfit")
                 val pieces=runCatching { AutoDirectorWardrobe.parts(outfit) }.getOrNull() ?: return@mapNotNull null
