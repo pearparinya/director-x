@@ -4940,6 +4940,38 @@ $context"""
             if(choice==0) pick() else accept(topics[choice-1])
         }
     }
+    private val socialDramaGroups = listOf(
+        "❤️ ครอบครัวและความสัมพันธ์" to listOf("ครอบครัวและความกตัญญู", "ความรักและการทรยศ", "ผู้สูงอายุและคนถูกทอดทิ้ง", "เด็กและปัญหาครอบครัว", "เพื่อนแท้และเพื่อนทรยศ"),
+        "🎭 ดราม่าเข้มข้นและความขัดแย้ง" to listOf("ความลับและการเปิดโปง", "การแก้แค้นและการให้อภัย", "มรดก เงินทอง และหนี้สิน", "ความโลภและการหลอกลวง", "คนดีถูกเข้าใจผิด"),
+        "⚖️ ชีวิตและปัญหาสังคม" to listOf("คนจนและความเหลื่อมล้ำ", "เจ้านาย ลูกน้อง และที่ทำงาน", "ชุมชนและเพื่อนบ้าน", "โลกออนไลน์และภัยสังคม", "ชีวิตพลิกผันและเริ่มต้นใหม่"),
+        "✨ แรงบันดาลใจและหักมุม" to listOf("กรรมตามสนองและผลของการกระทำ", "คนแปลกหน้าเปลี่ยนชีวิต", "น้ำใจและวีรบุรุษธรรมดา", "สัตว์เลี้ยงและความผูกพัน", "ดราม่าหักมุมและความจริงตอนจบ")
+    )
+
+    private fun chooseSocialDramaTopic(channel: String, category: String, done: (String) -> Unit) {
+        val groups = socialDramaGroups
+        val allTopics = groups.flatMap { it.second }
+        val prefKey = "last_topic_" + java.lang.Integer.toUnsignedString((channel + "|" + category).hashCode(), 16)
+        fun accept(topic: String) {
+            prefs.edit().putString(prefKey, topic).apply()
+            done(topic)
+        }
+        fun chooseGroup() {
+            choiceMenu("เลือกกลุ่ม • ละครสั้นสะท้อนสังคม",
+                listOf("🎲 สุ่มจากทุกกลุ่ม • 20 หมวด") + groups.map { "${it.first} (${it.second.size})" }) { group ->
+                if (group == 0) {
+                    val last = prefs.getString(prefKey, "").orEmpty()
+                    val candidates = ChannelFeaturePolicy.candidates(allTopics, last)
+                    accept(candidates.random())
+                } else {
+                    val selected = groups[group - 1]
+                    choiceMenu("เลือกหมวดย่อย • ${selected.first}", selected.second) { topic ->
+                        accept(selected.second[topic])
+                    }
+                }
+            }
+        }
+        chooseGroup()
+    }
     private fun chooseChannelTopic(channel: String, done: (Int) -> Unit) {
         if(channel=="นายเปีย บ้านคลองขุด") {
             val ids=listOf("pia_benefits","pia_safety","personal_social_drama","pia_products")
@@ -4947,15 +4979,20 @@ $context"""
             val subcategories=listOf(
                 listOf("สิทธิผู้สูงอายุ", "สิทธิผู้พิการ", "สวัสดิการเด็กและครอบครัว", "บัตรสวัสดิการแห่งรัฐ", "ประกันสังคม", "สิทธิรักษาพยาบาล", "ขั้นตอนตรวจสอบสิทธิ", "ข่าวสวัสดิการอื่น ๆ"),
                 listOf("เตือนภัยมิจฉาชีพ", "โทรศัพท์และข้อความหลอกลวง", "หลอกโอนเงินและซื้อขายออนไลน์", "ความปลอดภัยบัญชีและข้อมูล", "เรื่องไอทีและมือถือ", "วิธีใช้แอปใกล้ตัว", "ความรู้ในชีวิตประจำวัน", "รู้เท่าทันข่าวและข้อมูล"),
-                listOf("ครอบครัวและความกตัญญู", "ผู้สูงอายุและการดูแล", "น้ำใจและการช่วยเหลือ", "ความซื่อสัตย์และความไว้ใจ", "คนทำงานและอาชีพ", "ปัญหาในชุมชน", "การให้โอกาสและเริ่มต้นใหม่", "มิตรภาพและสัตว์เลี้ยง"),
+                socialDramaGroups.flatMap { it.second },
                 listOf("เครื่องมือช่าง", "เครื่องมือสวนและเกษตร", "ของใช้ในบ้าน", "เครื่องใช้ไฟฟ้าในครัว", "อุปกรณ์ไอทีและมือถือ", "ของใช้ส่วนตัว", "ของใช้ในรถ", "เปรียบเทียบและเลือกซื้อสินค้า")
             )
             choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",labels) { selected ->
                 val index=ChannelCatalog.allCategories.indexOfFirst { it.id==ids[selected] }
                 require(index>=0) { "ไม่พบหมวดที่เลือก" }
-                chooseTopicWithRandom(channel,ChannelCatalog.allCategories[index].name,subcategories[selected]) { topic ->
+                val acceptTopic: (String) -> Unit = { topic ->
                     selectedStoryTopic=topic
                     done(index)
+                }
+                if(ids[selected]=="personal_social_drama") {
+                    chooseSocialDramaTopic(channel,ChannelCatalog.allCategories[index].name,acceptTopic)
+                } else {
+                    chooseTopicWithRandom(channel,ChannelCatalog.allCategories[index].name,subcategories[selected],acceptTopic)
                 }
             }
             return
