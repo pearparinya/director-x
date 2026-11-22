@@ -181,8 +181,8 @@ class StudioActivity : AppCompatActivity() {
     private fun choiceMenu(title: String, choices: List<String>, cancel: String = "✖️ ยกเลิก",
         cancelable: Boolean = true, onCancel: (() -> Unit)? = null, action: (Int) -> Unit) {
         val panel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(dp(16),dp(18),dp(16),dp(12))
-            background = backdrop(Color.rgb(24,24,27),navy,Color.rgb(74,61,39))
+            orientation = LinearLayout.VERTICAL; setPadding(dp(18),dp(20),dp(18),dp(16))
+            background = backdrop(Color.rgb(19,25,39),Color.rgb(10,17,31),Color.rgb(235,171,66))
         }
         panel.addView(TextView(this).apply {
             val start=title.indexOf("สถานะ:")
@@ -190,7 +190,7 @@ class StudioActivity : AppCompatActivity() {
             if(start>=0) decorated.setSpan(
                 android.text.style.ForegroundColorSpan(if(title.contains("สถานะ: ยืนยันชุดในบทแล้ว")) Color.rgb(129,225,167) else Color.rgb(255,196,104)),
                 start,title.length,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            text = decorated; textSize = 20f; setTextColor(gold); setTypeface(null,Typeface.BOLD)
+            text = decorated; textSize = 21f; setTextColor(Color.rgb(255,190,75)); setTypeface(null,Typeface.BOLD)
             setPadding(0,0,0,dp(14))
         })
         if(choices.size>1) panel.addView(TextView(this).apply {
@@ -209,12 +209,12 @@ class StudioActivity : AppCompatActivity() {
             } else when(MenuChoiceStyle.role(value)) {
                 MenuChoiceStyle.AI -> intArrayOf(Color.rgb(70,41,112),Color.rgb(40,27,74),Color.rgb(176,137,225))
                 MenuChoiceStyle.EDIT -> intArrayOf(Color.rgb(98,67,35),Color.rgb(61,42,31),Color.rgb(222,174,94))
-                else -> intArrayOf(Color.rgb(25,66,103),Color.rgb(18,40,72),Color.rgb(91,175,220))
+                else -> intArrayOf(Color.rgb(9,77,119),Color.rgb(12,42,82),Color.rgb(63,185,233))
             }
             val row=LinearLayout(this).apply {
                 orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL
-                minimumHeight=dp(if(flowTools) 76 else 68); setPadding(dp(12),dp(10),dp(12),dp(10))
-                background=backdrop(palette[0],palette[1],palette[2]).apply { if(flowTools) setStroke(dp(2),palette[2]) }
+                minimumHeight=dp(if(flowTools) 76 else 72); setPadding(dp(14),dp(12),dp(14),dp(12))
+                background=backdrop(palette[0],palette[1],palette[2]).apply { setStroke(dp(1),palette[2]) }
                 layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) }
                 isClickable=true; isFocusable=true
                 contentDescription="ตัวเลือก ${index+1}: $value"
@@ -250,8 +250,8 @@ class StudioActivity : AppCompatActivity() {
             text = "📭 ยังไม่มีรายการ"; textSize = 16f; setTextColor(ice); setPadding(0,dp(12),0,dp(12))
         })
         panel.addView(TextView(this).apply {
-            text = cancel; textSize = 16f; setTextColor(ice); gravity = Gravity.CENTER
-            minHeight = dp(48); background = backdrop(Color.rgb(36,36,40),Color.rgb(28,28,32))
+            text = cancel; textSize = 17f; setTextColor(ice); gravity = Gravity.CENTER
+            minHeight = dp(58); background = backdrop(Color.rgb(44,43,50),Color.rgb(29,29,38),Color.rgb(71,71,85))
             isFocusable = true; setOnClickListener { dialog.dismiss(); onCancel?.invoke() }
         })
         dialog.setOnCancelListener { onCancel?.invoke() }
