@@ -4670,14 +4670,14 @@ $context"""
         )
         val message=checks.joinToString("\n\n")+
             "\n\nผลตรวจนี้อ่านจากข้อมูลในเครื่องเท่านั้น ไม่เรียก API ไม่เสียเครดิต และไม่รับรองว่าบริการภายนอกพร้อมใช้งาน"
-        AlertDialog.Builder(this).setTitle("🩺 ศูนย์ตรวจสอบระบบ • API / Kotlin")
+        AlertDialog.Builder(this).setTitle("🩺 ตรวจสอบ API / Kotlin")
             .setMessage(message)
             .setPositiveButton("ปิด",null)
             .setNeutralButton("คัดลอกผล") { _,_ -> copyCommand(message) }
             .showDirector()
     }
     private fun apiSettingsCenter() {
-        choiceMenu("⚙️ ตั้งค่า API", listOf("🎬 API เขียนบท", "🛒 API โหมดนายเปียพาช้อป", "🖼️ API สร้างภาพ AI", "🩺 ศูนย์ตรวจสอบระบบ • API / Kotlin")) { index ->
+        choiceMenu("⚙️ ตั้งค่า API", listOf("🎬 API เขียนบท", "🛒 API โหมดนายเปียพาช้อป", "🖼️ API สร้างภาพ AI", "🩺 ตรวจสอบ API / Kotlin")) { index ->
             when (index) {
                 0 -> geminiSettings()
                 1 -> shoppingApiSettings()
