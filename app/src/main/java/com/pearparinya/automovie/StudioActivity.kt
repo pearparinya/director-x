@@ -317,6 +317,36 @@ class StudioActivity : AppCompatActivity() {
         return result
     }
     private val piaActorId = "CHAR_1999999999"
+    // Only the นายเปีย channel uses this preference. Other channels retain normal casting.
+    private val piaChannelMasterKey = "pia_channel_master_lock_v1"
+    private var piaStoryMasterOverride: String? = null
+    private fun piaMasterChoices(): List<Pair<String,File>> {
+        val original=if(piaIdentityFile.isFile) piaIdentityFile else File(filesDir,"pia_presenter_master.png").also { target ->
+            if(!target.isFile) assets.open("pia_outfits/01.png").use { input -> target.outputStream().use { input.copyTo(it) } }
+        }
+        val black=presenterOutfitFile(piaActorId,13).also { target ->
+            if(!target.isFile) {
+                target.parentFile?.mkdirs()
+                assets.open("pia_outfits/13.webp").use { input -> target.outputStream().use { input.copyTo(it) } }
+            }
+        }
+        val result=mutableListOf("original" to original,"black" to black)
+        val records=actorCatalog()
+        for(i in 0 until records.length()) {
+            val row=records.getJSONObject(i)
+            if(row.optString("display_name")=="นายเปีย บ้านคลองขุด") {
+                val source=File(filesDir,"actor_master_v2/"+row.optString("file"))
+                if(source.isFile && MasterLibrary.digest(source.readBytes())==row.optString("sha256"))
+                    result.add(row.getString("id") to source)
+            }
+        }
+        return result
+    }
+    private fun piaSelectedMaster(): File {
+        val choices=piaMasterChoices()
+        val wanted=piaStoryMasterOverride ?: prefs.getString(piaChannelMasterKey,"original").orEmpty()
+        return choices.firstOrNull { it.first==wanted }?.second ?: choices.first().second
+    }
     private val piaIdentityFile get() = File(filesDir,"pia_identity_master.image")
     private val piaIdentityPicker=registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if(uri!=null) runCatching {
@@ -338,7 +368,7 @@ class StudioActivity : AppCompatActivity() {
         }
         val catalog=castingCatalog()
         require((0 until catalog.length()).none { catalog.getJSONObject(it).optString("id")==piaActorId }) { "รหัสตัวละครนายเปียซ้ำ" }
-        val bytes=if(piaIdentityFile.isFile) piaIdentityFile.readBytes() else assets.open("pia_outfits/01.png").use { it.readBytes() }
+        val bytes=piaSelectedMaster().readBytes()
         val row=JSONObject().put("id",piaActorId).put("display_name","นายเปีย บ้านคลองขุด")
             .put("file","PIA_PRESENTER.png").put("sha256",MasterLibrary.digest(bytes))
             .put("character_age",35).put("age_basis","fictional_casting_placeholder_not_real_age")
@@ -375,14 +405,9 @@ class StudioActivity : AppCompatActivity() {
             return target
         }
         if(row.getString("id")==piaActorId) {
-            if(piaIdentityFile.isFile) {
-                require(MasterLibrary.digest(piaIdentityFile.readBytes())==row.getString("sha256")) { "MASTER นายเปียเปลี่ยนระหว่างเลือก กรุณาเปิดหน้าสร้างเรื่องใหม่" }
-                return piaIdentityFile
-            }
-            val bytes=assets.open("pia_outfits/01.png").use { it.readBytes() }
-            val target=File(filesDir,"pia_presenter_master.png")
-            if(!target.isFile || MasterLibrary.digest(target.readBytes())!=MasterLibrary.digest(bytes)) target.writeBytes(bytes)
-            return target
+            val selected=piaSelectedMaster()
+            require(MasterLibrary.digest(selected.readBytes())==row.getString("sha256")) { "MASTER นายเปียเปลี่ยนระหว่างเลือก กรุณาเปิดหน้าสร้างเรื่องใหม่" }
+            return selected
         }
         val entry=masterLibrary.entries().firstOrNull { it.id==row.getString("id") }
         return if(entry!=null) masterLibrary.source(entry) else File(filesDir,"actor_master_v2/"+row.getString("file"))
@@ -5137,6 +5162,7 @@ $context"""
         }
     }
     private fun flowPlanning(autoDirector: Boolean = false) {
+        piaStoryMasterOverride=null
         if(GeminiStoryService.running) { geminiJobMenu(); return }
         if(!StoryProvider.ready(this)) { geminiSettings { flowPlanning(autoDirector) }; return }
         var chosenChannel=originalChannel
@@ -5190,6 +5216,58 @@ $context"""
                     text=if(show) "⚙ ซ่อนตัวเลือกเพิ่มเติม" else "⚙ ตัวเลือกเพิ่มเติม • แตะเพื่อเปิด"
                 }
             })
+            if(chosenChannel=="นายเปีย บ้านคลองขุด") {
+                val masterStatus=TextView(this).apply { setTextColor(Color.WHITE); setPadding(dp(12),dp(8),dp(12),dp(8)) }
+                fun refreshPiaStatus() {
+                    val key=piaStoryMasterOverride ?: prefs.getString(piaChannelMasterKey,"original").orEmpty()
+                    masterStatus.text="🔒 MASTER ช่องนายเปีย: "+when(key) {
+                        "original" -> "MASTER ประจำช่องเดิม"
+                        "black" -> "H003 • ชุดดำ 3 มุมมอง"
+                        else -> "MASTER ใหม่ • ชุดสูท 6 มุมมอง"
+                    }+(if(piaStoryMasterOverride!=null) " • เฉพาะเรื่องนี้" else " • ค่าเริ่มต้น")
+                }
+                refreshPiaStatus()
+                panel.addView(masterStatus)
+                panel.addView(Button(this).apply {
+                    text="🎭 เลือก / ล็อก MASTER ช่องนายเปีย"
+                    colorAction(this,Color.rgb(29,85,132))
+                    setOnClickListener {
+                        val choices=piaMasterChoices()
+                        val labels=choices.mapIndexed { index,item ->
+                            when(index) {
+                                0 -> "MASTER ประจำช่องเดิม"
+                                1 -> "H003 • นายเปีย ชุดดำ 3 มุมมอง"
+                                else -> "MASTER ใหม่ • นายเปีย ชุดสูท 6 มุมมอง"
+                            } to item.second
+                        }
+                        chooseNamedCharacterGrid("MASTER ช่องนายเปีย • เลือกเฉพาะ 3 ตัว",labels) { selected ->
+                            val key=choices[selected].first
+                            AlertDialog.Builder(this@StudioActivity)
+                                .setTitle("ใช้ MASTER ที่เลือก")
+                                .setMessage("ล็อกเป็นค่าเริ่มต้นของช่องนายเปีย หรือใช้เฉพาะเรื่องนี้? ช่องอื่นไม่เปลี่ยน")
+                                .setPositiveButton("🔒 ล็อกเป็นค่าเริ่มต้น") { _,_ ->
+                                    prefs.edit().putString(piaChannelMasterKey,key).apply()
+                                    piaStoryMasterOverride=null
+                                    refreshPiaStatus()
+                                }
+                                .setNeutralButton("ใช้เฉพาะเรื่องนี้") { _,_ ->
+                                    piaStoryMasterOverride=key
+                                    refreshPiaStatus()
+                                }
+                                .setNegativeButton("ยกเลิก",null).showDirector()
+                        }
+                    }
+                })
+                panel.addView(Button(this).apply {
+                    text="🔓 ปลดล็อก • กลับไปใช้ MASTER ประจำช่องเดิม"
+                    colorAction(this,Color.rgb(63,82,105))
+                    setOnClickListener {
+                        prefs.edit().remove(piaChannelMasterKey).apply()
+                        piaStoryMasterOverride=null
+                        refreshPiaStatus()
+                    }
+                })
+            }
             val presenters=runCatching { if(chosenChannel=="นายเปีย บ้านคลองขุด") { installPiaDefaults(); JSONArray().put(piaCatalog().getJSONObject(0)) } else castingCatalog() }.getOrDefault(JSONArray())
             val presenter=Spinner(this).apply {
                 val labels=listOf(if(chosenChannel=="นายเปีย บ้านคลองขุด") "เลือก MASTER ผู้ดำเนินเรื่อง" else "ให้ AI เลือกตัวละครหลัก")+(0 until presenters.length()).map { presenters.getJSONObject(it).optString("display_name").ifBlank { presenters.getJSONObject(it).optString("id") } }
