@@ -238,7 +238,7 @@ class StudioActivity : AppCompatActivity() {
                 val attr=android.util.TypedValue()
                 theme.resolveAttribute(android.R.attr.selectableItemBackground,attr,true)
                 foreground=getDrawable(attr.resourceId)
-                setOnClickListener { if(index==0 && inlineImageProgress!=null) action(index) else { dialog.dismiss(); action(index) } }
+                setOnClickListener { if(index==0 && inlineImageProgress!=null && title.startsWith("สร้างภาพ •")) action(index) else { dialog.dismiss(); action(index) } }
             }
             row.addView(TextView(this).apply {
                 text=(index+1).toString(); textSize=18f; setTextColor(Color.WHITE)
@@ -304,7 +304,7 @@ class StudioActivity : AppCompatActivity() {
                 list.addView(label)
                 list.addView(bar)
                 val aiStatus=TextView(this).apply { textSize=12f; setTextColor(Color.rgb(187,200,221)); setPadding(0,0,0,dp(8)) }
-                list.addView(aiStatus)
+                if(title.startsWith("สร้างภาพ •")) list.addView(aiStatus)
                 fun refreshProgress() {
                     val elapsed=if(aiPromptStart==0L) 0 else ((System.currentTimeMillis()-aiPromptStart)/1000).coerceAtLeast(0)
                     val pct=if(aiPromptTotal==0) 0 else aiPromptDone*100/aiPromptTotal
@@ -314,7 +314,7 @@ class StudioActivity : AppCompatActivity() {
                     val count=total.coerceAtLeast(0)
                     val complete=done.coerceIn(0,count)
                     val percent=if(count==0) 0 else complete*100/count
-                    label.text="🌈 ภาพเสร็จ $complete/$count • $percent%"+if(count>0 && complete==count) " ✅" else ""
+                    label.text=if(title.startsWith("สร้างภาพ •")) "🌈 AI Prompt $complete/$count • $percent%" else "🌈 ภาพเสร็จ $complete/$count • $percent%"+if(count>0 && complete==count) " ✅" else ""
                     repeat(bar.childCount) { n -> bar.getChildAt(n).alpha=if((n+1)*100<=percent*20) 1f else 0.2f }
                 }
                 refreshProgress()
@@ -3806,7 +3806,24 @@ $context"""
             "\n\nAI CAMERA CLARITY (original MASTER, cast, wardrobe, props, action and location always override):\n"+addition
     }
 
-    private fun refineImagePrompts(story: JSONObject, ep: Int, tasks: List<SimpleProductionCommands.Task>) {
+    private fun refineImagePromptsAll(story: JSONObject) {
+        val eps=story.optJSONArray("episodes") ?: return notice("ไม่มี EP ให้ปรับปรุง")
+        val entries=mutableListOf<Pair<Int,SimpleProductionCommands.Task>>()
+        for(i in 0 until eps.length()) {
+            val ep=eps.optJSONObject(i)?.optInt("ep") ?: continue
+            val coverSelection=listOf("STORY","EP%02d".format(ep)).mapNotNull { scope ->
+                val key="cover_cast_${project.name}_$scope"
+                if(prefs.contains(key)) scope to prefs.getStringSet(key,emptySet()).orEmpty().toSet() else null
+            }.toMap()
+            val tasks=runCatching { SimpleProductionCommands.imageTasks(story,ep,coverSelection) }.getOrElse {
+                aiPromptKotlin="ข้อมูล EP.$ep ไม่พร้อม: "+(it.message ?: "ตรวจบท")
+                notice(aiPromptKotlin); return
+            }
+            tasks.forEach { task ->
+                if(entries.none { it.second.id==task.id }) entries.add(ep to task)
+            }
+        }
+        if(entries.isEmpty()) return notice("ไม่มี Prompt ภาพให้ปรับปรุง")
         if(aiPromptRunning) { notice("AI กำลังทำงานอยู่แล้ว"); return }
         val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
         if(providers.isEmpty()) {
@@ -3816,7 +3833,7 @@ $context"""
         }
         val projectId=project.name
         val snapshot=story.toString()
-        aiPromptRunning=true; aiPromptDone=0; aiPromptTotal=tasks.size
+        aiPromptRunning=true; aiPromptDone=0; aiPromptTotal=entries.size
         aiPromptStart=System.currentTimeMillis()
         aiPromptKotlin="ตรวจข้อมูล MASTER"; aiPromptApi="เตรียมเชื่อมต่อ"
         Thread {
@@ -3824,7 +3841,7 @@ $context"""
                 .put("properties",JSONObject().put("enhancement",JSONObject().put("type","string")))
                 .put("required",org.json.JSONArray().put("enhancement"))
             var failures=0
-            for(task in tasks) {
+            for((ep,task) in entries) {
                 if(project.name!=projectId || plan!==story || story.toString()!=snapshot) {
                     aiPromptKotlin="หยุด: ข้อมูลเรื่องเปลี่ยน"; break
                 }
@@ -3864,8 +3881,8 @@ $context"""
                 }
                 aiPromptDone++
             }
-            aiPromptApi=if(failures==0 && aiPromptDone==tasks.size) "สำเร็จ" else "ล้มเหลว "+failures+" รายการ"
-            aiPromptKotlin=if(aiPromptDone==tasks.size) "ตรวจครบ "+tasks.size+" รายการ" else "หยุดก่อนครบ"
+            aiPromptApi=if(failures==0 && aiPromptDone==entries.size) "สำเร็จ" else "ล้มเหลว "+failures+" รายการ"
+            aiPromptKotlin=if(aiPromptDone==entries.size) "ตรวจครบ "+entries.size+" รายการ" else "หยุดก่อนครบ"
             aiPromptRunning=false
         }.start()
     }
@@ -3899,29 +3916,13 @@ $context"""
             val episode=story.optJSONArray("episodes")?.let { eps -> (0 until eps.length()).mapNotNull { eps.optJSONObject(it) }.firstOrNull { it.optInt("ep")==number } }
             val episodeTitle=episode?.optString("title")?.takeIf { it.isNotBlank() } ?: "ยังไม่ได้ตั้งชื่อตอน"
             val storyTitle=story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }
-            val menuOptions=if(images) listOf("🔄 AI ปรับปรุง Prompt ภาพทั้ง EP • ปกและทุกซีน") + options else options
-            choiceMenu("เรื่อง: $storyTitle\nEP.$number • $episodeTitle\nเลือกชุด${if(images) "ภาพ" else "คำสั่ง Flow"}",menuOptions,
+            choiceMenu("เรื่อง: $storyTitle\\nEP.$number • $episodeTitle\\nเลือกชุด${if(images) "ภาพ" else "คำสั่ง Flow"}",options,
                 inlineImageProgress=if(images) ({
                     val done=prefs.getStringSet("image_done_${project.name}_$number",emptySet()).orEmpty()
                     allTasks.count { it.id in done } to allTasks.size
                 }) else null
             ) { selected ->
-                if(images && selected==0) {
-                    val wardrobeIssues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(story))
-                    if(wardrobeIssues.isNotEmpty()) {
-                        AlertDialog.Builder(this).setTitle("ตรวจความต่อเนื่องก่อนปรับปรุง Prompt")
-                            .setMessage("พบปัญหาชุด/รองเท้า ${wardrobeIssues.size} รายการ\n"+wardrobeIssues.take(10).joinToString("\n"))
-                            .setPositiveButton("รับทราบ",null).showDirector()
-                    } else {
-                        // Reuse the existing per-image deck, completion checkboxes and
-                        // one-scene/one-prompt copy action. Include story/EP covers.
-                        // Do not concatenate prompts or reset saved completion.
-                        refineImagePrompts(story,number,allTasks)
-                    }
-                } else {
-                    val groupIndex=if(images) selected-1 else selected
-                    productionTaskDeck(story,number,images,groupsWithCovers[groupIndex].map { it.id }.toSet())
-                }
+                productionTaskDeck(story,number,images,groupsWithCovers[selected].map { it.id }.toSet())
             }
             return
         }
@@ -4550,9 +4551,17 @@ $context"""
             Triple(R.drawable.menu_cover,"สร้างภาพ" to "ภาพปก • ภาพฉาก",{ current?.let { story ->
                 val eps=story.optJSONArray("episodes")
                 if(eps==null || eps.length()==0) notice("ยังไม่มีตอนในบท")
-                else choiceMenu("สร้างภาพ • ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}", (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" } + "จัดการอุปกรณ์อ้างอิง") { i ->
-                    if(i<eps.length()) openImageEpisodeSafely(story,eps.getJSONObject(i).optInt("ep"))
-                    else choiceMenu("จัดการอุปกรณ์",listOf("ผูกอุปกรณ์กับตัวละคร","ให้ AI เสนออุปกรณ์รายซีน")) { mode -> if(mode==0) characterPropMenu(story) else suggestStoryProps(story) }
+                else choiceMenu("สร้างภาพ • ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}",
+                    listOf("🔄 AI ปรับปรุง Prompt ภาพทั้งเรื่อง • ปกและทุก EP")+
+                        (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" }+
+                        "จัดการอุปกรณ์อ้างอิง",
+                    inlineImageProgress=({ aiPromptDone to aiPromptTotal })
+                ) { i ->
+                    when {
+                        i==0 -> refineImagePromptsAll(story)
+                        i<=eps.length() -> openImageEpisodeSafely(story,eps.getJSONObject(i-1).optInt("ep"))
+                        else -> choiceMenu("จัดการอุปกรณ์",listOf("ผูกอุปกรณ์กับตัวละคร","ให้ AI เสนออุปกรณ์รายซีน")) { mode -> if(mode==0) characterPropMenu(story) else suggestStoryProps(story) }
+                    }
                 }
             } ?: notice("เปิดเรื่องที่มีบทก่อน") }),
             Triple(R.drawable.menu_scene,"คำสั่ง Flow" to "สร้างคำสั่งวิดีโอ",{ commandCardsMenu() })
