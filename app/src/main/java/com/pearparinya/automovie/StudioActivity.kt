@@ -3970,18 +3970,14 @@ $context"""
             val groupsWithCovers=listOf(storyCovers,episodeCovers).filter { it.isNotEmpty() }+groups
             val options=groupsWithCovers.map { group ->
                 val label=if(group.first().id.startsWith("STORY_COVER_")) "ปกรวมเรื่อง • แนวตั้งและแนวนอน" else if(group.first().id.contains("_COVER_")) "ปก EP.$number • แนวตั้งและแนวนอน" else "${group.first().id} – ${group.last().id}"
-                val completed=group.count { task -> rows(story).firstOrNull { key(it)==task.id }?.let { sceneFrameApproved(it) } == true }
-                if(group.first().id.contains("_COVER_")) label else if(images) "$label • ตรวจผ่าน $completed/${group.size}" else "$label • ${group.size} ซีน"
+                // Image navigation is not a progress dashboard. Keep approval details inside each task.
+                if(images) label else "$label • ${group.size} ซีน"
             }
             if(options.isEmpty()) { notice("ยังไม่มีรายการภาพใน EP นี้"); return }
             val episode=story.optJSONArray("episodes")?.let { eps -> (0 until eps.length()).mapNotNull { eps.optJSONObject(it) }.firstOrNull { it.optInt("ep")==number } }
             val episodeTitle=episode?.optString("title")?.takeIf { it.isNotBlank() } ?: "ยังไม่ได้ตั้งชื่อตอน"
             val storyTitle=story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }
-            choiceMenu("เรื่อง: $storyTitle\\nEP.$number • $episodeTitle\\nเลือกชุด${if(images) "ภาพ" else "คำสั่ง Flow"}",options,
-                inlineImageProgress=if(images) ({
-                    val done=prefs.getStringSet("image_done_${project.name}_$number",emptySet()).orEmpty()
-                    allTasks.count { it.id in done } to allTasks.size
-                }) else null
+            choiceMenu("เรื่อง: $storyTitle\nEP.$number • $episodeTitle\nเลือกชุด${if(images) "ภาพ" else "คำสั่ง Flow"}",options
             ) { selected ->
                 productionTaskDeck(story,number,images,groupsWithCovers[selected].map { it.id }.toSet())
             }
@@ -4622,24 +4618,15 @@ $context"""
                         aiPromptApi="ผ่านจากข้อมูลเดิม • ไม่ต้องเรียก API"
                     }
                     choiceMenu("สร้างภาพ • ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}",
-                        listOf("🔄 AI ปรับปรุง Prompt ภาพทั้งเรื่อง • ปกและทุก EP")+
-                            (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); (if(ready) "🔓 " else "🔒 ")+"EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" }+
-                            (if(ready) "🔓 จัดการอุปกรณ์อ้างอิง" else "🔒 จัดการอุปกรณ์อ้างอิง"),
-                        inlineImageProgress=({
-                            val currentGate=imagePromptGate(story)
-                            aiPromptDone=currentGate.verified
-                            aiPromptTotal=currentGate.total
-                            if(currentGate.unlocked && !aiPromptRunning) {
-                                aiPromptKotlin="ปลดล็อกแล้ว • ตรวจข้อมูลที่บันทึกไว้ครบ"
-                                aiPromptApi="ผ่านจากข้อมูลเดิม • ไม่ต้องเรียก API"
-                            }
-                            currentGate.verified to currentGate.total
-                        })
+                        (if(ready) emptyList() else listOf("🔄 AI ปรับปรุง Prompt ภาพทั้งเรื่อง • ปกและทุก EP"))+
+                            (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" }+
+                            "จัดการอุปกรณ์อ้างอิง",
                     ) { i ->
+                        val offset=if(ready) 0 else 1
                         when {
-                            i==0 -> refineImagePromptsAll(story)
-                            !imageAiUnlocked(story) -> notice("🔒 "+imagePromptGate(story).reason)
-                            i<=eps.length() -> openImageEpisodeSafely(story,eps.getJSONObject(i-1).optInt("ep"))
+                            !ready && i==0 -> refineImagePromptsAll(story)
+                            !imageAiUnlocked(story) -> notice("ยังไม่พร้อม: "+imagePromptGate(story).reason)
+                            i-offset in 0 until eps.length() -> openImageEpisodeSafely(story,eps.getJSONObject(i-offset).optInt("ep"))
                             else -> choiceMenu("จัดการอุปกรณ์",listOf("ผูกอุปกรณ์กับตัวละคร","ให้ AI เสนออุปกรณ์รายซีน")) { mode -> if(mode==0) characterPropMenu(story) else suggestStoryProps(story) }
                         }
                     }
