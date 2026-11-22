@@ -996,6 +996,21 @@ class MainActivity : AppCompatActivity() {
         status.text = "⚡ FAST START • SCENE 01 • BODY IDENTITY ON"
     }
 
+    private fun advancePastFullyApprovedScenes() {
+        val workspace = File(filesDir, "scene_artifacts")
+        val state = SceneLocks.load(workspace)
+        while (true) {
+            val id = "EP${fmt(currentEp)}_SC${currentScene.toString().padStart(3, '0')}"
+            val approvedImage = SceneLocks.isApproved(state, id, SceneLocks.Medium.IMAGE)
+            val approvedFlow = SceneLocks.isApproved(state, id, SceneLocks.Medium.FLOW)
+            if (!approvedImage || !approvedFlow) return
+            if (currentScene < 20) currentScene++ else if (currentEp < 5) {
+                currentEp++
+                currentScene = 1
+            } else return
+        }
+    }
+
     private fun generateNextQuickScene() {
         if (!requireStep(3)) return
         if (!characterMastersReady()) { showCharacterMasterSetup(); return }
@@ -1004,6 +1019,10 @@ class MainActivity : AppCompatActivity() {
         // The next press starts the following EP at Scene 01 using that handoff contract.
         if (currentScene < 20) {
             currentScene++
+            try { advancePastFullyApprovedScenes() } catch (error: Exception) {
+                status.text = "⛔ อ่านสถานะล็อกไม่ได้: ${error.message}"
+                return
+            }
             saveSceneLedger(currentEp, currentScene)
             updateUi()
             saveWorkState()
@@ -1024,6 +1043,10 @@ class MainActivity : AppCompatActivity() {
 
         currentEp++
         currentScene = 1
+        try { advancePastFullyApprovedScenes() } catch (error: Exception) {
+            status.text = "⛔ อ่านสถานะล็อกไม่ได้: ${error.message}"
+            return
+        }
         saveSceneLedger(currentEp, currentScene)
         updateUi()
         saveWorkState()
