@@ -2084,18 +2084,18 @@ class StudioActivity : AppCompatActivity() {
             orientation=LinearLayout.VERTICAL
             setPadding(dp(12),dp(8),dp(12),dp(8))
             background=android.graphics.drawable.GradientDrawable().apply {
-                setColor(Color.rgb(31,42,59))
+                setColor(Color.rgb(8,40,74))
                 cornerRadius=dp(10).toFloat()
-                setStroke(dp(1),Color.rgb(124,100,64))
+                setStroke(dp(2),Color.rgb(244,181,66))
             }
         }
         preview.addView(titlePanel,LinearLayout.LayoutParams(-1,-2).apply {
             setMargins(0,0,0,dp(8))
         })
-        titlePanel.addView(paintedCaption("DIRECTOR X  •  ตรวจภาพก่อนส่ง",16f,Color.WHITE,true),
+        titlePanel.addView(paintedCaption("🎬 ตรวจภาพก่อนส่ง",16f,Color.WHITE,true),
             LinearLayout.LayoutParams(-1,dp(36)))
-        titlePanel.addView(paintedCaption("FACE DETAIL ซ้าย  /  ORIGINAL MASTER ขวา",11f,Color.rgb(231,189,102),true),
-            LinearLayout.LayoutParams(-1,dp(26)))
+        titlePanel.addView(paintedCaption("ซ้าย: ใบหน้า  •  ขวา: ภาพต้นฉบับ",11f,Color.rgb(255,204,107),true),
+            LinearLayout.LayoutParams(-1,dp(30)))
         // Pair face crops (left) with the original MASTER (right) by MASTER ID.
         // Preview layout never changes attachment order, files, or the outgoing intent.
         val imageGrid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
@@ -2127,8 +2127,8 @@ class StudioActivity : AppCompatActivity() {
         }
         // Cinematic identity cards: a single shared title above each pair prevents
         // labels from being lost inside narrow image columns on smaller devices.
-        val ink=Color.rgb(19,24,34)
-        val panel=Color.rgb(34,41,54)
+        val ink=Color.rgb(9,33,60)
+        val panel=Color.rgb(12,49,85)
         val gold=Color.rgb(231,189,102)
         fun addPreviewCell(row: LinearLayout,ref: PreviewRef?,heading: String) {
             val card=LinearLayout(this).apply {
@@ -2136,16 +2136,17 @@ class StudioActivity : AppCompatActivity() {
                 setPadding(dp(8),dp(8),dp(8),dp(8))
                 background=android.graphics.drawable.GradientDrawable().apply {
                     setColor(ink); cornerRadius=dp(10).toFloat()
+                    setStroke(dp(1),Color.rgb(56,154,210))
                 }
             }
             row.addView(card,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f).apply {
                 setMargins(dp(3),0,dp(3),0)
             })
             card.addView(paintedCaption(heading,11f,gold,true),
-                LinearLayout.LayoutParams(-1,dp(30)))
+                LinearLayout.LayoutParams(-1,dp(34)))
             if(ref==null) {
                 card.addView(TextView(this).apply {
-                    text=if(heading.startsWith("FACE DETAIL")) "⚠ ยังไม่ได้แนบภาพใบหน้า\nกลับไปเลือกครอปใบหน้าจาก MASTER ก่อนส่ง" else "ไม่มีภาพอ้างอิง"
+                    text=if(heading=="ใบหน้า") "⚠ ยังไม่ได้แนบภาพใบหน้า\nกลับไปเลือกครอปใบหน้าจาก MASTER ก่อนส่ง" else "ไม่มีภาพอ้างอิง"
                     textSize=12f
                     setTextColor(Color.rgb(255,194,109))
                     setPadding(dp(6),dp(8),dp(6),dp(8))
@@ -2179,7 +2180,7 @@ class StudioActivity : AppCompatActivity() {
                 setPadding(dp(8),dp(8),dp(8),dp(10))
                 background=android.graphics.drawable.GradientDrawable().apply {
                     setColor(panel); cornerRadius=dp(12).toFloat()
-                    setStroke(dp(1),Color.rgb(71,79,95))
+                    setStroke(dp(2),Color.rgb(61,160,217))
                 }
             }
             imageGrid.addView(block,LinearLayout.LayoutParams(-1,-2).apply {
@@ -2187,7 +2188,7 @@ class StudioActivity : AppCompatActivity() {
             })
             val nameBanner=paintedCaption("${rowIndex+1}.  ${personName}",17f,Color.WHITE,true).apply {
                 background=android.graphics.drawable.GradientDrawable().apply {
-                    setColor(Color.rgb(53,66,85))
+                    setColor(Color.rgb(17,90,137))
                     cornerRadius=dp(7).toFloat()
                 }
             }
@@ -2196,10 +2197,10 @@ class StudioActivity : AppCompatActivity() {
             })
             val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
             block.addView(row)
-            addPreviewCell(row,face,"FACE DETAIL • ใบหน้า")
-            addPreviewCell(row,master,"ORIGINAL MASTER")
+            addPreviewCell(row,face,"ใบหน้า")
+            addPreviewCell(row,master,"ภาพต้นฉบับ")
             block.addView(TextView(this).apply {
-                text="MASTER ID  •  ${master?.masterId ?: face?.masterId ?: "ไม่พบ"}"
+                text="รหัส MASTER  •  ${master?.masterId ?: face?.masterId ?: "ไม่พบ"}"
                 textSize=10f
                 setTextColor(Color.LTGRAY)
                 setPadding(dp(5),dp(6),0,0)
@@ -2209,7 +2210,7 @@ class StudioActivity : AppCompatActivity() {
         val missingFaceCount=displayRows.count { (face,master) -> master!=null && face==null }
         if(missingFaceCount>0) {
             preview.addView(TextView(this).apply {
-                text="⚠ ยังไม่มี FACE DETAIL สำหรับ $missingFaceCount ตัวละคร • ภาพ MASTER ไม่ใช่ภาพครอปใบหน้า หากต้องการแนบ FACE DETAIL ให้กลับไปหน้าจอเลือกภาพและครอปหน้าตรงก่อนส่ง"
+                text="⚠ ยังไม่มีภาพใบหน้า $missingFaceCount ตัวละคร • กรุณาเลือกภาพใบหน้าก่อนส่ง"
                 textSize=14f
                 setTextColor(Color.rgb(255,194,109))
                 setPadding(dp(8),dp(10),dp(8),dp(10))
@@ -2226,7 +2227,7 @@ class StudioActivity : AppCompatActivity() {
             })
         }
         val auditDetails=TextView(this).apply {
-            text="รายละเอียดไฟล์ / SHA (แตะเพื่อขยาย)"
+            text="รายละเอียดไฟล์ (แตะเพื่อดู)"
             textSize=14f
             setTextColor(Color.CYAN)
             setPadding(0,dp(12),0,dp(8))
@@ -2261,7 +2262,7 @@ class StudioActivity : AppCompatActivity() {
         commandDetails.setOnClickListener {
             commandText.visibility=if(commandText.visibility==android.view.View.VISIBLE) android.view.View.GONE else android.view.View.VISIBLE
         }
-        AlertDialog.Builder(this).setTitle("DIRECTOR X • ตรวจภาพก่อนส่ง")
+        AlertDialog.Builder(this).setTitle("🎬 ตรวจภาพก่อนส่ง")
             .setView(ScrollView(this).apply {
                 isFillViewport=true
                 setBackgroundColor(Color.rgb(13,18,27))
