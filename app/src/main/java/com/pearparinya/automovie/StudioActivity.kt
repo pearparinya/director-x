@@ -4850,7 +4850,7 @@ $context"""
             },LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(9) })
         }
         val dialog=AlertDialog.Builder(this).setTitle("🎬 DIRECTOR X • จัดการงานค้าง")
-            .setView(outer).setNegativeButton("กลับหน้าหลัก",null).create()
+            .setView(outer).setNegativeButton("กลับหน้าหลัก",null).showDirector()
         recoveryButton("① ▶ เขียนเฉพาะซีนที่ค้างใหม่\nเก็บซีนที่ผ่านการตรวจสอบแล้ว",true) {
             dialog.dismiss(); regeneratePendingScene()
         }
@@ -4860,7 +4860,6 @@ $context"""
         recoveryButton("③ ⚙ ตั้งค่า API") {
             dialog.dismiss(); geminiSettings()
         }
-        dialog.showDirector()
     }
 
     private fun geminiJobMenu() {
