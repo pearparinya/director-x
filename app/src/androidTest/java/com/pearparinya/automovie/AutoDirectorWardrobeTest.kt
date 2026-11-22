@@ -25,6 +25,25 @@ class AutoDirectorWardrobeTest {
         assertEquals(1,Regex("รินรดา \\| day=").findAll(text).count())
         assertTrue(text.contains(clothes)); assertTrue(text.contains("silver watch on left wrist"))
     }
+    @Test fun sameDayFootwearBeltsAndFastenersCannotChangeAcrossScenes() {
+        val outfit="Top: navy long-sleeve cotton shirt with seven dark buttons; Bottom: brown trousers with dark leather belt and square silver buckle; Shoes: brown leather lace-up shoes with round toe and three eyelets; Accessories: silver watch on left wrist"
+        val changes=listOf(
+            outfit.replace("lace-up shoes","slip-on shoes"),
+            outfit.replace("three eyelets","four eyelets"),
+            outfit.replace("dark leather belt","tan leather belt"),
+            outfit.replace("square silver buckle","round gold buckle"),
+            outfit.replace("seven dark buttons","six dark buttons"),
+            outfit.replace("left wrist","right wrist")
+        )
+        for(changed in changes) {
+            val result=AutoDirectorWardrobe.issues(listOf(shot(1,scene(1,outfit)),shot(2,scene(2,changed))))
+            assertTrue("Must reject changed wardrobe detail",result.isNotEmpty())
+        }
+        assertTrue(AutoDirectorWardrobe.issues(listOf(shot(1,scene(1,outfit)),shot(2,scene(2,outfit).put("location","market").put("framing","wide")))).isEmpty())
+        val contract=AutoDirectorWardrobe.contract(scene(1,outfit))
+        assertTrue(contract.contains("FOOTWEAR LOCK"))
+        assertTrue(contract.contains("BELT AND FASTENER LOCK"))
+    }
     @Test fun sleeveColorJewelryMetalCountAndWearingSideCannotDrift() {
         for(changed in listOf(clothes.replace("white opaque","cream opaque"),clothes.replace("long-sleeve","short-sleeve"),
             clothes.replace("silver round stud","gold round stud"),clothes.replace("two small","one small"),clothes.replace("left wrist","right wrist"))) {
