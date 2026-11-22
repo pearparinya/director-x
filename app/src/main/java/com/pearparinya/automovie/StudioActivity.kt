@@ -182,6 +182,7 @@ class StudioActivity : AppCompatActivity() {
         cancelable: Boolean = true, onCancel: (() -> Unit)? = null,
         imageDone: ((Int) -> Boolean)? = null, toggleImageDone: ((Int) -> Unit)? = null,
         doneLabel: String = "สร้างรูป",
+        inlineImageProgress: (() -> Pair<Int,Int>)? = null,
         action: (Int) -> Unit) {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(dp(16),dp(18),dp(16),dp(12))
@@ -231,7 +232,7 @@ class StudioActivity : AppCompatActivity() {
                 val attr=android.util.TypedValue()
                 theme.resolveAttribute(android.R.attr.selectableItemBackground,attr,true)
                 foreground=getDrawable(attr.resourceId)
-                setOnClickListener { dialog.dismiss(); action(index) }
+                setOnClickListener { if(index==0 && inlineImageProgress!=null) action(index) else { dialog.dismiss(); action(index) } }
             }
             row.addView(TextView(this).apply {
                 text=(index+1).toString(); textSize=18f; setTextColor(Color.WHITE)
@@ -284,6 +285,38 @@ class StudioActivity : AppCompatActivity() {
                 card.addView(doneButton, LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(12) })
                 list.addView(card)
             } else list.addView(row)
+
+            if(index==0 && inlineImageProgress!=null) {
+                val label=TextView(this).apply { textSize=14f; setTextColor(gold); setTypeface(null,Typeface.BOLD) }
+                val bar=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; setPadding(0,dp(6),0,dp(12)) }
+                val colors=intArrayOf(0xff00c77b.toInt(),0xff7fdb16.toInt(),0xffffd11a.toInt(),0xffff8a17.toInt(),0xffff3d62.toInt(),0xffed3ab6.toInt(),0xff9a5cf5.toInt(),0xff16b5ff.toInt())
+                repeat(20) { n ->
+                    bar.addView(android.view.View(this).apply {
+                        background=GradientDrawable().apply { setColor(colors[n*colors.size/20]); cornerRadius=dp(3).toFloat() }
+                    },LinearLayout.LayoutParams(0,dp(10),1f).apply { marginEnd=dp(2) })
+                }
+                list.addView(label)
+                list.addView(bar)
+                fun refreshProgress() {
+                    val (done,total)=inlineImageProgress()
+                    val count=total.coerceAtLeast(0)
+                    val complete=done.coerceIn(0,count)
+                    val percent=if(count==0) 0 else complete*100/count
+                    label.text="🌈 ภาพเสร็จ $complete/$count • $percent%"+if(count>0 && complete==count) " ✅" else ""
+                    repeat(bar.childCount) { n -> bar.getChildAt(n).alpha=if((n+1)*100<=percent*20) 1f else 0.2f }
+                }
+                refreshProgress()
+                val handler=android.os.Handler(android.os.Looper.getMainLooper())
+                val updater=object: Runnable {
+                    override fun run() {
+                        if(!dialog.isShowing) return
+                        refreshProgress()
+                        handler.postDelayed(this,800)
+                    }
+                }
+                dialog.setOnShowListener { handler.post(updater) }
+                dialog.setOnDismissListener { handler.removeCallbacks(updater) }
+            }
         }
         if (choices.isEmpty()) list.addView(TextView(this).apply {
             text = "📭 ยังไม่มีรายการ"; textSize = 16f; setTextColor(ice); setPadding(0,dp(12),0,dp(12))
@@ -3757,7 +3790,12 @@ $context"""
             val episodeTitle=episode?.optString("title")?.takeIf { it.isNotBlank() } ?: "ยังไม่ได้ตั้งชื่อตอน"
             val storyTitle=story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }
             val menuOptions=if(images) listOf("🔄 AI ปรับปรุง Prompt ภาพทั้ง EP • ปกและทุกซีน") + options else options
-            choiceMenu("เรื่อง: $storyTitle\nEP.$number • $episodeTitle\nเลือกชุด${if(images) "ภาพ" else "คำสั่ง Flow"}",menuOptions) { selected ->
+            choiceMenu("เรื่อง: $storyTitle\nEP.$number • $episodeTitle\nเลือกชุด${if(images) "ภาพ" else "คำสั่ง Flow"}",menuOptions,
+                inlineImageProgress=if(images) ({
+                    val done=prefs.getStringSet("image_done_${project.name}_$number",emptySet()).orEmpty()
+                    allTasks.count { it.id in done } to allTasks.size
+                }) else null
+            ) { selected ->
                 if(images && selected==0) {
                     val wardrobeIssues=AutoDirectorWardrobe.issues(AutoDirectorWardrobe.shots(story))
                     if(wardrobeIssues.isNotEmpty()) {
@@ -3768,7 +3806,7 @@ $context"""
                         // Reuse the existing per-image deck, completion checkboxes and
                         // one-scene/one-prompt copy action. Include story/EP covers.
                         // Do not concatenate prompts or reset saved completion.
-                        productionTaskDeck(story,number,true,allTasks.map { it.id }.toSet())
+                        notice("พร้อมปรับปรุง Prompt • เลือกชุดภาพเดิมด้านล่างได้เลย")
                     }
                 } else {
                     val groupIndex=if(images) selected-1 else selected
