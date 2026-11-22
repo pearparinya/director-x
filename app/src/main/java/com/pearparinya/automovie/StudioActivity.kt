@@ -211,6 +211,7 @@ class StudioActivity : AppCompatActivity() {
         val scroll = ScrollView(this).apply { addView(list) }
         panel.addView(scroll,LinearLayout.LayoutParams(-1,-2))
         val dialog = AlertDialog.Builder(this).setView(panel).setCancelable(cancelable).create()
+        val liveImageMenuLabels=mutableListOf<TextView>()
         choices.forEachIndexed { index, value ->
             val flowTools=title=="เครื่องมือเพิ่มเติม • Flow"
             // A consistent cinematic palette across every shared submenu. Alternate
@@ -256,11 +257,16 @@ class StudioActivity : AppCompatActivity() {
                     androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(this,8,12,1,android.util.TypedValue.COMPLEX_UNIT_SP)
                 },LinearLayout.LayoutParams(-1,-2))
                 row.addView(labels,LinearLayout.LayoutParams(0,-2,1f))
-            } else row.addView(TextView(this).apply {
-                text=value; textSize=if(flowTools) 17f else 16f; setTextColor(Color.WHITE); setTypeface(null,Typeface.BOLD)
-                gravity=Gravity.CENTER_VERTICAL
-                importantForAccessibility=android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            },LinearLayout.LayoutParams(0,-2,1f))
+            } else {
+                val choiceLabel=TextView(this).apply {
+                    text=value; textSize=if(flowTools) 17f else 16f; setTextColor(Color.WHITE); setTypeface(null,Typeface.BOLD)
+                    gravity=Gravity.CENTER_VERTICAL
+                    importantForAccessibility=android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                }
+                row.addView(choiceLabel,LinearLayout.LayoutParams(0,-2,1f))
+                if(title.startsWith("สร้างภาพ •") && inlineImageProgress!=null && index>0)
+                    liveImageMenuLabels.add(choiceLabel)
+            }
             if (imageDone != null && toggleImageDone != null && index > 0) {
                 val doneButton = TextView(this).apply {
                     textSize = 14f
@@ -311,6 +317,13 @@ class StudioActivity : AppCompatActivity() {
                     aiStatus.text="AI Prompt $aiPromptDone/$aiPromptTotal • $pct% • "+("%02d:%02d".format(elapsed/60,elapsed%60))+
                         "\nKotlin: $aiPromptKotlin • API: $aiPromptApi"
                     val (done,total)=inlineImageProgress()
+                    if(title.startsWith("สร้างภาพ •")) {
+                        val unlocked=total>0 && done==total
+                        liveImageMenuLabels.forEach { menuLabel ->
+                            val original=menuLabel.text.toString().removePrefix("🔒 ").removePrefix("🔓 ")
+                            menuLabel.text=(if(unlocked) "🔓 " else "🔒 ")+original
+                        }
+                    }
                     val count=total.coerceAtLeast(0)
                     val complete=done.coerceIn(0,count)
                     val percent=if(count==0) 0 else complete*100/count
