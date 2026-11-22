@@ -364,9 +364,10 @@ class StudioActivity : AppCompatActivity() {
                 val (key,file)=choices[index]
                 if(!file.isFile) { notice("ไม่พบไฟล์ MASTER ที่เลือก กรุณาตรวจคลัง"); return@chooseNamedCharacterGrid }
                 if(onStoryOnly==null) {
-                    check(prefs.edit().putString(piaChannelMasterKey,key).commit()) { "บันทึก MASTER ไม่สำเร็จ" }
-                    piaStoryMasterOverride=null
-                    notice("บันทึก MASTER ประจำช่องแล้ว")
+                    if(prefs.edit().putString(piaChannelMasterKey,key).commit()) {
+                        piaStoryMasterOverride=null
+                        notice("บันทึก MASTER ประจำช่องแล้ว")
+                    } else notice("บันทึก MASTER ไม่สำเร็จ")
                 } else {
                     AlertDialog.Builder(this)
                         .setTitle("เลือก MASTER ช่องนายเปีย")
@@ -5158,7 +5159,7 @@ $context"""
                 listOf("เครื่องมือช่าง", "เครื่องมือสวนและเกษตร", "ของใช้ในบ้าน", "เครื่องใช้ไฟฟ้าในครัว", "อุปกรณ์ไอทีและมือถือ", "ของใช้ส่วนตัว", "ของใช้ในรถ", "เปรียบเทียบและเลือกซื้อสินค้า")
             )
             choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",listOf("🎭 ตั้งค่า MASTER ประจำช่อง\nเลือกตัวเอกของช่องได้ทันที")+labels) { selected ->
-                if(selected==0) { piaMasterSettings(); chooseChannelTopic(channel,done); return@choiceMenu }
+                if(selected==0) { piaMasterSettings(); return@choiceMenu }
                 val categorySelection=selected-1
                 val index=ChannelCatalog.allCategories.indexOfFirst { it.id==ids[categorySelection] }
                 require(index>=0) { "ไม่พบหมวดที่เลือก" }
@@ -5166,7 +5167,7 @@ $context"""
                     selectedStoryTopic=topic
                     done(index)
                 }
-                if(ids[selected]=="personal_social_drama") {
+                if(ids[categorySelection]=="personal_social_drama") {
                     chooseSocialDramaTopic(channel,ChannelCatalog.allCategories[index].name,acceptTopic)
                 } else {
                     chooseTopicWithRandom(channel,ChannelCatalog.allCategories[index].name,subcategories[categorySelection],acceptTopic)
