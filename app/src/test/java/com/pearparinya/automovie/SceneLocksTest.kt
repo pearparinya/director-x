@@ -16,6 +16,10 @@ class SceneLocksTest {
             assertTrue(SceneLocks.isLocked(state, "EP01_SC001", SceneLocks.Medium.IMAGE, image))
             assertFalse(SceneLocks.isLocked(state, "EP01_SC001", SceneLocks.Medium.FLOW, flow))
             SceneLocks.approve(state, "EP01_SC001", SceneLocks.Medium.FLOW, flow)
+            assertThrows(IllegalStateException::class.java) {
+                SceneLocks.requireUnlocked(state, "EP01_SC001", SceneLocks.Medium.IMAGE, image)
+            }
+            SceneLocks.requireUnlocked(state, "EP01_SC001", SceneLocks.Medium.FLOW, flow)
             SceneLocks.save(workspace, state)
             val restored = SceneLocks.load(workspace)
             assertTrue(SceneLocks.isLocked(restored, "EP01_SC001", SceneLocks.Medium.IMAGE, image))
