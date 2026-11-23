@@ -2879,7 +2879,7 @@ class StudioActivity : AppCompatActivity() {
         val bindings=if(fantasy) scenes.flatMap { FlowReferencePrompt.people(it) }.distinctBy { it.optString("master") }.mapNotNull { person ->
             characterProp(person.optString("master")).takeIf { it.isNotBlank() }?.let { "${person.optString("name")}: $it" }
         }.joinToString("\n") else ""
-        val context=JSONArray(scenes.map { scene -> JSONObject().put("scene_id",key(scene)).put("action",scene.optString("action")).put("start_state",scene.optString("start_state")).put("end_state",scene.optString("end_state")).put("props",scene.optString("props")).put("characters",JSONArray(FlowReferencePrompt.people(scene).map { it.optString("name") })) })
+        val context=JSONArray(scenes.map { scene -> JSONObject().put("scene_id",key(scene)).put("prompt_version","AI_V2").put("action",scene.optString("action")).put("start_state",scene.optString("start_state")).put("end_state",scene.optString("end_state")).put("props",scene.optString("props")).put("characters",JSONArray(FlowReferencePrompt.people(scene).map { it.optString("name") })) })
         if(context.toString().length>100000) return notice("บทมีขนาดใหญ่เกินไปสำหรับวิเคราะห์ครั้งเดียว • ตรวจทีละฉากได้")
         notice("กำลังวิเคราะห์สิ่งของจากบท • ไม่มีการเปลี่ยนบทจนกว่าจะเลือกและบันทึก")
         Thread {
@@ -3480,8 +3480,8 @@ $context"""
                     else choiceMenu("🎥 Flow AI EP.$ep", (0 until scenes.length()).map { index ->
                         val scene=scenes.getJSONObject(index)
                         val saved=runCatching { JSONObject(flowApiFile(scene).readText(Charsets.UTF_8)) }.getOrNull()
-                        val valid=saved?.optString("enhancement").orEmpty().length in 25..900
-                        "ฉาก ${scene.optInt("scene",index+1)} • ${if(valid) "มีผล API" else "ยังไม่ Gen"}"
+                        val valid=saved?.optString("enhancement").orEmpty().length in 25..900 && saved?.optString("api_provider").orEmpty().isNotBlank()
+                        "ฉาก ${scene.optInt("scene",index+1)} • ${if(valid) "AI V2 บันทึกแล้ว" else "AI V2 ยังไม่ยืนยัน"}"
                     },compactImageMenu=true) { sceneIndex ->
                         val scene=scenes.getJSONObject(sceneIndex)
                         // The existing scene command workflow performs source-hash validation before API reuse.
@@ -3499,11 +3499,12 @@ $context"""
         val flowFiles=File(project,"flow_ai_prompts").listFiles()?.filter { it.extension=="json" }.orEmpty()
         val genCount=flowFiles.count { file -> runCatching {
             val record=JSONObject(file.readText(Charsets.UTF_8))
-            record.optString("source_sha256").length==64 && record.optString("enhancement").length in 25..900
+            record.optString("source_sha256").length==64 && record.optString("enhancement").length in 25..900 &&
+                record.optString("api_provider").isNotBlank() && record.optLong("updated_at_ms")>0
         }.getOrDefault(false) }
-        val mode=if(prefs.getBoolean("flow_api_assist_enabled",false)) "Kotlin + API" else "Kotlin เดิม"
+        val mode=if(prefs.getBoolean("flow_api_assist_enabled",false)) "AI V2 เปิด" else "Kotlin V1 เปิด"
         choiceMenu(
-            "🎥 คำสั่ง Flow\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}\nหมวด: $category\nFlow AI บันทึก $genCount รายการ · $mode",
+            "🎥 คำสั่ง Flow\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}\nหมวด: $category\nAI V2 บันทึก $genCount รายการ · $mode",
             mainOptions,compactImageMenu=true
         ) { selected -> mainActions[selected].invoke() }
     }
@@ -4768,8 +4769,11 @@ $context"""
                         else -> "🟢 API AI: Gen แล้ว ${audit.verified}/${audit.total}"
                     }
                     val category=story.optString("category").trim().replace(Regex("""\s*[（(][^()（）]*[)）]\s*$"""),"").ifBlank { "ยังไม่ระบุหมวดหมู่" }
-                    val compactStatus=(if(aiPromptRunning) "🔵 API Gen ${gate.verified}/${gate.total}" else if(audit.verified==0) "⚪ API ยังไม่ Gen" else "🟢 API Gen ${audit.verified}/${audit.total}")+
-                        " · Kotlin ${gate.verified}/${gate.total}"
+                    val compactStatus=(if(aiPromptRunning) "🔵 AI V2 กำลัง Gen ${audit.verified}/${audit.total}"
+                        else if(audit.verified==0) "⚪ AI V2 ยังไม่ Gen"
+                        else if(audit.legacyCount>0) "🟠 AI V2 ${audit.verified}/${audit.total} • ข้อมูลเดิม"
+                        else "🟢 AI V2 ${audit.verified}/${audit.total}")+
+                        " · Kotlin V1 ${gate.verified}/${gate.total}"
                     choiceMenu("🎬 สร้างภาพ\nเรื่อง: ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\nหมวด: $category\n$compactStatus",
                         (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" }+
                             listOf("✨ ตรวจสอบ / ปรับปรุง AI", "🧩 จัดการอุปกรณ์"),
@@ -4780,7 +4784,7 @@ $context"""
                                 val number=eps.getJSONObject(i).optInt("ep")
                                 val epInfo=eps.getJSONObject(i)
                                 choiceMenu("🎬 สร้างภาพ EP.$number\nเรื่อง: ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\nEP.$number: ${epInfo.optString("title").ifBlank { "ยังไม่ระบุชื่อตอน" }}\nหมวด: $category",
-                                    listOf("✨ Kotlin + API ช่วยปรับปรุง", "⚙️ Kotlin เดิม"),
+                                    listOf("✨ ใช้ Prompt ใหม่ (AI V2)", "⚙️ ใช้ Kotlin เดิม (V1)"),
                                     compactImageMenu=true) { mode ->
                                     if(mode==0 && !imageAiUnlocked(story)) {
                                         AlertDialog.Builder(this)
@@ -4971,7 +4975,7 @@ $context"""
                     }.onFailure { notice("บันทึกผล API ไม่สำเร็จ: ${it.message}"); return@runOnUiThread }
                     val result=flowEnhancedCommand(scene,original)
                     if(copy) copyCommand(result)
-                    else showFlowCode("Flow • Kotlin + $providerName",result,"${key(scene)}_VIDEO_AI.txt")
+                    else showFlowCode("Flow AI V2 • $providerName",result,"${key(scene)}_VIDEO_AI.txt")
                 }
             }
         }.start()
@@ -6892,7 +6896,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         if(!sceneFrameApproved(s) || FlowScenePrompt.issues(flowSpec(s)).isNotEmpty()) { compareScene(s); return }
         val code=runCatching { ShortFlowPrompt.build(flowSpec(s),"Slow gentle pan.") }.getOrElse { notice(it.message ?: "ตรวจคำสั่ง Flow"); return }
         if(!prefs.getBoolean("flow_api_assist_enabled",false)) {
-            if(copy) copyCommand(code) else showFlowCode("วิดีโอจากภาพที่ยืนยันแล้ว",code,"${key(s)}_VIDEO.txt")
+            if(copy) copyCommand(code) else showFlowCode("Flow Kotlin V1 • ต้นฉบับ",code,"${key(s)}_VIDEO.txt")
             return
         }
         val enhanced=flowEnhancedCommand(s,code)
@@ -6901,19 +6905,20 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         val stale=record!=null && !saved
         val provider=if(saved) record?.optString("api_provider").orEmpty().ifBlank { "ข้อมูลเดิม" } else ""
         val status=when {
-            saved -> "🟢 Flow AI: Gen แล้ว • $provider"
-            stale -> "🟠 Flow AI: ต้นฉบับเปลี่ยน • ต้อง Gen ใหม่"
-            else -> "⚪ Flow AI: ยังไม่ Gen"
+            saved && provider=="ข้อมูลเดิม" -> "🟠 Flow AI V2: ข้อมูลเดิม • ไม่ระบุ API"
+            saved -> "🟢 Flow AI V2: Gen แล้ว • $provider"
+            stale -> "🟠 Flow AI V2: ต้นฉบับเปลี่ยน • ต้อง Gen ใหม่"
+            else -> "⚪ Flow AI V2: ยังไม่ Gen"
         }
-        val options=if(saved) arrayOf("✨ ใช้ Kotlin + API", "🔄 Gen ใหม่เฉพาะฉาก", "⚙️ Kotlin เดิม")
-            else arrayOf("✨ API Gen ฉากนี้", "⚙️ Kotlin เดิม")
+        val options=if(saved) arrayOf("✨ ใช้ Prompt ใหม่ (AI V2)", "🔄 Gen ใหม่ด้วย API", "⚙️ ใช้ Kotlin เดิม (V1)")
+            else arrayOf("✨ สร้าง Prompt ใหม่ด้วย AI", "⚙️ ใช้ Kotlin เดิม (V1)")
         AlertDialog.Builder(this).setTitle("🎥 Flow • ${key(s)}")
             .setMessage("$status\n✓ Kotlin พร้อมใช้งาน • เลือกวิธี")
             .setItems(options) { _,choice ->
                 when {
                     saved && choice==0 -> {
                         if(copy) copyCommand(enhanced)
-                        else showFlowCode("Flow • Kotlin + $provider",enhanced,"${key(s)}_VIDEO_AI.txt")
+                        else showFlowCode("Flow AI V2 • $provider",enhanced,"${key(s)}_VIDEO_AI.txt")
                     }
                     (saved && choice==1) || (!saved && choice==0) ->
                         AlertDialog.Builder(this).setTitle("ยืนยันการเรียก API")
@@ -6922,7 +6927,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
                             .setNegativeButton("ยกเลิก",null).showDirector()
                     else -> {
                         if(copy) copyCommand(code)
-                        else showFlowCode("Flow • Kotlin เดิม",code,"${key(s)}_VIDEO.txt")
+                        else showFlowCode("Flow Kotlin V1 • ต้นฉบับ",code,"${key(s)}_VIDEO.txt")
                     }
                 }
             }.setNegativeButton("ยกเลิก",null).showDirector()
