@@ -3484,21 +3484,21 @@ $context"""
         mainActions.add {
             if(completedFlowScenes.isEmpty()) notice("ยังไม่มีผล AI V2 ที่ตรวจสอบแล้ว • เลือกตรวจสอบ / ปรับปรุง Flow AI เพื่อเริ่ม Gen")
             else {
-                val combined=completedFlowScenes.joinToString("\\n\\n"+("-".repeat(28))+"\\n\\n") { scene ->
+                val combined=completedFlowScenes.joinToString("\n\n"+("-".repeat(28))+"\n\n") { scene ->
                     val original=ShortFlowPrompt.build(flowSpec(scene),"Slow gentle pan.")
                     val record=JSONObject(flowApiFile(scene).readText(Charsets.UTF_8))
-                    "${key(scene)} • AI V2 • ${record.optString("api_provider")}\\n"+
+                    "${key(scene)} • AI V2 • ${record.optString("api_provider")}\n"+
                         flowEnhancedCommand(scene,original)
                 }
                 showFlowCode("ผลปรับปรุง Flow AI V2 • ${completedFlowScenes.size} ฉาก",combined,"FLOW_AI_V2_RESULTS.txt")
             }
         }
-        mainOptions.add("✨ ตรวจสอบ / ปรับปรุง Flow AI")
+        mainOptions.add("✨ ปรับปรุง Flow ด้วย AI V2")
         mainActions.add {
             if(readyEpisodes.isEmpty()) notice("ยังไม่มีคำสั่ง Flow • สร้างคำสั่ง Kotlin ก่อน")
             else startFlowAiBatch(allFlowScenes)
         }
-        mainOptions.add("⚙️ ตั้งค่า API Flow")
+        mainOptions.add("⚙️ ตั้งค่า API Flow AI V2")
         mainActions.add { flowApiSettings() }
         mainOptions.add("🔵 ตรวจสอบ / แก้ไขคำสั่ง Flow")
         mainActions.add { moreTools() }
@@ -4881,7 +4881,7 @@ $context"""
                 r.optString("source_sha256").length==64 && r.optString("enhancement").length in 25..900
             }.getOrDefault(false)
         }
-        choiceMenu("🎥 API Flow",
+        choiceMenu("🎥 ตั้งค่า API ปรับปรุง Flow AI V2",
             listOf(if(enabled) "⚙️ Kotlin + API • เปิด" else "⚙️ Kotlin เดิม • เปิด",
                 "🔑 API หลัก: $preferred",
                 "🔁 API สำรอง: $fallback",
@@ -4979,7 +4979,10 @@ $context"""
 
     // One tap starts processing the current story. Progress stays visible in this dialog;
     // do not redirect to the EP selector. Only verified API results count as completed.
+    @Volatile private var flowAiBatchRunning = false
+
     private fun startFlowAiBatch(scenes: List<JSONObject>) {
+        if(flowAiBatchRunning) { notice("Flow AI V2 กำลังปรับปรุงอยู่ • โปรดรอให้เสร็จ"); return }
         val providers=orderedFlowProviders()
         if(providers.isEmpty()) {
             notice("ยังไม่ได้ตั้งค่า API Flow • กรุณาตั้งค่า API ก่อน")
@@ -5010,6 +5013,8 @@ $context"""
         AlertDialog.Builder(this).setTitle("เริ่มปรับปรุง Flow AI V2")
             .setMessage("จะปรับปรุง ${pending.size} ฉากที่ยังไม่สำเร็จ จากทั้งหมด ${scenes.size} ฉาก\\nAPI อาจใช้โควตาหรือมีค่าบริการ • คง MASTER บทพูด เสื้อผ้าและเวลาเดิม")
             .setPositiveButton("เริ่มปรับปรุง") { _,_ ->
+                if(flowAiBatchRunning) { notice("Flow AI V2 กำลังทำงานอยู่"); return@setPositiveButton }
+                flowAiBatchRunning=true
                 val status=TextView(this).apply {
                     textSize=16f
                     setTextColor(ice)
@@ -5019,7 +5024,7 @@ $context"""
                 val progressDialog=AlertDialog.Builder(this)
                     .setTitle("🎥 คำสั่ง Flow • กำลังปรับปรุง AI V2")
                     .setView(status)
-                    .setNegativeButton("ทำงานต่อ") { _,_ -> }
+                    .setNegativeButton("ซ่อนสถานะ (ทำงานต่อ)") { _,_ -> }
                     .showDirector()
                 Thread {
                     var succeeded=validIndices.size-pending.size
@@ -5063,6 +5068,7 @@ $context"""
                             if(written) succeeded++ else failed++
                         } else failed++
                     }
+                    flowAiBatchRunning=false
                     runOnUiThread {
                         if(!isFinishing && !isDestroyed) {
                             status.text="ปรับปรุง Flow AI V2 เสร็จแล้ว\\nสำเร็จ $succeeded/${scenes.size} ฉาก • ไม่สำเร็จ $failed\\nกลับไปเปิดเมนูคำสั่ง Flow เพื่อดูผลและคัดลอก"
@@ -5124,7 +5130,7 @@ $context"""
     }
 
     private fun apiSettingsCenter() {
-        choiceMenu("⚙️ ตั้งค่า API", listOf("🎬 API เขียนบท", "🛒 API โหมดนายเปียพาช้อป", "🖼️ API สร้างภาพ AI", "🎥 API ปรับปรุง Flow", "🩺 ตรวจสอบ API / Kotlin")) { index ->
+        choiceMenu("⚙️ ตั้งค่า API", listOf("🎬 API เขียนบท", "🛒 API โหมดนายเปียพาช้อป", "🖼️ API สร้างภาพ AI", "🎥 ตั้งค่า API ปรับปรุง Flow AI V2", "🩺 ตรวจสอบ API / Kotlin")) { index ->
             when (index) {
                 0 -> geminiSettings()
                 1 -> shoppingApiSettings()
