@@ -6266,6 +6266,35 @@ $context"""
         draft.put("timeline",musicTimeline(draft))
         saveMusicDraft(draft)
     }
+    private fun reviewMusicDraft() {
+        val draft=musicDraft()
+        val expected=musicTimeline(draft)
+        val saved=draft.optJSONArray("timeline")
+        val audioName=draft.optString("audio_file")
+        val audioPresent=audioName.isNotBlank() && File(audioName).name==audioName &&
+            File(project,audioName).let { it.isFile && it.length()>0 }
+        val timelineValid=saved!=null && saved.length()==expected.length() &&
+            (0 until expected.length()).all { i ->
+                val actual=saved.optJSONObject(i)
+                val wanted=expected.getJSONObject(i)
+                actual!=null && listOf("scene","start_ms","end_ms","production_ms","usable_ms").all { key ->
+                    actual.optLong(key,-1L)==wanted.getLong(key)
+                }
+            }
+        val report=listOf(
+            (if(draft.optString("lyrics").isNotBlank()) "ผ่าน" else "ไม่ผ่าน")+" • เนื้อเพลง",
+            (if(audioPresent) "ผ่าน" else if(audioName.isBlank()) "รอดำเนินการ" else "ไม่ผ่าน")+" • ไฟล์เสียงต้นฉบับ",
+            (if(timelineValid) "ผ่าน" else "ไม่ผ่าน")+" • ไทม์ไลน์ที่บันทึก",
+            "รอดำเนินการ • ตรวจ MASTER / ความต่อเนื่อง / คุณภาพภาพและเสียง"
+        ).joinToString("\n")
+        AlertDialog.Builder(this).setTitle("ตรวจสอบข้อมูล MV").setMessage(report)
+            .setPositiveButton("ปิด",null)
+            .setNeutralButton("ซ่อมไทม์ไลน์") { _,_ ->
+                runCatching { saveMusicTimeline(draft) }
+                    .onSuccess { reviewMusicDraft() }
+                    .onFailure { notice("บันทึกไม่สำเร็จ: "+it.message) }
+            }.showDirector()
+    }
     private fun showMusicTimeline() {
         val draft=musicDraft()
         val timeline=musicTimeline(draft)
@@ -6326,7 +6355,8 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                 "🎶 ตั้งค่าแนวเพลงและอารมณ์",
                 "🔗 เลือกต้นทางเนื้อหาเดิม",
                 "📚 ผลงานเพลงและ MV",
-                "⏱️ ดูไทม์ไลน์ซีน MV"
+                "⏱️ ดูไทม์ไลน์ซีน MV",
+                "🔍 ตรวจสอบข้อมูลและซ่อมไทม์ไลน์"
             )) { action ->
                 when(action) {
                     0 -> if(musicDraft().optString("lyrics").isBlank()) notice("กรุณาใส่เนื้อเพลงต้นฉบับก่อนสร้างบท MV")
@@ -6335,6 +6365,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     2 -> editMusicField("📝 เนื้อเพลงต้นฉบับ","lyrics",true)
                     3 -> musicSettings()
                     4 -> musicSource()
+                    7 -> reviewMusicDraft()
                     6 -> showMusicTimeline()
                     5 -> {
                         val saved=musicDraft()
