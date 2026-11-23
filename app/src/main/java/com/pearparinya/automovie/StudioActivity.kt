@@ -4704,13 +4704,15 @@ $context"""
         listOf(
             "ตัวละคร" to (current!=null && wardrobe=="ยืนยันชุดในบทแล้ว"),
             "ภาพฉาก $approvedImages/${scenes.size}" to (scenes.isNotEmpty() && approvedImages==scenes.size),
-            "คำสั่งวิดีโอ • รอตรวจ" to false
+            "Flow • รอตรวจ" to false
         ).forEachIndexed { index,item ->
             progress.addView(TextView(this).apply {
                 text=(if(item.second) "✓ " else "○ ")+item.first
                 textSize=11f; gravity=Gravity.CENTER
+                maxLines=1; ellipsize=android.text.TextUtils.TruncateAt.END
+                androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(this,9,11,1,android.util.TypedValue.COMPLEX_UNIT_SP)
                 setTextColor(if(item.second) cyan else muted)
-            },LinearLayout.LayoutParams(0,dp(28),1f))
+            },LinearLayout.LayoutParams(0,dp(28),if(index==2) 1.2f else if(index==1) 1.1f else 0.9f))
         }
         card.addView(progress)
         root.addView(card,LinearLayout.LayoutParams(-1,-2).apply { topMargin=dp(5); bottomMargin=dp(9) })
@@ -4858,13 +4860,15 @@ $context"""
                     contentDescription=null
                 },LinearLayout.LayoutParams(dp(57),dp(68)))
                 tile.addView(LinearLayout(this).apply {
-                    orientation=LinearLayout.VERTICAL; setPadding(dp(7),0,0,0)
+                    orientation=LinearLayout.VERTICAL; setPadding(dp(5),0,0,0)
                     addView(TextView(this@StudioActivity).apply {
-                        text=item.second.first; textSize=14f; setTextColor(Color.WHITE)
-                        setTypeface(null,Typeface.BOLD); maxLines=2
+                        text=item.second.first; textSize=18f; setTextColor(Color.WHITE)
+                        setTypeface(null,Typeface.BOLD); maxLines=1
+                        androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(this,13,18,1,android.util.TypedValue.COMPLEX_UNIT_SP)
                     })
                     addView(TextView(this@StudioActivity).apply {
-                        text=item.second.second; textSize=10f; setTextColor(ice); maxLines=2
+                        text=item.second.second; textSize=13f; setTextColor(ice); maxLines=2
+                        androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(this,10,13,1,android.util.TypedValue.COMPLEX_UNIT_SP)
                     })
                 },LinearLayout.LayoutParams(0,-2,1f))
                 row.addView(tile,LinearLayout.LayoutParams(0,-2,1f).apply {
@@ -4875,7 +4879,7 @@ $context"""
         }
         menuRow(listOf(
             Triple(R.drawable.menu_cast,"ตัวละคร" to "จัดการ MASTER",{ unifiedMasterMenu() }),
-            Triple(R.drawable.menu_script,"บทภาพยนตร์" to "เขียนบท • ตรวจบท",{ current?.let { productionCheckMenu(it) } ?: notice("เปิดเรื่องที่มีบทก่อน") })
+            Triple(R.drawable.menu_script,"บทละคร" to "เขียน • ตรวจบท",{ current?.let { productionCheckMenu(it) } ?: notice("เปิดเรื่องที่มีบทก่อน") })
         ))
         menuRow(listOf(
             Triple(R.drawable.menu_cover,"สร้างภาพ" to "ภาพปก • ภาพฉาก",{ current?.let { story ->
