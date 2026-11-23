@@ -3502,19 +3502,8 @@ $context"""
                     val episode=(0 until eps.length()).map { eps.getJSONObject(it) }.first { it.optInt("ep")==ep }
                     val scenes=episode.optJSONArray("scenes")
                     val sceneList=(0 until (scenes?.length() ?: 0)).map { scenes!!.getJSONObject(it) }
-                    choiceMenu("✨ Flow AI V2 • EP.$ep • เลือกฉาก",
-                        sceneList.mapIndexed { index,scene ->
-                            "ฉาก ${index+1} • ${key(scene)} • "+if(verifiedFlowAi(scene)) "AI V2 พร้อมคัดลอก" else "ยังไม่มี AI V2"
-                        }) { selectedScene ->
-                            val scene=sceneList[selectedScene]
-                            if(!verifiedFlowAi(scene)) notice("ฉากนี้ยังไม่มีผล AI V2 ที่ตรวจสอบแล้ว")
-                            else runCatching {
-                                val original=ShortFlowPrompt.build(flowSpec(scene),"Slow gentle pan.")
-                                val result=flowEnhancedCommand(scene,original)
-                                showFlowCode("✨ Flow AI V2 • EP.$ep • ฉาก ${selectedScene+1}",result,
-                                    "FLOW_AI_V2_EP${ep}_SCENE${selectedScene+1}.txt")
-                            }.onFailure { notice("เปิดคำสั่ง AI V2 ไม่สำเร็จ: ${it.message}") }
-                        }
+                    showFlowAiV2Pager(ep,sceneList,0)
+
                 }
             }
         }
@@ -4391,6 +4380,58 @@ $context"""
         refresh()
         dialog.window?.setLayout(resources.displayMetrics.widthPixels - dp(24), -2)
         return dialog
+    }
+
+    // One prompt at a time: copy without dismissing, then move to the next scene.
+    // Never concatenate the eight AI V2 prompts into a single copy payload.
+    private fun showFlowAiV2Pager(ep: Int, scenes: List<JSONObject>, start: Int) {
+        if(scenes.isEmpty()) { notice("ไม่มีฉากใน EP.$ep"); return }
+        var index=start.coerceIn(0,scenes.lastIndex)
+        val prompt=TextView(this).apply {
+            textSize=13f
+            typeface=Typeface.MONOSPACE
+            setTextIsSelectable(true)
+            setTextColor(ice)
+            setBackgroundColor(navy)
+            setPadding(dp(16),dp(12),dp(16),dp(12))
+        }
+        val scroll=ScrollView(this).apply { addView(prompt) }
+        val frame=FrameLayout(this).apply {
+            addView(scroll,FrameLayout.LayoutParams(-1,-1))
+            layoutParams=android.view.ViewGroup.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.49f).toInt())
+        }
+        val dialog=AlertDialog.Builder(this)
+            .setTitle("✨ Flow AI V2 • EP.$ep")
+            .setMessage("แสดงคำสั่งทีละฉาก • คัดลอกเฉพาะฉากปัจจุบัน")
+            .setView(frame)
+            .setPositiveButton("➡️ Next",null)
+            .setNeutralButton("📋 คัดลอก",null)
+            .setNegativeButton("ปิด",null)
+            .showDirector()
+        var currentCommand: String?=null
+        fun refresh() {
+            val scene=scenes[index]
+            val original=runCatching { ShortFlowPrompt.build(flowSpec(scene),"Slow gentle pan.") }.getOrNull()
+            val record=runCatching { JSONObject(flowApiFile(scene).readText(Charsets.UTF_8)) }.getOrNull()
+            val valid=original!=null && record?.optString("source_sha256")==promptHash(original) &&
+                record.optString("enhancement").length in 25..900 &&
+                record.optString("api_provider").isNotBlank() &&
+                record.optLong("updated_at_ms")>0L
+            currentCommand=if(valid) flowEnhancedCommand(scene,original!!) else null
+            dialog.setTitle("✨ Flow AI V2 • EP.$ep • ฉาก ${index+1}/${scenes.size}")
+            prompt.text=currentCommand ?: "ฉากนี้ยังไม่มีคำสั่ง AI V2 ที่ตรวจสอบแล้ว\\nกรุณาปรับปรุง Flow ด้วย AI V2 ก่อน"
+            scroll.scrollTo(0,0)
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.isEnabled=currentCommand!=null
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.text=if(index==scenes.lastIndex) "↩️ ฉากแรก" else "➡️ Next"
+        }
+        dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.setOnClickListener {
+            currentCommand?.let { command -> copyCommand(command) }
+        }
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
+            index=if(index==scenes.lastIndex) 0 else index+1
+            refresh()
+        }
+        refresh()
     }
 
     private fun showFlowCode(title: String, code: String, filename: String): AlertDialog {
