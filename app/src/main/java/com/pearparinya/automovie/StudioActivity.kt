@@ -4359,7 +4359,7 @@ $context"""
         fun refresh() {
             val episodeLabel = episodeNumber?.let { "ตอนที่ $it" } ?: title
             storyRow.text = "เรื่อง: ${storyTitle.ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}"
-            categoryRow.text = "หมวดหมู่: ${plan?.optString("category").orEmpty().trim().replace(Regex("""\\s*[（(][^()（）]*[)）]\\s*$"""), "").ifBlank { "ยังไม่ระบุหมวดหมู่" }}"
+            categoryRow.text = "หมวดหมู่: ${DisplayText.category(plan?.optString("category").orEmpty()).ifBlank { "ยังไม่ระบุหมวดหมู่" }}"
             episodeRow.text = "$episodeLabel • ${episodeTitle.ifBlank { "ยังไม่ระบุชื่อตอน" }}"
             sceneRow.text = "ฉากที่ ${index + 1} / ${scenes.size}"
             copy.text = "📋 คัดลอกคำสั่ง"
@@ -4446,7 +4446,7 @@ $context"""
         }
         panel.addView(copy,LinearLayout.LayoutParams(-1,dp(54)))
         val storyTitle=plan?.optString("title").orEmpty().trim().ifBlank { "ยังไม่ระบุชื่อเรื่อง" }
-        val category=plan?.optString("category").orEmpty().trim().replace(Regex("""\s*[（(][^()（）]*[)）]\s*$"""),"").ifBlank { "ยังไม่ระบุหมวดหมู่" }
+        val category=DisplayText.category(plan?.optString("category").orEmpty()).ifBlank { "ยังไม่ระบุหมวดหมู่" }
         val episodeTitle=plan?.optJSONArray("episodes")?.let { episodes ->
             (0 until episodes.length()).mapNotNull { episodes.optJSONObject(it) }
                 .firstOrNull { it.optInt("ep")==ep }
