@@ -1,0 +1,32 @@
+name: Pia category contract
+on:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  category-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify category and topic contract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s = Path("app/src/main/java/com/pearparinya/automovie/StudioActivity.kt").read_text()
+          menu = s.split("private fun chooseChannelTopic(",1)[1].split("private fun chooseDramaTopic(",1)[0]
+          groups = re.findall(r'Triple\("([^"]+)", "([^"]+)", listOf\((.*?)\)\)', menu, re.S)
+          assert [g[1] for g in groups] == ["personal_social_drama","pia_legends","pia_lifestyle","pia_products","pia_safety"]
+          topics = [re.findall(r'"([^"]+)"',g[2]) for g in groups]
+          assert list(map(len,topics)) == [5,4,4,4,5]
+          mv = s.split("private fun musicMvMenu()",1)[1].split("val draft=musicDraft()",1)[0]
+          modes = re.findall(r'"([^"]*MV [^"]+)"',mv)
+          assert len(modes)==3
+          all_topics = sum(topics,[]) + modes
+          assert len(all_topics)==len(set(all_topics))==25
+          assert 'if(selected==1) { musicMvMenu(); return@choiceMenu }' in menu
+          assert 'group.second=="pia_safety" && sub==0 -> "pia_benefits"' in menu
+          assert 'done(index)' in menu
+          for topic in all_topics:
+              print("Contract:",topic)
+          print("6 main categories / 25 unique subtopics; static contract only, not device end-to-end.")
+          PY
