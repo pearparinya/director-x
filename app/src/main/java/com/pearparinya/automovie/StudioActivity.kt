@@ -4822,24 +4822,63 @@ $context"""
             .setNeutralButton("คัดลอกผล") { _,_ -> copyCommand(message) }
             .showDirector()
     }
+    private fun flowProviders() = StoryProvider.eligible(this).filter { it.hasKey(this) }
+    private fun orderedFlowProviders(): List<StoryProvider> {
+        val preferred=prefs.getString("flow_api_primary","").orEmpty()
+        val fallback=prefs.getString("flow_api_fallback","").orEmpty()
+        return flowProviders().sortedWith(compareBy { when(it.label) { preferred -> 0; fallback -> 1; else -> 2 } })
+    }
+
     private fun flowApiSettings() {
         val enabled=prefs.getBoolean("flow_api_assist_enabled",false)
         val eligible=StoryProvider.eligible(this)
-        val configured=eligible.filter { runCatching { it.hasKey(this) }.getOrDefault(false) }
-        val records=File(project,"flow_ai_prompts").listFiles()?.count { it.extension=="json" } ?: 0
-        choiceMenu("🎥 API ปรับปรุง Flow",
-            listOf(if(enabled) "✓ โหมด Kotlin + API • เปิด" else "○ โหมด Kotlin เดิม • เปิด",
-                "🔑 ผู้ให้บริการ • มีคีย์ ${configured.size}/${eligible.size}",
-                "🩺 สถานะ Flow AI • บันทึก $records รายการ",
-                "🎬 ตั้งค่าคีย์ API เขียนบท")) { index ->
+        val configured=flowProviders()
+        val preferred=prefs.getString("flow_api_primary","").orEmpty().ifBlank { "อัตโนมัติ" }
+        val fallback=prefs.getString("flow_api_fallback","").orEmpty().ifBlank { "อัตโนมัติ" }
+        val records=File(project,"flow_ai_prompts").listFiles()?.filter { it.extension=="json" }.orEmpty()
+        val verified=records.count { file ->
+            runCatching {
+                val r=JSONObject(file.readText(Charsets.UTF_8))
+                r.optString("source_sha256").length==64 && r.optString("enhancement").length in 25..900
+            }.getOrDefault(false)
+        }
+        choiceMenu("🎥 API Flow",
+            listOf(if(enabled) "⚙️ Kotlin + API • เปิด" else "⚙️ Kotlin เดิม • เปิด",
+                "🔑 API หลัก: $preferred",
+                "🔁 API สำรอง: $fallback",
+                "🩺 คีย์ ${configured.size}/${eligible.size} • ยังไม่ทดสอบ",
+                "📋 ประวัติ Gen: $verified รายการ",
+                "🔧 จัดการ API Key")) { index ->
             when(index) {
                 0 -> {
                     prefs.edit().putBoolean("flow_api_assist_enabled",!enabled).apply()
-                    notice(if(!enabled) "เปิด Kotlin + API สำหรับ Flow แล้ว • จะถามก่อนเรียก API ทุกครั้ง" else "กลับเป็น Kotlin เดิมแล้ว • ไม่ลบ Prompt ที่บันทึก")
+                    notice(if(!enabled) "เปิด Kotlin + API แล้ว • ยืนยันก่อนเรียก API" else "ใช้ Kotlin เดิมแล้ว • ไม่ลบข้อมูล")
                 }
-                1 -> notice("API ที่ตั้งค่าคีย์: "+configured.joinToString(" / ") { it.label }.ifBlank { "ยังไม่มี" }+"\nเป็นสถานะคีย์ในเครื่อง ยังไม่ได้ทดสอบเครือข่าย")
-                2 -> notice("Flow AI: มีไฟล์ผล $records รายการ\nผลเดิมจะใช้ได้เมื่อคำสั่งต้นฉบับตรงกันเท่านั้น\nไม่มีการเรียก API จากหน้าตั้งค่า")
-                else -> geminiSettings()
+                1,2 -> {
+                    val choices=listOf("อัตโนมัติ")+configured.map { it.label }
+                    val key=if(index==1) "flow_api_primary" else "flow_api_fallback"
+                    AlertDialog.Builder(this).setTitle(if(index==1) "API หลักสำหรับ Flow" else "API สำรองสำหรับ Flow")
+                        .setSingleChoiceItems(choices.toTypedArray(),choices.indexOf(prefs.getString(key,"").orEmpty().ifBlank { "อัตโนมัติ" }).coerceAtLeast(0)) { dialog,choice ->
+                            prefs.edit().putString(key,if(choice==0) "" else choices[choice]).apply()
+                            dialog.dismiss()
+                            notice("บันทึกแล้ว • ${choices[choice]}")
+                        }.setNegativeButton("ยกเลิก",null).showDirector()
+                }
+                3 -> notice("ตั้งค่าคีย์แล้ว: "+configured.joinToString(" / ") { it.label }.ifBlank { "ยังไม่มี" }+
+                    "\nยังไม่ได้ทดสอบเครือข่าย • การ Gen จะแสดงผลจริง")
+                4 -> {
+                    val detail=records.sortedByDescending { it.lastModified() }.take(12).mapNotNull { file ->
+                        runCatching {
+                            val r=JSONObject(file.readText(Charsets.UTF_8))
+                            val time=r.optLong("updated_at_ms",0L)
+                            val whenText=if(time>0) java.text.SimpleDateFormat("dd/MM HH:mm",java.util.Locale("th","TH")).format(java.util.Date(time)) else "ไม่ระบุเวลา"
+                            "${r.optString("scene_id",file.nameWithoutExtension)} • ${r.optString("api_provider","ไม่ระบุ API")} • $whenText"
+                        }.getOrNull()
+                    }
+                    notice("Flow AI • บันทึก $verified รายการ\n"+detail.joinToString("\n").ifBlank { "ยังไม่มีประวัติ" }+
+                        "\nข้อมูลเดิมอาจไม่มีชื่อ API/เวลา")
+                }
+                5 -> geminiSettings()
             }
         }
     }
@@ -4856,7 +4895,7 @@ $context"""
     }
 
     private fun flowApiEnhance(scene: JSONObject, original: String, copy: Boolean) {
-        val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
+        val providers=orderedFlowProviders()
         if(providers.isEmpty()) { notice("ยังไม่มี API ที่ตั้งค่าคีย์ไว้ • ใช้ Kotlin เดิมได้"); return }
         val projectId=project.name
         val snapshot=scene.toString()
@@ -4868,6 +4907,7 @@ $context"""
                 .put("required",JSONArray().put("enhancement"))
             var addition=""
             var providerName=""
+            var lastError=""
             for(provider in providers) {
                 val instruction="Return JSON enhancement with 1-3 concise English sentences clarifying ONLY camera motion, framing and visual continuity for this 8-second Flow video. Do not modify or add any person, MASTER, appearance, clothing, dialogue, speaker, action, location, prop, timing, aspect ratio or plot. Do not invent details. Existing command:\n"+original.take(14000)
                 val result=runCatching {
@@ -4875,7 +4915,7 @@ $context"""
                         provider.model(this@StudioActivity),{ project.name!=projectId || scene.toString()!=snapshot },
                         automaticRetry=false,context=this@StudioActivity)
                         .generate(instruction,schema).optString("enhancement").trim()
-                }.getOrDefault("")
+                }.onFailure { lastError="${provider.label}: ${it.javaClass.simpleName}" }.getOrDefault("")
                 if(result.length in 25..900 && listOf("wardrobe","outfit","master id","new character","additional person").none { result.contains(it,true) }) {
                     addition=result; providerName=provider.label; break
                 }
@@ -4885,13 +4925,14 @@ $context"""
                 if(project.name!=projectId || scene.toString()!=snapshot || isFinishing || isDestroyed) {
                     notice("ข้อมูลฉากเปลี่ยน • ไม่บันทึกผล API")
                 } else if(addition.isBlank()) {
-                    notice("API ไม่สามารถปรับปรุง Flow ได้ • Kotlin เดิมยังใช้งานได้")
+                    notice("API ไม่สำเร็จ • ${lastError.ifBlank { "ผลลัพธ์ไม่ผ่านเงื่อนไข" }}\nKotlin เดิมยังใช้งานได้")
                 } else {
                     val file=flowApiFile(scene)
                     runCatching {
                         file.parentFile?.mkdirs()
                         file.writeText(JSONObject().put("source_sha256",promptHash(original))
                             .put("enhancement",addition).put("api_provider",providerName)
+                            .put("scene_id",key(scene))
                             .put("updated_at_ms",System.currentTimeMillis()).toString(),Charsets.UTF_8)
                     }.onFailure { notice("บันทึกผล API ไม่สำเร็จ: ${it.message}"); return@runOnUiThread }
                     val result=flowEnhancedCommand(scene,original)
@@ -6822,19 +6863,34 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         }
         val enhanced=flowEnhancedCommand(s,code)
         val saved=enhanced!=code
-        AlertDialog.Builder(this).setTitle("🎥 คำสั่ง Flow • เลือกวิธี")
-            .setMessage(if(saved) "🟢 API Gen แล้ว • ใช้ผลที่บันทึกไว้ได้" else "⚪ API ยังไม่ Gen • Kotlin เดิมพร้อมใช้")
-            .setPositiveButton(if(saved) "Kotlin + API ที่บันทึก" else "ให้ API ช่วย Gen") { _,_ ->
-                if(saved) {
-                    if(copy) copyCommand(enhanced)
-                    else showFlowCode("Flow • Kotlin + API",enhanced,"${key(s)}_VIDEO_AI.txt")
-                } else AlertDialog.Builder(this).setTitle("ยืนยันการเรียก API")
-                    .setMessage("ใช้โควตา API เพื่อช่วยปรับปรุงคำสั่ง Flow ของฉากนี้หรือไม่?")
-                    .setPositiveButton("เริ่ม Gen") { _,_ -> flowApiEnhance(s,code,copy) }
-                    .setNegativeButton("ยกเลิก",null).showDirector()
-            }
-            .setNeutralButton("Kotlin เดิม") { _,_ ->
-                if(copy) copyCommand(code) else showFlowCode("วิดีโอจากภาพที่ยืนยันแล้ว",code,"${key(s)}_VIDEO.txt")
+        val record=runCatching { JSONObject(flowApiFile(s).readText(Charsets.UTF_8)) }.getOrNull()
+        val stale=record!=null && !saved
+        val provider=if(saved) record?.optString("api_provider").orEmpty().ifBlank { "ข้อมูลเดิม" } else ""
+        val status=when {
+            saved -> "🟢 Flow AI: Gen แล้ว • $provider"
+            stale -> "🟠 Flow AI: ต้นฉบับเปลี่ยน • ต้อง Gen ใหม่"
+            else -> "⚪ Flow AI: ยังไม่ Gen"
+        }
+        val options=if(saved) arrayOf("✨ ใช้ Kotlin + API", "🔄 Gen ใหม่เฉพาะฉาก", "⚙️ Kotlin เดิม")
+            else arrayOf("✨ API Gen ฉากนี้", "⚙️ Kotlin เดิม")
+        AlertDialog.Builder(this).setTitle("🎥 Flow • ${key(s)}")
+            .setMessage("$status\n✓ Kotlin พร้อมใช้งาน • เลือกวิธี")
+            .setItems(options) { _,choice ->
+                when {
+                    saved && choice==0 -> {
+                        if(copy) copyCommand(enhanced)
+                        else showFlowCode("Flow • Kotlin + $provider",enhanced,"${key(s)}_VIDEO_AI.txt")
+                    }
+                    (saved && choice==1) || (!saved && choice==0) ->
+                        AlertDialog.Builder(this).setTitle("ยืนยันการเรียก API")
+                            .setMessage("ปรับปรุงเฉพาะฉากนี้ • อาจใช้โควตา API\nไม่แก้ไขบทหรือ MASTER")
+                            .setPositiveButton("เริ่ม Gen") { _,_ -> flowApiEnhance(s,code,copy) }
+                            .setNegativeButton("ยกเลิก",null).showDirector()
+                    else -> {
+                        if(copy) copyCommand(code)
+                        else showFlowCode("Flow • Kotlin เดิม",code,"${key(s)}_VIDEO.txt")
+                    }
+                }
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
     private fun copyFlowCommand(s: JSONObject) { reviewedVideoCommand(s,true) }
