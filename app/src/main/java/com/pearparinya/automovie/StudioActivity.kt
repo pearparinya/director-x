@@ -3451,6 +3451,20 @@ $context"""
             }
         }
         val readyEpisodes = episodeNumbers.filter { verifiedFlowFile(it) }
+        val allFlowScenes=(0 until eps.length()).flatMap { epIndex ->
+            val scenes=eps.getJSONObject(epIndex).optJSONArray("scenes")
+            (0 until (scenes?.length() ?: 0)).map { scenes!!.getJSONObject(it) }
+        }
+        fun verifiedFlowAi(scene: JSONObject): Boolean = runCatching {
+            val original=ShortFlowPrompt.build(flowSpec(scene),"Slow gentle pan.")
+            val record=JSONObject(flowApiFile(scene).readText(Charsets.UTF_8))
+            record.optString("source_sha256")==promptHash(original) &&
+                record.optString("enhancement").length in 25..900 &&
+                record.optString("api_provider").isNotBlank() &&
+                record.optLong("updated_at_ms")>0L
+        }.getOrDefault(false)
+        val completedFlowScenes=allFlowScenes.filter { verifiedFlowAi(it) }
+        val flowAiProgress="AI V2 ปรับปรุงแล้ว ${completedFlowScenes.size}/${allFlowScenes.size} ฉาก"
         val mainOptions = mutableListOf<String>()
         val mainActions = mutableListOf<() -> Unit>()
         if (readyEpisodes.isNotEmpty()) {
@@ -3466,12 +3480,31 @@ $context"""
             mainOptions.add("✨ สร้างคำสั่ง Flow สำหรับตอนที่ยังไม่มี")
             mainActions.add { autoFlowAllEpisodes(story) }
         }
+        mainOptions.add("📄 ดูผลปรับปรุง AI V2 • ${completedFlowScenes.size}/${allFlowScenes.size} ฉาก")
+        mainActions.add {
+            if(completedFlowScenes.isEmpty()) notice("ยังไม่มีผล AI V2 ที่ตรวจสอบแล้ว • เลือกตรวจสอบ / ปรับปรุง Flow AI เพื่อเริ่ม Gen")
+            else {
+                val combined=completedFlowScenes.joinToString("\\n\\n"+("-".repeat(28))+"\\n\\n") { scene ->
+                    val original=ShortFlowPrompt.build(flowSpec(scene),"Slow gentle pan.")
+                    val record=JSONObject(flowApiFile(scene).readText(Charsets.UTF_8))
+                    "${key(scene)} • AI V2 • ${record.optString("api_provider")}\\n"+
+                        flowEnhancedCommand(scene,original)
+                }
+                showFlowCode("ผลปรับปรุง Flow AI V2 • ${completedFlowScenes.size} ฉาก",combined,"FLOW_AI_V2_RESULTS.txt")
+            }
+        }
         mainOptions.add("✨ ตรวจสอบ / ปรับปรุง Flow AI")
         mainActions.add {
             if(readyEpisodes.isEmpty()) {
                 notice("ยังไม่มีคำสั่ง Flow • สร้างคำสั่ง Kotlin ก่อน")
             } else {
-                choiceMenu("🎥 Flow AI • เลือก EP",readyEpisodes.map { "EP.$it • ตรวจสอบ / Gen AI" },
+                choiceMenu("🎥 Flow AI • เลือก EP",readyEpisodes.map { ep ->
+                    val episode= (0 until eps.length()).map { eps.getJSONObject(it) }.firstOrNull { it.optInt("ep")==ep }
+                    val scenes=episode?.optJSONArray("scenes")
+                    val total=scenes?.length() ?: 0
+                    val done=(0 until total).count { verifiedFlowAi(scenes!!.getJSONObject(it)) }
+                    "EP.$ep • AI V2 $done/$total ฉาก • ตรวจสอบ / Gen AI"
+                },
                     compactImageMenu=true) { selected ->
                     val ep=readyEpisodes[selected]
                     val epObject=(0 until eps.length()).map { eps.getJSONObject(it) }.firstOrNull { it.optInt("ep")==ep }
@@ -3479,8 +3512,7 @@ $context"""
                     if(scenes==null || scenes.length()==0) notice("ไม่พบฉาก EP.$ep")
                     else choiceMenu("🎥 Flow AI EP.$ep", (0 until scenes.length()).map { index ->
                         val scene=scenes.getJSONObject(index)
-                        val saved=runCatching { JSONObject(flowApiFile(scene).readText(Charsets.UTF_8)) }.getOrNull()
-                        val valid=saved?.optString("enhancement").orEmpty().length in 25..900 && saved?.optString("api_provider").orEmpty().isNotBlank()
+                        val valid=verifiedFlowAi(scene)
                         "ฉาก ${scene.optInt("scene",index+1)} • ${if(valid) "AI V2 บันทึกแล้ว" else "AI V2 ยังไม่ยืนยัน"}"
                     },compactImageMenu=true) { sceneIndex ->
                         val scene=scenes.getJSONObject(sceneIndex)
@@ -3494,15 +3526,9 @@ $context"""
         mainOptions.add("🔵 ตรวจสอบ / แก้ไขคำสั่ง Flow")
         mainActions.add { moreTools() }
         val category=story.optString("category").trim().replace(Regex("""\s*[（(][^()（）]*[)）]\s*$"""),"").ifBlank { "ยังไม่ระบุหมวด" }
-        val flowFiles=File(project,"flow_ai_prompts").listFiles()?.filter { it.extension=="json" }.orEmpty()
-        val genCount=flowFiles.count { file -> runCatching {
-            val record=JSONObject(file.readText(Charsets.UTF_8))
-            record.optString("source_sha256").length==64 && record.optString("enhancement").length in 25..900 &&
-                record.optString("api_provider").isNotBlank() && record.optLong("updated_at_ms")>0
-        }.getOrDefault(false) }
         val mode=if(prefs.getBoolean("flow_api_assist_enabled",false)) "AI V2 เปิด" else "Kotlin V1 เปิด"
         choiceMenu(
-            "🎥 คำสั่ง Flow\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}\nหมวด: $category\nAI V2 บันทึก $genCount รายการ · $mode",
+            "🎥 คำสั่ง Flow\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}\nหมวด: $category\n${flowAiProgress} · $mode",
             mainOptions,compactImageMenu=true
         ) { selected -> mainActions[selected].invoke() }
     }
