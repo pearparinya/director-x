@@ -59,8 +59,10 @@ internal object ChannelCatalog {
         MainCategory("pia_safety","ความรู้และเตือนภัย","ความรู้ • เตือนภัย","drama","💡","Explain the user-supplied facts clearly. Do not invent scams, incidents, safety statistics or official claims; ask for evidence if missing."),
         MainCategory("pia_products","นายเปียพาช้อป","รีวิวสินค้า • ของใช้","drama","🛍️","Review only product details explicitly supplied by the user. Do not invent demonstrations, personal experience, prices, endorsements or product claims. Ask for missing product facts.")
     )
+    val piaLegends = MainCategory("pia_legends","เรื่องเล่าและตำนาน","เรื่องผี • ตำนาน • ความเชื่อ","drama","👻","Create fictional or clearly attributed local legends, supernatural stories and mysteries. Never present unverified folklore as established fact. Keep character MASTER identities and continuity.")
+    val piaLifestyle = MainCategory("pia_lifestyle","ชีวิตและเรื่องราวนายเปีย","ชีวิตจริง • ชุมชน • ภาคใต้","drama","🌴","Create content from user-supplied real experiences and verified community information. Do not invent real-life events, places visited, endorsements or experiences; request missing facts.")
     val personalDrama = MainCategory("personal_social_drama","ละครสั้นสะท้อนสังคม","เรื่องเล่า • สะท้อนสังคม","drama","🎬","Fictional social drama based on the selected topic with empathetic characters, clear consequences and a hopeful or thought-provoking resolution. Do not portray invented claims as verified news.")
-    val allCategories get() = mainCategories + personalCategories + filmCategories + legacyFilmCategories + listOf(personalDrama)
+    val allCategories get() = mainCategories + personalCategories + filmCategories + legacyFilmCategories + listOf(personalDrama,piaLegends,piaLifestyle)
     private val genreDisplay = mapOf(
         "domestic_secrets" to ("ความลับในครอบครัว | Family Secrets" to "ความสัมพันธ์ในบ้านกับความลับที่เปลี่ยนชีวิต"),
         "betrayal_rivalry" to ("รัก ความไว้ใจ และการทรยศ | Love & Betrayal" to "ความสัมพันธ์ที่ถูกทดสอบด้วยความจริงและการตัดสินใจ"),

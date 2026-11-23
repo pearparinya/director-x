@@ -6267,28 +6267,40 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
     }
     private fun chooseChannelTopic(channel: String, done: (Int) -> Unit) {
         if(channel=="นายเปีย บ้านคลองขุด") {
-            val ids=listOf("pia_benefits","pia_safety","personal_social_drama","pia_products")
-            val labels=listOf("📌 สวัสดิการและสิทธิประโยชน์\nข้อมูลสิทธิและข่าวสวัสดิการ", "💡 ความรู้และเตือนภัย\nความรู้ใกล้ตัวและภัยมิจฉาชีพ", "🎬 ละครสั้นสะท้อนสังคม\nเรื่องเล่าและข้อคิด", "🛍️ นายเปียพาช้อป\nรีวิวและแนะนำสินค้า")
-            val subcategories=listOf(
-                listOf("สิทธิผู้สูงอายุ", "สิทธิผู้พิการ", "สวัสดิการเด็กและครอบครัว", "บัตรสวัสดิการแห่งรัฐ", "ประกันสังคม", "สิทธิรักษาพยาบาล", "ขั้นตอนตรวจสอบสิทธิ", "ข่าวสวัสดิการอื่น ๆ"),
-                listOf("เตือนภัยมิจฉาชีพ", "โทรศัพท์และข้อความหลอกลวง", "หลอกโอนเงินและซื้อขายออนไลน์", "ความปลอดภัยบัญชีและข้อมูล", "เรื่องไอทีและมือถือ", "วิธีใช้แอปใกล้ตัว", "ความรู้ในชีวิตประจำวัน", "รู้เท่าทันข่าวและข้อมูล"),
-                socialDramaGroups.flatMap { it.second },
-                listOf("เครื่องมือช่าง", "เครื่องมือสวนและเกษตร", "ของใช้ในบ้าน", "เครื่องใช้ไฟฟ้าในครัว", "อุปกรณ์ไอทีและมือถือ", "ของใช้ส่วนตัว", "ของใช้ในรถ", "เปรียบเทียบและเลือกซื้อสินค้า")
+            // Pia-only three-level navigation: category -> topic -> existing production flow.
+            // Preserve all original category IDs for saved projects and keep other channels untouched.
+            val groups=listOf(
+                Triple("🎬 ละครสั้นและซีรีส์\nสะท้อนสังคม • ครอบครัว • ความรัก • ตลก",
+                    "personal_social_drama", listOf("ละครสั้นสะท้อนสังคม","ดราม่าครอบครัว","ความรักและความสัมพันธ์","ตลกและชีวิตประจำวัน","ละครสอนใจและสร้างแรงบันดาลใจ")),
+                Triple("👻 เรื่องเล่าและตำนาน\nเรื่องผี • เรื่องลี้ลับ • ความเชื่อ",
+                    "pia_legends", listOf("เรื่องผีและวิญญาณ","เรื่องลี้ลับและสยองขวัญ","ตำนานและความเชื่อพื้นบ้าน","สิ่งศักดิ์สิทธิ์และเรื่องเหนือธรรมชาติ")),
+                Triple("🌴 ชีวิตและเรื่องราวนายเปีย\nชีวิตจริง • ชุมชน • ภาคใต้",
+                    "pia_lifestyle", listOf("ชีวิตประจำวัน","วิถีชีวิตบ้านคลองขุด","วัฒนธรรมและเรื่องราวภาคใต้","ประสบการณ์และเรื่องเล่าจากชีวิตจริง")),
+                Triple("🛍️ นายเปียพาช้อป\nแนะนำ • รีวิว • สาธิตสินค้า",
+                    "pia_products", listOf("แนะนำสินค้า","รีวิวและสาธิตสินค้า","สินค้าน่าสนใจและสินค้าปักตะกร้า")),
+                Triple("💡 ความรู้และสาระ\nสวัสดิการ • เตือนภัย • ความรู้",
+                    "pia_safety", listOf("สวัสดิการและสิทธิประโยชน์","ความรู้และเตือนภัย","เทคนิคและความรู้ใกล้ตัว"))
             )
-            choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",listOf("🎭 ตั้งค่า MASTER ประจำช่อง\nเลือกตัวเอกของช่องได้ทันที")+labels+listOf("🎵 เพลงและมิวสิกวิดีโอ\nแต่งเพลง • ร้องเพลง • สร้าง MV")) { selected ->
+            val entries=listOf("🎭 ตั้งค่า MASTER ประจำช่อง\nตัวเอกและนักร้องหลัก")+
+                groups.take(1).map { it.first }+
+                listOf("🎤 เพลงและมิวสิกวิดีโอ\nเพลงต้นฉบับ • MV • เพลงประกอบ")+
+                groups.drop(1).map { it.first }
+            choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",entries) { selected ->
                 if(selected==0) { piaMasterSettings(); return@choiceMenu }
-                if(selected==5) { musicMvMenu(); return@choiceMenu }
-                val categorySelection=selected-1
-                val index=ChannelCatalog.allCategories.indexOfFirst { it.id==ids[categorySelection] }
-                require(index>=0) { "ไม่พบหมวดที่เลือก" }
-                val acceptTopic: (String) -> Unit = { topic ->
+                if(selected==2) { musicMvMenu(); return@choiceMenu }
+                val group=groups[if(selected==1) 0 else selected-2]
+                choiceMenu("ขั้นที่ 2 • เลือกแนวย่อย",group.third) { sub ->
+                    val legacyId=when {
+                        group.second=="pia_safety" && sub==0 -> "pia_benefits"
+                        group.second=="pia_safety" -> "pia_safety"
+                        else -> group.second
+                    }
+                    val index=ChannelCatalog.allCategories.indexOfFirst { it.id==legacyId }
+                    require(index>=0) { "ไม่พบหมวดที่เลือก" }
+                    val topic=group.third[sub]
+                    // Step 3 continues in the original story/clip production flow.
                     selectedStoryTopic=topic
                     done(index)
-                }
-                if(ids[categorySelection]=="personal_social_drama") {
-                    chooseSocialDramaTopic(channel,ChannelCatalog.allCategories[index].name,acceptTopic)
-                } else {
-                    chooseTopicWithRandom(channel,ChannelCatalog.allCategories[index].name,subcategories[categorySelection],acceptTopic)
                 }
             }
             return
