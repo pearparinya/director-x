@@ -4075,8 +4075,9 @@ $context"""
             val storyCovers=covers.filter { it.id.startsWith("STORY_COVER_") }
             val episodeCovers=covers.filter { !it.id.startsWith("STORY_COVER_") }
             val groupsWithCovers=listOf(storyCovers,episodeCovers).filter { it.isNotEmpty() }+groups
+            val episodeTitleForGroup=story.optJSONArray("episodes")?.let { episodes -> (0 until episodes.length()).mapNotNull { episodes.optJSONObject(it) }.firstOrNull { it.optInt("ep")==number } }?.optString("title").orEmpty().ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }
             val options=groupsWithCovers.map { group ->
-                val label=if(group.first().id.startsWith("STORY_COVER_")) "ปกรวมเรื่อง • แนวตั้งและแนวนอน" else if(group.first().id.contains("_COVER_")) "ปก EP.$number • แนวตั้งและแนวนอน" else "${group.first().id} – ${group.last().id}"
+                val label=if(group.first().id.startsWith("STORY_COVER_")) "🎬 ปกรวมเรื่อง\nแนวตั้ง • แนวนอน" else if(group.first().id.contains("_COVER_")) "🖼️ ปกประจำตอน\nแนวตั้ง • แนวนอน" else "🎞️ EP.$number • $episodeTitleForGroup\nฉากที่ 1–${group.size}"
                 // Image navigation is not a progress dashboard. Keep approval details inside each task.
                 if(images) label else "$label • ${group.size} ซีน"
             }
@@ -4893,13 +4894,13 @@ $context"""
                         else -> "🟢 API AI: Gen แล้ว ${audit.verified}/${audit.total}"
                     }
                     val category=story.optString("category").trim().replace(Regex("""\s*[（(][^()（）]*[)）]\s*$"""),"").ifBlank { "ยังไม่ระบุหมวดหมู่" }
-                    val compactStatus=(if(aiPromptRunning) "🔵 AI V2 กำลัง Gen ${audit.verified}/${audit.total}"
-                        else if(audit.verified==0) "⚪ AI V2 ยังไม่ Gen"
-                        else if(audit.legacyCount>0) "🟠 AI V2 ${audit.verified}/${audit.total} • ข้อมูลเดิม"
-                        else "🟢 AI V2 ${audit.verified}/${audit.total}")+
-                        " · Kotlin V1 ${gate.verified}/${gate.total}"
+                    val compactStatus=(if(aiPromptRunning) "🔵 AI กำลังตรวจ ${audit.verified}/${audit.total}"
+                        else if(audit.verified==0) "⚪ AI ยังไม่ตรวจ"
+                        else if(audit.legacyCount>0) "🟠 AI ${audit.verified}/${audit.total} • ข้อมูลเดิม"
+                        else "🟢 AI ${audit.verified}/${audit.total}")+
+                        " · Kotlin ${gate.verified}/${gate.total}"
                     choiceMenu("🎬 สร้างภาพ\nเรื่อง: ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\nหมวด: $category\n$compactStatus",
-                        (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" }+
+                        (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}\n${ep.optJSONArray("scenes")?.length() ?: 0} ฉาก" }+
                             listOf("✨ ตรวจสอบ / ปรับปรุง AI", "🧩 จัดการอุปกรณ์"),
                         compactImageMenu=true
                     ) { i ->
@@ -4908,14 +4909,14 @@ $context"""
                                 val number=eps.getJSONObject(i).optInt("ep")
                                 val epInfo=eps.getJSONObject(i)
                                 choiceMenu("🎬 สร้างภาพ EP.$number\nเรื่อง: ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\nEP.$number: ${epInfo.optString("title").ifBlank { "ยังไม่ระบุชื่อตอน" }}\nหมวด: $category",
-                                    listOf("✨ ใช้ Prompt ใหม่ (AI V2)", "⚙️ ใช้ Kotlin เดิม (V1)"),
+                                    listOf("✨ ใช้คำสั่ง AI", "⚙️ ใช้คำสั่ง Kotlin"),
                                     compactImageMenu=true) { mode ->
                                     if(mode==0 && !imageAiUnlocked(story)) {
                                         AlertDialog.Builder(this)
                                             .setTitle("Prompt ยังตรวจไม่ครบ")
                                             .setMessage("API ยังตรวจผ่านเพียง ${imagePromptGate(story).reason}\\nต้องการเริ่ม API ช่วยตรวจ Prompt ก่อนหรือไม่? ไม่มีการเรียก API จนกว่าจะยืนยัน")
                                             .setPositiveButton("เริ่ม API") { _,_ -> refineImagePromptsAll(story) }
-                                            .setNegativeButton("ใช้ Kotlin เดิม") { _,_ ->
+                                            .setNegativeButton("ใช้คำสั่ง Kotlin") { _,_ ->
                                                 prefs.edit().putBoolean("image_api_assist_${project.name}",false).apply()
                                                 openImageEpisodeSafely(story,number)
                                             }.showDirector()
