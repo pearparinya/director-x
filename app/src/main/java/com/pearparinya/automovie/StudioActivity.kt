@@ -6543,6 +6543,16 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
 ห้ามอ้างว่าได้สร้างภาพ เสียงเพลง หรือวิดีโอจริงแล้ว
 ตรวจสอบและปรับจำนวนฉากตามเสียงเพลงจริงก่อนผลิต""".trimIndent()
     }
+    private fun shareMusicProduction() {
+        runCatching {
+            installPiaDefaults()
+            val master=piaSelectedMaster()
+            require(master.isFile && master.length()>0) { "ไม่พบ MASTER ประจำช่อง" }
+            val exported=masterExportName(master,false) ?: error("อ่าน MASTER ไม่ได้")
+            val command=musicMvPrompt()+"\n\nMASTER ที่แนบ: "+exported+" • นายเปีย บ้านคลองขุด • ใช้เฉพาะใบหน้าและสีผิวตามภาพอ้างอิง ไม่คัดลอกชุดจาก MASTER"
+            shareText(command,includeMasters=false,referenceImages=listOf(exported to master),destinationLabel="ChatGPT")
+        }.onFailure { notice("เตรียมงาน MV ไม่สำเร็จ: "+it.message) }
+    }
     private fun musicMvMenu() {
         choiceMenu("🎵 เพลงและมิวสิกวิดีโอ",listOf(
             "🎤 MV เน้นการร้องเพลง",
@@ -6567,11 +6577,12 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                 "▶️ ทำงานต่อจากซีนที่ข้อมูลยังไม่ครบ",
                 "🔄 กู้คืนงานตรวจ AI ที่ค้าง",
                 "🎧 ตรวจไฟล์เสียงจริง",
-                "🖼️ เลือกตรวจไฟล์ภาพจริง"
+                "🖼️ เลือกตรวจไฟล์ภาพจริง",
+                "🎭 ตั้งค่า MASTER ประจำช่อง"
             )) { action ->
                 when(action) {
                     0 -> if(musicDraft().optString("lyrics").isBlank()) notice("กรุณาใส่เนื้อเพลงต้นฉบับก่อนสร้างบท MV")
-                         else showFlowCode("🎬 คำสั่งบท MV • $mode",musicMvPrompt(),"MUSIC_MV_PROMPT.txt")
+                         else shareMusicProduction()
                     1 -> showFlowCode("🎤 คำสั่งแต่งเพลงต้นฉบับ",musicLyricPrompt(),"MUSIC_LYRICS_PROMPT.txt")
                     2 -> editMusicField("📝 เนื้อเพลงต้นฉบับ","lyrics",true)
                     3 -> musicSettings()
@@ -6579,6 +6590,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     10 -> resumeMusicReview()
                     11 -> inspectMusicMedia()
                     12 -> mvImageInspector.launch(arrayOf("image/*"))
+                    13 -> piaMasterSettings()
                     9 -> resumeMusicScene()
                     8 -> restoreMusicDraft()
                     7 -> reviewMusicDraft()
