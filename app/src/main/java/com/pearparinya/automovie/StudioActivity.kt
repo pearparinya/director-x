@@ -4733,7 +4733,7 @@ $context"""
                         audit.legacyCount>0 -> "🟢 API AI: Gen แล้ว ${audit.verified}/${audit.total} (ข้อมูลเดิม)"
                         else -> "🟢 API AI: Gen แล้ว ${audit.verified}/${audit.total}"
                     }
-                    val category=story.optString("category").trim().replace(Regex("""\\s*[（(][^()（）]*[)）]\\s*$"""),"").ifBlank { "ยังไม่ระบุหมวดหมู่" }
+                    val category=story.optString("category").trim().replace(Regex("""\s*[（(][^()（）]*[)）]\s*$""")（）]*[)）]\\s*$"""),"").ifBlank { "ยังไม่ระบุหมวดหมู่" }
                     val compactStatus=(if(aiPromptRunning) "🔵 API Gen ${gate.verified}/${gate.total}" else if(audit.verified==0) "⚪ API ยังไม่ Gen" else "🟢 API Gen ${audit.verified}/${audit.total}")+
                         " · Kotlin ${gate.verified}/${gate.total}"
                     choiceMenu("🎬 สร้างภาพ\nเรื่อง: ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\nหมวด: $category\n$compactStatus",
