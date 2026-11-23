@@ -3849,6 +3849,42 @@ $context"""
                 (record?.optString("enhancement")?.length ?: 0) in 25..700
         }
 
+    private data class ApiPromptAudit(val verified: Int, val total: Int, val provider: String, val lastUpdated: Long, val legacyCount: Int) {
+        val label: String get() = when {
+            total==0 -> "⚪ ยังไม่มีรายการ Prompt ภาพ"
+            verified==0 -> "⚪ ยังไม่ได้ปรับปรุง Prompt ด้วย API • 0/$total"
+            verified<total -> "🟠 API ปรับปรุงแล้ว $verified/$total • เหลือ ${total-verified} รายการ"
+            else -> "🟢 API ปรับปรุงแล้ว $verified/$total • 100%"
+        }
+        val detail: String get() = buildString {
+            if(provider.isNotBlank()) append(" • API: ").append(provider)
+            if(lastUpdated>0) append(" • ล่าสุด ").append(
+                java.text.SimpleDateFormat("dd/MM/yyyy HH:mm",java.util.Locale("th","TH"))
+                    .format(java.util.Date(lastUpdated)))
+            if(legacyCount>0) append(" • ").append(legacyCount).append(" รายการเก่าไม่ระบุ API/เวลา")
+        }
+    }
+
+    private fun imagePromptAudit(story: JSONObject): ApiPromptAudit {
+        val entries=runCatching { allImagePromptEntries(story) }.getOrDefault(emptyList())
+        var verified=0
+        var lastUpdated=0L
+        var lastProvider=""
+        var legacy=0
+        for((ep,task) in entries) {
+            val file=File(project,"ai_prompt_EP%02d_%s.json".format(ep,task.id))
+            val record=runCatching { JSONObject(file.readText(Charsets.UTF_8)) }.getOrNull() ?: continue
+            if(record.optString("source_sha256")!=promptHash(task.command) ||
+                record.optString("enhancement").length !in 25..700) continue
+            verified++
+            val timestamp=record.optLong("updated_at_ms",0L)
+            val provider=record.optString("api_provider")
+            if(timestamp<=0 || provider.isBlank()) legacy++
+            if(timestamp>lastUpdated) { lastUpdated=timestamp; lastProvider=provider }
+        }
+        return ApiPromptAudit(verified,entries.size,lastProvider,lastUpdated,legacy)
+    }
+
     // Persisted, hash-matched prompts are the source of truth for unlocking.
     // A stale in-memory running flag must not lock a fully verified project.
     private data class ImagePromptGate(val verified: Int, val total: Int, val error: String? = null) {
@@ -3916,6 +3952,7 @@ $context"""
                     "Do NOT change or add characters, clothing, props, action, location, story, references, or plot. "+
                     "Do not invent any missing information. Original prompt:\n"+task.command.take(14000)
                 var addition=""
+                var successfulProvider=""
                 for(provider in providers) {
                     aiApiProvider=provider.label
                     aiPromptApi=provider.label+" • "+task.id
@@ -3928,7 +3965,7 @@ $context"""
                     }.getOrDefault("")
                     val banned=listOf("wardrobe","outfit","shoe","master id","reference image","additional person")
                     if(result.length in 25..700 && banned.none { result.contains(it,true) }) {
-                        addition=result; break
+                        addition=result; successfulProvider=provider.label; break
                     }
                 }
                 if(addition.isBlank()) {
@@ -3938,6 +3975,8 @@ $context"""
                     val file=File(project,"ai_prompt_EP%02d_%s.json".format(ep,task.id))
                     val record=JSONObject().put("source_sha256",promptHash(task.command))
                         .put("enhancement",addition)
+                        .put("api_provider",successfulProvider)
+                        .put("updated_at_ms",System.currentTimeMillis())
                     val saved=runCatching {
                         val temp=File(project,file.name+".tmp")
                         temp.writeText(record.toString(),Charsets.UTF_8)
@@ -4669,12 +4708,12 @@ $context"""
                     if(ready && !aiPromptRunning) {
                         aiPromptKotlin="ปลดล็อกแล้ว • ตรวจข้อมูลที่บันทึกไว้ครบ"
                     }
-                    val status=if(aiPromptRunning) "กำลังประมวลผล • API: $aiPromptApi • Kotlin: $aiPromptKotlin • ${gate.verified}/${gate.total}"
-                        else if(ready) "✓ Prompt ผ่านครบ ${gate.verified}/${gate.total} • พร้อมสร้างภาพ"
-                        else "Prompt ผ่าน ${gate.verified}/${gate.total} • เลือก API ช่วยตรวจหรือใช้ Kotlin เดิม"
+                    val audit=imagePromptAudit(story)
+                    val status=if(aiPromptRunning) "🔵 กำลังปรับปรุง • API: $aiPromptApi • Kotlin: $aiPromptKotlin • ${gate.verified}/${gate.total}"
+                        else audit.label+audit.detail+"\\nKotlin ตรวจ Prompt: ${gate.verified}/${gate.total}"+(if(ready) " • พร้อมสร้างภาพ" else " • ยังตรวจไม่ครบ")
                     choiceMenu("สร้างภาพ • ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\\n$status",
                         (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" }+
-                            listOf("✨ API ช่วยปรับปรุง Prompt • ${if(aiPromptRunning) "กำลังทำงาน" else if(ready) "ผ่านแล้ว ไม่เรียกซ้ำ" else "เริ่มตรวจ"}",
+                            listOf("✨ "+(if(aiPromptRunning) "API กำลังปรับปรุง • $aiPromptApi" else if(ready) "API ปรับปรุงแล้ว ${audit.verified}/${audit.total} • ไม่เรียกซ้ำ" else "API ยังไม่ครบ ${audit.verified}/${audit.total} • กดเพื่อปรับปรุง"),
                                 "จัดการอุปกรณ์อ้างอิง"),
                     ) { i ->
                         when {
