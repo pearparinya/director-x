@@ -4669,6 +4669,9 @@ $context"""
         val episodes=current?.optJSONArray("episodes")?.length() ?: 0
         val scenes=current?.let { rows(it) }.orEmpty()
         val reviewed=scenes.count { propReviewStatus(it)=="ผู้ใช้ตรวจบทแล้ว" }
+        val approvedImages=scenes.count { sceneFrameApproved(it) }
+        val scriptComplete=current!=null && scenes.isNotEmpty() && episodes>0 && scenes.all { it.optInt("ep")>0 && it.optInt("scene")>0 }
+        // A story being open is not proof that video commands have been generated or reviewed.
         val wardrobe=current?.let { wardrobeReviewStatus(it) } ?: "รอสร้างบท"
         val job=File(project,"gemini_job/spec.json").isFile
         val goldLight=Color.rgb(255,194,76)
@@ -4689,7 +4692,7 @@ $context"""
             setPadding(0,dp(4),0,dp(2))
         })
         card.addView(TextView(this).apply {
-            text=if(current==null) "เริ่มสร้างเรื่องใหม่ หรือเปิดเรื่องที่บันทึก" else "$episodes ตอน  •  ${scenes.size} ฉาก  •  ${current.optString("aspect_ratio","9:16")}  •  บทพร้อมแล้ว"
+            text=if(current==null) "เริ่มสร้างเรื่องใหม่ หรือเปิดเรื่องที่บันทึก" else "$episodes ตอน  •  ${scenes.size} ฉาก  •  ${current.optString("aspect_ratio","9:16")}  •  ${if(scriptComplete) "มีข้อมูลบท" else "ตรวจข้อมูลบท"}"
             textSize=12f; setTextColor(ice)
         })
         val progress=LinearLayout(this).apply {
@@ -4698,8 +4701,8 @@ $context"""
         }
         listOf(
             "ตัวละคร" to (current!=null && wardrobe=="ยืนยันชุดในบทแล้ว"),
-            "ภาพฉาก" to (scenes.isNotEmpty() && reviewed==scenes.size),
-            "คำสั่ง Flow" to (current!=null)
+            "ภาพฉาก $approvedImages/${scenes.size}" to (scenes.isNotEmpty() && approvedImages==scenes.size),
+            "คำสั่งวิดีโอ • รอตรวจ" to false
         ).forEachIndexed { index,item ->
             progress.addView(TextView(this).apply {
                 text=(if(item.second) "✓ " else "○ ")+item.first
@@ -4738,7 +4741,7 @@ $context"""
         statusLine("ตรวจชุดตัวละคร",wardrobeDetail) {
             current?.let { wardrobeMenu(it) } ?: notice("รอสร้างบท")
         }
-        statusLine("ตรวจสิ่งของในบท","ตรวจบทแล้ว $reviewed/${scenes.size}  •  ${if(current!=null) "เปิดใช้งานได้" else "รอสร้างบท"}") {
+        statusLine("ตรวจอุปกรณ์ประกอบฉาก","ตรวจผ่าน $reviewed/${scenes.size} ฉาก  •  ${if(current!=null && reviewed==scenes.size && scenes.isNotEmpty()) "ตรวจครบแล้ว" else "รอตรวจ"}") {
             current?.let { reviewSceneProps(it) } ?: notice("รอสร้างบท")
         }
         if(current!=null) statusLine("ส่งออกบท",exportDetail) { productionCheckMenu(current) }
