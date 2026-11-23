@@ -6148,6 +6148,44 @@ $context"""
                 musicSettings()
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
+    private var musicAudioProject: File? = null
+    private val musicAudioPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val target = musicAudioProject
+        musicAudioProject = null
+        if (uri != null && target != null) {
+            if (target != project) {
+                notice("โปรเจกต์เปลี่ยนแล้ว กรุณาเลือกไฟล์ใหม่")
+            } else {
+                val pending = File(target, "music_audio.pending")
+                runCatching {
+                    val metadata = android.media.MediaMetadataRetriever()
+                    val millis = try {
+                        metadata.setDataSource(this, uri)
+                        metadata.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+                            ?: error("อ่านระยะเวลาเพลงไม่ได้")
+                    } finally { metadata.release() }
+                    require(millis in 1L..86400000L) { "ระยะเวลาเพลงไม่ถูกต้อง" }
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        pending.outputStream().use { output -> input.copyTo(output) }
+                    } ?: error("เปิดไฟล์เสียงไม่ได้")
+                    require(pending.length() > 0) { "ไฟล์เสียงว่าง" }
+                    val audio = File(target, "music_audio_" + UUID.randomUUID().toString())
+                    check(pending.renameTo(audio)) { "บันทึกไฟล์เสียงไม่ได้" }
+                    val draft = musicDraft()
+                    draft.put("audio_file", audio.name)
+                    draft.put("audio_duration_ms", millis)
+                    draft.put("duration_seconds", ((millis + 999L) / 1000L).toInt())
+                    saveMusicDraft(draft)
+                    notice("บันทึกเพลงต้นฉบับแล้ว • " + millis + " ms")
+                }.onFailure { notice("นำเข้าเพลงไม่สำเร็จ: " + it.message) }
+                pending.delete()
+            }
+        }
+    }
+    private fun importMusicAudio() {
+        musicAudioProject = project
+        musicAudioPicker.launch(arrayOf("audio/*"))
+    }
     private fun musicSettings() {
         val draft=musicDraft()
         choiceMenu("🎶 ตั้งค่าเพลงและ MV",listOf(
@@ -6157,7 +6195,8 @@ $context"""
             "🌏 ภาษา • ${draft.optString("language")}",
             "⏱️ ความยาวเพลง • ${draft.optInt("duration_seconds")} วินาที",
             "🎤 นักร้อง/พระเอก • ${draft.optString("singer")}",
-            "🎬 รูปแบบ MV • ${draft.optString("mode")}"
+            "🎬 รูปแบบ MV • ${draft.optString("mode")}",
+            "🎧 นำเข้าเพลงต้นฉบับ • ${if(draft.optString("audio_file").isBlank()) "ยังไม่มี" else "บันทึกแล้ว"}"
         )) { i -> when(i) {
             0 -> editMusicField("ชื่อเพลง","title")
             1 -> musicGenres()
@@ -6167,6 +6206,7 @@ $context"""
                 if(n<5) { draft.put("duration_seconds",listOf(30,60,120,180,240)[n]);saveMusicDraft(draft) }
                 else notice("แก้ไขความยาวผ่านไฟล์เพลงได้ในเวอร์ชันถัดไป")
             }
+            7 -> importMusicAudio()
             5 -> editMusicField("นักร้องและพระเอกหลัก","singer")
             6 -> choiceMenu("รูปแบบ MV",listOf("MV เล่าเรื่อง","MV ร้องเพลง","MV ผสมละคร","เพลงประกอบละคร")) { n -> draft.put("mode",listOf("MV เล่าเรื่อง","MV ร้องเพลง","MV ผสมละคร","เพลงประกอบละคร")[n]);saveMusicDraft(draft) }
         } }
@@ -6207,13 +6247,13 @@ $context"""
     private fun musicMvPrompt(): String {
         val d=musicDraft()
         val lyrics=d.optString("lyrics")
-        val duration=d.optInt("duration_seconds",180).coerceAtLeast(8)
+        val duration=d.optInt("duration_seconds",180).coerceAtLeast(1)
         val clips=(duration+7)/8
         return """DIRECTOR X • เขียนบทมิวสิกวิดีโอเพื่อสร้างภาพด้วย ChatGPT และวิดีโอด้วย Flow
 ชื่อเพลง: ${d.optString("title")} | รูปแบบ: ${d.optString("mode")}
 นักร้องและพระเอกหลัก: ${d.optString("singer","นายเปีย บ้านคลองขุด")}
 ต้นทาง: ${d.optString("source")} | เรื่อง: ${d.optString("story_title")}
-ความยาวเพลง: $duration วินาที | $clips ซีนผลิตจริง ซีนละ 8 วินาที
+ความยาวเพลง: $duration วินาที (ระยะเวลาจริง ms: ${d.optLong("audio_duration_ms",duration.toLong()*1000L)}) | $clips ซีนผลิตจริง ซีนละ 8 วินาที
 ไทม์ไลน์บังคับ (วินาที):
 ${(0 until clips).joinToString("\n") { i -> "SC${i+1}: ${i*8}-${minOf((i+1)*8,duration)} | ผลิต 8 วินาที | ใช้จริง ${minOf(8,duration-i*8)} วินาที" }}
 เนื้อเพลง:
