@@ -4709,12 +4709,18 @@ $context"""
                         aiPromptKotlin="ปลดล็อกแล้ว • ตรวจข้อมูลที่บันทึกไว้ครบ"
                     }
                     val audit=imagePromptAudit(story)
-                    val status=if(aiPromptRunning) "🔵 กำลังปรับปรุง • API: $aiPromptApi • Kotlin: $aiPromptKotlin • ${gate.verified}/${gate.total}"
-                        else audit.label+audit.detail+"\\nKotlin ตรวจ Prompt: ${gate.verified}/${gate.total}"+(if(ready) " • พร้อมสร้างภาพ" else " • ยังตรวจไม่ครบ")
-                    choiceMenu("สร้างภาพ • ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\\n$status",
+                    val genStatus=when {
+                        aiPromptRunning -> "🔵 API AI: กำลัง Gen ${gate.verified}/${gate.total}"
+                        audit.total==0 -> "⚪ API AI: ไม่มี Prompt"
+                        audit.verified==0 -> "⚪ API AI: ยังไม่ได้ Gen"
+                        audit.verified<audit.total -> "🟠 API AI: Gen แล้ว ${audit.verified}/${audit.total}"
+                        audit.legacyCount>0 -> "🟢 API AI: Gen แล้ว ${audit.verified}/${audit.total} (ข้อมูลเดิม)"
+                        else -> "🟢 API AI: Gen แล้ว ${audit.verified}/${audit.total}"
+                    }
+                    val status="$genStatus\n✓ Kotlin: ผ่าน ${gate.verified}/${gate.total}"
+                    choiceMenu("สร้างภาพ • ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\n$status",
                         (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" }+
-                            listOf("✨ "+(if(aiPromptRunning) "API กำลังปรับปรุง • $aiPromptApi" else if(ready) "API ปรับปรุงแล้ว ${audit.verified}/${audit.total} • ไม่เรียกซ้ำ" else "API ยังไม่ครบ ${audit.verified}/${audit.total} • กดเพื่อปรับปรุง"),
-                                "จัดการอุปกรณ์อ้างอิง"),
+                            listOf("✨ ตรวจสอบ / ปรับปรุง Prompt", "จัดการอุปกรณ์อ้างอิง"),
                     ) { i ->
                         when {
                             i in 0 until eps.length() -> {
@@ -4739,7 +4745,12 @@ $context"""
                             }
                             i==eps.length() -> {
                                 if(aiPromptRunning) notice("API กำลังทำงาน • $aiPromptApi")
-                                else if(ready) notice("Prompt ผ่านครบแล้ว • ไม่เรียก API ซ้ำ")
+                                else if(ready) AlertDialog.Builder(this)
+                                    .setTitle("สถานะ Gen AI ของ API")
+                                    .setMessage("$genStatus\\n✓ Kotlin: ผ่าน ${gate.verified}/${gate.total}\\n"+
+                                        (if(audit.legacyCount>0) "ข้อมูลเดิม ${audit.legacyCount} รายการไม่ระบุ API/เวลา" else audit.detail.ifBlank { "บันทึกผลแล้ว" })+
+                                        "\\nPrompt ผ่านครบแล้ว • ไม่เรียก API ซ้ำ")
+                                    .setPositiveButton("รับทราบ",null).showDirector()
                                 else refineImagePromptsAll(story)
                             }
                             else -> choiceMenu("จัดการอุปกรณ์",listOf("ผูกอุปกรณ์กับตัวละคร","ให้ AI เสนออุปกรณ์รายซีน")) { mode -> if(mode==0) characterPropMenu(story) else suggestStoryProps(story) }
