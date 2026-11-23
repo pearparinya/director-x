@@ -6373,6 +6373,18 @@ $context"""
         if(index !in 0 until timeline.length()) { notice("ไม่พบซีนเดิม"); return }
         runMusicSceneReview(timeline.getJSONObject(index))
     }
+    private val mvImageInspector=registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if(uri!=null) Thread {
+            val report=runCatching {
+                val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
+                contentResolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it,null,bounds) }
+                require(bounds.outWidth>0 && bounds.outHeight>0) { "อ่านภาพไม่ได้" }
+                val vertical=bounds.outWidth.toLong()*16L==bounds.outHeight.toLong()*9L
+                "ภาพจริง: "+bounds.outWidth+" × "+bounds.outHeight+"\nสัดส่วน 9:16: "+(if(vertical) "ผ่าน" else "ไม่ผ่าน")+"\nMASTER และความต่อเนื่อง: ยังไม่ได้ตรวจ"
+            }.getOrElse { "ตรวจภาพไม่สำเร็จ: "+it.message }
+            runOnUiThread { if(!isFinishing && !isDestroyed) notice(report) }
+        }.start()
+    }
     private fun inspectMusicMedia() {
         val target=project
         val draft=musicDraft()
@@ -6554,7 +6566,8 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                 "↩️ กู้คืนข้อมูล MV จากสำเนาก่อนหน้า",
                 "▶️ ทำงานต่อจากซีนที่ข้อมูลยังไม่ครบ",
                 "🔄 กู้คืนงานตรวจ AI ที่ค้าง",
-                "🎧 ตรวจไฟล์เสียงจริง"
+                "🎧 ตรวจไฟล์เสียงจริง",
+                "🖼️ เลือกตรวจไฟล์ภาพจริง"
             )) { action ->
                 when(action) {
                     0 -> if(musicDraft().optString("lyrics").isBlank()) notice("กรุณาใส่เนื้อเพลงต้นฉบับก่อนสร้างบท MV")
@@ -6565,6 +6578,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     4 -> musicSource()
                     10 -> resumeMusicReview()
                     11 -> inspectMusicMedia()
+                    12 -> mvImageInspector.launch(arrayOf("image/*"))
                     9 -> resumeMusicScene()
                     8 -> restoreMusicDraft()
                     7 -> reviewMusicDraft()
