@@ -3466,11 +3466,45 @@ $context"""
             mainOptions.add("✨ สร้างคำสั่ง Flow สำหรับตอนที่ยังไม่มี")
             mainActions.add { autoFlowAllEpisodes(story) }
         }
+        mainOptions.add("✨ ตรวจสอบ / ปรับปรุง Flow AI")
+        mainActions.add {
+            if(readyEpisodes.isEmpty()) {
+                notice("ยังไม่มีคำสั่ง Flow • สร้างคำสั่ง Kotlin ก่อน")
+            } else {
+                choiceMenu("🎥 Flow AI • เลือก EP",readyEpisodes.map { "EP.$it • ตรวจสอบ / Gen AI" },
+                    compactImageMenu=true) { selected ->
+                    val ep=readyEpisodes[selected]
+                    val epObject=(0 until eps.length()).map { eps.getJSONObject(it) }.firstOrNull { it.optInt("ep")==ep }
+                    val scenes=epObject?.optJSONArray("scenes")
+                    if(scenes==null || scenes.length()==0) notice("ไม่พบฉาก EP.$ep")
+                    else choiceMenu("🎥 Flow AI EP.$ep", (0 until scenes.length()).map { index ->
+                        val scene=scenes.getJSONObject(index)
+                        val saved=runCatching { JSONObject(flowApiFile(scene).readText(Charsets.UTF_8)) }.getOrNull()
+                        val valid=saved?.optString("enhancement").orEmpty().length in 25..900
+                        "ฉาก ${scene.optInt("scene",index+1)} • ${if(valid) "มีผล API" else "ยังไม่ Gen"}"
+                    },compactImageMenu=true) { sceneIndex ->
+                        val scene=scenes.getJSONObject(sceneIndex)
+                        // The existing scene command workflow performs source-hash validation before API reuse.
+                        notice("เปิดคำสั่ง Flow EP.$ep แล้วเลือกฉาก ${scene.optInt("scene",sceneIndex+1)} เพื่อใช้ Kotlin + API หรือ Kotlin เดิม")
+                        openEpisode(ep)
+                    }
+                }
+            }
+        }
+        mainOptions.add("⚙️ ตั้งค่า API Flow")
+        mainActions.add { flowApiSettings() }
         mainOptions.add("🔵 ตรวจสอบ / แก้ไขคำสั่ง Flow")
         mainActions.add { moreTools() }
+        val category=story.optString("category").trim().replace(Regex("""\s*[（(][^()（）]*[)）]\s*$"""),"").ifBlank { "ยังไม่ระบุหมวด" }
+        val flowFiles=File(project,"flow_ai_prompts").listFiles()?.filter { it.extension=="json" }.orEmpty()
+        val genCount=flowFiles.count { file -> runCatching {
+            val record=JSONObject(file.readText(Charsets.UTF_8))
+            record.optString("source_sha256").length==64 && record.optString("enhancement").length in 25..900
+        }.getOrDefault(false) }
+        val mode=if(prefs.getBoolean("flow_api_assist_enabled",false)) "Kotlin + API" else "Kotlin เดิม"
         choiceMenu(
-            "DIRECTOR X • ศูนย์คำสั่ง Flow\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}\nตรวจบท: ${if (storyPassed) "ผ่าน" else "รอตรวจ"} • ภาพ: $imageStatus • คำสั่ง: $savedFlowCount/${eps.length()} ตอน",
-            mainOptions
+            "🎥 คำสั่ง Flow\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}\nหมวด: $category\nFlow AI บันทึก $genCount รายการ · $mode",
+            mainOptions,compactImageMenu=true
         ) { selected -> mainActions[selected].invoke() }
     }
 
