@@ -4556,9 +4556,6 @@ $context"""
         val current=plan ?: return notice("ไม่พบเรื่อง")
         val scenes=rows(current)
         val reviewed=scenes.count { propReviewStatus(it)=="ผู้ใช้ตรวจบทแล้ว" }
-        val approvedImages=scenes.count { sceneFrameApproved(it) }
-        val scriptComplete=current!=null && scenes.isNotEmpty() && episodes>0 && scenes.all { it.optInt("ep")>0 && it.optInt("scene")>0 }
-        // A story being open is not proof that video commands have been generated or reviewed.
         val savedAt=prefs.getLong("flow_props_saved_at_${project.name}",0L)
         val savedTime=if(savedAt>0L) java.text.SimpleDateFormat("dd/MM/yyyy HH:mm",java.util.Locale("th","TH")).format(java.util.Date(savedAt)) else "ยังไม่มีเวลาบันทึก"
         AlertDialog.Builder(this).setTitle("🧰 ขั้นตอน 2 • สิ่งของในบท")
@@ -4672,6 +4669,9 @@ $context"""
         val episodes=current?.optJSONArray("episodes")?.length() ?: 0
         val scenes=current?.let { rows(it) }.orEmpty()
         val reviewed=scenes.count { propReviewStatus(it)=="ผู้ใช้ตรวจบทแล้ว" }
+        val approvedImages=scenes.count { sceneFrameApproved(it) }
+        val scriptComplete=current!=null && scenes.isNotEmpty() && episodes>0 && scenes.all { it.optInt("ep")>0 && it.optInt("scene")>0 }
+        // A story being open is not proof that video commands have been generated or reviewed.
         val wardrobe=current?.let { wardrobeReviewStatus(it) } ?: "รอสร้างบท"
         val job=File(project,"gemini_job/spec.json").isFile
         val goldLight=Color.rgb(255,194,76)
