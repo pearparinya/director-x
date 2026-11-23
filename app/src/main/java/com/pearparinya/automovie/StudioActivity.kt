@@ -205,12 +205,12 @@ class StudioActivity : AppCompatActivity() {
             lines.forEachIndexed { index, line ->
                 panel.addView(TextView(this).apply {
                     text=line
-                    textSize=if(index==0) 17f else if(index==1) 14f else 12f
+                    textSize=if(index==0) 20f else if(line.startsWith("เรื่อง:")) 15f else if(line.startsWith("หมวดหมู่:")) 14f else if(line.startsWith("EP.")) 15f else 13f
                     setTextColor(if(index==0) gold else if(index==lines.lastIndex) Color.rgb(143,231,180) else ice)
                     setTypeface(null,if(index==0) Typeface.BOLD else Typeface.NORMAL)
-                    maxLines=1
+                    maxLines=if(index==0) 1 else 2
                     ellipsize=android.text.TextUtils.TruncateAt.END
-                    setPadding(0,0,0,dp(if(index==lines.lastIndex) 9 else 3))
+                    setPadding(0,0,0,dp(if(index==lines.lastIndex) 7 else 2))
                 })
             }
         } else {
@@ -4077,7 +4077,7 @@ $context"""
             val groupsWithCovers=listOf(storyCovers,episodeCovers).filter { it.isNotEmpty() }+groups
             val episodeTitleForGroup=story.optJSONArray("episodes")?.let { episodes -> (0 until episodes.length()).mapNotNull { episodes.optJSONObject(it) }.firstOrNull { it.optInt("ep")==number } }?.optString("title").orEmpty().ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }
             val options=groupsWithCovers.map { group ->
-                val label=if(group.first().id.startsWith("STORY_COVER_")) "🎬 ปกรวมเรื่อง\nแนวตั้ง • แนวนอน" else if(group.first().id.contains("_COVER_")) "🖼️ ปกประจำตอน\nแนวตั้ง • แนวนอน" else "🎞️ EP.$number • $episodeTitleForGroup\nฉากที่ 1–${group.size}"
+                val label=if(group.first().id.startsWith("STORY_COVER_")) "🎬 ปกรวมเรื่อง\nแนวตั้ง • แนวนอน" else if(group.first().id.contains("_COVER_")) "🖼️ ปกประจำตอน\nแนวตั้ง • แนวนอน" else "🎞️ ภาพฉาก\nฉากที่ 1–${group.size}"
                 // Image navigation is not a progress dashboard. Keep approval details inside each task.
                 if(images) label else "$label • ${group.size} ซีน"
             }
@@ -4085,7 +4085,9 @@ $context"""
             val episode=story.optJSONArray("episodes")?.let { eps -> (0 until eps.length()).mapNotNull { eps.optJSONObject(it) }.firstOrNull { it.optInt("ep")==number } }
             val episodeTitle=episode?.optString("title")?.takeIf { it.isNotBlank() } ?: "ยังไม่ได้ตั้งชื่อตอน"
             val storyTitle=story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }
-            choiceMenu("เรื่อง: $storyTitle\nEP.$number • $episodeTitle\nเลือกชุด${if(images) "ภาพ" else "คำสั่ง Flow"}",options
+            val category=story.optString("category").trim().replace(Regex("""\s*[（(][^()（）]*[)）]\s*$"""),"").ifBlank { "ยังไม่ระบุหมวดหมู่" }
+            val header=if(images) "🎬 เลือกชุดภาพ\nเรื่อง: $storyTitle\nหมวดหมู่: $category\nEP.$number • $episodeTitle" else "เรื่อง: $storyTitle\nEP.$number • $episodeTitle\nเลือกชุดคำสั่ง Flow"
+            choiceMenu(header,options,compactImageMenu=images
             ) { selected ->
                 productionTaskDeck(story,number,images,groupsWithCovers[selected].map { it.id }.toSet())
             }
@@ -4902,16 +4904,16 @@ $context"""
                         else if(audit.legacyCount>0) "🟠 AI ${audit.verified}/${audit.total} • ข้อมูลเดิม"
                         else "🟢 AI ${audit.verified}/${audit.total}")+
                         " · Kotlin ${gate.verified}/${gate.total}"
-                    choiceMenu("🎬 สร้างภาพ\nเรื่อง: ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\nหมวด: $category\n$compactStatus",
+                    choiceMenu("🎬 สร้างภาพ\nเรื่อง: ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\nหมวดหมู่: $category\n$compactStatus",
                         (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}\n${ep.optJSONArray("scenes")?.length() ?: 0} ฉาก" }+
-                            listOf("✨ ตรวจสอบ / ปรับปรุง AI", "🧩 จัดการอุปกรณ์"),
+                            listOf("✨ วิเคราะห์ AI", "🧩 จัดการอุปกรณ์"),
                         compactImageMenu=true
                     ) { i ->
                         when {
                             i in 0 until eps.length() -> {
                                 val number=eps.getJSONObject(i).optInt("ep")
                                 val epInfo=eps.getJSONObject(i)
-                                choiceMenu("🎬 สร้างภาพ EP.$number\nเรื่อง: ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\nEP.$number: ${epInfo.optString("title").ifBlank { "ยังไม่ระบุชื่อตอน" }}\nหมวด: $category",
+                                choiceMenu("🎬 สร้างภาพ EP.$number\nเรื่อง: ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\nหมวดหมู่: $category\n${epInfo.optString("title").ifBlank { "ยังไม่ระบุชื่อตอน" }}",
                                     listOf("✨ ใช้คำสั่ง AI", "⚙️ ใช้คำสั่ง Kotlin"),
                                     compactImageMenu=true) { mode ->
                                     if(mode==0 && !imageAiUnlocked(story)) {
