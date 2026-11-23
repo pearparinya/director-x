@@ -4396,12 +4396,29 @@ $context"""
             background=backdrop(Color.rgb(24,24,32),navy,Color.rgb(95,74,47))
         }
         val heading=TextView(this).apply {
-            textSize=19f
+            text="✨ คำสั่ง Flow • AI V2"
+            textSize=17f
             setTypeface(null,Typeface.BOLD)
             setTextColor(gold)
-            setPadding(dp(6),0,dp(6),dp(10))
+            setPadding(dp(6),0,dp(6),dp(5))
+            maxLines=1
+            ellipsize=android.text.TextUtils.TruncateAt.END
         }
         panel.addView(heading)
+        fun metadataRow(label: String): TextView {
+            return TextView(this).apply {
+                textSize=13f
+                setTextColor(ice)
+                setPadding(dp(6),dp(2),dp(6),dp(2))
+                maxLines=2
+                ellipsize=android.text.TextUtils.TruncateAt.END
+                contentDescription=label
+            }.also { panel.addView(it) }
+        }
+        val storyRow=metadataRow("ชื่อเรื่อง")
+        val categoryRow=metadataRow("หมวดหมู่")
+        val episodeRow=metadataRow("ตอน")
+        val sceneRow=metadataRow("ฉาก")
         val prompt=TextView(this).apply {
             textSize=14f
             typeface=Typeface.MONOSPACE
@@ -4427,7 +4444,8 @@ $context"""
             background=backdrop(Color.rgb(255,210,93),Color.rgb(224,157,45))
         }
         panel.addView(copy,LinearLayout.LayoutParams(-1,dp(58)))
-        val storyTitle=plan?.optString("title").orEmpty().trim()
+        val storyTitle=plan?.optString("title").orEmpty().trim().ifBlank { "ยังไม่ระบุชื่อเรื่อง" }
+        val category=plan?.optString("category").orEmpty().trim().ifBlank { "ยังไม่ระบุหมวดหมู่" }
         val episodeTitle=plan?.optJSONArray("episodes")?.let { episodes ->
             (0 until episodes.length()).mapNotNull { episodes.optJSONObject(it) }
                 .firstOrNull { it.optInt("ep")==ep }
@@ -4443,13 +4461,10 @@ $context"""
                 record.optString("api_provider").isNotBlank() &&
                 record.optLong("updated_at_ms")>0L
             currentCommand=if(valid) flowEnhancedCommand(scene,original!!) else null
-            heading.text=buildString {
-                append("คำสั่งสร้างวิดีโอ Flow • AI V2")
-                if(storyTitle.isNotBlank()) append("\\nเรื่อง: $storyTitle")
-                append("\\nตอนที่ $ep")
-                if(episodeTitle.isNotBlank()) append(" • $episodeTitle")
-                append("\\nฉากที่ ${index+1} จาก ${scenes.size} ฉาก")
-            }
+            storyRow.text="เรื่อง: $storyTitle"
+            categoryRow.text="หมวดหมู่: $category"
+            episodeRow.text="ตอนที่ $ep • ${episodeTitle.ifBlank { "ยังไม่ระบุชื่อตอน" }}"
+            sceneRow.text="ฉากที่ ${index+1} / ${scenes.size}"
             prompt.text=currentCommand ?: "ฉากนี้ยังไม่มีคำสั่ง AI V2 ที่ตรวจสอบแล้ว\\nกรุณาปรับปรุง Flow ด้วย AI V2 ก่อน"
             copy.text="📋 คัดลอกคำสั่ง AI V2 ตอนที่ $ep • ฉากที่ ${index+1}"
             copy.isEnabled=currentCommand!=null
