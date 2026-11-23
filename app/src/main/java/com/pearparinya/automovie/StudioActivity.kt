@@ -2898,9 +2898,8 @@ FANTASY CHARACTER BINDINGS:
 $bindings
 SCENES:
 $context"""
-            var answer: JSONObject?=cached?.takeIf { value -> fields.all { value.opt(it) is String && value.optString(it).isNotBlank() } }
+            var answer: JSONObject?=null
             for(provider in providers) {
-                if(answer!=null) break
                 answer=runCatching { StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false,context=this@StudioActivity).generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("items")!=null }
                 if(answer!=null) break
             }
@@ -6432,8 +6431,9 @@ $context"""
         val loading=AlertDialog.Builder(this).setMessage("AI กำลังตรวจซีน SC"+key).setNegativeButton("หยุด",null).showDirector()
         loading.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
         Thread {
-            var answer: JSONObject?=null
+            var answer: JSONObject?=cached?.takeIf { value -> fields.all { value.opt(it) is String && value.optString(it).isNotBlank() } }
             for(provider in providers) {
+                if(answer!=null) break
                 if(stopped.get()) break
                 answer=runCatching {
                     val client=StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ stopped.get() },automaticRetry=false,context=this@StudioActivity)
