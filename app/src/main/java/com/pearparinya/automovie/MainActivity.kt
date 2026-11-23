@@ -491,7 +491,7 @@ class MainActivity : AppCompatActivity() {
                     Color.rgb(35, 105, 210)
                 )
                 setOnClickListener {
-                    checkForAppUpdate(silent = false)
+                    appUpdater.check(automatic = false)
                 }
             },
             LinearLayout.LayoutParams(
@@ -543,7 +543,7 @@ class MainActivity : AppCompatActivity() {
 
         // ตรวจอัปเดตอัตโนมัติ 1 ครั้งเมื่อเปิดแอป
         // ถ้าไม่มีรุ่นใหม่จะไม่รบกวนผู้ใช้
-        checkForAppUpdate(silent = true)
+        // Automatic check is already handled by StudioUpdater on create/resume.
     }
 
     // ============================================================
@@ -2191,91 +2191,7 @@ PREVIOUS SCENE: ${fmt(currentScene - 1)} = PASS & LOCK
     // APP UPDATE
     // ============================================================
 
-    private fun checkForAppUpdate(silent: Boolean = false) {
-        if (!silent) {
-            status.text = "🔄 กำลังตรวจสอบเวอร์ชันล่าสุด…"
-        }
-
-        Thread {
-            try {
-                // Every build now has an immutable release tag such as R6.24-B642.
-                // Read the release marked "latest" and cache-bust the request.
-                val noCacheUrl =
-                    "https://api.github.com/repos/pearparinya/auto-movie-r6-4/releases/latest?cb=" +
-                    System.currentTimeMillis()
-                val connection = (URL(noCacheUrl).openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 8000
-                    readTimeout = 8000
-                    requestMethod = "GET"
-                    useCaches = false
-                    defaultUseCaches = false
-                    setRequestProperty("Accept", "application/vnd.github+json")
-                    setRequestProperty("User-Agent", "AUTO-MOVIE-Android")
-                    setRequestProperty("Cache-Control", "no-cache, no-store, max-age=0")
-                    setRequestProperty("Pragma", "no-cache")
-                    setRequestProperty("If-None-Match", "")
-                }
-
-                val responseCode = connection.responseCode
-                if (responseCode !in 200..299) {
-                    throw IllegalStateException("GitHub HTTP $responseCode")
-                }
-
-                val json = connection.inputStream.bufferedReader().use { it.readText() }
-                connection.disconnect()
-
-                val release = JSONObject(json)
-                val rawTag = release.optString("tag_name")
-                val tag = Regex("""(?:R|v)?(\d+(?:\.\d+)+)""", RegexOption.IGNORE_CASE)
-                    .find(rawTag)?.groupValues?.getOrNull(1) ?: appVersion()
-                val releaseBody = release.optString("body")
-                val remoteBuild = Regex("""BUILD\s*[:#]?\s*(\d+)""", RegexOption.IGNORE_CASE)
-                    .find(releaseBody)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
-                val assets = release.optJSONArray("assets")
-                    ?: throw IllegalStateException("ไม่พบไฟล์ APK")
-
-                var apkUrl: String? = null
-                for (i in 0 until assets.length()) {
-                    val asset = assets.getJSONObject(i)
-                    val name = asset.optString("name")
-                    if (name.endsWith(".apk", ignoreCase = true)) {
-                        apkUrl = asset.optString("browser_download_url")
-                        break
-                    }
-                }
-
-                if (apkUrl.isNullOrBlank()) {
-                    throw IllegalStateException("ไม่พบไฟล์ APK ในรุ่นล่าสุด")
-                }
-
-                runOnUiThread {
-                    val localBuild = packageManager.getPackageInfo(packageName, 0).versionCode
-                    val versionIsNewer = isNewerVersion(tag, appVersion())
-                    val sameVersionNewerBuild = !versionIsNewer &&
-                        !isNewerVersion(appVersion(), tag) &&
-                        remoteBuild > localBuild
-                    if (!versionIsNewer && !sameVersionNewerBuild) {
-                        if (!silent) {
-                            status.text = "✓ AUTO-MOVIE R${appVersion()} • BUILD ${packageManager.getPackageInfo(packageName, 0).versionCode} เป็นเวอร์ชันล่าสุดแล้ว"
-                        }
-                    } else {
-                        showUpdateDialog(tag, remoteBuild, apkUrl)
-                    }
-                }
-            } catch (e: Exception) {
-                runOnUiThread {
-                    if (!silent) {
-                        status.text = "⚠ ตรวจสอบอัปเดตไม่สำเร็จ"
-                        AlertDialog.Builder(this)
-                            .setTitle("ตรวจสอบอัปเดตไม่สำเร็จ")
-                            .setMessage("กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองอีกครั้ง\n\n${e.message ?: ""}")
-                            .setPositiveButton("ตกลง", null)
-                            .show()
-                    }
-                }
-            }
-        }.start()
-    }
+    // Update detection is centralized in StudioUpdater using director-x releases.
 
     private fun isNewerVersion(remote: String, local: String): Boolean {
         val r = remote.split(".").map { it.toIntOrNull() ?: 0 }
