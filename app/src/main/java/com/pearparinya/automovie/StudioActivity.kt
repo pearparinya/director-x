@@ -4822,13 +4822,94 @@ $context"""
             .setNeutralButton("คัดลอกผล") { _,_ -> copyCommand(message) }
             .showDirector()
     }
+    private fun flowApiSettings() {
+        val enabled=prefs.getBoolean("flow_api_assist_enabled",false)
+        val eligible=StoryProvider.eligible(this)
+        val configured=eligible.filter { runCatching { it.hasKey(this) }.getOrDefault(false) }
+        val records=File(project,"flow_ai_prompts").listFiles()?.count { it.extension=="json" } ?: 0
+        choiceMenu("🎥 API ปรับปรุง Flow",
+            listOf(if(enabled) "✓ โหมด Kotlin + API • เปิด" else "○ โหมด Kotlin เดิม • เปิด",
+                "🔑 ผู้ให้บริการ • มีคีย์ ${configured.size}/${eligible.size}",
+                "🩺 สถานะ Flow AI • บันทึก $records รายการ",
+                "🎬 ตั้งค่าคีย์ API เขียนบท")) { index ->
+            when(index) {
+                0 -> {
+                    prefs.edit().putBoolean("flow_api_assist_enabled",!enabled).apply()
+                    notice(if(!enabled) "เปิด Kotlin + API สำหรับ Flow แล้ว • จะถามก่อนเรียก API ทุกครั้ง" else "กลับเป็น Kotlin เดิมแล้ว • ไม่ลบ Prompt ที่บันทึก")
+                }
+                1 -> notice("API ที่ตั้งค่าคีย์: "+configured.joinToString(" / ") { it.label }.ifBlank { "ยังไม่มี" }+"\nเป็นสถานะคีย์ในเครื่อง ยังไม่ได้ทดสอบเครือข่าย")
+                2 -> notice("Flow AI: มีไฟล์ผล $records รายการ\nผลเดิมจะใช้ได้เมื่อคำสั่งต้นฉบับตรงกันเท่านั้น\nไม่มีการเรียก API จากหน้าตั้งค่า")
+                else -> geminiSettings()
+            }
+        }
+    }
+
+    private fun flowApiFile(scene: JSONObject): File =
+        File(File(project,"flow_ai_prompts"),promptHash(key(scene)).take(24)+".json")
+
+    private fun flowEnhancedCommand(scene: JSONObject, original: String): String {
+        val record=runCatching { JSONObject(flowApiFile(scene).readText(Charsets.UTF_8)) }.getOrNull()
+        val addition=record?.takeIf { it.optString("source_sha256")==promptHash(original) }
+            ?.optString("enhancement").orEmpty()
+        return if(addition.length !in 25..900) original else original+
+            "\n\nFLOW CAMERA GUIDANCE (original cast, MASTER, clothing, location, dialogue, timing and actions override):\n"+addition
+    }
+
+    private fun flowApiEnhance(scene: JSONObject, original: String, copy: Boolean) {
+        val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
+        if(providers.isEmpty()) { notice("ยังไม่มี API ที่ตั้งค่าคีย์ไว้ • ใช้ Kotlin เดิมได้"); return }
+        val projectId=project.name
+        val snapshot=scene.toString()
+        val loading=AlertDialog.Builder(this).setMessage("กำลังให้ API ปรับปรุง Flow • โปรดรอ")
+            .setCancelable(false).showDirector()
+        Thread {
+            val schema=JSONObject().put("type","object")
+                .put("properties",JSONObject().put("enhancement",JSONObject().put("type","string")))
+                .put("required",JSONArray().put("enhancement"))
+            var addition=""
+            var providerName=""
+            for(provider in providers) {
+                val instruction="Return JSON enhancement with 1-3 concise English sentences clarifying ONLY camera motion, framing and visual continuity for this 8-second Flow video. Do not modify or add any person, MASTER, appearance, clothing, dialogue, speaker, action, location, prop, timing, aspect ratio or plot. Do not invent details. Existing command:\n"+original.take(14000)
+                val result=runCatching {
+                    StoryClientFactory.create(provider,provider.key(this@StudioActivity),
+                        provider.model(this@StudioActivity),{ project.name!=projectId || scene.toString()!=snapshot },
+                        automaticRetry=false,context=this@StudioActivity)
+                        .generate(instruction,schema).optString("enhancement").trim()
+                }.getOrDefault("")
+                if(result.length in 25..900 && listOf("wardrobe","outfit","master id","new character","additional person").none { result.contains(it,true) }) {
+                    addition=result; providerName=provider.label; break
+                }
+            }
+            runOnUiThread {
+                loading.dismiss()
+                if(project.name!=projectId || scene.toString()!=snapshot || isFinishing || isDestroyed) {
+                    notice("ข้อมูลฉากเปลี่ยน • ไม่บันทึกผล API")
+                } else if(addition.isBlank()) {
+                    notice("API ไม่สามารถปรับปรุง Flow ได้ • Kotlin เดิมยังใช้งานได้")
+                } else {
+                    val file=flowApiFile(scene)
+                    runCatching {
+                        file.parentFile?.mkdirs()
+                        file.writeText(JSONObject().put("source_sha256",promptHash(original))
+                            .put("enhancement",addition).put("api_provider",providerName)
+                            .put("updated_at_ms",System.currentTimeMillis()).toString(),Charsets.UTF_8)
+                    }.onFailure { notice("บันทึกผล API ไม่สำเร็จ: ${it.message}"); return@runOnUiThread }
+                    val result=flowEnhancedCommand(scene,original)
+                    if(copy) copyCommand(result)
+                    else showFlowCode("Flow • Kotlin + $providerName",result,"${key(scene)}_VIDEO_AI.txt")
+                }
+            }
+        }.start()
+    }
+
     private fun apiSettingsCenter() {
-        choiceMenu("⚙️ ตั้งค่า API", listOf("🎬 API เขียนบท", "🛒 API โหมดนายเปียพาช้อป", "🖼️ API สร้างภาพ AI", "🩺 ตรวจสอบ API / Kotlin")) { index ->
+        choiceMenu("⚙️ ตั้งค่า API", listOf("🎬 API เขียนบท", "🛒 API โหมดนายเปียพาช้อป", "🖼️ API สร้างภาพ AI", "🎥 API ปรับปรุง Flow", "🩺 ตรวจสอบ API / Kotlin")) { index ->
             when (index) {
                 0 -> geminiSettings()
                 1 -> shoppingApiSettings()
                 2 -> imageApiSettings()
-                3 -> systemDiagnosticsCenter()
+                3 -> flowApiSettings()
+                4 -> systemDiagnosticsCenter()
             }
         }
     }
@@ -6735,7 +6816,26 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         if(!image(s).isFile) { notice("สร้างภาพฉากใน Gemini / Flow แล้วนำเข้าภาพก่อน จากนั้นเทียบ MASTER และยืนยันภาพ"); return }
         if(!sceneFrameApproved(s) || FlowScenePrompt.issues(flowSpec(s)).isNotEmpty()) { compareScene(s); return }
         val code=runCatching { ShortFlowPrompt.build(flowSpec(s),"Slow gentle pan.") }.getOrElse { notice(it.message ?: "ตรวจคำสั่ง Flow"); return }
-        if(copy) copyCommand(code) else showFlowCode("วิดีโอจากภาพที่ยืนยันแล้ว",code,"${key(s)}_VIDEO.txt")
+        if(!prefs.getBoolean("flow_api_assist_enabled",false)) {
+            if(copy) copyCommand(code) else showFlowCode("วิดีโอจากภาพที่ยืนยันแล้ว",code,"${key(s)}_VIDEO.txt")
+            return
+        }
+        val enhanced=flowEnhancedCommand(s,code)
+        val saved=enhanced!=code
+        AlertDialog.Builder(this).setTitle("🎥 คำสั่ง Flow • เลือกวิธี")
+            .setMessage(if(saved) "🟢 API Gen แล้ว • ใช้ผลที่บันทึกไว้ได้" else "⚪ API ยังไม่ Gen • Kotlin เดิมพร้อมใช้")
+            .setPositiveButton(if(saved) "Kotlin + API ที่บันทึก" else "ให้ API ช่วย Gen") { _,_ ->
+                if(saved) {
+                    if(copy) copyCommand(enhanced)
+                    else showFlowCode("Flow • Kotlin + API",enhanced,"${key(s)}_VIDEO_AI.txt")
+                } else AlertDialog.Builder(this).setTitle("ยืนยันการเรียก API")
+                    .setMessage("ใช้โควตา API เพื่อช่วยปรับปรุงคำสั่ง Flow ของฉากนี้หรือไม่?")
+                    .setPositiveButton("เริ่ม Gen") { _,_ -> flowApiEnhance(s,code,copy) }
+                    .setNegativeButton("ยกเลิก",null).showDirector()
+            }
+            .setNeutralButton("Kotlin เดิม") { _,_ ->
+                if(copy) copyCommand(code) else showFlowCode("วิดีโอจากภาพที่ยืนยันแล้ว",code,"${key(s)}_VIDEO.txt")
+            }.setNegativeButton("ยกเลิก",null).showDirector()
     }
     private fun copyFlowCommand(s: JSONObject) { reviewedVideoCommand(s,true) }
     private fun mapFlowCharacters(s: JSONObject) {
