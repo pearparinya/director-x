@@ -6227,41 +6227,46 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
 ตรวจสอบและปรับจำนวนฉากตามเสียงเพลงจริงก่อนผลิต""".trimIndent()
     }
     private fun musicMvMenu() {
-        val d=musicDraft()
         choiceMenu("🎵 เพลงและมิวสิกวิดีโอ",listOf(
-            "🎤 แต่งเนื้อเพลงด้วย AI\\nสร้างคำสั่งสำหรับ API ฟรีหรือ ChatGPT",
-            "📝 นำเข้าและแก้ไขเนื้อเพลง\\nบันทึกเนื้อเพลงต้นฉบับ",
-            "🎬 สร้าง MV เล่าเรื่อง\\nเขียนบทตามเนื้อเพลง",
-            "🎙️ สร้าง MV ร้องเพลง\\nนายเปียเป็นนักร้องหลัก",
-            "🎭 สร้าง MV ผสมละคร\\nร้องเพลงสลับฉากแสดง",
-            "🎞️ เพลงประกอบละครเดิม\\nใช้เรื่องเดิมโดยไม่เขียนทับ",
-            "🔗 เชื่อมเพลงกับหมวดเดิม\\nเลือกต้นทางเนื้อหา",
-            "🎶 แนวเพลงและอารมณ์\\nตั้งค่าเพลงและ MASTER",
-            "📚 คลังเพลงและ MV\\nดูและเปิดงานที่บันทึก"
+            "🎤 MV เน้นการร้องเพลง",
+            "🎬 MV เล่าเรื่องตามเพลง",
+            "🎭 MV ร้องเพลงผสมละคร"
         )) { selected ->
-            when(selected) {
-                0 -> showFlowCode("🎤 คำสั่งแต่งเพลงต้นฉบับ",musicLyricPrompt(),"MUSIC_LYRICS_PROMPT.txt")
-                1 -> editMusicField("📝 เนื้อเพลงต้นฉบับ","lyrics",true)
-                2,3,4 -> {
-                    val mode=listOf("MV เล่าเรื่อง","MV ร้องเพลง","MV ผสมละคร")[selected-2]
-                    d.put("mode",mode);saveMusicDraft(d)
-                    if(d.optString("lyrics").isBlank()) notice("กรุณาใส่เนื้อเพลงก่อนสร้างบท MV")
-                    else showFlowCode("🎬 คำสั่งบท MV • $mode",musicMvPrompt(),"MUSIC_MV_PROMPT.txt")
+            val draft=musicDraft()
+            val mode=listOf("MV ร้องเพลง","MV เล่าเรื่อง","MV ผสมละคร")[selected]
+            draft.put("mode",mode)
+            draft.put("singer","นายเปีย บ้านคลองขุด")
+            saveMusicDraft(draft)
+            choiceMenu("🎵 $mode",listOf(
+                "🎬 สร้างบทและคำสั่ง MV",
+                "🎤 แต่งเพลงต้นฉบับด้วย AI",
+                "📝 เขียนหรือแก้ไขเนื้อเพลง",
+                "🎶 ตั้งค่าแนวเพลงและอารมณ์",
+                "🔗 เลือกต้นทางเนื้อหาเดิม",
+                "📚 ผลงานเพลงและ MV"
+            )) { action ->
+                when(action) {
+                    0 -> if(musicDraft().optString("lyrics").isBlank()) notice("กรุณาใส่เนื้อเพลงต้นฉบับก่อนสร้างบท MV")
+                         else showFlowCode("🎬 คำสั่งบท MV • $mode",musicMvPrompt(),"MUSIC_MV_PROMPT.txt")
+                    1 -> showFlowCode("🎤 คำสั่งแต่งเพลงต้นฉบับ",musicLyricPrompt(),"MUSIC_LYRICS_PROMPT.txt")
+                    2 -> editMusicField("📝 เนื้อเพลงต้นฉบับ","lyrics",true)
+                    3 -> musicSettings()
+                    4 -> musicSource()
+                    5 -> {
+                        val saved=musicDraft()
+                        choiceMenu("📚 เพลงและ MV • โปรเจกต์ปัจจุบัน",listOf(
+                            "🎵 ${saved.optString("title").ifBlank { "เพลงยังไม่มีชื่อ" }}",
+                            "📝 เนื้อเพลง • ${if(saved.optString("lyrics").isBlank()) "ยังไม่มี" else "บันทึกแล้ว"}",
+                            "🎬 รูปแบบ • ${saved.optString("mode")}",
+                            "🔗 ต้นทาง • ${saved.optString("source")}"
+                        )) { i -> when(i) {
+                            0 -> editMusicField("ชื่อเพลง","title")
+                            1 -> editMusicField("เนื้อเพลง","lyrics",true)
+                            2 -> if(musicDraft().optString("lyrics").isNotBlank()) showFlowCode("คำสั่งบท MV",musicMvPrompt(),"MUSIC_MV_PROMPT.txt") else notice("ยังไม่มีเนื้อเพลง")
+                            else -> musicSource()
+                        } }
+                    }
                 }
-                5 -> { d.put("mode","เพลงประกอบละคร");saveMusicDraft(d);musicSource() }
-                6 -> musicSource()
-                7 -> musicSettings()
-                8 -> choiceMenu("📚 เพลงและ MV • โปรเจกต์ปัจจุบัน",listOf(
-                    "🎵 ${d.optString("title").ifBlank { "เพลงยังไม่มีชื่อ" }}",
-                    "📝 เนื้อเพลง • ${if(d.optString("lyrics").isBlank()) "ยังไม่มี" else "บันทึกแล้ว"}",
-                    "🎬 รูปแบบ • ${d.optString("mode")}",
-                    "🔗 ต้นทาง • ${d.optString("source")}"
-                )) { i -> when(i) {
-                    0 -> editMusicField("ชื่อเพลง","title")
-                    1 -> editMusicField("เนื้อเพลง","lyrics",true)
-                    2 -> if(d.optString("lyrics").isNotBlank()) showFlowCode("คำสั่งบท MV",musicMvPrompt(),"MUSIC_MV_PROMPT.txt") else notice("ยังไม่มีเนื้อเพลง")
-                    else -> musicSource()
-                } }
             }
         }
     }
@@ -6270,25 +6275,32 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
             // Pia-only three-level navigation: category -> topic -> existing production flow.
             // Preserve all original category IDs for saved projects and keep other channels untouched.
             val groups=listOf(
-                Triple("🎬 ละครสั้นและซีรีส์\nสะท้อนสังคม • ครอบครัว • ความรัก • ตลก",
-                    "personal_social_drama", listOf("ละครสั้นสะท้อนสังคม","ดราม่าครอบครัว","ความรักและความสัมพันธ์","ตลกและชีวิตประจำวัน","ละครสอนใจและสร้างแรงบันดาลใจ")),
-                Triple("👻 เรื่องเล่าและตำนาน\nเรื่องผี • เรื่องลี้ลับ • ความเชื่อ",
-                    "pia_legends", listOf("เรื่องผีและวิญญาณ","เรื่องลี้ลับและสยองขวัญ","ตำนานและความเชื่อพื้นบ้าน","สิ่งศักดิ์สิทธิ์และเรื่องเหนือธรรมชาติ")),
-                Triple("🌴 ชีวิตและเรื่องราวนายเปีย\nชีวิตจริง • ชุมชน • ภาคใต้",
-                    "pia_lifestyle", listOf("ชีวิตประจำวัน","วิถีชีวิตบ้านคลองขุด","วัฒนธรรมและเรื่องราวภาคใต้","ประสบการณ์และเรื่องเล่าจากชีวิตจริง")),
-                Triple("🛍️ นายเปียพาช้อป\nแนะนำ • รีวิว • สาธิตสินค้า",
-                    "pia_products", listOf("แนะนำสินค้า","รีวิวและสาธิตสินค้า","สินค้าน่าสนใจและสินค้าปักตะกร้า")),
-                Triple("💡 ความรู้และสาระ\nสวัสดิการ • เตือนภัย • ความรู้",
-                    "pia_safety", listOf("สวัสดิการและสิทธิประโยชน์","ความรู้และเตือนภัย","เทคนิคและความรู้ใกล้ตัว"))
+                Triple("🎬 เรื่องสั้นและชีวิตชาวบ้าน", "personal_social_drama", listOf(
+                    "🎭 เรื่องสั้นสะท้อนสังคม", "🏡 ชีวิตและปัญหาชาวบ้าน",
+                    "⚖️ ความยุติธรรมและความจริง", "🤝 น้ำใจและความประทับใจ",
+                    "💪 เรื่องราวชีวิตและการต่อสู้")),
+                Triple("👻 เรื่องเล่าและตำนาน", "pia_legends", listOf(
+                    "👻 เรื่องผีและวิญญาณ", "🌑 เรื่องลี้ลับสยองขวัญ",
+                    "🏡 ตำนานและความเชื่อพื้นบ้าน", "🙏 สิ่งศักดิ์สิทธิ์เหนือธรรมชาติ")),
+                Triple("🌴 ชีวิตและเรื่องราวนายเปีย", "pia_lifestyle", listOf(
+                    "🏡 เรื่องราวชีวิตประจำวัน", "🌴 วิถีชีวิตบ้านคลองขุด",
+                    "🎎 วัฒนธรรมและวิถีภาคใต้", "📖 ประสบการณ์จากชีวิตจริง")),
+                Triple("🛍️ นายเปียพาช้อป", "pia_products", listOf(
+                    "🛒 แนะนำสินค้าน่าสนใจ", "📦 รีวิวและทดลองสินค้า",
+                    "🎥 สาธิตการใช้งานสินค้า", "🛍️ สินค้าแนะนำปักตะกร้า")),
+                Triple("💡 ความรู้และสาระ", "pia_safety", listOf(
+                    "📢 สวัสดิการและสิทธิประโยชน์", "🛡️ ความรู้และการเตือนภัย",
+                    "📚 เทคนิคและเคล็ดลับใกล้ตัว", "🎓 สาระความรู้ที่น่าสนใจ",
+                    "❓ ถามตอบและไขข้อสงสัย"))
             )
-            val entries=listOf("🎭 ตั้งค่า MASTER ประจำช่อง\nตัวเอกและนักร้องหลัก")+
-                groups.take(1).map { it.first }+
-                listOf("🎤 เพลงและมิวสิกวิดีโอ\nเพลงต้นฉบับ • MV • เพลงประกอบ")+
-                groups.drop(1).map { it.first }
+            val entries=groups.take(1).map { it.first }+
+                listOf("🎵 เพลงและมิวสิกวิดีโอ")+
+                groups.drop(1).map { it.first }+
+                listOf("⚙️ ตั้งค่า MASTER ประจำช่อง")
             choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",entries) { selected ->
-                if(selected==0) { piaMasterSettings(); return@choiceMenu }
-                if(selected==2) { musicMvMenu(); return@choiceMenu }
-                val group=groups[if(selected==1) 0 else selected-2]
+                if(selected==6) { piaMasterSettings(); return@choiceMenu }
+                if(selected==1) { musicMvMenu(); return@choiceMenu }
+                val group=groups[if(selected==0) 0 else selected-1]
                 choiceMenu("ขั้นที่ 2 • เลือกแนวย่อย",group.third) { sub ->
                     val legacyId=when {
                         group.second=="pia_safety" && sub==0 -> "pia_benefits"
@@ -6297,7 +6309,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     }
                     val index=ChannelCatalog.allCategories.indexOfFirst { it.id==legacyId }
                     require(index>=0) { "ไม่พบหมวดที่เลือก" }
-                    val topic=group.third[sub]
+                    val topic=group.third[sub].substringAfter(" ")
                     // Step 3 continues in the original story/clip production flow.
                     selectedStoryTopic=topic
                     done(index)
