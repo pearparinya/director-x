@@ -6175,7 +6175,7 @@ $context"""
                     draft.put("audio_file", audio.name)
                     draft.put("audio_duration_ms", millis)
                     draft.put("duration_seconds", ((millis + 999L) / 1000L).toInt())
-                    saveMusicDraft(draft)
+                    saveMusicTimeline(draft)
                     notice("บันทึกเพลงต้นฉบับแล้ว • " + millis + " ms")
                 }.onFailure { notice("นำเข้าเพลงไม่สำเร็จ: " + it.message) }
                 pending.delete()
@@ -6203,7 +6203,8 @@ $context"""
             2 -> choiceMenu("อารมณ์เพลง",listOf("อบอุ่น","โรแมนติก","เศร้า","สนุกสนาน","ฮึกเหิม","คิดถึง","ลึกลับ")) { n -> draft.put("mood",listOf("อบอุ่น","โรแมนติก","เศร้า","สนุกสนาน","ฮึกเหิม","คิดถึง","ลึกลับ")[n]);saveMusicDraft(draft) }
             3 -> editMusicField("ภาษาเพลง","language")
             4 -> choiceMenu("ความยาวเพลง",listOf("30 วินาที","60 วินาที","120 วินาที","180 วินาที","240 วินาที","กำหนดเองภายหลัง")) { n ->
-                if(n<5) { draft.put("duration_seconds",listOf(30,60,120,180,240)[n]);saveMusicDraft(draft) }
+                if(draft.optLong("audio_duration_ms",0)>0) notice("ใช้ระยะเวลาจริงจากไฟล์เสียงต้นฉบับ")
+                else if(n<5) { draft.put("duration_seconds",listOf(30,60,120,180,240)[n]);saveMusicTimeline(draft) }
                 else notice("แก้ไขความยาวผ่านไฟล์เพลงได้ในเวอร์ชันถัดไป")
             }
             7 -> importMusicAudio()
@@ -6244,18 +6245,53 @@ $context"""
 ตอบเป็นเนื้อเพลงที่สามารถนำมาแก้ไขและบันทึกใน DIRECTOR X ได้
 นี่เป็นการสร้างคำสั่ง ไม่ใช่การผลิตเสียงร้องหรือดนตรีจริง""".trimIndent()
     }
+    private fun musicDurationMs(draft: JSONObject): Long =
+        draft.optLong("audio_duration_ms", draft.optInt("duration_seconds",180).toLong()*1000L)
+            .coerceIn(1L,86400000L)
+
+    private fun musicTimeline(draft: JSONObject): JSONArray {
+        val duration = musicDurationMs(draft)
+        val count = ((duration+7999L)/8000L).toInt()
+        return JSONArray().apply {
+            repeat(count) { index ->
+                val start = index*8000L
+                val end = minOf(start+8000L,duration)
+                put(JSONObject().put("scene",index+1).put("start_ms",start)
+                    .put("end_ms",end).put("production_ms",8000)
+                    .put("usable_ms",end-start))
+            }
+        }
+    }
+    private fun saveMusicTimeline(draft: JSONObject) {
+        draft.put("timeline",musicTimeline(draft))
+        saveMusicDraft(draft)
+    }
+    private fun showMusicTimeline() {
+        val draft=musicDraft()
+        val timeline=musicTimeline(draft)
+        val rows=(0 until timeline.length()).map { i ->
+            val scene=timeline.getJSONObject(i)
+            "SC"+scene.getInt("scene")+" • "+scene.getLong("start_ms")+"–"+scene.getLong("end_ms")+" ms"
+        }
+        choiceMenu("🎬 ไทม์ไลน์ MV • "+timeline.length()+" ซีน",rows) { i ->
+            val scene=timeline.getJSONObject(i)
+            notice("ผลิต 8000 ms • ใช้จริง "+scene.getLong("usable_ms")+" ms")
+        }
+    }
     private fun musicMvPrompt(): String {
         val d=musicDraft()
         val lyrics=d.optString("lyrics")
-        val duration=d.optInt("duration_seconds",180).coerceAtLeast(1)
-        val clips=(duration+7)/8
+        val durationMs=musicDurationMs(d)
+        val timeline=musicTimeline(d)
+        val clips=timeline.length()
+        val duration=(durationMs+999L)/1000L
         return """DIRECTOR X • เขียนบทมิวสิกวิดีโอเพื่อสร้างภาพด้วย ChatGPT และวิดีโอด้วย Flow
 ชื่อเพลง: ${d.optString("title")} | รูปแบบ: ${d.optString("mode")}
 นักร้องและพระเอกหลัก: ${d.optString("singer","นายเปีย บ้านคลองขุด")}
 ต้นทาง: ${d.optString("source")} | เรื่อง: ${d.optString("story_title")}
 ความยาวเพลง: $duration วินาที (ระยะเวลาจริง ms: ${d.optLong("audio_duration_ms",duration.toLong()*1000L)}) | $clips ซีนผลิตจริง ซีนละ 8 วินาที
-ไทม์ไลน์บังคับ (วินาที):
-${(0 until clips).joinToString("\n") { i -> "SC${i+1}: ${i*8}-${minOf((i+1)*8,duration)} | ผลิต 8 วินาที | ใช้จริง ${minOf(8,duration-i*8)} วินาที" }}
+ไทม์ไลน์บังคับ (มิลลิวินาที):
+${(0 until clips).joinToString("\n") { i -> val s=timeline.getJSONObject(i); "SC${i+1}: ${s.getLong("start_ms")}-${s.getLong("end_ms")} | ผลิต 8000 ms | ใช้จริง ${s.getLong("usable_ms")} ms" }}
 เนื้อเพลง:
 $lyrics
 
@@ -6289,7 +6325,8 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                 "📝 เขียนหรือแก้ไขเนื้อเพลง",
                 "🎶 ตั้งค่าแนวเพลงและอารมณ์",
                 "🔗 เลือกต้นทางเนื้อหาเดิม",
-                "📚 ผลงานเพลงและ MV"
+                "📚 ผลงานเพลงและ MV",
+                "⏱️ ดูไทม์ไลน์ซีน MV"
             )) { action ->
                 when(action) {
                     0 -> if(musicDraft().optString("lyrics").isBlank()) notice("กรุณาใส่เนื้อเพลงต้นฉบับก่อนสร้างบท MV")
@@ -6298,6 +6335,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     2 -> editMusicField("📝 เนื้อเพลงต้นฉบับ","lyrics",true)
                     3 -> musicSettings()
                     4 -> musicSource()
+                    6 -> showMusicTimeline()
                     5 -> {
                         val saved=musicDraft()
                         choiceMenu("📚 เพลงและ MV • โปรเจกต์ปัจจุบัน",listOf(
