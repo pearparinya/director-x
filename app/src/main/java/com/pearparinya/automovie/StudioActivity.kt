@@ -3469,7 +3469,7 @@ $context"""
         val mainActions = mutableListOf<() -> Unit>()
         if (readyEpisodes.isNotEmpty()) {
             readyEpisodes.forEach { ep ->
-                mainOptions.add("📋 เปิดและคัดลอก Flow • EP.$ep")
+                mainOptions.add("📋 คำสั่ง Flow เดิม (Kotlin V1) • EP.$ep")
                 mainActions.add { openEpisode(ep) }
             }
         }
@@ -3480,17 +3480,42 @@ $context"""
             mainOptions.add("✨ สร้างคำสั่ง Flow สำหรับตอนที่ยังไม่มี")
             mainActions.add { autoFlowAllEpisodes(story) }
         }
-        mainOptions.add("📄 ดูผลปรับปรุง AI V2 • ${completedFlowScenes.size}/${allFlowScenes.size} ฉาก")
+        mainOptions.add("✨ คำสั่ง Flow ที่ AI ปรับปรุง (AI V2) • ${completedFlowScenes.size}/${allFlowScenes.size} ฉาก")
         mainActions.add {
-            if(completedFlowScenes.isEmpty()) notice("ยังไม่มีผล AI V2 ที่ตรวจสอบแล้ว • เลือกตรวจสอบ / ปรับปรุง Flow AI เพื่อเริ่ม Gen")
+            if(completedFlowScenes.isEmpty()) notice("ยังไม่มีคำสั่ง AI V2 ที่ตรวจสอบแล้ว • เลือกปรับปรุง Flow ด้วย AI V2 ก่อน")
             else {
-                val combined=completedFlowScenes.joinToString("\n\n"+("-".repeat(28))+"\n\n") { scene ->
-                    val original=ShortFlowPrompt.build(flowSpec(scene),"Slow gentle pan.")
-                    val record=JSONObject(flowApiFile(scene).readText(Charsets.UTF_8))
-                    "${key(scene)} • AI V2 • ${record.optString("api_provider")}\n"+
-                        flowEnhancedCommand(scene,original)
+                val availableEps=episodeNumbers.filter { ep ->
+                    (0 until eps.length()).any { idx ->
+                        val episode=eps.getJSONObject(idx)
+                        episode.optInt("ep")==ep && (0 until (episode.optJSONArray("scenes")?.length() ?: 0)).any { sceneIndex ->
+                            verifiedFlowAi(episode.getJSONArray("scenes").getJSONObject(sceneIndex))
+                        }
+                    }
                 }
-                showFlowCode("ผลปรับปรุง Flow AI V2 • ${completedFlowScenes.size} ฉาก",combined,"FLOW_AI_V2_RESULTS.txt")
+                choiceMenu("✨ คำสั่ง Flow AI V2 • เลือก EP",availableEps.map { ep ->
+                    val episode=(0 until eps.length()).map { eps.getJSONObject(it) }.first { it.optInt("ep")==ep }
+                    val scenes=episode.optJSONArray("scenes")
+                    val count=(0 until (scenes?.length() ?: 0)).count { verifiedFlowAi(scenes!!.getJSONObject(it)) }
+                    "EP.$ep • AI V2 $count/${scenes?.length() ?: 0} ฉาก"
+                }) { selectedEp ->
+                    val ep=availableEps[selectedEp]
+                    val episode=(0 until eps.length()).map { eps.getJSONObject(it) }.first { it.optInt("ep")==ep }
+                    val scenes=episode.optJSONArray("scenes")
+                    val sceneList=(0 until (scenes?.length() ?: 0)).map { scenes!!.getJSONObject(it) }
+                    choiceMenu("✨ Flow AI V2 • EP.$ep • เลือกฉาก",
+                        sceneList.mapIndexed { index,scene ->
+                            "ฉาก ${index+1} • ${key(scene)} • "+if(verifiedFlowAi(scene)) "AI V2 พร้อมคัดลอก" else "ยังไม่มี AI V2"
+                        }) { selectedScene ->
+                            val scene=sceneList[selectedScene]
+                            if(!verifiedFlowAi(scene)) notice("ฉากนี้ยังไม่มีผล AI V2 ที่ตรวจสอบแล้ว")
+                            else runCatching {
+                                val original=ShortFlowPrompt.build(flowSpec(scene),"Slow gentle pan.")
+                                val result=flowEnhancedCommand(scene,original)
+                                showFlowCode("✨ Flow AI V2 • EP.$ep • ฉาก ${selectedScene+1}",result,
+                                    "FLOW_AI_V2_EP${ep}_SCENE${selectedScene+1}.txt")
+                            }.onFailure { notice("เปิดคำสั่ง AI V2 ไม่สำเร็จ: ${it.message}") }
+                        }
+                }
             }
         }
         mainOptions.add("✨ ปรับปรุง Flow ด้วย AI V2")
