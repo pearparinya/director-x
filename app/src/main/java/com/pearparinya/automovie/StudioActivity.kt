@@ -6488,7 +6488,7 @@ $context"""
                     val latest=musicDraft()
                     require(musicDurationMs(latest)==musicDurationMs(draft)) { "ระยะเวลาเพลงเปลี่ยนแล้ว กรุณาเปิดซีนใหม่" }
                     val all=latest.optJSONObject("scene_notes") ?: JSONObject()
-                    val entry=JSONObject()
+                    val entry=all.optJSONObject(key) ?: JSONObject()
                     fields.forEachIndexed { i,field -> entry.put(field.first,inputs[i].text.toString().trim()) }
                     entry.put("start_ms",scene.getLong("start_ms")).put("end_ms",scene.getLong("end_ms"))
                     all.put(key,entry)
@@ -6500,6 +6500,26 @@ $context"""
                 else runMusicSceneReview(scene)
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
+    private fun musicSceneProduction(scene: JSONObject) {
+        val draft=musicDraft()
+        val number=scene.getInt("scene")
+        val entry=draft.optJSONObject("scene_notes")?.optJSONObject(number.toString())
+        val issues=musicSceneIssues(draft,scene)
+        choiceMenu("🎬 MV • SC"+number,listOf("📝 แก้ไขข้อมูลซีน","🖼️ ส่ง Image Prompt พร้อม MASTER","🎥 เปิด Flow Prompt 8 วินาที")) { action ->
+            if(action==0) { editMusicScene(scene); return@choiceMenu }
+            if(entry==null || issues.isNotEmpty() || musicReviewSnapshot(musicDraft())!=musicReviewSnapshot(draft)) {
+                notice("ข้อมูลซีนยังไม่ครบหรือเปลี่ยนแล้ว กรุณาตรวจซีนก่อนผลิต"); return@choiceMenu
+            }
+            val code="SC"+number+" • 9:16 • ผลิต 8 วินาที • ใช้จริง "+scene.getLong("usable_ms")+" ms"
+            if(action==1) runCatching {
+                installPiaDefaults()
+                val master=piaSelectedMaster()
+                val exported=masterExportName(master,false) ?: error("อ่าน MASTER ไม่ได้")
+                shareText(code+"\nSTART STATE: "+entry.getString("start_state")+"\n"+entry.getString("image_prompt")+"\nMASTER ที่แนบเป็นของนายเปียเท่านั้น ห้ามใช้แทนบุคคลอื่น หากขาด MASTER ตัวละครสมทบให้หยุดและขอภาพที่ตรงคน",includeMasters=false,referenceImages=listOf(exported to master),destinationLabel="ChatGPT")
+            }.onFailure { notice("ส่งคำสั่งภาพไม่สำเร็จ: "+it.message) }
+            else showFlowCode("FLOW PROMPT • MV SC"+number,code+"\nSTART STATE: "+entry.getString("start_state")+"\n"+entry.getString("flow_prompt")+"\nEND STATE: "+entry.getString("end_state")+"\nใช้เสียงเพลงต้นฉบับต่อเนื่อง ไม่สร้างเสียงร้องใหม่","MV_SC"+number+"_FLOW.txt")
+        }
+    }
     private fun showMusicTimeline() {
         val draft=musicDraft()
         val timeline=musicTimeline(draft)
@@ -6510,7 +6530,7 @@ $context"""
         }
         choiceMenu("🎬 ไทม์ไลน์ MV • "+timeline.length()+" ซีน",rows) { i ->
             val scene=timeline.getJSONObject(i)
-            editMusicScene(scene)
+            musicSceneProduction(scene)
         }
     }
     private fun musicMvPrompt(): String {
