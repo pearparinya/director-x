@@ -6318,16 +6318,44 @@ $context"""
                     .onFailure { notice("บันทึกไม่สำเร็จ: "+it.message) }
             }.showDirector()
     }
+    private fun editMusicScene(scene: JSONObject) {
+        val target=project
+        val draft=musicDraft()
+        val key=scene.getInt("scene").toString()
+        val notes=draft.optJSONObject("scene_notes") ?: JSONObject()
+        val saved=notes.optJSONObject(key)
+        val panel=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+        val fields=listOf("lyrics" to "ท่อนเพลง / ไทม์โค้ด", "start_state" to "START STATE", "end_state" to "END STATE", "image_prompt" to "Image Prompt", "flow_prompt" to "Flow Prompt")
+        val inputs=fields.map { (id,label) ->
+            EditText(this).apply { hint=label; setText(saved?.optString(id).orEmpty()); minLines=2; panel.addView(this) }
+        }
+        AlertDialog.Builder(this).setTitle("SC"+key+" • "+scene.getLong("start_ms")+"–"+scene.getLong("end_ms")+" ms")
+            .setView(ScrollView(this).apply { addView(panel) })
+            .setPositiveButton("บันทึกซีน") { _,_ ->
+                if(project!=target) notice("โปรเจกต์เปลี่ยนแล้ว กรุณาเปิดใหม่")
+                else runCatching {
+                    val latest=musicDraft()
+                    require(musicDurationMs(latest)==musicDurationMs(draft)) { "ระยะเวลาเพลงเปลี่ยนแล้ว กรุณาเปิดซีนใหม่" }
+                    val all=latest.optJSONObject("scene_notes") ?: JSONObject()
+                    val entry=JSONObject()
+                    fields.forEachIndexed { i,field -> entry.put(field.first,inputs[i].text.toString().trim()) }
+                    entry.put("start_ms",scene.getLong("start_ms")).put("end_ms",scene.getLong("end_ms"))
+                    all.put(key,entry)
+                    latest.put("scene_notes",all)
+                    saveMusicTimeline(latest)
+                }.onSuccess { showMusicTimeline() }.onFailure { notice("บันทึกซีนไม่สำเร็จ: "+it.message) }
+            }.setNegativeButton("ยกเลิก",null).showDirector()
+    }
     private fun showMusicTimeline() {
         val draft=musicDraft()
         val timeline=musicTimeline(draft)
         val rows=(0 until timeline.length()).map { i ->
             val scene=timeline.getJSONObject(i)
-            "SC"+scene.getInt("scene")+" • "+scene.getLong("start_ms")+"–"+scene.getLong("end_ms")+" ms"
+            "SC"+scene.getInt("scene")+" • "+scene.getLong("start_ms")+"–"+scene.getLong("end_ms")+" ms"+(if(draft.optJSONObject("scene_notes")?.optJSONObject(scene.getInt("scene").toString())?.let { it.optLong("start_ms")==scene.getLong("start_ms") && it.optLong("end_ms")==scene.getLong("end_ms") }==true) " • มีข้อมูล" else " • รอแก้ไข")
         }
         choiceMenu("🎬 ไทม์ไลน์ MV • "+timeline.length()+" ซีน",rows) { i ->
             val scene=timeline.getJSONObject(i)
-            notice("ผลิต 8000 ms • ใช้จริง "+scene.getLong("usable_ms")+" ms")
+            editMusicScene(scene)
         }
     }
     private fun musicMvPrompt(): String {
