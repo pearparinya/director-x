@@ -83,8 +83,7 @@ class StudioUpdater(private val activity: AppCompatActivity) {
                     ?: error("ไม่พบไฟล์ $expectedApkName ใน Release หรือมีไฟล์ชื่อซ้ำ")
                 require(asset.optLong("size",0L) > 100000L) { "ไฟล์ APK ใน Release ไม่สมบูรณ์" }
                 val url = asset.getString("browser_download_url")
-                require(url.startsWith("https://github.com/pearparinya/director-x/releases/download/") ||
-                    url.startsWith("https://github.com/pearparinya/auto-movie-r6-4/releases/download/")) { "แหล่งดาวน์โหลดไม่ถูกต้อง" }
+                require(url.startsWith("https://github.com/pearparinya/director-x/releases/download/")) { "แหล่งดาวน์โหลดไม่ถูกต้อง" }
                 activity.runOnUiThread {
                     busy = false; dialog?.dismiss()
                     status("available")
