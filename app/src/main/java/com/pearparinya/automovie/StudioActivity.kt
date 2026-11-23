@@ -6340,6 +6340,25 @@ $context"""
                     .onFailure { notice("บันทึกไม่สำเร็จ: "+it.message) }
             }.showDirector()
     }
+    private fun musicSceneRepairPrompt(draft: JSONObject, scene: JSONObject): String {
+        val number=scene.getInt("scene")
+        val notes=draft.optJSONObject("scene_notes")
+        return """ตรวจสอบและเสนอแก้ไขเฉพาะ SC$number ของ MV
+รูปแบบ: ${draft.optString("mode")}
+นักร้องหลัก: ${draft.optString("singer")}
+ช่วงเวลา: ${scene.getLong("start_ms")}–${scene.getLong("end_ms")} ms
+ผลิตคลิป 8 วินาที แนวตั้ง 9:16 ใช้จริง ${scene.getLong("usable_ms")} ms
+ปัญหาที่ตรวจพบจากข้อมูล: ${musicSceneIssues(draft,scene).joinToString("; ").ifBlank { "ข้อมูลครบ แต่ยังไม่ได้ตรวจคุณภาพ" }}
+ซีนก่อนหน้า: ${notes?.optJSONObject((number-1).toString())?.toString().orEmpty()}
+ซีนปัจจุบัน: ${notes?.optJSONObject(number.toString())?.toString().orEmpty()}
+ซีนถัดไป: ${notes?.optJSONObject((number+1).toString())?.toString().orEmpty()}
+เนื้อเพลงต้นฉบับ: ${draft.optString("lyrics")}
+เสนอ START STATE, END STATE, Image Prompt และ Flow Prompt ที่แก้ไขแล้ว พร้อมเหตุผลก่อน/หลัง
+รักษา MASTER แยกบุคคล ชุด อุปกรณ์ และความต่อเนื่อง ห้ามเปลี่ยนซีนอื่น
+ใช้เสียงต้นฉบับต่อเนื่อง ไม่สร้างเสียงร้องใหม่ ไม่เดาเวลาท่อนร้องหากไม่มีไทม์โค้ด
+ระบุสิ่งที่ยังตรวจไม่ได้จากข้อมูลข้อความ ห้ามอ้างว่าตรวจภาพหรือเสียงจริงแล้ว
+ส่งข้อเสนอให้ผู้ใช้ตรวจและบันทึกเอง ไม่แก้ข้อมูลต้นฉบับโดยอัตโนมัติ""".trimIndent()
+    }
     private fun editMusicScene(scene: JSONObject) {
         val target=project
         val draft=musicDraft()
@@ -6366,6 +6385,9 @@ $context"""
                     latest.put("scene_notes",all)
                     saveMusicTimeline(latest)
                 }.onSuccess { showMusicTimeline() }.onFailure { notice("บันทึกซีนไม่สำเร็จ: "+it.message) }
+            }.setNeutralButton("คำสั่ง AI ตรวจซีน") { _,_ ->
+                if(project!=target) notice("โปรเจกต์เปลี่ยนแล้ว กรุณาเปิดใหม่")
+                else showFlowCode("ตรวจและเสนอแก้ไข SC"+key,musicSceneRepairPrompt(musicDraft(),scene),"MV_SC"+key+"_REVIEW.txt")
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
     private fun showMusicTimeline() {
