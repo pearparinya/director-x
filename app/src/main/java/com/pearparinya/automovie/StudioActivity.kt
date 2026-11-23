@@ -245,7 +245,13 @@ class StudioActivity : AppCompatActivity() {
                 intArrayOf(Color.rgb(11,118,105),Color.rgb(6,65,77),Color.rgb(75,224,199)), // teal
                 intArrayOf(Color.rgb(163,69,46),Color.rgb(94,35,39),Color.rgb(255,154,106)) // coral
             )
-            val palette=when(MenuChoiceStyle.role(value)) {
+            val palette=if(compactImageMenu && title.startsWith("🎥 คำสั่ง Flow")) when(index) {
+                0 -> menuColors[0] // Kotlin: cyan
+                1 -> menuColors[2] // Flow AI: violet
+                2 -> menuColors[3] // Analyze: rose
+                3 -> menuColors[4] // API: teal
+                else -> menuColors[1] // Review: amber
+            } else when(MenuChoiceStyle.role(value)) {
                 MenuChoiceStyle.AI -> menuColors[2]
                 MenuChoiceStyle.EDIT -> menuColors[1]
                 else -> menuColors[index % menuColors.size]
@@ -268,7 +274,7 @@ class StudioActivity : AppCompatActivity() {
                 background=backdrop(palette[2],palette[0])
                 importantForAccessibility=android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
             },LinearLayout.LayoutParams(dp(if(compactImageMenu) 32 else 38),dp(if(compactImageMenu) 32 else 38)).apply { marginEnd=dp(if(compactImageMenu) 8 else 12) })
-            if((title=="ตั้งค่าคีย์ API • ใช้อัตโนมัติ" && index<StoryProvider.activeProviders.size) || title=="หมวดช่อง • นายเปีย บ้านคลองขุด") {
+            if((title=="ตั้งค่าคีย์ API • ใช้อัตโนมัติ" && index<StoryProvider.activeProviders.size) || title=="หมวดช่อง • นายเปีย บ้านคลองขุด" || (title.contains("คำสั่ง") && title.contains("เลือกตอน") && value.contains("\n"))) {
                 val parts=value.split("\n", limit=2)
                 val labels=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
                 labels.addView(TextView(this).apply { text=parts[0]; textSize=if(title.startsWith("หมวดช่อง")) 14f else 16f; setTextColor(Color.WHITE); setTypeface(null,Typeface.BOLD); maxLines=1
@@ -3467,22 +3473,24 @@ $context"""
         val flowAiProgress="วิเคราะห์แล้ว ${completedFlowScenes.size}/${allFlowScenes.size} ฉาก"
         val mainOptions = mutableListOf<String>()
         val mainActions = mutableListOf<() -> Unit>()
-        mainOptions.add("📋 Kotlin")
+        mainOptions.add("📋 คำสั่ง Kotlin")
         mainActions.add {
             if (episodeNumbers.isEmpty()) notice("ยังไม่มีตอนสำหรับคำสั่ง Kotlin")
-            else choiceMenu("📋 Kotlin • เลือกตอน", episodeNumbers.map { ep ->
-                "EP.$ep • " + if (ep in readyEpisodes) "พร้อมใช้งาน" else "ยังไม่มีคำสั่ง"
+            else choiceMenu("📋 คำสั่ง Kotlin • เลือกตอน", episodeNumbers.map { ep ->
+                val episode=(0 until eps.length()).map { eps.getJSONObject(it) }.first { it.optInt("ep")==ep }
+                val episodeTitle=episode.optString("title").trim().ifBlank { "ยังไม่ระบุชื่อตอน" }
+                "EP.$ep • $episodeTitle\n" + if (ep in readyEpisodes) "พร้อมใช้งาน" else "ยังไม่มีคำสั่ง"
             }) { selected -> openEpisode(episodeNumbers[selected]) }
         }
-        mainOptions.add("📄 Flow AI")
+        mainOptions.add("📄 คำสั่ง Flow AI")
         mainActions.add {
             if (episodeNumbers.isEmpty()) notice("ยังไม่มีตอนสำหรับคำสั่ง Flow AI")
-            else choiceMenu("📄 Flow AI • เลือกตอน", episodeNumbers.map { ep ->
+            else choiceMenu("📄 คำสั่ง Flow AI • เลือกตอน", episodeNumbers.map { ep ->
                 val episode=(0 until eps.length()).map { eps.getJSONObject(it) }.first { it.optInt("ep")==ep }
                 val scenes=episode.optJSONArray("scenes")
                 val total=scenes?.length() ?: 0
                 val count=(0 until total).count { verifiedFlowAi(scenes!!.getJSONObject(it)) }
-                "EP.$ep • $count/$total ฉาก"
+                "EP.$ep • ${episode.optString("title").trim().ifBlank { "ยังไม่ระบุชื่อตอน" }}\nวิเคราะห์แล้ว $count/$total ฉาก"
             }) { selected ->
                 val ep=episodeNumbers[selected]
                 val episode=(0 until eps.length()).map { eps.getJSONObject(it) }.first { it.optInt("ep")==ep }
@@ -3499,7 +3507,7 @@ $context"""
         }
         mainOptions.add("⚙️ ตั้งค่า API")
         mainActions.add { flowApiSettings() }
-        mainOptions.add("🔵 ตรวจสอบ / แก้ไขคำสั่ง Flow")
+        mainOptions.add("🔵 ตรวจสอบ / แก้ไข Flow AI")
         mainActions.add { moreTools() }
         val category=story.optString("category").trim().replace(Regex("""\s*[（(][^()（）]*[)）]\s*$"""),"").ifBlank { "ยังไม่ระบุหมวด" }
         val mode=if(prefs.getBoolean("flow_api_assist_enabled",false)) "AI เปิด" else "Kotlin เปิด"
