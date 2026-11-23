@@ -4307,13 +4307,24 @@ $context"""
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(14), dp(12), dp(10))
-            background = backdrop(Color.rgb(24, 24, 32), navy, Color.rgb(95, 74, 47))
+            background = backdrop(Color.rgb(29,35,77), Color.rgb(24,31,66), Color.rgb(95,74,147))
         }
         val heading = TextView(this).apply {
-            textSize = 19f; setTypeface(null, Typeface.BOLD); setTextColor(gold)
-            setPadding(dp(6), 0, dp(6), dp(10))
+            text = "📋 คำสั่ง Kotlin"
+            textSize = 17f; setTypeface(null, Typeface.BOLD); setTextColor(gold)
+            setPadding(dp(6), 0, dp(6), dp(5))
+            maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
         }
         panel.addView(heading)
+        fun metadataRow(): TextView = TextView(this).apply {
+            textSize = 13f; setTextColor(ice)
+            setPadding(dp(6), dp(2), dp(6), dp(2))
+            maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END
+        }.also { panel.addView(it) }
+        val storyRow = metadataRow()
+        val categoryRow = metadataRow()
+        val episodeRow = metadataRow()
+        val sceneRow = metadataRow()
         val prompt = TextView(this).apply {
             textSize = 14f; typeface = Typeface.MONOSPACE; setTextColor(ice)
             setTextIsSelectable(true); setPadding(dp(12), dp(12), dp(12), dp(12))
@@ -4322,18 +4333,18 @@ $context"""
         val scroll = ScrollView(this).apply { addView(prompt) }
         panel.addView(scroll, LinearLayout.LayoutParams(-1, (resources.displayMetrics.heightPixels * 0.43f).toInt()))
         val navigation = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val previous = Button(this).apply { text = "◀ ก่อนหน้า"; isAllCaps = false }
-        val next = Button(this).apply { text = "ถัดไป ▶"; isAllCaps = false }
+        val previous = Button(this).apply { text = "◀ ก่อนหน้า"; isAllCaps = false; setTextColor(Color.WHITE); backgroundTintList = ColorStateList.valueOf(Color.rgb(110,83,181)) }
+        val next = Button(this).apply { text = "ถัดไป ▶"; isAllCaps = false; setTextColor(Color.WHITE); backgroundTintList = ColorStateList.valueOf(Color.rgb(35,147,210)) }
         navigation.addView(previous, LinearLayout.LayoutParams(0, dp(54), 1f))
         navigation.addView(next, LinearLayout.LayoutParams(0, dp(54), 1f))
         panel.addView(navigation)
         val copy = Button(this).apply {
-            text = "คัดลอกคำสั่งซีนนี้"; textSize = 17f; isAllCaps = false
+            text = "📋 คัดลอกคำสั่ง"; textSize = 17f; isAllCaps = false
             setTypeface(null, Typeface.BOLD); setTextColor(Color.rgb(20, 30, 50))
             backgroundTintList = null
             background = backdrop(Color.rgb(255, 210, 93), Color.rgb(224, 157, 45))
         }
-        panel.addView(copy, LinearLayout.LayoutParams(-1, dp(58)))
+        panel.addView(copy, LinearLayout.LayoutParams(-1, dp(54)))
         // Resolve episode metadata from the currently opened story, never invent titles.
         val episodeNumber = Regex("EP[._-]?(\\d+)", RegexOption.IGNORE_CASE)
             .find(filename)?.groupValues?.getOrNull(1)?.toIntOrNull()
@@ -4347,14 +4358,11 @@ $context"""
         }.orEmpty()
         fun refresh() {
             val episodeLabel = episodeNumber?.let { "ตอนที่ $it" } ?: title
-            heading.text = buildString {
-                append("คำสั่งสร้างวิดีโอ Flow")
-                if(storyTitle.isNotBlank()) append("\nเรื่อง: $storyTitle")
-                append("\n$episodeLabel")
-                if(episodeTitle.isNotBlank()) append(" • $episodeTitle")
-                append("\nฉากที่ ${index + 1} จาก ${scenes.size} ฉาก")
-            }
-            copy.text = "📋 คัดลอกคำสั่ง $episodeLabel • ฉากที่ ${index + 1}"
+            storyRow.text = "เรื่อง: ${storyTitle.ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}"
+            categoryRow.text = "หมวดหมู่: ${plan?.optString("category").orEmpty().trim().replace(Regex("""\\s*[（(][^()（）]*[)）]\\s*$"""), "").ifBlank { "ยังไม่ระบุหมวดหมู่" }}"
+            episodeRow.text = "$episodeLabel • ${episodeTitle.ifBlank { "ยังไม่ระบุชื่อตอน" }}"
+            sceneRow.text = "ฉากที่ ${index + 1} / ${scenes.size}"
+            copy.text = "📋 คัดลอกคำสั่ง"
             prompt.text = scenes[index].trim()
             previous.isEnabled = index > 0
             next.isEnabled = index < scenes.lastIndex
