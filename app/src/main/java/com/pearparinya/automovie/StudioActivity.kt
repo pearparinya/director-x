@@ -3464,12 +3464,12 @@ $context"""
                 record.optLong("updated_at_ms")>0L
         }.getOrDefault(false)
         val completedFlowScenes=allFlowScenes.filter { verifiedFlowAi(it) }
-        val flowAiProgress="AI V2 ปรับปรุงแล้ว ${completedFlowScenes.size}/${allFlowScenes.size} ฉาก"
+        val flowAiProgress="วิเคราะห์แล้ว ${completedFlowScenes.size}/${allFlowScenes.size} ฉาก"
         val mainOptions = mutableListOf<String>()
         val mainActions = mutableListOf<() -> Unit>()
         if (readyEpisodes.isNotEmpty()) {
             readyEpisodes.forEach { ep ->
-                mainOptions.add("📋 คำสั่ง Flow เดิม (Kotlin V1) • EP.$ep")
+                mainOptions.add("📋 คำสั่ง Kotlin • EP.$ep")
                 mainActions.add { openEpisode(ep) }
             }
         }
@@ -3480,9 +3480,9 @@ $context"""
             mainOptions.add("✨ สร้างคำสั่ง Flow สำหรับตอนที่ยังไม่มี")
             mainActions.add { autoFlowAllEpisodes(story) }
         }
-        mainOptions.add("✨ คำสั่ง Flow ที่ AI ปรับปรุง (AI V2) • ${completedFlowScenes.size}/${allFlowScenes.size} ฉาก")
+        mainOptions.add("📄 ดูผลการวิเคราะห์ AI • ${completedFlowScenes.size}/${allFlowScenes.size} ฉาก")
         mainActions.add {
-            if(completedFlowScenes.isEmpty()) notice("ยังไม่มีคำสั่ง AI V2 ที่ตรวจสอบแล้ว • เลือกปรับปรุง Flow ด้วย AI V2 ก่อน")
+            if(completedFlowScenes.isEmpty()) notice("ยังไม่มีผลการวิเคราะห์ AI ที่ตรวจสอบแล้ว • เลือกปรับปรุง Flow ด้วย AI V2 ก่อน")
             else {
                 val availableEps=episodeNumbers.filter { ep ->
                     (0 until eps.length()).any { idx ->
@@ -3492,11 +3492,11 @@ $context"""
                         }
                     }
                 }
-                choiceMenu("✨ คำสั่ง Flow AI V2 • เลือก EP",availableEps.map { ep ->
+                choiceMenu("📄 ดูผลการวิเคราะห์ AI • เลือกตอน",availableEps.map { ep ->
                     val episode=(0 until eps.length()).map { eps.getJSONObject(it) }.first { it.optInt("ep")==ep }
                     val scenes=episode.optJSONArray("scenes")
                     val count=(0 until (scenes?.length() ?: 0)).count { verifiedFlowAi(scenes!!.getJSONObject(it)) }
-                    "EP.$ep • AI V2 $count/${scenes?.length() ?: 0} ฉาก"
+                    "EP.$ep • วิเคราะห์แล้ว $count/${scenes?.length() ?: 0} ฉาก"
                 }) { selectedEp ->
                     val ep=availableEps[selectedEp]
                     val episode=(0 until eps.length()).map { eps.getJSONObject(it) }.first { it.optInt("ep")==ep }
@@ -3507,12 +3507,12 @@ $context"""
                 }
             }
         }
-        mainOptions.add("✨ ปรับปรุง Flow ด้วย AI V2")
+        mainOptions.add("✨ วิเคราะห์คำสั่ง AI")
         mainActions.add {
             if(readyEpisodes.isEmpty()) notice("ยังไม่มีคำสั่ง Flow • สร้างคำสั่ง Kotlin ก่อน")
             else startFlowAiBatch(allFlowScenes)
         }
-        mainOptions.add("⚙️ ตั้งค่า API Flow AI V2")
+        mainOptions.add("⚙️ ตั้งค่า API AI")
         mainActions.add { flowApiSettings() }
         mainOptions.add("🔵 ตรวจสอบ / แก้ไขคำสั่ง Flow")
         mainActions.add { moreTools() }
@@ -4393,10 +4393,10 @@ $context"""
         val panel=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
             setPadding(dp(12),dp(14),dp(12),dp(10))
-            background=backdrop(Color.rgb(24,24,32),navy,Color.rgb(95,74,47))
+            background=backdrop(Color.rgb(29,35,77),Color.rgb(24,31,66),Color.rgb(95,74,147))
         }
         val heading=TextView(this).apply {
-            text="✨ คำสั่ง Flow • AI V2"
+            text="✨ Flow AI"
             textSize=17f
             setTypeface(null,Typeface.BOLD)
             setTextColor(gold)
@@ -4430,8 +4430,8 @@ $context"""
         val scroll=ScrollView(this).apply { addView(prompt) }
         panel.addView(scroll,LinearLayout.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.43f).toInt()))
         val navigation=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
-        val previous=Button(this).apply { text="◀ ก่อนหน้า"; isAllCaps=false }
-        val next=Button(this).apply { text="ถัดไป ▶"; isAllCaps=false }
+        val previous=Button(this).apply { text="◀ ก่อนหน้า"; isAllCaps=false; setTextColor(Color.WHITE); backgroundTintList=ColorStateList.valueOf(Color.rgb(110,83,181)) }
+        val next=Button(this).apply { text="ถัดไป ▶"; isAllCaps=false; setTextColor(Color.WHITE); backgroundTintList=ColorStateList.valueOf(Color.rgb(35,147,210)) }
         navigation.addView(previous,LinearLayout.LayoutParams(0,dp(54),1f))
         navigation.addView(next,LinearLayout.LayoutParams(0,dp(54),1f))
         panel.addView(navigation)
@@ -4443,9 +4443,9 @@ $context"""
             backgroundTintList=null
             background=backdrop(Color.rgb(255,210,93),Color.rgb(224,157,45))
         }
-        panel.addView(copy,LinearLayout.LayoutParams(-1,dp(58)))
+        panel.addView(copy,LinearLayout.LayoutParams(-1,dp(54)))
         val storyTitle=plan?.optString("title").orEmpty().trim().ifBlank { "ยังไม่ระบุชื่อเรื่อง" }
-        val category=plan?.optString("category").orEmpty().trim().ifBlank { "ยังไม่ระบุหมวดหมู่" }
+        val category=plan?.optString("category").orEmpty().trim().replace(Regex("""\s*[（(][^()（）]*[)）]\s*$"""),"").ifBlank { "ยังไม่ระบุหมวดหมู่" }
         val episodeTitle=plan?.optJSONArray("episodes")?.let { episodes ->
             (0 until episodes.length()).mapNotNull { episodes.optJSONObject(it) }
                 .firstOrNull { it.optInt("ep")==ep }
@@ -4465,8 +4465,8 @@ $context"""
             categoryRow.text="หมวดหมู่: $category"
             episodeRow.text="ตอนที่ $ep • ${episodeTitle.ifBlank { "ยังไม่ระบุชื่อตอน" }}"
             sceneRow.text="ฉากที่ ${index+1} / ${scenes.size}"
-            prompt.text=currentCommand ?: "ฉากนี้ยังไม่มีคำสั่ง AI V2 ที่ตรวจสอบแล้ว\\nกรุณาปรับปรุง Flow ด้วย AI V2 ก่อน"
-            copy.text="📋 คัดลอกคำสั่ง AI V2 ตอนที่ $ep • ฉากที่ ${index+1}"
+            prompt.text=currentCommand ?: "ฉากนี้ยังไม่มีผลการวิเคราะห์ AI ที่ตรวจสอบแล้ว\\nกรุณาเลือกวิเคราะห์คำสั่ง AI ก่อน"
+            copy.text="📋 คัดลอกคำสั่ง"
             copy.isEnabled=currentCommand!=null
             previous.isEnabled=index>0
             next.isEnabled=index<scenes.lastIndex
