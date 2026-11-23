@@ -2898,8 +2898,9 @@ FANTASY CHARACTER BINDINGS:
 $bindings
 SCENES:
 $context"""
-            var answer: JSONObject?=null
+            var answer: JSONObject?=cached?.takeIf { value -> fields.all { value.opt(it) is String && value.optString(it).isNotBlank() } }
             for(provider in providers) {
+                if(answer!=null) break
                 answer=runCatching { StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false,context=this@StudioActivity).generate(prompt,schema) }.getOrNull()?.takeIf { it.optJSONArray("items")!=null }
                 if(answer!=null) break
             }
@@ -6359,10 +6360,43 @@ $context"""
 ระบุสิ่งที่ยังตรวจไม่ได้จากข้อมูลข้อความ ห้ามอ้างว่าตรวจภาพหรือเสียงจริงแล้ว
 ส่งข้อเสนอให้ผู้ใช้ตรวจและบันทึกเอง ไม่แก้ข้อมูลต้นฉบับโดยอัตโนมัติ""".trimIndent()
     }
+    private fun musicReviewSnapshot(draft: JSONObject): String =
+        JSONObject(draft.toString()).apply { remove("updated_at_ms") }.toString()
+    private fun resumeMusicReview() {
+        val draft=musicDraft()
+        val checkpoint=runCatching { JSONObject(File(project,"mv_review_checkpoint.json").readText()) }.getOrNull()
+        if(checkpoint==null || checkpoint.optString("snapshot")!=musicReviewSnapshot(draft)) {
+            notice("ไม่พบงาน AI ที่ตรงกับข้อมูลปัจจุบัน"); return
+        }
+        val timeline=musicTimeline(draft)
+        val index=checkpoint.optInt("scene",0)-1
+        if(index !in 0 until timeline.length()) { notice("ไม่พบซีนเดิม"); return }
+        runMusicSceneReview(timeline.getJSONObject(index))
+    }
+    private fun inspectMusicMedia() {
+        val target=project
+        val draft=musicDraft()
+        val name=draft.optString("audio_file")
+        if(name.isBlank() || File(name).name!=name) { notice("ยังไม่มีไฟล์เสียงต้นฉบับ"); return }
+        Thread {
+            val report=runCatching {
+                val audio=File(target,name)
+                require(audio.isFile && audio.length()>0) { "ไม่พบไฟล์เสียง" }
+                val reader=android.media.MediaMetadataRetriever()
+                try {
+                    reader.setDataSource(audio.absolutePath)
+                    val duration=reader.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: error("อ่านเวลาไม่ได้")
+                    val hasAudio=reader.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO)=="yes"
+                    "แทร็กเสียง: "+(if(hasAudio) "พบ" else "ไม่พบ")+"\nระยะเวลาจริง: "+duration+" ms\nตรงกับไทม์ไลน์: "+(if(duration==musicDurationMs(draft)) "ผ่าน" else "ไม่ผ่าน")+"\nคุณภาพเสียงและ lip sync: ยังไม่ได้ตรวจ"
+                } finally { reader.release() }
+            }.getOrElse { "ตรวจไฟล์เสียงไม่สำเร็จ: "+it.message }
+            runOnUiThread { if(!isFinishing && !isDestroyed && project==target) notice(report+"\nภาพรายซีน: ยังไม่ได้เชื่อมไฟล์ภาพกับซีน MV") }
+        }.start()
+    }
     private fun runMusicSceneReview(scene: JSONObject) {
         val target=project
         val draft=musicDraft()
-        val snapshot=draft.toString()
+        val snapshot=musicReviewSnapshot(draft)
         val key=scene.getInt("scene").toString()
         val fields=listOf("start_state","end_state","image_prompt","flow_prompt","reason")
         val properties=JSONObject()
@@ -6373,6 +6407,16 @@ $context"""
         val prompt=musicSceneRepairPrompt(draft,scene)+"\nตอบ JSON ตาม schema เท่านั้น"
         val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
         val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
+        val checkpoint=File(target,"mv_review_checkpoint.json")
+        val pending=File(target,"mv_review_checkpoint.pending")
+        val prior=runCatching { JSONObject(checkpoint.readText()) }.getOrNull()
+        val cached=prior?.takeIf { it.optString("snapshot")==snapshot && it.optInt("scene")==scene.getInt("scene") }?.optJSONObject("result")
+        fun persistReview(result: JSONObject?) {
+            val data=JSONObject().put("snapshot",snapshot).put("scene",scene.getInt("scene"))
+            if(result!=null) data.put("result",result)
+            pending.writeText(data.toString()); check(pending.renameTo(checkpoint))
+        }
+        if(runCatching { persistReview(cached) }.isFailure) { notice("บันทึกจุดกู้คืนไม่ได้"); return }
         val loading=AlertDialog.Builder(this).setMessage("AI กำลังตรวจซีน SC"+key).setNegativeButton("หยุด",null).showDirector()
         loading.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
         Thread {
@@ -6391,21 +6435,23 @@ $context"""
             runOnUiThread {
                 if(stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
                 active.set(null); loading.dismiss()
-                if(project!=target || musicDraft().toString()!=snapshot) { notice("ข้อมูลเปลี่ยนแล้ว กรุณาตรวจใหม่"); return@runOnUiThread }
+                if(project!=target || musicReviewSnapshot(musicDraft())!=snapshot) { notice("ข้อมูลเปลี่ยนแล้ว กรุณาตรวจใหม่"); return@runOnUiThread }
                 if(result==null) { notice("AI ไม่ส่งผลที่ครบถ้วน • ไม่มีการแก้ข้อมูล"); return@runOnUiThread }
+                if(runCatching { persistReview(result) }.isFailure) { notice("บันทึกข้อเสนอ AI ไม่สำเร็จ"); return@runOnUiThread }
                 val before=draft.optJSONObject("scene_notes")?.optJSONObject(key)
                 val comparison=fields.joinToString("\n\n") { field -> field+"\nเดิม: "+before?.optString(field).orEmpty()+"\nเสนอ: "+result.optString(field) }
                 AlertDialog.Builder(this).setTitle("ตรวจข้อเสนอ AI • SC"+key)
                     .setView(ScrollView(this).apply { addView(TextView(context).apply { text=comparison; setPadding(dp(16),dp(12),dp(16),dp(12)); setTextIsSelectable(true) }) })
                     .setPositiveButton("ยืนยันแก้ซีน") { _,_ ->
                         runCatching {
-                            require(project==target && musicDraft().toString()==snapshot) { "ข้อมูลเปลี่ยนแล้ว" }
+                            require(project==target && musicReviewSnapshot(musicDraft())==snapshot) { "ข้อมูลเปลี่ยนแล้ว" }
                             val all=draft.optJSONObject("scene_notes") ?: JSONObject()
                             val entry=before ?: JSONObject()
                             fields.filter { it!="reason" }.forEach { entry.put(it,result.getString(it)) }
                             entry.put("review_reason",result.getString("reason")).put("start_ms",scene.getLong("start_ms")).put("end_ms",scene.getLong("end_ms"))
                             all.put(key,entry); draft.put("scene_notes",all)
                             saveMusicTimeline(draft)
+                            checkpoint.delete()
                         }.onSuccess { showMusicTimeline() }.onFailure { notice("บันทึกไม่สำเร็จ: "+it.message) }
                     }.setNegativeButton("ไม่แก้ไข",null).showDirector()
             }
@@ -6506,7 +6552,9 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                 "⏱️ ดูไทม์ไลน์ซีน MV",
                 "🔍 ตรวจสอบข้อมูลและซ่อมไทม์ไลน์",
                 "↩️ กู้คืนข้อมูล MV จากสำเนาก่อนหน้า",
-                "▶️ ทำงานต่อจากซีนที่ข้อมูลยังไม่ครบ"
+                "▶️ ทำงานต่อจากซีนที่ข้อมูลยังไม่ครบ",
+                "🔄 กู้คืนงานตรวจ AI ที่ค้าง",
+                "🎧 ตรวจไฟล์เสียงจริง"
             )) { action ->
                 when(action) {
                     0 -> if(musicDraft().optString("lyrics").isBlank()) notice("กรุณาใส่เนื้อเพลงต้นฉบับก่อนสร้างบท MV")
@@ -6515,6 +6563,8 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     2 -> editMusicField("📝 เนื้อเพลงต้นฉบับ","lyrics",true)
                     3 -> musicSettings()
                     4 -> musicSource()
+                    10 -> resumeMusicReview()
+                    11 -> inspectMusicMedia()
                     9 -> resumeMusicScene()
                     8 -> restoreMusicDraft()
                     7 -> reviewMusicDraft()
