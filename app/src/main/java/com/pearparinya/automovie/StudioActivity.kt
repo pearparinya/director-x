@@ -3484,9 +3484,7 @@ $context"""
                         "ฉาก ${scene.optInt("scene",index+1)} • ${if(valid) "AI V2 บันทึกแล้ว" else "AI V2 ยังไม่ยืนยัน"}"
                     },compactImageMenu=true) { sceneIndex ->
                         val scene=scenes.getJSONObject(sceneIndex)
-                        // The existing scene command workflow performs source-hash validation before API reuse.
-                        notice("เปิดคำสั่ง Flow EP.$ep แล้วเลือกฉาก ${scene.optInt("scene",sceneIndex+1)} เพื่อใช้ Kotlin + API หรือ Kotlin เดิม")
-                        openEpisode(ep)
+                        openFlowAiSceneDirect(scene)
                     }
                 }
             }
@@ -4930,6 +4928,39 @@ $context"""
             ?.optString("enhancement").orEmpty()
         return if(addition.length !in 25..900) original else original+
             "\n\nFLOW CAMERA GUIDANCE (original cast, MASTER, clothing, location, dialogue, timing and actions override):\n"+addition
+    }
+
+    // The Flow AI menu must open the actual scene prompt selector, not the EP text viewer.
+    // Prompt refinement is allowed before image import; video export approval remains separate.
+    private fun openFlowAiSceneDirect(scene: JSONObject) {
+        val original=runCatching {
+            ShortFlowPrompt.build(flowSpec(scene),"Slow gentle pan.")
+        }.getOrElse { notice("สร้างคำสั่ง Kotlin V1 ไม่สำเร็จ: ${it.message}"); return }
+        val record=runCatching { JSONObject(flowApiFile(scene).readText(Charsets.UTF_8)) }.getOrNull()
+        val valid=record?.optString("source_sha256")==promptHash(original) &&
+            record.optString("enhancement").length in 25..900 &&
+            record.optString("api_provider").isNotBlank()
+        val provider=if(valid) record?.optString("api_provider").orEmpty() else ""
+        val stale=record!=null && !valid
+        val status=when {
+            valid -> "🟢 AI V2 พร้อม • $provider"
+            stale -> "🟠 AI V2 ต้นฉบับเปลี่ยนหรือข้อมูลไม่ครบ"
+            else -> "⚪ AI V2 ยังไม่ Gen"
+        }
+        val options=if(valid) listOf("✨ เปิด Prompt ใหม่ (AI V2)","🔄 Gen ใหม่ด้วย API","⚙️ เปิด Kotlin เดิม (V1)")
+            else listOf("✨ สร้าง Prompt ใหม่ด้วย AI","⚙️ เปิด Kotlin เดิม (V1)")
+        choiceMenu("🎥 Flow • ${key(scene)}\\n$status",options,compactImageMenu=true) { selected ->
+            when {
+                valid && selected==0 ->
+                    showFlowCode("Flow AI V2 • $provider",flowEnhancedCommand(scene,original),"${key(scene)}_VIDEO_AI.txt")
+                (valid && selected==1) || (!valid && selected==0) ->
+                    AlertDialog.Builder(this).setTitle("ยืนยันการเรียก API Flow")
+                        .setMessage("ปรับปรุง Prompt ฉากนี้ด้วย API อาจใช้โควตาหรือมีค่าบริการ\\nไม่เปลี่ยน MASTER เสื้อผ้า บทพูด หรือการกระทำ")
+                        .setPositiveButton("เริ่ม Gen") { _,_ -> flowApiEnhance(scene,original,false) }
+                        .setNegativeButton("ยกเลิก",null).showDirector()
+                else -> showFlowCode("Flow Kotlin V1 • ต้นฉบับ",original,"${key(scene)}_VIDEO.txt")
+            }
+        }
     }
 
     private fun flowApiEnhance(scene: JSONObject, original: String, copy: Boolean) {
