@@ -6107,9 +6107,18 @@ $context"""
     // Music/MV uses the existing MASTER, ChatGPT image-prompt and Flow workflows.
     // Drafts live in a separate file; existing story.json and EPs are never overwritten.
     private fun musicDraftFile() = File(project, "music_mv_draft.json")
-    private fun musicDraft(): JSONObject = runCatching {
-        JSONObject(musicDraftFile().readText())
-    }.getOrElse {
+    private fun musicDraft(): JSONObject {
+        val file=musicDraftFile()
+        val previous=File(file.parentFile,"music_mv_draft.previous.json")
+        val pending=File(file.parentFile,file.name+".pending")
+        for(candidate in listOf(file,pending,previous)) {
+            val recovered=runCatching { JSONObject(candidate.readText()) }.getOrNull()
+            if(recovered!=null) return recovered
+        }
+        check(!listOf(file,pending,previous).any { it.exists() }) {
+            "ไม่สามารถอ่านข้อมูล MV เดิมได้ กรุณาสำรองไฟล์ก่อนแก้ไข"
+        }
+        return
         JSONObject().put("title", "").put("lyrics", "").put("genres", JSONArray())
             .put("mood", "อบอุ่น").put("language", "ไทย").put("duration_seconds", 180)
             .put("mode", "MV ผสมละคร").put("singer", "นายเปีย บ้านคลองขุด")
@@ -6118,8 +6127,9 @@ $context"""
     private fun saveMusicDraft(draft: JSONObject) {
         val file=musicDraftFile(); file.parentFile?.mkdirs()
         val tmp=File(file.parentFile, file.name+".pending")
+        draft.put("updated_at_ms",System.currentTimeMillis())
         tmp.writeText(draft.toString(2))
-        if(file.exists()) file.copyTo(File(file.parentFile,"music_mv_draft.previous.json"),overwrite=true)
+        if(file.exists() && runCatching { JSONObject(file.readText()) }.isSuccess) file.copyTo(File(file.parentFile,"music_mv_draft.previous.json"),overwrite=true)
         check(tmp.renameTo(file)) { "บันทึกเพลงไม่สำเร็จ" }
     }
     private fun editMusicField(title: String, field: String, multiline: Boolean=false) {
@@ -6266,6 +6276,20 @@ $context"""
         draft.put("timeline",musicTimeline(draft))
         saveMusicDraft(draft)
     }
+    private fun restoreMusicDraft() {
+        val target=project
+        val previous=File(target,"music_mv_draft.previous.json")
+        val snapshot=runCatching { JSONObject(previous.readText()) }.getOrNull()
+        if(snapshot==null) { notice("ไม่พบสำเนาข้อมูล MV ที่อ่านได้"); return }
+        AlertDialog.Builder(this).setTitle("กู้คืนข้อมูล MV")
+            .setMessage("ย้อนกลับไปยังข้อมูลที่บันทึกก่อนหน้า โดยเก็บข้อมูลปัจจุบันไว้เป็นสำเนา")
+            .setPositiveButton("กู้คืน") { _,_ ->
+                if(project!=target) notice("โปรเจกต์เปลี่ยนแล้ว กรุณาเปิดใหม่")
+                else runCatching { saveMusicDraft(snapshot) }
+                    .onSuccess { notice("กู้คืนข้อมูล MV แล้ว") }
+                    .onFailure { notice("กู้คืนไม่สำเร็จ: "+it.message) }
+            }.setNegativeButton("ยกเลิก",null).showDirector()
+    }
     private fun reviewMusicDraft() {
         val draft=musicDraft()
         val expected=musicTimeline(draft)
@@ -6356,7 +6380,8 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                 "🔗 เลือกต้นทางเนื้อหาเดิม",
                 "📚 ผลงานเพลงและ MV",
                 "⏱️ ดูไทม์ไลน์ซีน MV",
-                "🔍 ตรวจสอบข้อมูลและซ่อมไทม์ไลน์"
+                "🔍 ตรวจสอบข้อมูลและซ่อมไทม์ไลน์",
+                "↩️ กู้คืนข้อมูล MV จากสำเนาก่อนหน้า"
             )) { action ->
                 when(action) {
                     0 -> if(musicDraft().optString("lyrics").isBlank()) notice("กรุณาใส่เนื้อเพลงต้นฉบับก่อนสร้างบท MV")
@@ -6365,6 +6390,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     2 -> editMusicField("📝 เนื้อเพลงต้นฉบับ","lyrics",true)
                     3 -> musicSettings()
                     4 -> musicSource()
+                    8 -> restoreMusicDraft()
                     7 -> reviewMusicDraft()
                     6 -> showMusicTimeline()
                     5 -> {
