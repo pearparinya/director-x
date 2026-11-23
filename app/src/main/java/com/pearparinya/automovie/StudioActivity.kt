@@ -6118,8 +6118,7 @@ $context"""
         check(!listOf(file,pending,previous).any { it.exists() }) {
             "ไม่สามารถอ่านข้อมูล MV เดิมได้ กรุณาสำรองไฟล์ก่อนแก้ไข"
         }
-        return
-        JSONObject().put("title", "").put("lyrics", "").put("genres", JSONArray())
+        return JSONObject().put("title", "").put("lyrics", "").put("genres", JSONArray())
             .put("mood", "อบอุ่น").put("language", "ไทย").put("duration_seconds", 180)
             .put("mode", "MV ผสมละคร").put("singer", "นายเปีย บ้านคลองขุด")
             .put("source", "เพลงใหม่").put("status", "ร่าง")
