@@ -4932,6 +4932,8 @@ $context"""
 
     // The Flow AI menu must open the actual scene prompt selector, not the EP text viewer.
     // Prompt refinement is allowed before image import; video export approval remains separate.
+    // Open the actual prompt immediately after EP/scene selection. Do not make users
+    // navigate another menu before they can see and copy the generated command.
     private fun openFlowAiSceneDirect(scene: JSONObject) {
         val original=runCatching {
             ShortFlowPrompt.build(flowSpec(scene),"Slow gentle pan.")
@@ -4941,26 +4943,35 @@ $context"""
             record.optString("enhancement").length in 25..900 &&
             record.optString("api_provider").isNotBlank()
         val provider=if(valid) record?.optString("api_provider").orEmpty() else ""
-        val stale=record!=null && !valid
-        val status=when {
-            valid -> "🟢 AI V2 พร้อม • $provider"
-            stale -> "🟠 AI V2 ต้นฉบับเปลี่ยนหรือข้อมูลไม่ครบ"
-            else -> "⚪ AI V2 ยังไม่ Gen"
+        val current=if(valid) flowEnhancedCommand(scene,original) else original
+        val label=if(valid) "AI V2 • $provider" else "Kotlin V1 • AI V2 ยังไม่ Gen"
+        val preview=TextView(this).apply {
+            text=current
+            textSize=13f
+            typeface=Typeface.MONOSPACE
+            setTextIsSelectable(true)
+            setTextColor(ice)
+            setBackgroundColor(navy)
+            setPadding(dp(14),dp(12),dp(14),dp(12))
         }
-        val options=if(valid) listOf("✨ เปิด Prompt ใหม่ (AI V2)","🔄 Gen ใหม่ด้วย API","⚙️ เปิด Kotlin เดิม (V1)")
-            else listOf("✨ สร้าง Prompt ใหม่ด้วย AI","⚙️ เปิด Kotlin เดิม (V1)")
-        choiceMenu("🎥 Flow • ${key(scene)}\\n$status",options,compactImageMenu=true) { selected ->
-            when {
-                valid && selected==0 ->
-                    showFlowCode("Flow AI V2 • $provider",flowEnhancedCommand(scene,original),"${key(scene)}_VIDEO_AI.txt")
-                (valid && selected==1) || (!valid && selected==0) ->
-                    AlertDialog.Builder(this).setTitle("ยืนยันการเรียก API Flow")
-                        .setMessage("ปรับปรุง Prompt ฉากนี้ด้วย API อาจใช้โควตาหรือมีค่าบริการ\\nไม่เปลี่ยน MASTER เสื้อผ้า บทพูด หรือการกระทำ")
-                        .setPositiveButton("เริ่ม Gen") { _,_ -> flowApiEnhance(scene,original,false) }
-                        .setNegativeButton("ยกเลิก",null).showDirector()
-                else -> showFlowCode("Flow Kotlin V1 • ต้นฉบับ",original,"${key(scene)}_VIDEO.txt")
+        val scroll=ScrollView(this).apply {
+            addView(preview)
+            layoutParams=android.view.ViewGroup.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.48f).toInt())
+        }
+        AlertDialog.Builder(this)
+            .setTitle("🎥 ${key(scene)} • $label")
+            .setMessage(if(valid) "คำสั่ง AI V2 ที่บันทึกและตรวจสอบต้นฉบับแล้ว • คัดลอกไป Flow ได้" else
+                "กำลังแสดงโค้ด Kotlin V1 ต้นฉบับ • หากต้องการคำสั่ง AI V2 ให้กด Gen AI")
+            .setView(scroll)
+            .setPositiveButton("📋 คัดลอกโค้ด") { _,_ -> copyCommand(current) }
+            .setNeutralButton(if(valid) "🔄 Gen AI ใหม่" else "✨ Gen AI V2") { _,_ ->
+                AlertDialog.Builder(this).setTitle("ยืนยันการเรียก API Flow")
+                    .setMessage("ปรับปรุงคำสั่งฉากนี้ด้วย API อาจใช้โควตาหรือมีค่าบริการ\\nไม่เปลี่ยน MASTER เสื้อผ้า บทพูด หรือการกระทำ")
+                    .setPositiveButton("เริ่ม Gen") { _,_ -> flowApiEnhance(scene,original,false) }
+                    .setNegativeButton("ยกเลิก",null).showDirector()
             }
-        }
+            .setNegativeButton("ปิด",null)
+            .showDirector()
     }
 
     private fun flowApiEnhance(scene: JSONObject, original: String, copy: Boolean) {
