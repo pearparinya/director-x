@@ -3421,7 +3421,7 @@ $context"""
                 return
             }
             runCatching { file.readText(Charsets.UTF_8) }
-                .onSuccess { content -> showFlowScenes("คำสั่ง Flow EP.$ep", content, file.name) }
+                .onSuccess { content -> showFlowScenes("Kotlin • EP.$ep", content, file.name) }
                 .onFailure { notice("เปิดคำสั่งไม่ได้: ${it.message}") }
         }
         fun moreTools() {
@@ -3467,57 +3467,42 @@ $context"""
         val flowAiProgress="วิเคราะห์แล้ว ${completedFlowScenes.size}/${allFlowScenes.size} ฉาก"
         val mainOptions = mutableListOf<String>()
         val mainActions = mutableListOf<() -> Unit>()
-        if (readyEpisodes.isNotEmpty()) {
-            readyEpisodes.forEach { ep ->
-                mainOptions.add("📋 คำสั่ง Kotlin • EP.$ep")
-                mainActions.add { openEpisode(ep) }
+        mainOptions.add("📋 Kotlin")
+        mainActions.add {
+            if (episodeNumbers.isEmpty()) notice("ยังไม่มีตอนสำหรับคำสั่ง Kotlin")
+            else choiceMenu("📋 Kotlin • เลือกตอน", episodeNumbers.map { ep ->
+                "EP.$ep • " + if (ep in readyEpisodes) "พร้อมใช้งาน" else "ยังไม่มีคำสั่ง"
+            }) { selected -> openEpisode(episodeNumbers[selected]) }
+        }
+        mainOptions.add("📄 Flow AI")
+        mainActions.add {
+            if (episodeNumbers.isEmpty()) notice("ยังไม่มีตอนสำหรับคำสั่ง Flow AI")
+            else choiceMenu("📄 Flow AI • เลือกตอน", episodeNumbers.map { ep ->
+                val episode=(0 until eps.length()).map { eps.getJSONObject(it) }.first { it.optInt("ep")==ep }
+                val scenes=episode.optJSONArray("scenes")
+                val total=scenes?.length() ?: 0
+                val count=(0 until total).count { verifiedFlowAi(scenes!!.getJSONObject(it)) }
+                "EP.$ep • $count/$total ฉาก"
+            }) { selected ->
+                val ep=episodeNumbers[selected]
+                val episode=(0 until eps.length()).map { eps.getJSONObject(it) }.first { it.optInt("ep")==ep }
+                val scenes=episode.optJSONArray("scenes")
+                val sceneList=(0 until (scenes?.length() ?: 0)).map { scenes!!.getJSONObject(it) }
+                if(sceneList.isEmpty()) notice("EP.$ep ยังไม่มีฉาก")
+                else showFlowAiV2Pager(ep,sceneList,0)
             }
         }
-        if (!storyPassed) {
-            mainOptions.add("🔵 ตรวจสอบบทก่อนสร้างคำสั่ง")
-            mainActions.add { productionCheckMenu(story) }
-        } else if (readyEpisodes.size < episodeNumbers.size) {
-            mainOptions.add("✨ สร้างคำสั่ง Flow สำหรับตอนที่ยังไม่มี")
-            mainActions.add { autoFlowAllEpisodes(story) }
-        }
-        mainOptions.add("📄 ดูผลการวิเคราะห์ AI • ${completedFlowScenes.size}/${allFlowScenes.size} ฉาก")
+        mainOptions.add("✨ วิเคราะห์ AI")
         mainActions.add {
-            if(completedFlowScenes.isEmpty()) notice("ยังไม่มีผลการวิเคราะห์ AI ที่ตรวจสอบแล้ว • เลือกปรับปรุง Flow ด้วย AI V2 ก่อน")
-            else {
-                val availableEps=episodeNumbers.filter { ep ->
-                    (0 until eps.length()).any { idx ->
-                        val episode=eps.getJSONObject(idx)
-                        episode.optInt("ep")==ep && (0 until (episode.optJSONArray("scenes")?.length() ?: 0)).any { sceneIndex ->
-                            verifiedFlowAi(episode.getJSONArray("scenes").getJSONObject(sceneIndex))
-                        }
-                    }
-                }
-                choiceMenu("📄 ดูผลการวิเคราะห์ AI • เลือกตอน",availableEps.map { ep ->
-                    val episode=(0 until eps.length()).map { eps.getJSONObject(it) }.first { it.optInt("ep")==ep }
-                    val scenes=episode.optJSONArray("scenes")
-                    val count=(0 until (scenes?.length() ?: 0)).count { verifiedFlowAi(scenes!!.getJSONObject(it)) }
-                    "EP.$ep • วิเคราะห์แล้ว $count/${scenes?.length() ?: 0} ฉาก"
-                }) { selectedEp ->
-                    val ep=availableEps[selectedEp]
-                    val episode=(0 until eps.length()).map { eps.getJSONObject(it) }.first { it.optInt("ep")==ep }
-                    val scenes=episode.optJSONArray("scenes")
-                    val sceneList=(0 until (scenes?.length() ?: 0)).map { scenes!!.getJSONObject(it) }
-                    showFlowAiV2Pager(ep,sceneList,0)
-
-                }
-            }
-        }
-        mainOptions.add("✨ วิเคราะห์คำสั่ง AI")
-        mainActions.add {
-            if(readyEpisodes.isEmpty()) notice("ยังไม่มีคำสั่ง Flow • สร้างคำสั่ง Kotlin ก่อน")
+            if(readyEpisodes.isEmpty()) notice("ยังไม่มีคำสั่ง Kotlin • สร้างคำสั่งก่อน")
             else startFlowAiBatch(allFlowScenes)
         }
-        mainOptions.add("⚙️ ตั้งค่า API AI")
+        mainOptions.add("⚙️ ตั้งค่า API")
         mainActions.add { flowApiSettings() }
         mainOptions.add("🔵 ตรวจสอบ / แก้ไขคำสั่ง Flow")
         mainActions.add { moreTools() }
         val category=story.optString("category").trim().replace(Regex("""\s*[（(][^()（）]*[)）]\s*$"""),"").ifBlank { "ยังไม่ระบุหมวด" }
-        val mode=if(prefs.getBoolean("flow_api_assist_enabled",false)) "AI V2 เปิด" else "Kotlin V1 เปิด"
+        val mode=if(prefs.getBoolean("flow_api_assist_enabled",false)) "AI เปิด" else "Kotlin เปิด"
         choiceMenu(
             "🎥 คำสั่ง Flow\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}\nหมวด: $category\n${flowAiProgress} · $mode",
             mainOptions,compactImageMenu=true
