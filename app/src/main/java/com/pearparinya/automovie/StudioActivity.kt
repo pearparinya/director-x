@@ -6359,6 +6359,58 @@ $context"""
 ระบุสิ่งที่ยังตรวจไม่ได้จากข้อมูลข้อความ ห้ามอ้างว่าตรวจภาพหรือเสียงจริงแล้ว
 ส่งข้อเสนอให้ผู้ใช้ตรวจและบันทึกเอง ไม่แก้ข้อมูลต้นฉบับโดยอัตโนมัติ""".trimIndent()
     }
+    private fun runMusicSceneReview(scene: JSONObject) {
+        val target=project
+        val draft=musicDraft()
+        val snapshot=draft.toString()
+        val key=scene.getInt("scene").toString()
+        val fields=listOf("start_state","end_state","image_prompt","flow_prompt","reason")
+        val properties=JSONObject()
+        fields.forEach { properties.put(it,JSONObject().put("type","string")) }
+        val schema=JSONObject().put("type","object").put("properties",properties).put("required",JSONArray(fields))
+        val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
+        if(providers.isEmpty()) { notice("ยังไม่มี API ที่พร้อมใช้งาน"); return }
+        val prompt=musicSceneRepairPrompt(draft,scene)+"\nตอบ JSON ตาม schema เท่านั้น"
+        val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
+        val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
+        val loading=AlertDialog.Builder(this).setMessage("AI กำลังตรวจซีน SC"+key).setNegativeButton("หยุด",null).showDirector()
+        loading.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
+        Thread {
+            var answer: JSONObject?=null
+            for(provider in providers) {
+                if(stopped.get()) break
+                answer=runCatching {
+                    val client=StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ stopped.get() },automaticRetry=false,context=this@StudioActivity)
+                    active.set(client)
+                    if(stopped.get()) throw java.util.concurrent.CancellationException()
+                    client.generate(prompt,schema)
+                }.getOrNull()?.takeIf { value -> fields.all { value.opt(it) is String && value.optString(it).isNotBlank() } }
+                if(answer!=null) break
+            }
+            val result=answer
+            runOnUiThread {
+                if(stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
+                active.set(null); loading.dismiss()
+                if(project!=target || musicDraft().toString()!=snapshot) { notice("ข้อมูลเปลี่ยนแล้ว กรุณาตรวจใหม่"); return@runOnUiThread }
+                if(result==null) { notice("AI ไม่ส่งผลที่ครบถ้วน • ไม่มีการแก้ข้อมูล"); return@runOnUiThread }
+                val before=draft.optJSONObject("scene_notes")?.optJSONObject(key)
+                val comparison=fields.joinToString("\n\n") { field -> field+"\nเดิม: "+before?.optString(field).orEmpty()+"\nเสนอ: "+result.optString(field) }
+                AlertDialog.Builder(this).setTitle("ตรวจข้อเสนอ AI • SC"+key)
+                    .setView(ScrollView(this).apply { addView(TextView(context).apply { text=comparison; setPadding(dp(16),dp(12),dp(16),dp(12)); setTextIsSelectable(true) }) })
+                    .setPositiveButton("ยืนยันแก้ซีน") { _,_ ->
+                        runCatching {
+                            require(project==target && musicDraft().toString()==snapshot) { "ข้อมูลเปลี่ยนแล้ว" }
+                            val all=draft.optJSONObject("scene_notes") ?: JSONObject()
+                            val entry=before ?: JSONObject()
+                            fields.filter { it!="reason" }.forEach { entry.put(it,result.getString(it)) }
+                            entry.put("review_reason",result.getString("reason")).put("start_ms",scene.getLong("start_ms")).put("end_ms",scene.getLong("end_ms"))
+                            all.put(key,entry); draft.put("scene_notes",all)
+                            saveMusicTimeline(draft)
+                        }.onSuccess { showMusicTimeline() }.onFailure { notice("บันทึกไม่สำเร็จ: "+it.message) }
+                    }.setNegativeButton("ไม่แก้ไข",null).showDirector()
+            }
+        }.start()
+    }
     private fun editMusicScene(scene: JSONObject) {
         val target=project
         val draft=musicDraft()
@@ -6387,7 +6439,7 @@ $context"""
                 }.onSuccess { showMusicTimeline() }.onFailure { notice("บันทึกซีนไม่สำเร็จ: "+it.message) }
             }.setNeutralButton("คำสั่ง AI ตรวจซีน") { _,_ ->
                 if(project!=target) notice("โปรเจกต์เปลี่ยนแล้ว กรุณาเปิดใหม่")
-                else showFlowCode("ตรวจและเสนอแก้ไข SC"+key,musicSceneRepairPrompt(musicDraft(),scene),"MV_SC"+key+"_REVIEW.txt")
+                else runMusicSceneReview(scene)
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
     private fun showMusicTimeline() {
