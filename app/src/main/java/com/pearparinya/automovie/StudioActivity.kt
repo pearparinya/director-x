@@ -6103,6 +6103,168 @@ $context"""
         }
         chooseGroup()
     }
+
+    // Music/MV uses the existing MASTER, ChatGPT image-prompt and Flow workflows.
+    // Drafts live in a separate file; existing story.json and EPs are never overwritten.
+    private fun musicDraftFile() = File(project, "music_mv_draft.json")
+    private fun musicDraft(): JSONObject = runCatching {
+        JSONObject(musicDraftFile().readText())
+    }.getOrElse {
+        JSONObject().put("title", "").put("lyrics", "").put("genres", JSONArray())
+            .put("mood", "อบอุ่น").put("language", "ไทย").put("duration_seconds", 180)
+            .put("mode", "MV ผสมละคร").put("singer", "นายเปีย บ้านคลองขุด")
+            .put("source", "เพลงใหม่").put("status", "ร่าง")
+    }
+    private fun saveMusicDraft(draft: JSONObject) {
+        val file=musicDraftFile(); file.parentFile?.mkdirs()
+        val tmp=File(file.parentFile, file.name+".pending")
+        tmp.writeText(draft.toString(2))
+        if(file.exists()) file.copyTo(File(file.parentFile,"music_mv_draft.previous.json"),overwrite=true)
+        check(tmp.renameTo(file)) { "บันทึกเพลงไม่สำเร็จ" }
+    }
+    private fun editMusicField(title: String, field: String, multiline: Boolean=false) {
+        val draft=musicDraft()
+        val input=EditText(this).apply {
+            setText(draft.optString(field))
+            hint=title
+            if(multiline) { minLines=7; maxLines=18; gravity=Gravity.TOP }
+        }
+        AlertDialog.Builder(this).setTitle(title).setView(input)
+            .setPositiveButton("บันทึก") { _,_ ->
+                draft.put(field,input.text.toString().trim())
+                runCatching { saveMusicDraft(draft) }.onFailure { notice("บันทึกไม่สำเร็จ: ${it.message}") }
+            }.setNegativeButton("ยกเลิก",null).showDirector()
+    }
+    private fun musicGenres() {
+        val names=listOf("ลูกทุ่ง","เพื่อชีวิต","ป๊อป","เพลงเศร้า","เพลงรัก","เพลงใต้และเพลงท้องถิ่น","เพลงสนุกสนาน","เพลงครอบครัว","เพลงให้กำลังใจ","เพลงเล่าเรื่อง","เพลงอะคูสติก","เพลงย้อนยุค")
+        val draft=musicDraft()
+        val current=draft.optJSONArray("genres") ?: JSONArray()
+        val checked=BooleanArray(names.size) { i -> (0 until current.length()).any { current.optString(it)==names[i] } }
+        AlertDialog.Builder(this).setTitle("🎶 แนวเพลง • เลือกได้หลายแนว")
+            .setMultiChoiceItems(names.toTypedArray(),checked) { _,index,value -> checked[index]=value }
+            .setPositiveButton("บันทึก") { _,_ ->
+                draft.put("genres",JSONArray().apply { names.forEachIndexed { i,name -> if(checked[i]) put(name) } })
+                saveMusicDraft(draft)
+                musicSettings()
+            }.setNegativeButton("ยกเลิก",null).showDirector()
+    }
+    private fun musicSettings() {
+        val draft=musicDraft()
+        choiceMenu("🎶 ตั้งค่าเพลงและ MV",listOf(
+            "🎵 ชื่อเพลง • ${draft.optString("title").ifBlank { "ยังไม่ระบุ" }}",
+            "🎶 แนวเพลง • เลือกหลายแนว",
+            "💗 อารมณ์ • ${draft.optString("mood")}",
+            "🌏 ภาษา • ${draft.optString("language")}",
+            "⏱️ ความยาวเพลง • ${draft.optInt("duration_seconds")} วินาที",
+            "🎤 นักร้อง/พระเอก • ${draft.optString("singer")}",
+            "🎬 รูปแบบ MV • ${draft.optString("mode")}"
+        )) { i -> when(i) {
+            0 -> editMusicField("ชื่อเพลง","title")
+            1 -> musicGenres()
+            2 -> choiceMenu("อารมณ์เพลง",listOf("อบอุ่น","โรแมนติก","เศร้า","สนุกสนาน","ฮึกเหิม","คิดถึง","ลึกลับ")) { n -> draft.put("mood",listOf("อบอุ่น","โรแมนติก","เศร้า","สนุกสนาน","ฮึกเหิม","คิดถึง","ลึกลับ")[n]);saveMusicDraft(draft) }
+            3 -> editMusicField("ภาษาเพลง","language")
+            4 -> choiceMenu("ความยาวเพลง",listOf("30 วินาที","60 วินาที","120 วินาที","180 วินาที","240 วินาที","กำหนดเองภายหลัง")) { n ->
+                if(n<5) { draft.put("duration_seconds",listOf(30,60,120,180,240)[n]);saveMusicDraft(draft) }
+                else notice("แก้ไขความยาวผ่านไฟล์เพลงได้ในเวอร์ชันถัดไป")
+            }
+            5 -> editMusicField("นักร้องและพระเอกหลัก","singer")
+            6 -> choiceMenu("รูปแบบ MV",listOf("MV เล่าเรื่อง","MV ร้องเพลง","MV ผสมละคร","เพลงประกอบละคร")) { n -> draft.put("mode",listOf("MV เล่าเรื่อง","MV ร้องเพลง","MV ผสมละคร","เพลงประกอบละคร")[n]);saveMusicDraft(draft) }
+        } }
+    }
+    private fun musicSource() {
+        choiceMenu("🔗 ต้นทางเพลง • ไม่แก้ไขบทเดิม",listOf(
+            "🎵 เพลงใหม่","📌 สวัสดิการและสิทธิประโยชน์","💡 ความรู้และเตือนภัย",
+            "🎬 ละครสั้นสะท้อนสังคม","🛍️ นายเปียพาช้อป","🎞️ บทละคร/EP ในโปรเจกต์ปัจจุบัน"
+        )) { i ->
+            val draft=musicDraft()
+            val source=listOf("เพลงใหม่","สวัสดิการและสิทธิประโยชน์","ความรู้และเตือนภัย","ละครสั้นสะท้อนสังคม","นายเปียพาช้อป","บทละคร/EP ปัจจุบัน")[i]
+            draft.put("source",source)
+            if(i==5) {
+                val story=plan
+                if(story==null) { notice("ยังไม่มีบทละครในโปรเจกต์นี้ • บันทึกต้นทางแล้ว แต่ยังไม่ได้เชื่อมบท");saveMusicDraft(draft);return@choiceMenu }
+                draft.put("story_title",story.optString("title"))
+                draft.put("story_context",story.optString("synopsis").ifBlank { story.optString("premise") })
+            }
+            saveMusicDraft(draft)
+            notice("บันทึกต้นทาง: $source • ข้อมูลบทละครเดิมไม่ถูกแก้ไข")
+        }
+    }
+    private fun musicLyricPrompt(): String {
+        val d=musicDraft();val genres=d.optJSONArray("genres") ?: JSONArray()
+        return """DIRECTOR X • แต่งเพลงต้นฉบับสำหรับช่องนายเปีย บ้านคลองขุด
+ชื่อเพลง: ${d.optString("title").ifBlank { "ให้ AI เสนอชื่อเพลงใหม่" }}
+แนวเพลง: ${(0 until genres.length()).joinToString(", ") { genres.optString(it) }.ifBlank { "ลูกทุ่ง / เพลงเล่าเรื่อง" }}
+อารมณ์: ${d.optString("mood")} | ภาษา: ${d.optString("language")}
+ความยาวเป้าหมาย: ${d.optInt("duration_seconds")} วินาที
+ต้นทาง: ${d.optString("source")} | เรื่อง: ${d.optString("story_title")}
+บริบทเรื่อง: ${d.optString("story_context")}
+นักร้องหลัก: ${d.optString("singer")}
+แต่งเนื้อเพลงใหม่ทั้งหมด หลีกเลี่ยงการคัดลอกเพลงที่มีลิขสิทธิ์
+แบ่ง Verse / Chorus / Bridge / Outro และระบุอารมณ์การร้อง
+ตอบเป็นเนื้อเพลงที่สามารถนำมาแก้ไขและบันทึกใน DIRECTOR X ได้
+นี่เป็นการสร้างคำสั่ง ไม่ใช่การผลิตเสียงร้องหรือดนตรีจริง""".trimIndent()
+    }
+    private fun musicMvPrompt(): String {
+        val d=musicDraft()
+        val lyrics=d.optString("lyrics")
+        val duration=d.optInt("duration_seconds",180).coerceAtLeast(8)
+        val clips=(duration+7)/8
+        return """DIRECTOR X • เขียนบทมิวสิกวิดีโอเพื่อสร้างภาพด้วย ChatGPT และวิดีโอด้วย Flow
+ชื่อเพลง: ${d.optString("title")} | รูปแบบ: ${d.optString("mode")}
+นักร้องและพระเอกหลัก: ${d.optString("singer","นายเปีย บ้านคลองขุด")}
+ต้นทาง: ${d.optString("source")} | เรื่อง: ${d.optString("story_title")}
+ความยาว: $duration วินาที | ประมาณ $clips ช่วงภาพ ช่วงละไม่เกิน 8 วินาที
+เนื้อเพลง:
+$lyrics
+
+สร้างไทม์ไลน์เวลาเริ่ม-จบให้ครบ $duration วินาที โดยแยกฉากร้องเพลง ฉากแสดง และฉากบรรยากาศ
+นายเปียเป็นนักร้องและพระเอกหลักโดยค่าเริ่มต้น ใช้ MASTER ของแต่ละคนแยกกัน ห้ามผสมใบหน้า
+สำหรับทุกฉากให้ระบุ: ช่วงเวลา, ท่อนเพลง, ตัวละคร, ชุด, สถานที่, อารมณ์,
+Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแนวตั้ง 9:16 ไม่มีตัวหนังสือ)
+และ Flow Prompt ภาษาอังกฤษสำหรับคลิป 8 วินาที (การแสดง กล้อง จุดเริ่มต้น)
+คงตัวละครและเสื้อผ้าตามเรื่องราว; ฉากร้องเพลงให้เตรียมภาพเหมาะกับ lip sync
+ห้ามอ้างว่าได้สร้างภาพ เสียงเพลง หรือวิดีโอจริงแล้ว
+ตรวจสอบและปรับจำนวนฉากตามเสียงเพลงจริงก่อนผลิต""".trimIndent()
+    }
+    private fun musicMvMenu() {
+        val d=musicDraft()
+        choiceMenu("🎵 เพลงและมิวสิกวิดีโอ",listOf(
+            "🎤 แต่งเนื้อเพลงด้วย AI\\nสร้างคำสั่งสำหรับ API ฟรีหรือ ChatGPT",
+            "📝 นำเข้าและแก้ไขเนื้อเพลง\\nบันทึกเนื้อเพลงต้นฉบับ",
+            "🎬 สร้าง MV เล่าเรื่อง\\nเขียนบทตามเนื้อเพลง",
+            "🎙️ สร้าง MV ร้องเพลง\\nนายเปียเป็นนักร้องหลัก",
+            "🎭 สร้าง MV ผสมละคร\\nร้องเพลงสลับฉากแสดง",
+            "🎞️ เพลงประกอบละครเดิม\\nใช้เรื่องเดิมโดยไม่เขียนทับ",
+            "🔗 เชื่อมเพลงกับหมวดเดิม\\nเลือกต้นทางเนื้อหา",
+            "🎶 แนวเพลงและอารมณ์\\nตั้งค่าเพลงและ MASTER",
+            "📚 คลังเพลงและ MV\\nดูและเปิดงานที่บันทึก"
+        )) { selected ->
+            when(selected) {
+                0 -> showFlowCode("🎤 คำสั่งแต่งเพลงต้นฉบับ",musicLyricPrompt(),"MUSIC_LYRICS_PROMPT.txt")
+                1 -> editMusicField("📝 เนื้อเพลงต้นฉบับ","lyrics",true)
+                2,3,4 -> {
+                    val mode=listOf("MV เล่าเรื่อง","MV ร้องเพลง","MV ผสมละคร")[selected-2]
+                    d.put("mode",mode);saveMusicDraft(d)
+                    if(d.optString("lyrics").isBlank()) notice("กรุณาใส่เนื้อเพลงก่อนสร้างบท MV")
+                    else showFlowCode("🎬 คำสั่งบท MV • $mode",musicMvPrompt(),"MUSIC_MV_PROMPT.txt")
+                }
+                5 -> { d.put("mode","เพลงประกอบละคร");saveMusicDraft(d);musicSource() }
+                6 -> musicSource()
+                7 -> musicSettings()
+                8 -> choiceMenu("📚 เพลงและ MV • โปรเจกต์ปัจจุบัน",listOf(
+                    "🎵 ${d.optString("title").ifBlank { "เพลงยังไม่มีชื่อ" }}",
+                    "📝 เนื้อเพลง • ${if(d.optString("lyrics").isBlank()) "ยังไม่มี" else "บันทึกแล้ว"}",
+                    "🎬 รูปแบบ • ${d.optString("mode")}",
+                    "🔗 ต้นทาง • ${d.optString("source")}"
+                )) { i -> when(i) {
+                    0 -> editMusicField("ชื่อเพลง","title")
+                    1 -> editMusicField("เนื้อเพลง","lyrics",true)
+                    2 -> if(d.optString("lyrics").isNotBlank()) showFlowCode("คำสั่งบท MV",musicMvPrompt(),"MUSIC_MV_PROMPT.txt") else notice("ยังไม่มีเนื้อเพลง")
+                    else -> musicSource()
+                } }
+            }
+        }
+    }
     private fun chooseChannelTopic(channel: String, done: (Int) -> Unit) {
         if(channel=="นายเปีย บ้านคลองขุด") {
             val ids=listOf("pia_benefits","pia_safety","personal_social_drama","pia_products")
@@ -6113,8 +6275,9 @@ $context"""
                 socialDramaGroups.flatMap { it.second },
                 listOf("เครื่องมือช่าง", "เครื่องมือสวนและเกษตร", "ของใช้ในบ้าน", "เครื่องใช้ไฟฟ้าในครัว", "อุปกรณ์ไอทีและมือถือ", "ของใช้ส่วนตัว", "ของใช้ในรถ", "เปรียบเทียบและเลือกซื้อสินค้า")
             )
-            choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",listOf("🎭 ตั้งค่า MASTER ประจำช่อง\nเลือกตัวเอกของช่องได้ทันที")+labels) { selected ->
+            choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",listOf("🎭 ตั้งค่า MASTER ประจำช่อง\nเลือกตัวเอกของช่องได้ทันที")+labels+listOf("🎵 เพลงและมิวสิกวิดีโอ\nแต่งเพลง • ร้องเพลง • สร้าง MV")) { selected ->
                 if(selected==0) { piaMasterSettings(); return@choiceMenu }
+                if(selected==5) { musicMvMenu(); return@choiceMenu }
                 val categorySelection=selected-1
                 val index=ChannelCatalog.allCategories.indexOfFirst { it.id==ids[categorySelection] }
                 require(index>=0) { "ไม่พบหมวดที่เลือก" }
