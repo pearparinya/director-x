@@ -32,7 +32,7 @@ class FlowProductionPackTest {
                 assertTrue(home.contains("DIRECTOR X"))
                 assertTrue(home.contains("สร้างเรื่องใหม่"))
                 assertTrue(home.contains("ตรวจชุดตัวละคร"))
-                assertTrue(home.contains("ตรวจสิ่งของในบท"))
+                assertTrue(home.contains("ตรวจอุปกรณ์ประกอบฉาก"))
                 assertTrue(home.contains("สร้างภาพ"))
                 assertTrue(home.contains("คำสั่ง Flow"))
                 assertTrue(home.contains("เครื่องมือเพิ่มเติม"))
@@ -58,9 +58,9 @@ class FlowProductionPackTest {
                 }
                 scenario.onActivity { a ->
                     assertTrue(home(a).contains("ตรวจชุดตัวละคร"))
-                    assertTrue(home(a).contains("ตรวจสิ่งของในบท"))
-                    assertTrue(home(a).contains("เปิดใช้งานได้"))
-                    assertTrue(home(a).contains("ตรวจบทแล้ว 0/"))
+                    assertTrue(home(a).contains("ตรวจอุปกรณ์ประกอบฉาก"))
+                    assertTrue(home(a).contains("รอตรวจ"))
+                    assertTrue(home(a).contains("ตรวจผ่าน 0/"))
                     assertFalse(home(a).contains("เคยส่งออกบทนี้แล้ว"))
                 }
                 File(folder,"flow_pack_exported.sha256").writeText(EpisodeMedia.digest(story))
