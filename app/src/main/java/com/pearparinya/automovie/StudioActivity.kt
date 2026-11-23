@@ -6289,6 +6289,25 @@ $context"""
                     .onFailure { notice("กู้คืนไม่สำเร็จ: "+it.message) }
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
+    private fun musicSceneIssues(draft: JSONObject, scene: JSONObject): List<String> {
+        val entry=draft.optJSONObject("scene_notes")?.optJSONObject(scene.getInt("scene").toString())
+            ?: return listOf("ยังไม่มีข้อมูลซีน")
+        val issues=mutableListOf<String>()
+        if(entry.optLong("start_ms",-1L)!=scene.getLong("start_ms") ||
+            entry.optLong("end_ms",-1L)!=scene.getLong("end_ms")) issues.add("ไทม์โค้ดเปลี่ยน")
+        listOf("start_state" to "START STATE","end_state" to "END STATE",
+            "image_prompt" to "Image Prompt","flow_prompt" to "Flow Prompt").forEach { (key,label) ->
+            if(entry.optString(key).isBlank()) issues.add("ขาด "+label)
+        }
+        return issues
+    }
+    private fun resumeMusicScene() {
+        val draft=musicDraft()
+        val timeline=musicTimeline(draft)
+        val next=(0 until timeline.length()).firstOrNull { musicSceneIssues(draft,timeline.getJSONObject(it)).isNotEmpty() }
+        if(next==null) notice("ข้อมูลซีนครบแล้ว • ยังต้องตรวจคุณภาพภาพและเสียง")
+        else editMusicScene(timeline.getJSONObject(next))
+    }
     private fun reviewMusicDraft() {
         val draft=musicDraft()
         val expected=musicTimeline(draft)
@@ -6304,7 +6323,10 @@ $context"""
                     actual.optLong(key,-1L)==wanted.getLong(key)
                 }
             }
+        val incomplete=(0 until expected.length()).filter { musicSceneIssues(draft,expected.getJSONObject(it)).isNotEmpty() }
         val report=listOf(
+            "ข้อมูลซีนครบ "+(expected.length()-incomplete.size)+"/"+expected.length(),
+            (if(incomplete.isEmpty()) "ผ่าน" else "ไม่ผ่าน")+" • ความครบถ้วนของข้อมูลซีน",
             (if(draft.optString("lyrics").isNotBlank()) "ผ่าน" else "ไม่ผ่าน")+" • เนื้อเพลง",
             (if(audioPresent) "ผ่าน" else if(audioName.isBlank()) "รอดำเนินการ" else "ไม่ผ่าน")+" • ไฟล์เสียงต้นฉบับ",
             (if(timelineValid) "ผ่าน" else "ไม่ผ่าน")+" • ไทม์ไลน์ที่บันทึก",
@@ -6351,7 +6373,8 @@ $context"""
         val timeline=musicTimeline(draft)
         val rows=(0 until timeline.length()).map { i ->
             val scene=timeline.getJSONObject(i)
-            "SC"+scene.getInt("scene")+" • "+scene.getLong("start_ms")+"–"+scene.getLong("end_ms")+" ms"+(if(draft.optJSONObject("scene_notes")?.optJSONObject(scene.getInt("scene").toString())?.let { it.optLong("start_ms")==scene.getLong("start_ms") && it.optLong("end_ms")==scene.getLong("end_ms") }==true) " • มีข้อมูล" else " • รอแก้ไข")
+            val issues=musicSceneIssues(draft,scene)
+            "SC"+scene.getInt("scene")+" • "+scene.getLong("start_ms")+"–"+scene.getLong("end_ms")+" ms"+(if(issues.isEmpty()) " • ข้อมูลครบ" else " • "+issues.joinToString(", "))
         }
         choiceMenu("🎬 ไทม์ไลน์ MV • "+timeline.length()+" ซีน",rows) { i ->
             val scene=timeline.getJSONObject(i)
@@ -6408,7 +6431,8 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                 "📚 ผลงานเพลงและ MV",
                 "⏱️ ดูไทม์ไลน์ซีน MV",
                 "🔍 ตรวจสอบข้อมูลและซ่อมไทม์ไลน์",
-                "↩️ กู้คืนข้อมูล MV จากสำเนาก่อนหน้า"
+                "↩️ กู้คืนข้อมูล MV จากสำเนาก่อนหน้า",
+                "▶️ ทำงานต่อจากซีนที่ข้อมูลยังไม่ครบ"
             )) { action ->
                 when(action) {
                     0 -> if(musicDraft().optString("lyrics").isBlank()) notice("กรุณาใส่เนื้อเพลงต้นฉบับก่อนสร้างบท MV")
@@ -6417,6 +6441,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     2 -> editMusicField("📝 เนื้อเพลงต้นฉบับ","lyrics",true)
                     3 -> musicSettings()
                     4 -> musicSource()
+                    9 -> resumeMusicScene()
                     8 -> restoreMusicDraft()
                     7 -> reviewMusicDraft()
                     6 -> showMusicTimeline()
