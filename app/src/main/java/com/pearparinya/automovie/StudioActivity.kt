@@ -4384,30 +4384,55 @@ $context"""
 
     // One prompt at a time: copy without dismissing, then move to the next scene.
     // Never concatenate the eight AI V2 prompts into a single copy payload.
+    // Match the original Flow scene viewer: heading, previous/next and a large
+    // per-scene copy button. Never copy or export multiple AI V2 scenes together.
     private fun showFlowAiV2Pager(ep: Int, scenes: List<JSONObject>, start: Int) {
         if(scenes.isEmpty()) { notice("ไม่มีฉากใน EP.$ep"); return }
-        var index=start.coerceIn(0,scenes.lastIndex)
+        val savedIndexKey="flow_ai_v2_scene_index_${project.name}_EP$ep"
+        var index=prefs.getInt(savedIndexKey,start).coerceIn(0,scenes.lastIndex)
+        val panel=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setPadding(dp(12),dp(14),dp(12),dp(10))
+            background=backdrop(Color.rgb(24,24,32),navy,Color.rgb(95,74,47))
+        }
+        val heading=TextView(this).apply {
+            textSize=19f
+            setTypeface(null,Typeface.BOLD)
+            setTextColor(gold)
+            setPadding(dp(6),0,dp(6),dp(10))
+        }
+        panel.addView(heading)
         val prompt=TextView(this).apply {
-            textSize=13f
+            textSize=14f
             typeface=Typeface.MONOSPACE
-            setTextIsSelectable(true)
             setTextColor(ice)
+            setTextIsSelectable(true)
+            setPadding(dp(12),dp(12),dp(12),dp(12))
             setBackgroundColor(navy)
-            setPadding(dp(16),dp(12),dp(16),dp(12))
         }
         val scroll=ScrollView(this).apply { addView(prompt) }
-        val frame=FrameLayout(this).apply {
-            addView(scroll,FrameLayout.LayoutParams(-1,-1))
-            layoutParams=android.view.ViewGroup.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.49f).toInt())
+        panel.addView(scroll,LinearLayout.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.43f).toInt()))
+        val navigation=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
+        val previous=Button(this).apply { text="◀ ก่อนหน้า"; isAllCaps=false }
+        val next=Button(this).apply { text="ถัดไป ▶"; isAllCaps=false }
+        navigation.addView(previous,LinearLayout.LayoutParams(0,dp(54),1f))
+        navigation.addView(next,LinearLayout.LayoutParams(0,dp(54),1f))
+        panel.addView(navigation)
+        val copy=Button(this).apply {
+            textSize=17f
+            isAllCaps=false
+            setTypeface(null,Typeface.BOLD)
+            setTextColor(Color.rgb(20,30,50))
+            backgroundTintList=null
+            background=backdrop(Color.rgb(255,210,93),Color.rgb(224,157,45))
         }
-        val dialog=AlertDialog.Builder(this)
-            .setTitle("✨ Flow AI V2 • EP.$ep")
-            .setMessage("แสดงคำสั่งทีละฉาก • คัดลอกเฉพาะฉากปัจจุบัน")
-            .setView(frame)
-            .setPositiveButton("➡️ Next",null)
-            .setNeutralButton("📋 คัดลอก",null)
-            .setNegativeButton("ปิด",null)
-            .showDirector()
+        panel.addView(copy,LinearLayout.LayoutParams(-1,dp(58)))
+        val storyTitle=plan?.optString("title").orEmpty().trim()
+        val episodeTitle=plan?.optJSONArray("episodes")?.let { episodes ->
+            (0 until episodes.length()).mapNotNull { episodes.optJSONObject(it) }
+                .firstOrNull { it.optInt("ep")==ep }
+                ?.optString("title").orEmpty().trim()
+        }.orEmpty()
         var currentCommand: String?=null
         fun refresh() {
             val scene=scenes[index]
@@ -4418,20 +4443,36 @@ $context"""
                 record.optString("api_provider").isNotBlank() &&
                 record.optLong("updated_at_ms")>0L
             currentCommand=if(valid) flowEnhancedCommand(scene,original!!) else null
-            dialog.setTitle("✨ Flow AI V2 • EP.$ep • ฉาก ${index+1}/${scenes.size}")
+            heading.text=buildString {
+                append("คำสั่งสร้างวิดีโอ Flow • AI V2")
+                if(storyTitle.isNotBlank()) append("\\nเรื่อง: $storyTitle")
+                append("\\nตอนที่ $ep")
+                if(episodeTitle.isNotBlank()) append(" • $episodeTitle")
+                append("\\nฉากที่ ${index+1} จาก ${scenes.size} ฉาก")
+            }
             prompt.text=currentCommand ?: "ฉากนี้ยังไม่มีคำสั่ง AI V2 ที่ตรวจสอบแล้ว\\nกรุณาปรับปรุง Flow ด้วย AI V2 ก่อน"
+            copy.text="📋 คัดลอกคำสั่ง AI V2 ตอนที่ $ep • ฉากที่ ${index+1}"
+            copy.isEnabled=currentCommand!=null
+            previous.isEnabled=index>0
+            next.isEnabled=index<scenes.lastIndex
             scroll.scrollTo(0,0)
-            dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.isEnabled=currentCommand!=null
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.text=if(index==scenes.lastIndex) "↩️ ฉากแรก" else "➡️ Next"
+            prefs.edit().putInt(savedIndexKey,index).apply()
         }
+        previous.setOnClickListener { if(index>0) { index--; refresh() } }
+        next.setOnClickListener { if(index<scenes.lastIndex) { index++; refresh() } }
+        copy.setOnClickListener { currentCommand?.let { copyCommand(it) } }
+        val dialog=AlertDialog.Builder(this).setView(panel)
+            .setNeutralButton("บันทึกฉากนี้",null)
+            .setNegativeButton("ปิด",null)
+            .showDirector()
         dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.setOnClickListener {
-            currentCommand?.let { command -> copyCommand(command) }
-        }
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
-            index=if(index==scenes.lastIndex) 0 else index+1
-            refresh()
+            currentCommand?.let { command ->
+                prefs.edit().putString("pending_flow_code",command).apply()
+                flowCodePicker.launch("FLOW_AI_V2_EP${ep}_SCENE${index+1}.txt")
+            } ?: notice("ฉากนี้ยังไม่มีคำสั่ง AI V2")
         }
         refresh()
+        dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(24),-2)
     }
 
     private fun showFlowCode(title: String, code: String, filename: String): AlertDialog {
