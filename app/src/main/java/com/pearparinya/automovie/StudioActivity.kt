@@ -194,11 +194,26 @@ class StudioActivity : AppCompatActivity() {
         imageDone: ((Int) -> Boolean)? = null, toggleImageDone: ((Int) -> Unit)? = null,
         doneLabel: String = "สร้างรูป",
         inlineImageProgress: (() -> Pair<Int,Int>)? = null,
+        compactImageMenu: Boolean = false,
         action: (Int) -> Unit) {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(dp(16),dp(18),dp(16),dp(12))
             background = backdrop(Color.rgb(7,31,59),navy,Color.rgb(71,169,224))
         }
+        if(compactImageMenu) {
+            val lines=title.split("\n")
+            lines.forEachIndexed { index, line ->
+                panel.addView(TextView(this).apply {
+                    text=line
+                    textSize=if(index==0) 17f else if(index==1) 14f else 12f
+                    setTextColor(if(index==0) gold else if(index==lines.lastIndex) Color.rgb(143,231,180) else ice)
+                    setTypeface(null,if(index==0) Typeface.BOLD else Typeface.NORMAL)
+                    maxLines=1
+                    ellipsize=android.text.TextUtils.TruncateAt.END
+                    setPadding(0,0,0,dp(if(index==lines.lastIndex) 9 else 3))
+                })
+            }
+        } else {
         panel.addView(TextView(this).apply {
             val start=title.indexOf("สถานะ:")
             val decorated=android.text.SpannableString(title)
@@ -212,6 +227,7 @@ class StudioActivity : AppCompatActivity() {
             text = "✦ เลือกเมนูเพื่อดำเนินการ • กดย้อนกลับได้ทุกเมื่อ"
             textSize = 12f; setTextColor(Color.rgb(187,200,221)); setPadding(0,0,0,dp(10))
         })
+        }
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val scroll = ScrollView(this).apply { addView(list) }
         panel.addView(scroll,LinearLayout.LayoutParams(-1,-2))
@@ -236,9 +252,9 @@ class StudioActivity : AppCompatActivity() {
             }
             val row=LinearLayout(this).apply {
                 orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL
-                minimumHeight=dp(if(flowTools) 76 else 72); setPadding(dp(12),dp(10),dp(12),dp(10))
+                minimumHeight=dp(if(compactImageMenu) 54 else if(flowTools) 76 else 72); setPadding(dp(12),dp(if(compactImageMenu) 6 else 10),dp(12),dp(if(compactImageMenu) 6 else 10))
                 background=backdrop(palette[0],palette[1],palette[2]).apply { setStroke(dp(2),palette[2]) }
-                layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) }
+                layoutParams=LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(if(compactImageMenu) 7 else 10) }
                 isClickable=true; isFocusable=true
                 contentDescription="ตัวเลือก ${index+1}: $value"
                 val attr=android.util.TypedValue()
@@ -251,7 +267,7 @@ class StudioActivity : AppCompatActivity() {
                 setTypeface(null,Typeface.BOLD); gravity=Gravity.CENTER
                 background=backdrop(palette[2],palette[0])
                 importantForAccessibility=android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            },LinearLayout.LayoutParams(dp(38),dp(38)).apply { marginEnd=dp(12) })
+            },LinearLayout.LayoutParams(dp(if(compactImageMenu) 32 else 38),dp(if(compactImageMenu) 32 else 38)).apply { marginEnd=dp(if(compactImageMenu) 8 else 12) })
             if((title=="ตั้งค่าคีย์ API • ใช้อัตโนมัติ" && index<StoryProvider.activeProviders.size) || title=="หมวดช่อง • นายเปีย บ้านคลองขุด") {
                 val parts=value.split("\n", limit=2)
                 val labels=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
@@ -4717,17 +4733,21 @@ $context"""
                         audit.legacyCount>0 -> "🟢 API AI: Gen แล้ว ${audit.verified}/${audit.total} (ข้อมูลเดิม)"
                         else -> "🟢 API AI: Gen แล้ว ${audit.verified}/${audit.total}"
                     }
-                    val status="$genStatus\n✓ Kotlin: ผ่าน ${gate.verified}/${gate.total}"
-                    choiceMenu("สร้างภาพ • ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\n$status",
+                    val category=story.optString("category").ifBlank { "ยังไม่ระบุหมวดหมู่" }
+                    val compactStatus=(if(aiPromptRunning) "🔵 API Gen ${gate.verified}/${gate.total}" else if(audit.verified==0) "⚪ API ยังไม่ Gen" else "🟢 API Gen ${audit.verified}/${audit.total}")+
+                        " · Kotlin ${gate.verified}/${gate.total}"
+                    choiceMenu("🎬 สร้างภาพ\nเรื่อง: ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\nหมวด: $category\n$compactStatus",
                         (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}" }+
-                            listOf("✨ ตรวจสอบ / ปรับปรุง Prompt", "จัดการอุปกรณ์อ้างอิง"),
+                            listOf("✨ ตรวจสอบ / ปรับปรุง AI", "🧩 จัดการอุปกรณ์"),
+                        compactImageMenu=true
                     ) { i ->
                         when {
                             i in 0 until eps.length() -> {
                                 val number=eps.getJSONObject(i).optInt("ep")
-                                choiceMenu("EP.$number • เลือกวิธีเตรียมคำสั่งภาพ",
-                                    listOf("✨ ใช้คำสั่ง Kotlin + Prompt ที่ API ตรวจแล้ว",
-                                        "⚙️ ใช้คำสั่ง Kotlin เดิมโดยตรง")) { mode ->
+                                val epInfo=eps.getJSONObject(i)
+                                choiceMenu("🎬 สร้างภาพ EP.$number\nเรื่อง: ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\nEP.$number: ${epInfo.optString("title").ifBlank { "ยังไม่ระบุชื่อตอน" }}\nหมวด: $category",
+                                    listOf("✨ Kotlin + API ช่วยปรับปรุง", "⚙️ Kotlin เดิม"),
+                                    compactImageMenu=true) { mode ->
                                     if(mode==0 && !imageAiUnlocked(story)) {
                                         AlertDialog.Builder(this)
                                             .setTitle("Prompt ยังตรวจไม่ครบ")
