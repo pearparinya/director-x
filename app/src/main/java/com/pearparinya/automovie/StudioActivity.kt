@@ -3495,31 +3495,8 @@ $context"""
         }
         mainOptions.add("✨ ตรวจสอบ / ปรับปรุง Flow AI")
         mainActions.add {
-            if(readyEpisodes.isEmpty()) {
-                notice("ยังไม่มีคำสั่ง Flow • สร้างคำสั่ง Kotlin ก่อน")
-            } else {
-                choiceMenu("🎥 Flow AI • เลือก EP",readyEpisodes.map { ep ->
-                    val episode= (0 until eps.length()).map { eps.getJSONObject(it) }.firstOrNull { it.optInt("ep")==ep }
-                    val scenes=episode?.optJSONArray("scenes")
-                    val total=scenes?.length() ?: 0
-                    val done=(0 until total).count { verifiedFlowAi(scenes!!.getJSONObject(it)) }
-                    "EP.$ep • AI V2 $done/$total ฉาก • ตรวจสอบ / Gen AI"
-                },
-                    compactImageMenu=true) { selected ->
-                    val ep=readyEpisodes[selected]
-                    val epObject=(0 until eps.length()).map { eps.getJSONObject(it) }.firstOrNull { it.optInt("ep")==ep }
-                    val scenes=epObject?.optJSONArray("scenes")
-                    if(scenes==null || scenes.length()==0) notice("ไม่พบฉาก EP.$ep")
-                    else choiceMenu("🎥 Flow AI EP.$ep", (0 until scenes.length()).map { index ->
-                        val scene=scenes.getJSONObject(index)
-                        val valid=verifiedFlowAi(scene)
-                        "ฉาก ${scene.optInt("scene",index+1)} • ${if(valid) "AI V2 บันทึกแล้ว" else "AI V2 ยังไม่ยืนยัน"}"
-                    },compactImageMenu=true) { sceneIndex ->
-                        val scene=scenes.getJSONObject(sceneIndex)
-                        openFlowAiSceneDirect(scene)
-                    }
-                }
-            }
+            if(readyEpisodes.isEmpty()) notice("ยังไม่มีคำสั่ง Flow • สร้างคำสั่ง Kotlin ก่อน")
+            else startFlowAiBatch(allFlowScenes)
         }
         mainOptions.add("⚙️ ตั้งค่า API Flow")
         mainActions.add { flowApiSettings() }
@@ -4998,6 +4975,103 @@ $context"""
             }
             .setNegativeButton("ปิด",null)
             .showDirector()
+    }
+
+    // One tap starts processing the current story. Progress stays visible in this dialog;
+    // do not redirect to the EP selector. Only verified API results count as completed.
+    private fun startFlowAiBatch(scenes: List<JSONObject>) {
+        val providers=orderedFlowProviders()
+        if(providers.isEmpty()) {
+            notice("ยังไม่ได้ตั้งค่า API Flow • กรุณาตั้งค่า API ก่อน")
+            return
+        }
+        if(scenes.isEmpty()) { notice("ไม่พบฉากสำหรับปรับปรุง"); return }
+        val projectId=project.name
+        val originals=scenes.map { scene ->
+            runCatching { ShortFlowPrompt.build(flowSpec(scene),"Slow gentle pan.") }.getOrNull()
+        }
+        val validIndices=scenes.indices.filter { originals[it]!=null }
+        if(validIndices.isEmpty()) { notice("ไม่สามารถสร้างคำสั่ง Kotlin V1 ของฉากได้"); return }
+        val pending=validIndices.filter { index ->
+            val scene=scenes[index]
+            val original=originals[index]!!
+            runCatching {
+                val saved=JSONObject(flowApiFile(scene).readText(Charsets.UTF_8))
+                saved.optString("source_sha256")==promptHash(original) &&
+                    saved.optString("enhancement").length in 25..900 &&
+                    saved.optString("api_provider").isNotBlank() &&
+                    saved.optLong("updated_at_ms")>0L
+            }.getOrDefault(false).not()
+        }
+        if(pending.isEmpty()) {
+            notice("AI V2 ปรับปรุงครบ ${validIndices.size}/${scenes.size} ฉากแล้ว • กดดูผลปรับปรุง AI V2")
+            return
+        }
+        AlertDialog.Builder(this).setTitle("เริ่มปรับปรุง Flow AI V2")
+            .setMessage("จะปรับปรุง ${pending.size} ฉากที่ยังไม่สำเร็จ จากทั้งหมด ${scenes.size} ฉาก\\nAPI อาจใช้โควตาหรือมีค่าบริการ • คง MASTER บทพูด เสื้อผ้าและเวลาเดิม")
+            .setPositiveButton("เริ่มปรับปรุง") { _,_ ->
+                val status=TextView(this).apply {
+                    textSize=16f
+                    setTextColor(ice)
+                    setPadding(dp(20),dp(18),dp(20),dp(18))
+                    text="กำลังเริ่มปรับปรุง Flow AI V2 • 0/${scenes.size} ฉาก"
+                }
+                val progressDialog=AlertDialog.Builder(this)
+                    .setTitle("🎥 คำสั่ง Flow • กำลังปรับปรุง AI V2")
+                    .setView(status)
+                    .setNegativeButton("ทำงานต่อ") { _,_ -> }
+                    .showDirector()
+                Thread {
+                    var succeeded=validIndices.size-pending.size
+                    var failed=0
+                    for((position,index) in pending.withIndex()) {
+                        val scene=scenes[index]
+                        val original=originals[index]!!
+                        if(project.name!=projectId || isFinishing || isDestroyed) break
+                        runOnUiThread {
+                            status.text="กำลังปรับปรุงฉาก ${position+1}/${pending.size}\\nAI V2 สำเร็จ $succeeded/${scenes.size} ฉาก • ไม่สำเร็จ $failed"
+                        }
+                        val schema=JSONObject().put("type","object")
+                            .put("properties",JSONObject().put("enhancement",JSONObject().put("type","string")))
+                            .put("required",JSONArray().put("enhancement"))
+                        var addition=""
+                        var providerName=""
+                        for(provider in providers) {
+                            val instruction="Return JSON enhancement with 1-3 concise English sentences clarifying ONLY camera motion, framing and visual continuity for this 8-second Flow video. Do not modify or add any person, MASTER, appearance, clothing, dialogue, speaker, action, location, prop, timing, aspect ratio or plot. Do not invent details. Existing command:\\n"+original.take(14000)
+                            val result=runCatching {
+                                StoryClientFactory.create(provider,provider.key(this@StudioActivity),
+                                    provider.model(this@StudioActivity),{ project.name!=projectId },
+                                    automaticRetry=false,context=this@StudioActivity)
+                                    .generate(instruction,schema).optString("enhancement").trim()
+                            }.getOrDefault("")
+                            if(result.length in 25..900 &&
+                                listOf("wardrobe","outfit","master id","new character","additional person").none { result.contains(it,true) }) {
+                                addition=result
+                                providerName=provider.label
+                                break
+                            }
+                        }
+                        if(addition.isNotBlank() && project.name==projectId) {
+                            val written=runCatching {
+                                val file=flowApiFile(scene)
+                                file.parentFile?.mkdirs()
+                                file.writeText(JSONObject().put("source_sha256",promptHash(original))
+                                    .put("enhancement",addition).put("api_provider",providerName)
+                                    .put("scene_id",key(scene))
+                                    .put("updated_at_ms",System.currentTimeMillis()).toString(),Charsets.UTF_8)
+                            }.isSuccess
+                            if(written) succeeded++ else failed++
+                        } else failed++
+                    }
+                    runOnUiThread {
+                        if(!isFinishing && !isDestroyed) {
+                            status.text="ปรับปรุง Flow AI V2 เสร็จแล้ว\\nสำเร็จ $succeeded/${scenes.size} ฉาก • ไม่สำเร็จ $failed\\nกลับไปเปิดเมนูคำสั่ง Flow เพื่อดูผลและคัดลอก"
+                            progressDialog.setTitle("🎥 Flow AI V2 • ผลการปรับปรุง")
+                        }
+                    }
+                }.start()
+            }
+            .setNegativeButton("ยกเลิก",null).showDirector()
     }
 
     private fun flowApiEnhance(scene: JSONObject, original: String, copy: Boolean) {
