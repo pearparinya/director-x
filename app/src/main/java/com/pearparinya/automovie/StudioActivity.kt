@@ -5744,10 +5744,23 @@ $context"""
     }
     private fun startGeminiJob(folder: File) {
         if(GeminiStoryService.running) { notice("มีงานเขียนบทกำลังทำงานอยู่ กรุณารอหรือหยุดงานเดิมก่อน"); return }
-        runCatching {
-            val intent=Intent(this,GeminiStoryService::class.java).putExtra("project",folder.name)
-            androidx.core.content.ContextCompat.startForegroundService(this,intent)
-        }.onFailure { notice("เริ่มงานไม่ได้ กรุณาเปิดแอปค้างไว้แล้วลองใหม่") }
+        val intent=Intent(this,GeminiStoryService::class.java).putExtra("project",folder.name)
+        val foregroundFailure=runCatching {
+            checkNotNull(androidx.core.content.ContextCompat.startForegroundService(this,intent))
+        }.exceptionOrNull() ?: return
+        val fallback=runCatching {
+            check(lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED))
+            checkNotNull(startService(intent.putExtra(GeminiStoryService.VISIBLE_START,true)))
+        }
+        if(fallback.isSuccess) {
+            Toast.makeText(this,"กำลังเขียนบท • เปิดแอปไว้ระหว่างทำงาน",Toast.LENGTH_LONG).show()
+        } else {
+            val reason=fallback.exceptionOrNull()?.javaClass?.simpleName
+            AlertDialog.Builder(this).setTitle("ยังเริ่มงานเขียนบทไม่ได้")
+                .setMessage("ระบบเริ่มบริการไม่ได้ (${foregroundFailure.javaClass.simpleName} / $reason) • บันทึกการตั้งค่าเรื่องไว้แล้ว")
+                .setPositiveButton("ลองเริ่มเรื่องเดิม") { _,_ -> startGeminiJob(folder) }
+                .setNegativeButton("ปิด",null).showDirector()
+        }
     }
     private fun resolvePendingCharacterName() {
         if(GeminiStoryService.running) { notice("กรุณาหยุดงานก่อนแก้ชื่อ"); return }
