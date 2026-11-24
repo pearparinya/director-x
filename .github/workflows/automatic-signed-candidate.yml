@@ -73,17 +73,17 @@ jobs:
             ${{ runner.temp }}/candidate.apk
             ${{ runner.temp }}/candidate.apk.sha256
           retention-days: 7
-      - name: Compare with the published 6.26 APK
+      - name: Compare with the published 6.27 APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           current="$RUNNER_TEMP/candidate.apk"
-          if ! "$tools/aapt" dump badging "$current" | sed -n '1p' | grep -q "versionCode='1243'"; then exit 0; fi
-          gh release download v6.26-build1242 --repo "$GITHUB_REPOSITORY" --pattern '*.apk' --dir "$RUNNER_TEMP/previous"
+          if ! "$tools/aapt" dump badging "$current" | sed -n '1p' | grep -q "versionCode='1244'"; then exit 0; fi
+          gh release download v6.27-build1243 --repo "$GITHUB_REPOSITORY" --pattern '*.apk' --dir "$RUNNER_TEMP/previous"
           previous="$(find "$RUNNER_TEMP/previous" -name '*.apk')"
-          "$tools/aapt" dump badging "$previous" | sed -n '1p' | grep -F "name='com.pearparinya.automovie' versionCode='1242'"
+          "$tools/aapt" dump badging "$previous" | sed -n '1p' | grep -F "name='com.pearparinya.automovie' versionCode='1243'"
           for apk in "$previous" "$current"; do
             "$tools/apksigner" verify --print-certs "$apk" | sed -n 's/.*certificate SHA-256 digest: //p' | sort -u > "$apk.cert"
             test -s "$apk.cert"
@@ -91,9 +91,9 @@ jobs:
           diff "$previous.cert" "$current.cert"
           cat "$current.cert"
           sha256sum "$current"
-          echo "VERIFY_627_UPGRADE=true" >> "$GITHUB_ENV"
+          echo "VERIFY_628_UPGRADE=true" >> "$GITHUB_ENV"
       - name: Prepare local upgrade instrumentation
-        if: env.VERIFY_627_UPGRADE == 'true'
+        if: env.VERIFY_628_UPGRADE == 'true'
         env:
           STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -105,10 +105,10 @@ jobs:
           test_apk="$(find app/build/outputs/apk/androidTest -name '*.apk' -print -quit)"
           "$tools/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias "$KEY_ALIAS" --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD --out "$RUNNER_TEMP/upgrade-test.apk" "$test_apk"
       - name: Enable KVM for upgrade test
-        if: env.VERIFY_627_UPGRADE == 'true'
+        if: env.VERIFY_628_UPGRADE == 'true'
         run: sudo chmod 666 /dev/kvm
-      - name: Verify installation over 6.26 and retained project and MASTER files
-        if: env.VERIFY_627_UPGRADE == 'true'
+      - name: Verify installation over 6.27 and retained project and MASTER files
+        if: env.VERIFY_628_UPGRADE == 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
