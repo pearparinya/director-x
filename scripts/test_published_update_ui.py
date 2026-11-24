@@ -28,7 +28,8 @@ def click(label, seconds=90):
                 adb("shell", "input", "tap", str((x + right)//2), str((y + bottom)//2))
                 return
         time.sleep(1)
-    raise RuntimeError(f"Missing {label!r}; visible text: {[n.get(\x27text\x27) for n in tree.iter(\x27node\x27) if n.get(\x27text\x27)]}")
+    visible = [n.get("text") for n in tree.iter("node") if n.get("text")]
+    raise RuntimeError(f"Missing {label!r}, visible text: {visible}")
 
 
 def release(path):
