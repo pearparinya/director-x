@@ -6526,15 +6526,19 @@ $context"""
                 notice("ข้อมูลซีนยังไม่ครบหรือเปลี่ยนแล้ว กรุณาตรวจซีนก่อนผลิต"); return@choiceMenu
             }
             val code="SC"+number+" • 9:16 • ผลิต 8 วินาที • ใช้จริง "+scene.getLong("usable_ms")+" ms"
-            if(action==1) shareMusicSceneImage(draft,entry,code)
+            if(action==1) shareMusicSceneImage(draft,entry,code,number)
             else showFlowCode("FLOW PROMPT • MV SC"+number,code+"\nSTART STATE: "+entry.getString("start_state")+"\n"+entry.getString("flow_prompt")+"\nEND STATE: "+entry.getString("end_state")+"\nใช้เสียงเพลงต้นฉบับต่อเนื่อง ไม่สร้างเสียงร้องใหม่","MV_SC"+number+"_FLOW.txt")
         }
     }
-    private fun shareMusicSceneImage(draft: JSONObject, entry: JSONObject, code: String) {
+    private fun shareMusicSceneImage(draft: JSONObject, entry: JSONObject, code: String, number: Int) {
         val target=project
         val roster=readSupportingCast()
         val snapshot=roster.toString()
-        val checked=BooleanArray(roster.length())
+        val stored=entry.optJSONArray("supporting_master_ids") ?: JSONArray()
+        val selected=(0 until stored.length()).map { stored.optString(it) }.toSet()
+        val ids=(0 until roster.length()).map { FlowCast.id(roster.getJSONObject(it)) }
+        val missing=selected.filter { it.isBlank() || it !in ids }
+        val checked=BooleanArray(roster.length()) { ids[it] in selected }
         fun send() {
             runCatching {
                 require(project==target && musicReviewSnapshot(musicDraft())==musicReviewSnapshot(draft)) { "โปรเจกต์หรือข้อมูลซีนเปลี่ยนแล้ว กรุณาเปิดใหม่" }
@@ -6556,13 +6560,27 @@ $context"""
                 val command=code+"\nSTART STATE: "+entry.getString("start_state")+"\n"+entry.getString("image_prompt")+
                     "\nภาพอ้างอิงรายบุคคล:\n"+bindings.joinToString("\n")+
                     "\nใช้ใบหน้าและสีผิวจาก MASTER ของบุคคลที่ระบุเท่านั้น ห้ามสลับหรือผสมใบหน้า หากขาด MASTER ของตัวละครในฉากให้หยุดและขอภาพที่ตรงคน"
+                val latest=musicDraft()
+                val notes=latest.optJSONObject("scene_notes") ?: error("ไม่พบข้อมูลซีน")
+                val current=notes.optJSONObject(number.toString()) ?: error("ไม่พบข้อมูลซีน")
+                val chosen=JSONArray()
+                for(i in checked.indices) if(checked[i]) chosen.put(ids[i] ?: error("ข้อมูลตัวละครไม่ถูกต้อง"))
+                current.put("supporting_master_ids",chosen)
+                saveMusicDraft(latest)
                 shareText(command,includeMasters=false,referenceImages=references,destinationLabel="ChatGPT")
             }.onFailure { notice("ส่งคำสั่งภาพไม่สำเร็จ: "+it.message) }
         }
-        if(roster.length()==0) send()
-        else AlertDialog.Builder(this).setTitle("เลือกตัวละครสมทบที่อยู่ในซีน")
-            .setMultiChoiceItems(Array(roster.length()) { roster.getJSONObject(it).optString("name") },checked) { _,index,value -> checked[index]=value }
-            .setPositiveButton("ส่งพร้อม MASTER") { _,_ -> send() }
+        fun choose() {
+            if(roster.length()==0) send()
+            else AlertDialog.Builder(this).setTitle("เลือกตัวละครสมทบที่อยู่ในซีน")
+                .setMultiChoiceItems(Array(roster.length()) { roster.getJSONObject(it).optString("name") },checked) { _,index,value -> checked[index]=value }
+                .setPositiveButton("ส่งพร้อม MASTER") { _,_ -> send() }
+                .setNegativeButton("ยกเลิก",null).showDirector()
+        }
+        if(missing.isEmpty()) choose()
+        else AlertDialog.Builder(this).setTitle("ไม่พบตัวละครที่เคยเลือก")
+            .setMessage("ตัวละครที่บันทึกไว้ไม่อยู่ในรายการ: ${missing.joinToString(", ")}\nหากดำเนินการต่อ รายการที่หายจะถูกนำออกจากซีนเมื่อกดส่ง")
+            .setPositiveButton("เลือกใหม่") { _,_ -> choose() }
             .setNegativeButton("ยกเลิก",null).showDirector()
     }
     private fun showMusicTimeline() {
