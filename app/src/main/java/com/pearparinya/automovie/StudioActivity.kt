@@ -154,6 +154,8 @@ class StudioActivity : AppCompatActivity() {
     @Volatile private var aiPromptStart=0L
     @Volatile private var aiPromptKotlin="รอเริ่ม"
     @Volatile private var aiPromptApi="ยังไม่เรียก API"
+    @Volatile private var imageBatchProject=""
+    @Volatile private var imageFailures=0
     @Volatile private var aiPromptRunning=false
     @Volatile private var aiApiAttempts=0
     @Volatile private var aiApiSuccesses=0
@@ -3551,10 +3553,10 @@ $context"""
                 record.optLong("updated_at_ms")>0L
         }.getOrDefault(false)
         val completedFlowScenes=allFlowScenes.filter { verifiedFlowAi(it) }
-        val flowAiProgress="วิเคราะห์แล้ว ${completedFlowScenes.size}/${allFlowScenes.size} ฉาก"
+        val flowAiProgress=PromptMenuStatus.flow(completedFlowScenes.size, allFlowScenes.size, flowAiBatchRunning && flowBatchProject==project.name, if(flowBatchProject==project.name) flowFailures else 0)
         val mainOptions = mutableListOf<String>()
         val mainActions = mutableListOf<() -> Unit>()
-        mainOptions.add("📋 คำสั่ง Kotlin")
+        mainOptions.add("⚙️ ดูคำสั่ง Flow สร้างวิดีโอ\n(Kotlin)")
         mainActions.add {
             if (episodeNumbers.isEmpty()) notice("ยังไม่มีตอนสำหรับคำสั่ง Kotlin")
             else choiceMenu("📋 คำสั่ง Kotlin • เลือกตอน", episodeNumbers.map { ep ->
@@ -3563,7 +3565,7 @@ $context"""
                 "EP.$ep • $episodeTitle\n" + if (ep in readyEpisodes) "พร้อมใช้งาน" else "ยังไม่มีคำสั่ง"
             }) { selected -> openEpisode(episodeNumbers[selected]) }
         }
-        mainOptions.add("📄 คำสั่ง Flow AI")
+        mainOptions.add("📄 ดูคำสั่ง Flow สร้างวิดีโอ\n(AI + Kotlin)")
         mainActions.add {
             if (episodeNumbers.isEmpty()) notice("ยังไม่มีตอนสำหรับคำสั่ง Flow AI")
             else choiceMenu("📄 คำสั่ง Flow AI • เลือกตอน", episodeNumbers.map { ep ->
@@ -3581,7 +3583,7 @@ $context"""
                 else showFlowAiPager(ep,sceneList,0)
             }
         }
-        mainOptions.add("✨ วิเคราะห์ AI")
+        mainOptions.add("✨ ปรับคำสั่ง Flow สร้างวิดีโอ\n(AI + Kotlin)")
         mainActions.add {
             if(!storyPassed) productionCheckMenu(story)
             else startFlowAiBatch(allFlowScenes)
@@ -3591,9 +3593,9 @@ $context"""
         mainOptions.add("🔵 ตรวจบท / สร้างคำสั่ง Kotlin ใหม่")
         mainActions.add { moreTools() }
         val category=story.optString("category").trim().replace(Regex("""\s*[（(][^()（）]*[)）]\s*$"""),"").ifBlank { "ยังไม่ระบุหมวด" }
-        val mode=if(prefs.getBoolean("flow_api_assist_enabled",false)) "AI เปิด" else "Kotlin เปิด"
+        val mode=if(prefs.getBoolean("flow_api_assist_enabled",false)) "AI" else "Kotlin"
         choiceMenu(
-            "🎥 คำสั่ง Flow\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}\nหมวด: $category\n${flowAiProgress} · $mode",
+            "🎥 คำสั่ง Flow\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}\nหมวด: $category\n$flowAiProgress\nโหมดปัจจุบัน · $mode",
             mainOptions,compactImageMenu=true
         ) { selected -> mainActions[selected].invoke() }
     }
@@ -4045,13 +4047,13 @@ $context"""
     private fun imageAiUnlocked(story: JSONObject): Boolean = imagePromptGate(story).unlocked
 
     private fun showImageAnalysisProgress() {
-        val dialog=AlertDialog.Builder(this).setTitle("วิเคราะห์คำสั่งภาพ")
+        val dialog=AlertDialog.Builder(this).setTitle("ปรับคำสั่งสร้างภาพ (AI + Kotlin)")
             .setMessage("กำลังตรวจคำสั่งภาพ").setPositiveButton("ปิด",null).showDirector()
         val handler=android.os.Handler(android.os.Looper.getMainLooper())
         val update=object: Runnable {
             override fun run() {
                 if(!dialog.isShowing) return
-                dialog.setMessage("ตรวจผ่าน $aiPromptDone/$aiPromptTotal รายการ\n$aiPromptApi\n$aiPromptKotlin")
+                dialog.setMessage(PromptMenuStatus.image(aiPromptDone,aiPromptTotal,aiPromptRunning,imageFailures)+"\n$aiPromptApi\n$aiPromptKotlin")
                 if(aiPromptRunning) handler.postDelayed(this,800)
             }
         }
@@ -4083,6 +4085,7 @@ $context"""
         }
         val projectId=project.name
         val snapshot=story.toString()
+        imageBatchProject=projectId; imageFailures=0
         aiPromptRunning=true; aiPromptDone=verifiedImagePromptCount(entries); aiPromptTotal=entries.size
         aiPromptStart=System.currentTimeMillis()
         aiApiAttempts=0; aiApiSuccesses=0; aiApiTotal=(entries.size-aiPromptDone).coerceAtLeast(0)
@@ -4139,6 +4142,7 @@ $context"""
                     }.isSuccess
                     if(!saved) failures++ else aiApiSuccesses++
                 }
+                imageFailures=failures
                 aiApiAttempts++
                 aiPromptDone=verifiedImagePromptCount(entries)
             }
@@ -5022,24 +5026,22 @@ $context"""
                         else -> "🟢 API AI: Gen แล้ว ${audit.verified}/${audit.total}"
                     }
                     val category=story.optString("category").trim().replace(Regex("""\s*[（(][^()（）]*[)）]\s*$"""),"").ifBlank { "ยังไม่ระบุหมวดหมู่" }
-                    val compactStatus=(if(aiPromptRunning) "🔵 AI กำลังตรวจ ${audit.verified}/${audit.total}"
-                        else if(audit.verified==0) "⚪ AI ยังไม่ตรวจ"
-                        else if(audit.legacyCount>0) "🟠 AI ${audit.verified}/${audit.total} • ข้อมูลเดิม"
-                        else "🟢 AI ${audit.verified}/${audit.total}")+
-                        " · Kotlin ${gate.verified}/${gate.total}"
+                    val compactStatus=gate.error?.let { gate.reason } ?: PromptMenuStatus.image(
+                        gate.verified,gate.total,aiPromptRunning && imageBatchProject==project.name,
+                        if(imageBatchProject==project.name) imageFailures else 0)
                     choiceMenu("🎬 สร้างภาพ\nเรื่อง: ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\nหมวดหมู่: $category\n$compactStatus",
                         (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}\n${ep.optJSONArray("scenes")?.length() ?: 0} ฉาก" }+
-                            listOf("✨ วิเคราะห์ AI", "🧩 จัดการอุปกรณ์"),
+                            listOf("✨ ปรับคำสั่งสร้างภาพ\n(AI + Kotlin)", "🧩 จัดการอุปกรณ์ประกอบฉาก"), cancel="ปิด",
                         compactImageMenu=true
                     ) { i ->
                         when {
                             i in 0 until eps.length() -> {
                                 val number=eps.getJSONObject(i).optInt("ep")
                                 val epInfo=eps.getJSONObject(i)
-                                choiceMenu("🎬 สร้างภาพ EP.$number\nเรื่อง: ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\nหมวดหมู่: $category\n${epInfo.optString("title").ifBlank { "ยังไม่ระบุชื่อตอน" }}",
-                                    listOf("✨ ใช้คำสั่ง AI", "⚙️ ใช้คำสั่ง Kotlin"),
+                                choiceMenu("🎬 เลือกคำสั่งสร้างภาพ · EP.$number\nเรื่อง: ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\nหมวดหมู่: $category\n${epInfo.optString("title").ifBlank { "ยังไม่ระบุชื่อตอน" }}",
+                                    listOf("⚙️ ใช้คำสั่งสร้างภาพ\n(Kotlin)", "✨ ใช้คำสั่งสร้างภาพ\n(AI + Kotlin)" + if(ready) "" else "\nเตรียมคำสั่งได้ที่ «ปรับคำสั่งสร้างภาพ»"),
                                     compactImageMenu=true) { mode ->
-                                    if(mode==0 && !imageAiUnlocked(story)) {
+                                    if(mode==1 && !imageAiUnlocked(story)) {
                                         AlertDialog.Builder(this)
                                             .setTitle("Prompt ยังตรวจไม่ครบ")
                                             .setMessage("API ยังตรวจผ่านเพียง ${imagePromptGate(story).reason}\\nต้องการเริ่ม API ช่วยตรวจ Prompt ก่อนหรือไม่? ไม่มีการเรียก API จนกว่าจะยืนยัน")
@@ -5049,7 +5051,7 @@ $context"""
                                                 openImageEpisodeSafely(story,number)
                                             }.showDirector()
                                     } else {
-                                        prefs.edit().putBoolean("image_api_assist_${project.name}",mode==0).apply()
+                                        prefs.edit().putBoolean("image_api_assist_${project.name}",mode==1).apply()
                                         openImageEpisodeSafely(story,number)
                                     }
                                 }
@@ -5231,6 +5233,8 @@ $context"""
 
     // One tap starts processing the current story. Progress stays visible in this dialog;
     // do not redirect to the EP selector. Only verified API results count as completed.
+    @Volatile private var flowBatchProject=""
+    @Volatile private var flowFailures=0
     @Volatile private var flowAiBatchRunning = false
 
     private fun startFlowAiBatch(scenes: List<JSONObject>, onComplete: (() -> Unit)? = null) {
@@ -5269,6 +5273,8 @@ $context"""
             .setMessage("จะปรับปรุง ${pending.size} ฉากที่ยังไม่สำเร็จ จากทั้งหมด ${scenes.size} ฉาก\nAPI อาจใช้โควตาหรือมีค่าบริการ • คง MASTER บทพูด เสื้อผ้าและเวลาเดิม")
             .setPositiveButton("เริ่มปรับปรุง") { _,_ ->
                 if(flowAiBatchRunning) { notice("Flow AI กำลังทำงานอยู่"); return@setPositiveButton }
+                flowBatchProject=projectId
+                flowFailures=scenes.size-validIndices.size
                 flowAiBatchRunning=true
                 val status=TextView(this).apply {
                     textSize=16f
@@ -5288,7 +5294,7 @@ $context"""
                         val scene=scenes[index]
                         val original=originals[index]!!
                         if(project.name!=projectId || isFinishing || isDestroyed) break
-                        val progressText="กำลังปรับปรุงฉาก ${index+1}/${scenes.size}\nสำเร็จ $succeeded/${scenes.size} ฉาก • ไม่สำเร็จ $failed"
+                        val progressText=PromptMenuStatus.flow(succeeded,scenes.size,true,failed)
                         runOnUiThread { status.text=progressText }
                         val schema=JSONObject().put("type","object")
                             .put("properties",JSONObject().put("enhancement",JSONObject().put("type","string")))
@@ -5321,11 +5327,12 @@ $context"""
                             }.isSuccess
                             if(written) succeeded++ else failed++
                         } else failed++
+                        flowFailures=failed
                     }
                     flowAiBatchRunning=false
                     runOnUiThread {
                         if(!isFinishing && !isDestroyed) {
-                            status.text="ปรับปรุงคำสั่ง Flow เสร็จแล้ว\nสำเร็จ $succeeded/${scenes.size} ฉาก • ไม่สำเร็จ $failed\nกลับไปเปิดเมนูคำสั่ง Flow เพื่อดูผลและคัดลอก"
+                            status.text=PromptMenuStatus.flow(succeeded,scenes.size,false,failed)
                             progressDialog.setTitle("🎥 Flow AI • ผลการปรับปรุง")
                             progressDialog.getButton(AlertDialog.BUTTON_NEGATIVE).text="ปิด"
                             if(project.name==projectId) onComplete?.invoke()
@@ -7702,6 +7709,8 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         projectId: String, snapshot: String, back: (() -> Unit)?) {
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
         panel.addView(TextView(this).apply { text="บทเดิม:\n$original\n\nตรวจความหมาย เหตุการณ์ และทดลองอ่านให้เหมาะกับ 8 วินาที ก่อนยืนยัน" })
+        panel.isFocusableInTouchMode=true
+        panel.requestFocus()
         val edit=EditText(this).apply { setText(proposal); minLines=3; panel.addView(this) }
         val dialog=AlertDialog.Builder(this).setTitle("ตรวจข้อเสนอบท • ${key(scene)}").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันและบันทึก",null).setNegativeButton("ใช้บทเดิม",null).showNavigationDirector(back)
         dialog.getButton(-1).setOnClickListener {
