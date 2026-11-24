@@ -178,7 +178,17 @@ class FlowProductionPackTest {
                 instrumentation.waitForIdleSync()
                 val root = instrumentation.uiAutomation.rootInActiveWindow
                 if (root != null) {
-                    val nodes = root.findAccessibilityNodeInfosByText(label)
+                    // Custom menu tiles expose their labels as content descriptions.
+                    // Traverse both text and descriptions, including scroll containers.
+                    val nodes = mutableListOf<android.view.accessibility.AccessibilityNodeInfo>()
+                    val scrolls = mutableListOf<android.view.accessibility.AccessibilityNodeInfo>()
+                    fun collect(node: android.view.accessibility.AccessibilityNodeInfo) {
+                        if (node.text?.toString()?.contains(label) == true ||
+                            node.contentDescription?.toString()?.contains(label) == true) nodes.add(node)
+                        if (node.isScrollable && node.isVisibleToUser) scrolls.add(node)
+                        for (i in 0 until node.childCount) node.getChild(i)?.let { collect(it) }
+                    }
+                    collect(root)
                     for (node in nodes) {
                         if (!node.isVisibleToUser) continue
                         if (!click) return
@@ -189,8 +199,12 @@ class FlowProductionPackTest {
                             target = target.parent
                         }
                     }
+                    // Home tiles may be below the fold; scroll the real UI, not a hidden view.
+                    if (scrolls.none { it.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) }) {
+                        scrolls.any { it.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) }
+                    }
                 }
-                android.os.SystemClock.sleep(100L)
+                android.os.SystemClock.sleep(250L)
             } while (android.os.SystemClock.uptimeMillis() < deadline)
             fail("Timed out waiting for ${if (click) "enabled control" else "visible text"}: $label")
         }
