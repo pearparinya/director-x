@@ -6526,14 +6526,44 @@ $context"""
                 notice("ข้อมูลซีนยังไม่ครบหรือเปลี่ยนแล้ว กรุณาตรวจซีนก่อนผลิต"); return@choiceMenu
             }
             val code="SC"+number+" • 9:16 • ผลิต 8 วินาที • ใช้จริง "+scene.getLong("usable_ms")+" ms"
-            if(action==1) runCatching {
-                installPiaDefaults()
-                val master=piaSelectedMaster()
-                val exported=masterExportName(master,false) ?: error("อ่าน MASTER ไม่ได้")
-                shareText(code+"\nSTART STATE: "+entry.getString("start_state")+"\n"+entry.getString("image_prompt")+"\nMASTER ที่แนบเป็นของนายเปียเท่านั้น ห้ามใช้แทนบุคคลอื่น หากขาด MASTER ตัวละครสมทบให้หยุดและขอภาพที่ตรงคน",includeMasters=false,referenceImages=listOf(exported to master),destinationLabel="ChatGPT")
-            }.onFailure { notice("ส่งคำสั่งภาพไม่สำเร็จ: "+it.message) }
+            if(action==1) shareMusicSceneImage(draft,entry,code)
             else showFlowCode("FLOW PROMPT • MV SC"+number,code+"\nSTART STATE: "+entry.getString("start_state")+"\n"+entry.getString("flow_prompt")+"\nEND STATE: "+entry.getString("end_state")+"\nใช้เสียงเพลงต้นฉบับต่อเนื่อง ไม่สร้างเสียงร้องใหม่","MV_SC"+number+"_FLOW.txt")
         }
+    }
+    private fun shareMusicSceneImage(draft: JSONObject, entry: JSONObject, code: String) {
+        val target=project
+        val roster=readSupportingCast()
+        val snapshot=roster.toString()
+        val checked=BooleanArray(roster.length())
+        fun send() {
+            runCatching {
+                require(project==target && musicReviewSnapshot(musicDraft())==musicReviewSnapshot(draft)) { "โปรเจกต์หรือข้อมูลซีนเปลี่ยนแล้ว กรุณาเปิดใหม่" }
+                require(readSupportingCast().toString()==snapshot) { "รายการตัวละครเปลี่ยนแล้ว กรุณาเลือกใหม่" }
+                installPiaDefaults()
+                val master=piaSelectedMaster()
+                val lead=masterExportName(master,false)?.substringBeforeLast('.') ?: error("อ่าน MASTER นายเปียไม่ได้")
+                val references=mutableListOf(lead to master)
+                val bindings=mutableListOf("$lead → นายเปีย บ้านคลองขุด")
+                for(i in checked.indices) if(checked[i]) {
+                    val person=roster.getJSONObject(i)
+                    val id=FlowCast.id(person) ?: error("ข้อมูลตัวละครไม่ถูกต้อง")
+                    val file=File(filesDir,"supporting_masters/$id.master")
+                    val name=masterExportName(file,false)?.substringBeforeLast('.') ?: error("อ่าน MASTER ของ ${person.optString("name")} ไม่ได้")
+                    require(references.none { it.first==name }) { "ชื่อไฟล์ MASTER ซ้ำ กรุณาตรวจตัวละคร" }
+                    references.add(name to file)
+                    bindings.add("$name → ${person.getString("name")}")
+                }
+                val command=code+"\nSTART STATE: "+entry.getString("start_state")+"\n"+entry.getString("image_prompt")+
+                    "\nภาพอ้างอิงรายบุคคล:\n"+bindings.joinToString("\n")+
+                    "\nใช้ใบหน้าและสีผิวจาก MASTER ของบุคคลที่ระบุเท่านั้น ห้ามสลับหรือผสมใบหน้า หากขาด MASTER ของตัวละครในฉากให้หยุดและขอภาพที่ตรงคน"
+                shareText(command,includeMasters=false,referenceImages=references,destinationLabel="ChatGPT")
+            }.onFailure { notice("ส่งคำสั่งภาพไม่สำเร็จ: "+it.message) }
+        }
+        if(roster.length()==0) send()
+        else AlertDialog.Builder(this).setTitle("เลือกตัวละครสมทบที่อยู่ในซีน")
+            .setMultiChoiceItems(Array(roster.length()) { roster.getJSONObject(it).optString("name") },checked) { _,index,value -> checked[index]=value }
+            .setPositiveButton("ส่งพร้อม MASTER") { _,_ -> send() }
+            .setNegativeButton("ยกเลิก",null).showDirector()
     }
     private fun showMusicTimeline() {
         val draft=musicDraft()
