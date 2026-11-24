@@ -1871,10 +1871,13 @@ class StudioActivity : AppCompatActivity() {
     private fun offerFlowTranslation(story: JSONObject,scene: JSONObject,spec: FlowSceneSpec,camera: String,silent: Boolean) {
         val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
         val fields=ShortFlowPrompt.untranslatedFields(spec,camera).joinToString(" / ").ifBlank { "คำกำกับฉาก" }
-        AlertDialog.Builder(this).setTitle("เตรียมคำสั่ง Flow")
+        val request = AlertDialog.Builder(this).setTitle("เตรียมคำสั่ง Flow")
             .setMessage("$fields ยังมีภาษาไทย ต้องแปลเป็นอังกฤษก่อนคัดลอก • บทพูด/บรรยายภาษาไทยคงเดิม\n\nใช้ AI แปลเฉพาะคำกำกับ แล้วตรวจผลก่อนคัดลอก (ใช้โควตา API) หรือเลือกแก้ด้วยตนเอง")
-            .setPositiveButton("ให้ AI แปล") { _,_ ->
-                if(providers.isEmpty()) { notice("ยังไม่มี API ที่เลือกและตั้งคีย์ไว้ กรุณาตั้งค่า API หรือแก้ซีนด้วยตนเอง"); return@setPositiveButton }
+            .setPositiveButton("ให้ AI แปล", null)
+            .setNeutralButton("แก้ซีนเอง") { _,_ -> editScene(scene) }
+            .setNegativeButton("ยกเลิก", null).showNavigationDirector()
+        request.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                if(providers.isEmpty()) { notice("ยังไม่มี API ที่เลือกและตั้งคีย์ไว้ กรุณาตั้งค่า API หรือแก้ซีนด้วยตนเอง"); return@setOnClickListener }
                 val projectId=project.name; val snapshot=scene.toString()
                 val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
                 val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
@@ -1891,16 +1894,16 @@ class StudioActivity : AppCompatActivity() {
                     }
                     val result=value
                     runOnUiThread {
-                        if(stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
+                        if(stopped.get() || !loading.isShowing || !request.isShowing || isFinishing || isDestroyed) return@runOnUiThread
                         active.set(null); loading.dismiss()
                         if(project.name!=projectId || plan!==story || scene.toString()!=snapshot) { notice("ซีนเปลี่ยนระหว่างแปล กรุณาลองใหม่"); return@runOnUiThread }
                         if(result==null) { notice("ยังแปลคำกำกับไม่ได้ • ตรวจ API หรือกดแก้ซีนด้วยตนเอง • ไม่มีการเปลี่ยนบท"); return@runOnUiThread }
                         val text="ตรวจคำแปลเทียบกับบทก่อนคัดลอก • การแปลนี้ไม่แก้บทที่บันทึก\n\nการกระทำเดิม: ${spec.action}\n\nคำแปล: ${result.first.action}\n\nตำแหน่งและเสื้อผ้า (ตรวจให้ตรงกับภาพ): ${result.first.cast.mapIndexed { i,p -> "Character ${i+1}: ${p.position}, ${ShortFlowPrompt.clothing(p).ifBlank { "ไม่ระบุเสื้อ" }} (เดิม: ${ShortFlowPrompt.clothing(spec.cast[i]).ifBlank { "ไม่ระบุ" }})" }.joinToString("; ")}\n\nเสียงฉาก: ${result.first.sound.ifBlank { "ไม่มี" }}\n\nบทพูด/บรรยายภาษาไทยคงเดิม\n\n${result.second}"
                         AlertDialog.Builder(this).setTitle("ตรวจคำแปลก่อนคัดลอก").setView(ScrollView(this).apply { addView(TextView(context).apply { setPadding(dp(18),dp(12),dp(18),dp(12)); this.text=text; setTextIsSelectable(true) }) })
-                            .setPositiveButton("คัดลอกคำสั่ง Flow") { _,_ -> copyCommand(result.second) }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
+                            .setPositiveButton("คัดลอกคำสั่ง Flow") { _,_ -> request.dismiss(); copyCommand(result.second) }.setNegativeButton("ย้อนกลับ",null).showDirector()
                     }
                 }.start()
-            }.setNeutralButton("แก้ซีนเอง") { _,_ -> editScene(scene) }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
+        }
     }
     private fun wardrobeSourceKey(projectName: String, id: String, digest: String, person: JSONObject): String {
         val outfitDigest=MasterLibrary.digest(person.optString("outfit").trim().toByteArray(Charsets.UTF_8))
