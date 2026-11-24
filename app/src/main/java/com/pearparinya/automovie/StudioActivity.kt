@@ -6132,7 +6132,9 @@ $context"""
         check(tmp.renameTo(file)) { "บันทึกเพลงไม่สำเร็จ" }
     }
     private fun editMusicField(title: String, field: String, multiline: Boolean=false) {
+        val target=project
         val draft=musicDraft()
+        val original=draft.optString(field)
         val input=EditText(this).apply {
             setText(draft.optString(field))
             hint=title
@@ -6140,21 +6142,32 @@ $context"""
         }
         AlertDialog.Builder(this).setTitle(title).setView(input)
             .setPositiveButton("บันทึก") { _,_ ->
-                draft.put(field,input.text.toString().trim())
-                runCatching { saveMusicDraft(draft) }.onFailure { notice("บันทึกไม่สำเร็จ: ${it.message}") }
+                runCatching {
+                    require(project==target) { "โปรเจกต์เปลี่ยนแล้ว กรุณาเปิดใหม่" }
+                    val latest=musicDraft()
+                    require(latest.optString(field)==original) { "ข้อมูลนี้เปลี่ยนแล้ว กรุณาเปิดแก้ไขใหม่" }
+                    latest.put(field,input.text.toString().trim())
+                    saveMusicDraft(latest)
+                }.onFailure { notice("บันทึกไม่สำเร็จ: ${it.message}") }
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
     private fun musicGenres() {
+        val target=project
         val names=listOf("ลูกทุ่ง","เพื่อชีวิต","ป๊อป","เพลงเศร้า","เพลงรัก","เพลงใต้และเพลงท้องถิ่น","เพลงสนุกสนาน","เพลงครอบครัว","เพลงให้กำลังใจ","เพลงเล่าเรื่อง","เพลงอะคูสติก","เพลงย้อนยุค")
         val draft=musicDraft()
         val current=draft.optJSONArray("genres") ?: JSONArray()
+        val original=current.toString()
         val checked=BooleanArray(names.size) { i -> (0 until current.length()).any { current.optString(it)==names[i] } }
         AlertDialog.Builder(this).setTitle("🎶 แนวเพลง • เลือกได้หลายแนว")
             .setMultiChoiceItems(names.toTypedArray(),checked) { _,index,value -> checked[index]=value }
             .setPositiveButton("บันทึก") { _,_ ->
-                draft.put("genres",JSONArray().apply { names.forEachIndexed { i,name -> if(checked[i]) put(name) } })
-                saveMusicDraft(draft)
-                musicSettings()
+                runCatching {
+                    require(project==target) { "โปรเจกต์เปลี่ยนแล้ว กรุณาเปิดใหม่" }
+                    val latest=musicDraft()
+                    require((latest.optJSONArray("genres") ?: JSONArray()).toString()==original) { "แนวเพลงเปลี่ยนแล้ว กรุณาเปิดแก้ไขใหม่" }
+                    latest.put("genres",JSONArray().apply { names.forEachIndexed { i,name -> if(checked[i]) put(name) } })
+                    saveMusicDraft(latest)
+                }.onSuccess { musicSettings() }.onFailure { notice("บันทึกไม่สำเร็จ: ${it.message}") }
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
     private var musicAudioProject: File? = null
@@ -6475,6 +6488,7 @@ $context"""
         val key=scene.getInt("scene").toString()
         val notes=draft.optJSONObject("scene_notes") ?: JSONObject()
         val saved=notes.optJSONObject(key)
+        val original=saved?.toString()
         val panel=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(16),dp(8),dp(16),dp(8)) }
         val fields=listOf("lyrics" to "ท่อนเพลง / ไทม์โค้ด", "start_state" to "START STATE", "end_state" to "END STATE", "image_prompt" to "Image Prompt", "flow_prompt" to "Flow Prompt")
         val inputs=fields.map { (id,label) ->
@@ -6488,6 +6502,7 @@ $context"""
                     val latest=musicDraft()
                     require(musicDurationMs(latest)==musicDurationMs(draft)) { "ระยะเวลาเพลงเปลี่ยนแล้ว กรุณาเปิดซีนใหม่" }
                     val all=latest.optJSONObject("scene_notes") ?: JSONObject()
+                    require(all.optJSONObject(key)?.toString()==original) { "ข้อมูลซีนเปลี่ยนแล้ว กรุณาเปิดแก้ไขใหม่" }
                     val entry=all.optJSONObject(key) ?: JSONObject()
                     fields.forEachIndexed { i,field -> entry.put(field.first,inputs[i].text.toString().trim()) }
                     entry.put("start_ms",scene.getLong("start_ms")).put("end_ms",scene.getLong("end_ms"))
