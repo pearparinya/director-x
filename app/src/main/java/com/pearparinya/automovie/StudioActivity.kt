@@ -205,6 +205,14 @@ class StudioActivity : AppCompatActivity() {
         return dialog
     }
 
+    private fun AlertDialog.Builder.createNavigationDirector(): AlertDialog {
+        val back = pendingMenuBack
+        pendingMenuBack = null
+        if (back != null) setNegativeButton("◀ ย้อนกลับ") { _, _ -> back.invoke() }
+        val dialog = create()
+        if (back != null) dialog.setOnCancelListener { back.invoke() }
+        return dialog
+    }
     private fun choiceMenu(title: String, choices: List<String>, cancel: String = "✖️ ยกเลิก",
         cancelable: Boolean = true, onCancel: (() -> Unit)? = null,
         imageDone: ((Int) -> Boolean)? = null, toggleImageDone: ((Int) -> Unit)? = null,
@@ -1004,7 +1012,7 @@ class StudioActivity : AppCompatActivity() {
                 val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
                 panel.addView(search); panel.addView(count)
                 panel.addView(ScrollView(this).apply { addView(grid) },LinearLayout.LayoutParams(-1,dp(420)))
-                val dialog=AlertDialog.Builder(this).setTitle("คลัง MASTER • $category").setView(panel).setNegativeButton("ปิด",null).create()
+                val dialog=AlertDialog.Builder(this).setTitle("คลัง MASTER • $category").setView(panel).setNegativeButton("ปิด",null).createNavigationDirector()
                 fun show(query: String) {
                     grid.removeAllViews()
                     val found=all.filter { (category=="ทั้งหมด" || it.category==category) && (it.name+" "+it.id+" "+shortIds[legacyKey(it)].orEmpty()).contains(query,ignoreCase=true) }
@@ -7576,7 +7584,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         }
         val dialog=AlertDialog.Builder(this).setTitle("เลือกตัวละครทดสอบวิดีโอ")
             .setView(ScrollView(this).apply { addView(grid) })
-            .setPositiveButton("ตั้งค่าฉาก",null).setNegativeButton("ยกเลิก",null).create()
+            .setPositiveButton("ตั้งค่าฉาก",null).setNegativeButton("ยกเลิก",null).createNavigationDirector()
         dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             val selected=ids.filterIndexed { i,_ -> checked[i] }
             if(selected.isEmpty()) Toast.makeText(this,"เลือกอย่างน้อย 1 คน",Toast.LENGTH_SHORT).show()
@@ -8088,7 +8096,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         val checks=listOf("ตรวจใบหน้า ผม และตัวตนตรง MASTER รายคนแล้ว","ตรวจรูปร่าง หน้าอก เอว สะโพก และแขนตามต้นฉบับแล้ว","ตรวจชุด สีภาพ มือ และอุปกรณ์แล้ว","ตรวจตำแหน่งและผู้พูดในภาพจริงแล้ว").map { label -> CheckBox(this).apply { text=label; panel.addView(this) } }
         val speaker=EditText(this).apply { hint="ผู้พูดหนึ่งคน (ชื่อในรายการ) หรือว่างเมื่อไม่มีบทพูด"; setText(s.optString("speaker")); panel.addView(this) }
         val dialog=AlertDialog.Builder(this).setTitle("ยืนยันภาพฉาก • ${key(s)}")
-            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันภาพและเปิดคำสั่ง",null).setNegativeButton("ยกเลิก",null).create()
+            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันภาพและเปิดคำสั่ง",null).setNegativeButton("ยกเลิก",null).createNavigationDirector()
         dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             if(checks.any { !it.isChecked }) { notice("ตรวจภาพและทำเครื่องหมายให้ครบก่อนยืนยัน"); return@setOnClickListener }
             val candidate=JSONObject(s.toString())
@@ -8325,7 +8333,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
     }
     private fun chooseNamedCharacterGrid(title: String, items: List<Pair<String,File?>>, onSelect: (Int) -> Unit) {
         val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-        val dialog=AlertDialog.Builder(this).setTitle(title).setView(ScrollView(this).apply { addView(grid) }).setNegativeButton("ยกเลิก",null).create()
+        val dialog=AlertDialog.Builder(this).setTitle(title).setView(ScrollView(this).apply { addView(grid) }).setNegativeButton("ยกเลิก",null).createNavigationDirector()
         var row: LinearLayout?=null
         items.forEachIndexed { index, (name,file) ->
             if(index%2==0) { row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; grid.addView(row) }
@@ -8352,7 +8360,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             textSize=13f; setTextColor(ice); setPadding(dp(4),0,dp(4),dp(14))
         })
         val dialog=AlertDialog.Builder(this).setView(ScrollView(this).apply { addView(grid) })
-            .setNegativeButton("กลับ",null).create()
+            .setNegativeButton("กลับ",null).createNavigationDirector()
         var row: LinearLayout?=null
         people.forEachIndexed { index, person ->
             if(index%2==0) {
@@ -8834,7 +8842,7 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
         }
         val panel=LinearLayout(this).apply { orientation=1; gravity=Gravity.CENTER; addView(view) }
         val dialog=AlertDialog.Builder(this).setTitle(if(crop) "ตัวอย่างครอปกึ่งกลาง 9:16" else "ตัวอย่างเว้นขอบ 9:16").setView(panel)
-            .setPositiveButton("ใช้รูปแบบนี้") { _,_ -> proceed() }.setNegativeButton("ยกเลิก",null).create()
+            .setPositiveButton("ใช้รูปแบบนี้") { _,_ -> proceed() }.setNegativeButton("ยกเลิก",null).createNavigationDirector()
         dialog.setOnDismissListener { view.setImageDrawable(null); bitmap?.recycle() }; dialog.show()
     }
     private fun movieProgress(ep: Int) {
