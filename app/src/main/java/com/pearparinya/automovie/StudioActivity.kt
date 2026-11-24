@@ -331,8 +331,14 @@ class StudioActivity : AppCompatActivity() {
                 }
                 refresh()
                 doneButton.setOnClickListener {
-                    toggleImageDone(index)
+                    val position = scroll.scrollY
                     dialog.dismiss()
+                    pendingMenuBack = parentMenu
+                    pendingMenuScroll = position
+                    try { toggleImageDone(index) } finally {
+                        pendingMenuBack = null
+                        pendingMenuScroll = 0
+                    }
                 }
                 val card = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
@@ -402,6 +408,15 @@ class StudioActivity : AppCompatActivity() {
             minHeight = dp(48); background = backdrop(Color.rgb(23,75,114),Color.rgb(11,43,81),Color.rgb(75,170,222))
             isFocusable = true; setOnClickListener { goBack() }
         })
+        if (parentMenu != null && onCancel == null && cancelable) {
+            panel.addView(TextView(this).apply {
+                text = "⌂ หน้าหลัก"; textSize = 15f; setTextColor(gold); gravity = Gravity.CENTER
+                minHeight = dp(48); isFocusable = true
+                background = backdrop(Color.rgb(18,38,65),navy,Color.rgb(181,131,53))
+                layoutParams = LinearLayout.LayoutParams(-1,-2).apply { topMargin = dp(8) }
+                setOnClickListener { dialog.dismiss(); render() }
+            })
+        }
         dialog.setOnCancelListener {
             if (parentMenu != null && onCancel == null) parentMenu.invoke() else onCancel?.invoke()
         }
@@ -4209,11 +4224,18 @@ $context"""
             val dialog=showFlowCode("${task.id} • ถัดไป $next",code,"${task.id}_${if(images) "IMAGE" else "FLOW"}.txt")
             if(images) activeProductionDialog=dialog
             dialog.getButton(-2).text=if(images) "กลับรายการรูป/ซีน" else "กลับรายการซีน"
+            val backToDeck = pendingMenuBack
+            pendingMenuBack = null
+            fun returnToDeck() {
+                if(images) activeProductionDialog=null
+                if(backToDeck != null) backToDeck.invoke()
+                else productionTaskDeck(story,number,images,queueIds)
+            }
             dialog.getButton(-2).setOnClickListener {
                 dialog.dismiss()
-                if(images) activeProductionDialog=null
-                productionTaskDeck(story,number,images,queueIds)
+                returnToDeck()
             }
+            dialog.setOnCancelListener { returnToDeck() }
             if(problems.isNotEmpty()) dialog.getButton(-1).setOnClickListener { notice("คำสั่งยังมีจุดต้องแก้ • เปิด ตรวจคำสั่ง / แก้เฉพาะจุด ก่อนคัดลอก") }
             dialog.getButton(-1).text=if(images) "เลือกแอปสร้างภาพ + MASTER" else "คัดลอกคำสั่ง Flow"
             dialog.getButton(-1).setOnClickListener {
@@ -4526,10 +4548,13 @@ $context"""
             val command=currentCommand
             if(command!=null) copyCommand(command) else startFlowAiBatch(listOf(scenes[index]),onComplete={ refresh() })
         }
+        val backToEpisodes = pendingMenuBack
+        pendingMenuBack = null
         val dialog=AlertDialog.Builder(this).setView(panel)
             .setNeutralButton("บันทึกฉากนี้",null)
-            .setNegativeButton("ปิด",null)
+            .setNegativeButton(if(backToEpisodes != null) "◀ ย้อนกลับ" else "ปิด") { _,_ -> backToEpisodes?.invoke() }
             .showDirector()
+        if(backToEpisodes != null) dialog.setOnCancelListener { backToEpisodes.invoke() }
         dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.setOnClickListener {
             currentCommand?.let { command ->
                 prefs.edit().putString("pending_flow_code",command).apply()
