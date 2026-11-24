@@ -166,7 +166,7 @@ class FlowProductionPackTest {
         val oldProject=prefs.getString("project",null)
         val id=UUID.randomUUID().toString()
         val folder=File(context.filesDir,"studio/$id").apply { mkdirs() }
-        val story=plan(1,1).put("channel","นายเปีย บ้านคลองขุด").put("category","ละครสั้นสะท้อนสังคม")
+        val story=plan(12,1).put("channel","นายเปีย บ้านคลองขุด").put("category","ละครสั้นสะท้อนสังคม")
         story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0).put("ep",1)
         File(folder,"story.json").writeText(story.toString())
         prefs.edit().putString("project",id).commit()
@@ -209,17 +209,37 @@ class FlowProductionPackTest {
             fail("Timed out waiting for ${if (click) "enabled control" else "visible text"}: $label")
         }
         fun tap(label: String) = awaitControl(label, true)
+        fun episodeRowTop(): Int {
+            val root = requireNotNull(instrumentation.uiAutomation.rootInActiveWindow)
+            fun find(node: android.view.accessibility.AccessibilityNodeInfo): Int? {
+                if (node.isVisibleToUser && node.contentDescription?.contains("EP.12 • ตอน 12") == true) {
+                    val bounds = android.graphics.Rect()
+                    node.getBoundsInScreen(bounds)
+                    return bounds.top
+                }
+                for (i in 0 until node.childCount) {
+                    val child = node.getChild(i) ?: continue
+                    find(child)?.let { return it }
+                }
+                return null
+            }
+            return requireNotNull(find(root)) { "EP.12 must still be visible without scrolling" }
+        }
         try {
             ActivityScenario.launch(StudioActivity::class.java).use {
                 tap("สร้างภาพ")
-                tap("EP.1")
-                awaitControl("ใช้คำสั่ง Kotlin", false)
-                tap("ย้อนกลับ")
-                awaitControl("จัดการอุปกรณ์", false)
-                tap("EP.1")
-                awaitControl("ใช้คำสั่ง Kotlin", false)
-                InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
-                awaitControl("จัดการอุปกรณ์", false)
+                awaitControl("EP.12 • ตอน 12", false)
+                instrumentation.uiAutomation.waitForIdle(300, 5000)
+                val rowTop = episodeRowTop()
+                repeat(2) { pass ->
+                    tap("EP.12 • ตอน 12")
+                    awaitControl("สร้างภาพ EP.12", false)
+                    awaitControl("ใช้คำสั่ง Kotlin", false)
+                    if (pass == 0) tap("ย้อนกลับ")
+                    else instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+                    instrumentation.uiAutomation.waitForIdle(300, 5000)
+                    assertEquals(rowTop, episodeRowTop())
+                }
                 tap("ยกเลิก")
                 tap("คำสั่ง Flow")
                 tap("คำสั่ง Flow AI")
