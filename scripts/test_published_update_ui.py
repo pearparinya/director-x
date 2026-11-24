@@ -77,7 +77,7 @@ adb("shell", "restorecon", "-RF", ROOT)
 adb("shell", "appops", "set", PACKAGE, "REQUEST_INSTALL_PACKAGES", "allow")
 adb("shell", "am", "start", "-W", "-n", PACKAGE + "/.StudioActivity")
 click("อัปเดตใหม่")
-click("อัปเดต")
+click("✅ อัปเดต")
 click("Update", 180)
 for attempt in range(60):
     if re.search(rb"versionCode=" + build.encode() + rb"\b", adb("shell", "dumpsys", "package", PACKAGE)):
