@@ -5766,7 +5766,7 @@ $context"""
         if(GeminiStoryService.running) { notice("กรุณาหยุดงานก่อนแก้ชื่อ"); return }
         val job=File(project,"gemini_job")
         val status=readGeminiStatus() ?: return notice("ไม่พบสถานะงาน")
-        val match=Regex("EP ([0-9]+) ซีน ([0-9]+): พบชื่อภาษาอังกฤษ '([A-Za-z][A-Za-z0-9_]*)'").find(status.optString("message"))
+        val match=Regex("EP ([0-9]+) ซีน ([0-9]+): พบชื่อภาษาอังกฤษ '(${CharacterAliasRegistry.token})'").find(status.optString("message"))
             ?: return notice("ไม่พบชื่อที่ต้องจับคู่ในสถานะปัจจุบัน")
         val ep=match.groupValues[1].toInt()
         val sceneNumber=match.groupValues[2].toInt()

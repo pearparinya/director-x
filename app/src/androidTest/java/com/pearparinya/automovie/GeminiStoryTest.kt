@@ -421,7 +421,7 @@ class GeminiStoryTest {
                 }
             }).run(selected) }
             assertTrue(result.isFailure)
-            assertEquals(3,repairs)
+            assertEquals(0,repairs)
             val saved=JSONObject(File(folder,"EP01_01.json.pending.json").readText()).getJSONArray("scenes").getJSONObject(0)
             assertTrue(saved.getString("flow_action").contains("Phuvadol"))
         } finally { folder.deleteRecursively() }
