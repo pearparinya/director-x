@@ -7,11 +7,17 @@ import java.util.Locale
 
 /** User-confirmed names scoped to one story; an alias cannot point to two identities. */
 internal object CharacterAliasRegistry {
-    const val token = "[A-Za-z][A-Za-z0-9_-]*"
+    private const val piaName = "นายเปีย บ้านคลองขุด"
+    private const val presenterPattern = "(?:Nai +)?Pia +Ban +Khlong +Khud"
+    const val token = "(?:(?i:$presenterPattern)|[A-Za-z][A-Za-z0-9_-]*)"
+    private val presenterPhrase = Regex("(?<![A-Za-z0-9_-])$presenterPattern(?![A-Za-z0-9_-])", RegexOption.IGNORE_CASE)
+    private val placePhrase = Regex("(?<![A-Za-z0-9_-])(in|at|from|near|to) +(Ban +Khlong +Khud)(?![A-Za-z0-9_-])", RegexOption.IGNORE_CASE)
+    private fun validAlias(alias: String) = acceptedAlias.matches(alias) || presenterPhrase.matches(alias)
+
     private val acceptedAlias = Regex("[A-Za-z][A-Za-z0-9_-]{0,80}")
     private fun key(alias: String)=alias.trim().lowercase(Locale.ROOT)
     fun add(registry: JSONObject, alias: String, name: String, master: String) {
-        require(acceptedAlias.matches(alias))
+        require(validAlias(alias))
         require(name.isNotBlank() && master.isNotBlank())
         val entries=registry.optJSONArray("entries") ?: JSONArray().also { registry.put("entries",it) }
         for(i in 0 until entries.length()) {
@@ -41,17 +47,26 @@ internal object CharacterAliasRegistry {
             val alias=definition.optString("english_name").trim()
             val name=definition.optString("name")
             val master=definition.optString("master")
-            if(acceptedAlias.matches(alias) && name.isNotBlank() && master.isNotBlank())
+            if(validAlias(alias) && name.isNotBlank() && master.isNotBlank())
                 all.add(Triple(alias,name,master))
         }
         for(i in 0 until entries.length()) {
             val entry=entries.getJSONObject(i)
             val alias=entry.optString("alias").trim()
-            if(acceptedAlias.matches(alias))
+            if(validAlias(alias))
                 all.add(Triple(alias,entry.optString("name"),entry.optString("master")))
         }
         val grouped=all.groupBy { key(it.first) }
-        val actionText=scene.optString("flow_action")
+        val original=scene.optString("flow_action")
+        val lead=definitions.filter { it.optString("name")==piaName }.singleOrNull()
+        val visibleLead=lead!=null && lead.optString("master").isNotBlank() &&
+            (0 until people.length()).count { i ->
+                val actor=people.getJSONObject(i)
+                actor.optString("name")==piaName && actor.optString("master").equals(lead.optString("master"),true)
+            }==1
+        val actionText=placePhrase.replace(original) { it.groupValues[1]+" บ้านคลองขุด" }.let { text ->
+            if(visibleLead) presenterPhrase.replace(text,piaName) else text
+        }
         for((alias,rows) in grouped) {
             val identities=rows.map { it.second to it.third.lowercase(Locale.ROOT) }.distinct()
             if(identities.size>1 && Regex("(?<![A-Za-z0-9_-])"+Regex.escape(alias)+"(?![A-Za-z0-9_-])",RegexOption.IGNORE_CASE).containsMatchIn(actionText))
@@ -61,7 +76,7 @@ internal object CharacterAliasRegistry {
             val identities=rows.map { it.second to it.third.lowercase(Locale.ROOT) }.distinct()
             if(identities.size!=1) null else rows.first()
         }
-        var action=scene.optString("flow_action")
+        var action=actionText
         for((alias,name,master) in valid.sortedByDescending { it.first.length }) {
             val matching=(0 until people.length()).map { people.getJSONObject(it) }.filter {
                 it.optString("name")==name && it.optString("master").equals(master,true)
@@ -81,7 +96,7 @@ internal object CharacterAliasRegistry {
         for(i in 0 until entries.length()) {
             val item=entries.getJSONObject(i)
             val alias=item.optString("alias")
-            if(!acceptedAlias.matches(alias)) continue
+            if(!validAlias(alias)) continue
             val matching=(0 until people.length()).map { people.getJSONObject(it) }.filter {
                 it.optString("name")==item.optString("name") &&
                     it.optString("master").equals(item.optString("master"),true)

@@ -5815,7 +5815,7 @@ $context"""
                 textSize=15f; setTextColor(gold); setPadding(0,0,0,dp(8))
             })
             panel.addView(TextView(this).apply {
-                text="คำอธิบายฉาก (แตะเพื่ออ่าน)"
+                text="ข้อความในซีน: ${issue.action}\nแตะเพื่อขยาย"
                 textSize=13f; setTextColor(ice)
                 setPadding(0,dp(6),0,dp(8))
                 setOnClickListener {
