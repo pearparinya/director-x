@@ -57,11 +57,18 @@ For each listed character, use only their own attached MASTER for their identity
     }
     /** Resolve each character to one wardrobe source without changing the stored story. */
     fun withWardrobeSources(command: String, people: List<JSONObject>, masterIds: Set<String>): String {
-        if(masterIds.isEmpty()) return command
-        var output=command.replace("Scene Outfit overrides MASTER clothing.","Use the per-character wardrobe source specified below.")
+        val sceneOverrides=people.filter { person ->
+            person.optString("wardrobe_source").equals("MASTER_OUTFIT",true) &&
+                masterIds.none { it.equals(referenceId(person.optString("master")),true) }
+        }.map { it.optString("name") }
+        val resolved=command.lineSequence().filterNot { line ->
+            sceneOverrides.any { line.startsWith("$it: MASTER_OUTFIT —") }
+        }.joinToString("\n")
+        if(masterIds.isEmpty()) return resolved
+        var output=resolved.replace("Scene Outfit overrides MASTER clothing.","Use the per-character wardrobe source specified below.")
             .replace("Preserve each character’s hairstyle and recognizable physical features from their own MASTER. The scene controls clothing, pose and setting; do not copy MASTER clothing.","Preserve each character’s hairstyle and recognizable physical features from their own MASTER. The selected wardrobe source controls clothing; the scene controls pose and setting.")
             .replace("Use each approved Scene Outfit, not MASTER clothing.","Use the wardrobe source specified for each character below.")
-            .replace(WardrobeContext.image,"CONTEXTUAL WARDROBE: Follow each character's selected wardrobe source. Flag unclear or unsuitable clothes and footwear for review; never silently change them.")
+            .replace(WardrobeContext.image,"CONTEXTUAL WARDROBE: Follow each character's selected wardrobe source. Flag unclear or unsuitable clothes and footwear for review; never silently change them. " + WardrobeContext.detailLock)
         val locked=mutableListOf<Pair<String,String>>()
         for(person in people) {
             val name=person.getString("name")
@@ -69,6 +76,7 @@ For each listed character, use only their own attached MASTER for their identity
             if(masterIds.none { it.equals(id,true) }) continue
             val pattern=Regex("(?m)^(${Regex.escape(name)} \\([^\\n]*\\) \\| MASTER ID: ${Regex.escape(id)} \\| position: [^\\n]*\\n)Outfit: [^\\n]*",RegexOption.IGNORE_CASE)
             require(pattern.containsMatchIn(output)) { "ตรวจแหล่งชุดของ $name ไม่สำเร็จ กรุณากลับไปตรวจ MASTER" }
+            output=output.lineSequence().filterNot { it.startsWith("$name: SCENE_OUTFIT —") }.joinToString("\n")
             output=pattern.replace(output) { it.groupValues[1]+"Outfit: Use this character's own attached MASTER outfit; do not use the scene outfit for this character." }
             val reference=Regex("(?m)^(Reference [0-9]+: ${Regex.escape(name)} \\| MASTER ID: ${Regex.escape(id)} \\| )Identity only[.]$",RegexOption.IGNORE_CASE)
             output=reference.replace(output) { it.groupValues[1]+"Identity and clothing reference." }
@@ -114,6 +122,7 @@ $identity
 ${referenceBindings(selected)}
 CHARACTERS AND OUTFITS:
 ${cast(selected,true)}
+${SceneReferencePolicy.wardrobeInstructions(JSONObject().put("characters",org.json.JSONArray(selected)))}
 $wardrobeContinuity
 ${WardrobeContext.image}
 Compose with every named face large enough, unobscured and clearly recognizable; keep all named faces in comparable focus even when depth differs. Preserve identity for each character equally. Show exactly ${selected.size} ${if(selected.size==1 && selected.first().optString("character_type").let { it.isBlank() || it=="human" }) "person" else "named characters"} from the listed references, each with their own MASTER; do not replace, merge, duplicate or invent named characters. Preserve nonhuman species, anatomy and markings. Never show extra people beyond the named cast, including crowds; other participants remain unseen off-camera.
@@ -219,7 +228,14 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
             tasks.forEachIndexed { i,t -> append("${i+1}. ${t.id} | ${t.title}\n") }
             if(images) append("\nแนบ MASTER ต้นฉบับของตัวละครแต่ละคน ตรวจชื่อและลักษณะกับภาพจริงก่อนสร้าง หากมีภาพครอปหน้าตรงจาก MASTER เดียวกันให้แนบเพิ่มได้ ไม่อิงลำดับอัปโหลดอย่างเดียว ไม่ต้องเปลี่ยนชื่อรูปจริง เริ่มภาพแรกเท่านั้น; next = ภาพถัดไปหลังภาพปัจจุบันสำเร็จและตรวจแล้ว\nแก้ภาพ <รหัส> / retry = แก้งานนั้น ไม่เลื่อนคิว ไม่เปลี่ยนอัตลักษณ์หรือชุดประจำวัน; ไปที่ <รหัส> = ทำต่อจากรายการที่มีในสารบัญ\nทุกครั้งแจ้ง ล่าสุด: <รหัส> | สถานะ DONE/PENDING | ถัดไป: <รหัส>; หากไม่สำเร็จ ข้อความปกผิด หรือขาดอ้างอิงให้คง PENDING ห้ามข้าม\nDONE หมายถึงผู้ใช้ตรวจผลจริงแล้ว ไม่ใช่คะแนนรับรองอัตลักษณ์จากคำสั่ง หากบริบทหายให้ขอไฟล์และ MASTER พร้อมระบุรหัสทำต่อใหม่\nปกมีข้อความตามรายการเท่านั้น ซีนไม่มีข้อความ ทุกคำสั่งใช้ขนาดของตนเอง; ครบรายการแล้วหยุด\n")
             else append("\nใน Flow เลือก Video → Frames และแนบภาพซีนรหัสเดียวกันใน Add start frame จากนั้นคัดลอกเฉพาะคำสั่งของซีน ตั้ง 9:16 และ 8 วินาที แล้วกดสร้าง ภาพซีนต้องเตรียมหรืออัปโหลดเอง ไฟล์นี้มีคำสั่งข้อความ ไม่ได้แนบภาพหรือสร้างวิดีโออัตโนมัติ\n")
-            tasks.forEachIndexed { i,t -> append("\n\n${block(t,i,images)}") }
+            if(images) append("\n" + BodyReferencePolicy.imageIdentityLock + "\n" + WardrobeContext.detailLock)
+            tasks.forEachIndexed { i,t ->
+                val entry=block(t,i,images)
+                append("\n\n")
+                append(if(images) entry.replace(BodyReferencePolicy.imageIdentityLock,
+                    "Keep each person’s own MASTER face, hair, skin tone and body proportions; tailor garments to the person.").replace(WardrobeContext.detailLock,
+                    "Match garment cuts, belt/buckle, shoe straps, brooch and accessory placement exactly to this wearer's source. No added ornament.") else entry)
+            }
         }
     }
     fun images(story: JSONObject,number: Int=firstEpisode(story),coverSelection: Map<String,Set<String>> = emptyMap(),wardrobeMasterIds: Map<String,Set<String>> = emptyMap())=document(story,number,true,coverSelection,wardrobeMasterIds)
