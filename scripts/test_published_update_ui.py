@@ -23,12 +23,12 @@ def click(label, seconds=90):
         adb("shell", "uiautomator", "dump", "/sdcard/window.xml")
         tree = ET.fromstring(adb("exec-out", "cat", "/sdcard/window.xml"))
         for node in tree.iter("node"):
-            if label in (node.get("text"), node.get("content-desc")):
+            if label.casefold() in ((node.get("text") or "").casefold(), (node.get("content-desc") or "").casefold()):
                 x, y, right, bottom = map(int, re.findall(r"\d+", node.get("bounds")))
                 adb("shell", "input", "tap", str((x + right)//2), str((y + bottom)//2))
                 return
         time.sleep(1)
-    raise RuntimeError("Missing UI control: " + label)
+    raise RuntimeError(f"Missing {label!r}; visible text: {[n.get(\x27text\x27) for n in tree.iter(\x27node\x27) if n.get(\x27text\x27)]}")
 
 
 def release(path):
@@ -75,7 +75,7 @@ for folder in ("files", "shared_prefs"):
 adb("shell", "restorecon", "-RF", ROOT)
 adb("shell", "appops", "set", PACKAGE, "REQUEST_INSTALL_PACKAGES", "allow")
 adb("shell", "am", "start", "-W", "-n", PACKAGE + "/.StudioActivity")
-click("ตรวจสอบอัปเดต DIRECTOR X")
+click("อัปเดตใหม่")
 click("อัปเดต")
 click("Update", 180)
 for attempt in range(60):
