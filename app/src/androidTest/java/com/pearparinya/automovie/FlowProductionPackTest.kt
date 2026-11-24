@@ -159,6 +159,51 @@ class FlowProductionPackTest {
             GeminiStoryEngine.validateBatch(JSONObject().put("scenes",six),1,1,6,story.getJSONArray("supporting_characters"))
         } finally { root.deleteRecursively() }
     }
+    @Test fun productionMenusOpenFromHomeAndEmptyFlowSceneOffersAnalysis() {
+        val instrumentation=InstrumentationRegistry.getInstrumentation()
+        val context=instrumentation.targetContext
+        val prefs=context.getSharedPreferences("studio",0)
+        val oldProject=prefs.getString("project",null)
+        val id=UUID.randomUUID().toString()
+        val folder=File(context.filesDir,"studio/$id").apply { mkdirs() }
+        val story=plan(1,1).put("channel","นายเปีย บ้านคลองขุด").put("category","ละครสั้นสะท้อนสังคม")
+        story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0).put("ep",1)
+        File(folder,"story.json").writeText(story.toString())
+        prefs.edit().putString("project",id).commit()
+        fun tap(label: String) {
+            instrumentation.waitForIdleSync()
+            val root=instrumentation.uiAutomation.rootInActiveWindow
+            val nodes=root.findAccessibilityNodeInfosByText(label)
+            for(node in nodes) {
+                var target: android.view.accessibility.AccessibilityNodeInfo?=node
+                while(target!=null) {
+                    if(target.isClickable && target.isEnabled &&
+                        target.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)) return
+                    target=target.parent
+                }
+            }
+            fail("No enabled control for $label")
+        }
+        try {
+            ActivityScenario.launch(StudioActivity::class.java).use {
+                tap("สร้างภาพ")
+                tap("EP.1")
+                tap("ยกเลิก")
+                tap("คำสั่ง Flow")
+                tap("คำสั่ง Flow AI")
+                tap("EP.1")
+                tap("วิเคราะห์ฉากนี้")
+                tap("ตั้งค่า API")
+                instrumentation.waitForIdleSync()
+                assertTrue(instrumentation.uiAutomation.rootInActiveWindow
+                    .findAccessibilityNodeInfosByText("จัดการ API Key").isNotEmpty())
+            }
+        } finally {
+            prefs.edit().putString("project",oldProject).commit()
+            folder.deleteRecursively()
+        }
+    }
+
     private fun plan(count: Int, scenes: Int): JSONObject {
         val eps=JSONArray()
         repeat(count) { e ->

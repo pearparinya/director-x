@@ -3502,12 +3502,12 @@ $context"""
         }
         mainOptions.add("✨ วิเคราะห์ AI")
         mainActions.add {
-            if(readyEpisodes.isEmpty()) notice("ยังไม่มีคำสั่ง Kotlin • สร้างคำสั่งก่อน")
+            if(!storyPassed) productionCheckMenu(story)
             else startFlowAiBatch(allFlowScenes)
         }
         mainOptions.add("⚙️ ตั้งค่า API")
         mainActions.add { flowApiSettings() }
-        mainOptions.add("🔵 ตรวจสอบ / แก้ไข Flow AI")
+        mainOptions.add("🔵 ตรวจบท / สร้างคำสั่ง Kotlin ใหม่")
         mainActions.add { moreTools() }
         val category=story.optString("category").trim().replace(Regex("""\s*[（(][^()（）]*[)）]\s*$"""),"").ifBlank { "ยังไม่ระบุหมวด" }
         val mode=if(prefs.getBoolean("flow_api_assist_enabled",false)) "AI เปิด" else "Kotlin เปิด"
@@ -3963,6 +3963,21 @@ $context"""
 
     private fun imageAiUnlocked(story: JSONObject): Boolean = imagePromptGate(story).unlocked
 
+    private fun showImageAnalysisProgress() {
+        val dialog=AlertDialog.Builder(this).setTitle("วิเคราะห์คำสั่งภาพ")
+            .setMessage("กำลังตรวจคำสั่งภาพ").setPositiveButton("ปิด",null).showDirector()
+        val handler=android.os.Handler(android.os.Looper.getMainLooper())
+        val update=object: Runnable {
+            override fun run() {
+                if(!dialog.isShowing) return
+                dialog.setMessage("ตรวจผ่าน $aiPromptDone/$aiPromptTotal รายการ\n$aiPromptApi\n$aiPromptKotlin")
+                if(aiPromptRunning) handler.postDelayed(this,800)
+            }
+        }
+        dialog.setOnDismissListener { handler.removeCallbacks(update) }
+        update.run()
+    }
+
     private fun refineImagePromptsAll(story: JSONObject) {
         val entries=runCatching { allImagePromptEntries(story) }.getOrElse {
             aiPromptKotlin="ตรวจข้อมูลไม่สำเร็จ: "+(it.message ?: "unknown")
@@ -4053,6 +4068,7 @@ $context"""
             aiPromptKotlin=if(complete) "ปลดล็อกแล้ว" else "ยังล็อก • ลองใหม่ได้"
             aiPromptRunning=false
         }.start()
+        showImageAnalysisProgress()
     }
     private fun productionTaskDeck(story: JSONObject,number: Int,images: Boolean,queueIds: Set<String>?=null) {
         val coverSelection=listOf("STORY","EP%02d".format(number)).mapNotNull { scope ->
@@ -4470,8 +4486,8 @@ $context"""
             episodeRow.text="ตอนที่ $ep • ${episodeTitle.ifBlank { "ยังไม่ระบุชื่อตอน" }}"
             sceneRow.text="ฉากที่ ${index+1} / ${scenes.size}"
             prompt.text=currentCommand ?: "ฉากนี้ยังไม่มีผลการวิเคราะห์ AI ที่ตรวจสอบแล้ว\\nกรุณาเลือกวิเคราะห์คำสั่ง AI ก่อน"
-            copy.text="📋 คัดลอกคำสั่ง"
-            copy.isEnabled=currentCommand!=null
+            copy.text=if(currentCommand!=null) "📋 คัดลอกคำสั่ง" else "✨ วิเคราะห์ฉากนี้"
+            copy.isEnabled=true
             previous.isEnabled=index>0
             next.isEnabled=index<scenes.lastIndex
             scroll.scrollTo(0,0)
@@ -4479,7 +4495,10 @@ $context"""
         }
         previous.setOnClickListener { if(index>0) { index--; refresh() } }
         next.setOnClickListener { if(index<scenes.lastIndex) { index++; refresh() } }
-        copy.setOnClickListener { currentCommand?.let { copyCommand(it) } }
+        copy.setOnClickListener {
+            val command=currentCommand
+            if(command!=null) copyCommand(command) else startFlowAiBatch(listOf(scenes[index]),onComplete={ refresh() })
+        }
         val dialog=AlertDialog.Builder(this).setView(panel)
             .setNeutralButton("บันทึกฉากนี้",null)
             .setNegativeButton("ปิด",null)
@@ -4936,7 +4955,7 @@ $context"""
                                 }
                             }
                             i==eps.length() -> {
-                                if(aiPromptRunning) notice("API กำลังทำงาน • $aiPromptApi")
+                                if(aiPromptRunning) showImageAnalysisProgress()
                                 else if(ready) AlertDialog.Builder(this)
                                     .setTitle("สถานะ Gen AI ของ API")
                                     .setMessage("$genStatus\\n✓ Kotlin: ผ่าน ${gate.verified}/${gate.total}\\n"+
@@ -5114,11 +5133,14 @@ $context"""
     // do not redirect to the EP selector. Only verified API results count as completed.
     @Volatile private var flowAiBatchRunning = false
 
-    private fun startFlowAiBatch(scenes: List<JSONObject>) {
+    private fun startFlowAiBatch(scenes: List<JSONObject>, onComplete: (() -> Unit)? = null) {
         if(flowAiBatchRunning) { notice("Flow AI V2 กำลังปรับปรุงอยู่ • โปรดรอให้เสร็จ"); return }
         val providers=orderedFlowProviders()
         if(providers.isEmpty()) {
-            notice("ยังไม่ได้ตั้งค่า API Flow • กรุณาตั้งค่า API ก่อน")
+            AlertDialog.Builder(this).setTitle("ยังไม่มี API สำหรับ Flow")
+                .setMessage("เลือกผู้ให้บริการและตั้งค่าคีย์เพื่อวิเคราะห์ฉาก")
+                .setPositiveButton("ตั้งค่า API") { _,_ -> flowApiSettings() }
+                .setNegativeButton("กลับ",null).showDirector()
             return
         }
         if(scenes.isEmpty()) { notice("ไม่พบฉากสำหรับปรับปรุง"); return }
@@ -5206,6 +5228,7 @@ $context"""
                         if(!isFinishing && !isDestroyed) {
                             status.text="ปรับปรุง Flow AI V2 เสร็จแล้ว\\nสำเร็จ $succeeded/${scenes.size} ฉาก • ไม่สำเร็จ $failed\\nกลับไปเปิดเมนูคำสั่ง Flow เพื่อดูผลและคัดลอก"
                             progressDialog.setTitle("🎥 Flow AI V2 • ผลการปรับปรุง")
+                            if(project.name==projectId) onComplete?.invoke()
                         }
                     }
                 }.start()
