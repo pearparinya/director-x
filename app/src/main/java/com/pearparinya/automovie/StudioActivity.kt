@@ -189,6 +189,8 @@ class StudioActivity : AppCompatActivity() {
         intArrayOf(Color.rgb(128,240,202),Color.rgb(63,200,160)),
         intArrayOf(Color.rgb(255,185,209),Color.rgb(245,139,175)))
     private fun menuIcon(index: Int) = listOf("🎭", "🎨", "📚", "🎬", "💡")[index % 5]
+    private var pendingMenuBack: (() -> Unit)? = null
+    private var pendingMenuScroll: Int = 0
     private fun choiceMenu(title: String, choices: List<String>, cancel: String = "✖️ ยกเลิก",
         cancelable: Boolean = true, onCancel: (() -> Unit)? = null,
         imageDone: ((Int) -> Boolean)? = null, toggleImageDone: ((Int) -> Unit)? = null,
@@ -196,6 +198,10 @@ class StudioActivity : AppCompatActivity() {
         inlineImageProgress: (() -> Pair<Int,Int>)? = null,
         compactImageMenu: Boolean = false,
         action: (Int) -> Unit) {
+        val parentMenu = pendingMenuBack
+        pendingMenuBack = null
+        val restoredScroll = pendingMenuScroll
+        pendingMenuScroll = 0
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(dp(16),dp(18),dp(16),dp(12))
             background = backdrop(Color.rgb(7,31,59),navy,Color.rgb(71,169,224))
@@ -266,7 +272,20 @@ class StudioActivity : AppCompatActivity() {
                 val attr=android.util.TypedValue()
                 theme.resolveAttribute(android.R.attr.selectableItemBackground,attr,true)
                 foreground=getDrawable(attr.resourceId)
-                setOnClickListener { if(index==0 && inlineImageProgress!=null && title.startsWith("สร้างภาพ •")) action(index) else { dialog.dismiss(); action(index) } }
+                setOnClickListener {
+                    if(index==0 && inlineImageProgress!=null && title.startsWith("สร้างภาพ •")) action(index)
+                    else {
+                        val position = scroll.scrollY
+                        dialog.dismiss()
+                        pendingMenuBack = {
+                            pendingMenuBack = parentMenu
+                            pendingMenuScroll = position
+                            choiceMenu(title, choices, cancel, cancelable, onCancel, imageDone,
+                                toggleImageDone, doneLabel, inlineImageProgress, compactImageMenu, action)
+                        }
+                        try { action(index) } finally { pendingMenuBack = null }
+                    }
+                }
             }
             row.addView(TextView(this).apply {
                 text=(index+1).toString(); textSize=18f; setTextColor(Color.WHITE)
@@ -373,12 +392,19 @@ class StudioActivity : AppCompatActivity() {
         if (choices.isEmpty()) list.addView(TextView(this).apply {
             text = "📭 ยังไม่มีรายการ"; textSize = 16f; setTextColor(ice); setPadding(0,dp(12),0,dp(12))
         })
+        fun goBack() {
+            dialog.dismiss()
+            if (parentMenu != null && onCancel == null) parentMenu.invoke() else onCancel?.invoke()
+        }
         panel.addView(TextView(this).apply {
-            text = cancel; textSize = 16f; setTextColor(ice); gravity = Gravity.CENTER
+            text = if (parentMenu != null && onCancel == null) "◀ ย้อนกลับ" else cancel
+            textSize = 16f; setTextColor(ice); gravity = Gravity.CENTER
             minHeight = dp(48); background = backdrop(Color.rgb(23,75,114),Color.rgb(11,43,81),Color.rgb(75,170,222))
-            isFocusable = true; setOnClickListener { dialog.dismiss(); onCancel?.invoke() }
+            isFocusable = true; setOnClickListener { goBack() }
         })
-        dialog.setOnCancelListener { onCancel?.invoke() }
+        dialog.setOnCancelListener {
+            if (parentMenu != null && onCancel == null) parentMenu.invoke() else onCancel?.invoke()
+        }
         dialog.show()
         dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
         dialog.window?.setLayout(resources.displayMetrics.widthPixels - dp(24),-2)
@@ -386,6 +412,7 @@ class StudioActivity : AppCompatActivity() {
             val maximum = (resources.displayMetrics.heightPixels * 0.85f).toInt()
             val available = maximum - (panel.height - scroll.height)
             if (scroll.height > available) scroll.layoutParams = LinearLayout.LayoutParams(-1,available.coerceAtLeast(dp(80)))
+            scroll.post { scroll.scrollTo(0, restoredScroll) }
         }
     }
     private val legacyCategories = listOf(
