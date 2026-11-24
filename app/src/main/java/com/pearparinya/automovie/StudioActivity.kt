@@ -393,7 +393,7 @@ class StudioActivity : AppCompatActivity() {
                 if(title.startsWith("สร้างภาพ •")) list.addView(aiStatus)
                 fun refreshProgress() {
                     val (done,total)=inlineImageProgress()
-                    val elapsed=if(aiPromptStart==0L) 0 else ((System.currentTimeMillis()-aiPromptStart)/1000).coerceAtLeast(0)
+                    val elapsed=if(aiPromptStart==0L) 0 else (((imageDisplay?.ended?.takeIf { it>=0 } ?: android.os.SystemClock.elapsedRealtime())-aiPromptStart)/1000).coerceAtLeast(0)
                     val pct=if(aiPromptTotal==0) 0 else aiPromptDone*100/aiPromptTotal
                     aiStatus.text="AI Prompt $aiPromptDone/$aiPromptTotal • $pct% • "+("%02d:%02d".format(elapsed/60,elapsed%60))+
                         "\nKotlin: $aiPromptKotlin • API: $aiPromptApi"
@@ -4046,20 +4046,69 @@ $context"""
 
     private fun imageAiUnlocked(story: JSONObject): Boolean = imagePromptGate(story).unlocked
 
-    private fun showImageAnalysisProgress() {
-        val dialog=AlertDialog.Builder(this).setTitle("ปรับคำสั่งสร้างภาพ (AI + Kotlin)")
-            .setMessage("กำลังตรวจคำสั่งภาพ").setPositiveButton("ปิด",null).showDirector()
-        val handler=android.os.Handler(android.os.Looper.getMainLooper())
-        val update=object: Runnable {
+    private class BatchDisplay(val projectId: String, val title: String, val total: Int, val initial: Int) {
+        val started = android.os.SystemClock.elapsedRealtime()
+        @Volatile var ended = -1L
+        @Volatile var done = initial
+        @Volatile var detail = "กำลังเตรียมงาน"
+        var action: () -> Unit = {}
+        var resultLabel = ""
+        fun summary(): String {
+            val now = if (ended >= 0) ended else android.os.SystemClock.elapsedRealtime()
+            val elapsed = (now - started).coerceAtLeast(0)
+            val estimate = BatchTiming.remaining(elapsed, initial, done, total, ended >= 0)
+            return "$done/$total รายการ · ${done * 100 / total}%\nใช้เวลา ${StoryStatusText.duration(elapsed)}" +
+                (estimate?.let { " · เหลือประมาณ ${StoryStatusText.duration(it)}" } ?: "")
+        }
+    }
+    private var imageDisplay: BatchDisplay? = null
+    private var flowDisplay: BatchDisplay? = null
+
+    private fun progressPanel() = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(16), dp(12), dp(16), dp(12))
+        background = backdrop(navy, Color.rgb(15,36,58), Color.rgb(46,99,142))
+    }
+
+    private fun progressLine(panel: LinearLayout, size: Float) = TextView(this).apply {
+        textSize = size
+        setTextColor(ice)
+        panel.addView(this)
+    }
+
+    private fun showBatch(job: BatchDisplay) {
+        val panel = progressPanel()
+        val heading = progressLine(panel, 18f)
+        val bar = ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply {
+            progressTintList = android.content.res.ColorStateList.valueOf(Color.rgb(48,196,244))
+            max = job.total
+        }
+        panel.addView(bar)
+        val info = progressLine(panel, 15f)
+        val dialog = AlertDialog.Builder(this).setTitle(job.title).setView(panel)
+            .setPositiveButton("เปิดผลลัพธ์") { _,_ -> if(project.name==job.projectId) job.action() }
+            .setNegativeButton("ย่อหน้าต่าง",null).showDirector()
+        val refresh = object : Runnable {
             override fun run() {
-                if(!dialog.isShowing) return
-                dialog.setMessage(PromptMenuStatus.image(aiPromptDone,aiPromptTotal,aiPromptRunning,imageFailures)+"\n$aiPromptApi\n$aiPromptKotlin")
-                if(aiPromptRunning) handler.postDelayed(this,800)
+                if (!dialog.isShowing) return
+                if (job.projectId != project.name || isDestroyed || isFinishing) { dialog.dismiss(); return }
+                val finished = job.ended >= 0
+                heading.text = if (!finished) "กำลังทำงาน" else if (job.done == job.total) "สำเร็จ" else "สำเร็จบางส่วน"
+                bar.progress = job.done
+                info.text = job.summary() + "\n" + job.detail
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).apply {
+                    visibility = if (finished) android.view.View.VISIBLE else android.view.View.GONE
+                    text = job.resultLabel
+                }
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).text = if (finished) "ปิด" else "ย่อหน้าต่าง"
+                if (!finished) panel.postDelayed(this, 500)
             }
         }
-        dialog.setOnDismissListener { handler.removeCallbacks(update) }
-        update.run()
+        dialog.setOnDismissListener { panel.removeCallbacks(refresh) }
+        refresh.run()
     }
+
+    private fun showImageAnalysisProgress() { imageDisplay?.let { showBatch(it) } }
 
     private fun refineImagePromptsAll(story: JSONObject) {
         val entries=runCatching { allImagePromptEntries(story) }.getOrElse {
@@ -4067,6 +4116,7 @@ $context"""
             notice(aiPromptKotlin); return
         }
         if(entries.isEmpty()) return notice("ไม่มี Prompt ภาพให้ปรับปรุง")
+        if(aiPromptRunning) { showImageAnalysisProgress(); return }
         aiPromptTotal=entries.size
         aiPromptDone=verifiedImagePromptCount(entries)
         if(aiPromptDone==entries.size) {
@@ -4087,10 +4137,22 @@ $context"""
         val snapshot=story.toString()
         imageBatchProject=projectId; imageFailures=0
         aiPromptRunning=true; aiPromptDone=verifiedImagePromptCount(entries); aiPromptTotal=entries.size
-        aiPromptStart=System.currentTimeMillis()
+        aiPromptStart=android.os.SystemClock.elapsedRealtime()
         aiApiAttempts=0; aiApiSuccesses=0; aiApiTotal=(entries.size-aiPromptDone).coerceAtLeast(0)
         aiApiError=""; aiApiProvider="รอเลือกผู้ให้บริการ"
         aiPromptKotlin="ตรวจข้อมูล MASTER"; aiPromptApi="เตรียมเชื่อมต่อ"
+        val job = BatchDisplay(projectId,"ปรับคำสั่งสร้างภาพ",entries.size,aiPromptDone)
+        imageDisplay = job
+        val failedItems = mutableListOf<String>()
+        job.action = {
+            if(job.done < job.total) refineImagePromptsAll(story)
+            else {
+                prefs.edit().putBoolean("image_api_assist_${project.name}",true).apply()
+                val episodes = entries.map { it.first }.distinct()
+                if(episodes.size == 1) openImageEpisodeSafely(story,episodes.first())
+                else choiceMenu("ดูคำสั่งสร้างภาพ",episodes.map { "EP.$it" }) { openImageEpisodeSafely(story,episodes[it]) }
+            }
+        }
         Thread {
             val schema=JSONObject().put("type","object")
                 .put("properties",JSONObject().put("enhancement",JSONObject().put("type","string")))
@@ -4114,6 +4176,7 @@ $context"""
                 for(provider in providers) {
                     aiApiProvider=provider.label
                     aiPromptApi=provider.label+" • "+task.id
+                    job.detail="กำลังรอ ${provider.label} · ${task.id}\n$aiPromptKotlin"
                     val result=runCatching {
                         StoryClientFactory.create(provider,provider.key(this@StudioActivity),
                             provider.model(this@StudioActivity),
@@ -4142,15 +4205,21 @@ $context"""
                     }.isSuccess
                     if(!saved) failures++ else aiApiSuccesses++
                 }
+                if(failures > imageFailures) failedItems.add(task.id)
                 imageFailures=failures
                 aiApiAttempts++
                 aiPromptDone=verifiedImagePromptCount(entries)
+                job.done=aiPromptDone
             }
             val verified=runCatching { verifiedImagePromptCount(entries) }.getOrDefault(0)
             val complete=failures==0 && verified==entries.size &&
                 project.name==projectId && plan===story && story.toString()==snapshot
             aiPromptApi=if(complete) "สำเร็จ • ตรวจผ่าน" else "ยังไม่ครบ • ผ่าน $verified/"+entries.size
             aiPromptKotlin=if(complete) "ปลดล็อกแล้ว" else "ยังล็อก • ลองใหม่ได้"
+            job.done=verified
+            job.detail=if(complete) "ตรวจสอบและบันทึกคำสั่งแล้ว" else "ยังไม่สำเร็จ · "+failedItems.joinToString().ifBlank { aiPromptKotlin }
+            job.resultLabel=if(complete) "ดูคำสั่งสร้างภาพ" else "ลองใหม่เฉพาะที่ยังไม่สำเร็จ"
+            job.ended=android.os.SystemClock.elapsedRealtime()
             aiPromptRunning=false
         }.start()
         showImageAnalysisProgress()
@@ -4873,6 +4942,26 @@ $context"""
         }
         if(current!=null) statusLine("ส่งออกบท",exportDetail) { productionCheckMenu(current) }
         root.addView(summary,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(8) })
+        for (imageJob in listOf(true,false)) {
+            val panel=progressPanel()
+            val line=progressLine(panel,15f)
+            val update=object: Runnable {
+                override fun run() {
+                    val task=(if(imageJob) imageDisplay else flowDisplay)?.takeIf { it.projectId==project.name }
+                    panel.visibility=if(task==null) android.view.View.GONE else android.view.View.VISIBLE
+                    if(task!=null) {
+                        line.text=task.title+" · "+(if(task.ended<0) "กำลังทำงาน" else if(task.done==task.total) "สำเร็จ" else "สำเร็จบางส่วน")+"\n"+task.summary()
+                        panel.setOnClickListener { showBatch(task) }
+                    }
+                    panel.postDelayed(this,1000)
+                }
+            }
+            panel.addOnAttachStateChangeListener(object: android.view.View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: android.view.View) { update.run() }
+                override fun onViewDetachedFromWindow(v: android.view.View) { panel.removeCallbacks(update) }
+            })
+            root.addView(panel)
+        }
         if(job) {
             val status=readGeminiStatus()
             val alive=GeminiStoryService.running && GeminiStoryService.projectId==project.name
@@ -5265,8 +5354,15 @@ $context"""
                     saved.optLong("updated_at_ms")>0L
             }.getOrDefault(false).not()
         }
+        fun results() {
+            if(scenes.size==1) openFlowAiSceneDirect(scenes.first())
+            else choiceMenu("เปิดคำสั่ง Flow",scenes.map { key(it) }) { openFlowAiSceneDirect(scenes[it]) }
+        }
         if(pending.isEmpty()) {
-            notice("คำสั่ง Flow พร้อมแล้ว ${validIndices.size}/${scenes.size} ฉาก • เปิดดูผลได้ในเมนูคำสั่ง Flow")
+            AlertDialog.Builder(this).setTitle("คำสั่ง Flow")
+                .setMessage("พร้อมแล้ว ${validIndices.size}/${scenes.size} ฉาก")
+                .setPositiveButton("เปิดคำสั่ง Flow") { _,_ -> results() }
+                .setNegativeButton("ปิด",null).showDirector()
             return
         }
         AlertDialog.Builder(this).setTitle("เริ่มปรับปรุง Flow AI")
@@ -5276,17 +5372,11 @@ $context"""
                 flowBatchProject=projectId
                 flowFailures=scenes.size-validIndices.size
                 flowAiBatchRunning=true
-                val status=TextView(this).apply {
-                    textSize=16f
-                    setTextColor(ice)
-                    setPadding(dp(20),dp(18),dp(20),dp(18))
-                    text="กำลังเริ่มปรับปรุง Flow AI • 0/${scenes.size} ฉาก"
-                }
-                val progressDialog=AlertDialog.Builder(this)
-                    .setTitle("🎥 กำลังปรับปรุงคำสั่ง Flow ด้วย AI")
-                    .setView(status)
-                    .setNegativeButton("ซ่อนสถานะ (ทำงานต่อ)") { _,_ -> }
-                    .showDirector()
+                val job = BatchDisplay(projectId,"สร้างคำสั่ง Flow",scenes.size,validIndices.size-pending.size)
+                flowDisplay=job
+                job.action={ if(job.done==job.total) results() else startFlowAiBatch(scenes,onComplete) }
+                val failedItems=scenes.indices.filter { originals[it]==null }.map { key(scenes[it]) }.toMutableList()
+                showBatch(job)
                 Thread {
                     var succeeded=validIndices.size-pending.size
                     var failed=scenes.size-validIndices.size
@@ -5295,13 +5385,14 @@ $context"""
                         val original=originals[index]!!
                         if(project.name!=projectId || isFinishing || isDestroyed) break
                         val progressText=PromptMenuStatus.flow(succeeded,scenes.size,true,failed)
-                        runOnUiThread { status.text=progressText }
+                        job.detail=progressText
                         val schema=JSONObject().put("type","object")
                             .put("properties",JSONObject().put("enhancement",JSONObject().put("type","string")))
                             .put("required",JSONArray().put("enhancement"))
                         var addition=""
                         var providerName=""
                         for(provider in providers) {
+                            job.detail="กำลังรอ ${provider.label} · ${key(scene)}"
                             val instruction="Return JSON enhancement with 1-3 concise English sentences clarifying ONLY camera motion, framing and visual continuity for this 8-second Flow video. Do not modify or add any person, MASTER, appearance, clothing, dialogue, speaker, action, location, prop, timing, aspect ratio or plot. Do not invent details. Existing command:\n"+original.take(14000)
                             val result=runCatching {
                                 StoryClientFactory.create(provider,provider.key(this@StudioActivity),
@@ -5327,14 +5418,16 @@ $context"""
                             }.isSuccess
                             if(written) succeeded++ else failed++
                         } else failed++
+                        if(failed>flowFailures) failedItems.add(key(scene))
+                        job.done=succeeded
                         flowFailures=failed
                     }
+                    job.detail=if(succeeded==scenes.size) "ตรวจสอบและบันทึกคำสั่งแล้ว" else "ยังไม่สำเร็จ · "+failedItems.joinToString()
+                    job.resultLabel=if(succeeded==scenes.size) "เปิดคำสั่ง Flow" else "ลองใหม่เฉพาะฉากที่ยังไม่สำเร็จ"
+                    job.ended=android.os.SystemClock.elapsedRealtime()
                     flowAiBatchRunning=false
                     runOnUiThread {
                         if(!isFinishing && !isDestroyed) {
-                            status.text=PromptMenuStatus.flow(succeeded,scenes.size,false,failed)
-                            progressDialog.setTitle("🎥 Flow AI • ผลการปรับปรุง")
-                            progressDialog.getButton(AlertDialog.BUTTON_NEGATIVE).text="ปิด"
                             if(project.name==projectId) onComplete?.invoke()
                         }
                     }
@@ -6066,11 +6159,12 @@ $context"""
         val state=readGeminiStatus()?.optString("state")
         if(state=="complete" && plan!=null) { if(plan!!.optString("content_profile")==AutoDirectorContent.profile) autoDirectorMenu() else episodesMenu(); return }
         if(GeminiStoryService.running) {
-            val live=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text=geminiStatusText(readGeminiStatus(),true); setTextIsSelectable(true) }
+            val panel=progressPanel()
+            val live=progressLine(panel,15f).apply { text=geminiStatusText(readGeminiStatus(),true); setTextIsSelectable(true) }
             geminiLiveDialog=live
-            val dialog=AlertDialog.Builder(this).setTitle("สถานะงาน • อัปเดตทุกวินาที")
-                .setView(live)
-                .setPositiveButton("ดูต่อ",null).setNeutralButton("หยุดงาน") { _,_ -> startService(Intent(this,GeminiStoryService::class.java).setAction(GeminiStoryService.CANCEL)) }
+            val dialog=AlertDialog.Builder(this).setTitle("เขียนบท AI")
+                .setView(panel)
+                .setPositiveButton("ย่อหน้าต่าง",null).setNeutralButton("หยุดงาน") { _,_ -> startService(Intent(this,GeminiStoryService::class.java).setAction(GeminiStoryService.CANCEL)) }
                 .setNegativeButton("ปิด",null).showNavigationDirector()
             dialog.setOnDismissListener { if(geminiLiveDialog===live) geminiLiveDialog=null }
         } else {
