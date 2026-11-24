@@ -51,7 +51,11 @@ class EpisodeRenderService : Service() {
                     check(!cancelled); val src=File(clips.getString(i)); val dst=File(job,"inputs/$i.mp4").apply { parentFile!!.mkdirs() }; src.copyTo(dst)
                     copy.put(dst.path)
                 }
-                val cover=File(job,"cover.png"); File(spec.getString("cover")).copyTo(cover)
+                val cover=if(spec.has("music")) File(job,"inputs/music") else File(job,"cover.png")
+                File(if(spec.has("music")) spec.getString("music") else spec.getString("cover")).copyTo(cover)
+                if(spec.has("music")) for(i in 0 until copy.length()) {
+                    require(EpisodeMedia.inspect(File(copy.getString(i))).durationMs >= spec.getJSONArray("trims").getLong(i)) { "คลิป SC${i+1} สั้นกว่าช่วงที่ต้องใช้" }
+                }
                 spec.optJSONArray("input_hashes")?.let { hashes ->
                     require(hashes.length()==copy.length()+1) { "รายการตรวจไฟล์ไม่ครบ" }
                     require(EpisodeMedia.digest(cover)==hashes.getString(0)) { "ปกเปลี่ยนระหว่างเตรียมงาน กรุณารวมใหม่" }
@@ -81,7 +85,15 @@ class EpisodeRenderService : Service() {
             val intro=EditedMediaItem.Builder(MediaItem.Builder().setUri(Uri.fromFile(cover)).setImageDurationMs(3000).build()).setFrameRate(fps).setEffects(Effects(emptyList(),listOf(effect))).build()
             val lossless=spec.optBoolean("lossless")
             val items=if(lossless) listOf(intro) else listOf(intro)+(0 until clips.length()).map { i -> EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(File(clips.getString(i))))).setEffects(Effects(emptyList(),listOf(effect))).build() }
-            val composition=Composition.Builder(EditedMediaItemSequence.Builder(items).build()).experimentalSetForceAudioTrack(true).build()
+            val composition=if(spec.has("music")) {
+                val videoItems=(0 until clips.length()).map { i ->
+                    val trim=MediaItem.ClippingConfiguration.Builder().setEndPositionMs(spec.getJSONArray("trims").getLong(i)).build()
+                    val item=MediaItem.Builder().setUri(Uri.fromFile(File(clips.getString(i)))).setClippingConfiguration(trim).build()
+                    EditedMediaItem.Builder(item).setRemoveAudio(true).setEffects(Effects(emptyList(),listOf(effect))).build()
+                }
+                val song=EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(cover))).setRemoveVideo(true).build()
+                Composition.Builder(listOf(EditedMediaItemSequence.Builder(videoItems).build(),EditedMediaItemSequence.Builder(song).build())).build()
+            } else Composition.Builder(EditedMediaItemSequence.Builder(items).build()).experimentalSetForceAudioTrack(true).build()
             val encoder=DefaultEncoderFactory.Builder(this).setRequestedVideoEncoderSettings(VideoEncoderSettings.Builder().setBitrate(bitrate).build()).setEnableFallback(false).build()
             val target=if(lossless) File(job,"intro.mp4") else output
             writeStatus("rendering",0,if(lossless) "กำลังสร้างปกเปิด ก่อนตรวจรูปแบบต่อคลิป" else "กำลังเข้ารหัสคุณภาพสูง 1080 × 1920")
