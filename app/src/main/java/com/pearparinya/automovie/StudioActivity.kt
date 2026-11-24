@@ -6520,8 +6520,17 @@ $context"""
         val number=scene.getInt("scene")
         val entry=draft.optJSONObject("scene_notes")?.optJSONObject(number.toString())
         val issues=musicSceneIssues(draft,scene)
-        choiceMenu("🎬 MV • SC"+number,listOf("📝 แก้ไขข้อมูลซีน","🖼️ ส่ง Image Prompt พร้อม MASTER","🎥 เปิด Flow Prompt 8 วินาที")) { action ->
+        choiceMenu("🎬 MV • SC"+number,listOf("📝 แก้ไขข้อมูลซีน","🖼️ ส่ง Image Prompt พร้อม MASTER","🎥 เปิด Flow Prompt 8 วินาที","📥 นำเข้าภาพซีน MV","📥 นำเข้าคลิปซีน MV")) { action ->
             if(action==0) { editMusicScene(scene); return@choiceMenu }
+            if(action==3 || action==4) {
+                if(musicReviewSnapshot(musicDraft())!=musicReviewSnapshot(draft)) { notice("ข้อมูลซีนเปลี่ยนแล้ว กรุณาเปิดใหม่"); return@choiceMenu }
+                mediaSlot="MV_SC%05d".format(number)
+                mediaKind=if(action==3) "image" else "video"
+                mediaProject=project.name
+                prefs.edit().putString("mv_media_snapshot",musicReviewSnapshot(draft)).apply()
+                sceneMediaPicker.launch(if(action==3) arrayOf("image/*") else arrayOf("video/mp4"))
+                return@choiceMenu
+            }
             if(entry==null || issues.isNotEmpty() || musicReviewSnapshot(musicDraft())!=musicReviewSnapshot(draft)) {
                 notice("ข้อมูลซีนยังไม่ครบหรือเปลี่ยนแล้ว กรุณาตรวจซีนก่อนผลิต"); return@choiceMenu
             }
@@ -6589,7 +6598,11 @@ $context"""
         val rows=(0 until timeline.length()).map { i ->
             val scene=timeline.getJSONObject(i)
             val issues=musicSceneIssues(draft,scene)
-            "SC"+scene.getInt("scene")+" • "+scene.getLong("start_ms")+"–"+scene.getLong("end_ms")+" ms"+(if(issues.isEmpty()) " • ข้อมูลครบ" else " • "+issues.joinToString(", "))
+            val id="MV_SC%05d".format(scene.getInt("scene"))
+            val imagePresent=File(project,"images/$id.img").isFile
+            val videoPresent=File(project,"videos/$id.mp4").isFile
+            "SC"+scene.getInt("scene")+" • "+scene.getLong("start_ms")+"–"+scene.getLong("end_ms")+" ms"+(if(issues.isEmpty()) " • ข้อมูลครบ" else " • "+issues.joinToString(", "))+
+                "\nภาพ: "+(if(imagePresent) "นำเข้าแล้ว" else "ยังไม่มี")+" • คลิป: "+(if(videoPresent) "นำเข้าแล้ว" else "ยังไม่มี")
         }
         choiceMenu("🎬 ไทม์ไลน์ MV • "+timeline.length()+" ซีน",rows) { i ->
             val scene=timeline.getJSONObject(i)
@@ -8225,8 +8238,11 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
         set(value) { prefs.edit().putString("media_project",value).apply() }
     private val sceneMediaPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val id = mediaSlot
+        val mvSnapshot=prefs.getString("mv_media_snapshot",null)
+        prefs.edit().remove("mv_media_snapshot").apply()
         if (uri != null && id != null) {
             val folder = File(base,mediaProject); val kind = mediaKind
+            val isMusic=id.matches(Regex("MV_SC[0-9]{5}"))
             val target = File(folder,if(kind == "video") "videos/$id.mp4" else "images/$id.img")
             fun accept() { background {
                 target.parentFile!!.mkdirs(); val temp = File(target.parentFile,target.name+".pending")
@@ -8240,11 +8256,16 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
                         val retriever = android.media.MediaMetadataRetriever()
                         try { retriever.setDataSource(temp.path); require(retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()?.let { it > 0 } == true) { "อ่านวิดีโอไม่ได้" } } finally { retriever.release() }
                     }
+                    if(isMusic) {
+                        require(project==folder && mvSnapshot!=null && musicReviewSnapshot(musicDraft())==mvSnapshot) { "โปรเจกต์หรือข้อมูล MV เปลี่ยนแล้ว กรุณานำเข้าใหม่" }
+                    }
                     if (target.exists()) archiveVersion(target,folder,id,kind)
                     check(temp.renameTo(target)) { "บันทึกไม่ได้" }
-                    val storyFile = File(folder,"story.json")
-                    val story = JSONObject(storyFile.readText()); rows(story).firstOrNull { key(it) == id }?.put("user_review","pending")
-                    storyFile.writeText(story.toString(2))
+                    if(!isMusic) {
+                        val storyFile = File(folder,"story.json")
+                        val story = JSONObject(storyFile.readText()); rows(story).firstOrNull { key(it) == id }?.put("user_review","pending")
+                        storyFile.writeText(story.toString(2))
+                    }
                 } finally { temp.delete() }
             } }
             AlertDialog.Builder(this).setTitle("ตรวจไฟล์ก่อนนำเข้า").setMessage("${displayName(uri)} → $id\nชนิด: $kind\n${if(target.exists()) "ไฟล์เดิมจะเก็บเป็นเวอร์ชันก่อนแทน" else "เพิ่มไฟล์ใหม่"}")
