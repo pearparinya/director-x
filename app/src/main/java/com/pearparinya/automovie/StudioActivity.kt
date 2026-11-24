@@ -7030,15 +7030,20 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     }
                     Thread {
                         var result: JSONObject?=null
+                        val failures=mutableListOf<String>()
                         for((providerIndex,provider) in providers.withIndex()) {
                             providerNumber.set(providerIndex+1)
                             if(stopped.get()) break
+                            var receivedCast=false
                             val answer=runCatching {
                                 val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false,context=this@StudioActivity)
                                 client.useProposalTimeouts()
                                 active.set(client)
                                 val prompt="Suggest a cast for this Thai story. Channel: $channel; category: $category; situation: $situation; details: $detail. Use ONLY the provided library IDs. Suggest only characters suitable for the story, with a short proposed role in Thai. Do not infer occupation or identity from a face; roles are fictional suggestions for user review. Use as many as needed, from 1 to 8. "+(if(channel=="นายเปีย บ้านคลองขุด") "Include $piaActorId as central protagonist and suitable supporting roles. " else "")+"Catalog: "+AutoCast.promptCatalog(catalog).toString()
-                                client.generate(prompt,AutoCast.schema()).also { AutoCast.validate(it,catalog); if(channel=="นายเปีย บ้านคลองขุด") AutoCast.requirePresenter(it,piaActorId) }
+                                client.generate(prompt,AutoCast.schema()).also { receivedCast=true; AutoCast.validate(it,catalog); if(channel=="นายเปีย บ้านคลองขุด") AutoCast.requirePresenter(it,piaActorId) }
+                            }.onFailure {
+                                val reason=if(receivedCast) "รายชื่อตัวละครไม่ตรงเงื่อนไข MASTER" else "ไม่ได้รับคำตอบที่อ่านได้จาก API"
+                                failures.add("${provider.label} • $reason")
                             }.getOrNull()
                             if(answer!=null) { result=answer; break }
                         }
@@ -7046,8 +7051,32 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                         runOnUiThread {
                             if(stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
                             active.set(null); loading.dismiss()
-                            if(proposal==null) { if(automatic) autoRunning=false; notice("ยังวิเคราะห์ตัวละครไม่ได้ • กรุณาเลือกจากคลัง MASTER เอง"); return@runOnUiThread }
                             if(situation!=selectedStoryTopic || detail!=premise.text.toString()) { if(automatic) autoRunning=false; notice("ข้อมูลเรื่องเปลี่ยนระหว่างวิเคราะห์ • กรุณาวิเคราะห์อีกครั้ง"); return@runOnUiThread }
+                            if(proposal==null) {
+                                autoRunning=false
+                                val dialog=AlertDialog.Builder(this@StudioActivity)
+                                    .setTitle("AI ยังเลือกตัวละครไม่ได้")
+                                    .setMessage(failures.joinToString("\n"))
+                                    .setNeutralButton("เลือกจากคลัง MASTER") { _,_ -> castButton.performClick() }
+                                    .setNegativeButton("กลับ",null)
+                                if(channel=="นายเปีย บ้านคลองขุด" && presenter.selectedItemPosition>0) {
+                                    val key=piaStoryMasterOverride ?: prefs.getString(piaChannelMasterKey,"original").orEmpty()
+                                    val label=when(key) {
+                                        "original" -> "MASTER ประจำช่อง"
+                                        "black" -> "H003"
+                                        else -> shortCatalogLabel(key) ?: "MASTER ที่เลือก"
+                                    }
+                                    dialog.setPositiveButton("ใช้ $label และสร้างบทต่อ") { _,_ ->
+                                        selectedActors.add(piaActorId)
+                                        castProposalPending=false
+                                        castSummary.text="✓ ยืนยันตัวละครแล้ว ${selectedActors.size} ตัว • ตัวเอก $label"
+                                        castSummary.setBackgroundColor(Color.rgb(19,112,72))
+                                        automaticCreate?.invoke()
+                                    }
+                                }
+                                dialog.showDirector()
+                                return@runOnUiThread
+                            }
                             suggestedRoles.clear()
                             val cast=proposal.getJSONArray("cast")
                             for(i in 0 until cast.length()) cast.getJSONObject(i).let { suggestedRoles[it.getString("library_id")]=it.getString("role") }
