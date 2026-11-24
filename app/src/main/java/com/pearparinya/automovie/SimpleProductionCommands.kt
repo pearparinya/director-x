@@ -228,11 +228,12 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
             tasks.forEachIndexed { i,t -> append("${i+1}. ${t.id} | ${t.title}\n") }
             if(images) append("\nแนบ MASTER ต้นฉบับของตัวละครแต่ละคน ตรวจชื่อและลักษณะกับภาพจริงก่อนสร้าง หากมีภาพครอปหน้าตรงจาก MASTER เดียวกันให้แนบเพิ่มได้ ไม่อิงลำดับอัปโหลดอย่างเดียว ไม่ต้องเปลี่ยนชื่อรูปจริง เริ่มภาพแรกเท่านั้น; next = ภาพถัดไปหลังภาพปัจจุบันสำเร็จและตรวจแล้ว\nแก้ภาพ <รหัส> / retry = แก้งานนั้น ไม่เลื่อนคิว ไม่เปลี่ยนอัตลักษณ์หรือชุดประจำวัน; ไปที่ <รหัส> = ทำต่อจากรายการที่มีในสารบัญ\nทุกครั้งแจ้ง ล่าสุด: <รหัส> | สถานะ DONE/PENDING | ถัดไป: <รหัส>; หากไม่สำเร็จ ข้อความปกผิด หรือขาดอ้างอิงให้คง PENDING ห้ามข้าม\nDONE หมายถึงผู้ใช้ตรวจผลจริงแล้ว ไม่ใช่คะแนนรับรองอัตลักษณ์จากคำสั่ง หากบริบทหายให้ขอไฟล์และ MASTER พร้อมระบุรหัสทำต่อใหม่\nปกมีข้อความตามรายการเท่านั้น ซีนไม่มีข้อความ ทุกคำสั่งใช้ขนาดของตนเอง; ครบรายการแล้วหยุด\n")
             else append("\nใน Flow เลือก Video → Frames และแนบภาพซีนรหัสเดียวกันใน Add start frame จากนั้นคัดลอกเฉพาะคำสั่งของซีน ตั้ง 9:16 และ 8 วินาที แล้วกดสร้าง ภาพซีนต้องเตรียมหรืออัปโหลดเอง ไฟล์นี้มีคำสั่งข้อความ ไม่ได้แนบภาพหรือสร้างวิดีโออัตโนมัติ\n")
-            if(images) append("\n" + WardrobeContext.detailLock)
+            if(images) append("\n" + BodyReferencePolicy.imageIdentityLock + "\n" + WardrobeContext.detailLock)
             tasks.forEachIndexed { i,t ->
                 val entry=block(t,i,images)
                 append("\n\n")
-                append(if(images) entry.replace(WardrobeContext.detailLock,
+                append(if(images) entry.replace(BodyReferencePolicy.imageIdentityLock,
+                    "Keep each person’s own MASTER face, hair, skin tone and body proportions; tailor garments to the person.").replace(WardrobeContext.detailLock,
                     "Match garment cuts, belt/buckle, shoe straps, brooch and accessory placement exactly to this wearer's source. No added ornament.") else entry)
             }
         }
