@@ -6414,7 +6414,7 @@ $context"""
                     "แทร็กเสียง: "+(if(hasAudio) "พบ" else "ไม่พบ")+"\nระยะเวลาจริง: "+duration+" ms\nตรงกับไทม์ไลน์: "+(if(duration==musicDurationMs(draft)) "ผ่าน" else "ไม่ผ่าน")+"\nคุณภาพเสียงและ lip sync: ยังไม่ได้ตรวจ"
                 } finally { reader.release() }
             }.getOrElse { "ตรวจไฟล์เสียงไม่สำเร็จ: "+it.message }
-            runOnUiThread { if(!isFinishing && !isDestroyed && project==target) notice(report+"\nภาพรายซีน: ยังไม่ได้เชื่อมไฟล์ภาพกับซีน MV") }
+            runOnUiThread { if(!isFinishing && !isDestroyed && project==target) notice(report+"\nตรวจภาพและคลิปรายซีนได้จากไทม์ไลน์ MV") }
         }.start()
     }
     private fun runMusicSceneReview(scene: JSONObject) {
@@ -6520,8 +6520,20 @@ $context"""
         val number=scene.getInt("scene")
         val entry=draft.optJSONObject("scene_notes")?.optJSONObject(number.toString())
         val issues=musicSceneIssues(draft,scene)
-        choiceMenu("🎬 MV • SC"+number,listOf("📝 แก้ไขข้อมูลซีน","🖼️ ส่ง Image Prompt พร้อม MASTER","🎥 เปิด Flow Prompt 8 วินาที","📥 นำเข้าภาพซีน MV","📥 นำเข้าคลิปซีน MV")) { action ->
+        choiceMenu("🎬 MV • SC"+number,listOf("📝 แก้ไขข้อมูลซีน","🖼️ ส่ง Image Prompt พร้อม MASTER","🎥 เปิด Flow Prompt 8 วินาที","📥 นำเข้าภาพซีน MV","📥 นำเข้าคลิปซีน MV","🖼️ ดูภาพซีน MV","▶️ ดูคลิปซีน MV","🔎 ตรวจข้อมูลไฟล์ซีน MV")) { action ->
             if(action==0) { editMusicScene(scene); return@choiceMenu }
+            if(action in 5..7) {
+                if(musicReviewSnapshot(musicDraft())!=musicReviewSnapshot(draft)) { notice("ข้อมูลซีนเปลี่ยนแล้ว กรุณาเปิดใหม่"); return@choiceMenu }
+                val id="MV_SC%05d".format(number)
+                val picture=File(project,"images/$id.img")
+                val clip=File(project,"videos/$id.mp4")
+                when(action) {
+                    5 -> if(picture.isFile) fullImage(picture,"ภาพ MV • SC$number") else notice("ยังไม่มีภาพซีนนี้")
+                    6 -> playMediaFile(clip,"คลิป MV • SC$number")
+                    7 -> inspectMusicMedia(scene,picture,clip)
+                }
+                return@choiceMenu
+            }
             if(action==3 || action==4) {
                 if(musicReviewSnapshot(musicDraft())!=musicReviewSnapshot(draft)) { notice("ข้อมูลซีนเปลี่ยนแล้ว กรุณาเปิดใหม่"); return@choiceMenu }
                 mediaSlot="MV_SC%05d".format(number)
@@ -6538,6 +6550,24 @@ $context"""
             if(action==1) shareMusicSceneImage(draft,entry,code,number)
             else showFlowCode("FLOW PROMPT • MV SC"+number,code+"\nSTART STATE: "+entry.getString("start_state")+"\n"+entry.getString("flow_prompt")+"\nEND STATE: "+entry.getString("end_state")+"\nใช้เสียงเพลงต้นฉบับต่อเนื่อง ไม่สร้างเสียงร้องใหม่","MV_SC"+number+"_FLOW.txt")
         }
+    }
+    private fun inspectMusicMedia(scene: JSONObject, picture: File, clip: File) {
+        val imageInfo=if(!picture.isFile) "ยังไม่มีภาพ" else runCatching {
+            val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
+            android.graphics.BitmapFactory.decodeFile(picture.path,bounds)
+            require(bounds.outWidth>0 && bounds.outHeight>0) { "อ่านภาพไม่ได้" }
+            "${bounds.outWidth} × ${bounds.outHeight} px • "+
+                if(bounds.outWidth.toLong()*16==bounds.outHeight.toLong()*9) "สัดส่วน 9:16" else "สัดส่วนไม่ใช่ 9:16"
+        }.getOrElse { "ตรวจภาพไม่สำเร็จ: ${it.message}" }
+        val videoInfo=if(!clip.isFile) "ยังไม่มีคลิป" else runCatching {
+            val info=EpisodeMedia.inspect(clip)
+            val ratio=if(info.displayWidth.toLong()*16==info.displayHeight.toLong()*9) "สัดส่วน 9:16" else "สัดส่วนไม่ใช่ 9:16"
+            val length=if(info.durationMs>=scene.getLong("usable_ms")) "ยาวพอสำหรับช่วงซีน" else "สั้นกว่าช่วงซีนที่ต้องใช้"
+            "${info.displayWidth} × ${info.displayHeight} px • $ratio\n${info.durationMs} ms • $length\nเสียงในคลิป: ${info.audioMime ?: "ไม่พบ"}"
+        }.getOrElse { "ตรวจคลิปไม่สำเร็จ: ${it.message}" }
+        AlertDialog.Builder(this).setTitle("ตรวจข้อมูลไฟล์ MV • SC${scene.getInt("scene")}")
+            .setMessage("ภาพ: $imageInfo\n\nคลิป: $videoInfo\n\nตรวจเฉพาะข้อมูลไฟล์ ยังไม่ได้ตรวจใบหน้า เสียงเพลง ความตรงปาก หรือคุณภาพเนื้อหา")
+            .setPositiveButton("ปิด",null).showDirector()
     }
     private fun shareMusicSceneImage(draft: JSONObject, entry: JSONObject, code: String, number: Int) {
         val target=project
@@ -8274,12 +8304,15 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
         mediaSlot = null
     }
     private fun playVideo(s: JSONObject) {
-        val file = video(s); if (!file.exists()) return notice("ยังไม่มีวิดีโอฉากนี้ • สร้างใน Flow แล้วนำเข้ากลับ")
+        playMediaFile(video(s),key(s))
+    }
+    private fun playMediaFile(file: File, title: String) {
+        if (!file.isFile) return notice("ยังไม่มีวิดีโอฉากนี้ • สร้างใน Flow แล้วนำเข้ากลับ")
         val view = VideoView(this).apply {
             setVideoPath(file.path); val controls = MediaController(this@StudioActivity); controls.setAnchorView(this); setMediaController(controls)
             setOnPreparedListener { start() }; setOnErrorListener { _,_,_ -> notice("เล่นไฟล์นี้ไม่ได้ กรุณานำเข้าวิดีโอ MP4 ที่รองรับ"); true }
         }
-        val dialog = AlertDialog.Builder(this).setTitle(key(s)).setView(view).setPositiveButton("ปิด",null).create()
+        val dialog = AlertDialog.Builder(this).setTitle(title).setView(view).setPositiveButton("ปิด",null).create()
         dialog.setOnDismissListener { view.stopPlayback() }; dialog.show(); dialog.window?.setLayout(-1,dp(560))
     }
     private fun versionsMenu(s: JSONObject) {
