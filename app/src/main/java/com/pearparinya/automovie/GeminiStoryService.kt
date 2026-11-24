@@ -14,6 +14,7 @@ class GeminiStoryService : Service() {
     companion object {
         @Volatile var running=false
         @Volatile var projectId: String?=null
+        const val VISIBLE_START="visible_story_start"
         const val CANCEL="cancel_gemini"
         private const val CHANNEL="gemini_story"
         private const val ID=160
@@ -24,6 +25,7 @@ class GeminiStoryService : Service() {
     private val statusLock=Any()
     private lateinit var liveStatus: StoryJobStatus
     private var pulse: java.util.concurrent.ScheduledExecutorService?=null
+    private var visibleStart=false
     private var hybrid=false
     private lateinit var folder: File
     private var lastPercent=0
@@ -40,15 +42,28 @@ class GeminiStoryService : Service() {
         running=true; projectId=id; cancelled=false
         val manager=getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(NotificationChannel(CHANNEL,"เขียนบทด้วย AI",NotificationManager.IMPORTANCE_LOW))
-        val notification=notification("กำลังเริ่มเขียนบท")
-        if(Build.VERSION.SDK_INT>=29) startForeground(ID,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else startForeground(ID,notification)
+        visibleStart=intent.getBooleanExtra(VISIBLE_START,false)
+        if(!visibleStart) {
+            val notification=notification("กำลังเริ่มเขียนบท")
+            try {
+                if(Build.VERSION.SDK_INT>=29) startForeground(ID,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else startForeground(ID,notification)
+            } catch(error: RuntimeException) {
+                visibleStart=true
+                try {
+                    status("failed",lastPercent,"Android ไม่อนุญาตให้เริ่มบริการเขียนบท (${error.javaClass.simpleName}) • กดทำต่อ")
+                } finally {
+                    running=false; projectId=null; stopSelf()
+                }
+                return START_NOT_STICKY
+            }
+        }
         status("running",lastPercent,"กำลังเริ่ม / ต่อจากช่วงที่บันทึกไว้","preparing")
         pulse=java.util.concurrent.Executors.newSingleThreadScheduledExecutor().apply {
             scheduleAtFixedRate({ runCatching { synchronized(statusLock) {
                 if(running) {
                     val snapshot=liveStatus.heartbeat().put("hybrid",hybrid)
                     GeminiStoryFiles.write(File(folder,"status.json"),snapshot)
-                    getSystemService(NotificationManager::class.java).notify(ID,notification(snapshot.optString("message")))
+                    if(!visibleStart) getSystemService(NotificationManager::class.java).notify(ID,notification(snapshot.optString("message")))
                 }
             } } },1,1,java.util.concurrent.TimeUnit.SECONDS)
         }
@@ -172,7 +187,7 @@ class GeminiStoryService : Service() {
             lastPercent=if(state=="complete") 100 else maxOf(lastPercent,percent.coerceIn(0,99))
             val snapshot=liveStatus.update(state,lastPercent,message,provider.id,phase).put("hybrid",hybrid)
             GeminiStoryFiles.write(File(folder,"status.json"),snapshot)
-            getSystemService(NotificationManager::class.java).notify(ID,notification(message))
+            if(!visibleStart) getSystemService(NotificationManager::class.java).notify(ID,notification(message))
         }
     }
     private fun notification(message: String): Notification {
