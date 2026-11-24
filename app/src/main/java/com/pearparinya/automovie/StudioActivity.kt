@@ -6107,10 +6107,18 @@ $context"""
     // Music/MV uses the existing MASTER, ChatGPT image-prompt and Flow workflows.
     // Drafts live in a separate file; existing story.json and EPs are never overwritten.
     private fun musicDraftFile() = File(project, "music_mv_draft.json")
-    private fun musicDraft(): JSONObject = runCatching {
-        JSONObject(musicDraftFile().readText())
-    }.getOrElse {
-        JSONObject().put("title", "").put("lyrics", "").put("genres", JSONArray())
+    private fun musicDraft(): JSONObject {
+        val file=musicDraftFile()
+        val previous=File(file.parentFile,"music_mv_draft.previous.json")
+        val pending=File(file.parentFile,file.name+".pending")
+        for(candidate in listOf(file,pending,previous)) {
+            val recovered=runCatching { JSONObject(candidate.readText()) }.getOrNull()
+            if(recovered!=null) return recovered
+        }
+        check(!listOf(file,pending,previous).any { it.exists() }) {
+            "ไม่สามารถอ่านข้อมูล MV เดิมได้ กรุณาสำรองไฟล์ก่อนแก้ไข"
+        }
+        return JSONObject().put("title", "").put("lyrics", "").put("genres", JSONArray())
             .put("mood", "อบอุ่น").put("language", "ไทย").put("duration_seconds", 180)
             .put("mode", "MV ผสมละคร").put("singer", "นายเปีย บ้านคลองขุด")
             .put("source", "เพลงใหม่").put("status", "ร่าง")
@@ -6118,12 +6126,15 @@ $context"""
     private fun saveMusicDraft(draft: JSONObject) {
         val file=musicDraftFile(); file.parentFile?.mkdirs()
         val tmp=File(file.parentFile, file.name+".pending")
+        draft.put("updated_at_ms",System.currentTimeMillis())
         tmp.writeText(draft.toString(2))
-        if(file.exists()) file.copyTo(File(file.parentFile,"music_mv_draft.previous.json"),overwrite=true)
+        if(file.exists() && runCatching { JSONObject(file.readText()) }.isSuccess) file.copyTo(File(file.parentFile,"music_mv_draft.previous.json"),overwrite=true)
         check(tmp.renameTo(file)) { "บันทึกเพลงไม่สำเร็จ" }
     }
     private fun editMusicField(title: String, field: String, multiline: Boolean=false) {
+        val target=project
         val draft=musicDraft()
+        val original=draft.optString(field)
         val input=EditText(this).apply {
             setText(draft.optString(field))
             hint=title
@@ -6131,22 +6142,71 @@ $context"""
         }
         AlertDialog.Builder(this).setTitle(title).setView(input)
             .setPositiveButton("บันทึก") { _,_ ->
-                draft.put(field,input.text.toString().trim())
-                runCatching { saveMusicDraft(draft) }.onFailure { notice("บันทึกไม่สำเร็จ: ${it.message}") }
+                runCatching {
+                    require(project==target) { "โปรเจกต์เปลี่ยนแล้ว กรุณาเปิดใหม่" }
+                    val latest=musicDraft()
+                    require(latest.optString(field)==original) { "ข้อมูลนี้เปลี่ยนแล้ว กรุณาเปิดแก้ไขใหม่" }
+                    latest.put(field,input.text.toString().trim())
+                    saveMusicDraft(latest)
+                }.onFailure { notice("บันทึกไม่สำเร็จ: ${it.message}") }
             }.setNegativeButton("ยกเลิก",null).showDirector()
     }
     private fun musicGenres() {
+        val target=project
         val names=listOf("ลูกทุ่ง","เพื่อชีวิต","ป๊อป","เพลงเศร้า","เพลงรัก","เพลงใต้และเพลงท้องถิ่น","เพลงสนุกสนาน","เพลงครอบครัว","เพลงให้กำลังใจ","เพลงเล่าเรื่อง","เพลงอะคูสติก","เพลงย้อนยุค")
         val draft=musicDraft()
         val current=draft.optJSONArray("genres") ?: JSONArray()
+        val original=current.toString()
         val checked=BooleanArray(names.size) { i -> (0 until current.length()).any { current.optString(it)==names[i] } }
         AlertDialog.Builder(this).setTitle("🎶 แนวเพลง • เลือกได้หลายแนว")
             .setMultiChoiceItems(names.toTypedArray(),checked) { _,index,value -> checked[index]=value }
             .setPositiveButton("บันทึก") { _,_ ->
-                draft.put("genres",JSONArray().apply { names.forEachIndexed { i,name -> if(checked[i]) put(name) } })
-                saveMusicDraft(draft)
-                musicSettings()
+                runCatching {
+                    require(project==target) { "โปรเจกต์เปลี่ยนแล้ว กรุณาเปิดใหม่" }
+                    val latest=musicDraft()
+                    require((latest.optJSONArray("genres") ?: JSONArray()).toString()==original) { "แนวเพลงเปลี่ยนแล้ว กรุณาเปิดแก้ไขใหม่" }
+                    latest.put("genres",JSONArray().apply { names.forEachIndexed { i,name -> if(checked[i]) put(name) } })
+                    saveMusicDraft(latest)
+                }.onSuccess { musicSettings() }.onFailure { notice("บันทึกไม่สำเร็จ: ${it.message}") }
             }.setNegativeButton("ยกเลิก",null).showDirector()
+    }
+    private var musicAudioProject: File? = null
+    private val musicAudioPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val target = musicAudioProject
+        musicAudioProject = null
+        if (uri != null && target != null) {
+            if (target != project) {
+                notice("โปรเจกต์เปลี่ยนแล้ว กรุณาเลือกไฟล์ใหม่")
+            } else {
+                val pending = File(target, "music_audio.pending")
+                runCatching {
+                    val metadata = android.media.MediaMetadataRetriever()
+                    val millis = try {
+                        metadata.setDataSource(this, uri)
+                        metadata.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+                            ?: error("อ่านระยะเวลาเพลงไม่ได้")
+                    } finally { metadata.release() }
+                    require(millis in 1L..86400000L) { "ระยะเวลาเพลงไม่ถูกต้อง" }
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        pending.outputStream().use { output -> input.copyTo(output) }
+                    } ?: error("เปิดไฟล์เสียงไม่ได้")
+                    require(pending.length() > 0) { "ไฟล์เสียงว่าง" }
+                    val audio = File(target, "music_audio_" + UUID.randomUUID().toString())
+                    check(pending.renameTo(audio)) { "บันทึกไฟล์เสียงไม่ได้" }
+                    val draft = musicDraft()
+                    draft.put("audio_file", audio.name)
+                    draft.put("audio_duration_ms", millis)
+                    draft.put("duration_seconds", ((millis + 999L) / 1000L).toInt())
+                    saveMusicTimeline(draft)
+                    notice("บันทึกเพลงต้นฉบับแล้ว • " + millis + " ms")
+                }.onFailure { notice("นำเข้าเพลงไม่สำเร็จ: " + it.message) }
+                pending.delete()
+            }
+        }
+    }
+    private fun importMusicAudio() {
+        musicAudioProject = project
+        musicAudioPicker.launch(arrayOf("audio/*"))
     }
     private fun musicSettings() {
         val draft=musicDraft()
@@ -6157,16 +6217,19 @@ $context"""
             "🌏 ภาษา • ${draft.optString("language")}",
             "⏱️ ความยาวเพลง • ${draft.optInt("duration_seconds")} วินาที",
             "🎤 นักร้อง/พระเอก • ${draft.optString("singer")}",
-            "🎬 รูปแบบ MV • ${draft.optString("mode")}"
+            "🎬 รูปแบบ MV • ${draft.optString("mode")}",
+            "🎧 นำเข้าเพลงต้นฉบับ • ${if(draft.optString("audio_file").isBlank()) "ยังไม่มี" else "บันทึกแล้ว"}"
         )) { i -> when(i) {
             0 -> editMusicField("ชื่อเพลง","title")
             1 -> musicGenres()
             2 -> choiceMenu("อารมณ์เพลง",listOf("อบอุ่น","โรแมนติก","เศร้า","สนุกสนาน","ฮึกเหิม","คิดถึง","ลึกลับ")) { n -> draft.put("mood",listOf("อบอุ่น","โรแมนติก","เศร้า","สนุกสนาน","ฮึกเหิม","คิดถึง","ลึกลับ")[n]);saveMusicDraft(draft) }
             3 -> editMusicField("ภาษาเพลง","language")
             4 -> choiceMenu("ความยาวเพลง",listOf("30 วินาที","60 วินาที","120 วินาที","180 วินาที","240 วินาที","กำหนดเองภายหลัง")) { n ->
-                if(n<5) { draft.put("duration_seconds",listOf(30,60,120,180,240)[n]);saveMusicDraft(draft) }
+                if(draft.optLong("audio_duration_ms",0)>0) notice("ใช้ระยะเวลาจริงจากไฟล์เสียงต้นฉบับ")
+                else if(n<5) { draft.put("duration_seconds",listOf(30,60,120,180,240)[n]);saveMusicTimeline(draft) }
                 else notice("แก้ไขความยาวผ่านไฟล์เพลงได้ในเวอร์ชันถัดไป")
             }
+            7 -> importMusicAudio()
             5 -> editMusicField("นักร้องและพระเอกหลัก","singer")
             6 -> choiceMenu("รูปแบบ MV",listOf("MV เล่าเรื่อง","MV ร้องเพลง","MV ผสมละคร","เพลงประกอบละคร")) { n -> draft.put("mode",listOf("MV เล่าเรื่อง","MV ร้องเพลง","MV ผสมละคร","เพลงประกอบละคร")[n]);saveMusicDraft(draft) }
         } }
@@ -6204,28 +6267,462 @@ $context"""
 ตอบเป็นเนื้อเพลงที่สามารถนำมาแก้ไขและบันทึกใน DIRECTOR X ได้
 นี่เป็นการสร้างคำสั่ง ไม่ใช่การผลิตเสียงร้องหรือดนตรีจริง""".trimIndent()
     }
+    private fun musicDurationMs(draft: JSONObject): Long =
+        draft.optLong("audio_duration_ms", draft.optInt("duration_seconds",180).toLong()*1000L)
+            .coerceIn(1L,86400000L)
+
+    private fun musicTimeline(draft: JSONObject): JSONArray {
+        val duration = musicDurationMs(draft)
+        val count = ((duration+7999L)/8000L).toInt()
+        return JSONArray().apply {
+            repeat(count) { index ->
+                val start = index*8000L
+                val end = minOf(start+8000L,duration)
+                put(JSONObject().put("scene",index+1).put("start_ms",start)
+                    .put("end_ms",end).put("production_ms",8000)
+                    .put("usable_ms",end-start))
+            }
+        }
+    }
+    private fun saveMusicTimeline(draft: JSONObject) {
+        draft.put("timeline",musicTimeline(draft))
+        saveMusicDraft(draft)
+    }
+    private fun restoreMusicDraft() {
+        val target=project
+        val previous=File(target,"music_mv_draft.previous.json")
+        val snapshot=runCatching { JSONObject(previous.readText()) }.getOrNull()
+        if(snapshot==null) { notice("ไม่พบสำเนาข้อมูล MV ที่อ่านได้"); return }
+        AlertDialog.Builder(this).setTitle("กู้คืนข้อมูล MV")
+            .setMessage("ย้อนกลับไปยังข้อมูลที่บันทึกก่อนหน้า โดยเก็บข้อมูลปัจจุบันไว้เป็นสำเนา")
+            .setPositiveButton("กู้คืน") { _,_ ->
+                if(project!=target) notice("โปรเจกต์เปลี่ยนแล้ว กรุณาเปิดใหม่")
+                else runCatching { saveMusicDraft(snapshot) }
+                    .onSuccess { notice("กู้คืนข้อมูล MV แล้ว") }
+                    .onFailure { notice("กู้คืนไม่สำเร็จ: "+it.message) }
+            }.setNegativeButton("ยกเลิก",null).showDirector()
+    }
+    private fun musicSceneIssues(draft: JSONObject, scene: JSONObject): List<String> {
+        val entry=draft.optJSONObject("scene_notes")?.optJSONObject(scene.getInt("scene").toString())
+            ?: return listOf("ยังไม่มีข้อมูลซีน")
+        val issues=mutableListOf<String>()
+        if(entry.optLong("start_ms",-1L)!=scene.getLong("start_ms") ||
+            entry.optLong("end_ms",-1L)!=scene.getLong("end_ms")) issues.add("ไทม์โค้ดเปลี่ยน")
+        listOf("start_state" to "START STATE","end_state" to "END STATE",
+            "image_prompt" to "Image Prompt","flow_prompt" to "Flow Prompt").forEach { (key,label) ->
+            if(entry.optString(key).isBlank()) issues.add("ขาด "+label)
+        }
+        return issues
+    }
+    private fun resumeMusicScene() {
+        val draft=musicDraft()
+        val timeline=musicTimeline(draft)
+        val next=(0 until timeline.length()).firstOrNull { musicSceneIssues(draft,timeline.getJSONObject(it)).isNotEmpty() }
+        if(next==null) notice("ข้อมูลซีนครบแล้ว • ยังต้องตรวจคุณภาพภาพและเสียง")
+        else editMusicScene(timeline.getJSONObject(next))
+    }
+    private fun reviewMusicDraft() {
+        val draft=musicDraft()
+        val expected=musicTimeline(draft)
+        val saved=draft.optJSONArray("timeline")
+        val audioName=draft.optString("audio_file")
+        val audioPresent=audioName.isNotBlank() && File(audioName).name==audioName &&
+            File(project,audioName).let { it.isFile && it.length()>0 }
+        val timelineValid=saved!=null && saved.length()==expected.length() &&
+            (0 until expected.length()).all { i ->
+                val actual=saved.optJSONObject(i)
+                val wanted=expected.getJSONObject(i)
+                actual!=null && listOf("scene","start_ms","end_ms","production_ms","usable_ms").all { key ->
+                    actual.optLong(key,-1L)==wanted.getLong(key)
+                }
+            }
+        val incomplete=(0 until expected.length()).filter { musicSceneIssues(draft,expected.getJSONObject(it)).isNotEmpty() }
+        val report=listOf(
+            "ข้อมูลซีนครบ "+(expected.length()-incomplete.size)+"/"+expected.length(),
+            (if(incomplete.isEmpty()) "ผ่าน" else "ไม่ผ่าน")+" • ความครบถ้วนของข้อมูลซีน",
+            (if(draft.optString("lyrics").isNotBlank()) "ผ่าน" else "ไม่ผ่าน")+" • เนื้อเพลง",
+            (if(audioPresent) "ผ่าน" else if(audioName.isBlank()) "รอดำเนินการ" else "ไม่ผ่าน")+" • ไฟล์เสียงต้นฉบับ",
+            (if(timelineValid) "ผ่าน" else "ไม่ผ่าน")+" • ไทม์ไลน์ที่บันทึก",
+            "รอดำเนินการ • ตรวจ MASTER / ความต่อเนื่อง / คุณภาพภาพและเสียง"
+        ).joinToString("\n")
+        AlertDialog.Builder(this).setTitle("ตรวจสอบข้อมูล MV").setMessage(report)
+            .setPositiveButton("ปิด",null)
+            .setNeutralButton("ซ่อมไทม์ไลน์") { _,_ ->
+                runCatching { saveMusicTimeline(draft) }
+                    .onSuccess { reviewMusicDraft() }
+                    .onFailure { notice("บันทึกไม่สำเร็จ: "+it.message) }
+            }.showDirector()
+    }
+    private fun musicSceneRepairPrompt(draft: JSONObject, scene: JSONObject): String {
+        val number=scene.getInt("scene")
+        val notes=draft.optJSONObject("scene_notes")
+        return """ตรวจสอบและเสนอแก้ไขเฉพาะ SC$number ของ MV
+รูปแบบ: ${draft.optString("mode")}
+นักร้องหลัก: ${draft.optString("singer")}
+ช่วงเวลา: ${scene.getLong("start_ms")}–${scene.getLong("end_ms")} ms
+ผลิตคลิป 8 วินาที แนวตั้ง 9:16 ใช้จริง ${scene.getLong("usable_ms")} ms
+ปัญหาที่ตรวจพบจากข้อมูล: ${musicSceneIssues(draft,scene).joinToString("; ").ifBlank { "ข้อมูลครบ แต่ยังไม่ได้ตรวจคุณภาพ" }}
+ซีนก่อนหน้า: ${notes?.optJSONObject((number-1).toString())?.toString().orEmpty()}
+ซีนปัจจุบัน: ${notes?.optJSONObject(number.toString())?.toString().orEmpty()}
+ซีนถัดไป: ${notes?.optJSONObject((number+1).toString())?.toString().orEmpty()}
+เนื้อเพลงต้นฉบับ: ${draft.optString("lyrics")}
+เสนอ START STATE, END STATE, Image Prompt และ Flow Prompt ที่แก้ไขแล้ว พร้อมเหตุผลก่อน/หลัง
+รักษา MASTER แยกบุคคล ชุด อุปกรณ์ และความต่อเนื่อง ห้ามเปลี่ยนซีนอื่น
+ใช้เสียงต้นฉบับต่อเนื่อง ไม่สร้างเสียงร้องใหม่ ไม่เดาเวลาท่อนร้องหากไม่มีไทม์โค้ด
+ระบุสิ่งที่ยังตรวจไม่ได้จากข้อมูลข้อความ ห้ามอ้างว่าตรวจภาพหรือเสียงจริงแล้ว
+ส่งข้อเสนอให้ผู้ใช้ตรวจและบันทึกเอง ไม่แก้ข้อมูลต้นฉบับโดยอัตโนมัติ""".trimIndent()
+    }
+    private fun musicReviewSnapshot(draft: JSONObject): String =
+        JSONObject(draft.toString()).apply { remove("updated_at_ms") }.toString()
+    private fun resumeMusicReview() {
+        val draft=musicDraft()
+        val checkpoint=runCatching { JSONObject(File(project,"mv_review_checkpoint.json").readText()) }.getOrNull()
+        if(checkpoint==null || checkpoint.optString("snapshot")!=musicReviewSnapshot(draft)) {
+            notice("ไม่พบงาน AI ที่ตรงกับข้อมูลปัจจุบัน"); return
+        }
+        val timeline=musicTimeline(draft)
+        val index=checkpoint.optInt("scene",0)-1
+        if(index !in 0 until timeline.length()) { notice("ไม่พบซีนเดิม"); return }
+        runMusicSceneReview(timeline.getJSONObject(index))
+    }
+    private val mvImageInspector=registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if(uri!=null) Thread {
+            val report=runCatching {
+                val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
+                contentResolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it,null,bounds) }
+                require(bounds.outWidth>0 && bounds.outHeight>0) { "อ่านภาพไม่ได้" }
+                val vertical=bounds.outWidth.toLong()*16L==bounds.outHeight.toLong()*9L
+                "ภาพจริง: "+bounds.outWidth+" × "+bounds.outHeight+"\nสัดส่วน 9:16: "+(if(vertical) "ผ่าน" else "ไม่ผ่าน")+"\nMASTER และความต่อเนื่อง: ยังไม่ได้ตรวจ"
+            }.getOrElse { "ตรวจภาพไม่สำเร็จ: "+it.message }
+            runOnUiThread { if(!isFinishing && !isDestroyed) notice(report) }
+        }.start()
+    }
+    private fun inspectMusicMedia() {
+        val target=project
+        val draft=musicDraft()
+        val name=draft.optString("audio_file")
+        if(name.isBlank() || File(name).name!=name) { notice("ยังไม่มีไฟล์เสียงต้นฉบับ"); return }
+        Thread {
+            val report=runCatching {
+                val audio=File(target,name)
+                require(audio.isFile && audio.length()>0) { "ไม่พบไฟล์เสียง" }
+                val reader=android.media.MediaMetadataRetriever()
+                try {
+                    reader.setDataSource(audio.absolutePath)
+                    val duration=reader.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: error("อ่านเวลาไม่ได้")
+                    val hasAudio=reader.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO)=="yes"
+                    "แทร็กเสียง: "+(if(hasAudio) "พบ" else "ไม่พบ")+"\nระยะเวลาจริง: "+duration+" ms\nตรงกับไทม์ไลน์: "+(if(duration==musicDurationMs(draft)) "ผ่าน" else "ไม่ผ่าน")+"\nคุณภาพเสียงและ lip sync: ยังไม่ได้ตรวจ"
+                } finally { reader.release() }
+            }.getOrElse { "ตรวจไฟล์เสียงไม่สำเร็จ: "+it.message }
+            runOnUiThread { if(!isFinishing && !isDestroyed && project==target) notice(report+"\nตรวจภาพและคลิปรายซีนได้จากไทม์ไลน์ MV") }
+        }.start()
+    }
+    private fun runMusicSceneReview(scene: JSONObject) {
+        val target=project
+        val draft=musicDraft()
+        val snapshot=musicReviewSnapshot(draft)
+        val key=scene.getInt("scene").toString()
+        val fields=listOf("start_state","end_state","image_prompt","flow_prompt","reason")
+        val properties=JSONObject()
+        fields.forEach { properties.put(it,JSONObject().put("type","string")) }
+        val schema=JSONObject().put("type","object").put("properties",properties).put("required",JSONArray(fields))
+        val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
+        if(providers.isEmpty()) { notice("ยังไม่มี API ที่พร้อมใช้งาน"); return }
+        val prompt=musicSceneRepairPrompt(draft,scene)+"\nตอบ JSON ตาม schema เท่านั้น"
+        val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
+        val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
+        val checkpoint=File(target,"mv_review_checkpoint.json")
+        val pending=File(target,"mv_review_checkpoint.pending")
+        val prior=runCatching { JSONObject(checkpoint.readText()) }.getOrNull()
+        val cached=prior?.takeIf { it.optString("snapshot")==snapshot && it.optInt("scene")==scene.getInt("scene") }?.optJSONObject("result")
+        fun persistReview(result: JSONObject?) {
+            val data=JSONObject().put("snapshot",snapshot).put("scene",scene.getInt("scene"))
+            if(result!=null) data.put("result",result)
+            pending.writeText(data.toString()); check(pending.renameTo(checkpoint))
+        }
+        if(runCatching { persistReview(cached) }.isFailure) { notice("บันทึกจุดกู้คืนไม่ได้"); return }
+        val loading=AlertDialog.Builder(this).setMessage("AI กำลังตรวจซีน SC"+key).setNegativeButton("หยุด",null).showDirector()
+        loading.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
+        Thread {
+            var answer: JSONObject?=cached?.takeIf { value -> fields.all { value.opt(it) is String && value.optString(it).isNotBlank() } }
+            for(provider in providers) {
+                if(answer!=null) break
+                if(stopped.get()) break
+                answer=runCatching {
+                    val client=StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ stopped.get() },automaticRetry=false,context=this@StudioActivity)
+                    active.set(client)
+                    if(stopped.get()) throw java.util.concurrent.CancellationException()
+                    client.generate(prompt,schema)
+                }.getOrNull()?.takeIf { value -> fields.all { value.opt(it) is String && value.optString(it).isNotBlank() } }
+                if(answer!=null) break
+            }
+            val result=answer
+            runOnUiThread {
+                if(stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
+                active.set(null); loading.dismiss()
+                if(project!=target || musicReviewSnapshot(musicDraft())!=snapshot) { notice("ข้อมูลเปลี่ยนแล้ว กรุณาตรวจใหม่"); return@runOnUiThread }
+                if(result==null) { notice("AI ไม่ส่งผลที่ครบถ้วน • ไม่มีการแก้ข้อมูล"); return@runOnUiThread }
+                if(runCatching { persistReview(result) }.isFailure) { notice("บันทึกข้อเสนอ AI ไม่สำเร็จ"); return@runOnUiThread }
+                val before=draft.optJSONObject("scene_notes")?.optJSONObject(key)
+                val comparison=fields.joinToString("\n\n") { field -> field+"\nเดิม: "+before?.optString(field).orEmpty()+"\nเสนอ: "+result.optString(field) }
+                AlertDialog.Builder(this).setTitle("ตรวจข้อเสนอ AI • SC"+key)
+                    .setView(ScrollView(this).apply { addView(TextView(context).apply { text=comparison; setPadding(dp(16),dp(12),dp(16),dp(12)); setTextIsSelectable(true) }) })
+                    .setPositiveButton("ยืนยันแก้ซีน") { _,_ ->
+                        runCatching {
+                            require(project==target && musicReviewSnapshot(musicDraft())==snapshot) { "ข้อมูลเปลี่ยนแล้ว" }
+                            val all=draft.optJSONObject("scene_notes") ?: JSONObject()
+                            val entry=before ?: JSONObject()
+                            fields.filter { it!="reason" }.forEach { entry.put(it,result.getString(it)) }
+                            entry.put("review_reason",result.getString("reason")).put("start_ms",scene.getLong("start_ms")).put("end_ms",scene.getLong("end_ms"))
+                            all.put(key,entry); draft.put("scene_notes",all)
+                            saveMusicTimeline(draft)
+                            checkpoint.delete()
+                        }.onSuccess { showMusicTimeline() }.onFailure { notice("บันทึกไม่สำเร็จ: "+it.message) }
+                    }.setNegativeButton("ไม่แก้ไข",null).showDirector()
+            }
+        }.start()
+    }
+    private fun editMusicScene(scene: JSONObject) {
+        val target=project
+        val draft=musicDraft()
+        val key=scene.getInt("scene").toString()
+        val notes=draft.optJSONObject("scene_notes") ?: JSONObject()
+        val saved=notes.optJSONObject(key)
+        val original=saved?.toString()
+        val panel=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+        val fields=listOf("lyrics" to "ท่อนเพลง / ไทม์โค้ด", "start_state" to "START STATE", "end_state" to "END STATE", "image_prompt" to "Image Prompt", "flow_prompt" to "Flow Prompt")
+        val inputs=fields.map { (id,label) ->
+            EditText(this).apply { hint=label; setText(saved?.optString(id).orEmpty()); minLines=2; panel.addView(this) }
+        }
+        AlertDialog.Builder(this).setTitle("SC"+key+" • "+scene.getLong("start_ms")+"–"+scene.getLong("end_ms")+" ms")
+            .setView(ScrollView(this).apply { addView(panel) })
+            .setPositiveButton("บันทึกซีน") { _,_ ->
+                if(project!=target) notice("โปรเจกต์เปลี่ยนแล้ว กรุณาเปิดใหม่")
+                else runCatching {
+                    val latest=musicDraft()
+                    require(musicDurationMs(latest)==musicDurationMs(draft)) { "ระยะเวลาเพลงเปลี่ยนแล้ว กรุณาเปิดซีนใหม่" }
+                    val all=latest.optJSONObject("scene_notes") ?: JSONObject()
+                    require(all.optJSONObject(key)?.toString()==original) { "ข้อมูลซีนเปลี่ยนแล้ว กรุณาเปิดแก้ไขใหม่" }
+                    val entry=all.optJSONObject(key) ?: JSONObject()
+                    fields.forEachIndexed { i,field -> entry.put(field.first,inputs[i].text.toString().trim()) }
+                    entry.put("start_ms",scene.getLong("start_ms")).put("end_ms",scene.getLong("end_ms"))
+                    all.put(key,entry)
+                    latest.put("scene_notes",all)
+                    saveMusicTimeline(latest)
+                }.onSuccess { showMusicTimeline() }.onFailure { notice("บันทึกซีนไม่สำเร็จ: "+it.message) }
+            }.setNeutralButton("คำสั่ง AI ตรวจซีน") { _,_ ->
+                if(project!=target) notice("โปรเจกต์เปลี่ยนแล้ว กรุณาเปิดใหม่")
+                else runMusicSceneReview(scene)
+            }.setNegativeButton("ยกเลิก",null).showDirector()
+    }
+    private fun musicSceneProduction(scene: JSONObject) {
+        val draft=musicDraft()
+        val number=scene.getInt("scene")
+        val entry=draft.optJSONObject("scene_notes")?.optJSONObject(number.toString())
+        val issues=musicSceneIssues(draft,scene)
+        choiceMenu("🎬 MV • SC"+number,listOf("📝 แก้ไขข้อมูลซีน","🖼️ ส่ง Image Prompt พร้อม MASTER","🎥 เปิด Flow Prompt 8 วินาที","📥 นำเข้าภาพซีน MV","📥 นำเข้าคลิปซีน MV","🖼️ ดูภาพซีน MV","▶️ ดูคลิปซีน MV","🔎 ตรวจข้อมูลไฟล์ซีน MV")) { action ->
+            if(action==0) { editMusicScene(scene); return@choiceMenu }
+            if(action in 5..7) {
+                if(musicReviewSnapshot(musicDraft())!=musicReviewSnapshot(draft)) { notice("ข้อมูลซีนเปลี่ยนแล้ว กรุณาเปิดใหม่"); return@choiceMenu }
+                val id="MV_SC%05d".format(number)
+                val picture=File(project,"images/$id.img")
+                val clip=File(project,"videos/$id.mp4")
+                when(action) {
+                    5 -> if(picture.isFile) fullImage(picture,"ภาพ MV • SC$number") else notice("ยังไม่มีภาพซีนนี้")
+                    6 -> playMediaFile(clip,"คลิป MV • SC$number")
+                    7 -> inspectMusicMedia(scene,picture,clip)
+                }
+                return@choiceMenu
+            }
+            if(action==3 || action==4) {
+                if(musicReviewSnapshot(musicDraft())!=musicReviewSnapshot(draft)) { notice("ข้อมูลซีนเปลี่ยนแล้ว กรุณาเปิดใหม่"); return@choiceMenu }
+                mediaSlot="MV_SC%05d".format(number)
+                mediaKind=if(action==3) "image" else "video"
+                mediaProject=project.name
+                prefs.edit().putString("mv_media_snapshot",musicReviewSnapshot(draft)).apply()
+                sceneMediaPicker.launch(if(action==3) arrayOf("image/*") else arrayOf("video/mp4"))
+                return@choiceMenu
+            }
+            if(entry==null || issues.isNotEmpty() || musicReviewSnapshot(musicDraft())!=musicReviewSnapshot(draft)) {
+                notice("ข้อมูลซีนยังไม่ครบหรือเปลี่ยนแล้ว กรุณาตรวจซีนก่อนผลิต"); return@choiceMenu
+            }
+            val code="SC"+number+" • 9:16 • ผลิต 8 วินาที • ใช้จริง "+scene.getLong("usable_ms")+" ms"
+            if(action==1) shareMusicSceneImage(draft,entry,code,number)
+            else showFlowCode("FLOW PROMPT • MV SC"+number,code+"\nSTART STATE: "+entry.getString("start_state")+"\n"+entry.getString("flow_prompt")+"\nEND STATE: "+entry.getString("end_state")+"\nใช้เสียงเพลงต้นฉบับต่อเนื่อง ไม่สร้างเสียงร้องใหม่","MV_SC"+number+"_FLOW.txt")
+        }
+    }
+    private fun inspectMusicMedia(scene: JSONObject, picture: File, clip: File) {
+        val imageInfo=if(!picture.isFile) "ยังไม่มีภาพ" else runCatching {
+            val bounds=android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds=true }
+            android.graphics.BitmapFactory.decodeFile(picture.path,bounds)
+            require(bounds.outWidth>0 && bounds.outHeight>0) { "อ่านภาพไม่ได้" }
+            "${bounds.outWidth} × ${bounds.outHeight} px • "+
+                if(bounds.outWidth.toLong()*16==bounds.outHeight.toLong()*9) "สัดส่วน 9:16" else "สัดส่วนไม่ใช่ 9:16"
+        }.getOrElse { "ตรวจภาพไม่สำเร็จ: ${it.message}" }
+        val videoInfo=if(!clip.isFile) "ยังไม่มีคลิป" else runCatching {
+            val info=EpisodeMedia.inspect(clip)
+            val ratio=if(info.displayWidth.toLong()*16==info.displayHeight.toLong()*9) "สัดส่วน 9:16" else "สัดส่วนไม่ใช่ 9:16"
+            val length=if(info.durationMs>=scene.getLong("usable_ms")) "ยาวพอสำหรับช่วงซีน" else "สั้นกว่าช่วงซีนที่ต้องใช้"
+            "${info.displayWidth} × ${info.displayHeight} px • $ratio\n${info.durationMs} ms • $length\nเสียงในคลิป: ${info.audioMime ?: "ไม่พบ"}"
+        }.getOrElse { "ตรวจคลิปไม่สำเร็จ: ${it.message}" }
+        AlertDialog.Builder(this).setTitle("ตรวจข้อมูลไฟล์ MV • SC${scene.getInt("scene")}")
+            .setMessage("ภาพ: $imageInfo\n\nคลิป: $videoInfo\n\nตรวจเฉพาะข้อมูลไฟล์ ยังไม่ได้ตรวจใบหน้า เสียงเพลง ความตรงปาก หรือคุณภาพเนื้อหา")
+            .setPositiveButton("ปิด",null).showDirector()
+    }
+    private fun shareMusicSceneImage(draft: JSONObject, entry: JSONObject, code: String, number: Int) {
+        val target=project
+        val roster=readSupportingCast()
+        val snapshot=roster.toString()
+        val stored=entry.optJSONArray("supporting_master_ids") ?: JSONArray()
+        val selected=(0 until stored.length()).map { stored.optString(it) }.toSet()
+        val ids=(0 until roster.length()).map { FlowCast.id(roster.getJSONObject(it)) }
+        val missing=selected.filter { it.isBlank() || it !in ids }
+        val checked=BooleanArray(roster.length()) { ids[it] in selected }
+        fun send() {
+            runCatching {
+                require(project==target && musicReviewSnapshot(musicDraft())==musicReviewSnapshot(draft)) { "โปรเจกต์หรือข้อมูลซีนเปลี่ยนแล้ว กรุณาเปิดใหม่" }
+                require(readSupportingCast().toString()==snapshot) { "รายการตัวละครเปลี่ยนแล้ว กรุณาเลือกใหม่" }
+                installPiaDefaults()
+                val master=piaSelectedMaster()
+                val lead=masterExportName(master,false)?.substringBeforeLast('.') ?: error("อ่าน MASTER นายเปียไม่ได้")
+                val references=mutableListOf(lead to master)
+                val bindings=mutableListOf("$lead → นายเปีย บ้านคลองขุด")
+                for(i in checked.indices) if(checked[i]) {
+                    val person=roster.getJSONObject(i)
+                    val id=FlowCast.id(person) ?: error("ข้อมูลตัวละครไม่ถูกต้อง")
+                    val file=File(filesDir,"supporting_masters/$id.master")
+                    val name=masterExportName(file,false)?.substringBeforeLast('.') ?: error("อ่าน MASTER ของ ${person.optString("name")} ไม่ได้")
+                    require(references.none { it.first==name }) { "ชื่อไฟล์ MASTER ซ้ำ กรุณาตรวจตัวละคร" }
+                    references.add(name to file)
+                    bindings.add("$name → ${person.getString("name")}")
+                }
+                val command=code+"\nSTART STATE: "+entry.getString("start_state")+"\n"+entry.getString("image_prompt")+
+                    "\nภาพอ้างอิงรายบุคคล:\n"+bindings.joinToString("\n")+
+                    "\nใช้ใบหน้าและสีผิวจาก MASTER ของบุคคลที่ระบุเท่านั้น ห้ามสลับหรือผสมใบหน้า หากขาด MASTER ของตัวละครในฉากให้หยุดและขอภาพที่ตรงคน"
+                val latest=musicDraft()
+                val notes=latest.optJSONObject("scene_notes") ?: error("ไม่พบข้อมูลซีน")
+                val current=notes.optJSONObject(number.toString()) ?: error("ไม่พบข้อมูลซีน")
+                val chosen=JSONArray()
+                for(i in checked.indices) if(checked[i]) chosen.put(ids[i] ?: error("ข้อมูลตัวละครไม่ถูกต้อง"))
+                current.put("supporting_master_ids",chosen)
+                saveMusicDraft(latest)
+                shareText(command,includeMasters=false,referenceImages=references,destinationLabel="ChatGPT")
+            }.onFailure { notice("ส่งคำสั่งภาพไม่สำเร็จ: "+it.message) }
+        }
+        fun choose() {
+            if(roster.length()==0) send()
+            else AlertDialog.Builder(this).setTitle("เลือกตัวละครสมทบที่อยู่ในซีน")
+                .setMultiChoiceItems(Array(roster.length()) { roster.getJSONObject(it).optString("name") },checked) { _,index,value -> checked[index]=value }
+                .setPositiveButton("ส่งพร้อม MASTER") { _,_ -> send() }
+                .setNegativeButton("ยกเลิก",null).showDirector()
+        }
+        if(missing.isEmpty()) choose()
+        else AlertDialog.Builder(this).setTitle("ไม่พบตัวละครที่เคยเลือก")
+            .setMessage("ตัวละครที่บันทึกไว้ไม่อยู่ในรายการ: ${missing.joinToString(", ")}\nหากดำเนินการต่อ รายการที่หายจะถูกนำออกจากซีนเมื่อกดส่ง")
+            .setPositiveButton("เลือกใหม่") { _,_ -> choose() }
+            .setNegativeButton("ยกเลิก",null).showDirector()
+    }
+    private fun showMusicTimeline() {
+        val draft=musicDraft()
+        val timeline=musicTimeline(draft)
+        val rows=(0 until timeline.length()).map { i ->
+            val scene=timeline.getJSONObject(i)
+            val issues=musicSceneIssues(draft,scene)
+            val id="MV_SC%05d".format(scene.getInt("scene"))
+            val imagePresent=File(project,"images/$id.img").isFile
+            val videoPresent=File(project,"videos/$id.mp4").isFile
+            "SC"+scene.getInt("scene")+" • "+scene.getLong("start_ms")+"–"+scene.getLong("end_ms")+" ms"+(if(issues.isEmpty()) " • ข้อมูลครบ" else " • "+issues.joinToString(", "))+
+                "\nภาพ: "+(if(imagePresent) "นำเข้าแล้ว" else "ยังไม่มี")+" • คลิป: "+(if(videoPresent) "นำเข้าแล้ว" else "ยังไม่มี")
+        }
+        choiceMenu("🎬 ไทม์ไลน์ MV • "+timeline.length()+" ซีน",rows) { i ->
+            val scene=timeline.getJSONObject(i)
+            musicSceneProduction(scene)
+        }
+    }
     private fun musicMvPrompt(): String {
         val d=musicDraft()
         val lyrics=d.optString("lyrics")
-        val duration=d.optInt("duration_seconds",180).coerceAtLeast(8)
-        val clips=(duration+7)/8
+        val durationMs=musicDurationMs(d)
+        val timeline=musicTimeline(d)
+        val clips=timeline.length()
+        val duration=(durationMs+999L)/1000L
         return """DIRECTOR X • เขียนบทมิวสิกวิดีโอเพื่อสร้างภาพด้วย ChatGPT และวิดีโอด้วย Flow
 ชื่อเพลง: ${d.optString("title")} | รูปแบบ: ${d.optString("mode")}
 นักร้องและพระเอกหลัก: ${d.optString("singer","นายเปีย บ้านคลองขุด")}
 ต้นทาง: ${d.optString("source")} | เรื่อง: ${d.optString("story_title")}
-ความยาว: $duration วินาที | ประมาณ $clips ช่วงภาพ ช่วงละไม่เกิน 8 วินาที
+ความยาวเพลง: $duration วินาที (ระยะเวลาจริง ms: ${d.optLong("audio_duration_ms",duration.toLong()*1000L)}) | $clips ซีนผลิตจริง ซีนละ 8 วินาที
+ไทม์ไลน์บังคับ (มิลลิวินาที):
+${(0 until clips).joinToString("\n") { i -> val s=timeline.getJSONObject(i); "SC${i+1}: ${s.getLong("start_ms")}-${s.getLong("end_ms")} | ผลิต 8000 ms | ใช้จริง ${s.getLong("usable_ms")} ms" }}
 เนื้อเพลง:
 $lyrics
 
-สร้างไทม์ไลน์เวลาเริ่ม-จบให้ครบ $duration วินาที โดยแยกฉากร้องเพลง ฉากแสดง และฉากบรรยากาศ
+ใช้ไทม์ไลน์บังคับด้านบนโดยไม่เพิ่มหรือลดซีน แยกฉากร้องเพลง ฉากแสดง และฉากบรรยากาศตามรูปแบบ MV
+ใช้เสียงเพลงต้นฉบับต่อเนื่อง ห้ามสร้างเสียงร้องใหม่แยกซีน ตัดส่วนเกินซีนสุดท้ายให้ตรงเวลาเพลง
+ระบุ START STATE และ END STATE ทุกซีน ตรวจความต่อเนื่องของชุด อุปกรณ์ สถานที่ อารมณ์ และทิศทางกล้อง
+ห้ามอ้างว่าทราบจังหวะหรือเวลาท่อนร้องจริงหากไม่มีข้อมูลเสียงหรือไทม์โค้ด
 นายเปียเป็นนักร้องและพระเอกหลักโดยค่าเริ่มต้น ใช้ MASTER ของแต่ละคนแยกกัน ห้ามผสมใบหน้า
 สำหรับทุกฉากให้ระบุ: ช่วงเวลา, ท่อนเพลง, ตัวละคร, ชุด, สถานที่, อารมณ์,
 Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแนวตั้ง 9:16 ไม่มีตัวหนังสือ)
-และ Flow Prompt ภาษาอังกฤษสำหรับคลิป 8 วินาที (การแสดง กล้อง จุดเริ่มต้น)
+และ Flow Prompt ภาษาอังกฤษสำหรับคลิป 8 วินาที (การแสดง กล้อง จุดเริ่มต้นและจุดจบ)
+ภาพต้องเป็น START STATE ไม่ใช่เหตุการณ์ที่เสร็จแล้ว เลือกมุมกล้องตามเนื้อหา ไม่ซ้ำโดยไม่จำเป็น
 คงตัวละครและเสื้อผ้าตามเรื่องราว; ฉากร้องเพลงให้เตรียมภาพเหมาะกับ lip sync
 ห้ามอ้างว่าได้สร้างภาพ เสียงเพลง หรือวิดีโอจริงแล้ว
 ตรวจสอบและปรับจำนวนฉากตามเสียงเพลงจริงก่อนผลิต""".trimIndent()
     }
+    private fun shareMusicProduction() {
+        runCatching {
+            installPiaDefaults()
+            val master=piaSelectedMaster()
+            require(master.isFile && master.length()>0) { "ไม่พบ MASTER ประจำช่อง" }
+            val exported=masterExportName(master,false) ?: error("อ่าน MASTER ไม่ได้")
+            val command=musicMvPrompt()+"\n\nMASTER ที่แนบ: "+exported+" • นายเปีย บ้านคลองขุด • ใช้เฉพาะใบหน้าและสีผิวตามภาพอ้างอิง ไม่คัดลอกชุดจาก MASTER"
+            shareText(command,includeMasters=false,referenceImages=listOf(exported to master),destinationLabel="ChatGPT")
+        }.onFailure { notice("เตรียมงาน MV ไม่สำเร็จ: "+it.message) }
+    }
+    private fun exportMusicVideo() {
+        if(EpisodeRenderService.running) return notice("มีงานรวมวิดีโอกำลังทำอยู่")
+        val draft=musicDraft()
+        val name=draft.optString("audio_file")
+        val audio=File(project,name)
+        if(name.isBlank() || File(name).name!=name || !audio.isFile) return notice("กรุณานำเข้าเพลงต้นฉบับ")
+        val timeline=musicTimeline(draft)
+        val clips=JSONArray()
+        val trims=JSONArray()
+        for(i in 0 until timeline.length()) {
+            val file=File(project,"videos/MV_SC%05d.mp4".format(i+1))
+            if(!file.isFile) return notice("ยังไม่มีคลิป SC"+(i+1))
+            clips.put(file.path)
+            trims.put(timeline.getJSONObject(i).getLong("usable_ms"))
+        }
+        runCatching {
+            val job=File(project,"music_exports/"+System.currentTimeMillis()+"_"+UUID.randomUUID())
+            check(job.mkdirs())
+            val spec=JSONObject().put("music",audio.path).put("clips",clips).put("trims",trims)
+                .put("duration_ms",musicDurationMs(draft)).put("has_audio",true)
+                .put("fps",30).put("bitrate",8000000).put("fingerprint",job.name)
+                .put("filename","DIRECTOR_X_MV.mp4")
+            File(job,"spec.json").writeText(spec.toString())
+            androidx.core.content.ContextCompat.startForegroundService(this,Intent(this,EpisodeRenderService::class.java).putExtra("job",job.path))
+            notice("เริ่มรวม MV แล้ว ดูผลได้ที่ผลงานส่งออก MV")
+        }.onFailure { notice("เริ่มรวมไม่ได้: "+it.message) }
+    }
+
+    private fun musicExports() {
+        val jobs=File(project,"music_exports").listFiles()?.filter { it.isDirectory }?.sortedByDescending { it.name }.orEmpty()
+        if(jobs.isEmpty()) return notice("ยังไม่มีงานส่งออก MV")
+        choiceMenu("ผลงานส่งออก MV",jobs.map { java.util.Date(it.lastModified()).toString()+" • "+readMovieState(it).optString("message","รอเริ่มงาน") }) { i ->
+            val job=jobs[i]
+            if(readMovieState(job).optString("state")!="complete") return@choiceMenu notice(readMovieState(job).optString("message","รอเริ่มงาน"))
+            choiceMenu("MV ที่รวมแล้ว",listOf("เปิดดู","บันทึก MP4")) { action ->
+                if(action==0) playMediaFile(File(job,"output.mp4"),"MV")
+                else {
+                    prefs.edit().putString("movie_download_job",job.path).apply()
+                    movieDownloadPicker.launch("DIRECTOR_X_MV.mp4")
+                }
+            }
+        }
+    }
+
     private fun musicMvMenu() {
         choiceMenu("🎵 เพลงและมิวสิกวิดีโอ",listOf(
             "🎤 MV เน้นการร้องเพลง",
@@ -6243,15 +6740,33 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                 "📝 เขียนหรือแก้ไขเนื้อเพลง",
                 "🎶 ตั้งค่าแนวเพลงและอารมณ์",
                 "🔗 เลือกต้นทางเนื้อหาเดิม",
-                "📚 ผลงานเพลงและ MV"
+                "📚 ผลงานเพลงและ MV",
+                "⏱️ ดูไทม์ไลน์ซีน MV",
+                "🔍 ตรวจสอบข้อมูลและซ่อมไทม์ไลน์",
+                "↩️ กู้คืนข้อมูล MV จากสำเนาก่อนหน้า",
+                "▶️ ทำงานต่อจากซีนที่ข้อมูลยังไม่ครบ",
+                "🔄 กู้คืนงานตรวจ AI ที่ค้าง",
+                "🎧 ตรวจไฟล์เสียงจริง",
+                "🖼️ เลือกตรวจไฟล์ภาพจริง",
+                "🎭 ตั้งค่า MASTER ประจำช่อง","รวม MV พร้อมเพลงต้นฉบับ","ผลงานส่งออก MV"
             )) { action ->
                 when(action) {
                     0 -> if(musicDraft().optString("lyrics").isBlank()) notice("กรุณาใส่เนื้อเพลงต้นฉบับก่อนสร้างบท MV")
-                         else showFlowCode("🎬 คำสั่งบท MV • $mode",musicMvPrompt(),"MUSIC_MV_PROMPT.txt")
+                         else shareMusicProduction()
                     1 -> showFlowCode("🎤 คำสั่งแต่งเพลงต้นฉบับ",musicLyricPrompt(),"MUSIC_LYRICS_PROMPT.txt")
                     2 -> editMusicField("📝 เนื้อเพลงต้นฉบับ","lyrics",true)
                     3 -> musicSettings()
                     4 -> musicSource()
+                    10 -> resumeMusicReview()
+                    11 -> inspectMusicMedia()
+                    12 -> mvImageInspector.launch(arrayOf("image/*"))
+                    13 -> piaMasterSettings()
+                    14 -> exportMusicVideo()
+                    15 -> musicExports()
+                    9 -> resumeMusicScene()
+                    8 -> restoreMusicDraft()
+                    7 -> reviewMusicDraft()
+                    6 -> showMusicTimeline()
                     5 -> {
                         val saved=musicDraft()
                         choiceMenu("📚 เพลงและ MV • โปรเจกต์ปัจจุบัน",listOf(
@@ -7799,8 +8314,11 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
         set(value) { prefs.edit().putString("media_project",value).apply() }
     private val sceneMediaPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val id = mediaSlot
+        val mvSnapshot=prefs.getString("mv_media_snapshot",null)
+        prefs.edit().remove("mv_media_snapshot").apply()
         if (uri != null && id != null) {
             val folder = File(base,mediaProject); val kind = mediaKind
+            val isMusic=id.matches(Regex("MV_SC[0-9]{5}"))
             val target = File(folder,if(kind == "video") "videos/$id.mp4" else "images/$id.img")
             fun accept() { background {
                 target.parentFile!!.mkdirs(); val temp = File(target.parentFile,target.name+".pending")
@@ -7814,11 +8332,16 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
                         val retriever = android.media.MediaMetadataRetriever()
                         try { retriever.setDataSource(temp.path); require(retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()?.let { it > 0 } == true) { "อ่านวิดีโอไม่ได้" } } finally { retriever.release() }
                     }
+                    if(isMusic) {
+                        require(project==folder && mvSnapshot!=null && musicReviewSnapshot(musicDraft())==mvSnapshot) { "โปรเจกต์หรือข้อมูล MV เปลี่ยนแล้ว กรุณานำเข้าใหม่" }
+                    }
                     if (target.exists()) archiveVersion(target,folder,id,kind)
                     check(temp.renameTo(target)) { "บันทึกไม่ได้" }
-                    val storyFile = File(folder,"story.json")
-                    val story = JSONObject(storyFile.readText()); rows(story).firstOrNull { key(it) == id }?.put("user_review","pending")
-                    storyFile.writeText(story.toString(2))
+                    if(!isMusic) {
+                        val storyFile = File(folder,"story.json")
+                        val story = JSONObject(storyFile.readText()); rows(story).firstOrNull { key(it) == id }?.put("user_review","pending")
+                        storyFile.writeText(story.toString(2))
+                    }
                 } finally { temp.delete() }
             } }
             AlertDialog.Builder(this).setTitle("ตรวจไฟล์ก่อนนำเข้า").setMessage("${displayName(uri)} → $id\nชนิด: $kind\n${if(target.exists()) "ไฟล์เดิมจะเก็บเป็นเวอร์ชันก่อนแทน" else "เพิ่มไฟล์ใหม่"}")
@@ -7827,12 +8350,15 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
         mediaSlot = null
     }
     private fun playVideo(s: JSONObject) {
-        val file = video(s); if (!file.exists()) return notice("ยังไม่มีวิดีโอฉากนี้ • สร้างใน Flow แล้วนำเข้ากลับ")
+        playMediaFile(video(s),key(s))
+    }
+    private fun playMediaFile(file: File, title: String) {
+        if (!file.isFile) return notice("ยังไม่มีวิดีโอฉากนี้ • สร้างใน Flow แล้วนำเข้ากลับ")
         val view = VideoView(this).apply {
             setVideoPath(file.path); val controls = MediaController(this@StudioActivity); controls.setAnchorView(this); setMediaController(controls)
             setOnPreparedListener { start() }; setOnErrorListener { _,_,_ -> notice("เล่นไฟล์นี้ไม่ได้ กรุณานำเข้าวิดีโอ MP4 ที่รองรับ"); true }
         }
-        val dialog = AlertDialog.Builder(this).setTitle(key(s)).setView(view).setPositiveButton("ปิด",null).create()
+        val dialog = AlertDialog.Builder(this).setTitle(title).setView(view).setPositiveButton("ปิด",null).create()
         dialog.setOnDismissListener { view.stopPlayback() }; dialog.show(); dialog.window?.setLayout(-1,dp(560))
     }
     private fun versionsMenu(s: JSONObject) {

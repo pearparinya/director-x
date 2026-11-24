@@ -349,7 +349,15 @@ internal object ProductAssist {
             } }
         dialog.setOnDismissListener { if(sharedReceiver===receiver) sharedReceiver=null }
         dialog.show()
-        // Search begins only on the visible button: searching three stores can consume API quota.
+        // One automatic search per opening; reuse the existing quota and cancellation controls.
+        if(autoSearch && query.text.isNotBlank() && source.text.isBlank() &&
+            listOf("tavily","exa","serpapi","firecrawl").any { searchSettings.key(it).isNotBlank() && searchSettings.enabled(it) }) {
+            platform.setSelection(1)
+            searchButton.post {
+                if(dialog.isShowing && !activity.isFinishing && !activity.isDestroyed && searchButton.isEnabled)
+                    searchButton.performClick()
+            }
+        }
     }
 }
 
