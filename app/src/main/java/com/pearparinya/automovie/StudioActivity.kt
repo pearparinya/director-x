@@ -7709,6 +7709,8 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         projectId: String, snapshot: String, back: (() -> Unit)?) {
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
         panel.addView(TextView(this).apply { text="บทเดิม:\n$original\n\nตรวจความหมาย เหตุการณ์ และทดลองอ่านให้เหมาะกับ 8 วินาที ก่อนยืนยัน" })
+        panel.isFocusableInTouchMode=true
+        panel.requestFocus()
         val edit=EditText(this).apply { setText(proposal); minLines=3; panel.addView(this) }
         val dialog=AlertDialog.Builder(this).setTitle("ตรวจข้อเสนอบท • ${key(scene)}").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันและบันทึก",null).setNegativeButton("ใช้บทเดิม",null).showNavigationDirector(back)
         dialog.getButton(-1).setOnClickListener {
