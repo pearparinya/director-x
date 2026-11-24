@@ -60,10 +60,13 @@ fixtures = {
     "files/studio/qa/story.json": b'{"title":"QA","episodes":[]}',
     "files/studio/qa/image.png": base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9YL9ZQAAAABJRU5ErkJggg=="),
     "files/character_masters/qa.master": b"qa-master",
-    "shared_prefs/qa_settings.xml": b'<map><boolean name="enabled" value="true"/></map>',
+
 }
 owner = adb("shell", "stat", "-c", "%u:%g", ROOT).decode().strip()
-for path, data in {**fixtures, "shared_prefs/director_x_updater.xml": prefs}.items():
+setting_path = "shared_prefs/studio.xml"
+setting = b'<map><boolean name="detailed_image_profiles" value="true"/></map>'
+fixtures["files/character_masters/qa.master"] = fixtures["files/studio/qa/image.png"]
+for path, data in {**fixtures, setting_path: setting, "shared_prefs/director_x_updater.xml": prefs}.items():
     target = ROOT + "/" + path
     adb("shell", "mkdir", "-p", target.rsplit("/", 1)[0])
     adb("shell", "cat > " + target, data=data)
@@ -84,4 +87,6 @@ else:
 adb("shell", "am", "start", "-W", "-n", PACKAGE + "/.StudioActivity")
 for path, expected in fixtures.items():
     assert adb("exec-out", "cat", ROOT + "/" + path) == expected, path
+saved = ET.fromstring(adb("exec-out", "cat", ROOT + "/" + setting_path))
+assert saved.find("boolean[@name='detailed_image_profiles']").get("value") == "true"
 print("Verified", older["tag_name"], "to", latest["tag_name"], "through the manual updater and Android installer")
