@@ -13,6 +13,6 @@ verify() {
     echo "$output"
     grep -Fq 'OK (1 test)' <<< "$output"
 }
-verify 1240
-adb install -r "$RUNNER_TEMP/candidate.apk"
 verify 1241
+adb install -r "$RUNNER_TEMP/candidate.apk"
+verify 1242
