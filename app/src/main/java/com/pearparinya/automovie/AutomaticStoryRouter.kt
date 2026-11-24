@@ -19,6 +19,8 @@ internal class AutomaticStoryRouter(
     internal var verifyBeforeUse: Boolean = false
     internal var requestTimeoutMillis: Long = 45_000L
     var onFailure: (StoryProvider,String)->Unit = { _,_ -> }
+    var onRequestStart: (StoryProvider, Long) -> Unit = { _, _ -> }
+    var onRequestEnd: () -> Unit = {}
     private val routes=listOf(StoryProvider.GROQ to StoryProvider.GEMINI,StoryProvider.GEMINI to StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER to null,StoryProvider.MISTRAL to null,StoryProvider.SAMBANOVA to null,StoryProvider.CEREBRAS to null,StoryProvider.COHERE to null)
     private val verified=mutableSetOf<StoryProvider>()
     private val cooldown=mutableMapOf<StoryProvider,Long>()
@@ -31,6 +33,7 @@ internal class AutomaticStoryRouter(
     private fun boundedRequest(provider: StoryProvider,prompt: String,schema: JSONObject): JSONObject {
         val active=java.util.concurrent.atomic.AtomicBoolean(true)
         if(activeRequests.putIfAbsent(provider,active)!=null) throw java.net.SocketTimeoutException("บริการยังปิดคำขอก่อนหน้า")
+        onRequestStart(provider, requestTimeoutMillis)
         val future=workers.submit<JSONObject> {
             try {
                 val client=clients.getValue(provider)
@@ -56,6 +59,8 @@ internal class AutomaticStoryRouter(
             future.cancel(true)
             Thread.currentThread().interrupt()
             throw CancellationException()
+        } finally {
+            onRequestEnd()
         }
     }
 

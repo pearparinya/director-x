@@ -140,6 +140,8 @@ class GeminiStoryService : Service() {
                         val autoRouter=AutomaticStoryRouter(folder,connections,{cancelled}) { target,message ->
                             provider=target; status("running",lastPercent,"อัตโนมัติ • ${target.label} • $message","requesting")
                         }.apply { verifyBeforeUse=true }
+                        autoRouter.onRequestStart=liveStatus::beginRequest
+                        autoRouter.onRequestEnd=liveStatus::endRequest
                         autoRouter.onFailure={ target,category -> synchronized(statusLock) {
                             val snapshot=liveStatus.recordFailure(target,category).put("hybrid",hybrid)
                             GeminiStoryFiles.write(File(folder,"status.json"),snapshot)

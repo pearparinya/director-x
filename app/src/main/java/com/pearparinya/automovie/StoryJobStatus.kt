@@ -9,10 +9,24 @@ internal class StoryJobStatus(previous: JSONObject?, checkpoint: Int,
     private val wall: ()->Long={System.currentTimeMillis()}) {
     private val start=elapsed()
     private val prior=(previous?.optLong("elapsed_ms") ?: 0L).coerceAtLeast(0)
+    private var requestStart: Long? = null
     private var phaseStart=start
     private val value=JSONObject().put("state","running").put("percent",checkpoint.coerceIn(0,99))
         .put("phase","preparing").put("started_at",previous?.optLong("started_at",wall()) ?: wall())
+        .put("request_number",previous?.optLong("request_number") ?: 0L)
         .put("failures",previous?.optJSONArray("failures") ?: JSONArray())
+    @Synchronized fun beginRequest(provider: StoryProvider, limitMillis: Long) {
+        requestStart = elapsed()
+        value.put("request_number", value.optLong("request_number") + 1)
+            .put("request_provider", provider.label)
+            .put("request_limit_ms", limitMillis)
+    }
+
+    @Synchronized fun endRequest() {
+        requestStart = null
+        value.remove("request_elapsed_ms")
+    }
+
     @Synchronized fun recordFailure(provider: StoryProvider,category: String): JSONObject {
         // Never store provider payload, prompt, story text, or credentials in diagnostics.
         val safe=if(category.matches(Regex("HTTP [1-5][0-9][0-9]( • (invalid_schema|context_length_exceeded|json_validate_failed))?")) ||
@@ -43,6 +57,7 @@ internal class StoryJobStatus(previous: JSONObject?, checkpoint: Int,
     private fun snapshot(tick: Boolean): JSONObject {
         if(tick) value.put("elapsed_ms",prior+(elapsed()-start).coerceAtLeast(0))
             .put("phase_elapsed_ms",(elapsed()-phaseStart).coerceAtLeast(0)).put("heartbeat_at",wall())
+        requestStart?.let { value.put("request_elapsed_ms", (elapsed() - it).coerceAtLeast(0)) }
         return JSONObject(value.toString())
     }
 }
@@ -75,7 +90,10 @@ internal object StoryStatusText {
         val visibleProvider=if(rawProvider.equals("cerebras",ignoreCase=true)) "API อัตโนมัติ" else rawProvider.replaceFirstChar { it.uppercaseChar() }
         val provider=if(status.optBoolean("hybrid")) "Groq + Gemini (ขณะนี้ $visibleProvider)" else visibleProvider
         val time=duration(status.optLong("elapsed_ms"))
-        val phase=if(running && !stale) " • ช่วงนี้ ${duration(status.optLong("phase_elapsed_ms"))}" else ""
+        val phase=if(running && !stale && status.has("request_elapsed_ms")) {
+            val api=status.optString("request_provider").let { if(it.equals("cerebras",true)) "API อัตโนมัติ" else it }
+            "\n$api • คำขอที่ ${status.optLong("request_number")} • รอครั้งนี้ ${status.optLong("request_elapsed_ms")/1000}/${status.optLong("request_limit_ms")/1000} วินาที"
+        } else if(running && !stale) " • ช่วงนี้ ${duration(status.optLong("phase_elapsed_ms"))}" else ""
         val update=if(heartbeat>0) DisplayText.thaiDateTime(heartbeat) else "—"
         val failures=status.optJSONArray("failures")
         val rows=if(failures==null) emptyList() else (0 until failures.length()).mapNotNull { i ->
