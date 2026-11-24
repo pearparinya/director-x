@@ -6679,6 +6679,50 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
             shareText(command,includeMasters=false,referenceImages=listOf(exported to master),destinationLabel="ChatGPT")
         }.onFailure { notice("เตรียมงาน MV ไม่สำเร็จ: "+it.message) }
     }
+    private fun exportMusicVideo() {
+        if(EpisodeRenderService.running) return notice("มีงานรวมวิดีโอกำลังทำอยู่")
+        val draft=musicDraft()
+        val name=draft.optString("audio_file")
+        val audio=File(project,name)
+        if(name.isBlank() || File(name).name!=name || !audio.isFile) return notice("กรุณานำเข้าเพลงต้นฉบับ")
+        val timeline=musicTimeline(draft)
+        val clips=JSONArray()
+        val trims=JSONArray()
+        for(i in 0 until timeline.length()) {
+            val file=File(project,"videos/MV_SC%05d.mp4".format(i+1))
+            if(!file.isFile) return notice("ยังไม่มีคลิป SC"+(i+1))
+            clips.put(file.path)
+            trims.put(timeline.getJSONObject(i).getLong("usable_ms"))
+        }
+        runCatching {
+            val job=File(project,"music_exports/"+System.currentTimeMillis()+"_"+UUID.randomUUID())
+            check(job.mkdirs())
+            val spec=JSONObject().put("music",audio.path).put("clips",clips).put("trims",trims)
+                .put("duration_ms",musicDurationMs(draft)).put("has_audio",true)
+                .put("fps",30).put("bitrate",8000000).put("fingerprint",job.name)
+                .put("filename","DIRECTOR_X_MV.mp4")
+            File(job,"spec.json").writeText(spec.toString())
+            androidx.core.content.ContextCompat.startForegroundService(this,Intent(this,EpisodeRenderService::class.java).putExtra("job",job.path))
+            notice("เริ่มรวม MV แล้ว ดูผลได้ที่ผลงานส่งออก MV")
+        }.onFailure { notice("เริ่มรวมไม่ได้: "+it.message) }
+    }
+
+    private fun musicExports() {
+        val jobs=File(project,"music_exports").listFiles()?.filter { it.isDirectory }?.sortedByDescending { it.name }.orEmpty()
+        if(jobs.isEmpty()) return notice("ยังไม่มีงานส่งออก MV")
+        choiceMenu("ผลงานส่งออก MV",jobs.map { java.util.Date(it.lastModified()).toString()+" • "+readMovieState(it).optString("message","รอเริ่มงาน") }) { i ->
+            val job=jobs[i]
+            if(readMovieState(job).optString("state")!="complete") return@choiceMenu notice(readMovieState(job).optString("message","รอเริ่มงาน"))
+            choiceMenu("MV ที่รวมแล้ว",listOf("เปิดดู","บันทึก MP4")) { action ->
+                if(action==0) playMediaFile(File(job,"output.mp4"),"MV")
+                else {
+                    prefs.edit().putString("movie_download_job",job.path).apply()
+                    movieDownloadPicker.launch("DIRECTOR_X_MV.mp4")
+                }
+            }
+        }
+    }
+
     private fun musicMvMenu() {
         choiceMenu("🎵 เพลงและมิวสิกวิดีโอ",listOf(
             "🎤 MV เน้นการร้องเพลง",
@@ -6704,7 +6748,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                 "🔄 กู้คืนงานตรวจ AI ที่ค้าง",
                 "🎧 ตรวจไฟล์เสียงจริง",
                 "🖼️ เลือกตรวจไฟล์ภาพจริง",
-                "🎭 ตั้งค่า MASTER ประจำช่อง"
+                "🎭 ตั้งค่า MASTER ประจำช่อง","รวม MV พร้อมเพลงต้นฉบับ","ผลงานส่งออก MV"
             )) { action ->
                 when(action) {
                     0 -> if(musicDraft().optString("lyrics").isBlank()) notice("กรุณาใส่เนื้อเพลงต้นฉบับก่อนสร้างบท MV")
@@ -6717,6 +6761,8 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     11 -> inspectMusicMedia()
                     12 -> mvImageInspector.launch(arrayOf("image/*"))
                     13 -> piaMasterSettings()
+                    14 -> exportMusicVideo()
+                    15 -> musicExports()
                     9 -> resumeMusicScene()
                     8 -> restoreMusicDraft()
                     7 -> reviewMusicDraft()
