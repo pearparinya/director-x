@@ -189,6 +189,34 @@ class StudioActivity : AppCompatActivity() {
         intArrayOf(Color.rgb(128,240,202),Color.rgb(63,200,160)),
         intArrayOf(Color.rgb(255,185,209),Color.rgb(245,139,175)))
     private fun menuIcon(index: Int) = listOf("🎭", "🎨", "📚", "🎬", "💡")[index % 5]
+    private var pendingMenuBack: (() -> Unit)? = null
+    private var pendingMenuScroll: Int = 0
+    private fun takeMenuBack(): (() -> Unit)? {
+        val back = pendingMenuBack
+        pendingMenuBack = null
+        return back
+    }
+
+    private fun AlertDialog.Builder.showNavigationDirector(back: (() -> Unit)? = takeMenuBack()): AlertDialog {
+        val dialog = showDirector()
+        if (back != null) {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
+                text = "◀ ย้อนกลับ"
+                setOnClickListener { dialog.dismiss(); back.invoke() }
+            }
+            dialog.setOnCancelListener { back.invoke() }
+        }
+        return dialog
+    }
+
+    private fun AlertDialog.Builder.createNavigationDirector(): AlertDialog {
+        val back = pendingMenuBack
+        pendingMenuBack = null
+        if (back != null) setNegativeButton("◀ ย้อนกลับ") { _, _ -> back.invoke() }
+        val dialog = create()
+        if (back != null) dialog.setOnCancelListener { back.invoke() }
+        return dialog
+    }
     private fun choiceMenu(title: String, choices: List<String>, cancel: String = "✖️ ยกเลิก",
         cancelable: Boolean = true, onCancel: (() -> Unit)? = null,
         imageDone: ((Int) -> Boolean)? = null, toggleImageDone: ((Int) -> Unit)? = null,
@@ -196,6 +224,10 @@ class StudioActivity : AppCompatActivity() {
         inlineImageProgress: (() -> Pair<Int,Int>)? = null,
         compactImageMenu: Boolean = false,
         action: (Int) -> Unit) {
+        val parentMenu = pendingMenuBack
+        pendingMenuBack = null
+        val restoredScroll = pendingMenuScroll
+        pendingMenuScroll = 0
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(dp(16),dp(18),dp(16),dp(12))
             background = backdrop(Color.rgb(7,31,59),navy,Color.rgb(71,169,224))
@@ -266,7 +298,20 @@ class StudioActivity : AppCompatActivity() {
                 val attr=android.util.TypedValue()
                 theme.resolveAttribute(android.R.attr.selectableItemBackground,attr,true)
                 foreground=getDrawable(attr.resourceId)
-                setOnClickListener { if(index==0 && inlineImageProgress!=null && title.startsWith("สร้างภาพ •")) action(index) else { dialog.dismiss(); action(index) } }
+                setOnClickListener {
+                    if(index==0 && inlineImageProgress!=null && title.startsWith("สร้างภาพ •")) action(index)
+                    else {
+                        val position = scroll.scrollY
+                        dialog.dismiss()
+                        pendingMenuBack = {
+                            pendingMenuBack = parentMenu
+                            pendingMenuScroll = position
+                            choiceMenu(title, choices, cancel, cancelable, onCancel, imageDone,
+                                toggleImageDone, doneLabel, inlineImageProgress, compactImageMenu, action)
+                        }
+                        try { action(index) } finally { pendingMenuBack = null }
+                    }
+                }
             }
             row.addView(TextView(this).apply {
                 text=(index+1).toString(); textSize=18f; setTextColor(Color.WHITE)
@@ -312,8 +357,14 @@ class StudioActivity : AppCompatActivity() {
                 }
                 refresh()
                 doneButton.setOnClickListener {
-                    toggleImageDone(index)
+                    val position = scroll.scrollY
                     dialog.dismiss()
+                    pendingMenuBack = parentMenu
+                    pendingMenuScroll = position
+                    try { toggleImageDone(index) } finally {
+                        pendingMenuBack = null
+                        pendingMenuScroll = 0
+                    }
                 }
                 val card = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
@@ -373,12 +424,28 @@ class StudioActivity : AppCompatActivity() {
         if (choices.isEmpty()) list.addView(TextView(this).apply {
             text = "📭 ยังไม่มีรายการ"; textSize = 16f; setTextColor(ice); setPadding(0,dp(12),0,dp(12))
         })
+        fun goBack() {
+            dialog.dismiss()
+            if (parentMenu != null && onCancel == null) parentMenu.invoke() else onCancel?.invoke()
+        }
         panel.addView(TextView(this).apply {
-            text = cancel; textSize = 16f; setTextColor(ice); gravity = Gravity.CENTER
+            text = if (parentMenu != null && onCancel == null) "◀ ย้อนกลับ" else cancel
+            textSize = 16f; setTextColor(ice); gravity = Gravity.CENTER
             minHeight = dp(48); background = backdrop(Color.rgb(23,75,114),Color.rgb(11,43,81),Color.rgb(75,170,222))
-            isFocusable = true; setOnClickListener { dialog.dismiss(); onCancel?.invoke() }
+            isFocusable = true; setOnClickListener { goBack() }
         })
-        dialog.setOnCancelListener { onCancel?.invoke() }
+        if (parentMenu != null && onCancel == null && cancelable) {
+            panel.addView(TextView(this).apply {
+                text = "⌂ หน้าหลัก"; textSize = 15f; setTextColor(gold); gravity = Gravity.CENTER
+                minHeight = dp(48); isFocusable = true
+                background = backdrop(Color.rgb(18,38,65),navy,Color.rgb(181,131,53))
+                layoutParams = LinearLayout.LayoutParams(-1,-2).apply { topMargin = dp(8) }
+                setOnClickListener { dialog.dismiss(); render() }
+            })
+        }
+        dialog.setOnCancelListener {
+            if (parentMenu != null && onCancel == null) parentMenu.invoke() else onCancel?.invoke()
+        }
         dialog.show()
         dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
         dialog.window?.setLayout(resources.displayMetrics.widthPixels - dp(24),-2)
@@ -386,6 +453,7 @@ class StudioActivity : AppCompatActivity() {
             val maximum = (resources.displayMetrics.heightPixels * 0.85f).toInt()
             val available = maximum - (panel.height - scroll.height)
             if (scroll.height > available) scroll.layoutParams = LinearLayout.LayoutParams(-1,available.coerceAtLeast(dp(80)))
+            scroll.post { scroll.scrollTo(0, restoredScroll) }
         }
     }
     private val legacyCategories = listOf(
@@ -475,7 +543,7 @@ class StudioActivity : AppCompatActivity() {
             }
             val dialog=AlertDialog.Builder(this).setTitle("🎭 ตั้งค่า MASTER ประจำช่อง • นายเปีย")
                 .setView(ScrollView(this).apply { addView(grid) })
-                .setNegativeButton("ยกเลิก",null).showDirector()
+                .setNegativeButton("ยกเลิก",null).showNavigationDirector()
             var row: LinearLayout?=null
             choices.forEachIndexed { index, (key,file) ->
                 if(index%2==0) {
@@ -687,7 +755,7 @@ class StudioActivity : AppCompatActivity() {
             val styling=EditText(this).apply { hint="สีผิวและเสื้อผ้า (ไทยหรืออังกฤษ)"; panel.addView(this) }
             panel.addView(TextView(this).apply { text="1. ส่งคำสั่งพร้อมแม่แบบไปสร้างใน ChatGPT หรือ Gemini\n2. ตรวจภาพจริง แล้วกลับมาเลือก นำเข้าภาพเพื่อบันทึก" })
             val dialog=AlertDialog.Builder(this).setTitle("สร้างตัวละครจากแม่แบบ ${index+1}").setView(ScrollView(this).apply { addView(panel) })
-                .setPositiveButton("ส่งคำสั่งสร้างภาพ",null).setNeutralButton("นำเข้าภาพที่ตรวจแล้ว",null).setNegativeButton("ปิด",null).showDirector()
+                .setPositiveButton("ส่งคำสั่งสร้างภาพ",null).setNeutralButton("นำเข้าภาพที่ตรวจแล้ว",null).setNegativeButton("ปิด",null).showNavigationDirector()
             fun profile(): JSONObject? {
                 val n=name.text.toString().trim(); val years=age.text.toString().toIntOrNull(); val appearance=face.text.toString().trim()
                 if(n.isEmpty() || years==null || !CharacterAge.valid(years) || appearance.isEmpty()) { notice("กรอกชื่อ อายุ 0–1,000 ปี และลักษณะใบหน้า/ทรงผม"); return null }
@@ -725,7 +793,7 @@ class StudioActivity : AppCompatActivity() {
             }
             panel.addView(TextView(this).apply { text="เลือกภาพ MASTER ต้นฉบับ 1 ภาพที่มี 3 มุม แอปบันทึกภาพโดยไม่สร้างใบหน้าใหม่" })
             val dialog=AlertDialog.Builder(this).setTitle("นำเข้า MASTER • ${labels[index]}")
-                .setView(panel).setPositiveButton("เลือกภาพ",null).setNegativeButton("ยกเลิก",null).showDirector()
+                .setView(panel).setPositiveButton("เลือกภาพ",null).setNegativeButton("ยกเลิก",null).showNavigationDirector()
             dialog.getButton(-1).setOnClickListener {
                 val n=name.text.toString().trim(); val years=age.text.toString().toIntOrNull()
                 if(n.isEmpty() || years==null || !CharacterAge.valid(years)) { notice("กรอกชื่อและอายุ 0–1,000 ปี"); return@setOnClickListener }
@@ -814,7 +882,7 @@ class StudioActivity : AppCompatActivity() {
                 override fun afterTextChanged(s: android.text.Editable?) {}
             })
             show("")
-            AlertDialog.Builder(this).setTitle("🎭 คลัง MASTER").setView(panel).setNegativeButton("ปิด",null).showDirector()
+            AlertDialog.Builder(this).setTitle("🎭 คลัง MASTER").setView(panel).setNegativeButton("ปิด",null).showNavigationDirector()
         }.onFailure { notice("เปิดคลังไม่ได้: ${it.message}") }
     }
     private fun shortCatalogLabel(legacy: String): String? = runCatching {
@@ -836,7 +904,7 @@ class StudioActivity : AppCompatActivity() {
                             notice("เลือก ${entry.id} สำหรับเรื่องใหม่แล้ว • เรื่องเดิมใช้ภาพเดิม")
                         }.onFailure { notice(it.message ?: "บันทึกไม่ได้") }
                     }
-                }.setNegativeButton("ปิด",null).showDirector()
+                }.setNegativeButton("ปิด",null).showNavigationDirector()
         }.onFailure { notice(it.message ?: "เปิดภาพไม่ได้") }
     }
     private fun addLibrarySupport(entry: MasterLibrary.Entry) {
@@ -860,7 +928,7 @@ class StudioActivity : AppCompatActivity() {
                 pending.writeText(roster.toString(2)); check(pending.renameTo(target))
                 notice("เพิ่ม $name จาก ${entry.id} แล้ว • ใช้เมื่อสร้างเรื่องใหม่")
             }.onFailure { notice(it.message ?: "เพิ่มไม่ได้") }
-        }.setNegativeButton("ยกเลิก",null).showDirector()
+        }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     private fun selectedLeadReferences(): JSONObject {
         val entries=masterLibrary.entries()
@@ -948,7 +1016,7 @@ class StudioActivity : AppCompatActivity() {
                 val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
                 panel.addView(search); panel.addView(count)
                 panel.addView(ScrollView(this).apply { addView(grid) },LinearLayout.LayoutParams(-1,dp(420)))
-                val dialog=AlertDialog.Builder(this).setTitle("คลัง MASTER • $category").setView(panel).setNegativeButton("ปิด",null).create()
+                val dialog=AlertDialog.Builder(this).setTitle("คลัง MASTER • $category").setView(panel).setNegativeButton("ปิด",null).createNavigationDirector()
                 fun show(query: String) {
                     grid.removeAllViews()
                     val found=all.filter { (category=="ทั้งหมด" || it.category==category) && (it.name+" "+it.id+" "+shortIds[legacyKey(it)].orEmpty()).contains(query,ignoreCase=true) }
@@ -990,7 +1058,7 @@ class StudioActivity : AppCompatActivity() {
         AlertDialog.Builder(this).setTitle("ตรวจ MASTER • $name").setView(ScrollView(this).apply { addView(panel) })
             .setPositiveButton("ตรวจแล้ว ใช้ภาพนี้") { _,_ -> profile.put("reference_reviewed_at",System.currentTimeMillis()); characterMemory.save(id,file,profile); notice("บันทึกผลตรวจของภาพนี้แล้ว") }
             .setNeutralButton("เลือกภาพใหม่") { _,_ -> if(file.parentFile?.name=="character_masters") { masterSlot=id; masterPicker.launch(arrayOf("image/*")) } else { castTarget=name to file; castPicker.launch(arrayOf("image/*")) } }
-            .setNegativeButton("ปิด",null).showDirector()
+            .setNegativeButton("ปิด",null).showNavigationDirector()
     }
     private fun editCharacterMemory(id: String, name: String, file: File) {
         if (!file.exists()) { notice("เพิ่มภาพ MASTER ก่อนบันทึกโปรไฟล์"); return }
@@ -1002,7 +1070,7 @@ class StudioActivity : AppCompatActivity() {
         val inputs=fields.map { (key,label) -> key to EditText(this).apply { hint=label; setText(profile.optString(key)); panel.addView(this) } }
         AlertDialog.Builder(this).setTitle("ความจำตัวละคร • $name").setView(ScrollView(this).apply { addView(panel) })
             .setPositiveButton("บันทึก") { _,_ -> inputs.forEach { (key,input) -> profile.put(key,input.text.toString().trim()) }; characterMemory.save(id,file,profile); notice("บันทึกข้อมูลอ้างอิงของ $name แล้ว") }
-            .setNegativeButton("ยกเลิก",null).showDirector()
+            .setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     private val otherGenres = listOf("ดราม่าชีวิต", "ครอบครัว", "โรแมนติก", "ตลก", "สืบสวน", "ระทึกขวัญ", "สยองขวัญ", "แฟนตาซี", "แอ็กชัน", "อบอุ่นหัวใจ")
     private val smartDirector = "ระบบกำกับละครอัจฉริยะ"
@@ -1589,7 +1657,7 @@ class StudioActivity : AppCompatActivity() {
         if (selected.any { !File(filesDir,"character_masters/${it.first}.master").exists() }) {
             AlertDialog.Builder(this).setTitle("เพิ่มภาพ MASTER ก่อนทดสอบ")
                 .setMessage("ต้องมีต้นฉบับของ ${selected.joinToString { it.second }} เพื่ออ้างอิงเอกลักษณ์และใบหน้า")
-                .setPositiveButton("เพิ่มภาพตัวละคร") { _,_ -> characterMasters() }.setNegativeButton("ยกเลิก",null).showDirector()
+                .setPositiveButton("เพิ่มภาพตัวละคร") { _,_ -> characterMasters() }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
             return
         }
         val scene = JSONObject().put("activity",testActivity).put("story_day","TEST_DAY01").put("wardrobe_event","TEST_$testActivity")
@@ -1786,7 +1854,13 @@ class StudioActivity : AppCompatActivity() {
         AlertDialog.Builder(this).setTitle("นำเข้าไฟล์แล้ว").setMessage(text)
             .setPositiveButton("กลับหน้าหลัก") { _,_ -> render() }.showDirector()
     }
-    private fun notice(text: String) { AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setMessage(text).setPositiveButton("ตกลง", null).showDirector() }
+    private fun notice(text: String) = showMenuNotice(text, takeMenuBack())
+
+    private fun showMenuNotice(text: String, back: (() -> Unit)?) {
+        val dialog = AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setMessage(text)
+            .setPositiveButton("ตกลง") { _, _ -> back?.invoke() }.showDirector()
+        dialog.setOnCancelListener { back?.invoke() }
+    }
     private fun background(block: () -> Unit) {
         importing = true
         val dialog = AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setMessage("กำลังจัดไฟล์…").setCancelable(false).showDirector()
@@ -1807,10 +1881,13 @@ class StudioActivity : AppCompatActivity() {
     private fun offerFlowTranslation(story: JSONObject,scene: JSONObject,spec: FlowSceneSpec,camera: String,silent: Boolean) {
         val providers=StoryProvider.eligible(this).filter { it.hasKey(this) }
         val fields=ShortFlowPrompt.untranslatedFields(spec,camera).joinToString(" / ").ifBlank { "คำกำกับฉาก" }
-        AlertDialog.Builder(this).setTitle("เตรียมคำสั่ง Flow")
+        val request = AlertDialog.Builder(this).setTitle("เตรียมคำสั่ง Flow")
             .setMessage("$fields ยังมีภาษาไทย ต้องแปลเป็นอังกฤษก่อนคัดลอก • บทพูด/บรรยายภาษาไทยคงเดิม\n\nใช้ AI แปลเฉพาะคำกำกับ แล้วตรวจผลก่อนคัดลอก (ใช้โควตา API) หรือเลือกแก้ด้วยตนเอง")
-            .setPositiveButton("ให้ AI แปล") { _,_ ->
-                if(providers.isEmpty()) { notice("ยังไม่มี API ที่เลือกและตั้งคีย์ไว้ กรุณาตั้งค่า API หรือแก้ซีนด้วยตนเอง"); return@setPositiveButton }
+            .setPositiveButton("ให้ AI แปล", null)
+            .setNeutralButton("แก้ซีนเอง") { _,_ -> editScene(scene) }
+            .setNegativeButton("ยกเลิก", null).showNavigationDirector()
+        request.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                if(providers.isEmpty()) { notice("ยังไม่มี API ที่เลือกและตั้งคีย์ไว้ กรุณาตั้งค่า API หรือแก้ซีนด้วยตนเอง"); return@setOnClickListener }
                 val projectId=project.name; val snapshot=scene.toString()
                 val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
                 val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
@@ -1827,16 +1904,16 @@ class StudioActivity : AppCompatActivity() {
                     }
                     val result=value
                     runOnUiThread {
-                        if(stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
+                        if(stopped.get() || !loading.isShowing || !request.isShowing || isFinishing || isDestroyed) return@runOnUiThread
                         active.set(null); loading.dismiss()
                         if(project.name!=projectId || plan!==story || scene.toString()!=snapshot) { notice("ซีนเปลี่ยนระหว่างแปล กรุณาลองใหม่"); return@runOnUiThread }
                         if(result==null) { notice("ยังแปลคำกำกับไม่ได้ • ตรวจ API หรือกดแก้ซีนด้วยตนเอง • ไม่มีการเปลี่ยนบท"); return@runOnUiThread }
                         val text="ตรวจคำแปลเทียบกับบทก่อนคัดลอก • การแปลนี้ไม่แก้บทที่บันทึก\n\nการกระทำเดิม: ${spec.action}\n\nคำแปล: ${result.first.action}\n\nตำแหน่งและเสื้อผ้า (ตรวจให้ตรงกับภาพ): ${result.first.cast.mapIndexed { i,p -> "Character ${i+1}: ${p.position}, ${ShortFlowPrompt.clothing(p).ifBlank { "ไม่ระบุเสื้อ" }} (เดิม: ${ShortFlowPrompt.clothing(spec.cast[i]).ifBlank { "ไม่ระบุ" }})" }.joinToString("; ")}\n\nเสียงฉาก: ${result.first.sound.ifBlank { "ไม่มี" }}\n\nบทพูด/บรรยายภาษาไทยคงเดิม\n\n${result.second}"
                         AlertDialog.Builder(this).setTitle("ตรวจคำแปลก่อนคัดลอก").setView(ScrollView(this).apply { addView(TextView(context).apply { setPadding(dp(18),dp(12),dp(18),dp(12)); this.text=text; setTextIsSelectable(true) }) })
-                            .setPositiveButton("คัดลอกคำสั่ง Flow") { _,_ -> copyCommand(result.second) }.setNegativeButton("ยกเลิก",null).showDirector()
+                            .setPositiveButton("คัดลอกคำสั่ง Flow") { _,_ -> request.dismiss(); copyCommand(result.second) }.setNegativeButton("ย้อนกลับ",null).showDirector()
                     }
                 }.start()
-            }.setNeutralButton("แก้ซีนเอง") { _,_ -> editScene(scene) }.setNegativeButton("ยกเลิก",null).showDirector()
+        }
     }
     private fun wardrobeSourceKey(projectName: String, id: String, digest: String, person: JSONObject): String {
         val outfitDigest=MasterLibrary.digest(person.optString("outfit").trim().toByteArray(Charsets.UTF_8))
@@ -1964,7 +2041,7 @@ class StudioActivity : AppCompatActivity() {
                     runCatching {
                         val cropView=FaceReferenceCropView(this@StudioActivity,file)
                         val layout=LinearLayout(this@StudioActivity).apply { orientation=1; addView(TextView(context).apply { text="ลากกรอบรอบใบหน้ามุมตรงของ ${person.optString("name")} จากภาพนี้ แล้วตรวจชื่อก่อนบันทึก" }); addView(cropView,LinearLayout.LayoutParams(-1,dp(520))) }
-                        val dialog=AlertDialog.Builder(this@StudioActivity).setTitle("เลือกใบหน้า • ${person.optString("name")}").setView(layout).setPositiveButton("บันทึกกรอบ",null).setNegativeButton("ยกเลิก",null).showDirector()
+                        val dialog=AlertDialog.Builder(this@StudioActivity).setTitle("เลือกใบหน้า • ${person.optString("name")}").setView(layout).setPositiveButton("บันทึกกรอบ",null).setNegativeButton("ยกเลิก",null).showNavigationDirector()
                         dialog.getButton(-1).setOnClickListener {
                             runCatching {
                                 val target=cropStore.newFile(file)
@@ -2151,7 +2228,7 @@ class StudioActivity : AppCompatActivity() {
                 val safeCoverOwners=if(includedPropRefs.isEmpty()) "" else coverOwners
                 shareImageCommand(command+safeOutfitGuide+safePropInstruction+(if(safeOwners.isBlank()) "" else "\n$safeOwners")+(if(safeCoverOwners.isBlank()) "" else "\n$safeCoverOwners")+"\n\nATTACHMENT ORDER (verify in receiving app):\n"+exactBindings,payload,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
             }
-            .setNegativeButton("กลับไปตรวจ",null).showDirector()
+            .setNegativeButton("กลับไปตรวจ",null).showNavigationDirector()
     }
     private fun shareImageCommand(command: String, references: List<Pair<String,File>>, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false) {
         val referenceDigests=runCatching { ReferenceSnapshot.capture(references) }.getOrElse { notice(it.message ?: "ตรวจภาพอ้างอิงไม่ได้"); return }
@@ -2502,7 +2579,7 @@ class StudioActivity : AppCompatActivity() {
             })
             .setPositiveButton("ส่งและเปิด $destinationLabel") { _,_ -> launchShare() }
             .setNeutralButton("คัดลอก") { _,_ -> copyCommand(text) }
-            .setNegativeButton("ยกเลิก",null).showDirector()
+            .setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
 
     private fun storyVisualGuide(mode: String): String {
@@ -2762,7 +2839,7 @@ class StudioActivity : AppCompatActivity() {
                         CoverTypography.prompt(p.optString("channel",originalChannel),p.getString("title"),number,ep.optString("title"))
                 }
                 shareText("ใช้ภาพฉากที่แนบจากชุดงานที่นำเข้าเป็นต้นแบบปก แก้จากภาพเดิม โดยคงชุดและสถานที่ของภาพนั้น\nสิ่งที่ผู้ใช้ขอปรับ: ${edits.text.toString().ifBlank { "ออกแบบปกให้สวยงาม อ่านชัด" }}\n$commands\nแสดงปกจริงแยกไฟล์ และรวมเฉพาะปกที่สร้างใน ZIP สำหรับนำเข้ากลับ DIRECTOR X หากสร้างไม่ได้ให้แจ้งตามจริง", includeMasters = false, referenceImages = references.map { key(it) to image(it) })
-            }.setNegativeButton("ยกเลิก",null).showDirector()
+            }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     private var starterFlowPack = false
     private fun savedCoverSelection(story: JSONObject,folder: File): Map<String,Set<String>> {
@@ -2857,7 +2934,7 @@ class StudioActivity : AppCompatActivity() {
             val editor=prefs.edit()
             people.forEachIndexed { index,person -> val selected=spinners[index].selectedItemPosition; editor.putString(characterPropKey(person.getString("master")),if(selected<=0) "" else propId(selected-1)) }
             editor.apply(); notice("บันทึกอุปกรณ์ประจำตัวละครแล้ว • ตรวจซีนด้วยเมนู AI ก่อนสร้างภาพ")
-        }.setNegativeButton("ยกเลิก",null).showDirector()
+        }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     private fun propReviewStamp(scene: JSONObject): String = ReviewFingerprints.props(scene)+":"+image(scene).let { if(it.isFile) runCatching { MasterLibrary.digest(it.readBytes()) }.getOrDefault("image-unreadable") else "no-image" }
     private fun propReviewStatus(scene: JSONObject): String {
@@ -2958,7 +3035,7 @@ $context"""
                 val feedback=TextView(this).apply { setPadding(0,dp(8),0,dp(8)) }
                 panel.addView(feedback)
                 val dialog=AlertDialog.Builder(this).setTitle("✨ ตรวจสิ่งของที่ AI เสนอ • ${proposals.size} รายการ")
-                    .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันและบันทึก ${confirmed.size} รายการ",null).setNegativeButton("ยกเลิก",null).showDirector()
+                    .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันและบันทึก ${confirmed.size} รายการ",null).setNegativeButton("ยกเลิก",null).showNavigationDirector()
                 dialog.getButton(-1).setOnClickListener {
                     if(project.name!=projectId || !sameOpenStory(snapshot)) { notice("เรื่องเปลี่ยนระหว่างตรวจ กรุณาเริ่มใหม่"); return@setOnClickListener }
                     val selected=confirmed
@@ -3001,7 +3078,7 @@ $context"""
             panel.addView(TextView(this).apply { text="ตัวละคร: $cast\nต้นฉากจากบท: $start\n\nระบุชื่อสิ่งของและผู้ใช้ตามบท หากไม่ชัดเจนให้ระบุว่ายังไม่ทราบ\n\n📷 ยังไม่ได้ตรวจภาพจริง • ตรวจว่าสิ่งของอยู่ในภาพเริ่มต้นด้วยตนเอง\nข้อมูลนี้ใช้ประกอบคำสั่งภาพ ไม่เปลี่ยนภาพที่สร้างไว้แล้ว • หากเปลี่ยนการกระทำ ให้แก้รายละเอียดฉากและคำสั่ง Flow ด้วย" })
             panel.addView(editor)
             val dialog=AlertDialog.Builder(this).setTitle("${key(scene)} • ตรวจสิ่งของในบท").setView(ScrollView(this).apply { addView(panel) })
-                .setPositiveButton("บันทึกและยืนยันตรวจบท",null).setNeutralButton("แก้รายละเอียดฉาก",null).setNegativeButton("กลับ",null).showDirector()
+                .setPositiveButton("บันทึกและยืนยันตรวจบท",null).setNeutralButton("แก้รายละเอียดฉาก",null).setNegativeButton("กลับ",null).showNavigationDirector()
             dialog.getButton(-3).setOnClickListener { dialog.dismiss(); editScene(scene) }
             dialog.getButton(-1).setOnClickListener {
                 if(plan!==story) { notice("เรื่องเปลี่ยนแล้ว กรุณาเปิดตรวจใหม่"); return@setOnClickListener }
@@ -3028,7 +3105,7 @@ $context"""
             AlertDialog.Builder(this).setTitle("ต้องตรวจบทก่อนสร้างคำสั่ง Flow")
                 .setMessage("พบข้อควรแก้ ${issues.size} รายการ\n"+issues.take(8).joinToString("\n"))
                 .setPositiveButton("เปิดรายการตรวจ") { _,_ -> productionCheckMenu(story) }
-                .setNegativeButton("กลับ",null).showDirector()
+                .setNegativeButton("กลับ",null).showNavigationDirector()
             return
         }
         val content=tasks.mapIndexed { index,task ->
@@ -3061,7 +3138,7 @@ $context"""
             AlertDialog.Builder(this).setTitle("ตรวจบทก่อนสร้าง Flow ทั้งเรื่อง")
                 .setMessage("พบข้อควรแก้ ${issues.size} รายการ")
                 .setPositiveButton("เปิดรายการตรวจ") { _,_ -> productionCheckMenu(story) }
-                .setNegativeButton("ปิด",null).showDirector()
+                .setNegativeButton("ปิด",null).showNavigationDirector()
             return
         }
         val eps=story.optJSONArray("episodes") ?: return notice("ยังไม่มีตอน")
@@ -3101,7 +3178,7 @@ $context"""
                 .setPositiveButton("ทำงานต่อ") { _,_ ->
                     if (failures.isEmpty()) imageBatchFivePlan(story) else commandCardsMenu()
                 }
-                .setNegativeButton("ปิด",null).showDirector()
+                .setNegativeButton("ปิด",null).showNavigationDirector()
         }
     }
 
@@ -3211,7 +3288,7 @@ $context"""
                 else launchSmartImagePicker()
             }
             .setNeutralButton("เปิดคำสั่ง Flow") { _,_ -> commandCardsMenu() }
-            .setNegativeButton("ปิด",null).showDirector()
+            .setNegativeButton("ปิด",null).showNavigationDirector()
     }
 
     private fun phaseOneWorkflowStatus(story: JSONObject) {
@@ -3274,7 +3351,7 @@ $context"""
                 else if(saved<total) autoFlowAllEpisodes(story, autoContinue = true)
                 else continueFlowOneTap(story)
             }
-            .setNegativeButton("ปิด",null).showDirector()
+            .setNegativeButton("ปิด",null).showNavigationDirector()
     }
 
     // Fast path: one tap chooses the next safe existing workflow without a status dialog.
@@ -3449,7 +3526,7 @@ $context"""
                                 AlertDialog.Builder(this).setTitle("ยืนยันสร้างคำสั่ง Flow ใหม่?")
                                     .setMessage("คำสั่ง EP.$ep ที่บันทึกไว้จะถูกแทนที่ โปรดตรวจสอบก่อนดำเนินการ")
                                     .setPositiveButton("สร้างใหม่") { _, _ -> autoFlowEpisode(story, ep) }
-                                    .setNegativeButton("ยกเลิก", null).showDirector()
+                                    .setNegativeButton("ยกเลิก",null).showNavigationDirector()
                             }
                         }
                     }
@@ -3684,7 +3761,7 @@ Return JSON assignments. Each item must contain exact master ID and exact story_
                 next.setOnClickListener { navigateTo(currentCard+1) }
                 navigateTo(0)
                 updateProgress()
-                val dialog=AlertDialog.Builder(this).setTitle("ตรวจชุดที่ AI เสนอ").setView(reviewScroll).setPositiveButton("บันทึกชุดที่เลือก",null).setNegativeButton("ยกเลิก",null).showDirector()
+                val dialog=AlertDialog.Builder(this).setTitle("ตรวจชุดที่ AI เสนอ").setView(reviewScroll).setPositiveButton("บันทึกชุดที่เลือก",null).setNegativeButton("ยกเลิก",null).showNavigationDirector()
                 dialog.getButton(-1).setOnClickListener {
                     if(project.name!=projectId || !sameOpenStory(snapshot)) { notice("เรื่องเปลี่ยนระหว่างตรวจ กรุณาเริ่มใหม่"); return@setOnClickListener }
                     if(decisions.all { it==0 }) { dialog.dismiss(); notice("คงชุดเดิมทุกรายการ • ไม่ได้เปลี่ยนบท"); return@setOnClickListener }
@@ -3807,7 +3884,7 @@ $context"""
                         val pending=File(project,"prop_assignments.json.pending"); pending.writeText(data.toString(2)); check(pending.renameTo(file)) { "บันทึกไม่สำเร็จ" }
                         notice("บันทึกข้อเสนอแล้ว ${approved.values.sumOf { it.size }} รายการ • เปิดซีนเพื่อตรวจ MASTER ก่อนส่ง • ตัวเลือกที่เคยบันทึกด้วยตนเองมีลำดับก่อน")
                     }.onFailure { notice("บันทึกไม่ได้: ${it.message}") }
-                }.setNegativeButton("ยกเลิก",null).showDirector()
+                }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
             }
         }.start()
     }
@@ -3818,7 +3895,7 @@ $context"""
             .setPositiveButton("แก้ซีนที่เลือก") { _,_ ->
                 val scenes=rows(story)
                 choiceMenu("แก้เฉพาะซีน • ไม่เขียนเรื่องใหม่",scenes.map { key(it)+" • "+it.optString("action").take(50) }) { editScene(scenes[it]) }
-            }.setNeutralButton("แก้ข้อความปก") { _,_ -> editProductionCover(story) }.setNegativeButton("ปิด",null).showDirector()
+            }.setNeutralButton("แก้ข้อความปก") { _,_ -> editProductionCover(story) }.setNegativeButton("ปิด",null).showNavigationDirector()
     }
     private fun editProductionCover(story: JSONObject) {
         val eps=story.getJSONArray("episodes")
@@ -3827,7 +3904,7 @@ $context"""
             val fields=if(index==0) listOf("channel" to "ชื่อช่อง","title" to "ชื่อเรื่อง","tagline" to "คำโปรย") else listOf("title" to "ชื่อตอน")
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             val inputs=fields.map { (key,label) -> key to EditText(this).apply { hint=label; setText(target.optString(key)); panel.addView(this) } }
-            val dialog=AlertDialog.Builder(this).setTitle("แก้ข้อความปก • ไม่เปลี่ยนซีน").setView(panel).setPositiveButton("บันทึก",null).setNegativeButton("ปิด",null).showDirector()
+            val dialog=AlertDialog.Builder(this).setTitle("แก้ข้อความปก • ไม่เปลี่ยนซีน").setView(panel).setPositiveButton("บันทึก",null).setNegativeButton("ปิด",null).showNavigationDirector()
             dialog.getButton(-1).setOnClickListener {
                 if(inputs.any { it.second.text.isBlank() }) notice("กรอกข้อความปกให้ครบ")
                 else { inputs.forEach { (key,input) -> target.put(key,input.text.toString().trim()) }; saveStory(); dialog.dismiss(); render(); notice("บันทึกข้อความปกแล้ว • ส่งออกไฟล์ใหม่ได้ ไม่ต้องเขียนบทใหม่") }
@@ -4081,7 +4158,7 @@ $context"""
                     .setPositiveButton("ล้างรายการปกและเลือกใหม่") { _,_ ->
                         val editor=prefs.edit(); coverSelection.keys.forEach { scope -> editor.remove("cover_cast_${project.name}_$scope") }; editor.apply()
                         productionTaskDeck(story,number,images,queueIds)
-                    }.setNegativeButton("ยกเลิก",null).showDirector()
+                    }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
             } else { notice(it.message ?: "ข้อมูลคำสั่งไม่ครบ"); productionCheckMenu(story) }
             return
         }
@@ -4182,11 +4259,18 @@ $context"""
             val dialog=showFlowCode("${task.id} • ถัดไป $next",code,"${task.id}_${if(images) "IMAGE" else "FLOW"}.txt")
             if(images) activeProductionDialog=dialog
             dialog.getButton(-2).text=if(images) "กลับรายการรูป/ซีน" else "กลับรายการซีน"
+            val backToDeck = pendingMenuBack
+            pendingMenuBack = null
+            fun returnToDeck() {
+                if(images) activeProductionDialog=null
+                if(backToDeck != null) backToDeck.invoke()
+                else productionTaskDeck(story,number,images,queueIds)
+            }
             dialog.getButton(-2).setOnClickListener {
                 dialog.dismiss()
-                if(images) activeProductionDialog=null
-                productionTaskDeck(story,number,images,queueIds)
+                returnToDeck()
             }
+            dialog.setOnCancelListener { returnToDeck() }
             if(problems.isNotEmpty()) dialog.getButton(-1).setOnClickListener { notice("คำสั่งยังมีจุดต้องแก้ • เปิด ตรวจคำสั่ง / แก้เฉพาะจุด ก่อนคัดลอก") }
             dialog.getButton(-1).text=if(images) "เลือกแอปสร้างภาพ + MASTER" else "คัดลอกคำสั่ง Flow"
             dialog.getButton(-1).setOnClickListener {
@@ -4262,7 +4346,7 @@ $context"""
                             card.addView(box)
                             box.setOnCheckedChangeListener { _,checked -> if(checked) chosen.add(id) else chosen.remove(id) }
                         }
-                        val picker=AlertDialog.Builder(this).setTitle("เลือกตัวละครบนปก").setView(ScrollView(this).apply { addView(list) }).setPositiveButton("บันทึก",null).setNegativeButton("ยกเลิก",null).showDirector()
+                        val picker=AlertDialog.Builder(this).setTitle("เลือกตัวละครบนปก").setView(ScrollView(this).apply { addView(list) }).setPositiveButton("บันทึก",null).setNegativeButton("ยกเลิก",null).showNavigationDirector()
                         picker.getButton(-1).setOnClickListener {
                             if(chosen.isEmpty() || chosen.size>4) notice("กรุณาเลือกตัวละครบนปก 1–4 คน เพื่อเก็บ MASTER ต้นฉบับและภาพครอปใบหน้าของทุกคนไว้ครบ โดยไม่ต้องสร้างเรื่องใหม่")
                             else if(candidates.filter { referenceId(it.getString("master")) in chosen }.any { !masterFor(it).isFile }) notice("ภาพ MASTER บางตัวหาย กรุณาเลือกใหม่")
@@ -4287,7 +4371,7 @@ $context"""
                             target.put(field,input.text.toString().trim())
                             if(scene!=null) { scene.put("user_review","needs_revision"); scene.remove("flow_image_revision") }
                             saveStory(); render(); notice("บันทึกแล้ว • รายการอื่นและชุดประจำวันคงเดิม • เปิดรหัสเดิมหรือส่งออกใหม่ได้")
-                        }.setNegativeButton("ปิด",null).showDirector()
+                        }.setNegativeButton("ปิด",null).showNavigationDirector()
                     }
                 }
             }
@@ -4310,7 +4394,7 @@ $context"""
         }
         val dialog=AlertDialog.Builder(this).setTitle("EP.$number • ${if(kind==0) "คำสั่งภาพ" else "คำสั่งวิดีโอ"}").setView(panel)
             .setPositiveButton("คัดลอกชุดนี้",null).setNeutralButton("บันทึกทั้ง EP") { _,_ -> prefs.edit().putString("pending_flow_code",SceneCommandCards.join(cards)).apply(); flowCodePicker.launch("EP%02d_%s.txt".format(number,if(kind==0) "IMAGES" else "VIDEOS")) }
-            .setNegativeButton("ปิด",null).showDirector()
+            .setNegativeButton("ปิด",null).showNavigationDirector()
         dialog.getButton(-1).setOnClickListener { copyCommand(cards[index].command) }
         show(0)
     }
@@ -4396,7 +4480,7 @@ $context"""
                 prefs.edit().putString("pending_flow_code", code).apply()
                 flowCodePicker.launch(filename)
             }
-            .setNegativeButton("ปิด", null).showDirector()
+            .setNegativeButton("ปิด",null).showNavigationDirector()
         refresh()
         dialog.window?.setLayout(resources.displayMetrics.widthPixels - dp(24), -2)
         return dialog
@@ -4499,10 +4583,13 @@ $context"""
             val command=currentCommand
             if(command!=null) copyCommand(command) else startFlowAiBatch(listOf(scenes[index]),onComplete={ refresh() })
         }
+        val backToEpisodes = pendingMenuBack
+        pendingMenuBack = null
         val dialog=AlertDialog.Builder(this).setView(panel)
             .setNeutralButton("บันทึกฉากนี้",null)
-            .setNegativeButton("ปิด",null)
+            .setNegativeButton(if(backToEpisodes != null) "◀ ย้อนกลับ" else "ปิด") { _,_ -> backToEpisodes?.invoke() }
             .showDirector()
+        if(backToEpisodes != null) dialog.setOnCancelListener { backToEpisodes.invoke() }
         dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.setOnClickListener {
             currentCommand?.let { command ->
                 prefs.edit().putString("pending_flow_code",command).apply()
@@ -4565,13 +4652,13 @@ $context"""
                     render()
                     if(ok) showWardrobeNext("ยืนยันชุดทั้งหมดในบทแล้ว • กลับมาแก้ได้") else notice("ยืนยันสถานะไม่สำเร็จ กรุณาลองใหม่")
                 }
-            }.setNegativeButton("กลับ",null).showDirector()
+            }.setNegativeButton("กลับ",null).showNavigationDirector()
     }
     private fun showWardrobeNext(message: String) {
         AlertDialog.Builder(this).setTitle("👕 ขั้นตอน 1 • ชุดตัวละคร").setMessage(message)
             .setPositiveButton("ไปตรวจสิ่งของ →") { _,_ -> plan?.let { reviewSceneProps(it) } ?: notice("ไม่พบเรื่อง") }
             .setNeutralButton("ตรวจและยืนยันชุดทั้งหมด") { _,_ -> plan?.let { confirmAllWardrobe(it) } ?: notice("ไม่พบเรื่อง") }
-            .setNegativeButton("กลับหน้าแรก",null).showDirector()
+            .setNegativeButton("กลับหน้าแรก",null).showNavigationDirector()
     }
     private fun showPropsNext(message: String) {
         val current=plan ?: return notice("ไม่พบเรื่อง")
@@ -4583,7 +4670,7 @@ $context"""
             .setMessage(message+"\n\nสถานะ: ยืนยันสิ่งของในบท $reviewed/${scenes.size} ฉาก\nบันทึกล่าสุด: $savedTime\nขั้นตอนถัดไป: เปิดคำสั่ง Flow")
             .setPositiveButton("ไปคำสั่ง Flow →") { _,_ -> commandCardsMenu() }
             .setNeutralButton("ตรวจฉากอื่น") { _,_ -> plan?.let { reviewSceneProps(it) } ?: notice("ไม่พบเรื่อง") }
-            .setNegativeButton("กลับหน้าแรก",null).showDirector()
+            .setNegativeButton("กลับหน้าแรก",null).showNavigationDirector()
     }
     private fun wardrobeMenu(story: JSONObject) {
         choiceMenu("ขั้นตอน 1 • ตรวจชุดตัวละคร\nสถานะ: ${wardrobeReviewStatus(story)}",listOf("ดูและยืนยันชุดในบท\nตรวจชุดเดิมและยืนยันเมื่อถูกต้อง","ให้ AI เสนอชุดใหม่\nเลือกเฉพาะชุดที่ต้องการก่อนบันทึก","แก้ชุดเฉพาะฉาก\nปรับรายละเอียดในฉากที่ต้องการ")) { selected ->
@@ -4619,7 +4706,7 @@ $context"""
             .setMessage(summary)
             .setPositiveButton("ให้ AI ช่วยเสนอสิ่งของ") { _,_ -> suggestSceneObjects(story) }
             .setNeutralButton("ตรวจและยืนยันด้วยตนเอง") { _,_ -> reviewSceneProps(story) }
-            .setNegativeButton("กลับ",null).showDirector()
+            .setNegativeButton("กลับ",null).showNavigationDirector()
     }
     private fun confirmEpisode(story: JSONObject,number: Int) {
         val episodeScenes=rows(story).filter { it.optInt("ep")==number }
@@ -4657,7 +4744,7 @@ $context"""
                         "wardrobe=$wardrobe;pending=${pending.joinToString(",") { key(it) }}").apply()
                     open()
                 }
-                .setNegativeButton("ยกเลิก",null).showDirector()
+                .setNegativeButton("ยกเลิก",null).showNavigationDirector()
         }
         check()
     }
@@ -4676,7 +4763,7 @@ $context"""
                 "🧪 API TEST CENTER" -> startActivity(Intent(this@StudioActivity, ApiTestCenterActivity::class.java))
                 "🎭 แม่แบบและคลังตัวละคร" -> choiceMenu("ตัวละคร",listOf("สร้างตัวละครจากแม่แบบ","คลังตัวละครใหม่","ตัวละครของเรื่องที่เปิด")) { when(it) { 0 -> bodyTemplateMenu(); 1 -> actorCatalogMenu(); else -> castMenu() } }
                 "📋 ข้อมูลโพสต์ Facebook / TikTok" -> if(current!=null) postDetails(current)
-                "💬 ชื่อเรื่อง เรื่องย่อ และแคปชั่น" -> if(current!=null) AlertDialog.Builder(this).setTitle("ข้อมูลและแคปชั่นคลิปสั้น").setMessage(ShortStoryDetails.text(current)).setPositiveButton("คัดลอกทั้งหมด") { _,_ -> copyCommand(ShortStoryDetails.text(current)) }.setNegativeButton("ปิด",null).showDirector()
+                "💬 ชื่อเรื่อง เรื่องย่อ และแคปชั่น" -> if(current!=null) AlertDialog.Builder(this).setTitle("ข้อมูลและแคปชั่นคลิปสั้น").setMessage(ShortStoryDetails.text(current)).setPositiveButton("คัดลอกทั้งหมด") { _,_ -> copyCommand(ShortStoryDetails.text(current)) }.setNegativeButton("ปิด",null).showNavigationDirector()
                 "↩ กลับรายการรูป / ซีนล่าสุด" -> if(!returnToImageList()) notice("ไม่พบ EP ที่เคยเปิดในเรื่องนี้")
                 "🔁 ส่งคำสั่งและรูปอีกครั้ง" -> retryLastImage()
                 "↔ สร้างสำเนาแนวตั้ง 9:16" -> landscapeCopyMenu()
@@ -4986,7 +5073,7 @@ $context"""
             4 -> AlertDialog.Builder(this).setTitle("เริ่มเรื่องใหม่")
                 .setMessage("เรื่องปัจจุบันยังอยู่ในรายการเรื่องที่บันทึก")
                 .setPositiveButton("เริ่มใหม่") { _,_ -> prefs.edit().putString("project",UUID.randomUUID().toString()).apply(); render() }
-                .setNegativeButton("ยกเลิก",null).showDirector()
+                .setNegativeButton("ยกเลิก",null).showNavigationDirector()
             5 -> apiSettingsCenter()
         } }
     }
@@ -5053,7 +5140,7 @@ $context"""
                             prefs.edit().putString(key,if(choice==0) "" else choices[choice]).apply()
                             dialog.dismiss()
                             notice("บันทึกแล้ว • ${choices[choice]}")
-                        }.setNegativeButton("ยกเลิก",null).showDirector()
+                        }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
                 }
                 3 -> notice("ตั้งค่าคีย์แล้ว: "+configured.joinToString(" / ") { it.label }.ifBlank { "ยังไม่มี" }+
                     "\nยังไม่ได้ทดสอบเครือข่าย • การ Gen จะแสดงผลจริง")
@@ -5123,7 +5210,7 @@ $context"""
                 AlertDialog.Builder(this).setTitle("ยืนยันการเรียก API Flow")
                     .setMessage("ปรับปรุงคำสั่งฉากนี้ด้วย API อาจใช้โควตาหรือมีค่าบริการ\\nไม่เปลี่ยน MASTER เสื้อผ้า บทพูด หรือการกระทำ")
                     .setPositiveButton("เริ่ม Gen") { _,_ -> flowApiEnhance(scene,original,false) }
-                    .setNegativeButton("ยกเลิก",null).showDirector()
+                    .setNegativeButton("ยกเลิก",null).showNavigationDirector()
             }
             .setNegativeButton("ปิด",null)
             .showDirector()
@@ -5140,7 +5227,7 @@ $context"""
             AlertDialog.Builder(this).setTitle("ยังไม่มี API สำหรับ Flow")
                 .setMessage("เลือกผู้ให้บริการและตั้งค่าคีย์เพื่อวิเคราะห์ฉาก")
                 .setPositiveButton("ตั้งค่า API") { _,_ -> flowApiSettings() }
-                .setNegativeButton("กลับ",null).showDirector()
+                .setNegativeButton("กลับ",null).showNavigationDirector()
             return
         }
         if(scenes.isEmpty()) { notice("ไม่พบฉากสำหรับปรับปรุง"); return }
@@ -5233,7 +5320,7 @@ $context"""
                     }
                 }.start()
             }
-            .setNegativeButton("ยกเลิก",null).showDirector()
+            .setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
 
     private fun flowApiEnhance(scene: JSONObject, original: String, copy: Boolean) {
@@ -5355,7 +5442,7 @@ $context"""
                         .setNegativeButton("ยกเลิก") { _, _ -> imageApiSettings() }
                         .showDirector()
                 }
-                .setNegativeButton("ยกเลิก", null).showDirector()
+                .setNegativeButton("ยกเลิก",null).showNavigationDirector()
         }
     }
     private fun shoppingApiSettings() {
@@ -5403,7 +5490,7 @@ $context"""
                             if(value.isNotEmpty()) runCatching { store.save(id,value) }.onFailure { notice("รูปแบบ API Key ไม่ถูกต้อง") }
                             shoppingApiSettings()
                         }.setNeutralButton("ลบคีย์") { _,_ -> store.clear(id); shoppingApiSettings() }
-                        .setNegativeButton("ยกเลิก",null).showDirector()
+                        .setNegativeButton("ยกเลิก",null).showNavigationDirector()
                 }
             }
         }
@@ -5468,7 +5555,7 @@ $context"""
                             .setPositiveButton("ตกลง") { _,_ -> shoppingApiSettings() }.showDirector()
                     }
                 }.start()
-            }.setNegativeButton("ยกเลิก",null).showDirector()
+            }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     private fun readGeminiStatus(): JSONObject? = runCatching { GeminiStoryFiles.read(File(project,"gemini_job/status.json")) }.getOrNull()
     private fun geminiStatusText(status: JSONObject?,details: Boolean=false): String {
@@ -5530,7 +5617,7 @@ $context"""
         val dialog=AlertDialog.Builder(this)
             .setTitle("เลือก API ที่อนุญาต\nตรวจแพ็กเกจและค่าบริการก่อนเลือก • ผลทดสอบอาจเปลี่ยนได้\nโหมดฟรีใช้เฉพาะ OpenRouter • มีผลเมื่อเริ่ม/ทำต่อ")
             .setMultiChoiceItems(labels,checks) { _,which,checked -> checks[which]=checked }
-            .setPositiveButton("บันทึก",null).setNegativeButton("ยกเลิก",null).showDirector()
+            .setPositiveButton("บันทึก",null).setNegativeButton("ยกเลิก",null).showNavigationDirector()
         dialog.getButton(-1).setOnClickListener {
             val chosen=providers.filterIndexed { i,_ -> checks[i] }.map { it.id }.toSet()
             runCatching { StoryProvider.setAllowed(this,chosen) }
@@ -5566,7 +5653,7 @@ $context"""
         val dialog=AlertDialog.Builder(this).setTitle("${provider.label} • จัดเก็บ API Key")
             .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึก",null)
             .setNeutralButton("ลบคีย์") { _,_ -> settings.clear(); notice("ลบคีย์ ${provider.label} จากเครื่องแล้ว") }
-            .setNegativeButton("ปิด",null).showDirector()
+            .setNegativeButton("ปิด",null).showNavigationDirector()
         dialog.getButton(-1).setOnClickListener {
             runCatching {
                 val value=key.text.toString().trim()
@@ -5582,7 +5669,7 @@ $context"""
         val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
         val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
         val view=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text="กำลังทดสอบ ${provider.label} ด้วยข้อความสั้น • ใช้โควตาของบัญชี • ไม่ส่งบทหรือภาพ"; setTextIsSelectable(true) }
-        val dialog=AlertDialog.Builder(this).setTitle("ทดสอบ ${provider.label}").setView(ScrollView(this).apply { addView(view) }).setNegativeButton("ปิด / หยุด",null).showDirector()
+        val dialog=AlertDialog.Builder(this).setTitle("ทดสอบ ${provider.label}").setView(ScrollView(this).apply { addView(view) }).setNegativeButton("ปิด / หยุด",null).showNavigationDirector()
         dialog.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
         Thread {
             var passed=false
@@ -5608,7 +5695,7 @@ $context"""
         val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
         val view=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text="กำลังตรวจคีย์และโมเดลที่บันทึกไว้…\nส่งคำขอทดสอบสั้นจริงไปแต่ละบริการ ใช้โควตาของบัญชีนั้น ไม่ส่งบทหรือรูป"; setTextIsSelectable(true) }
         val dialog=AlertDialog.Builder(this).setTitle("ทดสอบ API • ไม่สลับบริการแทนผลทดสอบ")
-            .setView(ScrollView(this).apply { addView(view) }).setNegativeButton("ปิด / หยุด",null).showDirector()
+            .setView(ScrollView(this).apply { addView(view) }).setNegativeButton("ปิด / หยุด",null).showNavigationDirector()
         dialog.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
         Thread {
             val results=mutableListOf<String>()
@@ -5731,7 +5818,7 @@ $context"""
                 AlertDialog.Builder(this@StudioActivity).setTitle("ลบคีย์ Gemini ช่อง ${index+1}?")
                     .setMessage("ลบเฉพาะคีย์ช่องนี้จากเครื่อง • คีย์ช่องอื่นไม่เปลี่ยน")
                     .setPositiveButton("ลบ") { _,_ -> settings.clear(); input.setText(""); status.text="ลบคีย์ช่อง ${index+1} แล้ว"; input.hint="วาง Gemini API Key ช่อง ${index+1}" }
-                    .setNegativeButton("ยกเลิก",null).showDirector()
+                    .setNegativeButton("ยกเลิก",null).showNavigationDirector()
             } })
         }
         panel.addView(Button(this).apply { text="เปิด Google AI Studio เพื่อสร้างคีย์"; setOnClickListener {
@@ -5740,7 +5827,7 @@ $context"""
         AlertDialog.Builder(this).setTitle("Gemini • คีย์ 1–5")
             .setView(ScrollView(this).apply { addView(panel) })
             .setPositiveButton("เสร็จสิ้น") { _,_ -> afterSave?.invoke() }
-            .setNegativeButton("ปิด",null).showDirector()
+            .setNegativeButton("ปิด",null).showNavigationDirector()
     }
     private fun storyProviderSettings(provider: StoryProvider,afterSave: (() -> Unit)?=null) {
         if(provider==StoryProvider.GEMINI) { geminiMultiKeyDialog(afterSave); return }
@@ -5758,7 +5845,7 @@ $context"""
         } })
         val dialog=AlertDialog.Builder(this).setTitle("${provider.label} • ตั้งค่า API")
             .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("บันทึก",null)
-            .setNeutralButton("ลบคีย์") { _,_ -> settings.clear(); notice("ลบคีย์ ${provider.label} จากเครื่องแล้ว") }.setNegativeButton("ปิด",null).showDirector()
+            .setNeutralButton("ลบคีย์") { _,_ -> settings.clear(); notice("ลบคีย์ ${provider.label} จากเครื่องแล้ว") }.setNegativeButton("ปิด",null).showNavigationDirector()
         dialog.getButton(-1).setOnClickListener {
             runCatching { settings.save(key.text.toString().trim().ifBlank { settings.key() },model.text.toString().trim()) }
                 .onSuccess { dialog.dismiss(); afterSave?.invoke() ?: notice("บันทึก ${provider.label} แล้ว • ระบบเลือกค่ายอัตโนมัติ") }
@@ -5782,7 +5869,7 @@ $context"""
             AlertDialog.Builder(this).setTitle("ยังเริ่มงานเขียนบทไม่ได้")
                 .setMessage("ระบบเริ่มบริการไม่ได้ (${foregroundFailure.javaClass.simpleName} / $reason) • บันทึกการตั้งค่าเรื่องไว้แล้ว")
                 .setPositiveButton("ลองเริ่มเรื่องเดิม") { _,_ -> startGeminiJob(folder) }
-                .setNegativeButton("ปิด",null).showDirector()
+                .setNegativeButton("ปิด",null).showNavigationDirector()
         }
     }
     private fun resolvePendingCharacterName() {
@@ -5875,9 +5962,9 @@ $context"""
                                     CharacterAliasRegistry.save(job,registry)
                                 }.onSuccess { resolvePendingCharacterName() }
                                  .onFailure { notice("บันทึกการจับคู่ไม่ได้: "+(it.message ?: "กรุณาลองใหม่")) }
-                            }.setNegativeButton("ยกเลิก",null).showDirector()
+                            }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
                     }
-                }.setNegativeButton("กลับ",null).showDirector()
+                }.setNegativeButton("กลับ",null).showNavigationDirector()
         }
     }
     private fun regeneratePendingScene() {
@@ -5907,7 +5994,7 @@ $context"""
                         startGeminiJob(project)
                     }
                 }.onFailure { notice("เตรียมซีนใหม่ไม่ได้: "+(it.message ?: "กรุณาตรวจงานเดิม")) }
-            }.setNegativeButton("ยกเลิก",null).showDirector()
+            }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     /** Shared recovery presentation for the home mini card and paused-job dialog. */
     private fun showCharacterRecovery(status: JSONObject?) {
@@ -5964,7 +6051,7 @@ $context"""
             val dialog=AlertDialog.Builder(this).setTitle("สถานะงาน • อัปเดตทุกวินาที")
                 .setView(live)
                 .setPositiveButton("ดูต่อ",null).setNeutralButton("หยุดงาน") { _,_ -> startService(Intent(this,GeminiStoryService::class.java).setAction(GeminiStoryService.CANCEL)) }
-                .setNegativeButton("ปิด",null).showDirector()
+                .setNegativeButton("ปิด",null).showNavigationDirector()
             dialog.setOnDismissListener { if(geminiLiveDialog===live) geminiLiveDialog=null }
         } else {
             val status=readGeminiStatus()
@@ -5984,7 +6071,7 @@ $context"""
                     if(readGeminiStatus()?.optString("message")?.contains("พบชื่อภาษาอังกฤษ")==true)
                         choiceMenu("แก้ซีนที่ค้าง",listOf("จับคู่ชื่อตัวละคร","เขียนซีนที่ค้างใหม่","ตั้งค่า API")) { when(it) { 0 -> resolvePendingCharacterName(); 1 -> regeneratePendingScene(); else -> geminiSettings() } }
                     else geminiSettings()
-                }.setNegativeButton("ปิด",null).showDirector()
+                }.setNegativeButton("ปิด",null).showNavigationDirector()
         }
     }
     private fun landscapeCopyMenu() {
@@ -6002,7 +6089,7 @@ $context"""
                     prefs.edit().putString("project",folder.name).apply(); render()
                     notice("สร้างสำเนาแนวตั้งแล้ว • สร้างปกและภาพใหม่ จากนั้นนำเข้ามาตรวจและสร้างวิดีโอ 9:16")
                 }.onFailure { folder.deleteRecursively(); notice(it.message ?: "สร้างสำเนาไม่ได้") }
-            }.setNegativeButton("ยกเลิก",null).showDirector()
+            }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     private fun autoDirectorMenu() {
         choiceMenu("DIRECTOR X",listOf("สร้างเรื่องใหม่ • เลือกหมวดหลัก / AI คิดพล็อต","Phase 1 • ดูโครงเรื่องที่เปิด","Phase 2–4 • ทำงานทีละ EP","ส่งออก ZIP • ตอนละ 2 ไฟล์","คำสั่งภาพ / Flow • เลือก EP","ตรวจจุดที่ควรทบทวน")) { action ->
@@ -6061,7 +6148,7 @@ $context"""
             panel.addView(TextView(this).apply { this.text="ตรวจและแก้ข้อความก่อนคัดลอก • คำอธิบายอาจมาจากเรื่องย่อ โปรดตรวจว่าไม่เปิดเผยตอนจบ • หากข้อมูลขาดสามารถพิมพ์เพิ่มได้" })
             val edit=EditText(this).apply { setText(text); minLines=8; gravity=android.view.Gravity.TOP; panel.addView(this) }
             val dialog=AlertDialog.Builder(this).setTitle("ข้อมูลโพสต์ • ตรวจและคัดลอก").setView(ScrollView(this).apply { addView(panel) })
-                .setPositiveButton("คัดลอกทั้งหมด",null).setNegativeButton("ปิด",null).showDirector()
+                .setPositiveButton("คัดลอกทั้งหมด",null).setNegativeButton("ปิด",null).showNavigationDirector()
             dialog.getButton(-1).setOnClickListener {
                 val result=edit.text.toString().trim()
                 if(result.isBlank()) { notice("ยังไม่มีข้อมูลให้คัดลอก"); return@setOnClickListener }
@@ -6185,7 +6272,7 @@ $context"""
                     latest.put(field,input.text.toString().trim())
                     saveMusicDraft(latest)
                 }.onFailure { notice("บันทึกไม่สำเร็จ: ${it.message}") }
-            }.setNegativeButton("ยกเลิก",null).showDirector()
+            }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     private fun musicGenres() {
         val target=project
@@ -6204,7 +6291,7 @@ $context"""
                     latest.put("genres",JSONArray().apply { names.forEachIndexed { i,name -> if(checked[i]) put(name) } })
                     saveMusicDraft(latest)
                 }.onSuccess { musicSettings() }.onFailure { notice("บันทึกไม่สำเร็จ: ${it.message}") }
-            }.setNegativeButton("ยกเลิก",null).showDirector()
+            }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     private var musicAudioProject: File? = null
     private val musicAudioPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -6336,7 +6423,7 @@ $context"""
                 else runCatching { saveMusicDraft(snapshot) }
                     .onSuccess { notice("กู้คืนข้อมูล MV แล้ว") }
                     .onFailure { notice("กู้คืนไม่สำเร็จ: "+it.message) }
-            }.setNegativeButton("ยกเลิก",null).showDirector()
+            }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     private fun musicSceneIssues(draft: JSONObject, scene: JSONObject): List<String> {
         val entry=draft.optJSONObject("scene_notes")?.optJSONObject(scene.getInt("scene").toString())
@@ -6549,7 +6636,7 @@ $context"""
             }.setNeutralButton("คำสั่ง AI ตรวจซีน") { _,_ ->
                 if(project!=target) notice("โปรเจกต์เปลี่ยนแล้ว กรุณาเปิดใหม่")
                 else runMusicSceneReview(scene)
-            }.setNegativeButton("ยกเลิก",null).showDirector()
+            }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     private fun musicSceneProduction(scene: JSONObject) {
         val draft=musicDraft()
@@ -6650,13 +6737,13 @@ $context"""
             else AlertDialog.Builder(this).setTitle("เลือกตัวละครสมทบที่อยู่ในซีน")
                 .setMultiChoiceItems(Array(roster.length()) { roster.getJSONObject(it).optString("name") },checked) { _,index,value -> checked[index]=value }
                 .setPositiveButton("ส่งพร้อม MASTER") { _,_ -> send() }
-                .setNegativeButton("ยกเลิก",null).showDirector()
+                .setNegativeButton("ยกเลิก",null).showNavigationDirector()
         }
         if(missing.isEmpty()) choose()
         else AlertDialog.Builder(this).setTitle("ไม่พบตัวละครที่เคยเลือก")
             .setMessage("ตัวละครที่บันทึกไว้ไม่อยู่ในรายการ: ${missing.joinToString(", ")}\nหากดำเนินการต่อ รายการที่หายจะถูกนำออกจากซีนเมื่อกดส่ง")
             .setPositiveButton("เลือกใหม่") { _,_ -> choose() }
-            .setNegativeButton("ยกเลิก",null).showDirector()
+            .setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     private fun showMusicTimeline() {
         val draft=musicDraft()
@@ -7006,7 +7093,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                 val status=TextView(this).apply { textSize=18f }
                 content.addView(status)
                 content.addView(ProgressBar(this).apply { isIndeterminate=true })
-                val dialog=AlertDialog.Builder(this).setTitle(label).setView(content).setNegativeButton("ยกเลิก",null).showDirector()
+                val dialog=AlertDialog.Builder(this).setTitle(label).setView(content).setNegativeButton("ยกเลิก",null).showNavigationDirector()
                 val tick=object: Runnable {
                     override fun run() {
                         if(!dialog.isShowing) return
@@ -7189,7 +7276,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                         .map { "${it.optString("display_name").ifBlank { it.optString("id") }} • ${it.optString("id")}" }
                     castSummary.text=if(names.isEmpty()) "ยังไม่ได้ยืนยันตัวละคร" else "✓ ยืนยันแล้ว ${names.size} ตัว:\n"+names.joinToString("\n")
                     castSummary.setBackgroundColor(if(names.isEmpty()) Color.rgb(146,57,38) else Color.rgb(19,112,72))
-                }.setNegativeButton("ยกเลิก",null).showDirector()
+                }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
             }
             if(!ChannelFeaturePolicy.hasFantasyTools(chosenChannel)) {
                 stepHeader("3","อุปกรณ์ • ยังไม่มีตัวเลือกในช่องนี้",Color.rgb(181,99,30))
@@ -7315,7 +7402,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                             val names=selectedProps.map { (id,owner) -> val i=propCatalog.indices.first { propId(it)==id }; "${propCatalog[i]} • $id • "+(actors.firstOrNull { it.optString("id")==owner }?.optString("display_name") ?: "ยังไม่ระบุผู้ใช้") }
                             propSummary.text=if(names.isEmpty()) "ไม่ได้เลือกอุปกรณ์ • ข้ามได้" else "✓ อุปกรณ์ที่เลือก ${names.size} ชิ้น:\n"+names.joinToString("\n")
                             propSummary.setBackgroundColor(if(names.isEmpty()) Color.rgb(28,62,95) else Color.rgb(19,112,72))
-                        }.setNegativeButton("ยกเลิก",null).showDirector()
+                        }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
                 }
             }
             val presenterOutfits=listOf("เลือกชุดตามเนื้อเรื่อง", "สูทกรมท่า เนกไทลายฟ้า", "ชุดช่างสีเขียวเข้ม", "ชุดช่างสีกรมท่าส้ม", "ชุดช่างสีเทาเข้ม", "ชุดช่างสีน้ำเงิน", "เสื้อเชิ้ตสีครีม กางเกงเขียว", "เสื้อเชิ้ตสีฟ้า กางเกงกรมท่า", "เสื้อเชิ้ตสีขาว กางเกงดำ", "เสื้อเชิ้ตสีดำ กางเกงเทา", "เสื้อช่างกรม กางเกงเทา ถุงมือ", "ชุดทำสวนสีครีม หมวกและรองเท้าบูท", "ชุดทำสวนกรมท่า หมวกคลุมต้นคอและรองเท้าบูท", "ชุดดำลำลอง • 3 มุมมอง")
@@ -7349,7 +7436,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                         val master=castingSource(piaCatalog().getJSONObject(0))
                         val cropView=FaceReferenceCropView(this@StudioActivity,master)
                         val layout=LinearLayout(this@StudioActivity).apply { orientation=1; addView(TextView(context).apply { text="ลากกรอบรอบใบหน้ามุมตรงของนายเปีย แล้วกดบันทึก" }); addView(cropView,LinearLayout.LayoutParams(-1,dp(520))) }
-                        val dialog=AlertDialog.Builder(this@StudioActivity).setTitle("วาดกรอบใบหน้านายเปีย").setView(layout).setPositiveButton("บันทึกกรอบ",null).setNegativeButton("ยกเลิก",null).showDirector()
+                        val dialog=AlertDialog.Builder(this@StudioActivity).setTitle("วาดกรอบใบหน้านายเปีย").setView(layout).setPositiveButton("บันทึกกรอบ",null).setNegativeButton("ยกเลิก",null).showNavigationDirector()
                         dialog.getButton(-1).setOnClickListener {
                             runCatching {
                                 val target=faceStore.newFile(master); val pending=File(target.parentFile,target.name+".pending")
@@ -7403,7 +7490,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
             stepHeader("4","AI สร้างบทต่อให้อัตโนมัติ",Color.rgb(157,101,26))
             val createDialog=AlertDialog.Builder(this).setTitle(if(autoDirector) "DIRECTOR X • ${categories[index]}" else "สร้างบทด้วย ${StoryProvider.label(this@StudioActivity)}")
                 .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("สร้างบทในแอป",null)
-                .setNeutralButton(if(autoDirector) "กลับเมนู DIRECTOR X" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showDirector()
+                .setNeutralButton(if(autoDirector) "กลับเมนู DIRECTOR X" else "ใช้แชร์ไฟล์แทน") { _,_ -> if(autoDirector) autoDirectorMenu() else flowPlanningShare() }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
             if (productButton != null && getSharedPreferences("product_assist", MODE_PRIVATE).getString("shared_link", "").isNullOrBlank()) {
                 createDialog.window?.decorView?.post { if (createDialog.isShowing && !isFinishing && !isDestroyed) ProductAssist.show(this@StudioActivity,premise,selectedStoryTopic,true) }
             }
@@ -7491,7 +7578,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                 .setMessage("แอปแนบคำสั่งและ MASTER 3 ภาพให้เอง เลือกแอป AI ที่รับไฟล์ แล้วตรวจไฟล์แนบและกดส่งในแอปนั้น ผลลัพธ์ที่ต้องรับกลับ: story.json / ZIP บท เพื่อนำเข้าขั้นตอน 2 • ยังไม่ใช่การเรียก API อัตโนมัติ")
                 .setView(premise).setPositiveButton("ส่งคำสั่ง + MASTER") { _,_ -> sendStoryPackage(prepare()) }
                 .setNeutralButton("ดูคำสั่งก่อน") { _,_ -> showFlowCode("คำสั่งวางบท",prepare(),"FLOW_STORY_COMMAND.txt") }
-                .setNegativeButton("ยกเลิก",null).showDirector()
+                .setNegativeButton("ยกเลิก",null).showNavigationDirector()
         }
     }
     }
@@ -7510,7 +7597,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         }
         val dialog=AlertDialog.Builder(this).setTitle("เลือกตัวละครทดสอบวิดีโอ")
             .setView(ScrollView(this).apply { addView(grid) })
-            .setPositiveButton("ตั้งค่าฉาก",null).setNegativeButton("ยกเลิก",null).create()
+            .setPositiveButton("ตั้งค่าฉาก",null).setNegativeButton("ยกเลิก",null).createNavigationDirector()
         dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             val selected=ids.filterIndexed { i,_ -> checked[i] }
             if(selected.isEmpty()) Toast.makeText(this,"เลือกอย่างน้อย 1 คน",Toast.LENGTH_SHORT).show()
@@ -7535,7 +7622,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                         showFlowCode("คำสั่งทดสอบสร้างวิดีโอ • แนบ MASTER ที่เลือก",code,"FLOW_VIDEO_TEST_${ids.joinToString("_")}.txt")
                     }
                     .onFailure { notice(it.message ?: "ตรวจข้อมูลทดสอบ") }
-            }.setNegativeButton("ยกเลิก",null).showDirector()
+            }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     private fun flowSceneMenu(s: JSONObject) {
         if(plan?.optString("aspect_ratio","16:9")!="9:16") { landscapeCopyMenu(); return }
@@ -7565,35 +7652,52 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         if(providers.isEmpty()) return notice("ตั้งค่า API เขียนบทก่อนใช้ระบบเสนอขยายบท")
         val snapshot=scene.toString()
         val projectId=project.name
-        val sceneId=key(scene)
         val sceneContext=JSONObject().put("action",scene.optString("action")).put("speaker",scene.optString("speaker")).put("location",scene.optString("location")).put("speech",original)
-        notice("กำลังเสนอขยายบท • บทเดิมยังไม่เปลี่ยน")
+        val back = takeMenuBack()
+        val progress = AlertDialog.Builder(this).setMessage("กำลังเสนอขยายบท • บทเดิมยังไม่เปลี่ยน")
+            .setNegativeButton("ย้อนกลับ", null).showNavigationDirector(back)
+        val stopped = java.util.concurrent.atomic.AtomicBoolean(false)
+        val active = java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
+        progress.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
         Thread {
             val schema=JSONObject().put("type","object").put("properties",JSONObject().put("text",JSONObject().put("type","string"))).put("required",JSONArray().put("text"))
             val prompt="""Suggest a natural Thai ${if(field=="dialogue") "dialogue line" else "narration"} for an eight-second scene based only on the supplied scene. Expand the original only where the meaning and events support it; do not add facts, characters, plot events or stage directions. Keep it naturally speakable without rushing. Return JSON with a single text field. The user must review it before saving. Scene: $sceneContext"""
             var result: String?=null
             for(provider in providers) {
-                result=runCatching { StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false,context=this@StudioActivity).generate(prompt,schema).optString("text").trim() }.getOrNull()?.takeIf { it.isNotBlank() }
+                if (stopped.get()) break
+                result=runCatching {
+                    val client = StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ stopped.get() },automaticRetry=false,context=this@StudioActivity)
+                    active.set(client)
+                    if (stopped.get()) throw java.util.concurrent.CancellationException()
+                    client.generate(prompt,schema).optString("text").trim()
+                }.getOrNull()?.takeIf { it.isNotBlank() }
                 if(result!=null) break
             }
             val proposal=result
             runOnUiThread {
-                if(isFinishing || isDestroyed) return@runOnUiThread
-                if(proposal==null) { notice("ไม่สามารถขอข้อเสนอบทได้ กรุณาตรวจ API แล้วลองใหม่"); return@runOnUiThread }
+                if (!progress.isShowing || stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
+                active.set(null)
+                progress.dismiss()
+                if(proposal==null) { showMenuNotice("ไม่สามารถขอข้อเสนอบทได้ กรุณาตรวจ API แล้วลองใหม่", back); return@runOnUiThread }
                 if(project.name!=projectId || scene.toString()!=snapshot || plan?.let { current -> rows(current).none { it===scene } } != false) { notice("ซีนเปลี่ยนระหว่างขอข้อเสนอ กรุณาเปิดใหม่"); return@runOnUiThread }
-                val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-                panel.addView(TextView(this).apply { text="บทเดิม:\n$original\n\nตรวจความหมาย เหตุการณ์ และทดลองอ่านให้เหมาะกับ 8 วินาที ก่อนยืนยัน" })
-                val edit=EditText(this).apply { setText(proposal); minLines=3; panel.addView(this) }
-                val dialog=AlertDialog.Builder(this).setTitle("ตรวจข้อเสนอบท • $sceneId").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันและบันทึก",null).setNegativeButton("ใช้บทเดิม",null).showDirector()
-                dialog.getButton(-1).setOnClickListener {
-                    val value=edit.text.toString().trim()
-                    if(value.isBlank()) { notice("กรุณาระบุบทหรือเลือกใช้บทเดิม"); return@setOnClickListener }
-                    if(project.name!=projectId || scene.toString()!=snapshot || plan?.let { current -> rows(current).none { it===scene } } != false) { dialog.dismiss(); notice("ซีนเปลี่ยนแล้ว กรุณาขอข้อเสนอใหม่"); return@setOnClickListener }
-                    scene.put(field,value); scene.put("user_review","needs_revision"); scene.remove("flow_image_revision")
-                    saveStory(); dialog.dismiss(); render(); notice("บันทึกบทที่ยืนยันแล้ว • โปรดตรวจภาพและคำสั่ง Flow อีกครั้ง")
-                }
+                showSpeechProposal(scene, field, original, proposal, projectId, snapshot, back)
             }
         }.apply { name="director-dialogue-suggestion"; start() }
+    }
+
+    private fun showSpeechProposal(scene: JSONObject, field: String, original: String, proposal: String,
+        projectId: String, snapshot: String, back: (() -> Unit)?) {
+        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
+        panel.addView(TextView(this).apply { text="บทเดิม:\n$original\n\nตรวจความหมาย เหตุการณ์ และทดลองอ่านให้เหมาะกับ 8 วินาที ก่อนยืนยัน" })
+        val edit=EditText(this).apply { setText(proposal); minLines=3; panel.addView(this) }
+        val dialog=AlertDialog.Builder(this).setTitle("ตรวจข้อเสนอบท • ${key(scene)}").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันและบันทึก",null).setNegativeButton("ใช้บทเดิม",null).showNavigationDirector(back)
+        dialog.getButton(-1).setOnClickListener {
+            val value=edit.text.toString().trim()
+            if(value.isBlank()) { notice("กรุณาระบุบทหรือเลือกใช้บทเดิม"); return@setOnClickListener }
+            if(project.name!=projectId || scene.toString()!=snapshot || plan?.let { current -> rows(current).none { it===scene } } != false) { dialog.dismiss(); notice("ซีนเปลี่ยนแล้ว กรุณาขอข้อเสนอใหม่"); return@setOnClickListener }
+            scene.put(field,value); scene.put("user_review","needs_revision"); scene.remove("flow_image_revision")
+            saveStory(); dialog.dismiss(); render(); notice("บันทึกบทที่ยืนยันแล้ว • โปรดตรวจภาพและคำสั่ง Flow อีกครั้ง")
+        }
     }
 
     private fun planning() {
@@ -7694,7 +7798,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
 ตัวเลข 1 ในตัวอย่างเป็นเพียงรูปแบบ ต้องแทนด้วยจำนวนจริงของบทเต็ม เพิ่ม EP และฉากเท่าที่เรื่องต้องใช้ เรียงเลขจาก 1 ไม่กำหนดจำนวนตายตัว หลังวางบททั้งเรื่อง ต้องส่ง story.json เป็นไฟล์ดาวน์โหลดแยกทันที ก่อนเริ่มสร้างภาพ ห้ามรอใส่ story.json ไว้ท้าย ZIP เท่านั้น จากนั้นใช้เครื่องมือสร้างภาพและแสดงภาพจริงในแชตแยกหนึ่งฉากหนึ่งไฟล์ตามลำดับครบทุก EP จนจบ ตั้งชื่อ EP01_SC001.png ตามเลข EP และฉาก ไม่ทำภาพรวมหลายฉาก ${if (mode == "original") "ใช้ MASTER ที่แนบให้ตรงรายคน" else "ใช้ CHARACTER MASTER ใหม่ที่สร้างสำหรับเรื่องนี้ตรงรายคน"} พร้อมคำสั่งสำหรับ Flow / Veo 3.1 Lite ทุกฉาก ผู้ใช้ต้องการบทและภาพพร้อมนำไปทำวิดีโอ
 เพื่อป้องกันไฟล์ขนาดใหญ่ถูกตัด ให้ส่ง ZIP แยกหนึ่งไฟล์ต่อ EP ชื่อ EP01_IMAGES.zip, EP02_IMAGES.zip ตามจริง แต่ละ ZIP ใส่เฉพาะภาพฉากและปกของ EP นั้น หลังสร้าง ZIP แต่ละ EP ให้เปิดตรวจว่าอ่านได้ ตรวจจำนวนภาพฉากและปก แล้วรายงานจำนวนที่ตรวจจริง ห้ามแจ้งว่าครบจากแผนโดยไม่ตรวจไฟล์ ห้ามรวมภาพทุก EP เป็น ZIP ก้อนใหญ่ไฟล์เดียว
 หลังสร้างฉากสุดท้ายของแต่ละ EP ให้สร้างปกแนวตั้งหนึ่งไฟล์ทันที: EP01_COVER_9x16.png ขนาด 9:16 เปลี่ยนเลขตาม EP จัดองค์ประกอบแต่ละสัดส่วนใหม่ ใช้ตัวละครจาก MASTER รายคน สื่อเหตุการณ์เด่นของตอนนั้น ข้อความภาษาไทย 3 บรรทัดจัดกึ่งกลางในพื้นที่กลางภาพ เว้นขอบซ้ายขวาอย่างน้อย 10% และขอบบนล่าง 20%: บรรทัด 1 ชื่อช่อง (เล็กกว่า), บรรทัด 2 ชื่อเรื่อง (ใหญ่ที่สุด), บรรทัด 3 EP 01 • ชื่อตอน (ขนาดรอง) ปรับขนาดอักษรให้ครบทั้งบรรทัด อ่านชัดบนมือถือ ไม่ทับใบหน้า ชื่อเรื่องและชื่อตอนต้องตรง story.json รวมปกไว้ใน ZIP ราย EP ที่ตรงกับเลขตอนด้วย""", lockCreation = true, includeMasters=false, referenceImages=listOf("gawin","rinlada","mind").map { id -> val file=File(filesDir,"character_masters/$id.master"); "${id.uppercase()}_MASTER" to file })
-        }.setNegativeButton("ยกเลิก",null).showDirector()
+        }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     private fun sceneCommands() {
         val p = plan ?: return notice("นำเข้าแผนเรื่องก่อนครับ")
@@ -7759,14 +7863,14 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             AlertDialog.Builder(this).setTitle("พบภาพอื่นในชุดงาน")
                 .setMessage("นำเข้าภาพที่ตรงเลขฉากได้ ${named.size} ไฟล์ ส่วน ${unknown.size} ไฟล์ต่อไปนี้ยังจับคู่ไม่ได้ จะเว้นไว้เพื่อไม่ใส่ผิดฉาก:\n$skipped")
                 .setPositiveButton("นำเข้าภาพที่จับคู่ได้") { _, _ -> importImages(named) }
-                .setNegativeButton("ยกเลิก", null).showDirector()
+                .setNegativeButton("ยกเลิก",null).showNavigationDirector()
             return
         }
         unknown.forEachIndexed { i, uri -> assignments[uri] = available[i] }
         if (unknown.isNotEmpty() && !confirmedOrder) {
             val list = uris.joinToString("\n") { "${displayName(it)} → ${key(assignments.getValue(it))}" }
             val content = TextView(this).apply { text = "บางภาพไม่มีเลขฉาก แอปเสนอเรียงตามลำดับไฟล์ที่เลือก กรุณาตรวจให้ตรงก่อนนำเข้า\n\n$list"; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-            AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setTitle("ตรวจลำดับภาพครั้งเดียว").setView(ScrollView(this).apply { addView(content) }).setPositiveButton("ลำดับถูกต้อง") { _,_ -> importImages(uris,true) }.setNegativeButton("ยกเลิก",null).showDirector()
+            AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setTitle("ตรวจลำดับภาพครั้งเดียว").setView(ScrollView(this).apply { addView(content) }).setPositiveButton("ลำดับถูกต้อง") { _,_ -> importImages(uris,true) }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
             return
         }
         val importFolder = project
@@ -7974,13 +8078,13 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
                         AlertDialog.Builder(this).setTitle("ยืนยันการเรียก API")
                             .setMessage("ปรับปรุงเฉพาะฉากนี้ • อาจใช้โควตา API\nไม่แก้ไขบทหรือ MASTER")
                             .setPositiveButton("เริ่ม Gen") { _,_ -> flowApiEnhance(s,code,copy) }
-                            .setNegativeButton("ยกเลิก",null).showDirector()
+                            .setNegativeButton("ยกเลิก",null).showNavigationDirector()
                     else -> {
                         if(copy) copyCommand(code)
                         else showFlowCode("Flow Kotlin V1 • ต้นฉบับ",code,"${key(s)}_VIDEO.txt")
                     }
                 }
-            }.setNegativeButton("ยกเลิก",null).showDirector()
+            }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     private fun copyFlowCommand(s: JSONObject) { reviewedVideoCommand(s,true) }
     private fun mapFlowCharacters(s: JSONObject) {
@@ -8022,7 +8126,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         val checks=listOf("ตรวจใบหน้า ผม และตัวตนตรง MASTER รายคนแล้ว","ตรวจรูปร่าง หน้าอก เอว สะโพก และแขนตามต้นฉบับแล้ว","ตรวจชุด สีภาพ มือ และอุปกรณ์แล้ว","ตรวจตำแหน่งและผู้พูดในภาพจริงแล้ว").map { label -> CheckBox(this).apply { text=label; panel.addView(this) } }
         val speaker=EditText(this).apply { hint="ผู้พูดหนึ่งคน (ชื่อในรายการ) หรือว่างเมื่อไม่มีบทพูด"; setText(s.optString("speaker")); panel.addView(this) }
         val dialog=AlertDialog.Builder(this).setTitle("ยืนยันภาพฉาก • ${key(s)}")
-            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันภาพและเปิดคำสั่ง",null).setNegativeButton("ยกเลิก",null).create()
+            .setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันภาพและเปิดคำสั่ง",null).setNegativeButton("ยกเลิก",null).createNavigationDirector()
         dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             if(checks.any { !it.isChecked }) { notice("ตรวจภาพและทำเครื่องหมายให้ครบก่อนยืนยัน"); return@setOnClickListener }
             val candidate=JSONObject(s.toString())
@@ -8096,7 +8200,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             .setView(ScrollView(this).apply { addView(panel) })
             .setPositiveButton("สร้างได้") { _,_ -> record("created_reported") }
             .setNeutralButton("สร้างไม่ได้") { _,_ -> record("failed_reported") }
-            .setNegativeButton("ปิด",null).showDirector()
+            .setNegativeButton("ปิด",null).showNavigationDirector()
     }
     private fun bodyReviewStatus(s: JSONObject, person: JSONObject): String {
         val file=image(s); val master=masterFor(person)
@@ -8157,7 +8261,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         }
         picture("ผลลัพธ์ • ${key(s)} • ${s.optString("user_review","รอตรวจ")}",image(s))
         panel.addView(TextView(this).apply { text = "ตรวจใบหน้า ผม รูปร่าง ชุด และมือเทียบ MASTER • ให้ผู้ใช้ประเมินจากภาพจริง\n${sceneCastDescription(s)}\n${s.optString("action")}\n${s.optString("dialogue")}" })
-        AlertDialog.Builder(this).setTitle("เปรียบเทียบต้นฉบับ").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ตรวจแล้ว / ยืนยันภาพ") { _,_ -> mapFlowCharacters(s) }.setNeutralButton("แก้ตัวละครรายคน") { _,_ -> repairSceneCharacter(s) }.setNegativeButton("ปิด",null).showDirector()
+        AlertDialog.Builder(this).setTitle("เปรียบเทียบต้นฉบับ").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ตรวจแล้ว / ยืนยันภาพ") { _,_ -> mapFlowCharacters(s) }.setNeutralButton("แก้ตัวละครรายคน") { _,_ -> repairSceneCharacter(s) }.setNegativeButton("ปิด",null).showNavigationDirector()
     }
     private fun fullImage(file: File, title: String) {
         val imageView = ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds = true; scaleType = ImageView.ScaleType.FIT_CENTER }
@@ -8245,7 +8349,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
                 val affected = rows(plan!!).filter { key(it) == key(s) || (group.isNotBlank() && it.optString("continuity_group") == group || previousGroup.isNotBlank() && it.optString("continuity_group") == previousGroup) }
                 affected.forEach { it.put("user_review","needs_revision"); it.remove("flow_image_revision") }; saveStory(); draftFile.delete(); render()
                 notice("บันทึกแล้ว • ตรวจความต่อเนื่อง ${affected.joinToString { key(it) }}\nเก็บภาพและวิดีโอเดิมไว้แล้ว ต้องตรวจคำสั่ง Flow ให้ตรงบทที่แก้")
-            }.setNegativeButton("ยกเลิก",null).showDirector()
+            }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     private fun masterFor(person: JSONObject): File {
         if (person.optString("master").startsWith("CHARACTER",true)) {
@@ -8259,7 +8363,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
     }
     private fun chooseNamedCharacterGrid(title: String, items: List<Pair<String,File?>>, onSelect: (Int) -> Unit) {
         val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-        val dialog=AlertDialog.Builder(this).setTitle(title).setView(ScrollView(this).apply { addView(grid) }).setNegativeButton("ยกเลิก",null).create()
+        val dialog=AlertDialog.Builder(this).setTitle(title).setView(ScrollView(this).apply { addView(grid) }).setNegativeButton("ยกเลิก",null).createNavigationDirector()
         var row: LinearLayout?=null
         items.forEachIndexed { index, (name,file) ->
             if(index%2==0) { row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; grid.addView(row) }
@@ -8286,7 +8390,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             textSize=13f; setTextColor(ice); setPadding(dp(4),0,dp(4),dp(14))
         })
         val dialog=AlertDialog.Builder(this).setView(ScrollView(this).apply { addView(grid) })
-            .setNegativeButton("กลับ",null).create()
+            .setNegativeButton("กลับ",null).createNavigationDirector()
         var row: LinearLayout?=null
         people.forEachIndexed { index, person ->
             if(index%2==0) {
@@ -8355,7 +8459,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
                     val command="""Edit the attached scene image $sceneId. The attached reference $id is the MASTER of $name, positioned ${person.optString("screen_position")}.
 Change only $name: $change. Match that person's face, hairstyle, skin tone and body proportions to their MASTER. Preserve all other people, their appearance and positions, clothing, background, lighting, text and composition. Keep the existing scene and props. Return one edited image. Review the actual result; identity matching is not guaranteed.""".trimIndent()
                     shareImageCommand(command,listOf(id to master, sceneId to image(s)),mapOf(id to name,sceneId to "ภาพฉากเดิม"))
-                }.setNegativeButton("ยกเลิก",null).showDirector()
+                }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
         }
     }
     private fun repairScene(s: JSONObject) {
@@ -8368,7 +8472,7 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
             val refs = (0 until cast.length()).map { cast.getJSONObject(it) }.map { (masterExportName(masterFor(it),it.optString("master").startsWith("CHARACTER",true)) ?: it.optString("master")).substringBeforeLast('.') to masterFor(it) } + (key(s) to image(s))
             shareText(ImagePromptPolicy.edit("ภาพฉาก ${key(s)}",change,plan?.optString("aspect_ratio","9:16") ?: "9:16",
                 sceneCastDescription(s),"${key(s)}.png"),includeMasters=false,referenceImages=refs)
-        }.setNegativeButton("ยกเลิก",null).showDirector()
+        }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     private var mediaSlot: String?
         get() = prefs.getString("media_slot",null)
@@ -8412,7 +8516,7 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
                 } finally { temp.delete() }
             } }
             AlertDialog.Builder(this).setTitle("ตรวจไฟล์ก่อนนำเข้า").setMessage("${displayName(uri)} → $id\nชนิด: $kind\n${if(target.exists()) "ไฟล์เดิมจะเก็บเป็นเวอร์ชันก่อนแทน" else "เพิ่มไฟล์ใหม่"}")
-                .setPositiveButton("นำเข้า") { _,_ -> accept() }.setNegativeButton("ยกเลิก",null).showDirector()
+                .setPositiveButton("นำเข้า") { _,_ -> accept() }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
         }
         mediaSlot = null
     }
@@ -8438,7 +8542,7 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
                     .setPositiveButton("ใช้เวอร์ชันนี้") { _,_ ->
                         if(target.exists()) archiveVersion(target,project,key(s),kind)
                         target.parentFile!!.mkdirs(); source.copyTo(target,overwrite=true); s.put("user_review","pending"); saveStory(); render()
-                    }.setNegativeButton("ยกเลิก",null).showDirector()
+                    }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
             }
         }
     }
@@ -8479,13 +8583,13 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
                 1 -> { val input = EditText(this).apply { setText(plan?.optString("title")) }
                     AlertDialog.Builder(this).setTitle("ชื่อเรื่อง").setView(input).setPositiveButton("บันทึก") { _,_ ->
                         if(input.text.isNotBlank()) { plan?.put("title",input.text.toString().trim()); saveStory(); render() }
-                    }.setNegativeButton("ยกเลิก",null).showDirector() }
+                    }.setNegativeButton("ยกเลิก",null).showNavigationDirector() }
                 2 -> background { val source = project; val target = File(base,UUID.randomUUID().toString()); check(source.copyRecursively(target))
                     val p = JSONObject(File(target,"story.json").readText()); p.put("title",p.optString("title")+" (สำเนา)"); File(target,"story.json").writeText(p.toString(2)); prefs.edit().putString("project",target.name).commit() }
                 3 -> { val file = File(project,"archived"); if(file.exists()) file.delete() else file.writeText("archived"); render() }
                 4 -> { val folder = project; AlertDialog.Builder(this).setMessage("ลบเรื่องและไฟล์ทั้งหมด? สำรอง ZIP ก่อนลบ")
                     .setPositiveButton("ลบเรื่อง") { _,_ -> folder.deleteRecursively(); prefs.edit().putString("project",UUID.randomUUID().toString()).apply(); render() }
-                    .setNegativeButton("ยกเลิก",null).showDirector() }
+                    .setNegativeButton("ยกเลิก",null).showNavigationDirector() }
             } }
         }
         }
@@ -8500,7 +8604,7 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
                 val message = "DIRECTOR X ${packageManager.getPackageInfo(packageName,0).versionName}\nงานทั้งหมด ${used/1024/1024} MB\nพื้นที่ว่าง ${filesDir.usableSpace/1024/1024} MB\nเรื่อง ${plan?.optString("title").orEmpty()}\n${File(filesDir,"last_error.txt").takeIf { it.exists() }?.readText().orEmpty()}"
                 AlertDialog.Builder(this).setMessage(message).setPositiveButton("ปิด",null).setNeutralButton("คัดลอก") { _,_ -> copyCommand(message) }.showDirector() }
             5 -> { val previous=File(project,"story.previous.json"); if(!previous.exists()) notice("ยังไม่มีบทก่อนแก้") else AlertDialog.Builder(this).setMessage("กู้คืนบทก่อนแก้ล่าสุด? ไฟล์ภาพยังอยู่")
-                .setPositiveButton("กู้คืน") { _,_ -> val old=previous.readText(); saveStory(); File(project,"story.json").writeText(old); render() }.setNegativeButton("ยกเลิก",null).showDirector() }
+                .setPositiveButton("กู้คืน") { _,_ -> val old=previous.readText(); saveStory(); File(project,"story.json").writeText(old); render() }.setNegativeButton("ยกเลิก",null).showNavigationDirector() }
             6 -> planningSettings()
             8 -> retryLastCommand()
             7 -> { if(plan == null) notice("ยังไม่มีบท") else { backupMode=true; zipPicker.launch(StoryFiles.zipName(plan!!.optString("title")+"_สำรอง")) } }
@@ -8518,7 +8622,7 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
                     val folder=File(base,UUID.randomUUID().toString()); check(staging.copyRecursively(folder))
                     prefs.edit().putString("project",folder.name).commit()
                 } finally { staging.deleteRecursively() }
-            } }.setNegativeButton("ยกเลิก",null).showDirector()
+            } }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     private fun retryLastImage() {
         val file=File(project,"last_image_payload.json")
@@ -8564,7 +8668,7 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
             val values=inputs.associate { it.first to it.second.text.toString().trim() }
             if(values["ratio"] !in listOf("9:16") || values["duration"]?.toIntOrNull()?.let { it in 1..60 } != true || listOf("episodes","scenes").any { values[it]!!.isNotBlank() && values[it]?.toIntOrNull()?.let { n -> n in 1..100 } != true }) notice("ตรวจจำนวน 1–100 ระยะเวลา 1–60 และสัดส่วน 9:16")
             else { val edit=prefs.edit(); values.forEach { (k,v) -> edit.putString("plan_$k",v) }; edit.apply(); notice("บันทึกค่าตั้งต้นแล้ว ใช้กับคำสั่งสร้างเรื่องใหม่") }
-        }.setNegativeButton("ยกเลิก",null).showDirector()
+        }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
     private var castTarget: Pair<String,File>?
         get() { val name=prefs.getString("cast_target_name",null) ?: return null; val path=prefs.getString("cast_target_path",null) ?: return null; return name to File(path) }
@@ -8617,7 +8721,7 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
                         val person=JSONObject().put("name",value).put("master","SUPPORT_${id}_MASTER.png").put("visual_description","adult fictional character; "+description.text.toString())
                         prefs.edit().putString("pending_support",person.toString()).apply(); supportImagePicker.launch(arrayOf("image/*"))
                     }
-                }.setNegativeButton("ยกเลิก",null).showDirector()
+                }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
             } else {
                 val person=roster.getJSONObject(index); val file=File(filesDir,"supporting_masters/${FlowCast.id(person)}.master")
                 choiceMenu(person.getString("name"),listOf("ดูภาพต้นฉบับ","นำออกจากเรื่องใหม่")) { action ->
@@ -8639,9 +8743,9 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
                 1 -> { val id=FlowCast.id(person)
                     val file=if(p.optString("character_mode","original")=="new") masterFor(person) else if(id!=null) File(project,"original_masters/$id.master") else return@choiceMenu
                     AlertDialog.Builder(this).setMessage("เปลี่ยน MASTER ของ $name เฉพาะเรื่องนี้ • ฉากที่ใช้คนนี้จะถูกระบุว่าต้องตรวจใหม่")
-                        .setPositiveButton("เลือกรูป") { _,_ -> castTarget=name to file; castPicker.launch(arrayOf("image/*")) }.setNegativeButton("ยกเลิก",null).showDirector() }
+                        .setPositiveButton("เลือกรูป") { _,_ -> castTarget=name to file; castPicker.launch(arrayOf("image/*")) }.setNegativeButton("ยกเลิก",null).showNavigationDirector() }
                 2 -> { val input=EditText(this).apply { hint="บทบาทและลักษณะตัวละคร"; setText(p.optJSONObject("cast_roles")?.optString(name)) }
-                    AlertDialog.Builder(this).setTitle(name).setView(input).setPositiveButton("บันทึก") { _,_ -> val roles=p.optJSONObject("cast_roles") ?: JSONObject(); roles.put(name,input.text.toString()); p.put("cast_roles",roles); saveStory() }.setNegativeButton("ยกเลิก",null).showDirector() }
+                    AlertDialog.Builder(this).setTitle(name).setView(input).setPositiveButton("บันทึก") { _,_ -> val roles=p.optJSONObject("cast_roles") ?: JSONObject(); roles.put(name,input.text.toString()); p.put("cast_roles",roles); saveStory() }.setNegativeButton("ยกเลิก",null).showNavigationDirector() }
                 3 -> editCharacterMemory(memoryId(person),name,masterFor(person))
                 4 -> sendProductionMaster(memoryId(person),name,masterFor(person))
                 5 -> reviewMaster(memoryId(person),name,masterFor(person))
@@ -8747,9 +8851,9 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
                                 AlertDialog.Builder(this).setTitle("ยืนยันวิธีรวม").setMessage(message).setPositiveButton("ดำเนินการ") { _,_ ->
                                     if(mode==0 && infos.any { it.width.toDouble()/it.height !in 1.76..1.79 || it.rotation!=0 }) choiceMenu("จัดภาพต่างสัดส่วน",listOf("เว้นขอบ • เห็นภาพครบ", "ครอปกึ่งกลาง • เต็มจอ อาจตัดขอบ")) { layout -> movieLayoutPreview(infos.first { it.width.toDouble()/it.height !in 1.76..1.79 || it.rotation!=0 }.file,layout==1) { start(layout==1) } }
                                     else start(false)
-                                }.setNegativeButton("ยกเลิก",null).showDirector()
+                                }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
                             }
-                        }.setNegativeButton("ยกเลิก",null).showDirector()
+                        }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
                 }
             } catch(e: Exception) { runOnUiThread { dialog.dismiss(); notice("ตรวจคลิปไม่ผ่าน: ${e.message}") } }
         }.start()
@@ -8768,7 +8872,7 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
         }
         val panel=LinearLayout(this).apply { orientation=1; gravity=Gravity.CENTER; addView(view) }
         val dialog=AlertDialog.Builder(this).setTitle(if(crop) "ตัวอย่างครอปกึ่งกลาง 9:16" else "ตัวอย่างเว้นขอบ 9:16").setView(panel)
-            .setPositiveButton("ใช้รูปแบบนี้") { _,_ -> proceed() }.setNegativeButton("ยกเลิก",null).create()
+            .setPositiveButton("ใช้รูปแบบนี้") { _,_ -> proceed() }.setNegativeButton("ยกเลิก",null).createNavigationDirector()
         dialog.setOnDismissListener { view.setImageDrawable(null); bitmap?.recycle() }; dialog.show()
     }
     private fun movieProgress(ep: Int) {
@@ -8795,7 +8899,7 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
         Thread { val changed=runCatching { movieFingerprint(ep)!=old }.getOrDefault(true); runOnUiThread {
             dialog.dismiss()
             if(changed) AlertDialog.Builder(this).setMessage("คลิปหรือปกเปลี่ยนหลังรวม หนังนี้เป็นเวอร์ชันเดิม ต้องรวมใหม่เพื่อใช้การแก้ล่าสุด")
-                .setPositiveButton("ใช้เวอร์ชันเดิม") { _,_ -> proceed() }.setNegativeButton("ยกเลิก",null).showDirector() else proceed()
+                .setPositiveButton("ใช้เวอร์ชันเดิม") { _,_ -> proceed() }.setNegativeButton("ยกเลิก",null).showNavigationDirector() else proceed()
         } }.start()
     }
     private fun playMovie(job: File) {
