@@ -213,6 +213,9 @@ class FlowProductionPackTest {
             ActivityScenario.launch(StudioActivity::class.java).use {
                 tap("สร้างภาพ")
                 tap("EP.1")
+                tap("ย้อนกลับ")
+                tap("EP.1")
+                tap("ย้อนกลับ")
                 tap("ยกเลิก")
                 tap("คำสั่ง Flow")
                 tap("คำสั่ง Flow AI")
