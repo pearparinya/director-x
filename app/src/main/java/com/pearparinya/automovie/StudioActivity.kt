@@ -191,9 +191,13 @@ class StudioActivity : AppCompatActivity() {
     private fun menuIcon(index: Int) = listOf("🎭", "🎨", "📚", "🎬", "💡")[index % 5]
     private var pendingMenuBack: (() -> Unit)? = null
     private var pendingMenuScroll: Int = 0
-    private fun AlertDialog.Builder.showNavigationDirector(): AlertDialog {
+    private fun takeMenuBack(): (() -> Unit)? {
         val back = pendingMenuBack
         pendingMenuBack = null
+        return back
+    }
+
+    private fun AlertDialog.Builder.showNavigationDirector(back: (() -> Unit)? = takeMenuBack()): AlertDialog {
         val dialog = showDirector()
         if (back != null) {
             dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
@@ -1850,7 +1854,13 @@ class StudioActivity : AppCompatActivity() {
         AlertDialog.Builder(this).setTitle("นำเข้าไฟล์แล้ว").setMessage(text)
             .setPositiveButton("กลับหน้าหลัก") { _,_ -> render() }.showDirector()
     }
-    private fun notice(text: String) { AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setMessage(text).setPositiveButton("ตกลง", null).showDirector() }
+    private fun notice(text: String) = showMenuNotice(text, takeMenuBack())
+
+    private fun showMenuNotice(text: String, back: (() -> Unit)?) {
+        val dialog = AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setMessage(text)
+            .setPositiveButton("ตกลง") { _, _ -> back?.invoke() }.showDirector()
+        dialog.setOnCancelListener { back?.invoke() }
+    }
     private fun background(block: () -> Unit) {
         importing = true
         val dialog = AlertDialog.Builder(this).setIcon(R.drawable.studio_movie).setMessage("กำลังจัดไฟล์…").setCancelable(false).showDirector()
@@ -5659,7 +5669,7 @@ $context"""
         val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
         val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
         val view=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text="กำลังทดสอบ ${provider.label} ด้วยข้อความสั้น • ใช้โควตาของบัญชี • ไม่ส่งบทหรือภาพ"; setTextIsSelectable(true) }
-        val dialog=AlertDialog.Builder(this).setTitle("ทดสอบ ${provider.label}").setView(ScrollView(this).apply { addView(view) }).setNegativeButton("ปิด / หยุด",null).showDirector()
+        val dialog=AlertDialog.Builder(this).setTitle("ทดสอบ ${provider.label}").setView(ScrollView(this).apply { addView(view) }).setNegativeButton("ปิด / หยุด",null).showNavigationDirector()
         dialog.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
         Thread {
             var passed=false
@@ -5685,7 +5695,7 @@ $context"""
         val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
         val view=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text="กำลังตรวจคีย์และโมเดลที่บันทึกไว้…\nส่งคำขอทดสอบสั้นจริงไปแต่ละบริการ ใช้โควตาของบัญชีนั้น ไม่ส่งบทหรือรูป"; setTextIsSelectable(true) }
         val dialog=AlertDialog.Builder(this).setTitle("ทดสอบ API • ไม่สลับบริการแทนผลทดสอบ")
-            .setView(ScrollView(this).apply { addView(view) }).setNegativeButton("ปิด / หยุด",null).showDirector()
+            .setView(ScrollView(this).apply { addView(view) }).setNegativeButton("ปิด / หยุด",null).showNavigationDirector()
         dialog.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
         Thread {
             val results=mutableListOf<String>()
@@ -7642,35 +7652,52 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         if(providers.isEmpty()) return notice("ตั้งค่า API เขียนบทก่อนใช้ระบบเสนอขยายบท")
         val snapshot=scene.toString()
         val projectId=project.name
-        val sceneId=key(scene)
         val sceneContext=JSONObject().put("action",scene.optString("action")).put("speaker",scene.optString("speaker")).put("location",scene.optString("location")).put("speech",original)
-        notice("กำลังเสนอขยายบท • บทเดิมยังไม่เปลี่ยน")
+        val back = takeMenuBack()
+        val progress = AlertDialog.Builder(this).setMessage("กำลังเสนอขยายบท • บทเดิมยังไม่เปลี่ยน")
+            .setNegativeButton("ย้อนกลับ", null).showNavigationDirector(back)
+        val stopped = java.util.concurrent.atomic.AtomicBoolean(false)
+        val active = java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
+        progress.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
         Thread {
             val schema=JSONObject().put("type","object").put("properties",JSONObject().put("text",JSONObject().put("type","string"))).put("required",JSONArray().put("text"))
             val prompt="""Suggest a natural Thai ${if(field=="dialogue") "dialogue line" else "narration"} for an eight-second scene based only on the supplied scene. Expand the original only where the meaning and events support it; do not add facts, characters, plot events or stage directions. Keep it naturally speakable without rushing. Return JSON with a single text field. The user must review it before saving. Scene: $sceneContext"""
             var result: String?=null
             for(provider in providers) {
-                result=runCatching { StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ false },automaticRetry=false,context=this@StudioActivity).generate(prompt,schema).optString("text").trim() }.getOrNull()?.takeIf { it.isNotBlank() }
+                if (stopped.get()) break
+                result=runCatching {
+                    val client = StoryClientFactory.create(provider,provider.key(this),provider.model(this),{ stopped.get() },automaticRetry=false,context=this@StudioActivity)
+                    active.set(client)
+                    if (stopped.get()) throw java.util.concurrent.CancellationException()
+                    client.generate(prompt,schema).optString("text").trim()
+                }.getOrNull()?.takeIf { it.isNotBlank() }
                 if(result!=null) break
             }
             val proposal=result
             runOnUiThread {
-                if(isFinishing || isDestroyed) return@runOnUiThread
-                if(proposal==null) { notice("ไม่สามารถขอข้อเสนอบทได้ กรุณาตรวจ API แล้วลองใหม่"); return@runOnUiThread }
+                if (!progress.isShowing || stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
+                active.set(null)
+                progress.dismiss()
+                if(proposal==null) { showMenuNotice("ไม่สามารถขอข้อเสนอบทได้ กรุณาตรวจ API แล้วลองใหม่", back); return@runOnUiThread }
                 if(project.name!=projectId || scene.toString()!=snapshot || plan?.let { current -> rows(current).none { it===scene } } != false) { notice("ซีนเปลี่ยนระหว่างขอข้อเสนอ กรุณาเปิดใหม่"); return@runOnUiThread }
-                val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-                panel.addView(TextView(this).apply { text="บทเดิม:\n$original\n\nตรวจความหมาย เหตุการณ์ และทดลองอ่านให้เหมาะกับ 8 วินาที ก่อนยืนยัน" })
-                val edit=EditText(this).apply { setText(proposal); minLines=3; panel.addView(this) }
-                val dialog=AlertDialog.Builder(this).setTitle("ตรวจข้อเสนอบท • $sceneId").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันและบันทึก",null).setNegativeButton("ใช้บทเดิม",null).showDirector()
-                dialog.getButton(-1).setOnClickListener {
-                    val value=edit.text.toString().trim()
-                    if(value.isBlank()) { notice("กรุณาระบุบทหรือเลือกใช้บทเดิม"); return@setOnClickListener }
-                    if(project.name!=projectId || scene.toString()!=snapshot || plan?.let { current -> rows(current).none { it===scene } } != false) { dialog.dismiss(); notice("ซีนเปลี่ยนแล้ว กรุณาขอข้อเสนอใหม่"); return@setOnClickListener }
-                    scene.put(field,value); scene.put("user_review","needs_revision"); scene.remove("flow_image_revision")
-                    saveStory(); dialog.dismiss(); render(); notice("บันทึกบทที่ยืนยันแล้ว • โปรดตรวจภาพและคำสั่ง Flow อีกครั้ง")
-                }
+                showSpeechProposal(scene, field, original, proposal, projectId, snapshot, back)
             }
         }.apply { name="director-dialogue-suggestion"; start() }
+    }
+
+    private fun showSpeechProposal(scene: JSONObject, field: String, original: String, proposal: String,
+        projectId: String, snapshot: String, back: (() -> Unit)?) {
+        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
+        panel.addView(TextView(this).apply { text="บทเดิม:\n$original\n\nตรวจความหมาย เหตุการณ์ และทดลองอ่านให้เหมาะกับ 8 วินาที ก่อนยืนยัน" })
+        val edit=EditText(this).apply { setText(proposal); minLines=3; panel.addView(this) }
+        val dialog=AlertDialog.Builder(this).setTitle("ตรวจข้อเสนอบท • ${key(scene)}").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันและบันทึก",null).setNegativeButton("ใช้บทเดิม",null).showNavigationDirector(back)
+        dialog.getButton(-1).setOnClickListener {
+            val value=edit.text.toString().trim()
+            if(value.isBlank()) { notice("กรุณาระบุบทหรือเลือกใช้บทเดิม"); return@setOnClickListener }
+            if(project.name!=projectId || scene.toString()!=snapshot || plan?.let { current -> rows(current).none { it===scene } } != false) { dialog.dismiss(); notice("ซีนเปลี่ยนแล้ว กรุณาขอข้อเสนอใหม่"); return@setOnClickListener }
+            scene.put(field,value); scene.put("user_review","needs_revision"); scene.remove("flow_image_revision")
+            saveStory(); dialog.dismiss(); render(); notice("บันทึกบทที่ยืนยันแล้ว • โปรดตรวจภาพและคำสั่ง Flow อีกครั้ง")
+        }
     }
 
     private fun planning() {

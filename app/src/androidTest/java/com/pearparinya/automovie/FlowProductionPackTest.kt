@@ -159,6 +159,91 @@ class FlowProductionPackTest {
             GeminiStoryEngine.validateBatch(JSONObject().put("scenes",six),1,1,6,story.getJSONArray("supporting_characters"))
         } finally { root.deleteRecursively() }
     }
+    // Window transitions can briefly leave UiAutomation without an active root.
+    // Re-query fresh nodes until the requested control is actually usable.
+    private fun awaitControl(label: String, click: Boolean) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val deadline = android.os.SystemClock.uptimeMillis() + 15_000L
+        do {
+            instrumentation.waitForIdleSync()
+            val root = instrumentation.uiAutomation.rootInActiveWindow
+            if (root != null) {
+                // Custom menu tiles expose their labels as content descriptions.
+                // Traverse both text and descriptions, including scroll containers.
+                val nodes = mutableListOf<android.view.accessibility.AccessibilityNodeInfo>()
+                val scrolls = mutableListOf<android.view.accessibility.AccessibilityNodeInfo>()
+                fun collect(node: android.view.accessibility.AccessibilityNodeInfo) {
+                    if (node.text?.toString()?.contains(label) == true ||
+                        node.contentDescription?.toString()?.contains(label) == true) nodes.add(node)
+                    if (node.isScrollable && node.isVisibleToUser) scrolls.add(node)
+                    for (i in 0 until node.childCount) node.getChild(i)?.let { collect(it) }
+                }
+                collect(root)
+                for (node in nodes) {
+                    if (!node.isVisibleToUser) continue
+                    if (!click) return
+                    var target: android.view.accessibility.AccessibilityNodeInfo? = node
+                    while (target != null) {
+                        if (target.isClickable && target.isEnabled &&
+                            target.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)) return
+                        target = target.parent
+                    }
+                }
+                // Home tiles may be below the fold; scroll the real UI, not a hidden view.
+                if (scrolls.none { it.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) }) {
+                    scrolls.any { it.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) }
+                }
+            }
+            android.os.SystemClock.sleep(250L)
+        } while (android.os.SystemClock.uptimeMillis() < deadline)
+        fail("Timed out waiting for ${if (click) "enabled control" else "visible text"}: $label")
+    }
+
+    @Test fun leavingDeferredSceneProposalPreservesTheSceneAndRestoresItsParentOnce() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val scene = JSONObject().put("ep", 3).put("scene", 7).put("dialogue", "บทเดิม")
+        val snapshot = scene.toString()
+        val restored = java.util.concurrent.atomic.AtomicInteger()
+        ActivityScenario.launch(StudioActivity::class.java).use { scenario ->
+            repeat(2) { pass ->
+                scenario.onActivity { activity ->
+                    val method = StudioActivity::class.java.getDeclaredMethod("showSpeechProposal",
+                        JSONObject::class.java, String::class.java, String::class.java, String::class.java,
+                        String::class.java, String::class.java, Function0::class.java)
+                    method.isAccessible = true
+                    val back: () -> Unit = { restored.incrementAndGet(); Unit }
+                    activity.window.decorView.post {
+                        method.invoke(activity, scene, "dialogue", "บทเดิม", "ข้อเสนอ", "fixture", snapshot, back)
+                    }
+                }
+                awaitControl("ตรวจข้อเสนอบท", false)
+                if (pass == 0) awaitControl("ย้อนกลับ", true)
+                else instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+                instrumentation.uiAutomation.waitForIdle(300, 5000)
+                assertEquals(pass + 1, restored.get())
+                assertEquals(snapshot, scene.toString())
+            }
+        }
+    }
+
+    @Test fun providerProbeReturnsToItsSettingsAfterBothBackControls() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        ActivityScenario.launch(StudioActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                val menu = StudioActivity::class.java.getDeclaredMethod("geminiSettings", Function0::class.java)
+                menu.isAccessible = true
+                menu.invoke(activity, null)
+            }
+            repeat(2) { pass ->
+                awaitControl("ตรวจ API ที่เลือก", true)
+                awaitControl("ทดสอบ API •", false)
+                if (pass == 0) awaitControl("ย้อนกลับ", true)
+                else instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+                awaitControl("ตั้งค่าคีย์ API • ใช้อัตโนมัติ", false)
+            }
+        }
+    }
+
     @Test fun productionMenusOpenFromHomeAndEmptyFlowSceneOffersAnalysis() {
         val instrumentation=InstrumentationRegistry.getInstrumentation()
         val context=instrumentation.targetContext
@@ -170,44 +255,6 @@ class FlowProductionPackTest {
         story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0).put("ep",1)
         File(folder,"story.json").writeText(story.toString())
         prefs.edit().putString("project",id).commit()
-        // Window transitions can briefly leave UiAutomation without an active root.
-        // Re-query fresh nodes until the requested control is actually usable.
-        fun awaitControl(label: String, click: Boolean) {
-            val deadline = android.os.SystemClock.uptimeMillis() + 15_000L
-            do {
-                instrumentation.waitForIdleSync()
-                val root = instrumentation.uiAutomation.rootInActiveWindow
-                if (root != null) {
-                    // Custom menu tiles expose their labels as content descriptions.
-                    // Traverse both text and descriptions, including scroll containers.
-                    val nodes = mutableListOf<android.view.accessibility.AccessibilityNodeInfo>()
-                    val scrolls = mutableListOf<android.view.accessibility.AccessibilityNodeInfo>()
-                    fun collect(node: android.view.accessibility.AccessibilityNodeInfo) {
-                        if (node.text?.toString()?.contains(label) == true ||
-                            node.contentDescription?.toString()?.contains(label) == true) nodes.add(node)
-                        if (node.isScrollable && node.isVisibleToUser) scrolls.add(node)
-                        for (i in 0 until node.childCount) node.getChild(i)?.let { collect(it) }
-                    }
-                    collect(root)
-                    for (node in nodes) {
-                        if (!node.isVisibleToUser) continue
-                        if (!click) return
-                        var target: android.view.accessibility.AccessibilityNodeInfo? = node
-                        while (target != null) {
-                            if (target.isClickable && target.isEnabled &&
-                                target.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)) return
-                            target = target.parent
-                        }
-                    }
-                    // Home tiles may be below the fold; scroll the real UI, not a hidden view.
-                    if (scrolls.none { it.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) }) {
-                        scrolls.any { it.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) }
-                    }
-                }
-                android.os.SystemClock.sleep(250L)
-            } while (android.os.SystemClock.uptimeMillis() < deadline)
-            fail("Timed out waiting for ${if (click) "enabled control" else "visible text"}: $label")
-        }
         fun tap(label: String) = awaitControl(label, true)
         fun episodeRowTop(): Int {
             val root = requireNotNull(instrumentation.uiAutomation.rootInActiveWindow)
