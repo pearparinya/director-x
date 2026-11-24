@@ -7047,15 +7047,17 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                         for((providerIndex,provider) in providers.withIndex()) {
                             providerNumber.set(providerIndex+1)
                             if(stopped.get()) break
-                            var receivedCast=false
                             val answer=runCatching {
                                 val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false,context=this@StudioActivity)
                                 client.useProposalTimeouts()
                                 active.set(client)
-                                val prompt="Suggest a cast for this Thai story. Channel: $channel; category: $category; situation: $situation; details: $detail. Use ONLY the provided library IDs. Suggest only characters suitable for the story, with a short proposed role in Thai. Do not infer occupation or identity from a face; roles are fictional suggestions for user review. Use as many as needed, from 1 to 8. "+(if(channel=="นายเปีย บ้านคลองขุด") "Include $piaActorId as central protagonist and suitable supporting roles. " else "")+"Catalog: "+AutoCast.promptCatalog(catalog).toString()
-                                client.generate(prompt,AutoCast.schema()).also { receivedCast=true; AutoCast.validate(it,catalog); if(channel=="นายเปีย บ้านคลองขุด") AutoCast.requirePresenter(it,piaActorId) }
+                                val prompt="Suggest a cast for this Thai story. Channel: $channel; category: $category; situation: $situation; details: $detail. Return a nonempty story_concept and cast. For each actor use library_id from the catalog id field, a unique name and a nonempty role. Omit english_name unless it is a unique single English name. Suggest only characters suitable for the story, with a short proposed role in Thai. Do not infer occupation or identity from a face; roles are fictional suggestions for user review. Use as many as needed, from 1 to 8. "+(if(channel=="นายเปีย บ้านคลองขุด") "Include $piaActorId as central protagonist and suitable supporting roles. " else "")+"Catalog: "+AutoCast.promptCatalog(catalog).toString()
+                                val presenterId=if(channel=="นายเปีย บ้านคลองขุด") piaActorId else ""
+                                AutoCast.propose(prompt,catalog,presenterId,{ stopped.get() }) { request ->
+                                    client.generate(request,AutoCast.schema())
+                                }
                             }.onFailure {
-                                val reason=if(receivedCast) "รายชื่อตัวละครไม่ตรงเงื่อนไข MASTER" else "ไม่ได้รับคำตอบที่อ่านได้จาก API"
+                                val reason=if(it is AutoCast.ProposalError) it.message else "ไม่ได้รับคำตอบที่อ่านได้จาก API"
                                 failures.add("${provider.label} • $reason")
                             }.getOrNull()
                             if(answer!=null) { result=answer; break }
