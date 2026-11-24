@@ -73,6 +73,27 @@ class EpisodeExportTest {
         assertEquals("actual service export failed: ${state.optString("message")}","complete",state.optString("state"))
         val output=File(job,"output.mp4")
         assertTrue(File(job,"result.json").isFile)
+        val mvJob=File(folder,"mv_job").apply { mkdirs() }
+        val mvSpec=org.json.JSONObject().put("music",tone("original.wav",880.0).path)
+            .put("clips",org.json.JSONArray(listOf(first.path,second.path)))
+            .put("trims",org.json.JSONArray(listOf(600,400))).put("duration_ms",1000)
+            .put("has_audio",true).put("fps",30).put("bitrate",8000000)
+            .put("filename","mv.mp4").put("fingerprint","mv-test")
+        File(mvJob,"spec.json").writeText(mvSpec.toString())
+        instrumentation.runOnMainSync { androidx.core.content.ContextCompat.startForegroundService(context,android.content.Intent(context,EpisodeRenderService::class.java).putExtra("job",mvJob.path)) }
+        val mvDeadline=System.currentTimeMillis()+180000
+        while(System.currentTimeMillis()<mvDeadline) {
+            val status=runCatching { org.json.JSONObject(File(mvJob,"status.json").readText()) }.getOrNull()
+            if(status?.optString("state")=="failed") fail(status.optString("message"))
+            if(status?.optString("state")=="complete") break
+            Thread.sleep(500)
+        }
+        assertTrue("MV render did not complete",File(mvJob,"result.json").isFile)
+        val mvInfo=EpisodeMedia.inspect(File(mvJob,"output.mp4"))
+        assertEquals(1080,mvInfo.displayWidth)
+        assertEquals(1920,mvInfo.displayHeight)
+        assertNotNull(mvInfo.audioMime)
+        assertTrue("Expected trimmed one-second MV",kotlin.math.abs(mvInfo.durationMs-1000)<150)
         instrumentation.runOnMainSync { activity.finish() }
 
         val info=EpisodeMedia.inspect(output); assertEquals(1080,info.displayWidth); assertEquals(1920,info.displayHeight); assertTrue(info.rotation in listOf(0,90,180,270))
