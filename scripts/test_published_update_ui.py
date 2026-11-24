@@ -49,8 +49,15 @@ previous = asset(older)
 urllib.request.urlretrieve(previous["browser_download_url"], "/tmp/previous.apk")
 with open("/tmp/previous.apk", "rb") as f:
     assert "sha256:" + hashlib.file_digest(f, "sha256").hexdigest() == previous["digest"]
-adb("root")
-adb("wait-for-device")
+for attempt in range(4):
+    adb("wait-for-device")
+    subprocess.run(["adb", "root"], check=False)
+    time.sleep(2)
+    adb("wait-for-device")
+    if adb("shell", "id", "-u").strip() == b"0":
+        break
+else:
+    raise RuntimeError("Rooted test emulator unavailable")
 adb("install", "/tmp/previous.apk")
 # Suppress only the automatic download reminder so the manual path is exercised.
 build = latest["tag_name"].rsplit("build", 1)[1]
