@@ -626,7 +626,7 @@ class StudioActivity : AppCompatActivity() {
             notice("บันทึก MASTER นายเปียแล้ว • เปิดหน้าสร้างเรื่องใหม่เพื่อตรวจภาพและเลือกกรอบใบหน้าอีกครั้ง")
         }.onFailure { notice("บันทึก MASTER ไม่สำเร็จ: ${it.message}") }
     }
-    private fun piaCatalog(): JSONArray {
+    private fun piaCatalog(includeAllTypes: Boolean = false): JSONArray {
         val migrationPrefs=getSharedPreferences("pia_master_updates", MODE_PRIVATE)
         if(!migrationPrefs.getBoolean("identity_431",false)) {
             val bytes=assets.open("pia_identity_431.png").use { it.readBytes() }
@@ -647,7 +647,7 @@ class StudioActivity : AppCompatActivity() {
             // The channel lead is represented only by piaActorId; alternate Pia
             // masters are outfit/identity variants, not supporting actors.
             if(actor.optString("display_name")=="นายเปีย บ้านคลองขุด") continue
-            if(type !in listOf("","human")) continue
+            if(!includeAllTypes && type !in listOf("","human")) continue
             result.put(actor)
         }
         return result
@@ -965,7 +965,7 @@ class StudioActivity : AppCompatActivity() {
                 val file=File(filesDir,"character_masters/$id.master")
                 all.add(UnifiedMasterItem(name,id.uppercase()+"_MASTER","มนุษย์",file,{ presetMaster(id,name) }))
             }
-            val records=piaCatalog()
+            val records=piaCatalog(includeAllTypes=true)
             val oldEntries=masterLibrary.entries().associateBy { it.id }
             for(i in 0 until records.length()) {
                 val item=records.getJSONObject(i)
@@ -973,7 +973,7 @@ class StudioActivity : AppCompatActivity() {
                 val name=item.optString("display_name",id)
                 val type=item.optString("character_type").lowercase()
                 val category=when(type) {
-                    "human" -> "มนุษย์"
+                    "human","child" -> "มนุษย์"
                     "animal" -> "สัตว์"
                     "creature","demon" -> "อสูรและสัตว์ประหลาด"
                     "deity","knight" -> "เทพและผู้พิทักษ์"
