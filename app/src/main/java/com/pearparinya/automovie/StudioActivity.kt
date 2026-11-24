@@ -1975,7 +1975,7 @@ class StudioActivity : AppCompatActivity() {
             panel.addView(TextView(this).apply { text="${shortId?.let { "$it • " }.orEmpty()}${person.optString("name")} • $position\nชุดที่ระบุในบท: ${person.optString("outfit")}"; setTypeface(null,Typeface.BOLD) })
             val sourceKey=wardrobeSourceKey(project.name,id,masterDigests[id].orEmpty(),person)
             masterAppearance[id]=android.widget.CheckBox(this).apply {
-                isChecked=prefs.getBoolean(sourceKey,WardrobeEvidence.useMasterOutfit(person.optString("outfit")))
+                isChecked=prefs.getBoolean(sourceKey,WardrobeEvidence.masterSelectedByDefault(person))
                 fun refreshSourceLabel() { text=if(isChecked) "แหล่งชุด: MASTER ของตัวละครนี้ ✓\nแตะเพื่อเปลี่ยนเป็นชุดตามบท" else "แหล่งชุด: ตามบท ✓\nแตะเพื่อใช้ชุดจาก MASTER" }
                 refreshSourceLabel()
                 setOnCheckedChangeListener { _,_ -> refreshSourceLabel() }
@@ -2196,7 +2196,7 @@ class StudioActivity : AppCompatActivity() {
                 // Always keep every required character MASTER/face crop. Optional outfit,
                 // scene and prop references must not push a share past the nine-image limit.
                 // Preserve attachment order and never substitute another character's image.
-                val optional=extras.filter { !it.first.startsWith("OUTFIT_") || it in outfitExtras }+propRefs
+                val optional=outfitExtras+extras.filterNot { it.first.startsWith("OUTFIT_") }+propRefs
                 if(orderedPeople.size>9) {
                     notice("แนบภาพ ${orderedPeople.size}/9 เกินกำหนด • เลือก FACE DETAIL ไม่เกิน ${9-primary.size} คน โดย MASTER ทุกคนยังแนบครบ")
                     return@setPositiveButton
@@ -2221,7 +2221,11 @@ class StudioActivity : AppCompatActivity() {
                 prefs.edit().putInt("image_reference_mode_${project.name}",mode).putInt("image_attachment_order",imageOrder.selectedItemPosition).putInt("image_transfer_order",transferOrder.selectedItemPosition).apply()
                 val includedIds=payload.map { it.first }.toSet()
                 val includedOutfitExtras=outfitExtras.filter { it.first in includedIds }
-                val safeOutfitGuide=if(includedOutfitExtras.isEmpty()) "" else (if(mode==2) "\n\nREVIEWED SCENE REFERENCE: This prior single-character scene was reviewed for the same character and outfit; original MASTER remains identity source. " else "")+"\n\nREVIEWED OUTFIT REFERENCES: "+includedOutfitExtras.joinToString("; ") { "${it.first} = ${labels[it.first]}" }
+                if(mode==2 && includedOutfitExtras.none { it.first.startsWith("OUTFIT_EP") }) {
+                    notice("พื้นที่แนบภาพไม่พอสำหรับภาพชุดที่เลือก กรุณาลดภาพเสริมก่อนส่ง")
+                    return@setPositiveButton
+                }
+                val safeOutfitGuide=if(includedOutfitExtras.isEmpty()) "" else (if(mode==2) "\n\nREVIEWED SCENE REFERENCE: This prior single-character scene was reviewed for the same character and outfit; original MASTER remains identity source. " else "")+"\n\nREVIEWED OUTFIT REFERENCES: Copy the visible clothing, accessory placement and footwear construction only from each named wearer’s attached outfit image. Preserve the written outfit where hidden. "+includedOutfitExtras.joinToString("; ") { "${it.first} = ${labels[it.first]}" }
                 val includedPropRefs=propRefs.filter { it.first in includedIds }
                 val safePropInstruction=if(includedPropRefs.isEmpty()) "" else "\n\nPROP MASTER REFERENCES: "+includedPropRefs.joinToString("; ") { "${it.first} = ${propLabels[it.first]}" }+". Use each object's own MASTER; do not swap identities."
                 val safeOwners=if(includedPropRefs.isEmpty()) "" else owners
@@ -4303,13 +4307,16 @@ $context"""
                 }.orEmpty()
                 // A reviewed single-character frame may serve as a clothing reference only.
                 // Never infer that an arbitrary group frame or unreviewed output matches an outfit.
-                val candidates=all.take(sceneIndex.coerceAtLeast(0)).mapNotNull { prior ->
+                val wardrobeFrames=if (scene == null) all else all.take(sceneIndex)
+                val candidates=wardrobeFrames.mapNotNull { prior ->
                     val people=FlowReferencePrompt.people(prior)
                     val person=people.singleOrNull() ?: return@mapNotNull null
                     OutfitReferencePolicy.Candidate(key(prior),referenceId(person.optString("master")),prior.optString("story_day"),person.optString("outfit"),sceneFrameApproved(prior),people.size)
                 }
-                val outfitRefs=if(scene==null) emptyList() else task.references.mapNotNull { person ->
-                    val candidate=OutfitReferencePolicy.choose(candidates,task.id,referenceId(person.optString("master")),scene.optString("story_day"),person.optString("outfit")) ?: return@mapNotNull null
+                val outfitRefs=task.references.mapNotNull { person ->
+                    val anchor=scene ?: all.firstOrNull { row -> FlowReferencePrompt.people(row).any { it === person } }
+                    val day=anchor?.optString("story_day").orEmpty()
+                    val candidate=OutfitReferencePolicy.choose(candidates,task.id,referenceId(person.optString("master")),day,person.optString("outfit")) ?: return@mapNotNull null
                     val prior=all.first { key(it)==candidate.sceneId }
                     val id="OUTFIT_${candidate.sceneId}_${referenceId(person.optString("master"))}"
                     labels[id]="ภาพชุดที่ตรวจแล้ว • ${person.optString("name")} • ${candidate.sceneId} • ตรวจว่ามองเห็นชุดครบ"
@@ -8107,7 +8114,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             val sourceId=referenceId(person.optString("master"))
             val digest=master?.takeIf { it.isFile }?.let { runCatching { MasterLibrary.digest(it.readBytes()) }.getOrNull() }
             val sourceKey=wardrobeSourceKey(project.name,sourceId,digest.orEmpty(),person)
-            val fromMaster=digest!=null && prefs.getBoolean(sourceKey,WardrobeEvidence.useMasterOutfit(person.optString("outfit")))
+            val fromMaster=digest!=null && prefs.getBoolean(sourceKey,WardrobeEvidence.masterSelectedByDefault(person))
             panel.addView(TextView(this).apply { text="${person.optString("name")} • แหล่งชุด: ${if(fromMaster) "MASTER" else "ตามบท"}\n${if(fromMaster) "เทียบชุดกับภาพ MASTER ด้านล่าง" else "ชุดในบท: ${person.optString("outfit")}"}"; setTypeface(null,Typeface.BOLD) })
             if(master?.isFile==true) panel.addView(ImageView(this).apply {
                 setImageBitmap(previewBitmap(Uri.fromFile(master))); adjustViewBounds=true

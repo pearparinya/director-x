@@ -16,5 +16,12 @@ internal object WardrobeEvidence {
         return Regex("(?i)(ชุด.{0,20}(?:master|มาสเตอร์)|(?:master|มาสเตอร์).{0,20}(outfit|clothing|clothes|wardrobe|ชุด)|(?:outfit|clothing|clothes|wardrobe).{0,20}master)").containsMatchIn(s)
     }
 
+    fun masterSelectedByDefault(person: org.json.JSONObject): Boolean =
+        when (person.optString("wardrobe_source").trim().uppercase()) {
+            "MASTER_OUTFIT" -> true
+            "SCENE_OUTFIT" -> false
+            else -> useMasterOutfit(person.optString("outfit"))
+        }
+
     fun isUnknownOrAllNone(outfit: String): Boolean = outfit.isBlank() || isAllNone(outfit)
 }

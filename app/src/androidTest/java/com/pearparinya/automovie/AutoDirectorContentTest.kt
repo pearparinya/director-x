@@ -16,6 +16,27 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 @RunWith(AndroidJUnit4::class)
 class AutoDirectorContentTest {
+    @Test fun posterAndScenesCarryTheSameWearerSpecificWardrobeRules() {
+        val project=story()
+        val people=project.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes")
+            .getJSONObject(0).getJSONArray("characters")
+        val garment="Top: lilac square-neck dress; Bottom: none; Shoes: beige crossed straps; Accessories: left flower brooch"
+        val actor=people.getJSONObject(0).put("wardrobe_source","SCENE_OUTFIT").put("outfit",garment)
+        val second=people.getJSONObject(1).put("wardrobe_source","MASTER_OUTFIT")
+        val tasks=SimpleProductionCommands.imageTasks(project,1)
+        for(task in tasks.filter { it.id.contains("_COVER_") || it.id=="EP01_SC001" }) {
+            assertTrue(task.command.contains(garment))
+            assertTrue(task.command.contains(WardrobeContext.detailLock))
+            assertTrue(task.command.contains(second.getString("name")+": MASTER_OUTFIT"))
+            val changed=SimpleProductionCommands.withWardrobeSources(task.command,task.references,
+                setOf(referenceId(actor.getString("master"))))
+            assertFalse(changed.contains(garment))
+            assertFalse(changed.contains(second.getString("name")+": MASTER_OUTFIT"))
+        }
+        assertTrue(WardrobeEvidence.masterSelectedByDefault(second))
+        assertFalse(WardrobeEvidence.masterSelectedByDefault(actor))
+    }
+
     @Test fun appearanceLockBindsOnlySelectedMasterAndPreservesCoveredFaces() {
         val lock=SimpleProductionCommands.masterAppearanceLock(listOf("ผู้พิทักษ์" to "KNIGHT_MASTER", "นางฟ้า" to "WOMAN_MASTER"))
         assertTrue(lock.contains("Character: ผู้พิทักษ์ | attached MASTER ID: KNIGHT_MASTER"))

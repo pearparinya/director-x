@@ -57,11 +57,18 @@ For each listed character, use only their own attached MASTER for their identity
     }
     /** Resolve each character to one wardrobe source without changing the stored story. */
     fun withWardrobeSources(command: String, people: List<JSONObject>, masterIds: Set<String>): String {
-        if(masterIds.isEmpty()) return command
-        var output=command.replace("Scene Outfit overrides MASTER clothing.","Use the per-character wardrobe source specified below.")
+        val sceneOverrides=people.filter { person ->
+            person.optString("wardrobe_source").equals("MASTER_OUTFIT",true) &&
+                masterIds.none { it.equals(referenceId(person.optString("master")),true) }
+        }.map { it.optString("name") }
+        val resolved=command.lineSequence().filterNot { line ->
+            sceneOverrides.any { line.startsWith("$it: MASTER_OUTFIT —") }
+        }.joinToString("\n")
+        if(masterIds.isEmpty()) return resolved
+        var output=resolved.replace("Scene Outfit overrides MASTER clothing.","Use the per-character wardrobe source specified below.")
             .replace("Preserve each character’s hairstyle and recognizable physical features from their own MASTER. The scene controls clothing, pose and setting; do not copy MASTER clothing.","Preserve each character’s hairstyle and recognizable physical features from their own MASTER. The selected wardrobe source controls clothing; the scene controls pose and setting.")
             .replace("Use each approved Scene Outfit, not MASTER clothing.","Use the wardrobe source specified for each character below.")
-            .replace(WardrobeContext.image,"CONTEXTUAL WARDROBE: Follow each character's selected wardrobe source. Flag unclear or unsuitable clothes and footwear for review; never silently change them.")
+            .replace(WardrobeContext.image,"CONTEXTUAL WARDROBE: Follow each character's selected wardrobe source. Flag unclear or unsuitable clothes and footwear for review; never silently change them. " + WardrobeContext.detailLock)
         val locked=mutableListOf<Pair<String,String>>()
         for(person in people) {
             val name=person.getString("name")
@@ -69,6 +76,7 @@ For each listed character, use only their own attached MASTER for their identity
             if(masterIds.none { it.equals(id,true) }) continue
             val pattern=Regex("(?m)^(${Regex.escape(name)} \\([^\\n]*\\) \\| MASTER ID: ${Regex.escape(id)} \\| position: [^\\n]*\\n)Outfit: [^\\n]*",RegexOption.IGNORE_CASE)
             require(pattern.containsMatchIn(output)) { "ตรวจแหล่งชุดของ $name ไม่สำเร็จ กรุณากลับไปตรวจ MASTER" }
+            output=output.lineSequence().filterNot { it.startsWith("$name: SCENE_OUTFIT —") }.joinToString("\n")
             output=pattern.replace(output) { it.groupValues[1]+"Outfit: Use this character's own attached MASTER outfit; do not use the scene outfit for this character." }
             val reference=Regex("(?m)^(Reference [0-9]+: ${Regex.escape(name)} \\| MASTER ID: ${Regex.escape(id)} \\| )Identity only[.]$",RegexOption.IGNORE_CASE)
             output=reference.replace(output) { it.groupValues[1]+"Identity and clothing reference." }
@@ -114,6 +122,7 @@ $identity
 ${referenceBindings(selected)}
 CHARACTERS AND OUTFITS:
 ${cast(selected,true)}
+${SceneReferencePolicy.wardrobeInstructions(JSONObject().put("characters",org.json.JSONArray(selected)))}
 $wardrobeContinuity
 ${WardrobeContext.image}
 Compose with every named face large enough, unobscured and clearly recognizable; keep all named faces in comparable focus even when depth differs. Preserve identity for each character equally. Show exactly ${selected.size} ${if(selected.size==1 && selected.first().optString("character_type").let { it.isBlank() || it=="human" }) "person" else "named characters"} from the listed references, each with their own MASTER; do not replace, merge, duplicate or invent named characters. Preserve nonhuman species, anatomy and markings. Never show extra people beyond the named cast, including crowds; other participants remain unseen off-camera.
