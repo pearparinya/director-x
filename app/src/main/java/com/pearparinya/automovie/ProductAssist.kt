@@ -324,7 +324,7 @@ internal object ProductAssist {
             }.start()
         } })
         step("⑤", "ยืนยันและสร้างบท", "ตรวจข้อมูลสินค้าและลิงก์ก่อนยืนยัน")
-        val dialog = AlertDialog.Builder(activity).setTitle("นายเปียพาช้อป • ข้อมูลสินค้า").setView(ScrollView(activity).apply { addView(panel) })
+        val dialog = AlertDialog.Builder(activity).setTitle("รีวิวและแนะนำสินค้า • ข้อมูลสินค้า").setView(ScrollView(activity).apply { addView(panel) })
             .setPositiveButton("ยืนยันข้อมูลใช้สร้างบท", null).setNegativeButton("ยกเลิก", null).create()
         dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 if (name.text.isBlank() || facts.text.isBlank()) {
