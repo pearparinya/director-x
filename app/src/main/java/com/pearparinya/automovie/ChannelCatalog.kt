@@ -8,6 +8,7 @@ internal object ChannelCatalog {
     fun currentChannel(value: String): String = if (value.trim() in legacyChannels || value.trim()=="ร้อยฉาก - ซีรีส์สั้นหลากชีวิต") channel else value
     fun updateLegacyChannel(value: JSONObject): JSONObject {
         if (value.has("channel")) value.put("channel", currentChannel(value.optString("channel")))
+        StoryTitleGuard.cleanMetadata(value,value.optString("channel"))
         return value
     }
     data class MainCategory(val id: String,val name: String,val style: String,val tone: String,val icon: String,val direction: String) {
@@ -57,10 +58,10 @@ internal object ChannelCatalog {
     val personalCategories = listOf(
         MainCategory("pia_benefits","สวัสดิการและสิทธิประโยชน์","ข่าวสิทธิ • ข้อมูลใกล้ตัว","drama","📌","Explain only information explicitly supplied and verified by the user; do not invent current benefits, amounts, eligibility, deadlines or official claims. If facts are missing ask the user for them. Treat as factual explainer, not fictional news."),
         MainCategory("pia_safety","ความรู้และเตือนภัย","ความรู้ • เตือนภัย","drama","💡","Explain the user-supplied facts clearly. Do not invent scams, incidents, safety statistics or official claims; ask for evidence if missing."),
-        MainCategory("pia_products","นายเปียพาช้อป","รีวิวสินค้า • ของใช้","drama","🛍️","Review only product details explicitly supplied by the user. Do not invent demonstrations, personal experience, prices, endorsements or product claims. Ask for missing product facts.")
+        MainCategory("pia_products","รีวิวและแนะนำสินค้า","รีวิวสินค้า • ของใช้","drama","🛍️","Review only product details explicitly supplied by the user. Do not invent demonstrations, personal experience, prices, endorsements or product claims. Ask for missing product facts.")
     )
     val piaLegends = MainCategory("pia_legends","เรื่องเล่าและตำนาน","เรื่องผี • ตำนาน • ความเชื่อ","drama","👻","Create fictional or clearly attributed local legends, supernatural stories and mysteries. Never present unverified folklore as established fact. Keep character MASTER identities and continuity.")
-    val piaLifestyle = MainCategory("pia_lifestyle","ชีวิตและเรื่องราวนายเปีย","ชีวิตจริง • ชุมชน • ภาคใต้","drama","🌴","Create content from user-supplied real experiences and verified community information. Do not invent real-life events, places visited, endorsements or experiences; request missing facts.")
+    val piaLifestyle = MainCategory("pia_lifestyle","ชีวิตและชุมชน","ชีวิตจริง • ชุมชน • ภาคใต้","drama","🌴","Create content from user-supplied real experiences and verified community information. Do not invent real-life events, places visited, endorsements or experiences; request missing facts.")
     val personalDrama = MainCategory("personal_social_drama","ละครสั้นสะท้อนสังคม","เรื่องเล่า • สะท้อนสังคม","drama","🎬","Fictional social drama based on the selected topic with empathetic characters, clear consequences and a hopeful or thought-provoking resolution. Do not portray invented claims as verified news.")
     val allCategories get() = mainCategories + personalCategories + filmCategories + legacyFilmCategories + listOf(personalDrama,piaLegends,piaLifestyle)
     private val genreDisplay = mapOf(

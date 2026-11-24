@@ -5286,7 +5286,7 @@ $context"""
     }
 
     private fun apiSettingsCenter() {
-        choiceMenu("⚙️ ตั้งค่า API", listOf("🎬 API เขียนบท", "🛒 API โหมดนายเปียพาช้อป", "🖼️ API สร้างภาพ AI", "🎥 ตั้งค่า API ปรับปรุง Flow AI V2", "🩺 ตรวจสอบ API / Kotlin")) { index ->
+        choiceMenu("⚙️ ตั้งค่า API", listOf("🎬 API เขียนบท", "🛒 API โหมดรีวิวและแนะนำสินค้า", "🖼️ API สร้างภาพ AI", "🎥 ตั้งค่า API ปรับปรุง Flow AI V2", "🩺 ตรวจสอบ API / Kotlin")) { index ->
             when (index) {
                 0 -> geminiSettings()
                 1 -> shoppingApiSettings()
@@ -5365,7 +5365,7 @@ $context"""
             val keyState = if (store.key(id).isBlank()) "ไม่พบ API" else if (id=="longsearch") "รอ Endpoint" else store.status(id)
             "$name • $keyState" + if (!store.enabled(id)) " • ปิดใช้งาน" else ""
         } + listOf("🧪 ตรวจ API ที่เลือก", "🔎 ตรวจ API ทั้งหมด", "🛡 API สำรอง: " + if(store.fallbackEnabled()) "เปิด" else "ปิด", "📊 สรุปการใช้งาน")
-        choiceMenu("🛒 API โหมดนายเปียพาช้อป", entries) { selected ->
+        choiceMenu("🛒 API โหมดรีวิวและแนะนำสินค้า", entries) { selected ->
             when(selected) {
                 services.size -> shoppingApiTest()
                 services.size+1 -> shoppingApiTestAll()
@@ -6273,10 +6273,10 @@ $context"""
     private fun musicSource() {
         choiceMenu("🔗 ต้นทางเพลง • ไม่แก้ไขบทเดิม",listOf(
             "🎵 เพลงใหม่","📌 สวัสดิการและสิทธิประโยชน์","💡 ความรู้และเตือนภัย",
-            "🎬 ละครสั้นสะท้อนสังคม","🛍️ นายเปียพาช้อป","🎞️ บทละคร/EP ในโปรเจกต์ปัจจุบัน"
+            "🎬 ละครสั้นสะท้อนสังคม","🛍️ รีวิวและแนะนำสินค้า","🎞️ บทละคร/EP ในโปรเจกต์ปัจจุบัน"
         )) { i ->
             val draft=musicDraft()
-            val source=listOf("เพลงใหม่","สวัสดิการและสิทธิประโยชน์","ความรู้และเตือนภัย","ละครสั้นสะท้อนสังคม","นายเปียพาช้อป","บทละคร/EP ปัจจุบัน")[i]
+            val source=listOf("เพลงใหม่","สวัสดิการและสิทธิประโยชน์","ความรู้และเตือนภัย","ละครสั้นสะท้อนสังคม","รีวิวและแนะนำสินค้า","บทละคร/EP ปัจจุบัน")[i]
             draft.put("source",source)
             if(i==5) {
                 val story=plan
@@ -6833,10 +6833,10 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                 Triple("👻 เรื่องเล่าและตำนาน", "pia_legends", listOf(
                     "👻 เรื่องผีและวิญญาณ", "🌑 เรื่องลี้ลับสยองขวัญ",
                     "🏡 ตำนานและความเชื่อพื้นบ้าน", "🙏 สิ่งศักดิ์สิทธิ์เหนือธรรมชาติ")),
-                Triple("🌴 ชีวิตและเรื่องราวนายเปีย", "pia_lifestyle", listOf(
-                    "🏡 เรื่องราวชีวิตประจำวัน", "🌴 วิถีชีวิตบ้านคลองขุด",
+                Triple("🌴 ชีวิตและชุมชน", "pia_lifestyle", listOf(
+                    "🏡 เรื่องราวชีวิตประจำวัน", "🌴 วิถีชีวิตชุมชน",
                     "🎎 วัฒนธรรมและวิถีภาคใต้", "📖 ประสบการณ์จากชีวิตจริง")),
-                Triple("🛍️ นายเปียพาช้อป", "pia_products", listOf(
+                Triple("🛍️ รีวิวและแนะนำสินค้า", "pia_products", listOf(
                     "🛒 แนะนำสินค้าน่าสนใจ", "📦 รีวิวและทดลองสินค้า",
                     "🎥 สาธิตการใช้งานสินค้า", "🛍️ สินค้าแนะนำปักตะกร้า")),
                 Triple("💡 ความรู้และสาระ", "pia_safety", listOf(
@@ -8470,7 +8470,7 @@ Change only $name: $change. Match that person's face, hairstyle, skin tone and b
         choiceMenu("📚 เลือกชื่อช่อง",channels.map { channel -> "$channel • ${folders.count { channelOf(it)==channel }} เรื่อง" }) { selected ->
         val chosen=channels[selected]; val grouped=folders.filter { channelOf(it)==chosen }
         choiceMenu("📚 $chosen",grouped.map { f ->
-            runCatching { JSONObject(File(f,"story.json").readText()).optString("title") }.getOrElse { runCatching { GeminiStoryFiles.read(File(f,"gemini_job/outline.json")).getString("title")+" • ยังเขียนไม่จบ" }.getOrDefault("งานเขียนบทที่ยังไม่จบ") } + if(File(f,"archived").exists()) " • เก็บแล้ว" else ""
+            runCatching { ChannelCatalog.updateLegacyChannel(JSONObject(File(f,"story.json").readText())).optString("title") }.getOrElse { runCatching { GeminiStoryFiles.read(File(f,"gemini_job/outline.json")).getString("title")+" • ยังเขียนไม่จบ" }.getOrDefault("งานเขียนบทที่ยังไม่จบ") } + if(File(f,"archived").exists()) " • เก็บแล้ว" else ""
         }) { i ->
             prefs.edit().putString("project",grouped[i].name).apply(); render()
             if(plan==null) { geminiJobMenu(); return@choiceMenu }
