@@ -98,7 +98,7 @@ internal object FlowScenePrompt {
         }.groupBy({ it.first }, { it.second }).filterValues { it.distinct().size > 1 }.keys
         if(collisions.isNotEmpty()) return collisions.toList()
         val generic=setOf("trousers","pants","jeans","shirt","jacket","coat","dress","skirt","shoes","boots","sleeves","collar","fabric","clothing","outfit","wardrobe","i","me","my","mine","myself","you","your","yours","yourself","yourselves","he","him","his","himself","she","her","hers","herself","it","its","itself","we","us","our","ours","ourselves","they","them","their","theirs","themselves","who","whom","whose","which","that","what","whoever","whatever","it","this","there","man","woman","person","character","people","someone","everyone","camera","phone","door","screen","light","wind","paper","music","sound","document","folder","manager","boss","coworker","colleague","worker","narrator", "and", "or", "then", "also", "but", "with")
-        val pattern=Regex("(?<![\\w\\]])\\b([A-Za-z][A-Za-z0-9_]*)\\s+(?:holds|looks|watches|stares|speaks|says|asks|replies|walks|stands|sits|leans|smiles|reacts|turns|opens|closes|reads|inspects|observes|hands|places|shows|checks|nods|waves|slides|reaches|takes|points)\\b",RegexOption.IGNORE_CASE)
+        val pattern=Regex("(?<![\\w\\]-])\\b(${CharacterAliasRegistry.token})\\s+(?:holds|looks|watches|stares|speaks|says|asks|replies|walks|stands|sits|leans|smiles|reacts|turns|opens|closes|reads|inspects|observes|hands|places|shows|checks|nods|waves|slides|reaches|takes|points)\\b",RegexOption.IGNORE_CASE)
         return pattern.findAll(s.action).filterNot { match ->
             // "open hands" is an adjective plus noun, not a person performing an action.
             match.value.equals("open hands", ignoreCase=true)

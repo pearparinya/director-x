@@ -7,9 +7,11 @@ import java.util.Locale
 
 /** User-confirmed names scoped to one story; an alias cannot point to two identities. */
 internal object CharacterAliasRegistry {
+    const val token = "[A-Za-z][A-Za-z0-9_-]*"
+    private val acceptedAlias = Regex("[A-Za-z][A-Za-z0-9_-]{0,80}")
     private fun key(alias: String)=alias.trim().lowercase(Locale.ROOT)
     fun add(registry: JSONObject, alias: String, name: String, master: String) {
-        require(Regex("[A-Za-z][A-Za-z0-9_]{1,80}").matches(alias))
+        require(acceptedAlias.matches(alias))
         require(name.isNotBlank() && master.isNotBlank())
         val entries=registry.optJSONArray("entries") ?: JSONArray().also { registry.put("entries",it) }
         for(i in 0 until entries.length()) {
@@ -39,20 +41,20 @@ internal object CharacterAliasRegistry {
             val alias=definition.optString("english_name").trim()
             val name=definition.optString("name")
             val master=definition.optString("master")
-            if(Regex("[A-Za-z][A-Za-z0-9_]{1,80}").matches(alias) && name.isNotBlank() && master.isNotBlank())
+            if(acceptedAlias.matches(alias) && name.isNotBlank() && master.isNotBlank())
                 all.add(Triple(alias,name,master))
         }
         for(i in 0 until entries.length()) {
             val entry=entries.getJSONObject(i)
             val alias=entry.optString("alias").trim()
-            if(Regex("[A-Za-z][A-Za-z0-9_]{1,80}").matches(alias))
+            if(acceptedAlias.matches(alias))
                 all.add(Triple(alias,entry.optString("name"),entry.optString("master")))
         }
         val grouped=all.groupBy { key(it.first) }
         val actionText=scene.optString("flow_action")
         for((alias,rows) in grouped) {
             val identities=rows.map { it.second to it.third.lowercase(Locale.ROOT) }.distinct()
-            if(identities.size>1 && Regex("(?<![A-Za-z0-9_])"+Regex.escape(alias)+"(?![A-Za-z0-9_])",RegexOption.IGNORE_CASE).containsMatchIn(actionText))
+            if(identities.size>1 && Regex("(?<![A-Za-z0-9_-])"+Regex.escape(alias)+"(?![A-Za-z0-9_-])",RegexOption.IGNORE_CASE).containsMatchIn(actionText))
                 throw IllegalArgumentException("ชื่ออังกฤษ '$alias' ซ้ำกันระหว่างตัวละคร กรุณาตรวจทะเบียนชื่อและ MASTER ก่อนสร้างซีน")
         }
         val valid=grouped.values.mapNotNull { rows ->
@@ -66,7 +68,7 @@ internal object CharacterAliasRegistry {
             }
             if(matching.size!=1) continue
             if(definitions.count { it.optString("name")==name && it.optString("master").equals(master,true) }!=1) continue
-            val pattern=Regex("(?<![A-Za-z0-9_])"+Regex.escape(alias)+"(?![A-Za-z0-9_])",RegexOption.IGNORE_CASE)
+            val pattern=Regex("(?<![A-Za-z0-9_-])"+Regex.escape(alias)+"(?![A-Za-z0-9_-])",RegexOption.IGNORE_CASE)
             action=pattern.replace(action) { name }
         }
         if(scene.has("flow_action")) scene.put("flow_action",action)
@@ -79,13 +81,13 @@ internal object CharacterAliasRegistry {
         for(i in 0 until entries.length()) {
             val item=entries.getJSONObject(i)
             val alias=item.optString("alias")
-            if(!Regex("[A-Za-z][A-Za-z0-9_]{1,80}").matches(alias)) continue
+            if(!acceptedAlias.matches(alias)) continue
             val matching=(0 until people.length()).map { people.getJSONObject(it) }.filter {
                 it.optString("name")==item.optString("name") &&
                     it.optString("master").equals(item.optString("master"),true)
             }
             if(matching.size!=1) continue
-            val pattern=Regex("(?<![A-Za-z0-9_])"+Regex.escape(alias)+"(?![A-Za-z0-9_])",RegexOption.IGNORE_CASE)
+            val pattern=Regex("(?<![A-Za-z0-9_-])"+Regex.escape(alias)+"(?![A-Za-z0-9_-])",RegexOption.IGNORE_CASE)
             action=pattern.replace(action) { matching.single().getString("name") }
         }
         if(scene.has("flow_action")) scene.put("flow_action",action)

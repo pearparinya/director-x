@@ -43,50 +43,10 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
             if(target!=null && rows!=null) {
                 val problemText=issue.message.orEmpty()
                 if(problemText.contains("พบชื่อภาษาอังกฤษ") && problemText.contains("flow_action")) {
-                    val scene=rows.getJSONObject(target)
-                    val cast=scene.optJSONArray("characters") ?: JSONArray()
-                    val permitted=(0 until cast.length()).map { cast.getJSONObject(it).optString("name") }.filter { it.isNotBlank() }
-                    // A selected MASTER may carry a canonical English alias. Resolve it
-                    // locally before asking another model, but only for a unique
-                    // (name, MASTER) identity present in the current visible scene.
-                    val unknown=Regex("พบชื่อภาษาอังกฤษ '([^']+)'").find(problemText)?.groupValues?.get(1).orEmpty()
-                    val matching=(0 until cast.length()).map { cast.getJSONObject(it) }
-                        .filter { it.optString("english_name").equals(unknown,true) &&
-                            it.optString("name").isNotBlank() && it.optString("master").isNotBlank() }
-                        .distinctBy { it.optString("name") to it.optString("master").lowercase() }
-                    if(unknown.isNotBlank() && matching.size==1) {
-                        val canonical=matching.single().getString("name")
-                        val regex=Regex("(?<![A-Za-z0-9_])"+Regex.escape(unknown)+"(?![A-Za-z0-9_])",RegexOption.IGNORE_CASE)
-                        val candidate=regex.replace(scene.optString("flow_action")) { canonical }
-                        val proposed=JSONObject(scene.toString()).put("flow_action",candidate)
-                        if(FlowScenePrompt.unknownActionNames(ProductionCommandCheck.spec(proposed)).isEmpty()) {
-                            scene.put("flow_action",candidate)
-                            GeminiStoryFiles.write(pending,value)
-                            progress(lastPercent,"ซีน $sceneNumber • จับคู่ชื่อกับ MASTER ที่เลือกแล้ว • ไม่เรียก API เพิ่ม")
-                            problem=validateWithSpeechRecovery()
-                            continue
-                        }
-                    }
-                    val fixSchema=JSONObject().put("type","object").put("properties",JSONObject().put("flow_action",JSONObject().put("type","string"))).put("required",JSONArray().put("flow_action"))
-                    val fix=generate("Fix ONLY flow_action for scene $sceneNumber. Use exact Thai names from this visible cast: "+permitted.joinToString(", ")+". Preserve the original events. If an English name cannot be matched uniquely to the supplied character registry, keep that name unchanged for human review; do not guess or introduce another person. Return JSON containing only flow_action. Original scene: "+scene+marker,fixSchema)
-                    val action=fix.optString("flow_action").trim()
-                    // An unregistered Latin name must not be silently reassigned to a person.
-                    // Keep the pending scene for review if the returned action removes it.
-                    // Accept a rewritten action only when all named actors are recognized.
-                    // Preserve the original pending scene when ambiguity remains.
-                    if(action.isNotEmpty()) {
-                        val proposed=JSONObject(scene.toString()).put("flow_action",action)
-                        // An unknown alias may denote a different, off-screen person.
-                        // Do not let the model silently erase or reassign it.
-                        val unresolved=Regex("พบชื่อภาษาอังกฤษ '([^']+)'").find(problemText)?.groupValues?.get(1).orEmpty()
-                        if((unresolved.isEmpty() || action.contains(unresolved,ignoreCase=true)) &&
-                            FlowScenePrompt.unknownActionNames(ProductionCommandCheck.spec(proposed)).isEmpty())
-                            scene.put("flow_action",action)
-                    }
+                    // Validation has already applied every unambiguous story alias.
+                    // Persist that progress even when another name still needs review.
                     GeminiStoryFiles.write(pending,value)
-                    check()
-                    problem=validateWithSpeechRecovery()
-                    continue
+                    throw issue
                 }
                 val focused=prompt.replace(Regex("Write exactly scenes [0-9]+ to [0-9]+"),"Write exactly scenes $sceneNumber to $sceneNumber")
                 val replacement=generate(focused+marker+"Your previous JSON failed validation: "+issue.message.orEmpty().take(600)+
@@ -169,7 +129,13 @@ SILENT: speaker=""; dialogue=""; dialogue_turns=[]; narration=""; all mouths clo
 Never fill unused fields with descriptions, "none", "ไม่มี", "N/A", or stage directions. Put acting in action, never narration. Do not combine dialogue and narration in one scene. flow_prompt must match this mode exactly, without extra spoken lines. Example dialogue fields: {"speaker":"เมย์","dialogue":"ซองนี้ของใครคะ","narration":""}. Example narration fields: {"speaker":"","dialogue":"","narration":"คืนนั้น ความจริงเริ่มปรากฏ"}.
         """.trimIndent()
         val factual=ChannelCatalog.personalCategories.any { it.label==category || it.name==category }
+        val roster=JSONArray().apply {
+            FlowCast.definitions(spec).forEach { actor ->
+                put(JSONObject().put("name",actor.getString("name")).put("master",actor.getString("master")))
+            }
+        }
         val base="""
+Use this story-wide name register for every episode and every provider: $roster. Copy each name exactly in characters, action subjects, speakers, dialogue_turns and references to absent characters. Historical scene text and examples never rename a registered person. Only visible people belong in characters.
 ${if(factual) "Write a Thai factual presenter-led script and English Flow prompts using only user-supplied facts. Do not invent news, product claims, testimonials or events." else "Write complete Thai drama scripts and English Flow prompts."} Return only the requested JSON, not markdown or downloadable file claims. Do not generate images/video or call other services. Only registered people from this map are allowed:
 ${FlowCast.definitions(spec).joinToString("\n") { p -> "${p.getString("name")} = ${p.getString("master")}; ${p.getString("visual_description")}" }}
 ${if(spec.optBoolean("auto_cast")) "Use only the automatically selected cast above; their assigned names, roles and MASTER bindings are immutable across all episodes. Story concept: "+spec.optString("cast_concept")+"; roles: "+roleSummary.toString() else "The three leads are Gawin, Rinrada and May; registered supporting characters may appear when the story needs them."} Never invent an unregistered character.
