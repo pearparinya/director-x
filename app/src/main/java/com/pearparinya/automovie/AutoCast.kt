@@ -43,18 +43,45 @@ internal object AutoCast {
             "Favor an eligible less-recently-used actor when role fit is comparable, but never sacrifice genre requirements or pinned IDs for variety. "
     }
     fun schema() = JSONObject("""{"type":"object","properties":{"story_concept":{"type":"string"},"cast":{"type":"array","items":{"type":"object","properties":{"library_id":{"type":"string"},"name":{"type":"string"},"english_name":{"type":"string"},"role":{"type":"string"},"romance_role":{"type":"string"}},"required":["library_id","name","role"]}}},"required":["story_concept","cast"]}""")
+    class ProposalError(message: String) : IllegalArgumentException(message)
+
+    fun propose(prompt: String, catalog: JSONArray, presenterId: String, stopped: () -> Boolean,
+                generate: (String) -> JSONObject): JSONObject {
+        var request = prompt
+        repeat(2) { attempt ->
+            if (stopped()) throw java.util.concurrent.CancellationException()
+            val proposal = generate(request)
+            val problem = try {
+                validate(proposal, catalog)
+                requirePresenter(proposal, presenterId)
+                return proposal
+            } catch (e: IllegalArgumentException) {
+                e.message ?: "รายชื่อตัวละครผิดเงื่อนไข"
+            } catch (e: org.json.JSONException) {
+                "รูปแบบข้อมูลตัวละครไม่ครบ • ต้องมี cast, library_id, name และ role"
+            }
+            if (attempt == 1) throw ProposalError(problem)
+            request = "$prompt\nCorrect the previous proposal. Validation error: $problem. " +
+                "Keep valid cast members and return the complete corrected JSON. Previous proposal: " +
+                proposal.toString().take(12000)
+        }
+        error("Missing cast proposal")
+    }
     fun validate(value: JSONObject, catalog: JSONArray) {
         require(value.optString("story_concept").isNotBlank()) { "ขาดแนวคิดเรื่อง" }
-        val cast=value.getJSONArray("cast"); require(cast.length() in 1..8) { "เลือกนักแสดง 1–8 คนตามบท" }
+        val cast=requireNotNull(value.optJSONArray("cast")) { "ขาดรายการ cast หรือรูปแบบรายการไม่ถูกต้อง" }; require(cast.length() in 1..8) { "เลือกนักแสดง 1–8 คนตามบท" }
         val ids=(0 until catalog.length()).map { catalog.getJSONObject(it).getString("id") }.toSet()
         val names=mutableSetOf<String>(); val englishNames=mutableSetOf<String>(); val used=mutableSetOf<String>()
         for(i in 0 until cast.length()) {
-            val p=cast.getJSONObject(i)
-            require(p.getString("library_id") in ids && used.add(p.getString("library_id"))) { "MASTER ไม่อยู่ในคลังหรือเลือกซ้ำ" }
-            val name=p.getString("name").trim()
+            val p=requireNotNull(cast.optJSONObject(i)) { "ข้อมูลตัวละครลำดับที่ ${i+1} ต้องเป็นรายการข้อมูล" }
+            val id=p.optString("library_id")
+            require(id in ids) { "รหัส MASTER ของตัวละครลำดับที่ ${i+1} ไม่อยู่ในคลัง" }
+            require(used.add(id)) { "รหัส MASTER ซ้ำที่ตัวละครลำดับที่ ${i+1}" }
+            val name=p.optString("name").trim()
             val english=p.optString("english_name").trim()
             if(english.isNotEmpty()) require(Regex("[A-Za-z][A-Za-z-]{1,40}").matches(english) && englishNames.add(english.lowercase())) { "ชื่ออังกฤษต้องไม่ซ้ำและเป็นอักษรอังกฤษ" }
-            require(name.isNotBlank() && names.add(name) && p.getString("role").isNotBlank()) { "ตั้งชื่อใหม่ไม่ซ้ำ พร้อมระบุบทบาท" }
+            require(name.isNotBlank() && names.add(name)) { "ชื่อของตัวละครลำดับที่ ${i+1} ว่างหรือซ้ำ" }
+            require(p.optString("role").isNotBlank()) { "ขาดบทบาทของตัวละครลำดับที่ ${i+1}" }
         }
     }
     fun requirePresenter(value: JSONObject, presenterId: String) {
