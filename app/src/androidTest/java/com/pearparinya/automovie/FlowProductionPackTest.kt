@@ -170,20 +170,31 @@ class FlowProductionPackTest {
         story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0).put("ep",1)
         File(folder,"story.json").writeText(story.toString())
         prefs.edit().putString("project",id).commit()
-        fun tap(label: String) {
-            instrumentation.waitForIdleSync()
-            val root=instrumentation.uiAutomation.rootInActiveWindow
-            val nodes=root.findAccessibilityNodeInfosByText(label)
-            for(node in nodes) {
-                var target: android.view.accessibility.AccessibilityNodeInfo?=node
-                while(target!=null) {
-                    if(target.isClickable && target.isEnabled &&
-                        target.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)) return
-                    target=target.parent
+        // Window transitions can briefly leave UiAutomation without an active root.
+        // Re-query fresh nodes until the requested control is actually usable.
+        fun awaitControl(label: String, click: Boolean) {
+            val deadline = android.os.SystemClock.uptimeMillis() + 15_000L
+            do {
+                instrumentation.waitForIdleSync()
+                val root = instrumentation.uiAutomation.rootInActiveWindow
+                if (root != null) {
+                    val nodes = root.findAccessibilityNodeInfosByText(label)
+                    for (node in nodes) {
+                        if (!node.isVisibleToUser) continue
+                        if (!click) return
+                        var target: android.view.accessibility.AccessibilityNodeInfo? = node
+                        while (target != null) {
+                            if (target.isClickable && target.isEnabled &&
+                                target.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)) return
+                            target = target.parent
+                        }
+                    }
                 }
-            }
-            fail("No enabled control for $label")
+                android.os.SystemClock.sleep(100L)
+            } while (android.os.SystemClock.uptimeMillis() < deadline)
+            fail("Timed out waiting for ${if (click) "enabled control" else "visible text"}: $label")
         }
+        fun tap(label: String) = awaitControl(label, true)
         try {
             ActivityScenario.launch(StudioActivity::class.java).use {
                 tap("สร้างภาพ")
@@ -194,9 +205,7 @@ class FlowProductionPackTest {
                 tap("EP.1")
                 tap("วิเคราะห์ฉากนี้")
                 tap("ตั้งค่า API")
-                instrumentation.waitForIdleSync()
-                assertTrue(instrumentation.uiAutomation.rootInActiveWindow
-                    .findAccessibilityNodeInfosByText("จัดการ API Key").isNotEmpty())
+                awaitControl("จัดการ API Key", false)
             }
         } finally {
             prefs.edit().putString("project",oldProject).commit()
