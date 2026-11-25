@@ -4581,7 +4581,11 @@ $context"""
             }
         }
         if(images) {
-            openItem(if(start < 0) 0 else start) { productionTaskDeck(story,number,true) }
+            val backToGroups = takeMenuBack()
+            openItem(if(start < 0) 0 else start) {
+                if(backToGroups != null) backToGroups.invoke()
+                else productionTaskDeck(story,number,true)
+            }
             return
         }
         choiceMenu(
