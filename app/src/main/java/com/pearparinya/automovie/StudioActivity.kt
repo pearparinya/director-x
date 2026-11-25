@@ -3554,10 +3554,7 @@ $context"""
         }.getOrDefault(false)
         val completedFlowScenes=allFlowScenes.filter { verifiedFlowAi(it) }
         val flowAiProgress=PromptMenuStatus.flow(completedFlowScenes.size, allFlowScenes.size, flowAiBatchRunning && flowBatchProject==project.name, if(flowBatchProject==project.name) flowFailures else 0)
-        val mainOptions = mutableListOf<String>()
-        val mainActions = mutableListOf<() -> Unit>()
-        mainOptions.add("⚙️ ดูคำสั่ง Flow สร้างวิดีโอ\n(Kotlin)")
-        mainActions.add {
+        fun viewKotlin() {
             if (episodeNumbers.isEmpty()) notice("ยังไม่มีตอนสำหรับคำสั่ง Kotlin")
             else choiceMenu("📋 คำสั่ง Kotlin • เลือกตอน", episodeNumbers.map { ep ->
                 val episode=(0 until eps.length()).map { eps.getJSONObject(it) }.first { it.optInt("ep")==ep }
@@ -3565,8 +3562,7 @@ $context"""
                 "EP.$ep • $episodeTitle\n" + if (ep in readyEpisodes) "พร้อมใช้งาน" else "ยังไม่มีคำสั่ง"
             }) { selected -> openEpisode(episodeNumbers[selected]) }
         }
-        mainOptions.add("📄 ดูคำสั่ง Flow สร้างวิดีโอ\n(AI + Kotlin)")
-        mainActions.add {
+        fun viewAi() {
             if (episodeNumbers.isEmpty()) notice("ยังไม่มีตอนสำหรับคำสั่ง Flow AI")
             else choiceMenu("📄 คำสั่ง Flow AI • เลือกตอน", episodeNumbers.map { ep ->
                 val episode=(0 until eps.length()).map { eps.getJSONObject(it) }.first { it.optInt("ep")==ep }
@@ -3583,20 +3579,80 @@ $context"""
                 else showFlowAiPager(ep,sceneList,0)
             }
         }
-        mainOptions.add("✨ ปรับคำสั่ง Flow สร้างวิดีโอ\n(AI + Kotlin)")
-        mainActions.add {
-            startFlowAiBatch(allFlowScenes, direct = true)
+        val modeKey="flow_dashboard_mode_${project.name}"
+        var useAi=prefs.getBoolean(modeKey,prefs.getBoolean("flow_api_assist_enabled",false))
+        val category=DisplayText.category(story.optString("category")).ifBlank { "ยังไม่ระบุหมวด" }
+        val panel=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setPadding(dp(16),dp(16),dp(16),dp(12))
+            background=backdrop(Color.rgb(7,31,59),navy,Color.rgb(71,169,224))
         }
-        mainOptions.add("⚙️ ตั้งค่า API")
-        mainActions.add { flowApiSettings() }
-        mainOptions.add("🔵 ตรวจบท / สร้างคำสั่ง Kotlin ใหม่")
-        mainActions.add { moreTools() }
-        val category=story.optString("category").trim().replace(Regex("""\s*[（(][^()（）]*[)）]\s*$"""),"").ifBlank { "ยังไม่ระบุหมวด" }
-        val mode=if(prefs.getBoolean("flow_api_assist_enabled",false)) "AI" else "Kotlin"
-        choiceMenu(
-            "🎥 คำสั่ง Flow\nเรื่อง: ${story.optString("title").ifBlank { "ไม่ระบุชื่อ" }}\nหมวด: $category\n$flowAiProgress\nโหมดปัจจุบัน · $mode",
-            mainOptions,compactImageMenu=true
-        ) { selected -> mainActions[selected].invoke() }
+        fun line(value: String, size: Float, color: Int): TextView = TextView(this).apply {
+            text=value; textSize=size; setTextColor(color); setPadding(dp(4),dp(4),dp(4),dp(6))
+            panel.addView(this)
+        }
+        line("🎬 คำสั่ง Flow",24f,gold).setTypeface(null,Typeface.BOLD)
+        line("เรื่อง: "+story.optString("title").ifBlank { "ไม่ระบุชื่อ" }+"\nหมวด: "+category,15f,ice)
+        line("⚙ เลือกโหมดการทำงาน",18f,gold).setTypeface(null,Typeface.BOLD)
+        val group=android.widget.RadioGroup(this).apply { orientation=LinearLayout.VERTICAL }
+        fun modeCard(label: String, top: Int, bottom: Int): android.widget.RadioButton =
+            android.widget.RadioButton(this).apply {
+                id=android.view.View.generateViewId(); text=label; textSize=16f; setTextColor(ice)
+                buttonTintList=ColorStateList.valueOf(ice)
+                background=backdrop(top,bottom,cyan)
+                setPadding(dp(12),dp(8),dp(12),dp(8))
+                group.addView(this,android.widget.RadioGroup.LayoutParams(-1,-2).apply { bottomMargin=dp(8) })
+            }
+        val kotlinMode=modeCard("Kotlin\nสร้างคำสั่งรวดเร็ว ไม่ใช้ API",Color.rgb(0,111,173),Color.rgb(8,54,105))
+        val aiMode=modeCard("AI + Kotlin\nใช้ AI ปรับปรุงคำสั่ง",Color.rgb(114,46,171),Color.rgb(51,24,96))
+        panel.addView(group)
+        val status=line("",17f,Color.rgb(143,231,180))
+        val progress=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply {
+            max=allFlowScenes.size.coerceAtLeast(1)
+            progressTintList=ColorStateList.valueOf(Color.rgb(65,220,112))
+        }
+        panel.addView(progress,LinearLayout.LayoutParams(-1,dp(14)))
+        fun refreshStatus() {
+            val total=allFlowScenes.size
+            val count=if(useAi) allFlowScenes.count { verifiedFlowAi(it) } else (0 until eps.length()).sumOf { i ->
+                val ep=eps.getJSONObject(i)
+                if(verifiedFlowFile(ep.optInt("ep"))) ep.optJSONArray("scenes")?.length() ?: 0 else 0
+            }
+            val running=useAi && flowAiBatchRunning && flowBatchProject==project.name
+            status.text="สถานะคำสั่ง ("+(if(useAi) "AI + Kotlin" else "Kotlin")+")\n"+(if(running) "กำลังประมวลผล" else if(count==total && total>0) "พร้อมใช้" else "พร้อมใช้บางส่วน")+" $count/$total ฉาก"
+            progress.progress=count
+        }
+        group.check(if(useAi) aiMode.id else kotlinMode.id)
+        group.setOnCheckedChangeListener { _, checked ->
+            useAi=checked==aiMode.id
+            prefs.edit().putBoolean(modeKey,useAi).apply()
+            refreshStatus()
+        }
+        val dialog=AlertDialog.Builder(this).setView(ScrollView(this).apply { addView(panel) }).create()
+        fun action(label: String, top: Int, bottom: Int, work: () -> Unit) {
+            panel.addView(Button(this).apply {
+                text=label; isAllCaps=false; textSize=17f; setTextColor(ice)
+                backgroundTintList=null; background=backdrop(top,bottom,Color.rgb(100,190,240))
+                setPadding(dp(12),dp(8),dp(12),dp(8))
+                setOnClickListener { dialog.dismiss(); pendingMenuBack={ commandCardsMenu() }; work() }
+            },LinearLayout.LayoutParams(-1,dp(60)).apply { topMargin=dp(10) })
+        }
+        action("📄 ดูคำสั่ง Flow สร้างวิดีโอ",Color.rgb(0,133,220),Color.rgb(5,55,120)) { if(useAi) viewAi() else viewKotlin() }
+        action("✨ ประมวลผลคำสั่ง Flow",Color.rgb(171,52,185),Color.rgb(77,28,130)) {
+            if(useAi) {
+                if(flowAiBatchRunning && flowBatchProject==project.name) flowDisplay?.let { showBatch(it) }
+                else startFlowAiBatch(allFlowScenes,direct=true)
+            } else autoFlowAllEpisodes(story)
+            pendingMenuBack=null
+        }
+        action("⚙ ตั้งค่า API",Color.rgb(0,133,132),Color.rgb(4,66,80)) { flowApiSettings() }
+        action("🔵 ตรวจสอบบท / สร้างคำสั่งใหม่",Color.rgb(181,102,0),Color.rgb(104,47,0)) { moreTools() }
+        action("✖ ยกเลิก",Color.rgb(8,71,123),Color.rgb(6,35,70)) { pendingMenuBack=null }
+        refreshStatus()
+        dialog.show()
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(24),-2)
+
     }
 
     private fun suggestStoryWardrobe(story: JSONObject, mode: Int) {
@@ -5329,7 +5385,7 @@ $context"""
         if(flowAiBatchRunning) { notice("Flow AI กำลังปรับปรุงอยู่ • โปรดรอให้เสร็จ"); return }
         val providers=orderedFlowProviders()
         if(providers.isEmpty()) {
-            if(direct) { notice("ยังไม่มี API สำหรับ Flow • กรุณาตั้งค่าที่เมนู 4"); return }
+            if(direct) { notice("ยังไม่มี API สำหรับ Flow • กรุณาตั้งค่าที่เมนู API"); return }
             AlertDialog.Builder(this).setTitle("ยังไม่มี API สำหรับ Flow")
                 .setMessage("เลือกผู้ให้บริการและตั้งค่าคีย์เพื่อวิเคราะห์ฉาก")
                 .setPositiveButton("ตั้งค่า API") { _,_ -> flowApiSettings() }
