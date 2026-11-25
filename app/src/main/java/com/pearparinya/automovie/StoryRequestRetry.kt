@@ -20,7 +20,12 @@ internal class StoryRequestRetry(
         var retries=0
         while(true) {
             if(cancelled()) throw CancellationException()
-            try { return request() } catch(e: Exception) {
+            if(now()-started>=maxElapsedMillis) throw IllegalStateException("เกินเวลารอ API ที่กำหนด • เก็บข้อมูลที่เสร็จแล้วไว้ กรุณากดทำต่อ")
+            try {
+                val result=request()
+                if(cancelled()) throw CancellationException()
+                return result
+            } catch(e: Exception) {
                 if(cancelled() || e is CancellationException) throw CancellationException()
                 val temporary=canRetry(e)
                 if(!temporary) throw e
