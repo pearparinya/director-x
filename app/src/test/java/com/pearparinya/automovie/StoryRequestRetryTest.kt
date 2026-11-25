@@ -84,6 +84,16 @@ class StoryRequestRetryTest {
         assertTrue(error is CancellationException); assertEquals(1,calls)
         assertTrue(clock<=250L)
     }
+    @Test fun responseBeyondCumulativeBudgetIsRejected() {
+        var clock=0L
+        val retry=StoryRequestRetry({clock},{clock+=it},maxElapsedMillis=1000L)
+        val error=runCatching { retry.execute({false},{}) {
+            clock=1001L
+            "late response"
+        } }.exceptionOrNull()
+        assertTrue(error is IllegalStateException)
+        assertTrue(error!!.message!!.contains("เกินเวลารอ API"))
+    }
     @Test fun deadlineDisconnectsAndRejectsLateResponse() {
         val disconnected=java.util.concurrent.CountDownLatch(1)
         val connection=object: java.net.HttpURLConnection(java.net.URL("http://localhost")) {
