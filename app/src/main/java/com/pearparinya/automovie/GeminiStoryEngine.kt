@@ -114,6 +114,8 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
         for(actor in identityDefinitions) {
             actor.put("character_id",CharacterAliasRegistry.identityId(actor.getString("name"),actor.getString("master")))
         }
+        val identityRegistry=JSONArray().apply { identityDefinitions.forEach { actor -> put(JSONObject().put("name",actor.getString("name")).put("master",actor.getString("master")).put("character_id",actor.getString("character_id"))) } }
+        GeminiStoryFiles.write(File(folder,"character_identities.json"),JSONObject().put("entries",identityRegistry))
         GeminiStoryFiles.write(File(folder,"spec.json"),spec)
         require(FlowCast.issues(JSONObject().put("supporting_characters",support)).isEmpty()) { "ข้อมูลตัวละครเสริมไม่ถูกต้อง" }
         val compact=spec.optString("provider") in setOf("groq","cerebras","deepseek","openrouter") || spec.optBoolean("hybrid") || spec.optBoolean("auto_pipeline")
@@ -238,8 +240,6 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                                 registered.optString("name")==person.optString("name") &&
                                     registered.optString("master").equals(person.optString("master"),ignoreCase=true)
                             }
-                            val binding=identityDefinitions.filter { it.optString("name")==person.optString("name") && it.optString("master").equals(person.optString("master"),true) }.singleOrNull()
-                            if(binding!=null) person.put("character_id",binding.getString("character_id"))
                             val english=matches.singleOrNull()?.optString("english_name").orEmpty()
                             if(english.isNotBlank()) person.put("english_name",english) else person.remove("english_name")
                         }
