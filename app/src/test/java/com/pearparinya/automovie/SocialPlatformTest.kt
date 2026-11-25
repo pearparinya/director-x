@@ -72,4 +72,17 @@ class SocialPlatformTest {
             assertEquals(word.repeat(tag.length/word.length),tag)
         }
     }
+    @Test fun episodeTitleAndSafeMetadata() {
+        val result = SocialPostText.platform(story(),1,SocialPostText.Field.FACEBOOK)
+        assertTrue(result.contains("EP.2 ตอน ตอนสอง"))
+        assertTrue(result.contains("ข้อมูลสอง"))
+        assertFalse(result.contains("ความลับตอนจบ"))
+    }
+    @Test fun promotionalVariants() {
+        val a = SocialPostText.platform(story(),0,SocialPostText.Field.FACEBOOK,0)
+        val b = SocialPostText.platform(story(),0,SocialPostText.Field.FACEBOOK,1)
+        assertNotEquals(a,b)
+        assertTrue(b.contains("ข้อมูลแรก"))
+        assertTrue(b.length <= 350)
+    }
 }
