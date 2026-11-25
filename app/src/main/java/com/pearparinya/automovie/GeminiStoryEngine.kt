@@ -8,6 +8,8 @@ import java.util.concurrent.CancellationException
 /** Sequential, resumable text-only writer. A finished story is committed only after validation. */
 internal class GeminiStoryEngine(private val folder: File, private val generate: (String,JSONObject) -> JSONObject,
     private val cancelled: () -> Boolean = { false }, private val progress: (Int,String) -> Unit = { _,_ -> }) {
+    var onSceneStart: (Int,Int) -> Unit = { _,_ -> }
+    var onCompactRules: (String,String) -> Unit = { _,_ -> }
     private var lastPercent=0
     private fun check() { if(cancelled()) throw CancellationException() }
     private fun cached(name: String,prompt: String,schema: JSONObject,validate: (JSONObject) -> Unit): JSONObject {
@@ -136,6 +138,7 @@ SILENT: speaker=""; dialogue=""; dialogue_turns=[]; narration=""; all mouths clo
 Never fill unused fields with descriptions, "none", "ไม่มี", "N/A", or stage directions. Put acting in action, never narration. Do not combine dialogue and narration in one scene. flow_prompt must match this mode exactly, without extra spoken lines. Example dialogue fields: {"speaker":"เมย์","dialogue":"ซองนี้ของใครคะ","narration":""}. Example narration fields: {"speaker":"","dialogue":"","narration":"คืนนั้น ความจริงเริ่มปรากฏ"}.
         """.trimIndent()
         val factual=ChannelCatalog.personalCategories.any { it.label==category || it.name==category }
+        onCompactRules(speechRules, "Use exactly one audio mode. Preserve exact Thai lines, canonical speakers and ordered dialogue_turns within eight seconds. For exchanges leave speaker/dialogue/narration empty. Narration is external with visible mouths closed. Silent scenes have empty speech fields. Match flow_prompt to the same speech mode and words.")
         val roster=JSONArray().apply {
             FlowCast.definitions(spec).forEach { actor ->
                 put(JSONObject().put("name",actor.getString("name")).put("master",actor.getString("master")).put("character_id",CharacterAliasRegistry.identityId(actor.getString("name"),actor.getString("master"))))
@@ -199,6 +202,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                 require(size in 1..6 && start+size-1<=sceneCount) { "ขนาดช่วงบทที่บันทึกไม่ถูกต้อง" }
                 val end=start+size-1
                 lastPercent=completed*100/(eps.length()*sceneCount)
+                onSceneStart(i+1,start)
                 progress(lastPercent,"เขียน EP ${i+1}/${eps.length()} • ซีน $start–$end")
                 val past=(maxOf(0,output.length()-(if(compact) 1 else output.length())) until output.length()).joinToString("\n") { e ->
                     val ep=output.getJSONObject(e); val rows=ep.getJSONArray("scenes")

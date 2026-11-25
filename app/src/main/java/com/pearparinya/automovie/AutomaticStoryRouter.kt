@@ -20,7 +20,16 @@ internal class AutomaticStoryRouter(
     internal var requestTimeoutMillis: Long = 45_000L
     var onFailure: (StoryProvider,String)->Unit = { _,_ -> }
     var onRequestStart: (StoryProvider, Long) -> Unit = { _, _ -> }
+    var onRequestDetails: (String, Int) -> Unit = { _, _ -> }
+    var onAttemptResult: (String) -> Unit = {}
     var onRequestEnd: () -> Unit = {}
+    private val sceneBudget = SceneRequestBudget()
+    private var latestWriter: StoryProvider? = null
+    private val rejected = mutableSetOf<Pair<StoryProvider,String>>()
+    var compactScene: (String) -> String = { it }
+    fun beginScene(episode: Int, first: Int) {
+        if (sceneBudget.select(episode, first)) rejected.clear()
+    }
     private val routes=listOf(StoryProvider.GROQ to StoryProvider.GEMINI,StoryProvider.GEMINI to StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER to null,StoryProvider.MISTRAL to null,StoryProvider.SAMBANOVA to null,StoryProvider.CEREBRAS to null,StoryProvider.COHERE to null)
     private val verified=mutableSetOf<StoryProvider>()
     private val cooldown=mutableMapOf<StoryProvider,Long>()
@@ -31,9 +40,12 @@ internal class AutomaticStoryRouter(
         Thread(task,"story-provider-request").apply { isDaemon=true }
     }
     private fun boundedRequest(provider: StoryProvider,prompt: String,schema: JSONObject): JSONObject {
+        val timeout = sceneBudget.allow(requestTimeoutMillis)
         val active=java.util.concurrent.atomic.AtomicBoolean(true)
         if(activeRequests.putIfAbsent(provider,active)!=null) throw java.net.SocketTimeoutException("บริการยังปิดคำขอก่อนหน้า")
-        onRequestStart(provider, requestTimeoutMillis)
+        val formatting = schema.optJSONObject("properties")?.has("xml") == true
+        onRequestDetails(if (formatting) "จัดรูปแบบ XML" else "สร้างเนื้อหา", prompt.toByteArray(Charsets.UTF_8).size)
+        onRequestStart(provider, timeout)
         val future=workers.submit<JSONObject> {
             try {
                 val client=clients.getValue(provider)
@@ -46,13 +58,15 @@ internal class AutomaticStoryRouter(
             finally { active.set(false); activeRequests.remove(provider,active) }
         }
         try {
-            return future.get(requestTimeoutMillis,java.util.concurrent.TimeUnit.MILLISECONDS)
+            return future.get(timeout,java.util.concurrent.TimeUnit.MILLISECONDS).also { onAttemptResult("ได้รับคำตอบ") }
         } catch(e: java.util.concurrent.TimeoutException) {
+            onAttemptResult("หมดเวลารอ")
             future.cancel(true)
-            progress(provider,"หมดเวลารอ ${requestTimeoutMillis/1000} วินาที • กำลังลอง API สำรอง")
+            progress(provider,"หมดเวลารอ ${timeout/1000} วินาที • กำลังลอง API สำรอง")
             throw java.net.SocketTimeoutException("หมดเวลารอผู้ให้บริการ")
         } catch(e: java.util.concurrent.ExecutionException) {
             val cause=e.cause
+            onAttemptResult(if (cause is StoryHttpFailure) "HTTP ${cause.status}" else "คำขอล้มเหลว")
             if(cause is Exception) throw cause
             throw IllegalStateException("คำขอผู้ให้บริการล้มเหลว",cause)
         } catch(e: InterruptedException) {
@@ -64,8 +78,20 @@ internal class AutomaticStoryRouter(
         }
     }
 
+    var retainFormattedScenes = false
+    private val completedStages = File(folder, "auto_formatted_scenes")
+
+    fun clearFormattedScenes() {
+        completedStages.listFiles()?.filter { it.name.matches(Regex("[0-9a-f]{64}[.]json")) }
+            ?.forEach { it.delete() }
+    }
+
     fun generate(prompt: String,schema: JSONObject): JSONObject {
         val sceneBatch=schema.getJSONObject("properties").has("scenes")
+        if (cancelled()) throw CancellationException()
+        val recover = sceneBatch && retainFormattedScenes
+        val complete = if (recover) File(completedStages, draftFile(StoryProvider.GROQ,prompt,schema).name) else null
+        if (complete?.isFile == true) return GeminiStoryFiles.read(complete)
         val range=Regex("Write exactly scenes ([0-9]+) to ([0-9]+)").find(prompt)
         val multipleScenes=range?.let { it.groupValues[1].toIntOrNull()?.let { first ->
             it.groupValues[2].toIntOrNull()?.let { last -> last>first }
@@ -82,19 +108,21 @@ internal class AutomaticStoryRouter(
         val rotated=routes.drop(offset)+routes.take(offset)
         // A saved draft does not need another writer request. Otherwise prefer
         // a ready provider over waiting inside Groq's local pacing interval.
-        val ordered=rotated.sortedBy { (writer,_) ->
+        val ordered=rotated.sortedWith(compareBy<Pair<StoryProvider,StoryProvider?>> { (writer,_) -> if (draftFile(writer,prompt,schema).isFile) 0 else 1 }.thenBy { (writer,_) ->
             if(draftFile(writer,prompt,schema).isFile) 0L else clients[writer]?.availableDelayMillis() ?: Long.MAX_VALUE
-        }
+        }.thenBy { (writer,_) -> if (repair == 1 && writer == latestWriter) 0 else 1 })
         for((writer,formatter) in ordered) {
             if(cancelled()) throw CancellationException()
             // The preferred formatter may be unavailable; another configured provider
             // can still format the writer's draft without losing completed work.
-            if(writer !in clients || writer in unavailable || (cooldown[writer] ?: 0L)>android.os.SystemClock.elapsedRealtime()) continue
+            val savedWriter = recover && draftFile(writer,prompt,schema).isFile
+            if(!savedWriter && (writer !in clients || writer in unavailable || (cooldown[writer] ?: 0L)>android.os.SystemClock.elapsedRealtime())) continue
             // Do not issue a fresh writer request when no formatter is available;
             // an already saved complete draft can still be used directly.
             if(sceneBatch && formatter!=null && listOf(formatter,StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER,StoryProvider.COHERE,StoryProvider.MISTRAL,StoryProvider.SAMBANOVA,StoryProvider.CEREBRAS)
                 .none { it!=writer && it in clients && it !in unavailable && (cooldown[it] ?: 0L)<=android.os.SystemClock.elapsedRealtime() }) {
                 val saved=draftFile(writer,prompt,schema)
+                if (savedWriter && !SceneXml.hasUsableActions(GeminiStoryFiles.read(saved))) throw SceneWorkPaused("เก็บร่างบทไว้แล้ว • รอ API จัดรูปแบบ")
                 if(!saved.isFile || !runCatching { SceneXml.hasUsableActions(GeminiStoryFiles.read(saved)) }.getOrDefault(false)) continue
             }
             var current=writer
@@ -102,7 +130,7 @@ internal class AutomaticStoryRouter(
                 val cache=draftFile(writer,prompt,schema)
                 val draft=if(cache.isFile) GeminiStoryFiles.read(cache) else {
                     progress(writer,"กำลังเขียนบท • รอคำตอบสูงสุด ${requestTimeoutMillis/1000} วินาที ก่อนสลับ API")
-                    generateChecked(writer,prompt,schema).also { GeminiStoryFiles.write(cache,it) }
+                    writeScene(writer,prompt,schema,sceneBatch && !multipleScenes).also { GeminiStoryFiles.write(cache,it) }
                 }
                 if(cancelled()) throw CancellationException()
                 val result=if(sceneBatch && formatter!=null && !SceneXml.hasUsableActions(draft)) {
@@ -134,12 +162,19 @@ internal class AutomaticStoryRouter(
                             formatFailure=e
                         }
                     }
+                    if (recover && formatted == null) {
+                        formatFailure?.let { onFailure(current,failureCategory(it)) }
+                        throw SceneWorkPaused("เก็บร่างบทไว้แล้ว • จัดรูปแบบยังไม่สำเร็จ")
+                    }
                     formatted ?: throw (formatFailure ?: IllegalStateException("ไม่มีบริการจัดรูปแบบที่พร้อม"))
                 } else draft
+                if (complete != null) GeminiStoryFiles.write(complete,result)
                 routes.forEach { (candidate,_) -> draftFile(candidate,prompt,schema).delete() }
+                latestWriter = writer
                 return result
             } catch(e: Exception) {
                 if(cancelled() || e is CancellationException) throw CancellationException()
+                if (e is SceneWorkPaused) throw e
                 onFailure(current,failureCategory(e))
                 if(e is InvalidSceneXml) xmlFailure=e
                 if(e is StoryHttpFailure && e.status in setOf(401,402,403,404)) unavailable[current]=e
@@ -158,13 +193,48 @@ internal class AutomaticStoryRouter(
         // A temporary failure in the last available provider can recover on retry,
         // even if another provider rejected the request size.
         if(sceneBatch && multipleScenes && xmlFailure!=null) throw StoryBatchTooLarge("XML ไม่ตรงบท • ลดเหลือครั้งละ 1 ซีน")
+        if (sceneBudget.active && temporary != null) throw SceneWorkPaused("บริการที่ลองยังไม่พร้อม")
+        if (sceneBudget.active && temporary != null) {
+            throw SceneWorkPaused("บริการที่พร้อมตอบไม่สำเร็จ • " + failureCategory(temporary))
+        }
         temporary?.let { throw it }
         val next=cooldown.filterKeys { it in clients }.values.filter { it>android.os.SystemClock.elapsedRealtime() }.minOrNull()
+        if (next != null && sceneBudget.active) throw SceneWorkPaused("บริการกำลังพัก • ลองต่อหลัง ${((next-android.os.SystemClock.elapsedRealtime()).coerceAtLeast(0)+999)/1000} วินาที")
+        if (sceneBudget.active && next != null) throw SceneWorkPaused("บริการสำรองกำลังพัก • ลองใหม่หลัง ${((next-android.os.SystemClock.elapsedRealtime()).coerceAtLeast(0)+999)/1000} วินาที")
         if(next!=null) throw StoryHttpFailure(429,(((next-android.os.SystemClock.elapsedRealtime())+999)/1000).toString(),"รอ API คืนโควตา")
+        if (sceneBudget.active && oversized && !multipleScenes) throw SceneWorkPaused("ซีนเดี่ยวยังเกินขนาดที่ API รองรับหลังลดคำสั่ง")
         if(sceneBatch && oversized) throw StoryBatchTooLarge()
         throw last ?: unavailable.values.firstOrNull() ?: IllegalStateException("ตั้งค่า Groq + Gemini หรือ Gemini + DeepSeek หรือ OpenRouter หรือ Cohere หรือ Mistral หรือ SambaNova หรือ Cerebras ก่อนเริ่ม")
     }
+    private fun writeScene(provider: StoryProvider, prompt: String, schema: JSONObject, single: Boolean): JSONObject {
+        if (!single) return generateChecked(provider,prompt,schema)
+        fun send(text: String): JSONObject {
+            val key = provider to draftFile(provider,text,schema).name
+            if (key in rejected) throw StoryHttpFailure(413,null,"คำขอขนาดนี้เคยถูกปฏิเสธ")
+            try {
+                return generateChecked(provider,text,schema)
+            } catch (e: StoryHttpFailure) {
+                if (e.status == 413 || e.detail == "context_length_exceeded") rejected.add(key)
+                throw e
+            }
+        }
+        try {
+            return send(prompt)
+        } catch (e: StoryHttpFailure) {
+            if (e.status != 413 && e.detail != "context_length_exceeded") throw e
+            val smaller = compactScene(prompt)
+            if (smaller.length >= prompt.length) throw e
+            onFailure(provider,failureCategory(e))
+            progress(provider,"ลดขนาดคำสั่งซีนเดี่ยว • คงบทและ MASTER")
+            return send(smaller)
+        }
+    }
     private fun coolDown(provider: StoryProvider,e: Exception) {
+        if (sceneBudget.active && (e is java.net.SocketTimeoutException || e is StoryHttpFailure && e.status == 503)) {
+            val seconds = (e as? StoryHttpFailure)?.retryAfter?.let { StoryRequestRetry.retrySeconds(it,System.currentTimeMillis()) } ?: 0L
+            val now = android.os.SystemClock.elapsedRealtime()
+            cooldown[provider] = now + maxOf(30L,seconds).coerceAtMost((Long.MAX_VALUE-now)/1000)*1000
+        }
         if(verifyBeforeUse && e is StoryHttpFailure && e.status==429) {
             val now=android.os.SystemClock.elapsedRealtime()
             val suggested=e.retryAfter?.let { StoryRequestRetry.retrySeconds(it,System.currentTimeMillis()) }

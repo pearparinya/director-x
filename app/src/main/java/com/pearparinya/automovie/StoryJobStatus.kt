@@ -15,14 +15,52 @@ internal class StoryJobStatus(previous: JSONObject?, checkpoint: Int,
         .put("phase","preparing").put("started_at",previous?.optLong("started_at",wall()) ?: wall())
         .put("request_number",previous?.optLong("request_number") ?: 0L)
         .put("failures",previous?.optJSONArray("failures") ?: JSONArray())
+    private val scopes = previous?.optJSONObject("task_metrics")?.let { JSONObject(it.toString()) } ?: JSONObject()
+    private var scope = "เตรียมงาน"
+    private var stage = "เตรียมงาน"
+    private var measuredAt = start
+
+    private fun row(): JSONObject = scopes.optJSONObject(scope) ?: JSONObject().also { scopes.put(scope, it) }
+
+    private fun measure() {
+        val now = elapsed()
+        val delta = (now - measuredAt).coerceAtLeast(0)
+        val row = row()
+        row.put("elapsed_ms", row.optLong("elapsed_ms") + delta)
+        val times = row.optJSONObject("stages") ?: JSONObject().also { row.put("stages", it) }
+        times.put(stage, times.optLong(stage) + delta)
+        measuredAt = now
+    }
+
+    @Synchronized fun describeRequest(operation: String, bytes: Int) {
+        measure()
+        stage = operation
+        value.put("prompt_bytes", bytes)
+    }
+
     @Synchronized fun beginRequest(provider: StoryProvider, limitMillis: Long) {
+        measure()
+        val row = row()
+        row.put("requests", row.optLong("requests") + 1)
         requestStart = elapsed()
         value.put("request_number", value.optLong("request_number") + 1)
             .put("request_provider", provider.label)
             .put("request_limit_ms", limitMillis)
     }
 
+    @Synchronized fun finishAttempt(result: String) {
+        val began = requestStart ?: return
+        val row = row()
+        val history = row.optJSONArray("recent") ?: JSONArray().also { row.put("recent", it) }
+        if (history.length() >= 8) history.remove(0)
+        history.put(JSONObject().put("provider", value.optString("request_provider"))
+            .put("stage", stage).put("bytes", value.optInt("prompt_bytes"))
+            .put("elapsed_ms", (elapsed() - began).coerceAtLeast(0)).put("result", result))
+    }
+
     @Synchronized fun endRequest() {
+        measure()
+        stage = "ประมวลผล"
         requestStart = null
         value.remove("request_elapsed_ms")
     }
@@ -45,7 +83,16 @@ internal class StoryJobStatus(previous: JSONObject?, checkpoint: Int,
             message.startsWith("บันทึกแล้ว") -> message.take(80)
             else -> null
         }
-        if(task!=null) value.put("task",task)
+        measure()
+        if (task != null) {
+            value.put("task", task)
+            if (!message.startsWith("บันทึกแล้ว")) scope = task
+        }
+        stage = when {
+            message.startsWith("ได้รับคำตอบแล้ว") -> "ตรวจบท"
+            message.startsWith("บันทึกแล้ว") -> "บันทึกแล้ว"
+            else -> "เตรียมงาน"
+        }
     }
     @Synchronized fun update(state: String,percent: Int,message: String,provider: String,phase: String): JSONObject {
         if(value.optString("phase")!=phase || value.optString("provider")!=provider) phaseStart=elapsed()
@@ -55,6 +102,8 @@ internal class StoryJobStatus(previous: JSONObject?, checkpoint: Int,
     }
     @Synchronized fun heartbeat(): JSONObject = snapshot(value.optString("state")=="running")
     private fun snapshot(tick: Boolean): JSONObject {
+        if (tick) measure()
+        value.put("task_metrics", scopes).put("metric_scope", scope).put("metric_stage", stage)
         if(tick) value.put("elapsed_ms",prior+(elapsed()-start).coerceAtLeast(0))
             .put("phase_elapsed_ms",(elapsed()-phaseStart).coerceAtLeast(0)).put("heartbeat_at",wall())
         requestStart?.let { value.put("request_elapsed_ms", (elapsed() - it).coerceAtLeast(0)) }
@@ -92,7 +141,7 @@ internal object StoryStatusText {
         val time=duration(status.optLong("elapsed_ms"))
         val phase=if(running && !stale && status.has("request_elapsed_ms")) {
             val api=status.optString("request_provider").let { if(it.equals("cerebras",true)) "API อัตโนมัติ" else it }
-            "\n$api • คำขอที่ ${status.optLong("request_number")} • รอครั้งนี้ ${status.optLong("request_elapsed_ms")/1000}/${status.optLong("request_limit_ms")/1000} วินาที"
+            "\n$api • คำขอที่ ${status.optLong("request_number")} ของทั้งเรื่อง • รอครั้งนี้ ${status.optLong("request_elapsed_ms")/1000}/${status.optLong("request_limit_ms")/1000} วินาที"
         } else if(running && !stale) " • ช่วงนี้ ${duration(status.optLong("phase_elapsed_ms"))}" else ""
         val update=if(heartbeat>0) DisplayText.thaiDateTime(heartbeat) else "—"
         val failures=status.optJSONArray("failures")
@@ -103,6 +152,24 @@ internal object StoryStatusText {
         val history=if(!details || rows.isEmpty()) "" else "\nการลองล่าสุด:\n"+rows.joinToString("\n")
         val task=status.optString("task").takeIf { it.isNotBlank() }?.let { "\nขั้นตอน: $it" }.orEmpty()
         val message=if(status.optString("message").contains("cerebras",ignoreCase=true)) "กดทำต่อเพื่อใช้ API ที่ตั้งค่าปัจจุบัน" else status.optString("message")
-        return "$provider • ซีนที่ผ่านตรวจ ${status.optInt("percent").coerceIn(0,100)}%\nสถานะ: $label\nใช้เวลา $time$phase$task\n${if(state=="awaiting_outline") "เปิดงานเขียนบท แล้วกดทำต่อ • ใช้โครงเรื่องเดิม ไม่ต้องยืนยันอีก" else message}$history\nอัปเดตล่าสุด: $update"
+        val scope = status.optString("metric_scope")
+        val metric = status.optJSONObject("task_metrics")?.optJSONObject(scope)
+        val measured = if (metric == null || !status.has("request_limit_ms") && status.optLong("request_number") == 0L) "" else buildString {
+            append("\n$scope • ${metric.optLong("requests")} คำขอ • ${duration(metric.optLong("elapsed_ms"))}")
+            append("\nรวมทั้งเรื่อง ${status.optLong("request_number")} คำขอ")
+            if (running) append(" • ${status.optString("metric_stage")}")
+            if (details) {
+                val times = metric.optJSONObject("stages")
+                times?.keys()?.forEach { key -> append("\n$key • ${duration(times.optLong(key))}") }
+                val history = metric.optJSONArray("recent")
+                if (history != null) for (i in 0 until history.length()) {
+                    val attempt = history.getJSONObject(i)
+                    val name = attempt.optString("provider")
+                    if (!name.equals("cerebras", true)) append("\n$name • ${attempt.optString("stage")} • ${duration(attempt.optLong("elapsed_ms"))} • ${attempt.optInt("bytes")} ไบต์ • ${attempt.optString("result")}")
+                }
+                if (status.has("prompt_bytes")) append("\nขนาดคำสั่งล่าสุด ${status.optInt("prompt_bytes")} ไบต์")
+            }
+        }
+        return "$provider • ซีนที่ผ่านตรวจ ${status.optInt("percent").coerceIn(0,100)}%\nสถานะ: $label\nใช้เวลา $time$phase$task$measured\n${if(state=="awaiting_outline") "เปิดงานเขียนบท แล้วกดทำต่อ • ใช้โครงเรื่องเดิม ไม่ต้องยืนยันอีก" else message}$history\nอัปเดตล่าสุด: $update"
     }
 }

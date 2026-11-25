@@ -140,6 +140,9 @@ class GeminiStoryService : Service() {
                         val autoRouter=AutomaticStoryRouter(folder,connections,{cancelled}) { target,message ->
                             provider=target; status("running",lastPercent,"อัตโนมัติ • ${target.label} • $message","requesting")
                         }.apply { verifyBeforeUse=true }
+                        autoRouter.retainFormattedScenes = automatic
+                        autoRouter.onAttemptResult=liveStatus::finishAttempt
+                        autoRouter.onRequestDetails=liveStatus::describeRequest
                         autoRouter.onRequestStart=liveStatus::beginRequest
                         autoRouter.onRequestEnd=liveStatus::endRequest
                         autoRouter.onFailure={ target,category -> synchronized(statusLock) {
@@ -160,16 +163,22 @@ class GeminiStoryService : Service() {
                         },{cancelled}) { percent,message ->
                             synchronized(statusLock) { liveStatus.setTask(message) }
                             status("running",percent,message,if(message.startsWith("บันทึกแล้ว")) "saved" else "preparing")
+                        }.apply {
+                            onSceneStart = autoRouter::beginScene
+                            onCompactRules = { full, concise ->
+                                autoRouter.compactScene = { prompt -> prompt.replaceFirst(full, concise) }
+                            }
                         }.run(spec)
                         if(cancelled) throw CancellationException()
                         val target=File(folder.parentFile,"story.json")
                         if(target.exists()) require(ChannelCatalog.updateLegacyChannel(GeminiStoryFiles.read(target)).toString()==story.toString()) { "พบ story.json ที่แก้ไขแล้ว ไม่เขียนทับ" }
                         else GeminiStoryFiles.write(target,story)
+                        if (automatic) autoRouter.clearFormattedScenes()
                         status("complete",100,"บทพร้อมแล้ว ${story.getInt("episode_count")} EP • ${story.getInt("scene_count")} ซีน • ส่งออก Flow ได้ทันที")
                     } finally { lock.release() }
                 }
             } catch(e: Exception) {
-                if(::folder.isInitialized) status(if(e is AutoDirectorContent.AwaitingOutline) "awaiting_outline" else if(cancelled || e is CancellationException) "paused" else "failed",lastPercent,
+                if(::folder.isInitialized) status(if(e is AutoDirectorContent.AwaitingOutline) "awaiting_outline" else if(cancelled || e is CancellationException || e is SceneWorkPaused) "paused" else "failed",lastPercent,
                     if(e is AutoDirectorContent.AwaitingOutline) e.message.orEmpty() else if(cancelled || e is CancellationException) "หยุดแล้ว • บันทึกช่วงที่เสร็จไว้ กดทำต่อได้" else safeError(e))
             } finally {
                 synchronized(statusLock) { running=false; pulse?.shutdownNow(); pulse=null }

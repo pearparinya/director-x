@@ -8,6 +8,34 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class StoryJobStatusTest {
+    @Test fun sceneRequestTotalsAndElapsedTimeSurviveResume() {
+        var clock = 0L
+        val first = StoryJobStatus(null, 0, { clock }, { 1000L })
+        val scene = "เขียน EP 1/1 • ซีน 6–6"
+        first.setTask(scene)
+        first.describeRequest("สร้างเนื้อหา", 300)
+        first.beginRequest(StoryProvider.GROQ, 45000)
+        clock = 1500
+        first.finishAttempt("HTTP 413")
+        first.endRequest()
+        val paused = first.update("paused", 62, "หยุด", "groq", "paused")
+        clock += 50000
+        val resumed = StoryJobStatus(paused, 62, { clock }, { 1000L })
+        resumed.setTask(scene)
+        resumed.describeRequest("จัดรูปแบบ XML", 80)
+        resumed.beginRequest(StoryProvider.COHERE, 45000)
+        clock += 500
+        val status = resumed.heartbeat()
+        val row = status.getJSONObject("task_metrics").getJSONObject(scene)
+        assertEquals(2000L, row.getLong("elapsed_ms"))
+        assertEquals(2, row.getInt("requests"))
+        assertEquals(500L, row.getJSONObject("stages").getLong("จัดรูปแบบ XML"))
+        assertEquals("HTTP 413", row.getJSONArray("recent").getJSONObject(0).getString("result"))
+        resumed.endRequest()
+        resumed.setTask("เขียน EP 1/1 • ซีน 7–7")
+        assertEquals(2, resumed.heartbeat().getInt("request_number"))
+    }
+
     @Test fun diagnosticHistorySurvivesPauseAndNeverStoresPayload() {
         val live=StoryJobStatus(null,0,{0L},{1000L})
         live.setTask("กำลังวางบทบาท เลือก MASTER และตั้งชื่อนักแสดง")

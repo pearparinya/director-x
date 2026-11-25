@@ -12,6 +12,24 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class AutomaticStoryRouterTest {
+    @Test fun singleSceneSizeRetryKeepsStoryAndAvoidsRepeatedOversizedRequest() {
+        val folder = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"size-${UUID.randomUUID()}")
+        try {
+            val calls = mutableListOf<String>()
+            val writer = client { prompt,_ ->
+                calls.add(prompt)
+                if ("verbose" in prompt) throw StoryHttpFailure(413,null,"large")
+                draft()
+            }
+            val router = AutomaticStoryRouter(folder,mapOf(StoryProvider.COHERE to writer),{false},{_,_->})
+            router.beginScene(1,6)
+            router.compactScene = { it.replace("verbose","v") }
+            val original = "verbose MASTER นายเปีย Write exactly scenes 6 to 6 for EP 1"
+            repeat(2) { router.generate(original,schema()) }
+            assertEquals(listOf(original,original.replace("verbose","v"),original.replace("verbose","v")),calls)
+        } finally { folder.deleteRecursively() }
+    }
+
     @Test fun completeWriterActionsSkipFormatterAndPreserveDialogue() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-direct-${UUID.randomUUID()}")
         try {
@@ -240,6 +258,35 @@ class AutomaticStoryRouterTest {
             assertEquals("May opens the door",out.getJSONArray("scenes").getJSONObject(0).getString("flow_action"))
         } finally { folder.deleteRecursively() }
     }
+    @Test fun restartResumesFormatterWithOriginalMasterAndDialogue() {
+        val folder = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"resume-stage-${UUID.randomUUID()}")
+        try {
+            var writes = 0
+            var formats = 0
+            val source = draft()
+            source.getJSONArray("scenes").getJSONObject(0).put("master","MAY_MASTER.png")
+            val writer = client { _,_ -> writes++; source }
+            val offline = client { _,_ -> throw StoryHttpFailure(503,null,"busy") }
+            fun start(clients: Map<StoryProvider,StoryTextClient>) =
+                AutomaticStoryRouter(folder,clients,{false},{_,_->}).apply { retainFormattedScenes = true; beginScene(1,1) }
+            val first = start(mapOf(StoryProvider.GROQ to writer, StoryProvider.GEMINI to offline))
+            assertTrue(runCatching { first.generate("brief",schema()) }.exceptionOrNull() is SceneWorkPaused)
+            val formatter = client { _, request ->
+                assertTrue(request.getJSONObject("properties").has("xml"))
+                formats++
+                xml()
+            }
+            val resumed = start(mapOf(StoryProvider.GEMINI to formatter)).generate("brief",schema())
+            val restored = start(emptyMap()).generate("brief",schema())
+            assertEquals(resumed.toString(),restored.toString())
+            val row = restored.getJSONArray("scenes").getJSONObject(0)
+            assertEquals("สวัสดี",row.getString("dialogue"))
+            assertEquals("MAY_MASTER.png",row.getString("master"))
+            assertEquals(1,writes)
+            assertEquals(1,formats)
+        } finally { folder.deleteRecursively() }
+    }
+
     @Test fun quotaRetainsDraftForResume() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-resume-${UUID.randomUUID()}")
         try {
