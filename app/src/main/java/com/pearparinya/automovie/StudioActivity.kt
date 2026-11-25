@@ -6438,20 +6438,31 @@ $context"""
         val platformButtons=mutableMapOf<SocialPostText.Field,Button>()
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)); setBackgroundColor(Color.rgb(12,24,41)) }
         fun label(value:String)=TextView(this).apply { text=value; setTextColor(Color.WHITE); textSize=14f; panel.addView(this) }
+        fun surface(colors:IntArray, selected:Boolean=false)=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,colors).apply {
+            cornerRadius=dp(12).toFloat()
+            setStroke(dp(if(selected) 2 else 1),if(selected) Color.rgb(85,235,255) else Color.rgb(45,70,100))
+        }
+        val palettes=mutableMapOf<Button,IntArray>()
+        fun paint(button:Button, selected:Boolean=false) {
+            val colors=if(button.isEnabled) palettes[button] ?: intArrayOf(Color.rgb(25,45,70),Color.rgb(25,45,70)) else intArrayOf(Color.rgb(65,72,84),Color.rgb(65,72,84))
+            button.background=surface(colors,selected)
+        }
         fun action(parent:LinearLayout, title:String, color:Int, click:()->Unit)=Button(this).apply {
-            text=title; setTextColor(Color.WHITE); backgroundTintList=ColorStateList.valueOf(color)
-            setOnClickListener { click() }; parent.addView(this,LinearLayout.LayoutParams(if(parent.orientation==0) 0 else -1,-2,if(parent.orientation==0) 1f else 0f))
+            text=title; setTextColor(Color.WHITE); backgroundTintList=null; isAllCaps=false; textSize=13f; minHeight=dp(48); setPadding(dp(8),dp(10),dp(8),dp(10))
+            palettes[this]=intArrayOf(color,color); paint(this)
+            setOnClickListener { click() }; parent.addView(this,LinearLayout.LayoutParams(if(parent.orientation==0) 0 else -1,-2,if(parent.orientation==0) 1f else 0f).apply { setMargins(dp(3),dp(4),dp(3),dp(4)) })
         }
         fun row()=LinearLayout(this).apply { orientation=0; panel.addView(this) }
         label("SMART SOCIAL SEO").apply { textSize=22f; setTextColor(Color.rgb(255,194,76)) }
         label("ชื่อเรื่อง : "+story.optString("title"))
         label("ชื่อช่อง : "+story.optString("channel"))
         val episodeLabel=label("")
+        val episodeTitleLabel=label("")
         val platformRow=row()
         val platformRow2=row()
         val youtubeRow=row()
         val fieldLabel=label("")
-        val edit=EditText(this).apply { setTextColor(Color.WHITE); minLines=6; maxLines=10; gravity=Gravity.TOP; inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE; panel.addView(this,LinearLayout.LayoutParams(-1,-2)) }
+        val edit=EditText(this).apply { setTextColor(Color.WHITE); textSize=16f; background=surface(intArrayOf(Color.rgb(16,34,55),Color.rgb(16,34,55))); setPadding(dp(12),dp(12),dp(12),dp(12)); minLines=6; maxLines=10; gravity=Gravity.TOP; inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE; panel.addView(this,LinearLayout.LayoutParams(-1,-2)) }
         val counter=label("")
         val progress=android.widget.ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply { panel.addView(this,LinearLayout.LayoutParams(-1,dp(8))) }
         val nav=row()
@@ -6473,16 +6484,18 @@ $context"""
             loading=true
             dirty=false
             val ep=if(index>=0) episodes?.optJSONObject(index) else null
-            episodeLabel.text=if(index<0) "ประชาสัมพันธ์รวมทั้งเรื่อง" else "EP."+(index+1)+"/"+count+" • "+ep?.optString("title").orEmpty()
+            episodeLabel.text=if(index<0) "ประชาสัมพันธ์รวมทั้งเรื่อง" else "EP."+(index+1)+"/"+count
+            episodeTitleLabel.text=ep?.optString("title").orEmpty().let { if(it.isBlank()) "" else "ชื่อตอน : "+it }
+            episodeTitleLabel.visibility=if(episodeTitleLabel.text.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE
             fieldLabel.text=field.label
             val selected=if(field in listOf(SocialPostText.Field.DESCRIPTION,SocialPostText.Field.TAGS)) SocialPostText.Field.TITLE else field
-            platformButtons.forEach { (f,button) -> button.alpha=if(f==selected) 1f else 0.65f; button.isSelected=f==selected }
+            platformButtons.forEach { (f,button) -> button.alpha=1f; button.isSelected=f==selected; paint(button,f==selected) }
             youtubeRow.visibility=if(field in listOf(SocialPostText.Field.TITLE,SocialPostText.Field.DESCRIPTION,SocialPostText.Field.TAGS)) android.view.View.VISIBLE else android.view.View.GONE
             edit.setText(store.getString(key(),null) ?: SocialPostText.platform(story,index,field))
             prev.isEnabled=index>0
-            prev.alpha=if(prev.isEnabled) 1f else 0.4f
+            paint(prev)
             next.isEnabled=index>=0 && index<count-1
-            next.alpha=if(next.isEnabled) 1f else 0.4f
+            paint(next)
             copy.text="COPY "+field.label
             updateCounter()
             loading=false
@@ -6493,7 +6506,7 @@ $context"""
         platformButtons[SocialPostText.Field.TITLE]=action(platformRow2,"YouTube",red) { select(SocialPostText.Field.TITLE) }
         platformButtons[SocialPostText.Field.INSTAGRAM]=action(platformRow2,"Instagram",purple) { select(SocialPostText.Field.INSTAGRAM) }.apply {
             backgroundTintList=null
-            background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,intArrayOf(Color.rgb(105,45,170),Color.rgb(185,45,110))).apply { cornerRadius=dp(8).toFloat() }
+            palettes[this]=intArrayOf(Color.rgb(105,45,170),Color.rgb(185,45,110)); paint(this)
         }
         action(youtubeRow,"Title",red) { select(SocialPostText.Field.TITLE) }
         action(youtubeRow,"Description",red) { select(SocialPostText.Field.DESCRIPTION) }
@@ -6504,7 +6517,7 @@ $context"""
             val choices=listOf("ประชาสัมพันธ์รวมทั้งเรื่อง")+(0 until count).map { "EP."+(it+1)+" • "+episodes?.optJSONObject(it)?.optString("title").orEmpty() }
             AlertDialog.Builder(this).setItems(choices.toTypedArray()) { _, which -> save(); index=which-1; refresh() }.show()
         }
-        action(panel,"🔄 สร้างข้อความใหม่",blue) {
+        val regenerateButton=action(panel,"🔄 สร้างข้อความใหม่",blue) {
             fun regenerate() {
                 val first=SocialPostText.platform(story,index,field,0)
                 val second=SocialPostText.platform(story,index,field,1)
@@ -6513,12 +6526,14 @@ $context"""
             }
             if(store.contains(key())) AlertDialog.Builder(this).setMessage("แทนที่ข้อความที่บันทึกไว้หรือไม่?").setNegativeButton("ยกเลิก",null).setPositiveButton("แทนที่") { _,_ -> regenerate() }.show() else regenerate()
         }
+        palettes[regenerateButton]=intArrayOf(blue,cyan); paint(regenerateButton)
         copy=action(panel,"COPY",gold) {
-            val result=edit.text.toString().trim()
+            val result=edit.text.toString()
             if(result.isBlank()) notice("ยังไม่มีข้อมูลให้คัดลอก")
             else if(result.length>field.limit) notice("ข้อความเกิน "+field.limit+" ตัวอักษร")
-            else { save(); copyCommand(result) }
+            else { save(); copyCommand(result); android.widget.Toast.makeText(this,"คัดลอกข้อความแล้ว",android.widget.Toast.LENGTH_SHORT).show() }
         }
+        palettes[copy]=intArrayOf(Color.rgb(145,92,12),Color.rgb(180,125,28)); paint(copy)
         action(panel,"บันทึกข้อความ",blue) { save(); notice("บันทึกข้อความแล้ว") }
         label("ตรวจความถูกต้องและการเปิดเผยตอนจบก่อนโพสต์ • ตรวจข้อกำหนดการเปิดเผยเนื้อหาที่สร้างด้วย AI ของแต่ละแพลตฟอร์ม")
         edit.addTextChangedListener(object:android.text.TextWatcher {
@@ -6527,9 +6542,10 @@ $context"""
             override fun afterTextChanged(s:android.text.Editable?) {}
         })
         refresh()
-        val dialog=AlertDialog.Builder(this).setView(ScrollView(this).apply { addView(panel) }).setNegativeButton("ย้อนกลับ",null).showNavigationDirector()
+        val dialog=AlertDialog.Builder(this).setView(ScrollView(this).apply { isFillViewport=true; setBackgroundColor(Color.rgb(12,24,41)); addView(panel) }).setNegativeButton("ย้อนกลับ",null).showNavigationDirector()
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply { setTextColor(Color.WHITE); setBackgroundColor(Color.rgb(12,24,41)) }
+        dialog.window?.setBackgroundDrawable(surface(intArrayOf(Color.rgb(12,24,41),Color.rgb(12,24,41))))
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply { setTextColor(Color.WHITE); background=surface(intArrayOf(Color.rgb(12,24,41),Color.rgb(20,40,65))); (parent as? android.view.View)?.setBackgroundColor(Color.rgb(12,24,41)) }
         dialog.setOnDismissListener { save() }
         return dialog
     }
