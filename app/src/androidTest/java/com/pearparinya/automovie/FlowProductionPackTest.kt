@@ -256,7 +256,7 @@ class FlowProductionPackTest {
         val oldProject=prefs.getString("project",null)
         val id=UUID.randomUUID().toString()
         val folder=File(context.filesDir,"studio/$id").apply { mkdirs() }
-        val story=plan(12,1).put("channel","นายเปีย บ้านคลองขุด").put("category","ละครสั้นสะท้อนสังคม")
+        val story=plan(12,2).put("channel","นายเปีย บ้านคลองขุด").put("category","ละครสั้นสะท้อนสังคม")
         for (index in 0 until story.getJSONArray("episodes").length()) {
             val episode=story.getJSONArray("episodes").getJSONObject(index)
             val scenes=episode.getJSONArray("scenes")
@@ -301,6 +301,21 @@ class FlowProductionPackTest {
                     tap("EP.12 • ตอน 12")
                     awaitControl("เลือกชุดภาพ", false)
                     awaitControl("ภาพฉาก", false)
+                    if (pass == 0) {
+                        tap("ภาพฉาก")
+                        tap("ทำต่อซีนที่ยังไม่เสร็จ")
+                        awaitControl("คำสั่งสร้างภาพ • Kotlin", false)
+                        awaitControl("รายการ 1/2", false)
+                        awaitControl("ส่งไปสร้างภาพ", false)
+                        tap("ถัดไป ▶")
+                        awaitControl("รายการ 2/2", false)
+                        tap("คัดลอกคำสั่งภาพ")
+                        assertTrue(prefs.getStringSet("image_done_${id}_12", emptySet()).orEmpty().isEmpty())
+                        tap("◀ ก่อนหน้า")
+                        awaitControl("รายการ 1/2", false)
+                        tap("กลับรายการรูป/ซีน")
+                        tap("ย้อนกลับ")
+                    }
                     if (pass == 0) tap("ย้อนกลับ")
                     else instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
                     instrumentation.uiAutomation.waitForIdle(300, 5000)
