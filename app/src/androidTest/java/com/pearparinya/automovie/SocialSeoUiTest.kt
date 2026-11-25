@@ -29,6 +29,10 @@ class SocialSeoUiTest {
             .put(JSONObject().put("ep",1).put("title","ตอนหนึ่ง"))
             .put(JSONObject().put("ep",2).put("title","ตอนสอง")))
         val snapshot=story.toString()
+        val storyFile=java.io.File(ctx.filesDir,"studio/"+id+"/story.json")
+        storyFile.parentFile!!.mkdirs()
+        storyFile.writeText(snapshot)
+        val originalBytes=storyFile.readBytes()
         var activity:StudioActivity?=null
         var dialog:AlertDialog?=null
         fun launch(project:String) {
@@ -67,6 +71,13 @@ class SocialSeoUiTest {
             set("ตอนสองแยกข้อมูล")
             click("ก่อนหน้า"); expect("ข้อความทดสอบ INSTAGRAM CAPTION")
             click("Facebook"); expect("ข้อความทดสอบ FACEBOOK POST")
+            set("ทดสอบ")
+            main { assertTrue(views(dialog!!.window!!.decorView).filterIsInstance<android.widget.TextView>().any { it.text.toString()=="6 / 350 ตัวอักษร" }) }
+            set("ข้อความทดสอบ FACEBOOK POST")
+            click("ถัดไป"); main { assertTrue(button("Facebook").isSelected) }
+            click("ก่อนหน้า"); expect("ข้อความทดสอบ FACEBOOK POST")
+            click("ย้อนกลับ"); main { assertFalse(dialog!!.isShowing) }; dialog=null
+            open(); expect("ข้อความทดสอบ FACEBOOK POST")
             close(); finish()
             launch(id); open(); expect("ข้อความทดสอบ FACEBOOK POST")
             close(); finish()
@@ -77,6 +88,7 @@ class SocialSeoUiTest {
             main { assertFalse(button("ก่อนหน้า").isEnabled); assertFalse(button("ถัดไป").isEnabled) }
             close()
             assertEquals(snapshot,story.toString())
+            assertArrayEquals(originalBytes,storyFile.readBytes())
         } finally {
             if(dialog!=null) close()
             if(activity!=null) finish()
