@@ -12,7 +12,8 @@ internal class StoryRequestRetry(
     private val wallNow: () -> Long = { System.currentTimeMillis() },
     private val maxRetries: Int = MAX_RETRIES,
     private val baseDelaySeconds: Long = 65L,
-    private val maxElapsedMillis: Long = 240_000L
+    private val maxElapsedMillis: Long = 240_000L,
+    private val transportDelaySeconds: Long = if(baseDelaySeconds==65L) 2L else baseDelaySeconds
 ) {
     fun <T> execute(cancelled: () -> Boolean, onWait: (String) -> Unit, request: () -> T): T {
         val started=now()
@@ -28,7 +29,7 @@ internal class StoryRequestRetry(
                 if(retries>=limit) throw IllegalStateException("ลองทำต่ออัตโนมัติครบ $limit ครั้งแล้ว • บันทึกช่วงที่เสร็จไว้ ตรวจอินเทอร์เน็ต / โควตาแล้วกดทำต่อ")
                 // Malformed JSON is not a quota throttle: retry briefly, not after minutes.
                 val throttled=e is StoryHttpFailure && e.status==429
-                val fallback=if(invalidJson || !throttled) 2L shl retries else baseDelaySeconds shl retries
+                val fallback=if(invalidJson) 2L shl retries else (if(throttled) baseDelaySeconds else transportDelaySeconds) shl retries
                 val suggested=(e as? StoryHttpFailure)?.retryAfter?.let { retrySeconds(it,wallNow()) }
                 val seconds=maxOf(fallback,suggested ?: 0L)
                 if(seconds>MAX_WAIT_SECONDS) throw IllegalStateException("บริการขอให้รอนานกว่า 15 นาที • บันทึกช่วงที่เสร็จไว้ รอโควตาคืนแล้วกดทำต่อ")
