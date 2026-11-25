@@ -3595,11 +3595,11 @@ $context"""
             Triple("⚙ ตั้งค่า API",Color.rgb(0,133,132) to Color.rgb(4,66,80),{ flowApiSettings() }),
             Triple("🔵 ตรวจสอบบท / สร้างคำสั่งใหม่",Color.rgb(181,102,0) to Color.rgb(104,47,0),{ if(ai) productionCheckMenu(story) else moreTools() }),
             Triple("✖ ยกเลิก",Color.rgb(8,71,123) to Color.rgb(6,35,70),{ pendingMenuBack=null })
-        ) })
+        ) }, failures = { ai -> if (ai && flowBatchProject == project.name) flowFailures else 0 })
 
     }
 
-    private fun promptDashboard(story: JSONObject, title: String, modeKey: String, defaultAi: Boolean, back: () -> Unit, counts: (Boolean) -> Triple<Int,Int,Boolean>, actions: (Boolean) -> List<Triple<String,Pair<Int,Int>,()->Unit>>, details: String = "") {
+    private fun promptDashboard(story: JSONObject, title: String, modeKey: String, defaultAi: Boolean, back: () -> Unit, counts: (Boolean) -> Triple<Int,Int,Boolean>, actions: (Boolean) -> List<Triple<String,Pair<Int,Int>,()->Unit>>, details: String = "", failures: (Boolean) -> Int = { 0 }) {
         var useAi=prefs.getBoolean(modeKey,defaultAi)
         val category=DisplayText.category(story.optString("category")).ifBlank { "ยังไม่ระบุหมวด" }
         val panel=LinearLayout(this).apply {
@@ -3636,8 +3636,9 @@ $context"""
         if(details.isNotBlank()) line(details,13f,ice)
         fun refreshStatus() {
             val (count,total,running)=counts(useAi)
-            val label=when { running -> "กำลังประมวลผล"; count==0 -> "ยังไม่ได้ประมวลผล"; count==total -> "พร้อมใช้งานทั้งหมด"; else -> "พร้อมใช้งานบางส่วน" }
-            val color=when { running -> cyan; count==0 -> Color.LTGRAY; count==total -> Color.rgb(143,231,180); else -> Color.rgb(255,180,75) }
+            val failed = failures(useAi)
+            val label=when { running -> "กำลังประมวลผล"; failed > 0 && count < total -> "ประมวลผลไม่สำเร็จ ($failed รายการ)"; count==0 -> "ยังไม่ได้ประมวลผล"; count==total -> "พร้อมใช้งานทั้งหมด"; else -> "พร้อมใช้งานบางส่วน" }
+            val color=when { running -> cyan; failed > 0 && count < total -> Color.rgb(255,112,112); count==0 -> Color.LTGRAY; count==total -> Color.rgb(143,231,180); else -> Color.rgb(255,180,75) }
             status.setTextColor(color)
             status.text="สถานะคำสั่ง ("+(if(useAi) "AI + Kotlin" else "Kotlin")+")\n"+label+" $count/$total รายการ"
             progress.max=total.coerceAtLeast(1); progress.progress=count
@@ -3726,7 +3727,8 @@ $context"""
                 }
             }),
             Triple("✖ ยกเลิก",Color.rgb(8,71,123) to Color.rgb(6,35,70),{ pendingMenuBack=null })
-        ) },entryResult.exceptionOrNull()?.let { "ตรวจคำสั่งภาพไม่ได้: "+(it.message ?: "ข้อมูลไม่ครบ") } ?: "ภาพฉาก $scenes • ภาพปกรวม ${entries.count { it.second.id.startsWith("STORY_COVER_") }} • ภาพปกประจำตอน ${entries.count { it.second.id.startsWith("EP") && it.second.id.contains("_COVER_") }}")
+        ) },entryResult.exceptionOrNull()?.let { "ตรวจคำสั่งภาพไม่ได้: "+(it.message ?: "ข้อมูลไม่ครบ") } ?: "ภาพฉาก $scenes • ภาพปกรวม ${entries.count { it.second.id.startsWith("STORY_COVER_") }} • ภาพปกประจำตอน ${entries.count { it.second.id.startsWith("EP") && it.second.id.contains("_COVER_") }}",
+            failures = { ai -> if (ai && imageBatchProject == project.name) imageFailures else 0 })
     }
 
     private fun suggestStoryWardrobe(story: JSONObject, mode: Int) {
@@ -4222,7 +4224,7 @@ $context"""
                 if (!dialog.isShowing) return
                 if (job.projectId != project.name || isDestroyed || isFinishing) { dialog.dismiss(); return }
                 val finished = job.ended >= 0
-                heading.text = if (!finished) "กำลังทำงาน" else if (job.done == job.total) "สำเร็จ" else "สำเร็จบางส่วน"
+                heading.text = if (!finished) "กำลังทำงาน" else if (job.done == job.total) "พร้อมใช้งานทั้งหมด" else if (job.done == 0) "ประมวลผลไม่สำเร็จ" else "พร้อมใช้งานบางส่วน"
                 bar.progress = job.done
                 info.text = job.summary() + "\n" + job.detail
                 dialog.getButton(AlertDialog.BUTTON_POSITIVE).apply {
