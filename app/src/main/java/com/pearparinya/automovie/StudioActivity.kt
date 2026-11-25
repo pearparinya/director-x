@@ -3581,6 +3581,23 @@ $context"""
         }
         val modeKey="flow_dashboard_mode_${project.name}"
         var useAi=prefs.getBoolean(modeKey,prefs.getBoolean("flow_api_assist_enabled",false))
+        promptDashboard(story,"🎬 คำสั่ง Flow",modeKey,false,{ commandCardsMenu() },{ ai ->
+            Triple(if(ai) allFlowScenes.count { verifiedFlowAi(it) } else (0 until eps.length()).sumOf { i ->
+                val ep=eps.getJSONObject(i)
+                if(verifiedFlowFile(ep.optInt("ep"))) ep.optJSONArray("scenes")?.length() ?: 0 else 0
+            },allFlowScenes.size,ai && flowAiBatchRunning && flowBatchProject==project.name)
+        },{ ai -> listOf(
+            Triple("📄 ดูคำสั่ง Flow สร้างวิดีโอ",Color.rgb(0,133,220) to Color.rgb(5,55,120),{ if(ai) viewAi() else viewKotlin() }),
+            Triple("✨ ประมวลผลคำสั่ง Flow",Color.rgb(171,52,185) to Color.rgb(77,28,130),{ pendingMenuBack=null; if(ai) startFlowAiBatch(allFlowScenes,direct=true) else autoFlowAllEpisodes(story) }),
+            Triple("⚙ ตั้งค่า API",Color.rgb(0,133,132) to Color.rgb(4,66,80),{ flowApiSettings() }),
+            Triple("🔵 ตรวจสอบบท / สร้างคำสั่งใหม่",Color.rgb(181,102,0) to Color.rgb(104,47,0),{ if(ai) productionCheckMenu(story) else moreTools() }),
+            Triple("✖ ยกเลิก",Color.rgb(8,71,123) to Color.rgb(6,35,70),{ pendingMenuBack=null })
+        ) })
+
+    }
+
+    private fun promptDashboard(story: JSONObject, title: String, modeKey: String, defaultAi: Boolean, back: () -> Unit, counts: (Boolean) -> Triple<Int,Int,Boolean>, actions: (Boolean) -> List<Triple<String,Pair<Int,Int>,()->Unit>>, details: String = "") {
+        var useAi=prefs.getBoolean(modeKey,defaultAi)
         val category=DisplayText.category(story.optString("category")).ifBlank { "ยังไม่ระบุหมวด" }
         val panel=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
@@ -3591,7 +3608,7 @@ $context"""
             text=value; textSize=size; setTextColor(color); setPadding(dp(4),dp(4),dp(4),dp(6))
             panel.addView(this)
         }
-        line("🎬 คำสั่ง Flow",24f,gold).setTypeface(null,Typeface.BOLD)
+        line(title,24f,gold).setTypeface(null,Typeface.BOLD)
         line("เรื่อง: "+story.optString("title").ifBlank { "ไม่ระบุชื่อ" }+"\nหมวด: "+category,15f,ice)
         line("⚙ เลือกโหมดการทำงาน",18f,gold).setTypeface(null,Typeface.BOLD)
         val group=android.widget.RadioGroup(this).apply { orientation=LinearLayout.VERTICAL }
@@ -3608,19 +3625,20 @@ $context"""
         panel.addView(group)
         val status=line("",17f,Color.rgb(143,231,180))
         val progress=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply {
-            max=allFlowScenes.size.coerceAtLeast(1)
+            max=1
             progressTintList=ColorStateList.valueOf(Color.rgb(65,220,112))
         }
         panel.addView(progress,LinearLayout.LayoutParams(-1,dp(14)))
+
+        if(details.isNotBlank()) line(details,13f,ice)
         fun refreshStatus() {
-            val total=allFlowScenes.size
-            val count=if(useAi) allFlowScenes.count { verifiedFlowAi(it) } else (0 until eps.length()).sumOf { i ->
-                val ep=eps.getJSONObject(i)
-                if(verifiedFlowFile(ep.optInt("ep"))) ep.optJSONArray("scenes")?.length() ?: 0 else 0
-            }
-            val running=useAi && flowAiBatchRunning && flowBatchProject==project.name
-            status.text="สถานะคำสั่ง ("+(if(useAi) "AI + Kotlin" else "Kotlin")+")\n"+(if(running) "กำลังประมวลผล" else if(count==total && total>0) "พร้อมใช้" else "พร้อมใช้บางส่วน")+" $count/$total ฉาก"
-            progress.progress=count
+            val (count,total,running)=counts(useAi)
+            val label=when { running -> "กำลังประมวลผล"; count==0 -> "ยังไม่ได้ประมวลผล"; count==total -> "พร้อมใช้งานทั้งหมด"; else -> "พร้อมใช้งานบางส่วน" }
+            val color=when { running -> cyan; count==0 -> Color.LTGRAY; count==total -> Color.rgb(143,231,180); else -> Color.rgb(255,180,75) }
+            status.setTextColor(color)
+            status.text="สถานะคำสั่ง ("+(if(useAi) "AI + Kotlin" else "Kotlin")+")\n"+label+" $count/$total รายการ"
+            progress.max=total.coerceAtLeast(1); progress.progress=count
+            progress.progressTintList=ColorStateList.valueOf(color)
         }
         group.check(if(useAi) aiMode.id else kotlinMode.id)
         group.setOnCheckedChangeListener { _, checked ->
@@ -3634,25 +3652,40 @@ $context"""
                 text=label; isAllCaps=false; textSize=17f; setTextColor(ice)
                 backgroundTintList=null; background=backdrop(top,bottom,Color.rgb(100,190,240))
                 setPadding(dp(12),dp(8),dp(12),dp(8))
-                setOnClickListener { dialog.dismiss(); pendingMenuBack={ commandCardsMenu() }; work() }
+                setOnClickListener { dialog.dismiss(); pendingMenuBack=back; work() }
             },LinearLayout.LayoutParams(-1,dp(60)).apply { topMargin=dp(10) })
         }
-        action("📄 ดูคำสั่ง Flow สร้างวิดีโอ",Color.rgb(0,133,220),Color.rgb(5,55,120)) { if(useAi) viewAi() else viewKotlin() }
-        action("✨ ประมวลผลคำสั่ง Flow",Color.rgb(171,52,185),Color.rgb(77,28,130)) {
-            if(useAi) {
-                if(flowAiBatchRunning && flowBatchProject==project.name) flowDisplay?.let { showBatch(it) }
-                else startFlowAiBatch(allFlowScenes,direct=true)
-            } else autoFlowAllEpisodes(story)
-            pendingMenuBack=null
+
+        actions(useAi).forEach { (label,colors,_) ->
+            action(label,colors.first,colors.second) { actions(useAi).first { it.first==label }.third() }
         }
-        action("⚙ ตั้งค่า API",Color.rgb(0,133,132),Color.rgb(4,66,80)) { flowApiSettings() }
-        action("🔵 ตรวจสอบบท / สร้างคำสั่งใหม่",Color.rgb(181,102,0),Color.rgb(104,47,0)) { moreTools() }
-        action("✖ ยกเลิก",Color.rgb(8,71,123),Color.rgb(6,35,70)) { pendingMenuBack=null }
         refreshStatus()
         dialog.show()
         dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
         dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(24),-2)
 
+    }
+
+    private fun imageDashboard(story: JSONObject) {
+        val eps=story.optJSONArray("episodes") ?: return notice("ยังไม่มีตอนในบท")
+        val entries=runCatching { allImagePromptEntries(story) }.getOrElse { return notice("ตรวจคำสั่งภาพไม่ได้: "+it.message) }
+        val modeKey="image_api_assist_${project.name}"
+        val numbers=(0 until eps.length()).map { eps.getJSONObject(it).optInt("ep") }
+        val scenes=(0 until eps.length()).sumOf { eps.getJSONObject(it).optJSONArray("scenes")?.length() ?: 0 }
+        fun view(ai: Boolean) {
+            if(ai && !imageAiUnlocked(story)) return notice("คำสั่ง AI ยังไม่ครบ • กรุณาประมวลผลก่อนเปิดดู")
+            choiceMenu("ดูคำสั่งสร้างภาพ • "+if(ai) "AI + Kotlin" else "Kotlin",numbers.mapIndexed { i,ep -> "EP.$ep • "+eps.getJSONObject(i).optString("title")+"\n"+(eps.getJSONObject(i).optJSONArray("scenes")?.length() ?: 0)+" ฉาก" }) { i -> openImageEpisodeSafely(story,numbers[i]) }
+        }
+        promptDashboard(story,"🎬 สร้างภาพ",modeKey,false,{ imageDashboard(story) },{ ai ->
+            Triple(if(ai) verifiedImagePromptCount(entries) else entries.count { it.second.command.isNotBlank() },entries.size,ai && aiPromptRunning && imageBatchProject==project.name)
+        },{ ai -> listOf(
+            Triple("📄 ดูคำสั่งสร้างภาพ",Color.rgb(0,133,220) to Color.rgb(5,55,120),{ prefs.edit().putBoolean(modeKey,ai).apply(); view(ai) }),
+            Triple("✨ ประมวลผลคำสั่งสร้างภาพ",Color.rgb(171,52,185) to Color.rgb(77,28,130),{ prefs.edit().putBoolean(modeKey,ai).apply(); pendingMenuBack=null; if(ai) refineImagePromptsAll(story) else view(false) }),
+            Triple("🧩 จัดการอุปกรณ์ประกอบฉาก",Color.rgb(114,46,171) to Color.rgb(51,24,96),{ choiceMenu("จัดการอุปกรณ์",listOf("ผูกอุปกรณ์กับตัวละคร","ให้ AI เสนออุปกรณ์รายซีน")) { if(it==0) characterPropMenu(story) else suggestStoryProps(story) } }),
+            Triple("⚙ ตั้งค่า API",Color.rgb(0,133,132) to Color.rgb(4,66,80),{ apiSettingsCenter() }),
+            Triple("🔵 ตรวจสอบบท / สร้างคำสั่งใหม่",Color.rgb(181,102,0) to Color.rgb(104,47,0),{ productionCheckMenu(story) }),
+            Triple("✖ ยกเลิก",Color.rgb(8,71,123) to Color.rgb(6,35,70),{ pendingMenuBack=null })
+        ) },"ภาพฉาก $scenes • ภาพปกและรายการอื่น ${(entries.size-scenes).coerceAtLeast(0)}")
     }
 
     private fun suggestStoryWardrobe(story: JSONObject, mode: Int) {
@@ -5150,70 +5183,7 @@ $context"""
         ))
         menuRow(listOf(
             Triple(R.drawable.menu_cover,"สร้างภาพ" to "ภาพปก • ภาพฉาก",{ current?.let { story ->
-                val eps=story.optJSONArray("episodes")
-                if(eps==null || eps.length()==0) notice("ยังไม่มีตอนในบท")
-                else {
-                    val gate=imagePromptGate(story)
-                    aiPromptTotal=gate.total
-                    aiPromptDone=gate.verified
-                    val ready=gate.unlocked
-                    if(ready && !aiPromptRunning) {
-                        aiPromptKotlin="ปลดล็อกแล้ว • ตรวจข้อมูลที่บันทึกไว้ครบ"
-                    }
-                    val audit=imagePromptAudit(story)
-                    val genStatus=when {
-                        aiPromptRunning -> "🔵 API AI: กำลัง Gen ${gate.verified}/${gate.total}"
-                        audit.total==0 -> "⚪ API AI: ไม่มี Prompt"
-                        audit.verified==0 -> "⚪ API AI: ยังไม่ได้ Gen"
-                        audit.verified<audit.total -> "🟠 API AI: Gen แล้ว ${audit.verified}/${audit.total}"
-                        audit.legacyCount>0 -> "🟢 API AI: Gen แล้ว ${audit.verified}/${audit.total} (ข้อมูลเดิม)"
-                        else -> "🟢 API AI: Gen แล้ว ${audit.verified}/${audit.total}"
-                    }
-                    val category=story.optString("category").trim().replace(Regex("""\s*[（(][^()（）]*[)）]\s*$"""),"").ifBlank { "ยังไม่ระบุหมวดหมู่" }
-                    val compactStatus=gate.error?.let { gate.reason } ?: PromptMenuStatus.image(
-                        gate.verified,gate.total,aiPromptRunning && imageBatchProject==project.name,
-                        if(imageBatchProject==project.name) imageFailures else 0)
-                    choiceMenu("🎬 สร้างภาพ\nเรื่อง: ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\nหมวดหมู่: $category\n$compactStatus",
-                        (0 until eps.length()).map { i -> val ep=eps.getJSONObject(i); "EP.${ep.optInt("ep")} • ${ep.optString("title").ifBlank { "ยังไม่ได้ตั้งชื่อตอน" }}\n${ep.optJSONArray("scenes")?.length() ?: 0} ฉาก" }+
-                            listOf("✨ ปรับคำสั่งสร้างภาพ\n(AI + Kotlin)", "🧩 จัดการอุปกรณ์ประกอบฉาก"), cancel="ปิด",
-                        compactImageMenu=true
-                    ) { i ->
-                        when {
-                            i in 0 until eps.length() -> {
-                                val number=eps.getJSONObject(i).optInt("ep")
-                                val epInfo=eps.getJSONObject(i)
-                                choiceMenu("🎬 เลือกคำสั่งสร้างภาพ · EP.$number\nเรื่อง: ${story.optString("title").ifBlank { "ยังไม่ระบุชื่อเรื่อง" }}\nหมวดหมู่: $category\n${epInfo.optString("title").ifBlank { "ยังไม่ระบุชื่อตอน" }}",
-                                    listOf("⚙️ ใช้คำสั่งสร้างภาพ\n(Kotlin)", "✨ ใช้คำสั่งสร้างภาพ\n(AI + Kotlin)" + if(ready) "" else "\nเตรียมคำสั่งได้ที่ «ปรับคำสั่งสร้างภาพ»"),
-                                    compactImageMenu=true) { mode ->
-                                    if(mode==1 && !imageAiUnlocked(story)) {
-                                        AlertDialog.Builder(this)
-                                            .setTitle("Prompt ยังตรวจไม่ครบ")
-                                            .setMessage("API ยังตรวจผ่านเพียง ${imagePromptGate(story).reason}\\nต้องการเริ่ม API ช่วยตรวจ Prompt ก่อนหรือไม่? ไม่มีการเรียก API จนกว่าจะยืนยัน")
-                                            .setPositiveButton("เริ่ม API") { _,_ -> refineImagePromptsAll(story) }
-                                            .setNegativeButton("ใช้คำสั่ง Kotlin") { _,_ ->
-                                                prefs.edit().putBoolean("image_api_assist_${project.name}",false).apply()
-                                                openImageEpisodeSafely(story,number)
-                                            }.showDirector()
-                                    } else {
-                                        prefs.edit().putBoolean("image_api_assist_${project.name}",mode==1).apply()
-                                        openImageEpisodeSafely(story,number)
-                                    }
-                                }
-                            }
-                            i==eps.length() -> {
-                                if(aiPromptRunning) showImageAnalysisProgress()
-                                else if(ready) AlertDialog.Builder(this)
-                                    .setTitle("สถานะ Gen AI ของ API")
-                                    .setMessage("$genStatus\\n✓ Kotlin: ผ่าน ${gate.verified}/${gate.total}\\n"+
-                                        (if(audit.legacyCount>0) "ข้อมูลเดิม ${audit.legacyCount} รายการไม่ระบุ API/เวลา" else audit.detail.ifBlank { "บันทึกผลแล้ว" })+
-                                        "\\nPrompt ผ่านครบแล้ว • ไม่เรียก API ซ้ำ")
-                                    .setPositiveButton("รับทราบ",null).showDirector()
-                                else refineImagePromptsAll(story)
-                            }
-                            else -> choiceMenu("จัดการอุปกรณ์",listOf("ผูกอุปกรณ์กับตัวละคร","ให้ AI เสนออุปกรณ์รายซีน")) { mode -> if(mode==0) characterPropMenu(story) else suggestStoryProps(story) }
-                        }
-                    }
-                }
+                imageDashboard(story)
             } ?: notice("เปิดเรื่องที่มีบทก่อน") }),
             Triple(R.drawable.menu_scene,"คำสั่ง Flow" to "สร้างคำสั่งวิดีโอ",{ commandCardsMenu() })
         ))
