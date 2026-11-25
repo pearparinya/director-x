@@ -275,9 +275,9 @@ class FlowProductionPackTest {
         try {
             ActivityScenario.launch(StudioActivity::class.java).use {
                 tap("สร้างภาพ")
-                tap("AI + Kotlin")
+                tap("เลือกโหมด AI + Kotlin")
                 assertTrue(prefs.getBoolean("image_api_assist_$id",false))
-                tap("Kotlin\nสร้างคำสั่งรวดเร็ว")
+                tap("เลือกโหมด Kotlin")
                 assertFalse(prefs.getBoolean("image_api_assist_$id",true))
                 tap("ดูคำสั่งสร้างภาพ")
                 awaitControl("EP.12 • ตอน 12", false)
@@ -295,7 +295,7 @@ class FlowProductionPackTest {
                 tap("ย้อนกลับ")
                 tap("ยกเลิก")
                 tap("คำสั่ง Flow")
-                tap("AI + Kotlin")
+                tap("เลือกโหมด AI + Kotlin")
                 assertTrue(prefs.getBoolean("flow_dashboard_mode_$id",false))
                 tap("📄 ดูคำสั่ง Flow สร้างวิดีโอ")
                 tap("EP.1")
