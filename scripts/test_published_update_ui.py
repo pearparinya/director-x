@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import json
+import os
 import re
 import subprocess
 import time
@@ -33,7 +34,11 @@ def click(label, seconds=90):
 
 
 def release(path):
-    with urllib.request.urlopen(API + path) as response:
+    request = urllib.request.Request(API + path)
+    token = os.environ.get("GH_TOKEN")
+    if token:
+        request.add_header("Authorization", "Bearer " + token)
+    with urllib.request.urlopen(request, timeout=30) as response:
         return json.load(response)
 
 
