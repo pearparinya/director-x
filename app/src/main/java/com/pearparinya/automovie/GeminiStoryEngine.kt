@@ -284,7 +284,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                     }
                     smallerBatches=true
                     GeminiStoryFiles.write(recoveryFile,JSONObject().put("single_scene",true))
-                    progress(lastPercent,"คำขอใหญ่เกินกำหนด • ลดเหลือครั้งละ 1 ซีนและทำต่อ")
+                    progress(lastPercent,"${e.message} • ทำต่อทีละ 1 ซีน")
                     continue
                 }
                 val rows=batch.getJSONArray("scenes"); for(n in 0 until rows.length()) {
