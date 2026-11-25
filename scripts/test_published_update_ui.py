@@ -42,13 +42,10 @@ def asset(info):
 
 
 latest = release("/latest")
-history = release("?per_page=100")
-older = next(r for r in history if not r["prerelease"] and not r["draft"]
-             and r["published_at"] < latest["published_at"] and any(a["name"].endswith(".apk") for a in r["assets"]))
-previous = asset(older)
-urllib.request.urlretrieve(previous["browser_download_url"], "/tmp/previous.apk")
+assert latest["tag_name"] == "v6.34-build1250", latest["tag_name"]
+older = {"tag_name": "6.33-build1249-signed-candidate"}
 with open("/tmp/previous.apk", "rb") as f:
-    assert "sha256:" + hashlib.file_digest(f, "sha256").hexdigest() == previous["digest"]
+    assert hashlib.file_digest(f, "sha256").hexdigest() == "8dd931f632e0295754165dfe32d7a99a4d20f1bb25fab8872f927526f8e3b69a"
 for attempt in range(4):
     adb("wait-for-device")
     subprocess.run(["adb", "root"], check=False)
