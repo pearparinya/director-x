@@ -5,7 +5,7 @@ import org.json.JSONObject
 /** Copies the current saved metadata; never manufactures episode titles or plot details. */
 internal object SocialPostText {
     private fun value(obj: JSONObject?, key: String): String = obj?.optString(key, "")?.trim()?.takeUnless { it.equals("null",true) }.orEmpty()
-    private fun tag(value: String): String = value.replace(Regex("[^\\p{L}\\p{M}\\p{N}_]"), "").take(100)
+    private fun tag(value: String): String = fit(value,100).replace(Regex("[^\\p{L}\\p{M}\\p{N}_]"), "").trimStart { Character.getType(it) in listOf(6,7,8) }
     fun build(story: JSONObject, episodeIndex: Int): String {
         val episode=story.optJSONArray("episodes")?.optJSONObject(episodeIndex)
         val channel=ChannelCatalog.currentChannel(value(story,"channel"))
@@ -40,7 +40,10 @@ internal object SocialPostText {
         if (limit <= 0) return ""
         val iterator = java.text.BreakIterator.getWordInstance(java.util.Locale("th"))
         iterator.setText(s)
-        val end = iterator.preceding(limit + 1)
+        val graphemes = java.text.BreakIterator.getCharacterInstance(java.util.Locale("th"))
+        graphemes.setText(s)
+        var end = iterator.preceding(limit + 1)
+        while(end > 0 && !graphemes.isBoundary(end)) end = iterator.preceding(end)
         return if (end > 0) s.substring(0,end).trim() else ""
     }
     fun platform(story: JSONObject, index: Int, field: Field): String {
@@ -61,7 +64,13 @@ internal object SocialPostText {
         val keywords = (listOf(channel,title,category,epTitle) + style).map(::clean).filter { it.isNotBlank() }.distinct()
         val tags = (keywords.map(::tag) + hashtag.findAll(raw).map { it.value.removePrefix("#") }.filter { candidate -> keywords.any { tag(it).contains(candidate,ignoreCase=true) } }.toList())
             .filter { it.isNotBlank() }.distinctBy { it.lowercase(java.util.Locale.ROOT) }
-        if(field == Field.TAGS) return keywords.filter { it.length <= 100 }.take(10).joinToString(", ").let { fit(it,field.limit) }
+        if(field == Field.TAGS) {
+            val selected = mutableListOf<String>()
+            for(keyword in keywords.filter { it.length <= 100 }.take(10)) {
+                if((selected + keyword).joinToString(", ").length <= field.limit) selected.add(keyword)
+            }
+            return selected.joinToString(", ")
+        }
         if(field == Field.TITLE) return listOf(heading,hook).filter { it.isNotBlank() }.distinct().let {
             if(it.joinToString(" | ").length <= field.limit) it.joinToString(" | ") else heading
         }
