@@ -5,6 +5,17 @@ import org.junit.Test
 import java.util.concurrent.CancellationException
 
 class StoryProviderRouterTest {
+    @Test fun overlappingRequestIsRejectedAndRouterRemainsReusable() {
+        val router=StoryProviderRouter({false},{_,_->},{0L})
+        var duplicateCalls=0
+        assertEquals("original",router.generate(StoryProvider.GROQ) {
+            val duplicate=runCatching { router.generate(StoryProvider.GROQ) { duplicateCalls++; "duplicate" } }
+            assertTrue(duplicate.exceptionOrNull() is IllegalStateException)
+            "original"
+        })
+        assertEquals(0,duplicateCalls)
+        assertEquals("next",router.generate(StoryProvider.GROQ) { "next" })
+    }
     @Test fun outlineAndSceneRolesAreDifferent() {
         assertEquals(StoryProvider.GEMINI,StoryProviderRouter.preferred(false))
         assertEquals(StoryProvider.GROQ,StoryProviderRouter.preferred(true))
