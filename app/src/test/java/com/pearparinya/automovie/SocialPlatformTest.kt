@@ -85,4 +85,29 @@ class SocialPlatformTest {
         assertTrue(b.contains("ข้อมูลแรก"))
         assertTrue(b.length <= 350)
     }
+    @Test fun categoryToneAndNoMutation() {
+        for(category in ChannelCatalog.allCategories) {
+            val s=story().put("main_category",category.id)
+            val before=s.toString()
+            for(field in SocialPostText.Field.values()) {
+                val result=SocialPostText.platform(s,0,field)
+                assertTrue(category.id,result.isNotBlank() && result.length<=field.limit)
+                assertFalse(result.contains("ข้อมูลสอง"))
+            }
+            assertEquals(before,s.toString())
+        }
+    }
+    @Test fun titleRejectsSpoilerTagline() {
+        val s=story()
+        s.getJSONArray("episodes").getJSONObject(0).put("tagline","เฉลยว่าเป็นคนร้าย")
+        assertFalse(SocialPostText.platform(s,0,SocialPostText.Field.TITLE).contains("คนร้าย"))
+    }
+    @Test fun variantsReorderActualMetadata() {
+        val s=story()
+        s.getJSONArray("episodes").getJSONObject(0).put("synopsis","เดินทางไปชุมชน").put("tagline","ค้นหาข้อมูล")
+        val a=SocialPostText.platform(s,0,SocialPostText.Field.FACEBOOK,0)
+        val b=SocialPostText.platform(s,0,SocialPostText.Field.FACEBOOK,1)
+        assertTrue(a.indexOf("ข้อมูลแรก") < a.indexOf("ค้นหาข้อมูล"))
+        assertTrue(b.indexOf("ค้นหาข้อมูล") < b.indexOf("ข้อมูลแรก"))
+    }
 }
