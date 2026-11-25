@@ -53,7 +53,23 @@ class SocialPlatformTest {
         for(field in SocialPostText.Field.values()) {
             val result=SocialPostText.platform(s,0,field)
             assertTrue(result.length<=field.limit)
-            assertFalse(result.endsWith("\u0e49"))
+            assertFalse(field.name, result.split(Regex("[\\s,]+")).any { token -> token.removePrefix("#").firstOrNull()?.let { Character.getType(it) in listOf(6,7,8) } == true })
+        }
+    }
+    @Test fun thaiToneMarkAtWordEndIsValid() {
+        val s=JSONObject().put("title","เรื่องใกล้ตัว").put("channel","ข่าววันนี้")
+        val result=SocialPostText.platform(s,-1,SocialPostText.Field.FACEBOOK)
+        assertTrue(result.contains("#ข่าววันนี้"))
+    }
+    @Test fun longHashtagRetainsCompleteWords() {
+        val word="เรื่องราวภาษาไทย"
+        val s=JSONObject().put("title",("$word ").repeat(100))
+        val result=SocialPostText.platform(s,-1,SocialPostText.Field.DESCRIPTION)
+        val tags=Regex("#[^\\s]+").findAll(result).map { it.value.removePrefix("#") }.toList()
+        assertTrue(tags.isNotEmpty())
+        for(tag in tags) {
+            assertTrue(tag.length<=100)
+            assertEquals(word.repeat(tag.length/word.length),tag)
         }
     }
 }
