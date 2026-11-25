@@ -260,7 +260,11 @@ class FlowProductionPackTest {
         for (index in 0 until story.getJSONArray("episodes").length()) {
             val episode=story.getJSONArray("episodes").getJSONObject(index)
             val scenes=episode.getJSONArray("scenes")
-            for (n in 0 until scenes.length()) scenes.getJSONObject(n).put("ep",episode.getInt("ep"))
+            for (n in 0 until scenes.length()) {
+                scenes.getJSONObject(n)
+                    .put("ep", episode.getInt("ep"))
+                    .put("story_day", "DAY01")
+            }
         }
         assertTrue(SimpleProductionCommands.imageTasks(story,12).isNotEmpty())
         File(folder,"story.json").writeText(story.toString())
