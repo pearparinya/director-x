@@ -23,6 +23,7 @@ internal class GroqClient(private val apiKey: String,private val model: String,p
         val body=request(model,prompt,schema)
         val conn=URL(ENDPOINT).openConnection() as HttpURLConnection
         connection=conn
+        val deadline=StoryConnectionDeadline(conn,connectTimeoutMillis+readTimeoutMillis)
         try {
             conn.requestMethod="POST"; conn.connectTimeout=connectTimeoutMillis; conn.readTimeout=readTimeoutMillis; conn.instanceFollowRedirects=false
             conn.setRequestProperty("Authorization","Bearer $apiKey")
@@ -49,8 +50,10 @@ internal class GroqClient(private val apiKey: String,private val model: String,p
                 require(output.size()+n<=2_000_000) { "คำตอบ Groq ใหญ่เกินกำหนด" }; output.write(buffer,0,n)
             } }
             if(cancelled()) throw CancellationException()
+            deadline.check()
+            if(cancelled()) throw CancellationException()
             return parseResponse(JSONObject(output.toString("UTF-8")))
-        } finally { conn.disconnect(); connection=null }
+        } catch(e: Exception) { deadline.check(); throw e } finally { deadline.close(); conn.disconnect(); connection=null }
     }
     companion object {
         const val ENDPOINT="https://api.groq.com/openai/v1/chat/completions"
