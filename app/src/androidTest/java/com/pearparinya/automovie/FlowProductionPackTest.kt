@@ -289,6 +289,8 @@ class FlowProductionPackTest {
                 }
                 tap("ปิด")
                 tap("คำสั่ง Flow")
+                tap("AI + Kotlin")
+                assertTrue(prefs.getBoolean("flow_dashboard_mode_$id",false))
                 tap("📄 ดูคำสั่ง Flow สร้างวิดีโอ")
                 tap("EP.1")
                 tap("วิเคราะห์ฉากนี้")
