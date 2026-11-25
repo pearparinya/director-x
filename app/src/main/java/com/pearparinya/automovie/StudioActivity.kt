@@ -6176,7 +6176,7 @@ $context"""
         val state=runCatching {
             val batch=GeminiStoryFiles.read(file)
             val spec=GeminiStoryFiles.read(specFile)
-            Triple(batch.toString(),spec,PendingNameReview.collect(batch,spec,CharacterAliasRegistry.read(job)))
+            Triple(batch.toString(),spec,PendingNameReview.collectPending(job,spec,CharacterAliasRegistry.read(job)))
         }.getOrElse { notice("อ่านรายการที่ค้างไม่ได้ กรุณาตรวจงานเดิม"); return }
         val (snapshot,spec,issues)=state
         if(issues.isEmpty()) {
@@ -6187,13 +6187,12 @@ $context"""
             }.onFailure { notice("เริ่มงานต่อไม่ได้: "+(it.message ?: "กรุณาลองใหม่")) }
             return
         }
-        choiceMenu("EP $ep • ชื่อที่ต้องตรวจในชุดนี้ (${issues.size})",issues.map { "ซีน ${it.scene} • ${it.alias}" }) { index ->
-            val issue=issues[index]
-            val definitions=FlowCast.definitions(spec)
-            val people=issue.people.filter { person ->
-                person.optString("name").isNotBlank() && person.optString("master").isNotBlank() &&
-                    definitions.count { it.optString("name")==person.optString("name") && it.optString("master").equals(person.optString("master"),true) }==1
-            }
+        val definitions=FlowCast.definitions(spec)
+        val groups=PendingNameReview.groups(issues,definitions)
+        choiceMenu("EP $ep • ชื่อที่ต้องตรวจ (${groups.size})",groups.map { "${it.alias} • ${it.locations.joinToString(", ")}" }) { index ->
+            val group=groups[index]
+            val issue=group.items.first()
+            val people=group.people
             if(people.isEmpty() || people.map { it.optString("name") }.distinct().size!=people.size) {
                 notice("รายชื่อตัวละครในซีนไม่ครบหรือซ้ำ กรุณาตรวจบทก่อน"); return@choiceMenu
             }
@@ -6206,7 +6205,7 @@ $context"""
                 setPadding(dp(16),dp(8),dp(16),dp(8))
             }
             panel.addView(TextView(this).apply {
-                text="ชื่อในบท: ${issue.alias}\n$recommended"
+                text="ชื่อในบท: ${issue.alias}\nซีนที่ได้รับผลกระทบ: ${group.locations.joinToString(", ")}\n$recommended"
                 textSize=15f; setTextColor(gold); setPadding(0,0,0,dp(8))
             })
             panel.addView(TextView(this).apply {
@@ -6241,6 +6240,7 @@ $context"""
                                     val freshSpec=GeminiStoryFiles.read(specFile)
                                     val fresh=FlowCast.definitions(freshSpec)
                                     require(fresh.count { it.optString("name")==chosen && it.optString("master").equals(master,true) }==1) { "ตัวละครหรือ MASTER ไม่ตรงทะเบียนเรื่อง" }
+                                    require(PendingNameReview.groups(PendingNameReview.collectPending(job,freshSpec,CharacterAliasRegistry.read(job)),fresh).singleOrNull { it.alias.equals(issue.alias,true) }?.people?.any { it.optString("name")==chosen && it.optString("master").equals(master,true) }==true) { "ตัวละครไม่ตรงกับทุกซีนที่เกี่ยวข้อง" }
                                     require(fresh.none { it.optString("name")!=chosen && it.optString("english_name").equals(issue.alias,true) }) { "ชื่อนี้เป็นชื่อของตัวละครอื่นในทะเบียน" }
                                     val registry=CharacterAliasRegistry.read(job)
                                     CharacterAliasRegistry.add(registry,issue.alias,chosen,master)

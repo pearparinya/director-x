@@ -16,6 +16,8 @@ internal object CharacterAliasRegistry {
 
     private val acceptedAlias = Regex("[A-Za-z][A-Za-z0-9_-]{0,80}")
     private fun key(alias: String)=alias.trim().lowercase(Locale.ROOT)
+    fun identityId(name: String, master: String): String =
+        java.util.UUID.nameUUIDFromBytes((name+"\n"+master.lowercase(Locale.ROOT)).toByteArray(Charsets.UTF_8)).toString()
     fun add(registry: JSONObject, alias: String, name: String, master: String) {
         require(validAlias(alias))
         require(name.isNotBlank() && master.isNotBlank())
@@ -24,10 +26,12 @@ internal object CharacterAliasRegistry {
             val item=entries.getJSONObject(i)
             if(key(item.getString("alias"))==key(alias)) {
                 require(item.getString("name")==name && item.getString("master").equals(master,true)) { "ชื่อนี้เคยจับคู่กับตัวละครอื่นแล้ว" }
+                require(!item.has("character_id") || item.optString("character_id")==identityId(name,master)) { "รหัสตัวละครไม่ตรงกับ MASTER" }
+                item.put("character_id",identityId(name,master))
                 return
             }
         }
-        entries.put(JSONObject().put("alias",alias).put("name",name).put("master",master))
+        entries.put(JSONObject().put("alias",alias).put("name",name).put("master",master).put("character_id",identityId(name,master)))
     }
     fun read(folder: File): JSONObject = File(folder,"character_aliases.json").let {
         if(it.isFile) GeminiStoryFiles.read(it) else JSONObject().put("entries",JSONArray())
@@ -54,7 +58,8 @@ internal object CharacterAliasRegistry {
             val entry=entries.getJSONObject(i)
             val alias=entry.optString("alias").trim()
             if(validAlias(alias))
-                all.add(Triple(alias,entry.optString("name"),entry.optString("master")))
+                if(!entry.has("character_id") || entry.optString("character_id")==identityId(entry.optString("name"),entry.optString("master")))
+                    all.add(Triple(alias,entry.optString("name"),entry.optString("master")))
         }
         val grouped=all.groupBy { key(it.first) }
         val original=scene.optString("flow_action")
@@ -97,6 +102,7 @@ internal object CharacterAliasRegistry {
             val item=entries.getJSONObject(i)
             val alias=item.optString("alias")
             if(!validAlias(alias)) continue
+            if(item.has("character_id") && item.optString("character_id")!=identityId(item.optString("name"),item.optString("master"))) continue
             val matching=(0 until people.length()).map { people.getJSONObject(it) }.filter {
                 it.optString("name")==item.optString("name") &&
                     it.optString("master").equals(item.optString("master"),true)
