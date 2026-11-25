@@ -5,7 +5,13 @@ import org.json.JSONObject
 /** Copies the current saved metadata; never manufactures episode titles or plot details. */
 internal object SocialPostText {
     private fun value(obj: JSONObject?, key: String): String = obj?.optString(key, "")?.trim()?.takeUnless { it.equals("null",true) }.orEmpty()
-    private fun tag(value: String): String = fit(value,100).replace(Regex("[^\\p{L}\\p{M}\\p{N}_]"), "").trimStart { Character.getType(it) in listOf(6,7,8) }
+    private fun tag(value: String): String = fitTag(value,100).replace(Regex("[^\\p{L}\\p{M}\\p{N}_]"), "").trimStart { Character.getType(it) in listOf(6,7,8) }
+    private fun fitTag(value: String, limit: Int): String {
+        if(value.length <= limit) return value
+        val prefix=fit(value,limit)
+        val space=prefix.lastIndexOf(' ')
+        return if(space>0 && value.getOrNull(prefix.length)?.isWhitespace()!=true) prefix.substring(0,space) else prefix
+    }
     fun build(story: JSONObject, episodeIndex: Int): String {
         val episode=story.optJSONArray("episodes")?.optJSONObject(episodeIndex)
         val channel=ChannelCatalog.currentChannel(value(story,"channel"))
@@ -79,9 +85,11 @@ internal object SocialPostText {
             Field.TIKTOK, Field.INSTAGRAM -> listOf(heading,hook.ifBlank { desc })
             else -> listOf(heading,hook,desc)
         }.filter { it.isNotBlank() }.distinct()
+        val reservedTag = tags.firstOrNull { it.length+3 < field.limit }
+        val bodyLimit = field.limit - (reservedTag?.let { it.length+3 } ?: 0)
         var result = ""
         for(line in lines) {
-            val remaining = field.limit-result.length-(if(result.isEmpty()) 0 else 2)
+            val remaining = bodyLimit-result.length-(if(result.isEmpty()) 0 else 2)
             if(remaining <= 0) break
             val part = fit(line,remaining)
             if(part.isNotBlank()) result = listOf(result,part).filter { it.isNotBlank() }.joinToString("\n\n")
