@@ -4456,12 +4456,12 @@ $context"""
             val warning=if(wardrobeNotice.isEmpty()) "" else "ตรวจชุดก่อนสร้างภาพ (ยังไม่เปลี่ยนข้อมูลบท):\n"+wardrobeNotice.joinToString("\n")+"\n\n"
             val code=warning+(sceneSummary?.plus("\n\n") ?: "")+SimpleProductionCommands.block(preview,index,images)+"\n\nล่าสุดที่เปิด: ${task.id} | ถัดไป: $next\nสถานะนี้บันทึกการเปิดคำสั่ง ไม่ได้ยืนยันว่าภาพหรือคลิปสร้างสำเร็จแล้ว"
             val problems=ProductionCommandCheck.issues(story)
-            val dialog=if(images) imageCommandViewer(story, number, preview, index, tasks.size) { step ->
+            val dialog=if(images) imageCommandViewer(story, number, preview, index, tasks.size, doneKey, tasks.map { it.id }) { step ->
                 activeProductionDialog?.dismiss()
                 openItem(index + step, backToDeck)
             } else showFlowCode("${task.id} • ถัดไป $next",code,"${task.id}_${if(images) "IMAGE" else "FLOW"}.txt")
             if(images) activeProductionDialog=dialog
-            dialog.getButton(-2).text=if(images) "กลับรายการรูป/ซีน" else "กลับรายการซีน"
+            dialog.getButton(-2).text=if(images) "กลับหน้าเลือกชุดภาพ" else "กลับรายการซีน"
             fun returnToDeck() {
                 if(images) activeProductionDialog=null
                 if(backToDeck != null) backToDeck.invoke()
@@ -4579,6 +4579,14 @@ $context"""
                     }
                 }
             }
+        }
+        if(images) {
+            val backToGroups = takeMenuBack()
+            openItem(if(start < 0) 0 else start) {
+                if(backToGroups != null) backToGroups.invoke()
+                else productionTaskDeck(story,number,true)
+            }
+            return
         }
         choiceMenu(
             "EP.$number • เลือก${if(images) "รูป" else "คำสั่ง Flow"} ในชุด" +
@@ -4829,7 +4837,7 @@ $context"""
     }
 
     private fun imageCommandViewer(story: JSONObject, ep: Int, task: SimpleProductionCommands.Task,
-        index: Int, count: Int, navigate: (Int) -> Unit): AlertDialog {
+        index: Int, count: Int, doneKey: String, taskIds: List<String>, navigate: (Int) -> Unit): AlertDialog {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(12), dp(12), dp(6))
@@ -4845,7 +4853,7 @@ $context"""
         }
         panel.addView(heading)
         panel.addView(TextView(this).apply {
-            text = "${story.optString("title")}\nEP.$ep • ${task.title}\nรายการ ${index+1}/$count • MASTER $files/${task.references.size}"
+            text = "${story.optString("title")}\n${if(task.title.startsWith("EP.")) task.title else "EP.$ep • ${task.title}"}\nลำดับภาพ ${index+1}/$count • MASTER $files/${task.references.size}"
             setTextColor(ice)
         })
         val scroll = ScrollView(this).apply {
@@ -4878,6 +4886,26 @@ $context"""
             background = backdrop(Color.rgb(255,210,93),Color.rgb(224,157,45))
         }
         panel.addView(send)
+        val completion = TextView(this).apply { setTextColor(ice) }
+        val progress = ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply { max=count }
+        val mark = Button(this)
+        fun refreshCompletion() {
+            val done=prefs.getStringSet(doneKey,emptySet()).orEmpty()
+            val completed=taskIds.count { it in done }
+            completion.text="สร้างภาพเสร็จแล้ว $completed/$count (${100.0*completed/count}%)"
+            progress.progress=completed
+            mark.text=if(task.id in done) "สร้างภาพเสร็จแล้ว • แตะเพื่อยกเลิก" else "บันทึกว่าสร้างเสร็จแล้ว"
+        }
+        panel.addView(completion)
+        panel.addView(progress)
+        panel.addView(mark)
+        mark.setOnClickListener {
+            val done=prefs.getStringSet(doneKey,emptySet()).orEmpty().toMutableSet()
+            if(!done.add(task.id)) done.remove(task.id)
+            if(!prefs.edit().putStringSet(doneKey,done).commit()) notice("บันทึกสถานะไม่สำเร็จ กรุณาลองใหม่")
+            refreshCompletion()
+        }
+        refreshCompletion()
         panel.addView(Button(this).apply {
             text = "คัดลอกคำสั่งภาพ"
             setOnClickListener { copyCommand(task.command) }
