@@ -27,6 +27,26 @@ class PendingNameReviewTest {
         assertEquals(listOf("Pinmanee"),PendingNameReview.collect(batch,spec,registry).map { it.alias })
         assertEquals(original,batch.toString())
     }
+    @Test fun repeatedNathiRequiresSameMasterAcrossScenes() {
+        val actor=person("นที","SUPPORT_00000001_MASTER.png").put("auto_cast",true)
+        val other=person("คนอื่น","SUPPORT_00000002_MASTER.png").put("auto_cast",true)
+        val spec=JSONObject().put("supporting_characters",JSONArray().put(actor).put(other))
+        val batch=JSONObject().put("scenes",JSONArray()
+            .put(scene(3,"นที","SUPPORT_00000001_MASTER.png","Nathi walks"))
+            .put(scene(4,"นที","SUPPORT_00000001_MASTER.png","Nathi waits")))
+        val original=batch.toString()
+        val registry=JSONObject()
+        val defs=FlowCast.definitions(spec)
+        val groups=PendingNameReview.groups(PendingNameReview.collect(batch,spec,registry),defs)
+        assertEquals(1,groups.size)
+        assertEquals(listOf(3,4),groups.single().scenes)
+        assertEquals("นที",groups.single().people.single().getString("name"))
+        CharacterAliasRegistry.add(registry,"Nathi","นที","SUPPORT_00000001_MASTER.png")
+        assertTrue(PendingNameReview.collect(batch,spec,registry).isEmpty())
+        assertEquals(original,batch.toString())
+        batch.getJSONArray("scenes").put(1,scene(4,"คนอื่น","SUPPORT_00000002_MASTER.png","Nathi waits"))
+        assertTrue(PendingNameReview.groups(PendingNameReview.collect(batch,spec,JSONObject()),defs).single().people.isEmpty())
+    }
     @Test fun registeredAliasRequiresUniqueCastAndMatchingMaster() {
         val registry=JSONObject()
         val actor=person("ปิ่นมณี","SUPPORT_00000002_MASTER.png").put("english_name","Pinmanee")
