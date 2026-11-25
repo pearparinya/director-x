@@ -84,6 +84,18 @@ class StoryRequestRetryTest {
         assertTrue(error is CancellationException); assertEquals(1,calls)
         assertTrue(clock<=250L)
     }
+    @Test fun deadlineDisconnectsAndRejectsLateResponse() {
+        val disconnected=java.util.concurrent.CountDownLatch(1)
+        val connection=object: java.net.HttpURLConnection(java.net.URL("http://localhost")) {
+            override fun disconnect() { disconnected.countDown() }
+            override fun usingProxy()=false
+            override fun connect() {}
+        }
+        StoryConnectionDeadline(connection,50).use { deadline ->
+            assertTrue(disconnected.await(5,java.util.concurrent.TimeUnit.SECONDS))
+            assertTrue(runCatching { deadline.check() }.exceptionOrNull() is java.net.SocketTimeoutException)
+        }
+    }
     @Test fun cancelledSuccessfulResponseIsNotReturned() {
         var stopped=false
         val result=runCatching { StoryRequestRetry({0L},{fail("must not wait")}).execute({stopped},{}) {
