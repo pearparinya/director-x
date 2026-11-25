@@ -16,3 +16,8 @@ verify() {
 verify "${PREVIOUS_BUILD:-1245}" seed
 adb install -r "$RUNNER_TEMP/candidate.apk"
 verify "${CANDIDATE_BUILD:-1246}" verify
+
+# Run the actual social editor on the signed candidate after upgrade.
+output="$(adb shell am instrument -w -e class "$package.SocialSeoUiTest" "$runner")"
+echo "$output"
+grep -Fq 'OK (1 test)' <<< "$output"
