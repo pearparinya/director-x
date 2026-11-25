@@ -52,7 +52,7 @@ internal object SocialPostText {
         while(end > 0 && !graphemes.isBoundary(end)) end = iterator.preceding(end)
         return if (end > 0) s.substring(0,end).trim() else ""
     }
-    fun platform(story: JSONObject, index: Int, field: Field): String {
+    fun platform(story: JSONObject, index: Int, field: Field, variant: Int = 0): String {
         val episodes = story.optJSONArray("episodes")
         val ep = if(index < 0) null else episodes?.optJSONObject(index)
         if(index < -1 || (index >= 0 && ep == null && (episodes?.length() ?: 0) > 0)) return ""
@@ -61,13 +61,15 @@ internal object SocialPostText {
         val epTitle = clean(value(ep,"title"))
         val suffix = if(ep != null) " | EP."+ep.optInt("ep",index+1) else ""
         val baseHeading = fit(title, (field.limit-suffix.length).coerceAtLeast(0)) + suffix
-        val episodeHeading = if(epTitle.isNotBlank() && epTitle != title) " ตอน "+epTitle else ""
+        val episodeHeading = if(epTitle.isNotBlank()) " ตอน "+epTitle else ""
         val heading = if((baseHeading+episodeHeading).length <= field.limit) baseHeading+episodeHeading else baseHeading
         val hook = clean(value(ep,"tagline").ifBlank { epTitle }.ifBlank { value(story,"tagline") })
             .takeUnless { it == title || title.contains(it) }.orEmpty()
         val raw = if(ep != null) listOf(value(ep,"social_description"),value(ep,"synopsis"),value(ep,"tagline")).filter { it.isNotBlank() }.distinct().joinToString(" ") else listOf(value(story,"social_caption"),value(story,"synopsis"),value(story,"tagline")).filter { it.isNotBlank() }.distinct().joinToString(" ")
-        val desc = clean(raw).takeUnless { Regex("สุดท้าย|ตอนจบ|เฉลยว่า|จบลงด้วย|แท้จริงแล้ว").containsMatchIn(it) }.orEmpty()
+        val spoiler = Regex("สุดท้าย|ตอนจบ|เฉลยว่า|จบลงด้วย|แท้จริงแล้ว")
+        val desc = (if(ep != null) listOf(value(ep,"social_description"),value(ep,"synopsis")) else listOf(value(story,"social_caption"),value(story,"synopsis"))).map(::clean).filter { it.isNotBlank() && !spoiler.containsMatchIn(it) }.distinct().joinToString(" ")
         val category = value(story,"main_category").ifBlank { value(story,"category").substringBefore("(").trim() }
+        val cta = if(desc.isBlank() && hook.isBlank()) "" else if(variant % 2 == 0) "ติดตามชมเรื่องราวได้ในตอนนี้" else "ร่วมติดตามรายละเอียดและค้นหาคำตอบไปด้วยกัน"
         val style = value(story,"category_style").split("•").map { it.trim() }
         val keywords = (listOf(channel,title,category,epTitle) + style).map(::clean).filter { it.isNotBlank() }.distinct()
         val tags = (keywords.map(::tag) + hashtag.findAll(raw).map { it.value.removePrefix("#") }.filter { candidate -> keywords.any { tag(it).contains(candidate,ignoreCase=true) } }.toList())
@@ -83,11 +85,11 @@ internal object SocialPostText {
             if(it.joinToString(" | ").length <= field.limit) it.joinToString(" | ") else heading
         }
         val lines = when(field) {
-            Field.DESCRIPTION -> listOf(heading,desc.ifBlank { hook })
-            Field.TIKTOK -> listOf(heading,desc.ifBlank { hook })
-            Field.INSTAGRAM -> listOf(heading,hook,desc)
-            else -> listOf(heading,desc,hook)
-        }.filter { it.isNotBlank() }.distinct()
+            Field.DESCRIPTION -> listOf(heading,desc.ifBlank { hook },cta)
+            Field.TIKTOK -> listOf(heading,hook.takeUnless { spoiler.containsMatchIn(it) }.orEmpty(),desc,cta)
+            Field.INSTAGRAM -> listOf(heading,hook,desc,cta)
+            else -> listOf(heading,desc,hook,cta)
+        }.filter { it.isNotBlank() && (it == heading || !spoiler.containsMatchIn(it)) }.distinct()
         val reservedTag = tags.firstOrNull { it.length+3 < field.limit }
         val bodyLimit = field.limit - (reservedTag?.let { it.length+3 } ?: 0)
         var result = ""
