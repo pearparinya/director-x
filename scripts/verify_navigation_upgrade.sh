@@ -7,12 +7,12 @@ previous="$(find "$RUNNER_TEMP/previous" -name '*.apk')"
 adb install "$previous"
 adb install -t "$RUNNER_TEMP/upgrade-test.apk"
 verify() {
-    local build="$1" output
+    local build="$1" phase="$2" output
     adb shell am start -W -n "$package/.StudioActivity" | grep -F 'Status: ok'
-    output="$(adb shell am instrument -w -e class "$package.NavigationUpgradeTest" -e fixture "$fixture" -e build "$build" "$runner")"
+    output="$(adb shell am instrument -w -e class "$package.NavigationUpgradeTest" -e fixture "$fixture" -e build "$build" -e phase "$phase" "$runner")"
     echo "$output"
     grep -Fq 'OK (1 test)' <<< "$output"
 }
-verify 1245
+verify "${PREVIOUS_BUILD:-1245}" seed
 adb install -r "$RUNNER_TEMP/candidate.apk"
-verify 1246
+verify "${CANDIDATE_BUILD:-1246}" verify
