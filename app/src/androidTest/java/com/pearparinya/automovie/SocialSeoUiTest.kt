@@ -47,7 +47,13 @@ class SocialSeoUiTest {
                 dialog=method.invoke(activity,s) as AlertDialog
             }
         }
-        fun button(label:String)=views(dialog!!.window!!.decorView).filterIsInstance<Button>().first { it.text.toString()==label }
+        fun button(label:String):Button {
+            val active=checkNotNull(dialog)
+            val buttons=views(active.window!!.decorView).filterIsInstance<Button>()
+            val found=if(label=="ย้อนกลับ") active.getButton(AlertDialog.BUTTON_NEGATIVE)
+                else buttons.firstOrNull { it.text.toString()==label }
+            return found ?: throw AssertionError("Missing button '$label'; available: "+buttons.joinToString { it.text.toString() })
+        }
         fun edit()=views(dialog!!.window!!.decorView).filterIsInstance<EditText>().single()
         fun click(label:String) { main { assertTrue(button(label).isEnabled); button(label).performClick() } }
         fun set(value:String) { main { edit().setText(value) } }
@@ -81,7 +87,13 @@ class SocialSeoUiTest {
             set("ข้อความทดสอบ FACEBOOK POST")
             click("ถัดไป"); main { assertTrue(button("Facebook").isSelected) }
             click("ก่อนหน้า"); expect("ข้อความทดสอบ FACEBOOK POST")
-            click("ย้อนกลับ"); main { assertFalse(dialog!!.isShowing) }; dialog=null
+            main {
+                val back=button("ย้อนกลับ")
+                assertTrue("Negative action must be back",back.text.toString().contains("ย้อนกลับ"))
+                assertTrue(back.isEnabled)
+                assertTrue(back.performClick())
+            }
+            main { assertFalse("Back must dismiss SEO dialog",dialog!!.isShowing) }; dialog=null
             open(); expect("ข้อความทดสอบ FACEBOOK POST")
             close(); finish()
             launch(id); open(); expect("ข้อความทดสอบ FACEBOOK POST")
