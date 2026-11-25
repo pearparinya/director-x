@@ -18,6 +18,20 @@ adb install -r "$RUNNER_TEMP/candidate.apk"
 verify "${CANDIDATE_BUILD:-1246}" verify
 
 # Run the actual social editor on the signed candidate after upgrade.
-output="$(adb shell am instrument -w -e class "$package.SocialSeoUiTest" "$runner")"
+output="$(adb shell am instrument -w -e class "$package.SocialSeoUiTest#editorCopyNavigationAndDraftIsolation" "$runner")"
 echo "$output"
 grep -Fq 'OK (1 test)' <<< "$output"
+
+# Persist an actual editor draft, restart the process, and reinstall the signed candidate.
+social_verify() {
+    local phase="$1" output
+    output="$(adb shell am instrument -w -e class "$package.SocialSeoUiTest#persistentDraftAcrossProcessAndReinstall" -e fixture "$fixture-social" -e social_phase "$phase" "$runner")"
+    echo "$output"
+    grep -Fq 'OK (1 test)' <<< "$output"
+}
+social_verify seed
+adb shell am force-stop "$package"
+social_verify restart
+adb shell am force-stop "$package"
+adb install -r "$RUNNER_TEMP/candidate.apk"
+social_verify verify
