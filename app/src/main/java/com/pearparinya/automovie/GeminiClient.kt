@@ -43,9 +43,11 @@ internal class GeminiClient(private val apiKey: String, private val model: Strin
                 .put("maxOutputTokens",16384))
         GeminiPacing.acquire(apiKey,cancelled)
         var conn: HttpURLConnection?=null
+        var deadline: StoryConnectionDeadline?=null
         try {
             conn=URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent").openConnection() as HttpURLConnection
             connection=conn
+            deadline=StoryConnectionDeadline(conn,connectTimeoutMillis+readTimeoutMillis)
             conn.requestMethod="POST"; conn.connectTimeout=connectTimeoutMillis; conn.readTimeout=readTimeoutMillis; conn.instanceFollowRedirects=false
             conn.setRequestProperty("x-goog-api-key",apiKey); conn.setRequestProperty("Content-Type","application/json; charset=utf-8")
             conn.doOutput=true
@@ -55,8 +57,9 @@ internal class GeminiClient(private val apiKey: String, private val model: Strin
             if(status !in 200..299) throw StoryHttpFailure(status,conn.getHeaderField("Retry-After"),errorFor(status))
             val bytes=conn.inputStream.use { it.readBytesBounded(2_000_000) }
             if(cancelled()) throw CancellationException()
+            deadline?.check()
             return parseResponse(JSONObject(String(bytes,Charsets.UTF_8)))
-        } finally { conn?.disconnect(); connection=null; GeminiPacing.release() }
+        } catch(e: Exception) { deadline?.check(); throw e } finally { deadline?.close(); conn?.disconnect(); connection=null; GeminiPacing.release() }
     }
     private fun java.io.InputStream.readBytesBounded(limit: Int): ByteArray {
         val output=java.io.ByteArrayOutputStream(); val buffer=ByteArray(8192)
@@ -81,5 +84,17 @@ internal class GeminiClient(private val apiKey: String, private val model: Strin
             val text=(0 until parts.length()).map { parts.getJSONObject(it) }.filter { !it.optBoolean("thought") }.joinToString("") { it.optString("text") }
             return try { JSONObject(text) } catch(_: Exception) { error("คำตอบ Gemini ไม่ใช่ JSON สมบูรณ์ ยังไม่บันทึกช่วงนี้") }
         }
+    }
+}
+
+/** Disconnect a request even when the peer keeps sending small packets. */
+internal class StoryConnectionDeadline(private val connection: HttpURLConnection, timeoutMillis: Int): java.io.Closeable {
+    private val expires=System.nanoTime()+java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(timeoutMillis.toLong())
+    private val expired=java.util.concurrent.atomic.AtomicBoolean(false)
+    private val task=scheduler.schedule({ expired.set(true); connection.disconnect() },timeoutMillis.toLong(),java.util.concurrent.TimeUnit.MILLISECONDS)
+    fun check() { if(expired.get() || System.nanoTime()-expires>=0) throw java.net.SocketTimeoutException("API request deadline exceeded") }
+    override fun close() { task.cancel(false) }
+    companion object {
+        private val scheduler=java.util.concurrent.ScheduledThreadPoolExecutor(2) { runnable -> Thread(runnable,"story-api-deadline").apply { isDaemon=true } }.apply { removeOnCancelPolicy=true }
     }
 }
