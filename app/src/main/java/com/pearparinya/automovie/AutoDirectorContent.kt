@@ -179,7 +179,7 @@ Images are generated externally in Gemini; video is generated externally in Flow
                 "Location: ${normalize(s.getString("location"),story)}. Action: ${normalize(s.getString("action"),story)}. Start state: ${normalize(s.getString("start_state"),story)}. End-state continuity target: ${normalize(s.getString("end_state"),story)}.\n"+
                 "${normalize(s.getString("image_prompt"),story)}\nFINAL OVERRIDES: Use only the attached identities and current four-part wardrobes above. Explicit left/center/right placement for all listed people. "+
                 (if(speech(s.optString("dialogue")).isEmpty()) "All characters: mouth closed, lips sealed. " else "Only ${speaker(s)} is speaking; all others mouth closed, lips sealed. ")+
-                "No captions, logos or watermark.\n"+ending("9:16")
+                "No captions, logos or watermark. Generate a 9:16 vertical image, 1080 x 1920 pixels. Preserve natural skin and highlight detail.\n"+SceneRealism.frame(s)
     }
     fun externalSpec(story: JSONObject, spec: FlowSceneSpec): FlowSceneSpec {
         fun label(name: String): String = FlowCast.definitions(story).firstOrNull {
