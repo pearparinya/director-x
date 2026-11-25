@@ -73,6 +73,7 @@ internal class AutomaticStoryRouter(
         var last: Exception?=null
         var temporary: Exception?=null
         var oversized=false
+        var xmlFailure: InvalidSceneXml?=null
         // Repair attempts begin with different configured routes while retaining the same scene.
         val repair=Regex("DIRECTOR_INTERNAL_REPAIR_ATTEMPT=([1-3])").find(prompt)?.groupValues?.get(1)?.toIntOrNull() ?: 1
         // Give the final repair to Cohere first when configured, instead of
@@ -111,7 +112,7 @@ internal class AutomaticStoryRouter(
                         current=provider
                         progress(provider,"กำลังจัดรูปแบบ XML • รอคำตอบสูงสุด ${requestTimeoutMillis/1000} วินาที")
                         val formatted=generateChecked(provider,request,xmlSchema)
-                        return try { SceneXml.apply(draft,formatted.getString("xml")) }
+                        return try { SceneXml.apply(draft,SceneXml.unwrap(formatted.getString("xml"))) }
                         catch(e: Exception) { throw InvalidSceneXml(e) }
                     }
                     // Pass the same completed draft to available formatters; never
@@ -140,6 +141,7 @@ internal class AutomaticStoryRouter(
             } catch(e: Exception) {
                 if(cancelled() || e is CancellationException) throw CancellationException()
                 onFailure(current,failureCategory(e))
+                if(e is InvalidSceneXml) xmlFailure=e
                 if(e is StoryHttpFailure && e.status in setOf(401,402,403,404)) unavailable[current]=e
                 coolDown(current,e)
                 if(StoryRequestRetry.canRetry(e)) temporary=e
@@ -155,6 +157,7 @@ internal class AutomaticStoryRouter(
         }
         // A temporary failure in the last available provider can recover on retry,
         // even if another provider rejected the request size.
+        if(sceneBatch && multipleScenes && xmlFailure!=null) throw StoryBatchTooLarge("XML ไม่ตรงบท • ลดเหลือครั้งละ 1 ซีน")
         temporary?.let { throw it }
         val next=cooldown.filterKeys { it in clients }.values.filter { it>android.os.SystemClock.elapsedRealtime() }.minOrNull()
         if(next!=null) throw StoryHttpFailure(429,(((next-android.os.SystemClock.elapsedRealtime())+999)/1000).toString(),"รอ API คืนโควตา")
@@ -181,7 +184,7 @@ internal class AutomaticStoryRouter(
         boundedRequest(provider,prompt,schema)
     }
     private fun failureCategory(e: Exception): String = when(e) {
-        is InvalidSceneXml -> "XML ไม่ตรงบท"
+        is InvalidSceneXml -> "XML ไม่ตรงบท • "+(e.cause?.message ?: "ตรวจรูปแบบไม่ผ่าน").take(160)
         is StoryHttpFailure -> "HTTP ${e.status}" + if(e.detail in setOf("invalid_schema","context_length_exceeded","json_validate_failed")) " • ${e.detail}" else ""
         is java.net.SocketTimeoutException -> "หมดเวลารอ"
         is javax.net.ssl.SSLException -> "TLS ขัดข้อง"
@@ -196,7 +199,7 @@ internal class AutomaticStoryRouter(
     }
 }
 
-internal class StoryBatchTooLarge: IllegalStateException("คำขอใหญ่เกินขีดจำกัด • กรุณาตรวจขนาดคำสั่งและโควตา")
+internal class StoryBatchTooLarge(message: String = "คำขอใหญ่เกินขีดจำกัด • กรุณาตรวจขนาดคำสั่งและโควตา"): IllegalStateException(message)
 
 internal class InvalidSceneXml(cause: Exception): IllegalArgumentException("XML ที่ได้ไม่ตรงกับบทต้นฉบับ",cause)
 
@@ -222,6 +225,10 @@ internal object SceneXml {
             if(!Regex("[A-Za-z]").containsMatchIn(action)) return false
         }
         return true
+    }
+    fun unwrap(raw: String): String {
+        val trimmed=raw.trim().removePrefix("\uFEFF").trim()
+        return if(trimmed.startsWith("```xml",ignoreCase=true) && trimmed.endsWith("```")) trimmed.substring(6,trimmed.length-3).trim() else trimmed
     }
     fun apply(draft: JSONObject,xml: String): JSONObject {
         require(xml.length in 1..500_000 && !Regex("<!",RegexOption.IGNORE_CASE).containsMatchIn(xml)) { "XML ไม่ปลอดภัยหรือมีขนาดไม่ถูกต้อง" }
