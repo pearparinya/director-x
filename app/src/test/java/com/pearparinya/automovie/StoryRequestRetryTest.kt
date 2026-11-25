@@ -84,6 +84,14 @@ class StoryRequestRetryTest {
         assertTrue(error is CancellationException); assertEquals(1,calls)
         assertTrue(clock<=250L)
     }
+    @Test fun cancelledSuccessfulResponseIsNotReturned() {
+        var stopped=false
+        val result=runCatching { StoryRequestRetry({0L},{fail("must not wait")}).execute({stopped},{}) {
+            stopped=true
+            "stale response"
+        } }
+        assertTrue(result.exceptionOrNull() is CancellationException)
+    }
     @Test fun retryBudgetStopsBeforeExceedingServerWait() {
         var clock=0L; var calls=0
         val retry=StoryRequestRetry({clock},{clock+=it},maxElapsedMillis=240_000L)
