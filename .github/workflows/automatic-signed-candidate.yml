@@ -81,8 +81,10 @@ jobs:
           tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           current="$RUNNER_TEMP/candidate.apk"
           build="$(sed -n 's/.*versionCode = \([0-9][0-9]*\).*/\1/p' app/build.gradle.kts | head -1)"
-          previous_build=$((build-1))
           tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)"
+          [[ "$tag" =~ ^v[0-9.]+-build([0-9]+)$ ]]
+          previous_build="${BASH_REMATCH[1]}"
+          test "$previous_build" -lt "$build"
           gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern '*.apk' --dir "$RUNNER_TEMP/previous"
           previous="$(find "$RUNNER_TEMP/previous" -name '*.apk')"
           "$tools/aapt" dump badging "$previous" | sed -n '1p' | grep -F "name='com.pearparinya.automovie' versionCode='$previous_build'"

@@ -1,5 +1,9 @@
 name: Published Android update verification
 on:
+  workflow_run:
+    workflows: ["DIRECTOR X Publish Signed APK Release"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
   push:
     branches: [qa/released-updater-ui]
@@ -8,6 +12,7 @@ permissions:
   contents: read
 jobs:
   upgrade:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

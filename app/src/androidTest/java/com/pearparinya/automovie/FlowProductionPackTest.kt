@@ -220,6 +220,11 @@ class FlowProductionPackTest {
                 if (pass == 0) awaitControl("ย้อนกลับ", true)
                 else instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
                 instrumentation.uiAutomation.waitForIdle(300, 5000)
+                val deadline=android.os.SystemClock.uptimeMillis()+5000L
+                while(restored.get()<pass+1 && android.os.SystemClock.uptimeMillis()<deadline) {
+                    instrumentation.waitForIdleSync()
+                    android.os.SystemClock.sleep(50)
+                }
                 assertEquals(pass + 1, restored.get())
                 assertEquals(snapshot, scene.toString())
             }
@@ -251,13 +256,21 @@ class FlowProductionPackTest {
         val oldProject=prefs.getString("project",null)
         val id=UUID.randomUUID().toString()
         val folder=File(context.filesDir,"studio/$id").apply { mkdirs() }
-        val story=plan(12,1).put("channel","นายเปีย บ้านคลองขุด").put("category","ละครสั้นสะท้อนสังคม")
-        story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0).put("ep",1)
+        val story=plan(12,2).put("channel","นายเปีย บ้านคลองขุด").put("category","ละครสั้นสะท้อนสังคม")
+        for (index in 0 until story.getJSONArray("episodes").length()) {
+            val episode=story.getJSONArray("episodes").getJSONObject(index)
+            val scenes=episode.getJSONArray("scenes")
+            for (n in 0 until scenes.length()) {
+                scenes.getJSONObject(n)
+                    .put("ep", episode.getInt("ep"))
+                    .put("story_day", "DAY01")
+            }
+        }
+        assertTrue(SimpleProductionCommands.imageTasks(story,12).isNotEmpty())
         File(folder,"story.json").writeText(story.toString())
         prefs.edit().putString("project",id).commit()
         fun tap(label: String) = awaitControl(label, true)
         fun episodeRowTop(): Int {
-            val root = requireNotNull(instrumentation.uiAutomation.rootInActiveWindow)
             fun find(node: android.view.accessibility.AccessibilityNodeInfo): Int? {
                 if (node.isVisibleToUser && node.contentDescription?.contains("EP.12 • ตอน 12") == true) {
                     val bounds = android.graphics.Rect()
@@ -270,26 +283,56 @@ class FlowProductionPackTest {
                 }
                 return null
             }
-            return requireNotNull(find(root)) { "EP.12 must still be visible without scrolling" }
+            // Observe the restored accessibility tree without scrolling or moving focus.
+            val deadline = android.os.SystemClock.uptimeMillis() + 5000
+            do {
+                instrumentation.waitForIdleSync()
+                instrumentation.uiAutomation.rootInActiveWindow?.let { find(it) }?.let { return it }
+                android.os.SystemClock.sleep(50)
+            } while (android.os.SystemClock.uptimeMillis() < deadline)
+            throw AssertionError("EP.12 must still be visible without scrolling")
         }
         try {
             ActivityScenario.launch(StudioActivity::class.java).use {
                 tap("สร้างภาพ")
+                tap("เลือกโหมด AI + Kotlin")
+                assertTrue(prefs.getBoolean("image_api_assist_$id",false))
+                tap("เลือกโหมด Kotlin")
+                assertFalse(prefs.getBoolean("image_api_assist_$id",true))
+                tap("ดูคำสั่งสร้างภาพ")
                 awaitControl("EP.12 • ตอน 12", false)
                 instrumentation.uiAutomation.waitForIdle(300, 5000)
                 val rowTop = episodeRowTop()
                 repeat(2) { pass ->
                     tap("EP.12 • ตอน 12")
-                    awaitControl("เลือกคำสั่งสร้างภาพ · EP.12", false)
-                    awaitControl("ใช้คำสั่งสร้างภาพ", false)
+                    awaitControl("เลือกชุดภาพ", false)
+                    awaitControl("ภาพฉาก", false)
+                    if (pass == 0) {
+                        tap("ภาพฉาก")
+                        tap("ทำต่อซีนที่ยังไม่เสร็จ")
+                        awaitControl("คำสั่งสร้างภาพ • Kotlin", false)
+                        awaitControl("รายการ 1/2", false)
+                        awaitControl("ส่งไปสร้างภาพ", false)
+                        tap("ถัดไป ▶")
+                        awaitControl("รายการ 2/2", false)
+                        tap("คัดลอกคำสั่งภาพ")
+                        awaitControl("คัดลอกคำสั่งแล้ว", false)
+                        tap("ตกลง")
+                        assertTrue(prefs.getStringSet("image_done_${id}_12", emptySet()).orEmpty().isEmpty())
+                        tap("◀ ก่อนหน้า")
+                        awaitControl("รายการ 1/2", false)
+                        tap("กลับรายการรูป/ซีน")
+                        tap("ย้อนกลับ")
+                    }
                     if (pass == 0) tap("ย้อนกลับ")
                     else instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
                     instrumentation.uiAutomation.waitForIdle(300, 5000)
                     assertEquals(rowTop, episodeRowTop())
                 }
-                tap("ปิด")
+                tap("ย้อนกลับ")
+                tap("ยกเลิก")
                 tap("คำสั่ง Flow")
-                tap("AI + Kotlin")
+                tap("เลือกโหมด AI + Kotlin")
                 assertTrue(prefs.getBoolean("flow_dashboard_mode_$id",false))
                 tap("📄 ดูคำสั่ง Flow สร้างวิดีโอ")
                 tap("EP.1")
