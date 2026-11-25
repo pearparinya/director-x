@@ -52,11 +52,11 @@ class StoryRequestRetryTest {
         assertTrue(messages.any { it.contains("1 วินาที") })
         assertTrue(messages.last().contains("กำลังทำต่ออัตโนมัติ"))
     }
-    @Test fun transportFailuresBackOffAndStopAfterFourRetries() {
+    @Test fun transportFailuresUseFastDefaultAndStopAfterFourRetries() {
         var clock=0L; var calls=0
         val retry=StoryRequestRetry({clock},{clock+=it})
         val error=runCatching { retry.execute({false},{}) { calls++; throw IOException("private server content") } }.exceptionOrNull()
-        assertEquals(5,calls); assertEquals((65+130+260+520)*1000L,clock)
+        assertEquals(5,calls); assertEquals((2+4+8+16)*1000L,clock)
         assertTrue(error!!.message!!.contains("ครบ 4 ครั้ง"))
         assertFalse(error.message!!.contains("private"))
     }
@@ -83,6 +83,46 @@ class StoryRequestRetryTest {
         } }.exceptionOrNull()
         assertTrue(error is CancellationException); assertEquals(1,calls)
         assertTrue(clock<=250L)
+    }
+    @Test fun responseBeyondCumulativeBudgetIsRejected() {
+        var clock=0L
+        val retry=StoryRequestRetry({clock},{clock+=it},maxElapsedMillis=1000L)
+        val error=runCatching { retry.execute({false},{}) {
+            clock=1001L
+            "late response"
+        } }.exceptionOrNull()
+        assertTrue(error is IllegalStateException)
+        assertTrue(error!!.message!!.contains("เกินเวลารอ API"))
+    }
+    @Test fun deadlineDisconnectsAndRejectsLateResponse() {
+        val disconnected=java.util.concurrent.CountDownLatch(1)
+        val connection=object: java.net.HttpURLConnection(java.net.URL("http://localhost")) {
+            override fun disconnect() { disconnected.countDown() }
+            override fun usingProxy()=false
+            override fun connect() {}
+        }
+        StoryConnectionDeadline(connection,50).use { deadline ->
+            assertTrue(disconnected.await(5,java.util.concurrent.TimeUnit.SECONDS))
+            assertTrue(runCatching { deadline.check() }.exceptionOrNull() is java.net.SocketTimeoutException)
+        }
+    }
+    @Test fun cancelledSuccessfulResponseIsNotReturned() {
+        var stopped=false
+        val result=runCatching { StoryRequestRetry({0L},{fail("must not wait")}).execute({stopped},{}) {
+            stopped=true
+            "stale response"
+        } }
+        assertTrue(result.exceptionOrNull() is CancellationException)
+    }
+    @Test fun retryBudgetStopsBeforeExceedingServerWait() {
+        var clock=0L; var calls=0
+        val retry=StoryRequestRetry({clock},{clock+=it},maxElapsedMillis=240_000L)
+        val error=runCatching { retry.execute({false},{}) {
+            calls++; throw StoryHttpFailure(429,"100","quota")
+        } }.exceptionOrNull()
+        assertEquals(3,calls)
+        assertEquals(230_000L,clock)
+        assertTrue(error!!.message!!.contains("เกินเวลารอ API"))
     }
     @Test fun longQuotaWaitStopsInsteadOfIgnoringServerDelay() {
         var calls=0

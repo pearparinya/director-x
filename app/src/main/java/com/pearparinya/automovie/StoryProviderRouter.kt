@@ -10,7 +10,12 @@ internal class StoryProviderRouter(
     private val wallNow: () -> Long={ System.currentTimeMillis() }
 ) {
     private val blockedUntil=mutableMapOf<StoryProvider,Long>()
+    private val inFlight=java.util.concurrent.atomic.AtomicBoolean(false)
     fun <T> generate(preferred: StoryProvider,request: (StoryProvider)->T): T {
+        check(inFlight.compareAndSet(false,true)) { "มีงาน API กำลังประมวลผลอยู่" }
+        try { return route(preferred,request) } finally { inFlight.set(false) }
+    }
+    private fun <T> route(preferred: StoryProvider,request: (StoryProvider)->T): T {
         require(preferred in StoryProvider.hybridProviders)
         val order=listOf(preferred,StoryProvider.hybridProviders.first { it!=preferred })
         for(candidate in order) {

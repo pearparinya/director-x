@@ -11,13 +11,22 @@ internal class StoryRequestRetry(
     private val pause: (Long) -> Unit = { Thread.sleep(it) },
     private val wallNow: () -> Long = { System.currentTimeMillis() },
     private val maxRetries: Int = MAX_RETRIES,
-    private val baseDelaySeconds: Long = 65L
+    private val baseDelaySeconds: Long = 65L,
+    private val maxElapsedMillis: Long = 240_000L,
+    private val transportDelaySeconds: Long = if(baseDelaySeconds==65L) 2L else baseDelaySeconds
 ) {
     fun <T> execute(cancelled: () -> Boolean, onWait: (String) -> Unit, request: () -> T): T {
+        val started=now()
         var retries=0
         while(true) {
             if(cancelled()) throw CancellationException()
-            try { return request() } catch(e: Exception) {
+            if(now()-started>=maxElapsedMillis) throw IllegalStateException("เกินเวลารอ API ที่กำหนด • เก็บข้อมูลที่เสร็จแล้วไว้ กรุณากดทำต่อ")
+            try {
+                val result=request()
+                if(cancelled()) throw CancellationException()
+                if(now()-started>=maxElapsedMillis) throw IllegalStateException("เกินเวลารอ API ที่กำหนด • เก็บข้อมูลที่เสร็จแล้วไว้ กรุณากดทำต่อ")
+                return result
+            } catch(e: Exception) {
                 if(cancelled() || e is CancellationException) throw CancellationException()
                 val temporary=canRetry(e)
                 if(!temporary) throw e
@@ -25,10 +34,13 @@ internal class StoryRequestRetry(
                 val limit=if(invalidJson) minOf(2,maxRetries) else maxRetries
                 if(retries>=limit) throw IllegalStateException("ลองทำต่ออัตโนมัติครบ $limit ครั้งแล้ว • บันทึกช่วงที่เสร็จไว้ ตรวจอินเทอร์เน็ต / โควตาแล้วกดทำต่อ")
                 // Malformed JSON is not a quota throttle: retry briefly, not after minutes.
-                val fallback=if(invalidJson) 2L shl retries else baseDelaySeconds shl retries
+                val throttled=e is StoryHttpFailure && e.status==429
+                val fallback=if(invalidJson) 2L shl retries else (if(throttled) baseDelaySeconds else transportDelaySeconds) shl retries
                 val suggested=(e as? StoryHttpFailure)?.retryAfter?.let { retrySeconds(it,wallNow()) }
                 val seconds=maxOf(fallback,suggested ?: 0L)
                 if(seconds>MAX_WAIT_SECONDS) throw IllegalStateException("บริการขอให้รอนานกว่า 15 นาที • บันทึกช่วงที่เสร็จไว้ รอโควตาคืนแล้วกดทำต่อ")
+                val remainingBudget=maxElapsedMillis-(now()-started)
+                if(remainingBudget<=0 || seconds*1000L>=remainingBudget) throw IllegalStateException("เกินเวลารอ API ที่กำหนด • เก็บข้อมูลที่เสร็จแล้วไว้ กรุณากดทำต่อ",e)
                 retries++
                 val deadline=now()+seconds*1000L
                 var reported=-1L
