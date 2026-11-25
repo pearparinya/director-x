@@ -19,6 +19,45 @@ class SocialSeoUiTest {
     private val ctx=ins.targetContext
     private fun views(v:View):List<View> = listOf(v)+if(v is ViewGroup) (0 until v.childCount).flatMap { views(v.getChildAt(it)) } else emptyList()
     private fun main(block:()->Unit) { ins.runOnMainSync { block() }; ins.waitForIdleSync() }
+    @Test fun persistentDraftAcrossProcessAndReinstall() {
+        val args=InstrumentationRegistry.getArguments()
+        val phase=args.getString("social_phase") ?: return
+        val id=checkNotNull(args.getString("fixture"))
+        val prefs=ctx.getSharedPreferences("studio",0)
+        val store=ctx.getSharedPreferences("social_post_drafts",0)
+        val folder=java.io.File(ctx.filesDir,"studio/"+id)
+        val story=JSONObject().put("title","SEO persistence").put("episodes",JSONArray()
+            .put(JSONObject().put("ep",1).put("title","ตอนหนึ่ง").put("scenes",JSONArray())))
+        val file=java.io.File(folder,"story.json")
+        if(phase=="seed") {
+            folder.mkdirs()
+            file.writeText(story.toString())
+            assertTrue(prefs.edit().putString("social_original_"+id,prefs.getString("project","draft")).putString("project",id).commit())
+        }
+        assertEquals(story.toString(),file.readText())
+        val activity=ins.startActivitySync(Intent(ctx,StudioActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as StudioActivity
+        var dialog:AlertDialog?=null
+        try {
+            main {
+                val method=StudioActivity::class.java.getDeclaredMethod("postDetails",JSONObject::class.java)
+                method.isAccessible=true
+                dialog=method.invoke(activity,story) as AlertDialog
+                val edit=views(dialog!!.window!!.decorView).filterIsInstance<EditText>().single()
+                if(phase=="seed") edit.setText("ข้อความคงอยู่ "+id)
+                else assertEquals("ข้อความคงอยู่ "+id,edit.text.toString())
+            }
+            assertEquals(story.toString(),file.readText())
+        } finally {
+            main { dialog?.dismiss(); activity.finish() }
+            if(phase=="verify") {
+                val cleanup=store.edit()
+                store.all.keys.filter { it.contains(id) }.forEach { cleanup.remove(it) }
+                assertTrue(cleanup.commit())
+                assertTrue(prefs.edit().putString("project",prefs.getString("social_original_"+id,"draft")).remove("social_original_"+id).commit())
+                folder.deleteRecursively()
+            }
+        }
+    }
     @Test fun editorCopyNavigationAndDraftIsolation() {
         val prefs=ctx.getSharedPreferences("studio",0)
         val original=prefs.getString("project","draft")
