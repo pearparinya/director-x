@@ -3585,8 +3585,7 @@ $context"""
         }
         mainOptions.add("✨ ปรับคำสั่ง Flow สร้างวิดีโอ\n(AI + Kotlin)")
         mainActions.add {
-            if(!storyPassed) productionCheckMenu(story)
-            else startFlowAiBatch(allFlowScenes)
+            startFlowAiBatch(allFlowScenes, direct = true)
         }
         mainOptions.add("⚙️ ตั้งค่า API")
         mainActions.add { flowApiSettings() }
@@ -5326,10 +5325,11 @@ $context"""
     @Volatile private var flowFailures=0
     @Volatile private var flowAiBatchRunning = false
 
-    private fun startFlowAiBatch(scenes: List<JSONObject>, onComplete: (() -> Unit)? = null) {
+    private fun startFlowAiBatch(scenes: List<JSONObject>, onComplete: (() -> Unit)? = null, direct: Boolean = false) {
         if(flowAiBatchRunning) { notice("Flow AI กำลังปรับปรุงอยู่ • โปรดรอให้เสร็จ"); return }
         val providers=orderedFlowProviders()
         if(providers.isEmpty()) {
+            if(direct) { notice("ยังไม่มี API สำหรับ Flow • กรุณาตั้งค่าที่เมนู 4"); return }
             AlertDialog.Builder(this).setTitle("ยังไม่มี API สำหรับ Flow")
                 .setMessage("เลือกผู้ให้บริการและตั้งค่าคีย์เพื่อวิเคราะห์ฉาก")
                 .setPositiveButton("ตั้งค่า API") { _,_ -> flowApiSettings() }
@@ -5359,22 +5359,21 @@ $context"""
             else choiceMenu("เปิดคำสั่ง Flow",scenes.map { key(it) }) { openFlowAiSceneDirect(scenes[it]) }
         }
         if(pending.isEmpty()) {
+            if(direct) { notice("คำสั่ง Flow พร้อมแล้ว ${validIndices.size}/${scenes.size} ฉาก"); return }
             AlertDialog.Builder(this).setTitle("คำสั่ง Flow")
                 .setMessage("พร้อมแล้ว ${validIndices.size}/${scenes.size} ฉาก")
                 .setPositiveButton("เปิดคำสั่ง Flow") { _,_ -> results() }
                 .setNegativeButton("ปิด",null).showDirector()
             return
         }
-        AlertDialog.Builder(this).setTitle("เริ่มปรับปรุง Flow AI")
-            .setMessage("จะปรับปรุง ${pending.size} ฉากที่ยังไม่สำเร็จ จากทั้งหมด ${scenes.size} ฉาก\nAPI อาจใช้โควตาหรือมีค่าบริการ • คง MASTER บทพูด เสื้อผ้าและเวลาเดิม")
-            .setPositiveButton("เริ่มปรับปรุง") { _,_ ->
-                if(flowAiBatchRunning) { notice("Flow AI กำลังทำงานอยู่"); return@setPositiveButton }
+        fun launchBatch() {
+                if(flowAiBatchRunning) { notice("Flow AI กำลังทำงานอยู่"); return }
                 flowBatchProject=projectId
                 flowFailures=scenes.size-validIndices.size
                 flowAiBatchRunning=true
                 val job = BatchDisplay(projectId,"สร้างคำสั่ง Flow",scenes.size,validIndices.size-pending.size)
                 flowDisplay=job
-                job.action={ if(job.done==job.total) results() else startFlowAiBatch(scenes,onComplete) }
+                job.action={ if(job.done==job.total) results() else startFlowAiBatch(scenes,onComplete,direct) }
                 val failedItems=scenes.indices.filter { originals[it]==null }.map { key(scenes[it]) }.toMutableList()
                 showBatch(job)
                 Thread {
@@ -5432,7 +5431,11 @@ $context"""
                         }
                     }
                 }.start()
-            }
+        }
+        if(direct) launchBatch()
+        else AlertDialog.Builder(this).setTitle("เริ่มปรับปรุง Flow AI")
+            .setMessage("จะปรับปรุง ${pending.size} ฉากที่ยังไม่สำเร็จ จากทั้งหมด ${scenes.size} ฉาก\nAPI อาจใช้โควตาหรือมีค่าบริการ • คง MASTER บทพูด เสื้อผ้าและเวลาเดิม")
+            .setPositiveButton("เริ่มปรับปรุง") { _,_ -> launchBatch() }
             .setNegativeButton("ยกเลิก",null).showNavigationDirector()
     }
 
@@ -7807,6 +7810,12 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         panel.requestFocus()
         val edit=EditText(this).apply { setText(proposal); minLines=3; panel.addView(this) }
         val dialog=AlertDialog.Builder(this).setTitle("ตรวจข้อเสนอบท • ${key(scene)}").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันและบันทึก",null).setNegativeButton("ใช้บทเดิม",null).showNavigationDirector(back)
+        // Keep the proposal keyboard closed until the user explicitly edits the text.
+        dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
+        edit.clearFocus()
+        panel.requestFocus()
+        (getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
+            .hideSoftInputFromWindow(edit.windowToken, 0)
         dialog.getButton(-1).setOnClickListener {
             val value=edit.text.toString().trim()
             if(value.isBlank()) { notice("กรุณาระบุบทหรือเลือกใช้บทเดิม"); return@setOnClickListener }

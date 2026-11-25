@@ -22,7 +22,7 @@ class NavigationUpgradeTest {
             val info = context.packageManager.getPackageInfo(context.packageName, 0)
             assertEquals(upgradeBuild.toLong(), info.longVersionCode)
         }
-        if (upgradeBuild != "1246") {
+        if (args.getString("phase") == "seed" || (args.getString("phase") == null && upgradeBuild != "1246")) {
             files.forEach { (file, bytes) ->
                 file.parentFile!!.mkdirs()
                 assertTrue(file.createNewFile())
@@ -30,7 +30,7 @@ class NavigationUpgradeTest {
             }
         }
         files.forEach { (file, expected) -> assertArrayEquals(expected, file.readBytes()) }
-        if (upgradeBuild != "1245") {
+        if (args.getString("phase") == "verify" || (args.getString("phase") == null && upgradeBuild != "1245")) {
             files.keys.forEach { it.delete() }
             File(context.filesDir, "studio/$id").delete()
         }
