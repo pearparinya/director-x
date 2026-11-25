@@ -275,19 +275,25 @@ class FlowProductionPackTest {
         try {
             ActivityScenario.launch(StudioActivity::class.java).use {
                 tap("สร้างภาพ")
+                tap("AI + Kotlin")
+                assertTrue(prefs.getBoolean("image_api_assist_$id",false))
+                tap("Kotlin\nสร้างคำสั่งรวดเร็ว")
+                assertFalse(prefs.getBoolean("image_api_assist_$id",true))
+                tap("ดูคำสั่งสร้างภาพ")
                 awaitControl("EP.12 • ตอน 12", false)
                 instrumentation.uiAutomation.waitForIdle(300, 5000)
                 val rowTop = episodeRowTop()
                 repeat(2) { pass ->
                     tap("EP.12 • ตอน 12")
-                    awaitControl("เลือกคำสั่งสร้างภาพ · EP.12", false)
-                    awaitControl("ใช้คำสั่งสร้างภาพ", false)
+                    awaitControl("เลือกชุดภาพ", false)
+                    awaitControl("ภาพฉาก", false)
                     if (pass == 0) tap("ย้อนกลับ")
                     else instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
                     instrumentation.uiAutomation.waitForIdle(300, 5000)
                     assertEquals(rowTop, episodeRowTop())
                 }
-                tap("ปิด")
+                tap("ย้อนกลับ")
+                tap("ยกเลิก")
                 tap("คำสั่ง Flow")
                 tap("AI + Kotlin")
                 assertTrue(prefs.getBoolean("flow_dashboard_mode_$id",false))
