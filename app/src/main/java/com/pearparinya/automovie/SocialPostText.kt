@@ -60,10 +60,12 @@ internal object SocialPostText {
         val channel = ChannelCatalog.currentChannel(value(story,"channel"))
         val epTitle = clean(value(ep,"title"))
         val suffix = if(ep != null) " | EP."+ep.optInt("ep",index+1) else ""
-        val heading = fit(title, (field.limit-suffix.length).coerceAtLeast(0)) + suffix
+        val baseHeading = fit(title, (field.limit-suffix.length).coerceAtLeast(0)) + suffix
+        val episodeHeading = if(epTitle.isNotBlank() && epTitle != title) " ตอน "+epTitle else ""
+        val heading = if((baseHeading+episodeHeading).length <= field.limit) baseHeading+episodeHeading else baseHeading
         val hook = clean(value(ep,"tagline").ifBlank { epTitle }.ifBlank { value(story,"tagline") })
             .takeUnless { it == title || title.contains(it) }.orEmpty()
-        val raw = if(ep != null) value(ep,"social_description") else value(story,"social_caption")
+        val raw = if(ep != null) listOf(value(ep,"social_description"),value(ep,"synopsis"),value(ep,"tagline")).filter { it.isNotBlank() }.distinct().joinToString(" ") else listOf(value(story,"social_caption"),value(story,"synopsis"),value(story,"tagline")).filter { it.isNotBlank() }.distinct().joinToString(" ")
         val desc = clean(raw).takeUnless { Regex("สุดท้าย|ตอนจบ|เฉลยว่า|จบลงด้วย|แท้จริงแล้ว").containsMatchIn(it) }.orEmpty()
         val category = value(story,"main_category").ifBlank { value(story,"category").substringBefore("(").trim() }
         val style = value(story,"category_style").split("•").map { it.trim() }
@@ -81,9 +83,10 @@ internal object SocialPostText {
             if(it.joinToString(" | ").length <= field.limit) it.joinToString(" | ") else heading
         }
         val lines = when(field) {
-            Field.DESCRIPTION -> listOf(desc.ifBlank { hook }.ifBlank { heading })
-            Field.TIKTOK, Field.INSTAGRAM -> listOf(heading,hook.ifBlank { desc })
-            else -> listOf(heading,hook,desc)
+            Field.DESCRIPTION -> listOf(heading,desc.ifBlank { hook })
+            Field.TIKTOK -> listOf(heading,desc.ifBlank { hook })
+            Field.INSTAGRAM -> listOf(heading,hook,desc)
+            else -> listOf(heading,desc,hook)
         }.filter { it.isNotBlank() }.distinct()
         val reservedTag = tags.firstOrNull { it.length+3 < field.limit }
         val bodyLimit = field.limit - (reservedTag?.let { it.length+3 } ?: 0)
