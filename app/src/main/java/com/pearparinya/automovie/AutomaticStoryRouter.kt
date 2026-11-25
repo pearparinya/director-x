@@ -40,9 +40,9 @@ internal class AutomaticStoryRouter(
         Thread(task,"story-provider-request").apply { isDaemon=true }
     }
     private fun boundedRequest(provider: StoryProvider,prompt: String,schema: JSONObject): JSONObject {
-        val timeout = sceneBudget.allow(requestTimeoutMillis)
         val active=java.util.concurrent.atomic.AtomicBoolean(true)
         if(activeRequests.putIfAbsent(provider,active)!=null) throw java.net.SocketTimeoutException("บริการยังปิดคำขอก่อนหน้า")
+        val timeout = try { sceneBudget.allow(requestTimeoutMillis) } catch(e: Exception) { activeRequests.remove(provider,active); throw e }
         val formatting = schema.optJSONObject("properties")?.has("xml") == true
         onRequestDetails(if (formatting) "จัดรูปแบบ XML" else "สร้างเนื้อหา", prompt.toByteArray(Charsets.UTF_8).size)
         onRequestStart(provider, timeout)
@@ -62,6 +62,7 @@ internal class AutomaticStoryRouter(
         } catch(e: java.util.concurrent.TimeoutException) {
             onAttemptResult("หมดเวลารอ")
             future.cancel(true)
+            runCatching { clients.getValue(provider).cancel() }
             progress(provider,"หมดเวลารอ ${timeout/1000} วินาที • กำลังลอง API สำรอง")
             throw java.net.SocketTimeoutException("หมดเวลารอผู้ให้บริการ")
         } catch(e: java.util.concurrent.ExecutionException) {
@@ -193,13 +194,11 @@ internal class AutomaticStoryRouter(
         // A temporary failure in the last available provider can recover on retry,
         // even if another provider rejected the request size.
         if(sceneBatch && multipleScenes && xmlFailure!=null) throw StoryBatchTooLarge("XML ไม่ตรงบท • ลดเหลือครั้งละ 1 ซีน")
-        if (sceneBudget.active && temporary != null) throw SceneWorkPaused("บริการที่ลองยังไม่พร้อม")
         if (sceneBudget.active && temporary != null) {
             throw SceneWorkPaused("บริการที่พร้อมตอบไม่สำเร็จ • " + failureCategory(temporary))
         }
         temporary?.let { throw it }
         val next=cooldown.filterKeys { it in clients }.values.filter { it>android.os.SystemClock.elapsedRealtime() }.minOrNull()
-        if (next != null && sceneBudget.active) throw SceneWorkPaused("บริการกำลังพัก • ลองต่อหลัง ${((next-android.os.SystemClock.elapsedRealtime()).coerceAtLeast(0)+999)/1000} วินาที")
         if (sceneBudget.active && next != null) throw SceneWorkPaused("บริการสำรองกำลังพัก • ลองใหม่หลัง ${((next-android.os.SystemClock.elapsedRealtime()).coerceAtLeast(0)+999)/1000} วินาที")
         if(next!=null) throw StoryHttpFailure(429,(((next-android.os.SystemClock.elapsedRealtime())+999)/1000).toString(),"รอ API คืนโควตา")
         if (sceneBudget.active && oversized && !multipleScenes) throw SceneWorkPaused("ซีนเดี่ยวยังเกินขนาดที่ API รองรับหลังลดคำสั่ง")
@@ -218,12 +217,14 @@ internal class AutomaticStoryRouter(
                 throw e
             }
         }
+        val compact = compactScene(prompt)
+        val initial = if (prompt.toByteArray(Charsets.UTF_8).size > 24_000 && compact.toByteArray(Charsets.UTF_8).size < prompt.toByteArray(Charsets.UTF_8).size) compact else prompt
         try {
-            return send(prompt)
+            return send(initial)
         } catch (e: StoryHttpFailure) {
             if (e.status != 413 && e.detail != "context_length_exceeded") throw e
-            val smaller = compactScene(prompt)
-            if (smaller.length >= prompt.length) throw e
+            val smaller = compact
+            if (smaller.toByteArray(Charsets.UTF_8).size >= initial.toByteArray(Charsets.UTF_8).size) throw e
             onFailure(provider,failureCategory(e))
             progress(provider,"ลดขนาดคำสั่งซีนเดี่ยว • คงบทและ MASTER")
             return send(smaller)
