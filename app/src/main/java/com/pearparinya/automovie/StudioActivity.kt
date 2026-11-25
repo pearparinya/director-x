@@ -3597,7 +3597,7 @@ $context"""
         val group=android.widget.RadioGroup(this).apply { orientation=LinearLayout.VERTICAL }
         fun modeCard(label: String, top: Int, bottom: Int): android.widget.RadioButton =
             android.widget.RadioButton(this).apply {
-                id=View.generateViewId(); text=label; textSize=16f; setTextColor(ice)
+                id=android.view.View.generateViewId(); text=label; textSize=16f; setTextColor(ice)
                 buttonTintList=ColorStateList.valueOf(ice)
                 background=backdrop(top,bottom,cyan)
                 setPadding(dp(12),dp(8),dp(12),dp(8))
