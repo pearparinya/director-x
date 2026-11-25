@@ -145,6 +145,7 @@ Never fill unused fields with descriptions, "none", "ไม่มี", "N/A", or
             }
         }
         val base="""
+${SceneRealism.direction} ${SceneRealism.planning}
 Use this story-wide name register for every episode and every provider: $roster. Copy each name exactly in characters, action subjects, speakers, dialogue_turns and references to absent characters. Historical scene text and examples never rename a registered person. Only visible people belong in characters.
 ${if(factual) "Write a Thai factual presenter-led script and English Flow prompts using only user-supplied facts. Do not invent news, product claims, testimonials or events." else "Write complete Thai drama scripts and English Flow prompts."} Return only the requested JSON, not markdown or downloadable file claims. Do not generate images/video or call other services. Only registered people from this map are allowed:
 ${FlowCast.definitions(spec).joinToString("\n") { p -> "${p.getString("name")} = ${p.getString("master")}; ${p.getString("visual_description")}" }}
