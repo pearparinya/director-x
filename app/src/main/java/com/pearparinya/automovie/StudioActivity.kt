@@ -7810,6 +7810,12 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         panel.requestFocus()
         val edit=EditText(this).apply { setText(proposal); minLines=3; panel.addView(this) }
         val dialog=AlertDialog.Builder(this).setTitle("ตรวจข้อเสนอบท • ${key(scene)}").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันและบันทึก",null).setNegativeButton("ใช้บทเดิม",null).showNavigationDirector(back)
+        // Keep the proposal keyboard closed until the user explicitly edits the text.
+        dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
+        edit.clearFocus()
+        panel.requestFocus()
+        (getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
+            .hideSoftInputFromWindow(edit.windowToken, 0)
         dialog.getButton(-1).setOnClickListener {
             val value=edit.text.toString().trim()
             if(value.isBlank()) { notice("กรุณาระบุบทหรือเลือกใช้บทเดิม"); return@setOnClickListener }
