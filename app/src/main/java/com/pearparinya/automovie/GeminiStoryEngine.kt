@@ -355,9 +355,10 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
             }
             val backup=File(pending.parentFile,pending.name+".batch-backup")
             if(!backup.exists()) GeminiStoryFiles.write(backup,original)
+            else require(GeminiStoryFiles.read(backup).toString()==original.toString()) { "ไฟล์สำรองช่วงบทไม่ตรงกับงานปัจจุบัน • ไม่เขียนทับข้อมูลเดิม" }
             for(n in size-1 downTo 0) {
                 val target=File(pending.parentFile,"EP%02d_%02d.json.pending.json".format(ep,start+n))
-                GeminiStoryFiles.write(target,fragments[n])
+                if(n==0 || !target.exists()) GeminiStoryFiles.write(target,fragments[n])
             }
         }
         /** Ignore punctuation/spacing differences, but allow short conversational replies. */
