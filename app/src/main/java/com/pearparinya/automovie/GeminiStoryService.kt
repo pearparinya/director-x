@@ -162,6 +162,11 @@ class GeminiStoryService : Service() {
                         },{cancelled}) { percent,message ->
                             synchronized(statusLock) { liveStatus.setTask(message) }
                             status("running",percent,message,if(message.startsWith("บันทึกแล้ว")) "saved" else "preparing")
+                        }.apply {
+                            onSceneStart = autoRouter::beginScene
+                            onCompactRules = { full, concise ->
+                                autoRouter.compactScene = { prompt -> prompt.replaceFirst(full, concise) }
+                            }
                         }.run(spec)
                         if(cancelled) throw CancellationException()
                         val target=File(folder.parentFile,"story.json")
@@ -171,7 +176,7 @@ class GeminiStoryService : Service() {
                     } finally { lock.release() }
                 }
             } catch(e: Exception) {
-                if(::folder.isInitialized) status(if(e is AutoDirectorContent.AwaitingOutline) "awaiting_outline" else if(cancelled || e is CancellationException) "paused" else "failed",lastPercent,
+                if(::folder.isInitialized) status(if(e is AutoDirectorContent.AwaitingOutline) "awaiting_outline" else if(cancelled || e is CancellationException || e is SceneWorkPaused) "paused" else "failed",lastPercent,
                     if(e is AutoDirectorContent.AwaitingOutline) e.message.orEmpty() else if(cancelled || e is CancellationException) "หยุดแล้ว • บันทึกช่วงที่เสร็จไว้ กดทำต่อได้" else safeError(e))
             } finally {
                 synchronized(statusLock) { running=false; pulse?.shutdownNow(); pulse=null }

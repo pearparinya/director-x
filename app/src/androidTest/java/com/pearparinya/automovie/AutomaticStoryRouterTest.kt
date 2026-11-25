@@ -12,6 +12,24 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class AutomaticStoryRouterTest {
+    @Test fun singleSceneSizeRetryKeepsStoryAndAvoidsRepeatedOversizedRequest() {
+        val folder = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"size-${UUID.randomUUID()}")
+        try {
+            val calls = mutableListOf<String>()
+            val writer = client { prompt,_ ->
+                calls.add(prompt)
+                if ("verbose" in prompt) throw StoryHttpFailure(413,null,"large")
+                draft()
+            }
+            val router = AutomaticStoryRouter(folder,mapOf(StoryProvider.COHERE to writer),{false},{_,_->})
+            router.beginScene(1,6)
+            router.compactScene = { it.replace("verbose","v") }
+            val original = "verbose MASTER นายเปีย Write exactly scenes 6 to 6 for EP 1"
+            repeat(2) { router.generate(original,schema()) }
+            assertEquals(listOf(original,original.replace("verbose","v"),original.replace("verbose","v")),calls)
+        } finally { folder.deleteRecursively() }
+    }
+
     @Test fun completeWriterActionsSkipFormatterAndPreserveDialogue() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-direct-${UUID.randomUUID()}")
         try {
