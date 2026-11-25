@@ -101,7 +101,16 @@ class SocialSeoUiTest {
         fun finish() { main { activity?.finish(); activity=null } }
         try {
             launch(id); open()
-            main { assertFalse(button("ก่อนหน้า").isEnabled) }
+            main {
+                assertFalse(button("ก่อนหน้า").isEnabled)
+                val tabs=listOf("Facebook","TikTok","YouTube","Instagram").map { button(it) }
+                assertTrue(tabs.all { it.background is android.graphics.drawable.GradientDrawable })
+                assertTrue(tabs.first().isSelected)
+                assertTrue(edit().background is android.graphics.drawable.GradientDrawable)
+                val labels=views(dialog!!.window!!.decorView).filterIsInstance<android.widget.TextView>().map { it.text.toString() }
+                assertTrue(labels.contains("EP.1/2"))
+                assertTrue(labels.contains("ชื่อตอน : ตอนหนึ่ง"))
+            }
             val fields=listOf("Facebook" to "FACEBOOK POST","TikTok" to "TIKTOK CAPTION","YouTube" to "SEO TITLE","Description" to "DESCRIPTION","Tags" to "SEO TAGS","Instagram" to "INSTAGRAM CAPTION")
             for((tab,field) in fields) {
                 click(tab); val value="ข้อความทดสอบ "+field; set(value)
@@ -116,11 +125,16 @@ class SocialSeoUiTest {
             set("ตอนสองแยกข้อมูล")
             click("ก่อนหน้า"); expect("ข้อความทดสอบ INSTAGRAM CAPTION")
             click("Facebook"); expect("ข้อความทดสอบ FACEBOOK POST")
-            for ((sample, expected) in listOf("ทดสอบ" to 5, "ภาษาไทย" to 7, "" to 0, "ก".repeat(351) to 351)) {
+            for ((sample, expected) in listOf("ทดสอบ" to 5, "ภาษาไทย" to 7, "" to 0, "ก".repeat(285) to 285, "ก".repeat(351) to 351)) {
                 set(sample)
                 main {
                     val labels=views(dialog!!.window!!.decorView).filterIsInstance<android.widget.TextView>().map { it.text.toString() }
                     assertTrue("Expected counter $expected / 350; visible labels: $labels", labels.contains("$expected / 350 ตัวอักษร"))
+                    val progress=views(dialog!!.window!!.decorView).filterIsInstance<android.widget.ProgressBar>().single()
+                    assertEquals(350,progress.max)
+                    assertEquals(expected.coerceAtMost(350),progress.progress)
+                    val color=if(expected>350) android.graphics.Color.rgb(255,90,90) else if(expected>=280) android.graphics.Color.rgb(80,210,140) else android.graphics.Color.rgb(80,180,255)
+                    assertEquals(color,progress.progressTintList!!.defaultColor)
                 }
             }
             set("ข้อความทดสอบ FACEBOOK POST")
