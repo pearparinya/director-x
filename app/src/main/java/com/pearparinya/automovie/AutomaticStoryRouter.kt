@@ -20,6 +20,8 @@ internal class AutomaticStoryRouter(
     internal var requestTimeoutMillis: Long = 45_000L
     var onFailure: (StoryProvider,String)->Unit = { _,_ -> }
     var onRequestStart: (StoryProvider, Long) -> Unit = { _, _ -> }
+    var onRequestDetails: (String, Int) -> Unit = { _, _ -> }
+    var onAttemptResult: (String) -> Unit = {}
     var onRequestEnd: () -> Unit = {}
     private val routes=listOf(StoryProvider.GROQ to StoryProvider.GEMINI,StoryProvider.GEMINI to StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER to null,StoryProvider.MISTRAL to null,StoryProvider.SAMBANOVA to null,StoryProvider.CEREBRAS to null,StoryProvider.COHERE to null)
     private val verified=mutableSetOf<StoryProvider>()
@@ -33,6 +35,8 @@ internal class AutomaticStoryRouter(
     private fun boundedRequest(provider: StoryProvider,prompt: String,schema: JSONObject): JSONObject {
         val active=java.util.concurrent.atomic.AtomicBoolean(true)
         if(activeRequests.putIfAbsent(provider,active)!=null) throw java.net.SocketTimeoutException("บริการยังปิดคำขอก่อนหน้า")
+        val formatting = schema.optJSONObject("properties")?.has("xml") == true
+        onRequestDetails(if (formatting) "จัดรูปแบบ XML" else "สร้างเนื้อหา", prompt.toByteArray(Charsets.UTF_8).size)
         onRequestStart(provider, requestTimeoutMillis)
         val future=workers.submit<JSONObject> {
             try {
@@ -46,13 +50,15 @@ internal class AutomaticStoryRouter(
             finally { active.set(false); activeRequests.remove(provider,active) }
         }
         try {
-            return future.get(requestTimeoutMillis,java.util.concurrent.TimeUnit.MILLISECONDS)
+            return future.get(requestTimeoutMillis,java.util.concurrent.TimeUnit.MILLISECONDS).also { onAttemptResult("ได้รับคำตอบ") }
         } catch(e: java.util.concurrent.TimeoutException) {
+            onAttemptResult("หมดเวลารอ")
             future.cancel(true)
             progress(provider,"หมดเวลารอ ${requestTimeoutMillis/1000} วินาที • กำลังลอง API สำรอง")
             throw java.net.SocketTimeoutException("หมดเวลารอผู้ให้บริการ")
         } catch(e: java.util.concurrent.ExecutionException) {
             val cause=e.cause
+            onAttemptResult(if (cause is StoryHttpFailure) "HTTP ${cause.status}" else "คำขอล้มเหลว")
             if(cause is Exception) throw cause
             throw IllegalStateException("คำขอผู้ให้บริการล้มเหลว",cause)
         } catch(e: InterruptedException) {

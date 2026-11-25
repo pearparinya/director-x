@@ -140,6 +140,8 @@ class GeminiStoryService : Service() {
                         val autoRouter=AutomaticStoryRouter(folder,connections,{cancelled}) { target,message ->
                             provider=target; status("running",lastPercent,"อัตโนมัติ • ${target.label} • $message","requesting")
                         }.apply { verifyBeforeUse=true }
+                        autoRouter.onAttemptResult=liveStatus::finishAttempt
+                        autoRouter.onRequestDetails=liveStatus::describeRequest
                         autoRouter.onRequestStart=liveStatus::beginRequest
                         autoRouter.onRequestEnd=liveStatus::endRequest
                         autoRouter.onFailure={ target,category -> synchronized(statusLock) {
