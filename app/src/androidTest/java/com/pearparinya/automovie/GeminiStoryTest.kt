@@ -12,6 +12,37 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class GeminiStoryTest {
+    @Test fun interruptedBatchSplitResumesWithoutReplacingExistingFragment() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"split-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val original=batch("Write exactly scenes 9 to 10 for EP 2")
+            val pending=File(folder,"EP02_09.json.pending.json")
+            val backup=File(folder,pending.name+".batch-backup")
+            val fragment=File(folder,"EP02_10.json.pending.json")
+            GeminiStoryFiles.write(pending,original)
+            GeminiStoryFiles.write(backup,original)
+            val expected=JSONObject(original.toString()).put("scenes",JSONArray().put(original.getJSONArray("scenes").getJSONObject(1)))
+            GeminiStoryFiles.write(fragment,expected)
+            val snapshot=fragment.readBytes()
+            GeminiStoryEngine.splitPendingBatch(pending,2,9,2)
+            assertArrayEquals(snapshot,fragment.readBytes())
+            assertEquals(9,GeminiStoryFiles.read(pending).getJSONArray("scenes").getJSONObject(0).getInt("scene"))
+            assertEquals(original.toString(),GeminiStoryFiles.read(backup).toString())
+        } finally { folder.deleteRecursively() }
+    }
+    @Test fun mismatchedBatchBackupStopsRecoveryWithoutOverwriting() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"split-conflict-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val original=batch("Write exactly scenes 9 to 10 for EP 2")
+            val pending=File(folder,"EP02_09.json.pending.json")
+            GeminiStoryFiles.write(pending,original)
+            GeminiStoryFiles.write(File(folder,pending.name+".batch-backup"),JSONObject().put("other",true))
+            val snapshot=pending.readBytes()
+            assertTrue(runCatching { GeminiStoryEngine.splitPendingBatch(pending,2,9,2) }.isFailure)
+            assertArrayEquals(snapshot,pending.readBytes())
+            assertFalse(File(folder,"EP02_10.json.pending.json").exists())
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun regeneratingPendingSceneKeepsOtherScenesAndBacksUpOriginal() {
         for (target in listOf(9,10)) {
             val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"regenerate-${UUID.randomUUID()}").apply { mkdirs() }
