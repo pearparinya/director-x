@@ -6485,9 +6485,12 @@ $context"""
         }
         fun select(f:SocialPostText.Field) { save(); field=f; refresh() }
         platformButtons[SocialPostText.Field.FACEBOOK]=action(platformRow,"Facebook",blue) { select(SocialPostText.Field.FACEBOOK) }
-        platformButtons[SocialPostText.Field.TIKTOK]=action(platformRow,"TikTok",cyan) { select(SocialPostText.Field.TIKTOK) }
+        platformButtons[SocialPostText.Field.TIKTOK]=action(platformRow,"TikTok",Color.rgb(15,18,24)) { select(SocialPostText.Field.TIKTOK) }.apply { setTextColor(Color.rgb(70,235,245)) }
         platformButtons[SocialPostText.Field.TITLE]=action(platformRow2,"YouTube",red) { select(SocialPostText.Field.TITLE) }
-        platformButtons[SocialPostText.Field.INSTAGRAM]=action(platformRow2,"Instagram",purple) { select(SocialPostText.Field.INSTAGRAM) }
+        platformButtons[SocialPostText.Field.INSTAGRAM]=action(platformRow2,"Instagram",purple) { select(SocialPostText.Field.INSTAGRAM) }.apply {
+            backgroundTintList=null
+            background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,intArrayOf(Color.rgb(105,45,170),Color.rgb(185,45,110))).apply { cornerRadius=dp(8).toFloat() }
+        }
         action(youtubeRow,"Title",red) { select(SocialPostText.Field.TITLE) }
         action(youtubeRow,"Description",red) { select(SocialPostText.Field.DESCRIPTION) }
         action(youtubeRow,"Tags",red) { select(SocialPostText.Field.TAGS) }
@@ -6500,7 +6503,7 @@ $context"""
         copy=action(panel,"COPY",gold) {
             val result=edit.text.toString().trim()
             if(result.isBlank()) notice("ยังไม่มีข้อมูลให้คัดลอก")
-            else if(field==SocialPostText.Field.TITLE && result.length>field.limit) notice("ชื่อคลิปเกิน 100 ตัวอักษร")
+            else if(result.length>field.limit) notice("ข้อความเกิน "+field.limit+" ตัวอักษร")
             else { save(); copyCommand(result) }
         }
         action(panel,"บันทึกข้อความ",blue) { save(); notice("บันทึกข้อความแล้ว") }
