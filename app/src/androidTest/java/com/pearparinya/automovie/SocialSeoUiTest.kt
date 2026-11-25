@@ -71,8 +71,13 @@ class SocialSeoUiTest {
             set("ตอนสองแยกข้อมูล")
             click("ก่อนหน้า"); expect("ข้อความทดสอบ INSTAGRAM CAPTION")
             click("Facebook"); expect("ข้อความทดสอบ FACEBOOK POST")
-            set("ทดสอบ")
-            main { assertTrue(views(dialog!!.window!!.decorView).filterIsInstance<android.widget.TextView>().any { it.text.toString()=="6 / 350 ตัวอักษร" }) }
+            for ((sample, expected) in listOf("ทดสอบ" to 5, "ภาษาไทย" to 7, "" to 0, "ก".repeat(351) to 351)) {
+                set(sample)
+                main {
+                    val labels=views(dialog!!.window!!.decorView).filterIsInstance<android.widget.TextView>().map { it.text.toString() }
+                    assertTrue("Expected counter $expected / 350; visible labels: $labels", labels.contains("$expected / 350 ตัวอักษร"))
+                }
+            }
             set("ข้อความทดสอบ FACEBOOK POST")
             click("ถัดไป"); main { assertTrue(button("Facebook").isSelected) }
             click("ก่อนหน้า"); expect("ข้อความทดสอบ FACEBOOK POST")
