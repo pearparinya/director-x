@@ -207,6 +207,9 @@ class StudioActivity : AppCompatActivity() {
                 setOnClickListener { dialog.dismiss(); back.invoke() }
             }
             dialog.setOnCancelListener { back.invoke() }
+            dialog.onBackPressedDispatcher.addCallback(dialog, object : androidx.activity.OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() { dialog.cancel() }
+            })
         }
         return dialog
     }
@@ -3677,16 +3680,38 @@ $context"""
             if(ai && !imageAiUnlocked(story)) return notice("คำสั่ง AI ยังไม่ครบ • กรุณาประมวลผลก่อนเปิดดู")
             choiceMenu("ดูคำสั่งสร้างภาพ • "+if(ai) "AI + Kotlin" else "Kotlin",numbers.mapIndexed { i,ep -> "EP.$ep • "+eps.getJSONObject(i).optString("title")+"\n"+(eps.getJSONObject(i).optJSONArray("scenes")?.length() ?: 0)+" ฉาก" },compactImageMenu=true) { i -> openImageEpisodeSafely(story,numbers[i]) }
         }
+        fun processKotlin() {
+            val started = android.os.SystemClock.elapsedRealtime()
+            val result = runCatching {
+                val issues = ProductionCommandCheck.issues(story)
+                require(issues.isEmpty()) { issues.joinToString("\n") }
+                val tasks = allImagePromptEntries(story)
+                require(tasks.isNotEmpty()) { "ไม่มีรายการภาพในบท" }
+                require(tasks.all { it.second.command.isNotBlank() }) { "พบคำสั่งภาพว่าง" }
+                tasks.size
+            }
+            val elapsed = android.os.SystemClock.elapsedRealtime() - started
+            val summary = AlertDialog.Builder(this)
+                .setTitle(if (result.isSuccess) "พร้อมใช้งานทั้งหมด" else "ประมวลผลไม่สำเร็จ")
+                .setMessage(result.fold({ "Kotlin • $it/$it รายการ • เวลา $elapsed ms" },
+                    { it.message ?: "ตรวจสอบคำสั่งภาพไม่สำเร็จ" }))
+                .setNegativeButton("ย้อนกลับ", null)
+            if (result.isSuccess) summary.setPositiveButton("ดูคำสั่งสร้างภาพ") { _, _ ->
+                pendingMenuBack = { imageDashboard(story) }
+                view(false)
+            }
+            summary.showNavigationDirector { imageDashboard(story) }
+        }
         promptDashboard(story,"🎬 สร้างภาพ",modeKey,false,{ imageDashboard(story) },{ ai ->
             Triple(if(ai) verifiedImagePromptCount(entries) else entries.count { it.second.command.isNotBlank() },entries.size,ai && aiPromptRunning && imageBatchProject==project.name)
         },{ ai -> listOf(
             Triple("📄 ดูคำสั่งสร้างภาพ",Color.rgb(0,133,220) to Color.rgb(5,55,120),{ prefs.edit().putBoolean(modeKey,ai).apply(); view(ai) }),
-            Triple("✨ ประมวลผลคำสั่งสร้างภาพ",Color.rgb(171,52,185) to Color.rgb(77,28,130),{ prefs.edit().putBoolean(modeKey,ai).apply(); pendingMenuBack=null; if(ai) refineImagePromptsAll(story) else view(false) }),
+            Triple("✨ ประมวลผลคำสั่งสร้างภาพ",Color.rgb(171,52,185) to Color.rgb(77,28,130),{ prefs.edit().putBoolean(modeKey,ai).apply(); pendingMenuBack=null; if(ai) refineImagePromptsAll(story) else processKotlin() }),
             Triple("🧩 จัดการอุปกรณ์ประกอบฉาก",Color.rgb(114,46,171) to Color.rgb(51,24,96),{ choiceMenu("จัดการอุปกรณ์",listOf("ผูกอุปกรณ์กับตัวละคร","ให้ AI เสนออุปกรณ์รายซีน")) { if(it==0) characterPropMenu(story) else suggestStoryProps(story) } }),
             Triple("⚙ ตั้งค่า API",Color.rgb(0,133,132) to Color.rgb(4,66,80),{ apiSettingsCenter() }),
             Triple("🔵 ตรวจสอบบท / สร้างคำสั่งใหม่",Color.rgb(181,102,0) to Color.rgb(104,47,0),{ productionCheckMenu(story) }),
             Triple("✖ ยกเลิก",Color.rgb(8,71,123) to Color.rgb(6,35,70),{ pendingMenuBack=null })
-        ) },entryResult.exceptionOrNull()?.let { "ตรวจคำสั่งภาพไม่ได้: "+(it.message ?: "ข้อมูลไม่ครบ") } ?: "ภาพฉาก $scenes • ภาพปกและรายการอื่น ${(entries.size-scenes).coerceAtLeast(0)}")
+        ) },entryResult.exceptionOrNull()?.let { "ตรวจคำสั่งภาพไม่ได้: "+(it.message ?: "ข้อมูลไม่ครบ") } ?: "ภาพฉาก $scenes • ภาพปกรวม ${entries.count { it.second.id.startsWith("STORY_COVER_") }} • ภาพปกประจำตอน ${entries.count { it.second.id.startsWith("EP") && it.second.id.contains("_COVER_") }}")
     }
 
     private fun suggestStoryWardrobe(story: JSONObject, mode: Int) {
