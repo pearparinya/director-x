@@ -44,7 +44,9 @@ internal object SocialPostText {
         return if (end > 0) s.substring(0,end).trim() else ""
     }
     fun platform(story: JSONObject, index: Int, field: Field): String {
-        val ep = if(index < 0) null else story.optJSONArray("episodes")?.optJSONObject(index)
+        val episodes = story.optJSONArray("episodes")
+        val ep = if(index < 0) null else episodes?.optJSONObject(index)
+        if(index < -1 || (index >= 0 && ep == null && (episodes?.length() ?: 0) > 0)) return ""
         val title = clean(value(story,"title"))
         val channel = ChannelCatalog.currentChannel(value(story,"channel"))
         val epTitle = clean(value(ep,"title"))
@@ -53,11 +55,12 @@ internal object SocialPostText {
         val hook = clean(value(ep,"tagline").ifBlank { epTitle }.ifBlank { value(story,"tagline") })
             .takeUnless { it == title || title.contains(it) }.orEmpty()
         val raw = if(ep != null) value(ep,"social_description") else value(story,"social_caption")
-        val desc = clean(raw)
-        val category = value(story,"category").substringBefore("(").trim()
-        val keywords = listOf(channel,title,category,epTitle).map(::clean).filter { it.isNotBlank() }.distinct()
-        val tags = (keywords.map(::tag) + hashtag.findAll(raw).map { it.value.removePrefix("#") }.toList())
-            .filter { it.isNotBlank() }.distinct()
+        val desc = clean(raw).takeUnless { Regex("สุดท้าย|ตอนจบ|เฉลยว่า|จบลงด้วย|แท้จริงแล้ว").containsMatchIn(it) }.orEmpty()
+        val category = value(story,"main_category").ifBlank { value(story,"category").substringBefore("(").trim() }
+        val style = value(story,"category_style").split("•").map { it.trim() }
+        val keywords = (listOf(channel,title,category,epTitle) + style).map(::clean).filter { it.isNotBlank() }.distinct()
+        val tags = (keywords.map(::tag) + hashtag.findAll(raw).map { it.value.removePrefix("#") }.filter { candidate -> keywords.any { tag(it).contains(candidate,ignoreCase=true) } }.toList())
+            .filter { it.isNotBlank() }.distinctBy { it.lowercase(java.util.Locale.ROOT) }
         if(field == Field.TAGS) return keywords.filter { it.length <= 100 }.take(10).joinToString(", ").let { fit(it,field.limit) }
         if(field == Field.TITLE) return listOf(heading,hook).filter { it.isNotBlank() }.distinct().let {
             if(it.joinToString(" | ").length <= field.limit) it.joinToString(" | ") else heading
