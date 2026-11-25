@@ -6426,7 +6426,7 @@ $context"""
             }
         }
     }
-    private fun postDetails(story: JSONObject) {
+    private fun postDetails(story: JSONObject): AlertDialog {
         val episodes=story.optJSONArray("episodes")
         val count=episodes?.length() ?: 0
         val projectKey=project.absolutePath
@@ -6514,6 +6514,7 @@ $context"""
         val dialog=AlertDialog.Builder(this).setView(ScrollView(this).apply { addView(panel) }).setNegativeButton("ย้อนกลับ",null).showNavigationDirector()
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         dialog.setOnDismissListener { save() }
+        return dialog
     }
     private fun savedChannelNames(): List<String> = runCatching {
         val a=JSONArray(prefs.getString("story_channels","[]")); (0 until a.length()).map { a.optString(it).trim() }.filter { it.isNotBlank() }
