@@ -30,6 +30,20 @@ class AutomaticStoryRouterTest {
         } finally { folder.deleteRecursively() }
     }
 
+    @Test fun largeSingleSceneUsesCompactPromptBeforeFirstRequest() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"compact-first-${UUID.randomUUID()}")
+        try {
+            val calls=mutableListOf<String>()
+            val writer=client { prompt,_ -> calls.add(prompt); draft() }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.COHERE to writer),{false},{_,_->})
+            router.beginScene(1,1)
+            val essential="MASTER นายเปีย Write exactly scenes 1 to 1 for EP 1"
+            router.compactScene={ essential }
+            router.generate(essential+" verbose".repeat(4000),schema())
+            assertEquals(listOf(essential),calls)
+        } finally { folder.deleteRecursively() }
+    }
+
     @Test fun completeWriterActionsSkipFormatterAndPreserveDialogue() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-direct-${UUID.randomUUID()}")
         try {
