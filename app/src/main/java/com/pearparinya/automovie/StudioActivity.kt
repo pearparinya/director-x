@@ -6444,7 +6444,8 @@ $context"""
         }
         fun row()=LinearLayout(this).apply { orientation=0; panel.addView(this) }
         label("SMART SOCIAL SEO").apply { textSize=22f; setTextColor(Color.rgb(255,194,76)) }
-        label(story.optString("title")+" • "+story.optString("channel"))
+        label("ชื่อเรื่อง : "+story.optString("title"))
+        label("ชื่อช่อง : "+story.optString("channel"))
         val episodeLabel=label("")
         val platformRow=row()
         val platformRow2=row()
@@ -6452,6 +6453,7 @@ $context"""
         val fieldLabel=label("")
         val edit=EditText(this).apply { setTextColor(Color.WHITE); minLines=6; maxLines=10; gravity=Gravity.TOP; inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE; panel.addView(this,LinearLayout.LayoutParams(-1,-2)) }
         val counter=label("")
+        val progress=android.widget.ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply { panel.addView(this,LinearLayout.LayoutParams(-1,dp(8))) }
         val nav=row()
         val gold=Color.rgb(150,105,25)
         val blue=Color.rgb(35,75,155)
@@ -6463,7 +6465,7 @@ $context"""
             return JSONArray().put(projectKey).put(if(index<0) "whole" else ep?.optString("id")?.takeIf { it.isNotBlank() } ?: ("ep:"+ (ep?.optInt("ep",index+1) ?: index+1))).put(field.name).toString()
         }
         fun save() { if(!loading && dirty) { store.edit().putString(key(),edit.text.toString()).apply(); dirty=false } }
-        fun updateCounter() { counter.text=edit.text.length.toString()+" / "+field.limit+" ตัวอักษร"; counter.setTextColor(if(edit.text.length>field.limit) Color.YELLOW else Color.WHITE) }
+        fun updateCounter() { counter.text=edit.text.length.toString()+" / "+field.limit+" ตัวอักษร"; val target=when(field) { SocialPostText.Field.FACEBOOK,SocialPostText.Field.DESCRIPTION -> 280; SocialPostText.Field.TIKTOK -> 150; SocialPostText.Field.TITLE -> 60; SocialPostText.Field.INSTAGRAM -> 200; else -> 1 }; val color=if(edit.text.length>field.limit) Color.rgb(255,90,90) else if(edit.text.length>=target) Color.rgb(80,210,140) else Color.rgb(80,180,255); counter.setTextColor(color); progress.max=field.limit; progress.progress=edit.text.length.coerceAtMost(field.limit); progress.progressTintList=ColorStateList.valueOf(color) }
         lateinit var prev:Button
         lateinit var next:Button
         lateinit var copy:Button
@@ -6478,7 +6480,9 @@ $context"""
             youtubeRow.visibility=if(field in listOf(SocialPostText.Field.TITLE,SocialPostText.Field.DESCRIPTION,SocialPostText.Field.TAGS)) android.view.View.VISIBLE else android.view.View.GONE
             edit.setText(store.getString(key(),null) ?: SocialPostText.platform(story,index,field))
             prev.isEnabled=index>0
+            prev.alpha=if(prev.isEnabled) 1f else 0.4f
             next.isEnabled=index>=0 && index<count-1
+            next.alpha=if(next.isEnabled) 1f else 0.4f
             copy.text="COPY "+field.label
             updateCounter()
             loading=false
@@ -6500,6 +6504,15 @@ $context"""
             val choices=listOf("ประชาสัมพันธ์รวมทั้งเรื่อง")+(0 until count).map { "EP."+(it+1)+" • "+episodes?.optJSONObject(it)?.optString("title").orEmpty() }
             AlertDialog.Builder(this).setItems(choices.toTypedArray()) { _, which -> save(); index=which-1; refresh() }.show()
         }
+        action(panel,"🔄 สร้างข้อความใหม่",blue) {
+            fun regenerate() {
+                val first=SocialPostText.platform(story,index,field,0)
+                val second=SocialPostText.platform(story,index,field,1)
+                val replacement=if(edit.text.toString()==first) second else first
+                if(replacement==edit.text.toString()) notice("ไม่มีสำนวนอื่นที่เหมาะสมกับข้อมูลนี้") else edit.setText(replacement)
+            }
+            if(store.contains(key())) AlertDialog.Builder(this).setMessage("แทนที่ข้อความที่บันทึกไว้หรือไม่?").setNegativeButton("ยกเลิก",null).setPositiveButton("แทนที่") { _,_ -> regenerate() }.show() else regenerate()
+        }
         copy=action(panel,"COPY",gold) {
             val result=edit.text.toString().trim()
             if(result.isBlank()) notice("ยังไม่มีข้อมูลให้คัดลอก")
@@ -6516,6 +6529,7 @@ $context"""
         refresh()
         val dialog=AlertDialog.Builder(this).setView(ScrollView(this).apply { addView(panel) }).setNegativeButton("ย้อนกลับ",null).showNavigationDirector()
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply { setTextColor(Color.WHITE); setBackgroundColor(Color.rgb(12,24,41)) }
         dialog.setOnDismissListener { save() }
         return dialog
     }
