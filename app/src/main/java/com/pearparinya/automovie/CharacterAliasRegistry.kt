@@ -16,6 +16,8 @@ internal object CharacterAliasRegistry {
 
     private val acceptedAlias = Regex("[A-Za-z][A-Za-z0-9_-]{0,80}")
     private fun key(alias: String)=alias.trim().lowercase(Locale.ROOT)
+    fun identityId(name: String, master: String): String =
+        java.util.UUID.nameUUIDFromBytes((name+"\n"+master.lowercase(Locale.ROOT)).toByteArray(Charsets.UTF_8)).toString()
     fun add(registry: JSONObject, alias: String, name: String, master: String) {
         require(validAlias(alias))
         require(name.isNotBlank() && master.isNotBlank())
@@ -27,7 +29,7 @@ internal object CharacterAliasRegistry {
                 return
             }
         }
-        entries.put(JSONObject().put("alias",alias).put("name",name).put("master",master))
+        entries.put(JSONObject().put("alias",alias).put("name",name).put("master",master).put("character_id",identityId(name,master)))
     }
     fun read(folder: File): JSONObject = File(folder,"character_aliases.json").let {
         if(it.isFile) GeminiStoryFiles.read(it) else JSONObject().put("entries",JSONArray())
@@ -54,7 +56,8 @@ internal object CharacterAliasRegistry {
             val entry=entries.getJSONObject(i)
             val alias=entry.optString("alias").trim()
             if(validAlias(alias))
-                all.add(Triple(alias,entry.optString("name"),entry.optString("master")))
+                if(!entry.has("character_id") || entry.optString("character_id")==identityId(entry.optString("name"),entry.optString("master")))
+                    all.add(Triple(alias,entry.optString("name"),entry.optString("master")))
         }
         val grouped=all.groupBy { key(it.first) }
         val original=scene.optString("flow_action")
