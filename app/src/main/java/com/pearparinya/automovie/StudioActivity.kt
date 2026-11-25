@@ -4408,6 +4408,11 @@ $context"""
             if(start < 0) "✅ ทำครบทุกซีนแล้ว" else "▶ ทำต่อซีนที่ยังไม่เสร็จ • ${tasks[start].id}"
         )+tasks.map { task ->
             val scene=rows(story).firstOrNull { key(it)==task.id }
+            if(images) {
+                val cast = task.references.joinToString(", ") { it.optString("name") }
+                val status = if(task.id in doneIds()) "สร้างภาพแล้ว ✓" else "ยังไม่สร้างภาพ"
+                return@map listOf(task.title, cast, status).filter { it.isNotBlank() }.joinToString(" • ")
+            }
             val status=if(scene==null || !images) "" else when {
                 sceneFrameApproved(scene) -> " • ตรวจผ่าน"
                 !image(scene).isFile -> " • รอภาพ"
@@ -4417,23 +4422,8 @@ $context"""
             "${task.id} • ${task.title}$status"+(scene?.let { "\n"+SceneOverview.short(it) } ?: "")
         }
         val completedCount = tasks.count { it.id in doneIds() }
-        choiceMenu(
-            "EP.$number • เลือก${if(images) "รูป" else "คำสั่ง Flow"} ในชุด" +
-                " • ทำแล้ว $completedCount/${tasks.size}",
-            options,
-            imageDone = { index -> tasks[index-1].id in doneIds() },
-            doneLabel = if(images) "สร้างรูป" else "คำสั่ง Flow",
-            toggleImageDone = { index ->
-                val id = tasks[index-1].id
-                val updated = doneIds().toMutableSet()
-                if(!updated.add(id)) updated.remove(id)
-                val saved = prefs.edit().putStringSet(doneKey,updated).commit()
-                if(!saved) notice("บันทึกสถานะไม่สำเร็จ กรุณาลองใหม่")
-                productionTaskDeck(story,number,images,queueIds)
-            }
-        ) { selected ->
-            if(selected==0 && start<0) { notice("ทำครบทุกซีนแล้ว"); return@choiceMenu }
-            val index=if(selected==0) start else selected-1; val task=tasks[index]
+        fun openItem(index: Int, backToDeck: (() -> Unit)?) {
+            val task=tasks[index]
             prefs.edit().putString(preference,task.id).putString(legacyPreference,task.id).apply()
             val next=tasks.getOrNull(index+1)?.id ?: "จบชุดนี้ • เลือกชุดถัดไป"
             val sceneSummary=rows(story).firstOrNull { key(it)==task.id }?.let { SceneOverview.detail(it,task.id) }
@@ -4449,7 +4439,7 @@ $context"""
                 if(notes.isEmpty()) original else original.copy(action=original.action+". Prop continuity: "+notes.joinToString("; ")+". Preserve the actual first frame; do not create missing objects.")
             }
             val flowCamera=when(sceneForFlow?.optString("camera_movement")) { "track" -> "Gentle tracking movement."; "locked" -> "Locked camera."; "push_in" -> "Slow push-in."; else -> "Slow gentle pan." }
-            val preview=if(images) task.copy(command=if(prefs.getBoolean("image_api_assist_${project.name}",true)) refinedImageCommand(number,task) else task.command)
+            val preview=if(images) task.copy(command=if(prefs.getBoolean("image_api_assist_${project.name}",false)) refinedImageCommand(number,task) else task.command)
                 else if(flowSpec!=null && FlowScenePrompt.issues(flowSpec).isEmpty()) task.copy(command=runCatching { ShortFlowPrompt.build(flowSpec,flowCamera) }.getOrElse { "Flow prompt needs review: non-English scene direction." }) else task
             val wardrobeNotice=if(images) task.references.mapNotNull { person ->
                 val outfit=person.optString("outfit")
@@ -4464,11 +4454,12 @@ $context"""
             val warning=if(wardrobeNotice.isEmpty()) "" else "ตรวจชุดก่อนสร้างภาพ (ยังไม่เปลี่ยนข้อมูลบท):\n"+wardrobeNotice.joinToString("\n")+"\n\n"
             val code=warning+(sceneSummary?.plus("\n\n") ?: "")+SimpleProductionCommands.block(preview,index,images)+"\n\nล่าสุดที่เปิด: ${task.id} | ถัดไป: $next\nสถานะนี้บันทึกการเปิดคำสั่ง ไม่ได้ยืนยันว่าภาพหรือคลิปสร้างสำเร็จแล้ว"
             val problems=ProductionCommandCheck.issues(story)
-            val dialog=showFlowCode("${task.id} • ถัดไป $next",code,"${task.id}_${if(images) "IMAGE" else "FLOW"}.txt")
+            val dialog=if(images) imageCommandViewer(story, number, preview, index, tasks.size) { step ->
+                activeProductionDialog?.dismiss()
+                openItem(index + step, backToDeck)
+            } else showFlowCode("${task.id} • ถัดไป $next",code,"${task.id}_${if(images) "IMAGE" else "FLOW"}.txt")
             if(images) activeProductionDialog=dialog
             dialog.getButton(-2).text=if(images) "กลับรายการรูป/ซีน" else "กลับรายการซีน"
-            val backToDeck = pendingMenuBack
-            pendingMenuBack = null
             fun returnToDeck() {
                 if(images) activeProductionDialog=null
                 if(backToDeck != null) backToDeck.invoke()
@@ -4480,7 +4471,7 @@ $context"""
             }
             dialog.setOnCancelListener { returnToDeck() }
             if(problems.isNotEmpty()) dialog.getButton(-1).setOnClickListener { notice("คำสั่งยังมีจุดต้องแก้ • เปิด ตรวจคำสั่ง / แก้เฉพาะจุด ก่อนคัดลอก") }
-            dialog.getButton(-1).text=if(images) "เลือกแอปสร้างภาพ + MASTER" else "คัดลอกคำสั่ง Flow"
+            dialog.getButton(-1).text=if(images) "ส่งไปสร้างภาพ" else "คัดลอกคำสั่ง Flow"
             dialog.getButton(-1).setOnClickListener {
                 if(!images) {
                     if(problems.isNotEmpty() || flowSpec==null) { productionCheckMenu(story); return@setOnClickListener }
@@ -4533,7 +4524,7 @@ $context"""
                     labels[id]="ชุดเริ่มต้นที่เลือก • ${piaPerson.optString("name")} • ติ๊กเฉพาะเมื่อชุดตรงกับฉากนี้"
                     listOf(id to selectedPiaOutfit)
                 } else emptyList()
-                previewImageReferences(task,refs+context+outfitRefs.map { it.first to it.second }+piaRef,labels)
+                previewImageReferences(preview,refs+context+outfitRefs.map { it.first to it.second }+piaRef,labels)
             }
             dialog.getButton(-3).text="แก้เฉพาะรายการนี้"
             dialog.getButton(-3).setOnClickListener {
@@ -4586,6 +4577,24 @@ $context"""
                     }
                 }
             }
+        }
+        choiceMenu(
+            "EP.$number • เลือก${if(images) "รูป" else "คำสั่ง Flow"} ในชุด" +
+                " • ทำแล้ว $completedCount/${tasks.size}",
+            options,
+            imageDone = { index -> tasks[index-1].id in doneIds() },
+            doneLabel = if(images) "สร้างรูป" else "คำสั่ง Flow",
+            toggleImageDone = { index ->
+                val id = tasks[index-1].id
+                val updated = doneIds().toMutableSet()
+                if(!updated.add(id)) updated.remove(id)
+                val saved = prefs.edit().putStringSet(doneKey,updated).commit()
+                if(!saved) notice("บันทึกสถานะไม่สำเร็จ กรุณาลองใหม่")
+                productionTaskDeck(story,number,images,queueIds)
+            }
+        ) { selected ->
+            if(selected==0 && start<0) { notice("ทำครบทุกซีนแล้ว"); return@choiceMenu }
+            openItem(if(selected==0) start else selected-1, takeMenuBack())
         }
     }
     private fun showCommandCards(cards: List<SceneCommandCards.Card>, number: Int, kind: Int) {
@@ -4815,6 +4824,70 @@ $context"""
         }
         refresh()
         dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(24),-2)
+    }
+
+    private fun imageCommandViewer(story: JSONObject, ep: Int, task: SimpleProductionCommands.Task,
+        index: Int, count: Int, navigate: (Int) -> Unit): AlertDialog {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(12), dp(12), dp(6))
+            background = backdrop(Color.rgb(29,35,77), Color.rgb(24,31,66), Color.rgb(95,74,147))
+        }
+        val mode = if(prefs.getBoolean("image_api_assist_${project.name}",false)) "AI + Kotlin" else "Kotlin"
+        val files = task.references.count { masterFor(it).isFile }
+        val heading = TextView(this).apply {
+            text = "คำสั่งสร้างภาพ • $mode"
+            textSize = 18f
+            setTextColor(gold)
+            setTypeface(null, Typeface.BOLD)
+        }
+        panel.addView(heading)
+        panel.addView(TextView(this).apply {
+            text = "${story.optString("title")}\nEP.$ep • ${task.title}\nรายการ ${index+1}/$count • MASTER $files/${task.references.size}"
+            setTextColor(ice)
+        })
+        val scroll = ScrollView(this).apply {
+            addView(TextView(this@StudioActivity).apply {
+                text = task.command
+                typeface = Typeface.MONOSPACE
+                setTextIsSelectable(true)
+                setTextColor(ice)
+                setPadding(dp(10),dp(8),dp(10),dp(8))
+                setBackgroundColor(navy)
+            })
+        }
+        panel.addView(scroll, LinearLayout.LayoutParams(-1,0,1f))
+        val nav = LinearLayout(this)
+        fun action(label: String, enabled: Boolean, work: () -> Unit) {
+            nav.addView(Button(this).apply {
+                text = label
+                isEnabled = enabled
+                setOnClickListener { work() }
+            }, LinearLayout.LayoutParams(0,-2,1f))
+        }
+        action("◀ ก่อนหน้า",index>0) { navigate(-1) }
+        action("ถัดไป ▶",index<count-1) { navigate(1) }
+        panel.addView(nav)
+        val send = Button(this).apply {
+            text = "ส่งไปสร้างภาพ"
+            setTextColor(navy)
+            backgroundTintList = null
+            background = backdrop(Color.rgb(255,210,93),Color.rgb(224,157,45))
+        }
+        panel.addView(send)
+        panel.addView(Button(this).apply {
+            text = "คัดลอกคำสั่งภาพ"
+            setOnClickListener { copyCommand(task.command) }
+        })
+        val dialog = AlertDialog.Builder(this).setView(panel)
+            .setPositiveButton("ส่งไปสร้างภาพ",null)
+            .setNeutralButton("แก้เฉพาะรายการนี้",null)
+            .setNegativeButton("ย้อนกลับ",null).showDirector()
+        val dispatch = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+        dispatch.visibility = android.view.View.GONE
+        send.setOnClickListener { dispatch.performClick() }
+        dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(24),(resources.displayMetrics.heightPixels*0.88f).toInt())
+        return dialog
     }
 
     private fun showFlowCode(title: String, code: String, filename: String): AlertDialog {
