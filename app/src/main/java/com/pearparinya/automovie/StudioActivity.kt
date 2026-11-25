@@ -4411,15 +4411,10 @@ $context"""
             if(images) {
                 val cast = task.references.joinToString(", ") { it.optString("name") }
                 val status = if(task.id in doneIds()) "สร้างภาพแล้ว ✓" else "ยังไม่สร้างภาพ"
-                return@map listOf(task.title, cast, status).filter { it.isNotBlank() }.joinToString(" • ")
+                val warning = if(scene != null && scene.optString("action_th").isBlank() && !Regex("[ก-๙]").containsMatchIn(scene.optString("action"))) "ขาดคำอธิบายเหตุการณ์ภาษาไทย" else ""
+                return@map listOf(task.title, cast, status, warning).filter { it.isNotBlank() }.joinToString(" • ")
             }
-            val status=if(scene==null || !images) "" else when {
-                sceneFrameApproved(scene) -> " • ตรวจผ่าน"
-                !image(scene).isFile -> " • รอภาพ"
-                scene.optString("user_review")=="needs_revision" -> " • ต้องแก้"
-                else -> " • รอตรวจ"
-            }
-            "${task.id} • ${task.title}$status"+(scene?.let { "\n"+SceneOverview.short(it) } ?: "")
+            "${task.id} • ${task.title}"+(scene?.let { "\n"+SceneOverview.short(it) } ?: "")
         }
         val completedCount = tasks.count { it.id in doneIds() }
         fun openItem(index: Int, backToDeck: (() -> Unit)?) {
@@ -4470,9 +4465,9 @@ $context"""
                 returnToDeck()
             }
             dialog.setOnCancelListener { returnToDeck() }
-            if(problems.isNotEmpty()) dialog.getButton(-1).setOnClickListener { notice("คำสั่งยังมีจุดต้องแก้ • เปิด ตรวจคำสั่ง / แก้เฉพาะจุด ก่อนคัดลอก") }
-            dialog.getButton(-1).text=if(images) "ส่งไปสร้างภาพ" else "คัดลอกคำสั่ง Flow"
-            dialog.getButton(-1).setOnClickListener {
+            val primary = if(images) requireNotNull(dialog.window?.decorView?.findViewWithTag<Button>("send_image_command")) else dialog.getButton(-1)
+            primary.text=if(images) "ส่งไปสร้างภาพ" else "คัดลอกคำสั่ง Flow"
+            primary.setOnClickListener {
                 if(!images) {
                     if(problems.isNotEmpty() || flowSpec==null) { productionCheckMenu(story); return@setOnClickListener }
                     val value=runCatching { ShortFlowPrompt.build(flowSpec,flowCamera) }.getOrElse { error ->
@@ -4869,6 +4864,7 @@ $context"""
         action("ถัดไป ▶",index<count-1) { navigate(1) }
         panel.addView(nav)
         val send = Button(this).apply {
+            tag = "send_image_command"
             text = "ส่งไปสร้างภาพ"
             setTextColor(navy)
             backgroundTintList = null
@@ -4880,12 +4876,8 @@ $context"""
             setOnClickListener { copyCommand(task.command) }
         })
         val dialog = AlertDialog.Builder(this).setView(panel)
-            .setPositiveButton("ส่งไปสร้างภาพ",null)
             .setNeutralButton("แก้เฉพาะรายการนี้",null)
             .setNegativeButton("ย้อนกลับ",null).showDirector()
-        val dispatch = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-        dispatch.visibility = android.view.View.GONE
-        send.setOnClickListener { dispatch.performClick() }
         dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(24),(resources.displayMetrics.heightPixels*0.88f).toInt())
         return dialog
     }
