@@ -103,8 +103,9 @@ internal object SocialPostText {
         }
         val suffix=if(ep!=null) " | EP."+ep.optInt("ep",index+1) else ""
         val tail=if(epTitle.isNotBlank()) " ตอน "+epTitle else ""
-        val heading=if(title.length+suffix.length+tail.length<=field.limit) title+suffix+tail else {
-            val room=(field.limit-suffix.length).coerceAtLeast(0)
+        val headingLimit=if(field!=Field.TITLE && tags.isNotEmpty() && title.length+suffix.length+tail.length>field.limit) (field.limit-tags.first().length-3).coerceAtLeast(field.limit/2) else field.limit
+        val heading=if(title.length+suffix.length+tail.length<=headingLimit) title+suffix+tail else {
+            val room=(headingLimit-suffix.length).coerceAtLeast(0)
             val shortTail=if(tail.isNotBlank()) fit(tail,room/2) else ""
             fit(title,room-shortTail.length)+suffix+shortTail
         }
