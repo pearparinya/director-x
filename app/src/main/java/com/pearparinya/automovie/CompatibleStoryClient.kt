@@ -43,6 +43,7 @@ internal class CompatibleStoryClient(
         val body = buildRequest(service, model, prompt, schema)
         val conn = URL(service.url).openConnection() as HttpURLConnection
         connection = conn
+        val deadline=StoryConnectionDeadline(conn,connectTimeoutMillis+readTimeoutMillis)
         try {
             conn.requestMethod = "POST"; conn.connectTimeout = connectTimeoutMillis; conn.readTimeout = readTimeoutMillis
             conn.instanceFollowRedirects = false; conn.doOutput = true
@@ -58,8 +59,10 @@ internal class CompatibleStoryClient(
                 require(out.size() + n <= 2_000_000) { "คำตอบ ${service.label} ใหญ่เกินกำหนด" }
                 out.write(buffer, 0, n)
             } }
+            deadline.check()
+            if(cancelled()) throw CancellationException()
             return parse(JSONObject(out.toString("UTF-8")), service)
-        } finally { conn.disconnect(); connection = null }
+        } catch(e: Exception) { deadline.check(); throw e } finally { deadline.close(); conn.disconnect(); connection=null }
     }
 
     companion object {
