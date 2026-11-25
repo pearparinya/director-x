@@ -220,6 +220,11 @@ class FlowProductionPackTest {
                 if (pass == 0) awaitControl("ย้อนกลับ", true)
                 else instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
                 instrumentation.uiAutomation.waitForIdle(300, 5000)
+                val deadline=android.os.SystemClock.uptimeMillis()+5000L
+                while(restored.get()<pass+1 && android.os.SystemClock.uptimeMillis()<deadline) {
+                    instrumentation.waitForIdleSync()
+                    android.os.SystemClock.sleep(50)
+                }
                 assertEquals(pass + 1, restored.get())
                 assertEquals(snapshot, scene.toString())
             }
@@ -252,7 +257,12 @@ class FlowProductionPackTest {
         val id=UUID.randomUUID().toString()
         val folder=File(context.filesDir,"studio/$id").apply { mkdirs() }
         val story=plan(12,1).put("channel","นายเปีย บ้านคลองขุด").put("category","ละครสั้นสะท้อนสังคม")
-        story.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0).put("ep",1)
+        for (index in 0 until story.getJSONArray("episodes").length()) {
+            val episode=story.getJSONArray("episodes").getJSONObject(index)
+            val scenes=episode.getJSONArray("scenes")
+            for (n in 0 until scenes.length()) scenes.getJSONObject(n).put("ep",episode.getInt("ep"))
+        }
+        assertTrue(SimpleProductionCommands.imageTasks(story,12).isNotEmpty())
         File(folder,"story.json").writeText(story.toString())
         prefs.edit().putString("project",id).commit()
         fun tap(label: String) = awaitControl(label, true)
