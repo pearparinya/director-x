@@ -15,7 +15,7 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
         if(file.exists()) return GeminiStoryFiles.read(file).also(validate)
         val pending=File(folder,name+".pending.json")
         var value=if(pending.isFile) GeminiStoryFiles.read(pending) else generate(prompt,schema)
-        GeminiStoryFiles.write(pending,value); check()
+        check(); GeminiStoryFiles.write(pending,value); check()
         progress(lastPercent,"ได้รับคำตอบแล้ว • กำลังตรวจ $name")
         fun validateWithSpeechRecovery(): IllegalArgumentException? {
             fun inspect(): IllegalArgumentException? = try { validate(value); null }
@@ -74,12 +74,12 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                 value=generate(prompt+marker+"Your previous JSON failed validation: "+issue.message.orEmpty().take(600)+
                     "\nReturn a corrected replacement with the same events and scene numbers. Previous JSON:\n"+value.toString(),schema)
             }
-            GeminiStoryFiles.write(pending,value)
+            check(); GeminiStoryFiles.write(pending,value)
             check()
             problem=validateWithSpeechRecovery()
         }
         problem?.let { throw IllegalArgumentException("AI ตอบกลับแล้ว แต่รูปแบบบทยังไม่ผ่านหลังแก้ 3 ครั้ง: "+it.message.orEmpty().take(300),it) }
-        GeminiStoryFiles.write(file,value); pending.delete(); return value
+        check(); GeminiStoryFiles.write(file,value); pending.delete(); return value
     }
     fun run(spec: JSONObject): JSONObject {
         ChannelCatalog.updateLegacyChannel(spec)
