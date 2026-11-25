@@ -3709,7 +3709,22 @@ $context"""
             Triple("✨ ประมวลผลคำสั่งสร้างภาพ",Color.rgb(171,52,185) to Color.rgb(77,28,130),{ prefs.edit().putBoolean(modeKey,ai).apply(); pendingMenuBack=null; if(ai) refineImagePromptsAll(story) else processKotlin() }),
             Triple("🧩 จัดการอุปกรณ์ประกอบฉาก",Color.rgb(114,46,171) to Color.rgb(51,24,96),{ choiceMenu("จัดการอุปกรณ์",listOf("ผูกอุปกรณ์กับตัวละคร","ให้ AI เสนออุปกรณ์รายซีน")) { if(it==0) characterPropMenu(story) else suggestStoryProps(story) } }),
             Triple("⚙ ตั้งค่า API",Color.rgb(0,133,132) to Color.rgb(4,66,80),{ apiSettingsCenter() }),
-            Triple("🔵 ตรวจสอบบท / สร้างคำสั่งใหม่",Color.rgb(181,102,0) to Color.rgb(104,47,0),{ productionCheckMenu(story) }),
+            Triple("🔵 ตรวจสอบบท / สร้างคำสั่งใหม่",Color.rgb(181,102,0) to Color.rgb(104,47,0),{
+                choiceMenu("ตรวจสอบบท / สร้างคำสั่งใหม่", listOf("ตรวจสอบบท", "สร้างคำสั่งใหม่ • " + if (ai) "AI + Kotlin" else "Kotlin")) { selected ->
+                    if (selected == 0) productionCheckMenu(story)
+                    else {
+                        val confirm = AlertDialog.Builder(this)
+                            .setTitle("สร้างคำสั่งจากบทปัจจุบัน")
+                            .setMessage(if (ai) "ใช้ผล AI เดิมที่ตรงกับบท และประมวลผลรายการที่ขาดหรือบทเปลี่ยนแล้ว" else "ตรวจบทและสร้างคำสั่ง Kotlin โดยเก็บบทและไฟล์ภาพเดิม")
+                            .setNegativeButton("ย้อนกลับ", null)
+                            .setPositiveButton("ประมวลผล") { _, _ ->
+                                pendingMenuBack = null
+                                if (ai) refineImagePromptsAll(story) else processKotlin()
+                            }
+                        confirm.showNavigationDirector()
+                    }
+                }
+            }),
             Triple("✖ ยกเลิก",Color.rgb(8,71,123) to Color.rgb(6,35,70),{ pendingMenuBack=null })
         ) },entryResult.exceptionOrNull()?.let { "ตรวจคำสั่งภาพไม่ได้: "+(it.message ?: "ข้อมูลไม่ครบ") } ?: "ภาพฉาก $scenes • ภาพปกรวม ${entries.count { it.second.id.startsWith("STORY_COVER_") }} • ภาพปกประจำตอน ${entries.count { it.second.id.startsWith("EP") && it.second.id.contains("_COVER_") }}")
     }
