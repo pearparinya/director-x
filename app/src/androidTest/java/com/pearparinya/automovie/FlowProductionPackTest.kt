@@ -310,6 +310,8 @@ class FlowProductionPackTest {
                         tap("ถัดไป ▶")
                         awaitControl("รายการ 2/2", false)
                         tap("คัดลอกคำสั่งภาพ")
+                        awaitControl("คัดลอกคำสั่งแล้ว", false)
+                        tap("ตกลง")
                         assertTrue(prefs.getStringSet("image_done_${id}_12", emptySet()).orEmpty().isEmpty())
                         tap("◀ ก่อนหน้า")
                         awaitControl("รายการ 1/2", false)
