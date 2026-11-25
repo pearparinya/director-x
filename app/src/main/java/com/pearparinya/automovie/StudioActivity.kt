@@ -5139,6 +5139,7 @@ $context"""
         }
         card.addView(progress)
         root.addView(card,LinearLayout.LayoutParams(-1,-2).apply { topMargin=dp(5); bottomMargin=dp(9) })
+        if(current!=null) root.addView(Button(this).apply { text="📱 ข้อมูลพร้อมโพสต์ • Smart Social SEO"; setOnClickListener { postDetails(current) } },LinearLayout.LayoutParams(-1,-2))
         // Compact, accessible production status: keep the original workflow visible
         // without restoring the oversized step cards removed by the dashboard redesign.
         val exportStamp=File(project,"flow_pack_exported.sha256").takeIf { it.isFile }?.let {
@@ -6427,20 +6428,87 @@ $context"""
     }
     private fun postDetails(story: JSONObject) {
         val episodes=story.optJSONArray("episodes")
-        if(episodes==null || episodes.length()==0) { notice("เรื่องนี้ยังไม่มีข้อมูลตอน"); return }
-        choiceMenu("เลือกตอนสำหรับคัดลอก",(0 until episodes.length()).map { i -> episodes.getJSONObject(i).let { "EP.${it.optInt("ep",i+1)} • ${it.optString("title").ifBlank { "ยังไม่มีชื่อตอน" }}" } }) { index ->
-            val text=SocialPostText.build(story,index)
-            val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
-            panel.addView(TextView(this).apply { this.text="ตรวจและแก้ข้อความก่อนคัดลอก • คำอธิบายอาจมาจากเรื่องย่อ โปรดตรวจว่าไม่เปิดเผยตอนจบ • หากข้อมูลขาดสามารถพิมพ์เพิ่มได้" })
-            val edit=EditText(this).apply { setText(text); minLines=8; gravity=android.view.Gravity.TOP; panel.addView(this) }
-            val dialog=AlertDialog.Builder(this).setTitle("ข้อมูลโพสต์ • ตรวจและคัดลอก").setView(ScrollView(this).apply { addView(panel) })
-                .setPositiveButton("คัดลอกทั้งหมด",null).setNegativeButton("ปิด",null).showNavigationDirector()
-            dialog.getButton(-1).setOnClickListener {
-                val result=edit.text.toString().trim()
-                if(result.isBlank()) { notice("ยังไม่มีข้อมูลให้คัดลอก"); return@setOnClickListener }
-                copyCommand(result); dialog.dismiss()
-            }
+        val count=episodes?.length() ?: 0
+        val projectKey=project.absolutePath
+        val store=getSharedPreferences("social_post_drafts", MODE_PRIVATE)
+        var index=if(count>0) 0 else -1
+        var field=SocialPostText.Field.FACEBOOK
+        var loading=false
+        val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)); setBackgroundColor(Color.rgb(12,24,41)) }
+        fun label(value:String)=TextView(this).apply { text=value; setTextColor(Color.WHITE); textSize=14f; panel.addView(this) }
+        fun action(parent:LinearLayout, title:String, color:Int, click:()->Unit)=Button(this).apply {
+            text=title; setTextColor(Color.WHITE); backgroundTintList=ColorStateList.valueOf(color)
+            setOnClickListener { click() }; parent.addView(this,LinearLayout.LayoutParams(if(parent.orientation==0) 0 else -1,-2,if(parent.orientation==0) 1f else 0f))
         }
+        fun row()=LinearLayout(this).apply { orientation=0; panel.addView(this) }
+        label("SMART SOCIAL SEO").apply { textSize=22f; setTextColor(Color.rgb(255,194,76)) }
+        label(story.optString("title")+" • "+story.optString("channel"))
+        val episodeLabel=label("")
+        val platformRow=row()
+        val platformRow2=row()
+        val youtubeRow=row()
+        val fieldLabel=label("")
+        val edit=EditText(this).apply { setTextColor(Color.WHITE); minLines=6; maxLines=10; gravity=Gravity.TOP; inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE; panel.addView(this,LinearLayout.LayoutParams(-1,-2)) }
+        val counter=label("")
+        val nav=row()
+        val gold=Color.rgb(150,105,25)
+        val blue=Color.rgb(35,75,155)
+        val cyan=Color.rgb(0,100,125)
+        val red=Color.rgb(175,35,50)
+        val purple=Color.rgb(115,55,150)
+        fun key():String {
+            val ep=if(index>=0) episodes?.optJSONObject(index) else null
+            return JSONArray().put(projectKey).put(if(index<0) "whole" else ep?.optString("id")?.takeIf { it.isNotBlank() } ?: ("ep:"+ (ep?.optInt("ep",index+1) ?: index+1))).put(field.name).toString()
+        }
+        fun save() { if(!loading) store.edit().putString(key(),edit.text.toString()).apply() }
+        fun updateCounter() { counter.text=edit.text.length.toString()+" / "+field.limit+" ตัวอักษร"; counter.setTextColor(if(edit.text.length>field.limit) Color.YELLOW else Color.WHITE) }
+        lateinit var prev:Button
+        lateinit var next:Button
+        lateinit var copy:Button
+        fun refresh() {
+            loading=true
+            val ep=if(index>=0) episodes?.optJSONObject(index) else null
+            episodeLabel.text=if(index<0) "ประชาสัมพันธ์รวมทั้งเรื่อง" else "EP."+(index+1)+"/"+count+" • "+ep?.optString("title").orEmpty()
+            fieldLabel.text=field.label
+            youtubeRow.visibility=if(field in listOf(SocialPostText.Field.TITLE,SocialPostText.Field.DESCRIPTION,SocialPostText.Field.TAGS)) android.view.View.VISIBLE else android.view.View.GONE
+            edit.setText(store.getString(key(),null) ?: SocialPostText.platform(story,index,field))
+            prev.isEnabled=index>0
+            next.isEnabled=index>=0 && index<count-1
+            copy.text="COPY "+field.label
+            updateCounter()
+            loading=false
+        }
+        fun select(f:SocialPostText.Field) { save(); field=f; refresh() }
+        action(platformRow,"Facebook",blue) { select(SocialPostText.Field.FACEBOOK) }
+        action(platformRow,"TikTok",cyan) { select(SocialPostText.Field.TIKTOK) }
+        action(platformRow2,"YouTube",red) { select(SocialPostText.Field.TITLE) }
+        action(platformRow2,"Instagram",purple) { select(SocialPostText.Field.INSTAGRAM) }
+        action(youtubeRow,"Title",red) { select(SocialPostText.Field.TITLE) }
+        action(youtubeRow,"Description",red) { select(SocialPostText.Field.DESCRIPTION) }
+        action(youtubeRow,"Tags",red) { select(SocialPostText.Field.TAGS) }
+        prev=action(nav,"ก่อนหน้า",purple) { save(); index--; refresh() }
+        next=action(nav,"ถัดไป",cyan) { save(); index++; refresh() }
+        action(panel,"เลือก EP / รวมทั้งเรื่อง",blue) {
+            val choices=listOf("ประชาสัมพันธ์รวมทั้งเรื่อง")+(0 until count).map { "EP."+(it+1)+" • "+episodes?.optJSONObject(it)?.optString("title").orEmpty() }
+            AlertDialog.Builder(this).setItems(choices.toTypedArray()) { _, which -> save(); index=which-1; refresh() }.show()
+        }
+        copy=action(panel,"COPY",gold) {
+            val result=edit.text.toString().trim()
+            if(result.isBlank()) notice("ยังไม่มีข้อมูลให้คัดลอก")
+            else if(field==SocialPostText.Field.TITLE && result.length>field.limit) notice("ชื่อคลิปเกิน 100 ตัวอักษร")
+            else { save(); copyCommand(result) }
+        }
+        action(panel,"บันทึกข้อความ",blue) { save(); notice("บันทึกข้อความแล้ว") }
+        label("ตรวจความถูกต้องและการเปิดเผยตอนจบก่อนโพสต์ • ตรวจข้อกำหนดการเปิดเผยเนื้อหาที่สร้างด้วย AI ของแต่ละแพลตฟอร์ม")
+        edit.addTextChangedListener(object:android.text.TextWatcher {
+            override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int) {}
+            override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int) { updateCounter(); save() }
+            override fun afterTextChanged(s:android.text.Editable?) {}
+        })
+        refresh()
+        val dialog=AlertDialog.Builder(this).setView(ScrollView(this).apply { addView(panel) }).setNegativeButton("ย้อนกลับ",null).showNavigationDirector()
+        dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        dialog.setOnDismissListener { save() }
     }
     private fun savedChannelNames(): List<String> = runCatching {
         val a=JSONArray(prefs.getString("story_channels","[]")); (0 until a.length()).map { a.optString(it).trim() }.filter { it.isNotBlank() }
