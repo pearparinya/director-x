@@ -6434,6 +6434,8 @@ $context"""
         var index=if(count>0) 0 else -1
         var field=SocialPostText.Field.FACEBOOK
         var loading=false
+        var dirty=false
+        val platformButtons=mutableMapOf<SocialPostText.Field,Button>()
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(12),dp(12),dp(12)); setBackgroundColor(Color.rgb(12,24,41)) }
         fun label(value:String)=TextView(this).apply { text=value; setTextColor(Color.WHITE); textSize=14f; panel.addView(this) }
         fun action(parent:LinearLayout, title:String, color:Int, click:()->Unit)=Button(this).apply {
@@ -6460,16 +6462,19 @@ $context"""
             val ep=if(index>=0) episodes?.optJSONObject(index) else null
             return JSONArray().put(projectKey).put(if(index<0) "whole" else ep?.optString("id")?.takeIf { it.isNotBlank() } ?: ("ep:"+ (ep?.optInt("ep",index+1) ?: index+1))).put(field.name).toString()
         }
-        fun save() { if(!loading) store.edit().putString(key(),edit.text.toString()).apply() }
+        fun save() { if(!loading && dirty) { store.edit().putString(key(),edit.text.toString()).apply(); dirty=false } }
         fun updateCounter() { counter.text=edit.text.length.toString()+" / "+field.limit+" ตัวอักษร"; counter.setTextColor(if(edit.text.length>field.limit) Color.YELLOW else Color.WHITE) }
         lateinit var prev:Button
         lateinit var next:Button
         lateinit var copy:Button
         fun refresh() {
             loading=true
+            dirty=false
             val ep=if(index>=0) episodes?.optJSONObject(index) else null
             episodeLabel.text=if(index<0) "ประชาสัมพันธ์รวมทั้งเรื่อง" else "EP."+(index+1)+"/"+count+" • "+ep?.optString("title").orEmpty()
             fieldLabel.text=field.label
+            val selected=if(field in listOf(SocialPostText.Field.DESCRIPTION,SocialPostText.Field.TAGS)) SocialPostText.Field.TITLE else field
+            platformButtons.forEach { (f,button) -> button.alpha=if(f==selected) 1f else 0.65f; button.isSelected=f==selected }
             youtubeRow.visibility=if(field in listOf(SocialPostText.Field.TITLE,SocialPostText.Field.DESCRIPTION,SocialPostText.Field.TAGS)) android.view.View.VISIBLE else android.view.View.GONE
             edit.setText(store.getString(key(),null) ?: SocialPostText.platform(story,index,field))
             prev.isEnabled=index>0
@@ -6479,10 +6484,10 @@ $context"""
             loading=false
         }
         fun select(f:SocialPostText.Field) { save(); field=f; refresh() }
-        action(platformRow,"Facebook",blue) { select(SocialPostText.Field.FACEBOOK) }
-        action(platformRow,"TikTok",cyan) { select(SocialPostText.Field.TIKTOK) }
-        action(platformRow2,"YouTube",red) { select(SocialPostText.Field.TITLE) }
-        action(platformRow2,"Instagram",purple) { select(SocialPostText.Field.INSTAGRAM) }
+        platformButtons[SocialPostText.Field.FACEBOOK]=action(platformRow,"Facebook",blue) { select(SocialPostText.Field.FACEBOOK) }
+        platformButtons[SocialPostText.Field.TIKTOK]=action(platformRow,"TikTok",cyan) { select(SocialPostText.Field.TIKTOK) }
+        platformButtons[SocialPostText.Field.TITLE]=action(platformRow2,"YouTube",red) { select(SocialPostText.Field.TITLE) }
+        platformButtons[SocialPostText.Field.INSTAGRAM]=action(platformRow2,"Instagram",purple) { select(SocialPostText.Field.INSTAGRAM) }
         action(youtubeRow,"Title",red) { select(SocialPostText.Field.TITLE) }
         action(youtubeRow,"Description",red) { select(SocialPostText.Field.DESCRIPTION) }
         action(youtubeRow,"Tags",red) { select(SocialPostText.Field.TAGS) }
@@ -6502,7 +6507,7 @@ $context"""
         label("ตรวจความถูกต้องและการเปิดเผยตอนจบก่อนโพสต์ • ตรวจข้อกำหนดการเปิดเผยเนื้อหาที่สร้างด้วย AI ของแต่ละแพลตฟอร์ม")
         edit.addTextChangedListener(object:android.text.TextWatcher {
             override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int) {}
-            override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int) { updateCounter(); save() }
+            override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int) { updateCounter(); if(!loading) { dirty=true; save() } }
             override fun afterTextChanged(s:android.text.Editable?) {}
         })
         refresh()
