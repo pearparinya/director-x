@@ -3614,7 +3614,7 @@ $context"""
         val group=android.widget.RadioGroup(this).apply { orientation=LinearLayout.VERTICAL }
         fun modeCard(label: String, top: Int, bottom: Int): android.widget.RadioButton =
             android.widget.RadioButton(this).apply {
-                id=android.view.View.generateViewId(); text=label; textSize=16f; setTextColor(ice)
+                id=android.view.View.generateViewId(); text=label; contentDescription="เลือกโหมด "+label.substringBefore("\n"); textSize=16f; setTextColor(ice)
                 buttonTintList=ColorStateList.valueOf(ice)
                 background=backdrop(top,bottom,cyan)
                 setPadding(dp(12),dp(8),dp(12),dp(8))
@@ -3668,13 +3668,14 @@ $context"""
 
     private fun imageDashboard(story: JSONObject) {
         val eps=story.optJSONArray("episodes") ?: return notice("ยังไม่มีตอนในบท")
-        val entries=runCatching { allImagePromptEntries(story) }.getOrElse { return notice("ตรวจคำสั่งภาพไม่ได้: "+it.message) }
+        val entryResult=runCatching { allImagePromptEntries(story) }
+        val entries=entryResult.getOrDefault(emptyList())
         val modeKey="image_api_assist_${project.name}"
         val numbers=(0 until eps.length()).map { eps.getJSONObject(it).optInt("ep") }
         val scenes=(0 until eps.length()).sumOf { eps.getJSONObject(it).optJSONArray("scenes")?.length() ?: 0 }
         fun view(ai: Boolean) {
             if(ai && !imageAiUnlocked(story)) return notice("คำสั่ง AI ยังไม่ครบ • กรุณาประมวลผลก่อนเปิดดู")
-            choiceMenu("ดูคำสั่งสร้างภาพ • "+if(ai) "AI + Kotlin" else "Kotlin",numbers.mapIndexed { i,ep -> "EP.$ep • "+eps.getJSONObject(i).optString("title")+"\n"+(eps.getJSONObject(i).optJSONArray("scenes")?.length() ?: 0)+" ฉาก" }) { i -> openImageEpisodeSafely(story,numbers[i]) }
+            choiceMenu("ดูคำสั่งสร้างภาพ • "+if(ai) "AI + Kotlin" else "Kotlin",numbers.mapIndexed { i,ep -> "EP.$ep • "+eps.getJSONObject(i).optString("title")+"\n"+(eps.getJSONObject(i).optJSONArray("scenes")?.length() ?: 0)+" ฉาก" },compactImageMenu=true) { i -> openImageEpisodeSafely(story,numbers[i]) }
         }
         promptDashboard(story,"🎬 สร้างภาพ",modeKey,false,{ imageDashboard(story) },{ ai ->
             Triple(if(ai) verifiedImagePromptCount(entries) else entries.count { it.second.command.isNotBlank() },entries.size,ai && aiPromptRunning && imageBatchProject==project.name)
@@ -3685,7 +3686,7 @@ $context"""
             Triple("⚙ ตั้งค่า API",Color.rgb(0,133,132) to Color.rgb(4,66,80),{ apiSettingsCenter() }),
             Triple("🔵 ตรวจสอบบท / สร้างคำสั่งใหม่",Color.rgb(181,102,0) to Color.rgb(104,47,0),{ productionCheckMenu(story) }),
             Triple("✖ ยกเลิก",Color.rgb(8,71,123) to Color.rgb(6,35,70),{ pendingMenuBack=null })
-        ) },"ภาพฉาก $scenes • ภาพปกและรายการอื่น ${(entries.size-scenes).coerceAtLeast(0)}")
+        ) },entryResult.exceptionOrNull()?.let { "ตรวจคำสั่งภาพไม่ได้: "+(it.message ?: "ข้อมูลไม่ครบ") } ?: "ภาพฉาก $scenes • ภาพปกและรายการอื่น ${(entries.size-scenes).coerceAtLeast(0)}")
     }
 
     private fun suggestStoryWardrobe(story: JSONObject, mode: Int) {
