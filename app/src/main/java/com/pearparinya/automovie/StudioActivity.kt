@@ -7941,21 +7941,25 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(12),dp(16),dp(12)) }
         panel.addView(TextView(this).apply { text="บทเดิม:\n$original\n\nตรวจความหมาย เหตุการณ์ และทดลองอ่านให้เหมาะกับ 8 วินาที ก่อนยืนยัน" })
         panel.isFocusableInTouchMode=true
-        panel.requestFocus()
+        panel.descendantFocusability=android.view.ViewGroup.FOCUS_BEFORE_DESCENDANTS
         val edit=EditText(this).apply { setText(proposal); minLines=3; panel.addView(this) }
-        val dialog=AlertDialog.Builder(this).setTitle("ตรวจข้อเสนอบท • ${key(scene)}").setView(ScrollView(this).apply { addView(panel) }).setPositiveButton("ยืนยันและบันทึก",null).setNegativeButton("ใช้บทเดิม",null).showNavigationDirector(back)
-        // Keep the proposal keyboard closed until the user explicitly edits the text.
-        dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
-        edit.clearFocus()
         panel.requestFocus()
-        (getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
-            .hideSoftInputFromWindow(edit.windowToken, 0)
+        var confirmed=false
+        val dialog=AlertDialog.Builder(this)
+            .setTitle("ตรวจข้อเสนอบท • ${key(scene)}")
+            .setView(ScrollView(this).apply { addView(panel) })
+            .setPositiveButton("ยืนยันและบันทึก",null)
+            .setNegativeButton(if(back==null) "ใช้บทเดิม" else "◀ ย้อนกลับ",null)
+            .create()
+        dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
+        dialog.setOnDismissListener { if(!confirmed) back?.invoke() }
+        dialog.show()
         dialog.getButton(-1).setOnClickListener {
             val value=edit.text.toString().trim()
             if(value.isBlank()) { notice("กรุณาระบุบทหรือเลือกใช้บทเดิม"); return@setOnClickListener }
             if(project.name!=projectId || scene.toString()!=snapshot || plan?.let { current -> rows(current).none { it===scene } } != false) { dialog.dismiss(); notice("ซีนเปลี่ยนแล้ว กรุณาขอข้อเสนอใหม่"); return@setOnClickListener }
             scene.put(field,value); scene.put("user_review","needs_revision"); scene.remove("flow_image_revision")
-            saveStory(); dialog.dismiss(); render(); notice("บันทึกบทที่ยืนยันแล้ว • โปรดตรวจภาพและคำสั่ง Flow อีกครั้ง")
+            saveStory(); confirmed=true; dialog.dismiss(); render(); notice("บันทึกบทที่ยืนยันแล้ว • โปรดตรวจภาพและคำสั่ง Flow อีกครั้ง")
         }
     }
 
