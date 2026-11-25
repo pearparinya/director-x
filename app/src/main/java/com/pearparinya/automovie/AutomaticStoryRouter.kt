@@ -78,8 +78,20 @@ internal class AutomaticStoryRouter(
         }
     }
 
+    var retainFormattedScenes = false
+    private val completedStages = File(folder, "auto_formatted_scenes")
+
+    fun clearFormattedScenes() {
+        completedStages.listFiles()?.filter { it.name.matches(Regex("[0-9a-f]{64}[.]json")) }
+            ?.forEach { it.delete() }
+    }
+
     fun generate(prompt: String,schema: JSONObject): JSONObject {
         val sceneBatch=schema.getJSONObject("properties").has("scenes")
+        if (cancelled()) throw CancellationException()
+        val recover = sceneBatch && retainFormattedScenes
+        val complete = if (recover) File(completedStages, draftFile(StoryProvider.GROQ,prompt,schema).name) else null
+        if (complete?.isFile == true) return GeminiStoryFiles.read(complete)
         val range=Regex("Write exactly scenes ([0-9]+) to ([0-9]+)").find(prompt)
         val multipleScenes=range?.let { it.groupValues[1].toIntOrNull()?.let { first ->
             it.groupValues[2].toIntOrNull()?.let { last -> last>first }
@@ -103,12 +115,14 @@ internal class AutomaticStoryRouter(
             if(cancelled()) throw CancellationException()
             // The preferred formatter may be unavailable; another configured provider
             // can still format the writer's draft without losing completed work.
-            if(writer !in clients || writer in unavailable || (cooldown[writer] ?: 0L)>android.os.SystemClock.elapsedRealtime()) continue
+            val savedWriter = recover && draftFile(writer,prompt,schema).isFile
+            if(!savedWriter && (writer !in clients || writer in unavailable || (cooldown[writer] ?: 0L)>android.os.SystemClock.elapsedRealtime())) continue
             // Do not issue a fresh writer request when no formatter is available;
             // an already saved complete draft can still be used directly.
             if(sceneBatch && formatter!=null && listOf(formatter,StoryProvider.DEEPSEEK,StoryProvider.OPENROUTER,StoryProvider.COHERE,StoryProvider.MISTRAL,StoryProvider.SAMBANOVA,StoryProvider.CEREBRAS)
                 .none { it!=writer && it in clients && it !in unavailable && (cooldown[it] ?: 0L)<=android.os.SystemClock.elapsedRealtime() }) {
                 val saved=draftFile(writer,prompt,schema)
+                if (savedWriter && !SceneXml.hasUsableActions(GeminiStoryFiles.read(saved))) throw SceneWorkPaused("เก็บร่างบทไว้แล้ว • รอ API จัดรูปแบบ")
                 if(!saved.isFile || !runCatching { SceneXml.hasUsableActions(GeminiStoryFiles.read(saved)) }.getOrDefault(false)) continue
             }
             var current=writer
@@ -148,8 +162,13 @@ internal class AutomaticStoryRouter(
                             formatFailure=e
                         }
                     }
+                    if (recover && formatted == null) {
+                        formatFailure?.let { onFailure(current,failureCategory(it)) }
+                        throw SceneWorkPaused("เก็บร่างบทไว้แล้ว • จัดรูปแบบยังไม่สำเร็จ")
+                    }
                     formatted ?: throw (formatFailure ?: IllegalStateException("ไม่มีบริการจัดรูปแบบที่พร้อม"))
                 } else draft
+                if (complete != null) GeminiStoryFiles.write(complete,result)
                 routes.forEach { (candidate,_) -> draftFile(candidate,prompt,schema).delete() }
                 latestWriter = writer
                 return result

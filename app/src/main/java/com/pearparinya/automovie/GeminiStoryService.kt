@@ -140,6 +140,7 @@ class GeminiStoryService : Service() {
                         val autoRouter=AutomaticStoryRouter(folder,connections,{cancelled}) { target,message ->
                             provider=target; status("running",lastPercent,"อัตโนมัติ • ${target.label} • $message","requesting")
                         }.apply { verifyBeforeUse=true }
+                        autoRouter.retainFormattedScenes = automatic
                         autoRouter.onAttemptResult=liveStatus::finishAttempt
                         autoRouter.onRequestDetails=liveStatus::describeRequest
                         autoRouter.onRequestStart=liveStatus::beginRequest
@@ -172,6 +173,7 @@ class GeminiStoryService : Service() {
                         val target=File(folder.parentFile,"story.json")
                         if(target.exists()) require(ChannelCatalog.updateLegacyChannel(GeminiStoryFiles.read(target)).toString()==story.toString()) { "พบ story.json ที่แก้ไขแล้ว ไม่เขียนทับ" }
                         else GeminiStoryFiles.write(target,story)
+                        if (automatic) autoRouter.clearFormattedScenes()
                         status("complete",100,"บทพร้อมแล้ว ${story.getInt("episode_count")} EP • ${story.getInt("scene_count")} ซีน • ส่งออก Flow ได้ทันที")
                     } finally { lock.release() }
                 }
