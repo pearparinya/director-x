@@ -26,6 +26,8 @@ internal object CharacterAliasRegistry {
             val item=entries.getJSONObject(i)
             if(key(item.getString("alias"))==key(alias)) {
                 require(item.getString("name")==name && item.getString("master").equals(master,true)) { "ชื่อนี้เคยจับคู่กับตัวละครอื่นแล้ว" }
+                require(!item.has("character_id") || item.optString("character_id")==identityId(name,master)) { "รหัสตัวละครไม่ตรงกับ MASTER" }
+                item.put("character_id",identityId(name,master))
                 return
             }
         }
@@ -100,6 +102,7 @@ internal object CharacterAliasRegistry {
             val item=entries.getJSONObject(i)
             val alias=item.optString("alias")
             if(!validAlias(alias)) continue
+            if(item.has("character_id") && item.optString("character_id")!=identityId(item.optString("name"),item.optString("master"))) continue
             val matching=(0 until people.length()).map { people.getJSONObject(it) }.filter {
                 it.optString("name")==item.optString("name") &&
                     it.optString("master").equals(item.optString("master"),true)
