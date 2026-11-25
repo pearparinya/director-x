@@ -168,6 +168,22 @@ class AutomaticStoryRouterTest {
             assertEquals(1,calls.get())
         } finally { release.countDown(); folder.deleteRecursively() }
     }
+    @Test fun fencedXmlIsUnwrappedWithoutChangingDialogueValidation() {
+        val raw=xml().getString("xml")
+        val fenced="```xml\n"+raw+"\n```"
+        assertEquals(raw,SceneXml.unwrap(fenced))
+        assertEquals("สวัสดี",SceneXml.apply(draft(),SceneXml.unwrap(fenced)).getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
+        assertTrue(runCatching { SceneXml.apply(draft(),SceneXml.unwrap(xml("changed").getString("xml"))) }.isFailure)
+    }
+    @Test fun repeatedXmlFailureSplitsMultiSceneRequest() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"xml-split-${UUID.randomUUID()}")
+        try {
+            val writer=client { _,_ -> draft() }
+            val formatter=client { _,_ -> xml("changed") }
+            val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to writer,StoryProvider.GEMINI to formatter),{false},{_,_->})
+            assertTrue(runCatching { router.generate("Write exactly scenes 1 to 2",schema()) }.exceptionOrNull() is StoryBatchTooLarge)
+        } finally { folder.deleteRecursively() }
+    }
     private fun draft()=JSONObject().put("scenes",JSONArray().put(JSONObject().put("scene",1).put("dialogue","สวัสดี").put("action","เปิดประตู")))
     private fun schema()=JSONObject().put("properties",JSONObject().put("scenes",JSONObject()))
     private fun client(f: (String,JSONObject)->JSONObject)=object: StoryTextClient {
