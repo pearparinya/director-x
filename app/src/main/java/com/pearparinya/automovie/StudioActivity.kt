@@ -7980,6 +7980,10 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         val edit=EditText(this).apply { setText(proposal); minLines=3; panel.addView(this) }
         panel.requestFocus()
         var confirmed=false
+        var restored=false
+        fun restoreParent() {
+            if(!confirmed && !restored) { restored=true; back?.invoke() }
+        }
         val dialog=AlertDialog.Builder(this)
             .setTitle("ตรวจข้อเสนอบท • ${key(scene)}")
             .setView(ScrollView(this).apply { addView(panel) })
@@ -7987,8 +7991,16 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
             .setNegativeButton(if(back==null) "ใช้บทเดิม" else "◀ ย้อนกลับ",null)
             .create()
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
-        dialog.setOnDismissListener { if(!confirmed) back?.invoke() }
+        dialog.setOnCancelListener { restoreParent() }
+        dialog.setOnDismissListener { restoreParent() }
         dialog.show()
+        dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
+        dialog.setOnKeyListener { _, keyCode, event ->
+            if(keyCode==android.view.KeyEvent.KEYCODE_BACK) {
+                if(event.action==android.view.KeyEvent.ACTION_UP && !event.isCanceled) dialog.cancel()
+                true
+            } else false
+        }
         dialog.getButton(-1).setOnClickListener {
             val value=edit.text.toString().trim()
             if(value.isBlank()) { notice("กรุณาระบุบทหรือเลือกใช้บทเดิม"); return@setOnClickListener }
