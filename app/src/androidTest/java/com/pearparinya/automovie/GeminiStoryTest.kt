@@ -12,6 +12,24 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class GeminiStoryTest {
+    @Test fun cancelledGenerationDoesNotPersistLateOutline() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"cancel-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            var stopped=false
+            var calls=0
+            val failure=runCatching {
+                GeminiStoryEngine(folder,{ _,_ ->
+                    calls++
+                    stopped=true
+                    JSONObject().put("late",true)
+                },{stopped}).run(spec())
+            }.exceptionOrNull()
+            assertTrue(failure is java.util.concurrent.CancellationException)
+            assertEquals(1,calls)
+            assertFalse(File(folder,"outline.json").exists())
+            assertFalse(File(folder,"outline.json.pending.json").exists())
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun interruptedBatchSplitResumesWithoutReplacingExistingFragment() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"split-${UUID.randomUUID()}").apply { mkdirs() }
         try {
