@@ -458,7 +458,14 @@ class StudioActivity : AppCompatActivity() {
             val maximum = (resources.displayMetrics.heightPixels * 0.85f).toInt()
             val available = maximum - (panel.height - scroll.height)
             if (scroll.height > available) scroll.layoutParams = LinearLayout.LayoutParams(-1,available.coerceAtLeast(dp(80)))
-            scroll.post { scroll.scrollTo(0, restoredScroll) }
+            scroll.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    scroll.viewTreeObserver.removeOnPreDrawListener(this)
+                    scroll.scrollTo(0, restoredScroll)
+                    return true
+                }
+            })
+            scroll.invalidate()
         }
     }
     private val legacyCategories = listOf(

@@ -271,7 +271,6 @@ class FlowProductionPackTest {
         prefs.edit().putString("project",id).commit()
         fun tap(label: String) = awaitControl(label, true)
         fun episodeRowTop(): Int {
-            val root = requireNotNull(instrumentation.uiAutomation.rootInActiveWindow)
             fun find(node: android.view.accessibility.AccessibilityNodeInfo): Int? {
                 if (node.isVisibleToUser && node.contentDescription?.contains("EP.12 • ตอน 12") == true) {
                     val bounds = android.graphics.Rect()
@@ -284,7 +283,14 @@ class FlowProductionPackTest {
                 }
                 return null
             }
-            return requireNotNull(find(root)) { "EP.12 must still be visible without scrolling" }
+            // Observe the restored accessibility tree without scrolling or moving focus.
+            val deadline = android.os.SystemClock.uptimeMillis() + 5000
+            do {
+                instrumentation.waitForIdleSync()
+                instrumentation.uiAutomation.rootInActiveWindow?.let { find(it) }?.let { return it }
+                android.os.SystemClock.sleep(50)
+            } while (android.os.SystemClock.uptimeMillis() < deadline)
+            throw AssertionError("EP.12 must still be visible without scrolling")
         }
         try {
             ActivityScenario.launch(StudioActivity::class.java).use {
