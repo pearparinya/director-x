@@ -636,7 +636,7 @@ class StudioActivity : AppCompatActivity() {
             notice("บันทึก MASTER นายเปียแล้ว • เปิดหน้าสร้างเรื่องใหม่เพื่อตรวจภาพและเลือกกรอบใบหน้าอีกครั้ง")
         }.onFailure { notice("บันทึก MASTER ไม่สำเร็จ: ${it.message}") }
     }
-    private fun piaCatalog(): JSONArray {
+    private fun piaCatalog(includeAllTypes: Boolean = false): JSONArray {
         val migrationPrefs=getSharedPreferences("pia_master_updates", MODE_PRIVATE)
         if(!migrationPrefs.getBoolean("identity_431",false)) {
             val bytes=assets.open("pia_identity_431.png").use { it.readBytes() }
@@ -650,7 +650,10 @@ class StudioActivity : AppCompatActivity() {
             .put("file","PIA_PRESENTER.png").put("sha256",MasterLibrary.digest(bytes))
             .put("character_age",35).put("age_basis","fictional_casting_placeholder_not_real_age")
             .put("character_gender","man").put("casting_description","Use the attached original MASTER for this presenter identity.")
-        return CastingSelection.withPresenter(row, catalog)
+        val choices = CastingSelection.withPresenter(row, catalog)
+        if (includeAllTypes) return choices
+        return JSONArray((0 until choices.length()).map { choices.getJSONObject(it) }
+            .filter { it.optString("character_type") in setOf("", "human") })
     }
     private fun installPiaDefaults() {
         for(slot in 1..13) {
@@ -965,7 +968,7 @@ class StudioActivity : AppCompatActivity() {
                 val file=File(filesDir,"character_masters/$id.master")
                 all.add(UnifiedMasterItem(name,id.uppercase()+"_MASTER","มนุษย์",file,{ presetMaster(id,name) }))
             }
-            val records=piaCatalog()
+            val records=piaCatalog(includeAllTypes=true)
             val oldEntries=masterLibrary.entries().associateBy { it.id }
             for(i in 0 until records.length()) {
                 val item=records.getJSONObject(i)
@@ -7518,7 +7521,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     val automatic=automaticCastPending
                     automaticCastPending=false
                     val catalog=runCatching {
-                        val all=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog() else castingCatalog()
+                        val all=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog(includeAllTypes=true) else castingCatalog()
                         JSONArray().apply {
                             for(i in 0 until all.length()) {
                                 val row=all.getJSONObject(i)
@@ -7649,7 +7652,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
             panel.addView(castButton)
             panel.addView(castSummary)
             castButton.setOnClickListener {
-                val choices=runCatching { if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog() else castingCatalog() }.getOrElse { notice("เปิดคลังตัวละครไม่ได้"); return@setOnClickListener }
+                val choices=runCatching { if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog(includeAllTypes=true) else castingCatalog() }.getOrElse { notice("เปิดคลังตัวละครไม่ได้"); return@setOnClickListener }
                 val draft=selectedActors.toMutableSet().apply { if(castProposalPending) addAll(suggestedRoles.keys) }
                 if(chosenChannel=="นายเปีย บ้านคลองขุด") draft.add(piaActorId)
                 val grid=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
@@ -7913,7 +7916,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                         require(!autoRunning) { "AI กำลังเลือกตัวละครและอุปกรณ์ • กรุณารอหรือยกเลิก" }
                         require(selectedActors.isNotEmpty()) { "กรุณาเลือกตัวละครด้วย AI หรือเลือกจาก MASTER ก่อนสร้างบท" }
                         require(!automaticEquipmentUnresolved) { "การเลือกอุปกรณ์อัตโนมัติยังไม่เสร็จหรือจับคู่ไม่ได้ • ลองใหม่หรือเลือกอุปกรณ์ด้วยตนเอง" }
-                        val allCatalog=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog() else castingCatalog()
+                        val allCatalog=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog(includeAllTypes=true) else castingCatalog()
                         val catalog=CastingSelection.filter(allCatalog,selectedActors)
                         val presenterId=if(chosenChannel=="นายเปีย บ้านคลองขุด") {
                             require(presenter.selectedItemPosition>0) { "กรุณาเพิ่มรูป MASTER ผู้ดำเนินเรื่องในคลัง แล้วเลือกจากรายการ" }
