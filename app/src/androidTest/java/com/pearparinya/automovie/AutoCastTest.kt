@@ -141,4 +141,20 @@ class AutoCastTest {
             assertEquals(3,FlowCast.definitions(null).size)
         } finally { root.deleteRecursively() }
     }
+    @Test fun conflictingOriginalIsPreservedBeforeAnyNewMasterIsWritten() {
+        val root=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,UUID.randomUUID().toString()).apply { mkdirs() }
+        try {
+            val source=File(root,"master_candidates/a.png").apply { parentFile!!.mkdirs(); writeText("registered") }
+            val catalog=JSONArray()
+            val cast=JSONArray()
+            for(id in listOf("CHAR_001","CHAR_002")) {
+                catalog.put(JSONObject().put("id",id).put("file","a.png").put("sha256",MasterLibrary.digest(source.readBytes())))
+                cast.put(JSONObject().put("library_id",id).put("name",id).put("role","ตัวละคร"))
+            }
+            val original=File(root,"original_masters/support_00000002.master").apply { parentFile!!.mkdirs(); writeText("existing") }
+            assertTrue(runCatching { AutoCast.apply(JSONObject().put("story_concept","เรื่อง").put("cast",cast),catalog,root) }.isFailure)
+            assertEquals("existing",original.readText())
+            assertFalse(File(root,"original_masters/support_00000001.master").exists())
+        } finally { root.deleteRecursively() }
+    }
 }
