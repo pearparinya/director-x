@@ -34,6 +34,8 @@ internal data class SceneMoment(val time: String, val previousEnd: String = "") 
         }
 
         private fun timeIn(scene: JSONObject): String {
+            val recorded = scene.optString("story_time").trim()
+            if (StoryClock.hasClock(recorded)) return recorded
             val start = scene.optString("start_state").trim()
             if (start.startsWith("เช้าวันรุ่งขึ้น") || start.startsWith("the next morning", true)) return "morning"
             return scene.optString("story_time").trim().takeUnless { it == unknown }.orEmpty()
