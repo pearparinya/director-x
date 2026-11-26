@@ -35,13 +35,34 @@ internal object AutoCast {
             else -> ""
         }
         return anchor+pinned+genre+
-            "FIRST identify the essential story roles and relationships from the premise; THEN match each role to a distinct catalog ID. "+
+            storyCastingBrief()+"FIRST identify the essential story roles and relationships from the premise; THEN match each role to a distinct catalog ID. "+
             "Choose the smallest credible cast (1 to 8); never add filler actors or duplicate roles just to reach a fixed count. "+
             "Use catalog character ages and types only as explicitly assigned fictional metadata, not inferred from faces. "+
             "Do not infer personality, trustworthiness or talent from appearance. "+
             "Preserve the exact catalog MASTER ID for each actor, and keep names, roles and identity stable across all scenes. "+
             "Favor an eligible less-recently-used actor when role fit is comparable, but never sacrifice genre requirements or pinned IDs for variety. "
     }
+    /** Explicit story evidence only; never infer a species from the genre alone. */
+    private val subjectRules = listOf(
+        Regex("ผีสาว|ผีหญิง|วิญญาณหญิง") to setOf("ghost","spirit"),
+        Regex("ผี|วิญญาณ|ภูต") to setOf("ghost","spirit"),
+        Regex("อสูร|สัตว์ประหลาด") to setOf("creature","demon"),
+        Regex("พญานาค|มังกร|สุนัข|แมว|ช้าง|เสือ|หมาป่า") to setOf("animal","creature"),
+        Regex("ครุฑ") to setOf("creature","deity","animal")
+    )
+    fun storyCatalog(catalog: JSONArray, premise: String, pinned: Set<String> = emptySet()): JSONArray {
+        val rows=(0 until catalog.length()).map { catalog.getJSONObject(it) }
+        val types=subjectRules.filter { it.first.containsMatchIn(premise) }.flatMap { it.second }.toSet()
+        val terms=listOf("พญานาค","มังกร","สุนัข","แมว","ช้าง","เสือ","หมาป่า","ครุฑ","ผีกระสือ","ผีกระหัง","ผีตานี","วิญญาณหญิง","อสูร")
+            .filter { premise.contains(it) }
+        return JSONArray(rows.sortedWith(compareByDescending<JSONObject> { it.optString("id") in pinned }
+            .thenByDescending { row -> terms.count { row.optString("display_name").contains(it) } }
+            .thenByDescending { it.optString("character_type") in types }))
+    }
+    fun storyCastingBrief(): String =
+        "Identify essential explicitly described nonhuman and human roles before selecting actors. " +
+        "For a ghost, spirit, animal, deity or creature role use the matching catalog type and species evidence; never substitute a human merely because the protagonist is human. " +
+        "A genre label alone is not evidence of a creature. Preserve explicitly selected IDs; if no suitable MASTER exists report the missing role instead of inventing an ID. "
     fun schema() = JSONObject("""{"type":"object","properties":{"story_concept":{"type":"string"},"cast":{"type":"array","items":{"type":"object","properties":{"library_id":{"type":"string"},"name":{"type":"string"},"english_name":{"type":"string"},"role":{"type":"string"},"romance_role":{"type":"string"}},"required":["library_id","name","role"]}}},"required":["story_concept","cast"]}""")
     class ProposalError(message: String) : IllegalArgumentException(message)
 
