@@ -6,7 +6,8 @@ import org.json.JSONObject
 
 /** Freeze AI casting before scene generation; retries reuse the same names and original bytes. */
 internal object AutoCast {
-    fun adultRomanceEligible(row: JSONObject): Boolean = row.optString("character_type") in listOf("", "human", "knight") && row.optInt("character_age") >= 18
+    fun adultRomanceEligible(row: JSONObject): Boolean = row.optString("character_type") in listOf("", "human", "knight") &&
+        row.optString("age_basis") != "unspecified" && row.optInt("character_age") >= 18
     /** Send only casting information; keep original files, metadata and hashes for local verification. */
     fun promptCatalog(catalog: JSONArray): JSONArray = JSONArray().apply {
         val fields=listOf("id","display_name","character_age","character_gender","character_type","age_basis","casting_description")
