@@ -141,16 +141,28 @@ class SocialSeoUiTest {
             click("ถัดไป"); main { assertTrue(button("Facebook").isSelected) }
             click("ก่อนหน้า"); expect("ข้อความทดสอบ FACEBOOK POST")
             // Exercise the actual secondary dialogs through the instrumentation UI.
-            val device=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
             fun tapDialogText(value:String) {
-                val automation=device.uiAutomation
-                val root=checkNotNull(automation.rootInActiveWindow)
-                val node=root.findAccessibilityNodeInfosByText(value).firstOrNull { it.text?.toString()==value }
-                    ?: throw AssertionError("Missing dialog choice: "+value)
-                var target:android.view.accessibility.AccessibilityNodeInfo?=node
-                while(target!=null && !target.isClickable) target=target.parent
-                assertTrue(checkNotNull(target).performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK))
-                ins.waitForIdleSync()
+                val automation=ins.uiAutomation
+                val info=automation.serviceInfo
+                info.flags=info.flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+                automation.serviceInfo=info
+                val deadline=android.os.SystemClock.uptimeMillis()+10000L
+                while(android.os.SystemClock.uptimeMillis()<deadline) {
+                    val roots=(listOfNotNull(automation.rootInActiveWindow)+automation.windows.filter { it.type==android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION }.mapNotNull { it.root })
+                    for(root in roots) {
+                        val nodes=root.findAccessibilityNodeInfosByText(value)
+                        for(node in nodes.filter { it.text?.toString()==value && it.isVisibleToUser }) {
+                            var target:android.view.accessibility.AccessibilityNodeInfo?=node
+                            while(target!=null && !target.isClickable) target=target.parent
+                            if(target?.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)==true) {
+                                ins.waitForIdleSync()
+                                return
+                            }
+                        }
+                    }
+                    android.os.SystemClock.sleep(200)
+                }
+                throw AssertionError("Timed out waiting for clickable dialog choice: "+value)
             }
             click("🔄 สร้างข้อความใหม่")
             tapDialogText("ยกเลิก")
