@@ -9,6 +9,15 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class CastingSelectionTest {
+    @Test fun sceneDirectionPreservesStartStateAcrossGenres() {
+        for (genre in listOf("เรื่องเล่าและตำนาน","ละครสั้นสะท้อนสังคม","ซิตคอม","")) {
+            assertTrue(FlowVisualDirection.sceneDirection(genre).contains(FlowVisualDirection.firstFrame))
+        }
+        assertTrue(FlowVisualDirection.sceneDirection("เรื่องเล่าและตำนาน").contains("low-key"))
+        assertTrue(FlowVisualDirection.sceneDirection("ซิตคอม").contains("reaction staging"))
+        assertTrue(FlowVisualDirection.lockedCamera.contains("no pan, tilt, zoom"))
+    }
+
     @Test fun posterCueUsesOpeningEpisodeAndEpisodeSpecificIncident() {
         val opening = JSONObject().put("scenes",JSONArray().put(JSONObject().put("start_state","เปิดประตู").put("action","เดินเข้าไป")))
         val later = JSONObject().put("cover_incident","พบหลักฐาน").put("tagline","ความลับ")
