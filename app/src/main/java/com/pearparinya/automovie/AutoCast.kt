@@ -83,6 +83,8 @@ internal object AutoCast {
             val id=actor.getString("library_id")
             if(id in pinned) continue
             val role=actor.optString("role").trim()
+            val human=humanRoles.firstOrNull { role==it.label }
+            if(human!=null) require(rows[id]?.let { humanEligible(it,human) }==true) { "วัยหรือเพศ MASTER ไม่ตรงกับบทบาท: "+role }
             // Only explicit role prefixes: a human investigating a ghost is not a ghost.
             val rule=subjectRules.firstOrNull { it.first.find(role)?.range?.first==0 } ?: continue
             val row=checkNotNull(rows[id])
@@ -92,6 +94,24 @@ internal object AutoCast {
             val species=speciesTerms.firstOrNull { role.startsWith(it) || role.startsWith("ผี"+it) }
             require(species==null || evidence(row).contains(species)) { "สายพันธุ์ MASTER ไม่ตรงกับบทบาท: "+role }
         }
+    }
+    private data class HumanRole(val label: String, val gender: String, val ages: IntRange)
+    private val humanRoles=listOf(
+        HumanRole("พ่อ","man",18..100), HumanRole("แม่","woman",18..100),
+        HumanRole("สามี","man",18..100), HumanRole("ภรรยา","woman",18..100),
+        HumanRole("เด็กชาย","man",1..17), HumanRole("เด็กหญิง","woman",1..17),
+        HumanRole("ชายชรา","man",60..120), HumanRole("หญิงชรา","woman",60..120))
+    private fun humanEligible(row: JSONObject, role: HumanRole): Boolean =
+        row.optString("character_type") in setOf("","human") &&
+        row.optString("age_basis")!="unspecified" &&
+        row.optString("character_gender")==role.gender && row.optInt("character_age") in role.ages
+    /** Conservative explicit family roles; ambiguous mentions remain for user review. */
+    private fun explicitHumanRoles(premise: String): List<HumanRole> {
+        val clauses=premise.split(Regex("[\\n.!?。]+"))
+        return humanRoles.filter { role -> clauses.any { clause ->
+            clause.contains(role.label) && !clause.contains("กล่าวถึง") && !clause.contains("เล่าถึง") &&
+            !clause.contains("ไม่มี"+role.label) && !clause.contains("ไม่พบ"+role.label)
+        } }
     }
     /** Offline proposal from explicit story subjects, without network access or invented IDs. */
     fun kotlinProposal(catalog: JSONArray, premise: String, pinned: Set<String> = emptySet()): JSONObject {
@@ -125,6 +145,16 @@ internal object AutoCast {
             val best=eligible.filter { it.optString("id") !in used }.sortedWith(compareByDescending<JSONObject> { matchingScore(it,query) }.thenBy { it.getString("id") }).firstOrNull()
             requireNotNull(best) { "ไม่พบ MASTER ตรงกับบท: "+subject }
             add(best,subject)
+        }
+        for(role in explicitHumanRoles(premise)) {
+            val existing=(0 until cast.length()).map { cast.getJSONObject(it) }.firstOrNull { actor ->
+                actor.optString("role")=="ตัวละครที่เลือกไว้" && rows.any { it.optString("id")==actor.optString("library_id") && humanEligible(it,role) }
+            }
+            if(existing!=null) { existing.put("role",role.label); continue }
+            val best=rows.filter { it.optString("id") !in used && humanEligible(it,role) }
+                .sortedWith(compareByDescending<JSONObject> { matchingScore(it,premise) }.thenBy { it.getString("id") }).firstOrNull()
+            requireNotNull(best) { "ไม่พบ MASTER ที่มีวัยและเพศตรงกับบท: "+role.label }
+            add(best,role.label)
         }
         require(cast.length() in 1..8) { "ยังระบุบทบาทจากเรื่องไม่ได้ หรือจำนวนตัวละครเกิน 8 กรุณาเลือก MASTER เอง" }
         return JSONObject().put("story_concept",premise).put("cast",cast).also { validate(it,catalog); validateStoryRoles(it,catalog,pinned) }
