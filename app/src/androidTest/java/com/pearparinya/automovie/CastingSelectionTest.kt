@@ -37,6 +37,18 @@ class CastingSelectionTest {
         actor.put("library_id","D")
         AutoCast.validateStoryRoles(proposal,catalog,setOf("D"))
     }
+    @Test fun offlineCastingUsesActualIdsAndRejectsMissingSpecies() {
+        val rows=JSONArray()
+            .put(JSONObject().put("id","H").put("character_type","human").put("display_name","ตัวเอก"))
+            .put(JSONObject().put("id","G").put("character_type","ghost").put("display_name","วิญญาณหญิงผมยาว"))
+            .put(JSONObject().put("id","N").put("character_type","animal").put("display_name","พญานาค"))
+        val result=AutoCast.kotlinProposal(rows,"ผีสาวผมยาว พบพญานาค",setOf("H"))
+        val cast=result.getJSONArray("cast")
+        assertEquals(3,cast.length())
+        assertEquals("H",cast.getJSONObject(0).getString("library_id"))
+        assertEquals(result.toString(),AutoCast.kotlinProposal(rows,"ผีสาวผมยาว พบพญานาค",setOf("H")).toString())
+        assertTrue(runCatching { AutoCast.kotlinProposal(rows,"มังกร",setOf("H")) }.isFailure)
+    }
     @Test fun explicitPoolNeverExpandsAndEmptyPreservesAll() {
         val rows=JSONArray().put(JSONObject().put("id","A")).put(JSONObject().put("id","B")).put(JSONObject().put("id","C"))
         assertEquals(3,CastingSelection.filter(rows,emptySet()).length())
