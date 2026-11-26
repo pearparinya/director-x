@@ -15,6 +15,17 @@ internal object FlowVisualDirection {
             firstScene?.optString("action"), opening?.optString("tagline"), story.optString("tagline"),
             story.optString("title")).firstOrNull { !it.isNullOrBlank() }.orEmpty()
     }
+    const val firstFrame = "START STATE ONLY: Render the exact initial pose, prop positions and location before the action develops. End state is continuity guidance only; never depict the completed action in the first frame. Preserve the established screen direction and wardrobe. Choose framing that keeps the story-critical subject and relevant evidence visible; do not force a human close-up when the subject is nonhuman."
+    const val lockedCamera = "Locked camera on tripod; no pan, tilt, zoom, dolly or reframing during the eight-second shot. Character and environmental motion follow the scene action."
+    fun sceneDirection(category: String): String {
+        val style = when {
+            listOf("ตำนาน","ลึกลับ","สยอง","ผี").any { it in category } -> "Use motivated low-key lighting, readable silhouettes and suspenseful negative space; preserve neutral skin and the actual time of day."
+            listOf("ตลก","ซิตคอม").any { it in category } -> "Use clear reaction staging, readable gestures and soft motivated lighting."
+            listOf("สะท้อนสังคม","ชีวิต","ดราม่า").any { it in category } -> "Use grounded naturalistic staging, restrained expressions and location-motivated light."
+            else -> "Use story-motivated framing, expressions and lighting without inventing a new setting."
+        }
+        return "$style $firstFrame"
+    }
     fun layout(ratio: String): String = when(ratio) {
         "9x16" -> "Vertical 9:16, 1080 x 1920 pixels. Compose native portrait key art with balanced left/center/right staging and lower-middle text space. Keep faces clear and preserve a meaningful foreground scene below the text."
         "16x9" -> "Horizontal 16:9, 1920 x 1080 pixels. Native widescreen cover; recompose the same cast and locked outfits. Keep the compact text group away from faces and edges and preserve the foreground scene."
