@@ -55,10 +55,17 @@ internal object AutoCast {
     private val roleTerms=listOf("ผู้พิทักษ์","นักล่า","นักสำรวจ","จอมเวท","อัศวิน","ชาวบ้าน")
     private fun evidence(row: JSONObject)=row.optString("display_name")+" "+row.optString("casting_description")
     private fun normalized(text: String)=text.replace("ผีสาว","วิญญาณหญิง").replace("ผีหญิง","วิญญาณหญิง")
+    // Mask only the referenced noun, so an actor sharing its clause remains visible.
+    private val indirectSubject by lazy { Regex(
+        "(?:กล่าวถึง|พูดถึง|เล่าถึง|เอ่ยถึง|ไม่พบ|ไม่เห็น|ไม่มี)\\s*" +
+            "(?:ผี|วิญญาณ)?(?:วิญญาณหญิง|วิญญาณ|ผี|ภูต|อสูร|สัตว์ประหลาด|" +
+            (speciesTerms + humanRoles.map { it.label }).sortedByDescending { it.length }.joinToString("|") { Regex.escape(it) } + ")"
+    ) }
+    private fun visibleEvidence(text: String) = indirectSubject.replace(normalized(text), " ")
     /** Evidence-weighted score, maximum 100; absent metadata earns no points. */
     fun matchingScore(row: JSONObject, premise: String, category: String="", setting: String="", previous: Set<String> = emptySet()): Int {
-        val query=normalized(premise)
-        val metadata=evidence(row)
+        val query=visibleEvidence(premise)
+        val metadata=normalized(evidence(row))
         val types=subjectRules.filter { it.first.containsMatchIn(query) }.flatMap { it.second }.toSet()
         fun matches(terms: List<String>, source: String)=terms.any { source.contains(it) && metadata.contains(it) }
         return (if(row.optString("character_type") in types) 30 else 0)+
@@ -68,10 +75,10 @@ internal object AutoCast {
             (if(setting.isNotBlank() && metadata.contains(setting)) 10 else 0)+
             (if(row.optString("id") in previous) 5 else 0)
     }
-    fun storyCatalog(catalog: JSONArray, premise: String, pinned: Set<String> = emptySet()): JSONArray {
+    fun storyCatalog(catalog: JSONArray, premise: String, pinned: Set<String> = emptySet(), category: String = ""): JSONArray {
         val rows=(0 until catalog.length()).map { catalog.getJSONObject(it) }
         return JSONArray(rows.sortedWith(compareByDescending<JSONObject> { it.optString("id") in pinned }
-            .thenByDescending { matchingScore(it,premise) }))
+            .thenByDescending { matchingScore(it,premise,category) }))
     }
     /** Validate explicit role evidence against the actual registered MASTER type. */
     fun validateStoryRoles(value: JSONObject, catalog: JSONArray, pinned: Set<String> = emptySet()) {
@@ -115,7 +122,7 @@ internal object AutoCast {
         } }
     }
     /** Offline proposal from explicit story subjects, without network access or invented IDs. */
-    fun kotlinProposal(catalog: JSONArray, premise: String, pinned: Set<String> = emptySet()): JSONObject {
+    fun kotlinProposal(catalog: JSONArray, premise: String, pinned: Set<String> = emptySet(), category: String = ""): JSONObject {
         require(premise.isNotBlank()) { "กรุณาระบุเนื้อเรื่องก่อนเลือก MASTER" }
         val rows=(0 until catalog.length()).map { catalog.getJSONObject(it) }
         val cast=JSONArray()
@@ -129,7 +136,7 @@ internal object AutoCast {
             cast.put(JSONObject().put("library_id",id).put("name",name).put("role",role))
         }
         pinned.forEach { id -> add(requireNotNull(rows.firstOrNull { it.optString("id")==id }) { "ไม่พบ MASTER ที่ล็อกไว้: "+id },"ตัวละครที่เลือกไว้") }
-        val query=normalized(premise)
+        val query=visibleEvidence(premise)
         val subjects=speciesTerms.filter { query.contains(it) }.toMutableList()
         if(subjects.none { it in listOf("กระสือ","กระหัง","ตานี") }) {
             if(query.contains("วิญญาณหญิง")) subjects.add("วิญญาณหญิง")
@@ -140,23 +147,23 @@ internal object AutoCast {
             val rule=subjectRules.firstOrNull { it.first.containsMatchIn(subject) }
             val eligible=rows.filter { row ->
                 (rule==null || row.optString("character_type") in rule.second) &&
-                (if(subject=="วิญญาณ") row.optString("character_type") in setOf("ghost","spirit") else evidence(row).contains(subject))
+                (if(subject=="วิญญาณ") row.optString("character_type") in setOf("ghost","spirit") else normalized(evidence(row)).contains(subject))
             }
             val pinnedMatch=(0 until cast.length()).map { cast.getJSONObject(it) }.firstOrNull { actor ->
                 actor.optString("role")=="ตัวละครที่เลือกไว้" && eligible.any { it.optString("id")==actor.optString("library_id") }
             }
             if(pinnedMatch!=null) { pinnedMatch.put("role",subject); continue }
-            val best=eligible.filter { it.optString("id") !in used }.sortedWith(compareByDescending<JSONObject> { matchingScore(it,query) }.thenBy { it.getString("id") }).firstOrNull()
+            val best=eligible.filter { it.optString("id") !in used }.sortedWith(compareByDescending<JSONObject> { matchingScore(it,query,category) }.thenBy { it.getString("id") }).firstOrNull()
             requireNotNull(best) { "ไม่พบ MASTER ตรงกับบท: "+subject }
             add(best,subject)
         }
-        for(role in explicitHumanRoles(premise)) {
+        for(role in explicitHumanRoles(query)) {
             val existing=(0 until cast.length()).map { cast.getJSONObject(it) }.firstOrNull { actor ->
                 actor.optString("role")=="ตัวละครที่เลือกไว้" && rows.any { it.optString("id")==actor.optString("library_id") && humanEligible(it,role) }
             }
             if(existing!=null) { existing.put("role",role.label); continue }
             val best=rows.filter { it.optString("id") !in used && humanEligible(it,role) }
-                .sortedWith(compareByDescending<JSONObject> { matchingScore(it,premise) }.thenBy { it.getString("id") }).firstOrNull()
+                .sortedWith(compareByDescending<JSONObject> { matchingScore(it,premise,category) }.thenBy { it.getString("id") }).firstOrNull()
             requireNotNull(best) { "ไม่พบ MASTER ที่มีวัยและเพศตรงกับบท: "+role.label }
             add(best,role.label)
         }

@@ -7543,7 +7543,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     }
                     val pinned=selectedActors.toSet()
                     if(!castUseAi) {
-                        val result=runCatching { AutoCast.kotlinProposal(catalog,selectedStoryTopic+" "+premise.text.toString(),pinned) }
+                        val result=runCatching { AutoCast.kotlinProposal(catalog,selectedStoryTopic+" "+premise.text.toString(),pinned,categories[index]) }
                         autoRunning=false
                         result.onSuccess { proposal ->
                             suggestedRoles.clear()
@@ -7575,7 +7575,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                                 val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false,context=this@StudioActivity)
                                 client.useProposalTimeouts()
                                 active.set(client)
-                                val prompt="Suggest a cast for this Thai story. Channel: $channel; category: $category; situation: $situation; details: $detail. Return a nonempty story_concept and cast. For each actor use library_id from the catalog id field, a unique name and a nonempty role. Omit english_name unless it is a unique single English name. Suggest only characters suitable for the story, with a short proposed role in Thai. Do not infer occupation or identity from a face; roles are fictional suggestions for user review. Use as many as needed, from 1 to 8. "+(if(channel=="นายเปีย บ้านคลองขุด") "Include $piaActorId as central protagonist and suitable supporting roles. " else "")+AutoCast.storyCastingBrief()+"Catalog: "+AutoCast.promptCatalog(AutoCast.storyCatalog(catalog, situation+" "+detail, pinned)).toString()
+                                val prompt="Suggest a cast for this Thai story. Channel: $channel; category: $category; situation: $situation; details: $detail. Return a nonempty story_concept and cast. For each actor use library_id from the catalog id field, a unique name and a nonempty role. Omit english_name unless it is a unique single English name. Suggest only characters suitable for the story, with a short proposed role in Thai. Do not infer occupation or identity from a face; roles are fictional suggestions for user review. Use as many as needed, from 1 to 8. "+(if(channel=="นายเปีย บ้านคลองขุด") "Include $piaActorId as central protagonist and suitable supporting roles. " else "")+AutoCast.storyCastingBrief()+"Catalog: "+AutoCast.promptCatalog(AutoCast.storyCatalog(catalog, situation+" "+detail, pinned,category)).toString()
                                 val presenterId=if(channel=="นายเปีย บ้านคลองขุด") piaActorId else ""
                                 AutoCast.propose(prompt,catalog,presenterId,{ stopped.get() },pinned) { request ->
                                     client.generate(request,AutoCast.schema())

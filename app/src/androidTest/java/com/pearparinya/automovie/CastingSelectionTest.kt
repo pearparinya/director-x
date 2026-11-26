@@ -82,4 +82,13 @@ class CastingSelectionTest {
         assertEquals("K",cast("ผีกระสือ").getJSONObject(0).getString("library_id"))
         assertTrue(runCatching { AutoCast.kotlinProposal(catalog,"พ่อค้า") }.isFailure)
     }
+    @Test fun fatherMentioningAbsentGhostIsTheOnlyVisibleActor() {
+        val catalog = JSONArray().put(JSONObject().put("id", "F").put("character_type", "human")
+            .put("character_age", 40).put("character_gender", "man"))
+        for (premise in listOf("พ่อกล่าวถึงผีสาว", "พ่อไม่พบพญานาค")) {
+            val cast = AutoCast.kotlinProposal(catalog, premise).getJSONArray("cast")
+            assertEquals(1, cast.length())
+            assertEquals("F", cast.getJSONObject(0).getString("library_id"))
+        }
+    }
 }
