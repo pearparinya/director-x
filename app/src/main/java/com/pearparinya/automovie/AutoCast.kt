@@ -305,6 +305,16 @@ internal object AutoCast {
     fun apply(value: JSONObject, catalog: JSONArray, project: File): JSONArray {
         validate(value,catalog)
         val result=JSONArray(); val cast=value.getJSONArray("cast")
+        // Preflight every original before writing any new reference.
+        for(i in 0 until cast.length()) {
+            val id=cast.getJSONObject(i).getString("library_id")
+            val row=(0 until catalog.length()).map { catalog.getJSONObject(it) }.first { it.getString("id")==id }
+            val source=File(project,"master_candidates/"+row.getString("file"))
+            require(source.isFile && MasterLibrary.digest(source.readBytes())==row.getString("sha256")) { "ขาด MASTER ต้นฉบับของ $id" }
+            val key="support_%08x".format(id.substringAfter('_').toInt())
+            val target=File(project,"original_masters/$key.master")
+            require(!target.exists() || (target.isFile && MasterLibrary.digest(target.readBytes())==row.getString("sha256"))) { "MASTER เดิมไม่ตรงกับทะเบียน: $id • ต้องตรวจสอบก่อนเปลี่ยน" }
+        }
         for(i in 0 until cast.length()) {
             val p=cast.getJSONObject(i); val id=p.getString("library_id")
             val row=(0 until catalog.length()).map { catalog.getJSONObject(it) }.first { it.getString("id")==id }
@@ -312,7 +322,7 @@ internal object AutoCast {
             require(source.isFile && MasterLibrary.digest(source.readBytes())==row.getString("sha256")) { "ขาด MASTER ต้นฉบับของ $id" }
             val key="support_%08x".format(id.substringAfter('_').toInt())
             val target=File(project,"original_masters/$key.master"); target.parentFile!!.mkdirs()
-            if(!target.isFile || MasterLibrary.digest(target.readBytes())!=row.getString("sha256")) {
+            if(!target.exists()) {
                 val pending=File(target.parentFile,target.name+".pending"); source.copyTo(pending,overwrite=true); check(pending.renameTo(target))
             }
             result.put(JSONObject().put("name",p.getString("name").trim()).put("master","${key.uppercase()}_MASTER.png")
