@@ -61,4 +61,14 @@ class CastingSelectionTest {
         CastingSelection.requireIncluded(cast,setOf("A"))
         assertTrue(runCatching { CastingSelection.requireIncluded(cast,setOf("A","C")) }.isFailure)
     }
+    @Test fun offlineFamilyRolesUseRegisteredAgeAndGender() {
+        fun row(id:String, gender:String, age:Int)=JSONObject().put("id",id).put("display_name",id).put("character_type","human").put("character_gender",gender).put("character_age",age)
+        val catalog=JSONArray().put(row("F","man",40)).put(row("M","woman",38)).put(row("C","woman",10))
+        val cast=AutoCast.kotlinProposal(catalog,"พ่อ แม่ และเด็กหญิง",setOf("F")).getJSONArray("cast")
+        assertEquals(3,cast.length())
+        assertEquals("F",cast.getJSONObject(0).getString("library_id"))
+        assertEquals("พ่อ",cast.getJSONObject(0).getString("role"))
+        assertTrue(runCatching { AutoCast.kotlinProposal(catalog,"เด็กชาย") }.isFailure)
+        assertEquals(1,AutoCast.kotlinProposal(catalog,"กล่าวถึงแม่",setOf("F")).getJSONArray("cast").length())
+    }
 }
