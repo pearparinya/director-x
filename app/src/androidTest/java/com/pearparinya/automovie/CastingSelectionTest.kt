@@ -108,4 +108,24 @@ class CastingSelectionTest {
         assertEquals("อรุณ", cast.getJSONObject(0).getString("name"))
         assertEquals("ผู้พิทักษ์", cast.getJSONObject(0).getString("role"))
     }
+    @Test fun explicitFamilyAliasUsesOneMasterWhileSeparatePeopleUseTwo() {
+        val rows = JSONArray()
+        for (id in listOf("A", "B")) rows.put(JSONObject().put("id",id).put("display_name",id)
+            .put("character_type","human").put("character_age",40).put("character_gender","man"))
+        fun cast(text: String) = AutoCast.kotlinProposal(rows,text).getJSONArray("cast")
+        val linked = cast("พ่อซึ่งเป็นสามีเดินกลับบ้าน")
+        assertEquals(1, linked.length())
+        assertEquals("พ่อ / สามี", linked.getJSONObject(0).getString("role"))
+        assertEquals(2, cast("พ่อพบกับสามีของเพื่อน").length())
+        assertEquals(1, cast("พ่อพบพ่อค้า").length())
+    }
+
+    @Test fun labelledStorySettingChangesRankingWithoutExplicitParameter() {
+        fun actor(id: String, description: String) = JSONObject().put("id",id).put("casting_description",description)
+        val rows = JSONArray().put(actor("A","ป่าดิบ")).put(actor("B","เมืองเก่า"))
+        val story = "ผู้พิทักษ์กลับบ้าน\nสถานที่: เมืองเก่า"
+        assertEquals("B",AutoCast.storyCatalog(rows,story).getJSONObject(0).getString("id"))
+        assertEquals(10,AutoCast.matchingEvidence(rows.getJSONObject(1),story)[4].points)
+        assertEquals(0,AutoCast.matchingEvidence(rows.getJSONObject(0),story)[4].points)
+    }
 }
