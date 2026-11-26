@@ -9,6 +9,13 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class CastingSelectionTest {
+    @Test fun romanceEligibilityRejectsUnspecifiedAge() {
+        val row = JSONObject().put("character_type", "human").put("character_age", 45)
+        assertTrue(AutoCast.adultRomanceEligible(row))
+        row.put("age_basis", "unspecified")
+        assertFalse(AutoCast.adultRomanceEligible(row))
+    }
+
     @Test fun storyRankingKeepsAllTypesAndPinnedIdentity() {
         val rows=JSONArray().put(JSONObject().put("id","H").put("character_type","human"))
             .put(JSONObject().put("id","G").put("character_type","ghost").put("display_name","วิญญาณหญิงชุดสีอ่อน"))
