@@ -50,14 +50,28 @@ internal object AutoCast {
         Regex("พญานาค|มังกร|สุนัข|แมว|ช้าง|เสือ|หมาป่า") to setOf("animal","creature"),
         Regex("ครุฑ") to setOf("creature","deity","animal")
     )
+    private val speciesTerms=listOf("พญานาค","มังกร","สุนัข","แมว","ช้าง","เสือ","หมาป่า","ครุฑ","กระสือ","กระหัง","ตานี")
+    private val appearanceTerms=listOf("ผมยาว","ผมขาว","ชุดน้ำเงิน","ชุดสีอ่อน","เครื่องทรง","หญิง","ชาย","ชรา")
+    private val roleTerms=listOf("ผู้พิทักษ์","นักล่า","นักสำรวจ","จอมเวท","อัศวิน","ชาวบ้าน")
+    private fun evidence(row: JSONObject)=row.optString("display_name")+" "+row.optString("casting_description")
+    private fun normalized(text: String)=text.replace("ผีสาว","วิญญาณหญิง").replace("ผีหญิง","วิญญาณหญิง")
+    /** Evidence-weighted score, maximum 100; absent metadata earns no points. */
+    fun matchingScore(row: JSONObject, premise: String, category: String="", setting: String="", previous: Set<String> = emptySet()): Int {
+        val query=normalized(premise)
+        val metadata=evidence(row)
+        val types=subjectRules.filter { it.first.containsMatchIn(query) }.flatMap { it.second }.toSet()
+        fun matches(terms: List<String>, source: String)=terms.any { source.contains(it) && metadata.contains(it) }
+        return (if(row.optString("character_type") in types) 30 else 0)+
+            (if(matches(speciesTerms+roleTerms,query)) 25 else 0)+
+            (if(matches(appearanceTerms,query)) 20 else 0)+
+            (if(category.isNotBlank() && metadata.contains(category)) 10 else 0)+
+            (if(setting.isNotBlank() && metadata.contains(setting)) 10 else 0)+
+            (if(row.optString("id") in previous) 5 else 0)
+    }
     fun storyCatalog(catalog: JSONArray, premise: String, pinned: Set<String> = emptySet()): JSONArray {
         val rows=(0 until catalog.length()).map { catalog.getJSONObject(it) }
-        val types=subjectRules.filter { it.first.containsMatchIn(premise) }.flatMap { it.second }.toSet()
-        val terms=listOf("พญานาค","มังกร","สุนัข","แมว","ช้าง","เสือ","หมาป่า","ครุฑ","ผีกระสือ","ผีกระหัง","ผีตานี","วิญญาณหญิง","อสูร")
-            .filter { premise.contains(it) }
         return JSONArray(rows.sortedWith(compareByDescending<JSONObject> { it.optString("id") in pinned }
-            .thenByDescending { row -> terms.count { row.optString("display_name").contains(it) } }
-            .thenByDescending { it.optString("character_type") in types }))
+            .thenByDescending { matchingScore(it,premise) }))
     }
     /** Validate explicit role evidence against the actual registered MASTER type. */
     fun validateStoryRoles(value: JSONObject, catalog: JSONArray, pinned: Set<String> = emptySet()) {
@@ -71,9 +85,12 @@ internal object AutoCast {
             val role=actor.optString("role").trim()
             // Only explicit role prefixes: a human investigating a ghost is not a ghost.
             val rule=subjectRules.firstOrNull { it.first.find(role)?.range?.first==0 } ?: continue
-            require(rows[id]?.optString("character_type") in rule.second) {
+            val row=checkNotNull(rows[id])
+            require(row.optString("character_type") in rule.second) {
                 "ประเภท MASTER ไม่ตรงกับบทบาท: "+role
             }
+            val species=speciesTerms.firstOrNull { role.startsWith(it) || role.startsWith("ผี"+it) }
+            require(species==null || evidence(row).contains(species)) { "สายพันธุ์ MASTER ไม่ตรงกับบทบาท: "+role }
         }
     }
     fun storyCastingBrief(): String =
