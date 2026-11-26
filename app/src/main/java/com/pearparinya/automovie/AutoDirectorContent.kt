@@ -171,7 +171,7 @@ Images are generated externally in Gemini; video is generated externally in Flow
         LandscapeProduction.requirePlan(story)
         val people=FlowReferencePrompt.people(s)
         return "ซีน ${s.getInt("scene")} • [ฉากที่ ${s.getInt("scene")}] [แนบรูป: ${people.joinToString(", ") { alias(it) }}]\n$imageStart\n"+
-                ImagePromptPolicy.productionDirection+"\n"+binding(people,story)+"\n${normalize(FlowReferencePrompt.visibleCastLock(people),story)}\n$identity\n${PerformanceDirection.guide}\n${ChannelCatalog.performance(story)}\n${ChannelCatalog.genre(story)}\nFreeze one expressive instant from the stated action; never render a multi-beat sequence or collage.\n"+AutoDirectorWardrobe.contract(s)+"\n"+
+                ImagePromptPolicy.productionDirection+"\n"+binding(people,story)+"\n${normalize(FlowReferencePrompt.visibleCastLock(people),story)}\n$identity\n${PerformanceDirection.guide}\n${ChannelCatalog.performance(story)}\n${ChannelCatalog.genre(story)}\n${FlowVisualDirection.sceneDirection(story.optString("category"))}\n"+AutoDirectorWardrobe.contract(s)+"\n"+
                 "Location: ${normalize(s.getString("location"),story)}. Action: ${normalize(s.getString("action"),story)}. Start state: ${normalize(s.getString("start_state"),story)}. End-state continuity target: ${normalize(s.getString("end_state"),story)}.\n"+
                 "${normalize(s.getString("image_prompt"),story)}\nFINAL OVERRIDES: Use only the attached identities and current four-part wardrobes above. Explicit left/center/right placement for all listed people. "+
                 (if(speech(s.optString("dialogue")).isEmpty()) "All characters: mouth closed, lips sealed. " else "Only ${speaker(s)} is speaking; all others mouth closed, lips sealed. ")+
