@@ -101,7 +101,16 @@ class SocialSeoUiTest {
         fun finish() { main { activity?.finish(); activity=null } }
         try {
             launch(id); open()
-            main { assertFalse(button("ก่อนหน้า").isEnabled) }
+            main {
+                assertFalse(button("ก่อนหน้า").isEnabled)
+                val tabs=listOf("Facebook","TikTok","YouTube","Instagram").map { button(it) }
+                assertTrue(tabs.all { it.background is android.graphics.drawable.GradientDrawable })
+                assertTrue(tabs.first().isSelected)
+                assertTrue(edit().background is android.graphics.drawable.GradientDrawable)
+                val labels=views(dialog!!.window!!.decorView).filterIsInstance<android.widget.TextView>().map { it.text.toString() }
+                assertTrue(labels.contains("EP.1/2"))
+                assertTrue(labels.contains("ชื่อตอน : ตอนหนึ่ง"))
+            }
             val fields=listOf("Facebook" to "FACEBOOK POST","TikTok" to "TIKTOK CAPTION","YouTube" to "SEO TITLE","Description" to "DESCRIPTION","Tags" to "SEO TAGS","Instagram" to "INSTAGRAM CAPTION")
             for((tab,field) in fields) {
                 click(tab); val value="ข้อความทดสอบ "+field; set(value)
@@ -116,16 +125,61 @@ class SocialSeoUiTest {
             set("ตอนสองแยกข้อมูล")
             click("ก่อนหน้า"); expect("ข้อความทดสอบ INSTAGRAM CAPTION")
             click("Facebook"); expect("ข้อความทดสอบ FACEBOOK POST")
-            for ((sample, expected) in listOf("ทดสอบ" to 5, "ภาษาไทย" to 7, "" to 0, "ก".repeat(351) to 351)) {
+            for ((sample, expected) in listOf("ทดสอบ" to 5, "ภาษาไทย" to 7, "" to 0, "ก".repeat(285) to 285, "ก".repeat(351) to 351)) {
                 set(sample)
                 main {
                     val labels=views(dialog!!.window!!.decorView).filterIsInstance<android.widget.TextView>().map { it.text.toString() }
                     assertTrue("Expected counter $expected / 350; visible labels: $labels", labels.contains("$expected / 350 ตัวอักษร"))
+                    val progress=views(dialog!!.window!!.decorView).filterIsInstance<android.widget.ProgressBar>().single()
+                    assertEquals(350,progress.max)
+                    assertEquals(expected.coerceAtMost(350),progress.progress)
+                    val color=if(expected>350) android.graphics.Color.rgb(255,90,90) else if(expected>=280) android.graphics.Color.rgb(80,210,140) else android.graphics.Color.rgb(80,180,255)
+                    assertEquals(color,progress.progressTintList!!.defaultColor)
                 }
             }
             set("ข้อความทดสอบ FACEBOOK POST")
             click("ถัดไป"); main { assertTrue(button("Facebook").isSelected) }
             click("ก่อนหน้า"); expect("ข้อความทดสอบ FACEBOOK POST")
+            // Exercise the actual secondary dialogs through the instrumentation UI.
+            fun tapDialogText(value:String) {
+                val automation=ins.uiAutomation
+                val info=automation.serviceInfo
+                info.flags=info.flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+                automation.serviceInfo=info
+                val deadline=android.os.SystemClock.uptimeMillis()+10000L
+                while(android.os.SystemClock.uptimeMillis()<deadline) {
+                    val roots=(listOfNotNull(automation.rootInActiveWindow)+automation.windows.filter { it.type==android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION }.mapNotNull { it.root })
+                    for(root in roots) {
+                        val nodes=root.findAccessibilityNodeInfosByText(value)
+                        for(node in nodes.filter { it.text?.toString()==value && it.isVisibleToUser }) {
+                            var target:android.view.accessibility.AccessibilityNodeInfo?=node
+                            while(target!=null && !target.isClickable) target=target.parent
+                            if(target?.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)==true) {
+                                ins.waitForIdleSync()
+                                return
+                            }
+                        }
+                    }
+                    android.os.SystemClock.sleep(200)
+                }
+                throw AssertionError("Timed out waiting for clickable dialog choice: "+value)
+            }
+            click("🔄 สร้างข้อความใหม่")
+            tapDialogText("ยกเลิก")
+            expect("ข้อความทดสอบ FACEBOOK POST")
+            click("🔄 สร้างข้อความใหม่")
+            tapDialogText("แทนที่")
+            main { assertNotEquals("ข้อความทดสอบ FACEBOOK POST",edit().text.toString()) }
+            set("ข้อความทดสอบ FACEBOOK POST")
+            click("เลือก EP / รวมทั้งเรื่อง")
+            tapDialogText("EP.2 • ตอนสอง")
+            main { assertTrue(edit().text.toString().contains("EP.2")); assertTrue(button("Facebook").isSelected) }
+            click("เลือก EP / รวมทั้งเรื่อง")
+            tapDialogText("ประชาสัมพันธ์รวมทั้งเรื่อง")
+            main { assertFalse(edit().text.toString().contains("EP.")); assertFalse(button("ก่อนหน้า").isEnabled); assertFalse(button("ถัดไป").isEnabled) }
+            click("เลือก EP / รวมทั้งเรื่อง")
+            tapDialogText("EP.1 • ตอนหนึ่ง")
+            expect("ข้อความทดสอบ FACEBOOK POST")
             main {
                 val back=button("ย้อนกลับ")
                 assertTrue("Negative action must be back",back.text.toString().contains("ย้อนกลับ"))
