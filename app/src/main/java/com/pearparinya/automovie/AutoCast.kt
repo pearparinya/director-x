@@ -99,26 +99,39 @@ internal object AutoCast {
         return JSONArray(rows.sortedWith(compareByDescending<JSONObject> { it.optString("id") in pinned }
             .thenByDescending { matchingScore(it,premise,category) }))
     }
-    /** Validate explicit role evidence against the actual registered MASTER type. */
+    fun roleConflict(row: JSONObject, roleText: String): String? {
+        val role = roleText.trim()
+        val human = humanRoles.firstOrNull { role == it.label }
+        if (human != null && !humanEligible(row,human)) return "วัยหรือเพศ MASTER ไม่ตรงกับบทบาท: $role"
+        val rule = subjectRules.firstOrNull { it.first.find(role)?.range?.first == 0 } ?: return null
+        if (row.optString("character_type") !in rule.second) return "ประเภท MASTER ไม่ตรงกับบทบาท: $role"
+        val species = speciesTerms.firstOrNull { role.startsWith(it) || role.startsWith("ผี"+it) }
+        return if (species != null && species !in evidence(row)) "สายพันธุ์ MASTER ไม่ตรงกับบทบาท: $role" else null
+    }
+
     fun validateStoryRoles(value: JSONObject, catalog: JSONArray, pinned: Set<String> = emptySet()) {
-        val cast=value.getJSONArray("cast")
+        val cast = value.getJSONArray("cast")
         CastingSelection.requireIncluded(cast,pinned)
-        val rows=(0 until catalog.length()).map { catalog.getJSONObject(it) }.associateBy { it.getString("id") }
-        for(i in 0 until cast.length()) {
-            val actor=cast.getJSONObject(i)
-            val id=actor.getString("library_id")
-            if(id in pinned) continue
-            val role=actor.optString("role").trim()
-            val human=humanRoles.firstOrNull { role==it.label }
-            if(human!=null) require(rows[id]?.let { humanEligible(it,human) }==true) { "วัยหรือเพศ MASTER ไม่ตรงกับบทบาท: "+role }
-            // Only explicit role prefixes: a human investigating a ghost is not a ghost.
-            val rule=subjectRules.firstOrNull { it.first.find(role)?.range?.first==0 } ?: continue
-            val row=checkNotNull(rows[id])
-            require(row.optString("character_type") in rule.second) {
-                "ประเภท MASTER ไม่ตรงกับบทบาท: "+role
+        val rows = (0 until catalog.length()).map { catalog.getJSONObject(it) }.associateBy { it.getString("id") }
+        for (i in 0 until cast.length()) {
+            val actor = cast.getJSONObject(i)
+            val id = actor.getString("library_id")
+            val row = requireNotNull(rows[id]) { "ไม่พบ MASTER ในคลัง: $id" }
+            if (id !in pinned) roleConflict(row,actor.optString("role"))?.let { throw IllegalArgumentException(it) }
+        }
+    }
+    // Anchor to a narrated physical appearance, never to a title, genre or a question in dialogue.
+    private val appearanceSubject = Regex("""^(ผีสาว|ผีหญิง|วิญญาณหญิง|ผีกระสือ|ผีกระหัง|ผีตานี|พญานาค|ครุฑ|มังกร|อสูร|สุนัข|แมว)\s*(?:ปรากฏตัว|เดินเข้าฉาก|เดินเข้ามา|โผล่ออกมา)""")
+    fun requireNarratedAppearances(value: JSONObject, catalog: JSONArray, premise: String) {
+        val selected = value.getJSONArray("cast")
+        val ids = (0 until selected.length()).map { selected.getJSONObject(it).getString("library_id") }.toSet()
+        val actors = (0 until catalog.length()).map { catalog.getJSONObject(it) }.filter { it.optString("id") in ids }
+        for (clause in premise.split(Regex("""[.!。;\n]+"""))) {
+            val subject = appearanceSubject.find(clause.trim())?.groupValues?.get(1) ?: continue
+            val rule = subjectRules.first { it.first.containsMatchIn(subject) }
+            require(actors.any { it.optString("character_type") in rule.second && normalized(subject) in normalized(evidence(it)) }) {
+                "ขาด MASTER สำหรับตัวละครที่ปรากฏในเหตุการณ์: $subject"
             }
-            val species=speciesTerms.firstOrNull { role.startsWith(it) || role.startsWith("ผี"+it) }
-            require(species==null || evidence(row).contains(species)) { "สายพันธุ์ MASTER ไม่ตรงกับบทบาท: "+role }
         }
     }
     private data class HumanRole(val label: String, val gender: String, val ages: IntRange)
@@ -216,7 +229,7 @@ internal object AutoCast {
     class ProposalError(message: String) : IllegalArgumentException(message)
 
     fun propose(prompt: String, catalog: JSONArray, presenterId: String, stopped: () -> Boolean,
-                pinned: Set<String> = emptySet(), generate: (String) -> JSONObject): JSONObject {
+                pinned: Set<String> = emptySet(), premise: String = "", generate: (String) -> JSONObject): JSONObject {
         var request = prompt
         repeat(2) { attempt ->
             if (stopped()) throw java.util.concurrent.CancellationException()
@@ -225,6 +238,7 @@ internal object AutoCast {
                 validate(proposal, catalog)
                 requirePresenter(proposal, presenterId)
                 validateStoryRoles(proposal, catalog, pinned)
+                requireNarratedAppearances(proposal,catalog,premise)
                 return proposal
             } catch (e: IllegalArgumentException) {
                 e.message ?: "รายชื่อตัวละครผิดเงื่อนไข"
@@ -384,34 +398,58 @@ internal object AutoCast {
         validate(value,catalog)
         // Variety is a preference; a suitable previously used pairing remains valid.
     }
+    @Synchronized
     fun apply(value: JSONObject, catalog: JSONArray, project: File): JSONArray {
         validate(value,catalog)
         val result=JSONArray(); val cast=value.getJSONArray("cast")
-        // Preflight every original before writing any new reference.
-        for(i in 0 until cast.length()) {
-            val id=cast.getJSONObject(i).getString("library_id")
-            val row=(0 until catalog.length()).map { catalog.getJSONObject(it) }.first { it.getString("id")==id }
-            val source=File(project,"master_candidates/"+row.getString("file"))
-            require(source.isFile && MasterLibrary.digest(source.readBytes())==row.getString("sha256")) { "ขาด MASTER ต้นฉบับของ $id" }
-            val key="support_%08x".format(id.substringAfter('_').toInt())
-            val target=File(project,"original_masters/$key.master")
-            require(!target.exists() || (target.isFile && MasterLibrary.digest(target.readBytes())==row.getString("sha256"))) { "MASTER เดิมไม่ตรงกับทะเบียน: $id • ต้องตรวจสอบก่อนเปลี่ยน" }
-        }
-        for(i in 0 until cast.length()) {
-            val p=cast.getJSONObject(i); val id=p.getString("library_id")
-            val row=(0 until catalog.length()).map { catalog.getJSONObject(it) }.first { it.getString("id")==id }
-            val source=File(project,"master_candidates/"+row.getString("file"))
-            require(source.isFile && MasterLibrary.digest(source.readBytes())==row.getString("sha256")) { "ขาด MASTER ต้นฉบับของ $id" }
-            val key="support_%08x".format(id.substringAfter('_').toInt())
-            val target=File(project,"original_masters/$key.master"); target.parentFile!!.mkdirs()
-            if(!target.exists()) {
-                val pending=File(target.parentFile,target.name+".pending"); source.copyTo(pending,overwrite=true); check(pending.renameTo(target))
+        val rows = (0 until catalog.length()).map { catalog.getJSONObject(it) }
+        val byId = rows.associateBy { it.getString("id") }
+        require(rows.size == byId.size) { "รหัส MASTER ซ้ำในทะเบียน" }
+        val directory = File(project,"original_masters")
+        require(directory.isDirectory || directory.mkdirs()) { "เปิดโฟลเดอร์ MASTER ไม่ได้" }
+        val staged = linkedMapOf<File,File>()
+        val installed = mutableListOf<File>()
+        val destinations = mutableSetOf<File>()
+        try {
+            for(i in 0 until cast.length()) {
+                val p=cast.getJSONObject(i); val id=p.getString("library_id")
+                val row=byId.getValue(id)
+                val filename=row.getString("file")
+                require(File(filename).name==filename) { "ชื่อไฟล์ MASTER ไม่ถูกต้อง" }
+                val source=File(project,"master_candidates/$filename")
+                val key="support_%08x".format(id.substringAfter('_').toInt())
+                val target=File(directory,"$key.master")
+                require(destinations.add(target)) { "รหัส MASTER อ้างถึงไฟล์เดียวกัน: $id" }
+                val sha=row.getString("sha256")
+                require(source.isFile) { "ขาด MASTER ต้นฉบับของ $id" }
+                val bytes=source.readBytes()
+                require(MasterLibrary.digest(bytes)==sha) { "ภาพต้นฉบับของ $id ไม่ตรงกับทะเบียน" }
+                if(target.exists()) {
+                    require(target.isFile && MasterLibrary.digest(target.readBytes())==sha) { "MASTER เดิมไม่ตรงกับทะเบียน: $id • ต้องตรวจสอบก่อนเปลี่ยน" }
+                } else {
+                    val pending=File.createTempFile("cast-", ".pending", directory)
+                    staged[target]=pending
+                    pending.writeBytes(bytes)
+                    check(MasterLibrary.digest(pending.readBytes())==sha) { "สำเนาภาพ MASTER ไม่ครบ: $id" }
+                }
+                result.put(JSONObject().put("name",p.getString("name").trim()).put("master","${key.uppercase()}_MASTER.png")
+                    .put("english_name",p.optString("english_name").trim()).put("auto_cast",true).put("library_id",id).put("role",p.getString("role"))
+                    .put("romance_role",p.optString("romance_role")).put("character_age",row.optInt("character_age",0)).put("age_basis",row.optString("age_basis"))
+                    .put("character_type",row.optString("character_type")).put("character_gender",row.optString("character_gender"))
+                    .put("visual_description",MasterLibrary.description(id)+(if(row.has("character_age") && (row.optInt("character_age")>0 || row.optString("age_basis")=="user_assigned")) " Assigned fictional character age: ${row.getInt("character_age")} years. Keep this age consistent throughout the story." else "")+" Reference appearance: "+row.optString("casting_description")))
             }
-            result.put(JSONObject().put("name",p.getString("name").trim()).put("master","${key.uppercase()}_MASTER.png")
-                .put("english_name",p.optString("english_name").trim()).put("auto_cast",true).put("library_id",id).put("role",p.getString("role"))
-                .put("romance_role",p.optString("romance_role")).put("character_age",row.optInt("character_age",0)).put("age_basis",row.optString("age_basis"))
-                .put("character_type",row.optString("character_type")).put("character_gender",row.optString("character_gender"))
-                .put("visual_description",MasterLibrary.description(id)+(if(row.has("character_age") && (row.optInt("character_age")>0 || row.optString("age_basis")=="user_assigned")) " Assigned fictional character age: ${row.getInt("character_age")} years. Keep this age consistent throughout the story." else "")+" Reference appearance: "+row.optString("casting_description")))
+            for ((target,pending) in staged) {
+                // Install verified bytes without replacing a concurrently created reference.
+                java.nio.file.Files.createLink(target.toPath(),pending.toPath())
+                installed.add(target)
+            }
+        } catch (failure: Exception) {
+            installed.asReversed().forEach { target ->
+                try { java.nio.file.Files.delete(target.toPath()) } catch (cleanup: Exception) { failure.addSuppressed(cleanup) }
+            }
+            throw failure
+        } finally {
+            staged.values.forEach { it.delete() }
         }
         return result
     }

@@ -7570,7 +7570,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                                 active.set(client)
                                 val prompt="Suggest a cast for this Thai story. Channel: $channel; category: $category; situation: $situation; details: $detail. Return a nonempty story_concept and cast. For each actor use library_id from the catalog id field, a unique name and a nonempty role. Omit english_name unless it is a unique single English name. Suggest only characters suitable for the story, with a short proposed role in Thai. Do not infer occupation or identity from a face; roles are fictional suggestions for user review. Use as many as needed, from 1 to 8. "+(if(channel=="นายเปีย บ้านคลองขุด") "Include $piaActorId as central protagonist and suitable supporting roles. " else "")+AutoCast.storyCastingBrief()+"Catalog: "+AutoCast.promptCatalog(AutoCast.storyCatalog(catalog, situation+" "+detail, pinned,category)).toString()
                                 val presenterId=if(channel=="นายเปีย บ้านคลองขุด") piaActorId else ""
-                                AutoCast.propose(prompt,catalog,presenterId,{ stopped.get() },pinned) { request ->
+                                AutoCast.propose(prompt,catalog,presenterId,{ stopped.get() },pinned,detail) { request ->
                                     client.generate(request,AutoCast.schema())
                                 }
                             }.onFailure {
@@ -7612,7 +7612,12 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                             suggestedRoles.clear()
                             val cast=proposal.getJSONArray("cast")
                             for(i in 0 until cast.length()) cast.getJSONObject(i).let { suggestedRoles[it.getString("library_id")]=it.getString("role") }
-                            if(automatic) {
+                            val reviewLocked = (0 until catalog.length()).map { catalog.getJSONObject(it) }.any { row ->
+                                val id = row.getString("id")
+                                id in pinned && AutoCast.roleConflict(row,suggestedRoles[id].orEmpty()) != null
+                            }
+                            if (reviewLocked) autoRunning=false
+                            if(automatic && !reviewLocked) {
                                 selectedActors.clear(); selectedActors.addAll(suggestedRoles.keys)
                                 selectedProps.clear(); proposedProps.clear()
                                 automaticEquipmentUnresolved=ChannelFeaturePolicy.hasFantasyTools(channel)
@@ -7667,10 +7672,11 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     row?.addView(card)
                     val scoreText = suggestedRoles[id]?.let {
                         val criteria = AutoCast.matchingEvidence(actor, selectedStoryTopic+" "+premise.text.toString(), categories[index])
+                        val conflict = AutoCast.roleConflict(actor,it)?.let { warning -> "\n⚠ $warning • กรุณาตรวจ MASTER ที่เลือก" }.orEmpty()
                         val details = criteria.joinToString("\n") { item ->
                             "${item.label} ${item.points}/${item.maximum} • ${item.evidence ?: "ยังไม่มีหลักฐานตรงกัน"}"
                         }
-                        "\nคะแนนจากข้อมูลเรื่อง ${criteria.sumOf { it.points }}/100\n$details"
+                        "\nคะแนนจากข้อมูลเรื่อง ${criteria.sumOf { it.points }}/100\n$details$conflict"
                     }.orEmpty()
                     val box=android.widget.CheckBox(this).apply {
                         text=(actor.optString("display_name").ifBlank { id })+"\n"+id+(suggestedRoles[id]?.let { "\nบทบาทที่เสนอ: $it" } ?: "")+scoreText+(if(source?.isFile==true) "" else "\nไม่พบภาพ MASTER")

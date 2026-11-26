@@ -166,4 +166,16 @@ class CastingSelectionTest {
         assertEquals("A",facts.getJSONObject(1).getString("subject_id"))
         assertEquals("C",facts.getJSONObject(1).getString("object_id"))
     }
+    @Test fun aiCannotOmitAnExplicitlyAppearingGhostOrSubstituteHuman() {
+        val human = JSONObject().put("id","H").put("display_name","ผีสาว").put("character_type","human")
+        val ghost = JSONObject().put("id","G").put("display_name","วิญญาณหญิงชุดน้ำเงิน").put("character_type","ghost")
+        val rows = JSONArray().put(human).put(ghost)
+        val cast = JSONArray().put(JSONObject().put("library_id","H"))
+        val proposal = JSONObject().put("cast",cast)
+        assertTrue(runCatching { AutoCast.requireNarratedAppearances(proposal,rows,"ผีสาวปรากฏตัวที่ประตู") }.isFailure)
+        AutoCast.requireNarratedAppearances(proposal,rows,"พ่อเล่าถึงผีสาว")
+        assertNotNull(AutoCast.roleConflict(human,"ผีสาว"))
+        cast.put(JSONObject().put("library_id","G"))
+        AutoCast.requireNarratedAppearances(proposal,rows,"ผีสาวปรากฏตัวที่ประตู")
+    }
 }
