@@ -322,6 +322,8 @@ internal object AutoCast {
         }
         return JSONObject().put("story_concept", premise).put("cast", cast).also {
             validate(it, catalog)
+            CastingSelection.requireIncluded(it.getJSONArray("cast"), selected)
+            requireNarratedAppearances(it, catalog, premise)
             validateGenre(it, catalog, category)
         }
     }
