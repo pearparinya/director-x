@@ -4,6 +4,7 @@ package com.pearparinya.automovie
 internal object ImagePromptPolicy {
     const val productionDirection = "CINEMATIC PRODUCTION: Film-director composition, story-led camera and lighting, realistic depth and textures; clear expressions, hands and props. Maintain identity, wardrobe and continuity."
     const val accessorySideLock = "ACCESSORY SIDE LOCK: Preserve each character's watch, bracelet, ring, bag strap, scarf and other wearable accessories on the SAME ANATOMICAL SIDE as the approved preceding scene. Left/right means the character's own left/right wrist, hand or shoulder, NEVER the left/right of the picture or viewer. A camera reversal, mirrored composition, or new pose must not swap accessories. If the reference does not establish which wrist or side, flag for visual review rather than inventing a side. No mirroring of the character to fix composition. " + WardrobeContext.detailLock
+    const val sceneSkinTone = "Preserve natural skin tone and readable facial detail within the scripted ambient light. Keep night skies dark and respect motivated light sources."
     const val skinTone = "LIGHTING PRIORITY: Bright neutral-white light, soft shadows, clear faces and background; no dark or yellow cast. Preserve natural skin tone and highlight detail; night remains night with bright neutral lighting."
     const val referenceAppeal = "คงเสน่ห์และความเซ็กซี่ตามภาพอ้างอิงของตัวละครผู้ใหญ่"
     fun threeViewCharacter(description: String): String =

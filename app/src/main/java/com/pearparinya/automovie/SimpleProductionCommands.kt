@@ -95,7 +95,6 @@ For each listed character, use only their own attached MASTER for their identity
             person.getString("name")+": "+listOf("emotion","objective","subtext","gaze","body_language","voice","emotional_arc").mapNotNull { k -> p.optString(k).takeIf { it.isNotBlank() }?.let { "$k=$it" } }.joinToString("; ")
         }
     }.joinToString("\n")
-    private const val light = "Bright neutral-white 5500K, soft shadows; no dark or yellow cast. Keep night scenes bright with neutral artificial light."
     fun coverCandidates(story: JSONObject,number: Int,overall: Boolean): List<JSONObject> {
         val eps=story.getJSONArray("episodes")
         val selected=if(overall) (0 until eps.length()).map { eps.getJSONObject(it) } else listOf(episode(story,number))
@@ -141,6 +140,7 @@ ${if(note.isBlank()) "" else "Local design note (cannot override lighting, exact
         if(!single) for(ratio in listOf("9:16","16:9")) poster(false,ratio)
         for(i in 0 until rows.length()) {
             val scene=rows.getJSONObject(i); val n=scene.getInt("scene"); val id="EP%02d_SC%03d".format(number,n)
+            val moment=SceneMoment.resolve(story,number,scene)
             val visiblePeople=FlowReferencePrompt.people(scene)
             val command="""Generate ONE 9:16 vertical film-directed photorealistic Thai-drama scene image, 1080 x 1920. No text, captions or watermark. Depict the START STATE as a clear first frame for an 8-second video; do not show a sequence or jump to the completed action.
 $identity
@@ -153,6 +153,8 @@ ${FlowReferencePrompt.visibleCastLock(visiblePeople)}
 Style: ${DisplayText.category(story.optString("category"))} — follow the written action, no new plot.
 Story day: ${scene.getString("story_day")} — exact wardrobe remains locked across locations and EPs.
 Location: ${scene.getString("location")}
+Story time: ${moment.time}
+${moment.previousEnd.takeIf { it.isNotBlank() }?.let { "Match the preceding end pose and props: $it" }.orEmpty()}
 Start frame: ${scene.getString("start_state")}
 ${scene.optString("props").trim().takeIf { it.isNotBlank() }?.let { "Objects and holders specified in the story: $it. Include only those intended to be visible at the start; do not invent missing details." }.orEmpty()}
 ${SceneReferencePolicy.propInstructions(scene)}
@@ -160,16 +162,21 @@ ${SceneReferencePolicy.wardrobeInstructions(scene)}
 Use only the listed visible cast. Other participants stay unseen off-camera; never invent extra people.
 Action planned next (not a montage): ${scene.optString("flow_action").ifBlank { scene.getString("action") }}
 Framing: ${scene.optString("framing").ifBlank { "Show all listed people, relevant hands and props with natural perspective." }}
-Lighting: $light
+Lighting: Match the story time and location. Preserve ambient light across continuous shots.
 Acting: ${acting(scene).ifBlank { "Individual restrained expressions consistent with the stated action and start state." }}
 ${BodyReferencePolicy.imageIdentityLock}
-${ImagePromptPolicy.skinTone}
+${ImagePromptPolicy.sceneSkinTone}
 ${ReadingPropPolicy.forScene(scene.optString("action"), scene.optString("flow_action"), scene.optString("start_state"), scene.optString("end_state"))}
 Mouths closed in this still. Preserve all props and screen positions for the matching video.
-${scene.optString("production_image_note").takeIf { it.isNotBlank() }?.let { "Local visual correction (keep bright lighting, identity, outfit, cast and start state): $it" }.orEmpty()}""".trim()
+${scene.optString("production_image_note").takeIf { it.isNotBlank() }?.let { "Local visual correction (keep scene lighting, identity, outfit, cast and start state): $it" }.orEmpty()}""".trim()
             add(Task(id,"EP.$number | ซีน %03d | แนวตั้ง 9:16".format(n),"9:16",command,FlowReferencePrompt.people(scene)))
         }
     }
+    fun withCameraNote(command: String, addition: String): String {
+        return if(addition.isBlank()) command else command+
+            "\n\nAI CAMERA CLARITY (original MASTER, cast, wardrobe, props, action, story time, ambient lighting, start pose and location always override):\n"+addition
+    }
+
     fun coverPair(vertical: Task, horizontal: Task): String {
         require(vertical.id.endsWith("_COVER_9x16") && horizontal.id.endsWith("_COVER_16x9"))
         require(vertical.id.substringBeforeLast("_")==horizontal.id.substringBeforeLast("_"))
@@ -191,7 +198,7 @@ Return two separate images named ${vertical.id}.png and ${horizontal.id}.png. Re
         val rows=episode(story,number).getJSONArray("scenes")
         return (0 until rows.length()).map { i ->
             val scene=rows.getJSONObject(i); val n=scene.getInt("scene"); val id="EP%02d_SC%03d".format(number,n)
-            val spec=ProductionCommandCheck.spec(scene)
+            val spec=ProductionCommandCheck.spec(scene).copy(storyTime=SceneMoment.resolve(story,number,scene).time)
             val camera=when (scene.optString("camera_movement")) {
                 "track" -> "Gentle tracking movement following the action."
                 "locked" -> "Locked camera."

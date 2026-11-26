@@ -213,6 +213,6 @@ internal object ShortFlowPrompt {
         val music=soundParts?.groupValues?.get(3) ?: "none specified"
         val megaphoneMix=if(megaphoneSpeakers.isNotEmpty()) " Route the assigned speaker voice through a distinctly amplified megaphone/bullhorn filter for the ENTIRE utterance, never switch to dry speech. Preserve intelligible Thai articulation; no additional spoken words." else ""
         val effects=if(silent) "" else "<sound_effects><ambient>${xml(ambient)}</ambient><sfx>${xml(sfx)}</sfx><music>${xml(music)}</music><mix>Keep sound below dialogue; no additional voices.${xml(megaphoneMix)}</mix></sound_effects>"
-        return "<flow><scene><aspect_ratio>9:16</aspect_ratio><duration>8</duration><lighting>5500K daylight white balance, pure bright studio lighting, no yellow light. Preserve the first frame's lighting direction and scene continuity.</lighting><typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone><prompt>${xml(visual+". "+audio)}</prompt>$lines$effects</scene></flow>"
+        return "<flow><scene><aspect_ratio>9:16</aspect_ratio><duration>8</duration><lighting>Story time: ${xml(s.storyTime)}. Preserve the attached first frame's ambient light and direction throughout.</lighting><typography_safe_zone>SLIGHTLY BELOW CENTER</typography_safe_zone><prompt>${xml(visual+". "+audio)}</prompt>$lines$effects</scene></flow>"
     }
 }

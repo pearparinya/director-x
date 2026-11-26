@@ -9,7 +9,8 @@ internal data class FlowSceneSpec(
     val action: String, val location: String, val startState: String, val endState: String,
     val duration: Int, val aspect: String, val sound: String = "", val offscreen: List<String> = emptyList(),
     val turns: List<FlowDialogueTurn> = emptyList(),
-    val cinematicProps: List<CinematicProp> = emptyList()
+    val cinematicProps: List<CinematicProp> = emptyList(),
+    val storyTime: String = SceneMoment.unknown
 ) {
     // Preserve approvals made by older versions when no ordered turns exist.
     override fun toString(): String {

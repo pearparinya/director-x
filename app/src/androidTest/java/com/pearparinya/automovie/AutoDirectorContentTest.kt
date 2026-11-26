@@ -463,14 +463,17 @@ class AutoDirectorContentTest {
         scenes.getJSONObject(0).getJSONObject("sound_design").remove("sfx")
         assertTrue(runCatching { SoundDesign.validate(scenes.getJSONObject(0)) }.isFailure)
     }
-    @Test fun compactImagesKeepBrightWhiteLightingForOlderDarkScenes() {
+    @Test fun compactImagesPreserveStoryNightAndReadableNaturalFaces() {
         val p=story()
         val scene=p.getJSONArray("episodes").getJSONObject(0).getJSONArray("scenes").getJSONObject(0)
         scene.put("lighting", "underexposed, dark orange shadows")
+        scene.put("story_time", "กลางคืน")
         val tasks=SimpleProductionCommands.imageTasks(p,1)
         val image=tasks.first { it.id=="EP01_SC001" }.command
-        assertTrue(image.contains("Bright neutral-white 5500K"))
-        assertTrue(image.contains("night remains night with bright neutral lighting"))
+        assertTrue(image.contains("Story time: กลางคืน"))
+        assertFalse(image.contains("Bright neutral-white 5500K"))
+        assertTrue(image.contains(ImagePromptPolicy.sceneSkinTone))
+        assertFalse(image.contains(ImagePromptPolicy.skinTone))
         assertFalse(image.contains("underexposed, dark orange shadows"))
         assertTrue(tasks.first { it.id=="STORY_COVER_9x16" }.command.contains(ImagePromptPolicy.skinTone))
     }
@@ -522,7 +525,7 @@ class AutoDirectorContentTest {
         }
         val one=story(); val tasks=SimpleProductionCommands.imageTasks(one,1)
         assertEquals(26,tasks.size); assertEquals(2,tasks.count { it.id.contains("COVER") })
-        tasks.forEach { assertTrue(it.command.contains(ImagePromptPolicy.skinTone)); assertTrue(it.command.contains(BodyReferencePolicy.imageIdentityLock)) }
+        tasks.forEach { assertTrue(it.command.contains(if (it.id.contains("_COVER_")) ImagePromptPolicy.skinTone else ImagePromptPolicy.sceneSkinTone)); assertTrue(it.command.contains(BodyReferencePolicy.imageIdentityLock)) }
         val first=tasks.first(); one.put("production_note_${first.id}","Keep the envelope visible")
         assertTrue(SimpleProductionCommands.imageTasks(one,1).first().command.contains("Keep the envelope visible"))
         assertFalse(SimpleProductionCommands.imageTasks(one,1)[1].command.contains("Keep the envelope visible"))
