@@ -9,6 +9,14 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class CastingSelectionTest {
+    @Test fun combinedFamilyRolesValidateEveryExplicitRole() {
+        val row = JSONObject().put("character_type","human").put("character_age",40).put("character_gender","man")
+        assertNull(AutoCast.roleConflict(row,"พ่อ / สามี"))
+        assertNotNull(AutoCast.roleConflict(row,"พ่อ / แม่"))
+        assertNotNull(AutoCast.roleConflict(row,"พ่อ / ชายชรา"))
+        assertNull(AutoCast.roleConflict(row,"พ่อค้า"))
+    }
+
     @Test fun romanceEligibilityRejectsUnspecifiedAge() {
         val row = JSONObject().put("character_type", "human").put("character_age", 45)
         assertTrue(AutoCast.adultRomanceEligible(row))
