@@ -144,4 +144,26 @@ class CastingSelectionTest {
         val spirit = (0 until catalog.length()).map { catalog.getJSONObject(it) }.single { it.getString("id")==spiritId }
         assertTrue(spirit.getString("character_type") in setOf("ghost","spirit"))
     }
+    @Test fun continuityCreditRequiresPriorAppearanceWithBothNameAndMaster() {
+        val actor = JSONObject().put("name","นที").put("master","N_MASTER.png").put("library_id","N")
+        val catalog = JSONArray().put(JSONObject().put("id","N"))
+        val support = JSONArray().put(actor)
+        fun history(person: JSONObject) = JSONArray().put(JSONObject().put("scenes",
+            JSONArray().put(JSONObject().put("characters",JSONArray().put(person)))))
+        fun result(episodes: JSONArray) = StoryContinuityLedger.returningCast(episodes,support,catalog,"","")
+        assertEquals(0,result(JSONArray()).length())
+        assertEquals(0,result(history(JSONObject(actor.toString()).put("master","OTHER.png"))).length())
+        assertEquals(0,result(history(JSONObject(actor.toString()).put("name","คนอื่น"))).length())
+        assertEquals(5,result(history(actor)).getJSONObject(0).getInt("continuity_points"))
+    }
+    @Test fun familyEvidenceRetainsMultipleRelationshipsForOneIdentity() {
+        fun actor(name:String,id:String) = JSONObject().put("name",name).put("library_id",id)
+        val cast = JSONArray().put(actor("นนท์","A")).put(actor("นที","B")).put(actor("มาลี","C"))
+        val facts = StoryContinuityLedger.relationships("นนท์เป็นพ่อของนที. นนท์เป็นสามีของมาลี. นทีไม่ได้เป็นพี่ของมาลี",JSONArray(),cast)
+        assertEquals(2,facts.length())
+        assertEquals("A",facts.getJSONObject(0).getString("subject_id"))
+        assertEquals("B",facts.getJSONObject(0).getString("object_id"))
+        assertEquals("A",facts.getJSONObject(1).getString("subject_id"))
+        assertEquals("C",facts.getJSONObject(1).getString("object_id"))
+    }
 }

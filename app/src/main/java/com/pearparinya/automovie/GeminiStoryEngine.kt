@@ -203,6 +203,20 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         var smallerBatches=recoveryFile.isFile && runCatching { GeminiStoryFiles.read(recoveryFile).optBoolean("single_scene") }.getOrDefault(false)
         for(i in 0 until eps.length()) {
             val planned=eps.getJSONObject(i); val scenes=JSONArray()
+            val returning = StoryContinuityLedger.returningCast(output, support,
+                spec.optJSONArray("master_catalog") ?: JSONArray(), planned.optString("synopsis"), category)
+            val priorRelations = linkedMapOf<Triple<String,String,String>,JSONObject>()
+            for (e in 0 until output.length()) {
+                val relations = output.getJSONObject(e).optJSONArray("character_relationships") ?: continue
+                for (r in 0 until relations.length()) {
+                    val fact = relations.getJSONObject(r)
+                    val key = Triple(fact.getString("subject_id"),fact.getString("relation"),fact.getString("object_id"))
+                    priorRelations[key] = JSONObject(fact.toString()).put("ep",output.getJSONObject(e).optInt("ep",e+1))
+                }
+            }
+            val relationshipContext = if (priorRelations.isEmpty()) "" else "\nEarlier episode relationship evidence: ${JSONArray(priorRelations.values.toList().takeLast(32))}"
+            val returningContext = if (returning.length()==0) "" else
+                "\nVerified prior appearances. Reuse the exact identity when the script calls for this character. Prior appearance alone does not require a new appearance: $returning"
             var start=1
             while(start<=sceneCount) {
                 check()
@@ -231,7 +245,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                 val recoveryHint=if(retryMarker.isFile) "\nFresh scene recovery ID: "+GeminiStoryFiles.read(retryMarker).getString("id")+". Write this scene afresh using the story outline and registered cast; use exact Thai names, keep established events and continuity; do not guess identities." else ""
                 val historyLedger=StoryContinuityLedger.summarize(output,scenes)
                 val historyContext=StoryContinuityLedger.promptContext(historyLedger,past,previous,compact)
-                val prompt=base+recoveryHint+wardrobeContext+"\n"+historyContext+"\nConfirmed story aliases (same actor only; keep exact Thai names and MASTER): "+confirmedNames.toString()+(if(compact) "\nBe concise: image_prompt and flow_prompt each <=80 English words; keep identity, outfits, action and speech complete." else "")+"\nFull story outline:\n$storyOutline\nWrite exactly scenes $start to $end for EP ${i+1}; each duration_seconds=8, scene numbers absolute within episode. This episode: ${if(compact) JSONObject(planned.toString()).apply { listOf("synopsis","cover_incident","ending").forEach { put(it,optString(it).take(250)) } } else planned}. Include continuity_group, story_day, story_time, activity, wardrobe_event. Set speaker/dialogue/narration to empty strings when unused. Characters use canonical Thai names and matching *_MASTER.png. Use screen_position and full visual_description. Copy character_age exactly from the registered cast. Age 0 is a valid explicitly assigned infant age; legacy records without an assigned age may also have 0 as unknown. Do not invent an age. characters contains only visible people. mentioned_characters lists canonical names discussed but absent; offscreen_characters lists canonical names outside the frame. Only the assigned speaker of each turn can speak at that moment; off-screen speech keeps all visible mouths closed. Never place physical on-screen actions on absent people. Write flow_action in concise English except for each visible character's exact canonical Thai name as listed in characters; do not invent Romanized aliases. Identify each action by that name. In flow_prompt identify each assigned speaker and exact Thai line in order, or closed mouths for silent/narrated scenes."
+                val prompt=base+relationshipContext+returningContext+recoveryHint+wardrobeContext+"\n"+historyContext+"\nConfirmed story aliases (same actor only; keep exact Thai names and MASTER): "+confirmedNames.toString()+(if(compact) "\nBe concise: image_prompt and flow_prompt each <=80 English words; keep identity, outfits, action and speech complete." else "")+"\nFull story outline:\n$storyOutline\nWrite exactly scenes $start to $end for EP ${i+1}; each duration_seconds=8, scene numbers absolute within episode. This episode: ${if(compact) JSONObject(planned.toString()).apply { listOf("synopsis","cover_incident","ending").forEach { put(it,optString(it).take(250)) } } else planned}. Include continuity_group, story_day, story_time, activity, wardrobe_event. Set speaker/dialogue/narration to empty strings when unused. Characters use canonical Thai names and matching *_MASTER.png. Use screen_position and full visual_description. Copy character_age exactly from the registered cast. Age 0 is a valid explicitly assigned infant age; legacy records without an assigned age may also have 0 as unknown. Do not invent an age. characters contains only visible people. mentioned_characters lists canonical names discussed but absent; offscreen_characters lists canonical names outside the frame. Only the assigned speaker of each turn can speak at that moment; off-screen speech keeps all visible mouths closed. Never place physical on-screen actions on absent people. Write flow_action in concise English except for each visible character's exact canonical Thai name as listed in characters; do not invent Romanized aliases. Identify each action by that name. In flow_prompt identify each assigned speaker and exact Thai line in order, or closed mouths for silent/narrated scenes."
                 val priorDialogue=linkedMapOf<String,String>()
                 for(e in 0 until output.length()) checkDialogue(output.getJSONObject(e).getJSONArray("scenes"),e+1,priorDialogue)
                 checkDialogue(scenes,i+1,priorDialogue)
@@ -323,7 +337,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                 lastPercent=(completed*100/(eps.length()*sceneCount)).coerceAtMost(99)
                 progress(lastPercent,"บันทึกแล้ว $completed/${eps.length()*sceneCount} ซีน • ทำต่อช่วงถัดไป")
             }
-            output.put(JSONObject(planned.toString()).put("scenes",scenes).put("scene_count",sceneCount))
+            output.put(JSONObject(planned.toString()).put("character_relationships",StoryContinuityLedger.relationships(planned.optString("synopsis"),scenes,support)).put("returning_cast_evidence",returning).put("scenes",scenes).put("scene_count",sceneCount))
         }
         check()
         val story=JSONObject().put("auto_cast",spec.optBoolean("auto_cast")).put("cast_concept",spec.optString("cast_concept")).put("schema_version",3).put("production_mode","flow_commands").put("character_mode","original")
