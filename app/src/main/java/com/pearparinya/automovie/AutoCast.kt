@@ -440,7 +440,7 @@ internal object AutoCast {
             }
             for ((target,pending) in staged) {
                 // Install verified bytes without replacing a concurrently created reference.
-                java.nio.file.Files.createLink(target.toPath(),pending.toPath())
+                java.nio.file.Files.move(pending.toPath(),target.toPath())
                 installed.add(target)
             }
         } catch (failure: Exception) {
