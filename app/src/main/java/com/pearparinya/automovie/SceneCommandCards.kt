@@ -23,11 +23,11 @@ internal object SceneCommandCards {
         for(e in 0 until eps.length()) {
             val rows=eps.getJSONObject(e).getJSONArray("scenes")
             for(i in 0 until rows.length()) FlowReferencePrompt.people(rows.getJSONObject(i)).forEach { person ->
-                all.putIfAbsent(person.getString("name"),person)
-                if(eps.getJSONObject(e).getInt("ep")==number) epCast.putIfAbsent(person.getString("name"),person)
+                all.putIfAbsent(FlowCast.id(person) ?: person.getString("name"),person)
+                if(eps.getJSONObject(e).getInt("ep")==number) epCast.putIfAbsent(FlowCast.id(person) ?: person.getString("name"),person)
             }
         }
-        val refs=FlowReferencePrompt.header(epCast.values.take(3)); val storyRefs=FlowReferencePrompt.header(all.values.take(3))
+        val refs=FlowReferencePrompt.header(epCast.values.toList()); val storyRefs=FlowReferencePrompt.header(all.values.toList())
         return buildList {
             for(ratio in listOf("9x16","16x9")) add(Card("ปกรวม • ${if(ratio=="9x16") "แนวตั้ง 9:16" else "แนวนอน 16:9"}",FlowVisualDirection.storyCover(ratio,storyRefs,story.optString("channel"),story.getString("title"),story.optString("tagline"),first.getString("action"))))
             for(ratio in listOf("9x16","16x9")) add(Card("ปก EP.$number • ${if(ratio=="9x16") "แนวตั้ง 9:16" else "แนวนอน 16:9"}",FlowVisualDirection.cover(ratio,refs,story.optString("channel"),story.getString("title"),number,ep.optString("title"),story.optString("tagline"),first.getString("action"))))
