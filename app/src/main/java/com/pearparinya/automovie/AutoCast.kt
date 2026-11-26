@@ -59,6 +59,23 @@ internal object AutoCast {
             .thenByDescending { row -> terms.count { row.optString("display_name").contains(it) } }
             .thenByDescending { it.optString("character_type") in types }))
     }
+    /** Validate explicit role evidence against the actual registered MASTER type. */
+    fun validateStoryRoles(value: JSONObject, catalog: JSONArray, pinned: Set<String> = emptySet()) {
+        val cast=value.getJSONArray("cast")
+        CastingSelection.requireIncluded(cast,pinned)
+        val rows=(0 until catalog.length()).map { catalog.getJSONObject(it) }.associateBy { it.getString("id") }
+        for(i in 0 until cast.length()) {
+            val actor=cast.getJSONObject(i)
+            val id=actor.getString("library_id")
+            if(id in pinned) continue
+            val role=actor.optString("role").trim()
+            // Only explicit role prefixes: a human investigating a ghost is not a ghost.
+            val rule=subjectRules.firstOrNull { it.first.find(role)?.range?.first==0 } ?: continue
+            require(rows[id]?.optString("character_type") in rule.second) {
+                "ประเภท MASTER ไม่ตรงกับบทบาท: "+role
+            }
+        }
+    }
     fun storyCastingBrief(): String =
         "Identify essential explicitly described nonhuman and human roles before selecting actors. " +
         "For a ghost, spirit, animal, deity or creature role use the matching catalog type and species evidence; never substitute a human merely because the protagonist is human. " +
@@ -67,7 +84,7 @@ internal object AutoCast {
     class ProposalError(message: String) : IllegalArgumentException(message)
 
     fun propose(prompt: String, catalog: JSONArray, presenterId: String, stopped: () -> Boolean,
-                generate: (String) -> JSONObject): JSONObject {
+                pinned: Set<String> = emptySet(), generate: (String) -> JSONObject): JSONObject {
         var request = prompt
         repeat(2) { attempt ->
             if (stopped()) throw java.util.concurrent.CancellationException()
@@ -75,6 +92,7 @@ internal object AutoCast {
             val problem = try {
                 validate(proposal, catalog)
                 requirePresenter(proposal, presenterId)
+                validateStoryRoles(proposal, catalog, pinned)
                 return proposal
             } catch (e: IllegalArgumentException) {
                 e.message ?: "รายชื่อตัวละครผิดเงื่อนไข"
