@@ -62,19 +62,34 @@ internal object AutoCast {
             (speciesTerms + humanRoles.map { it.label }).sortedByDescending { it.length }.joinToString("|") { Regex.escape(it) } + ")"
     ) }
     private fun visibleEvidence(text: String) = indirectSubject.replace(normalized(text), " ")
-    /** Evidence-weighted score, maximum 100; absent metadata earns no points. */
-    fun matchingScore(row: JSONObject, premise: String, category: String="", setting: String="", previous: Set<String> = emptySet()): Int {
-        val query=visibleEvidence(premise)
-        val metadata=normalized(evidence(row))
-        val types=subjectRules.filter { it.first.containsMatchIn(query) }.flatMap { it.second }.toSet()
-        fun matches(terms: List<String>, source: String)=terms.any { source.contains(it) && metadata.contains(it) }
-        return (if(row.optString("character_type") in types) 30 else 0)+
-            (if(matches(speciesTerms+roleTerms,query)) 25 else 0)+
-            (if(matches(appearanceTerms,query)) 20 else 0)+
-            (if(category.isNotBlank() && metadata.contains(category)) 10 else 0)+
-            (if(setting.isNotBlank() && metadata.contains(setting)) 10 else 0)+
-            (if(row.optString("id") in previous) 5 else 0)
+    data class Criterion(val label: String, val maximum: Int, val evidence: String?) {
+        val points get() = if (evidence.isNullOrBlank()) 0 else maximum
     }
+
+    fun matchingEvidence(row: JSONObject, premise: String, category: String = "", setting: String = "",
+                         previous: Set<String> = emptySet()): List<Criterion> {
+        val query = visibleEvidence(premise)
+        val metadata = normalized(evidence(row))
+        val type = row.optString("character_type")
+        val id = row.optString("id")
+        val typeMatch = subjectRules.firstNotNullOfOrNull { (pattern, types) ->
+            if (type in types) pattern.find(query)?.value else null
+        }
+        val family = explicitHumanRoles(query).firstOrNull { humanEligible(row, it) }
+        fun shared(terms: List<String>) = terms.firstOrNull { it in query && it in metadata }
+        fun registered(value: String) = value.takeIf { it.isNotBlank() && it in metadata }
+        return listOf(
+            Criterion("ประเภท", 30, typeMatch ?: family?.label),
+            Criterion("บทบาทหรือสายพันธุ์", 25, shared(speciesTerms + roleTerms)),
+            Criterion("ลักษณะภายนอก", 20, shared(appearanceTerms)),
+            Criterion("ประเภทเรื่อง", 10, registered(category)),
+            Criterion("ยุคหรือสถานที่", 10, registered(setting)),
+            Criterion("ความต่อเนื่อง", 5, id.takeIf { it.isNotBlank() && it in previous })
+        )
+    }
+    fun matchingScore(row: JSONObject, premise: String, category: String="", setting: String="", previous: Set<String> = emptySet()): Int =
+        matchingEvidence(row, premise, category, setting, previous).sumOf { it.points }
+
     fun storyCatalog(catalog: JSONArray, premise: String, pinned: Set<String> = emptySet(), category: String = ""): JSONArray {
         val rows=(0 until catalog.length()).map { catalog.getJSONObject(it) }
         return JSONArray(rows.sortedWith(compareByDescending<JSONObject> { it.optString("id") in pinned }

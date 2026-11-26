@@ -91,4 +91,12 @@ class CastingSelectionTest {
             assertEquals("F", cast.getJSONObject(0).getString("library_id"))
         }
     }
+    @Test fun scoreBreakdownRequiresEvidenceForEachBucket() {
+        val row = JSONObject().put("id", "N").put("character_type", "animal")
+            .put("display_name", "พญานาค ผมขาว").put("casting_description", "ตำนาน เมืองเก่า")
+        val criteria = AutoCast.matchingEvidence(row, "พญานาคผมขาว", "ตำนาน", "เมืองเก่า", setOf("N"))
+        assertEquals(listOf(30, 25, 20, 10, 10, 5), criteria.map { it.points })
+        assertEquals(100, criteria.sumOf { it.points })
+        assertTrue(AutoCast.matchingEvidence(row, "ไม่พบพญานาค").all { it.points == 0 })
+    }
 }

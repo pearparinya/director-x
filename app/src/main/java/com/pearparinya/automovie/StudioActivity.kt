@@ -7590,7 +7590,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                         runOnUiThread {
                             if(stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
                             active.set(null); loading.dismiss()
-                            if(!castUseAi || pinned!=selectedActors.toSet() || situation!=selectedStoryTopic || detail!=premise.text.toString()) { if(automatic) autoRunning=false; notice("ข้อมูลเรื่องเปลี่ยนระหว่างวิเคราะห์ • กรุณาวิเคราะห์อีกครั้ง"); return@runOnUiThread }
+                            if(!castSummary.isAttachedToWindow || !castUseAi || channel!=chosenChannel || category!=categories[index] || pinned!=selectedActors.toSet() || situation!=selectedStoryTopic || detail!=premise.text.toString()) { if(automatic) autoRunning=false; notice("ข้อมูลเรื่องเปลี่ยนระหว่างวิเคราะห์ • กรุณาวิเคราะห์อีกครั้ง"); return@runOnUiThread }
                             if(proposal==null) {
                                 autoRunning=false
                                 val dialog=AlertDialog.Builder(this@StudioActivity)
@@ -7672,8 +7672,15 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     val source=runCatching { castingSource(actor) }.getOrNull()
                     val card=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(4),dp(6),dp(4),dp(6)); layoutParams=LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f) }
                     row?.addView(card)
+                    val scoreText = suggestedRoles[id]?.let {
+                        val criteria = AutoCast.matchingEvidence(actor, selectedStoryTopic+" "+premise.text.toString(), categories[index])
+                        val details = criteria.joinToString("\n") { item ->
+                            "${item.label} ${item.points}/${item.maximum} • ${item.evidence ?: "ยังไม่มีหลักฐานตรงกัน"}"
+                        }
+                        "\nคะแนนจากข้อมูลเรื่อง ${criteria.sumOf { it.points }}/100\n$details"
+                    }.orEmpty()
                     val box=android.widget.CheckBox(this).apply {
-                        text=(actor.optString("display_name").ifBlank { id })+"\n"+id+(suggestedRoles[id]?.let { "\nบทบาทที่เสนอ: $it" } ?: "")+(if(source?.isFile==true) "" else "\nไม่พบภาพ MASTER")
+                        text=(actor.optString("display_name").ifBlank { id })+"\n"+id+(suggestedRoles[id]?.let { "\nบทบาทที่เสนอ: $it" } ?: "")+scoreText+(if(source?.isFile==true) "" else "\nไม่พบภาพ MASTER")
                         isChecked=id in draft
                         isEnabled=source?.isFile==true && !(chosenChannel=="นายเปีย บ้านคลองขุด" && id==piaActorId)
                     }
