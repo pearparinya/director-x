@@ -8101,6 +8101,11 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         dialog.setOnCancelListener { restoreParent() }
         dialog.setOnDismissListener { restoreParent() }
         dialog.show()
+        panel.requestFocus()
+        dialog.getButton(-2).setOnClickListener { dialog.cancel() }
+        if(android.os.Build.VERSION.SDK_INT >= 33) {
+            dialog.onBackInvokedDispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT) { dialog.cancel() }
+        }
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         dialog.setOnKeyListener { _, keyCode, event ->
             if(keyCode==android.view.KeyEvent.KEYCODE_BACK) {
