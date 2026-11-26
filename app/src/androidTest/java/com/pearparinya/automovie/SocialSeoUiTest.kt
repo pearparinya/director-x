@@ -140,6 +140,34 @@ class SocialSeoUiTest {
             set("ข้อความทดสอบ FACEBOOK POST")
             click("ถัดไป"); main { assertTrue(button("Facebook").isSelected) }
             click("ก่อนหน้า"); expect("ข้อความทดสอบ FACEBOOK POST")
+            // Exercise the actual secondary dialogs through the instrumentation UI.
+            val device=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+            fun tapDialogText(value:String) {
+                val automation=device.uiAutomation
+                val root=checkNotNull(automation.rootInActiveWindow)
+                val node=root.findAccessibilityNodeInfosByText(value).firstOrNull { it.text?.toString()==value }
+                    ?: throw AssertionError("Missing dialog choice: "+value)
+                var target:android.view.accessibility.AccessibilityNodeInfo?=node
+                while(target!=null && !target.isClickable) target=target.parent
+                assertTrue(checkNotNull(target).performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK))
+                ins.waitForIdleSync()
+            }
+            click("🔄 สร้างข้อความใหม่")
+            tapDialogText("ยกเลิก")
+            expect("ข้อความทดสอบ FACEBOOK POST")
+            click("🔄 สร้างข้อความใหม่")
+            tapDialogText("แทนที่")
+            main { assertNotEquals("ข้อความทดสอบ FACEBOOK POST",edit().text.toString()) }
+            set("ข้อความทดสอบ FACEBOOK POST")
+            click("เลือก EP / รวมทั้งเรื่อง")
+            tapDialogText("EP.2 • ตอนสอง")
+            main { assertTrue(edit().text.toString().contains("EP.2")); assertTrue(button("Facebook").isSelected) }
+            click("เลือก EP / รวมทั้งเรื่อง")
+            tapDialogText("ประชาสัมพันธ์รวมทั้งเรื่อง")
+            main { assertFalse(edit().text.toString().contains("EP.")); assertFalse(button("ก่อนหน้า").isEnabled); assertFalse(button("ถัดไป").isEnabled) }
+            click("เลือก EP / รวมทั้งเรื่อง")
+            tapDialogText("EP.1 • ตอนหนึ่ง")
+            expect("ข้อความทดสอบ FACEBOOK POST")
             main {
                 val back=button("ย้อนกลับ")
                 assertTrue("Negative action must be back",back.text.toString().contains("ย้อนกลับ"))
