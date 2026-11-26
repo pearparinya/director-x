@@ -71,4 +71,15 @@ class CastingSelectionTest {
         assertTrue(runCatching { AutoCast.kotlinProposal(catalog,"เด็กชาย") }.isFailure)
         assertEquals(1,AutoCast.kotlinProposal(catalog,"กล่าวถึงแม่",setOf("F")).getJSONArray("cast").length())
     }
+    @Test fun explicitChildAndGhostRolesDoNotCrossTypes() {
+        fun row(id:String,type:String,name:String)=JSONObject().put("id",id).put("character_type",type).put("display_name",name)
+        val catalog=JSONArray().put(row("C","child","เด็กหญิง").put("character_age",10).put("character_gender","woman"))
+            .put(row("G","ghost","วิญญาณชายชรา")).put(row("K","ghost","ผีกระสือ"))
+            .put(row("H","human","กระสือ").put("character_age",70).put("character_gender","man"))
+        fun cast(premise:String)=AutoCast.kotlinProposal(catalog,premise).getJSONArray("cast")
+        assertEquals("C",cast("เด็กหญิง").getJSONObject(0).getString("library_id"))
+        assertEquals(1,cast("ผีชายชรา").length())
+        assertEquals("K",cast("ผีกระสือ").getJSONObject(0).getString("library_id"))
+        assertTrue(runCatching { AutoCast.kotlinProposal(catalog,"พ่อค้า") }.isFailure)
+    }
 }
