@@ -9,6 +9,15 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class CastingSelectionTest {
+    @Test fun confirmedCastRejectsMissingSelectedIdAndNarratedAppearance() {
+        val human = JSONObject().put("id","H").put("display_name","นที").put("character_type","human")
+        val ghost = JSONObject().put("id","G").put("display_name","วิญญาณหญิง").put("character_type","ghost")
+        val rows = JSONArray().put(human).put(ghost)
+        assertTrue(runCatching { AutoCast.confirmedKotlinCast(rows,setOf("H","MISSING"),JSONObject(),"นทีเดินกลับบ้าน","") }.isFailure)
+        assertTrue(runCatching { AutoCast.confirmedKotlinCast(rows,setOf("H"),JSONObject(),"ผีสาวปรากฏตัวที่ประตู","") }.isFailure)
+        assertEquals(2,AutoCast.confirmedKotlinCast(rows,setOf("H","G"),JSONObject(),"ผีสาวปรากฏตัวที่ประตู","").getJSONArray("cast").length())
+    }
+
     @Test fun combinedFamilyRolesValidateEveryExplicitRole() {
         val row = JSONObject().put("character_type","human").put("character_age",40).put("character_gender","man")
         assertNull(AutoCast.roleConflict(row,"พ่อ / สามี"))
