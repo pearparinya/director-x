@@ -17,7 +17,6 @@ internal object SceneCommandCards {
             Card(title,task.prompt)
         }
         val ep=episode(story,number); val scenes=ep.getJSONArray("scenes")
-        val first=scenes.getJSONObject(0)
         val all=linkedMapOf<String,JSONObject>(); val epCast=linkedMapOf<String,JSONObject>()
         val eps=story.getJSONArray("episodes")
         for(e in 0 until eps.length()) {
@@ -29,8 +28,8 @@ internal object SceneCommandCards {
         }
         val refs=FlowReferencePrompt.header(epCast.values.toList()); val storyRefs=FlowReferencePrompt.header(all.values.toList())
         return buildList {
-            for(ratio in listOf("9x16","16x9")) add(Card("ปกรวม • ${if(ratio=="9x16") "แนวตั้ง 9:16" else "แนวนอน 16:9"}",FlowVisualDirection.storyCover(ratio,storyRefs,story.optString("channel"),story.getString("title"),story.optString("tagline"),first.getString("action"))))
-            for(ratio in listOf("9x16","16x9")) add(Card("ปก EP.$number • ${if(ratio=="9x16") "แนวตั้ง 9:16" else "แนวนอน 16:9"}",FlowVisualDirection.cover(ratio,refs,story.optString("channel"),story.getString("title"),number,ep.optString("title"),story.optString("tagline"),first.getString("action"))))
+            for(ratio in listOf("9x16","16x9")) add(Card("ปกรวม • ${if(ratio=="9x16") "แนวตั้ง 9:16" else "แนวนอน 16:9"}",FlowVisualDirection.storyCover(ratio,storyRefs,story.optString("channel"),story.getString("title"),story.optString("tagline"),FlowVisualDirection.storyCue(story))))
+            for(ratio in listOf("9x16","16x9")) add(Card("ปก EP.$number • ${if(ratio=="9x16") "แนวตั้ง 9:16" else "แนวนอน 16:9"}",FlowVisualDirection.cover(ratio,refs,story.optString("channel"),story.getString("title"),number,ep.optString("title"),story.optString("tagline"),FlowVisualDirection.storyCue(story,ep))))
             for(i in 0 until scenes.length()) add(Card("ซีน ${scenes.getJSONObject(i).getInt("scene")} • ภาพแนวตั้ง 9:16",FlowReferencePrompt.scene(scenes.getJSONObject(i),number,"image")))
         }.map { it.copy(command=it.command+"\n"+ChannelCatalog.genre(story)) }
     }
