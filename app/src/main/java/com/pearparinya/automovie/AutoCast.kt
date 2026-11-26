@@ -44,7 +44,7 @@ internal object AutoCast {
     }
     /** Explicit story evidence only; never infer a species from the genre alone. */
     private val subjectRules = listOf(
-        Regex("ผีสาว|ผีหญิง|วิญญาณหญิง") to setOf("ghost","spirit"),
+        Regex("ผีสาว|ผีหญิง|วิญญาณหญิง|กระสือ|กระหัง|ตานี") to setOf("ghost","spirit"),
         Regex("ผี|วิญญาณ|ภูต") to setOf("ghost","spirit"),
         Regex("อสูร|สัตว์ประหลาด") to setOf("creature","demon"),
         Regex("พญานาค|มังกร|สุนัข|แมว|ช้าง|เสือ|หมาป่า") to setOf("animal","creature"),
@@ -102,14 +102,15 @@ internal object AutoCast {
         HumanRole("เด็กชาย","man",1..17), HumanRole("เด็กหญิง","woman",1..17),
         HumanRole("ชายชรา","man",60..120), HumanRole("หญิงชรา","woman",60..120))
     private fun humanEligible(row: JSONObject, role: HumanRole): Boolean =
-        row.optString("character_type") in setOf("","human") &&
+        (row.optString("character_type") in setOf("","human") || (row.optString("character_type")=="child" && role.ages.last<=17)) &&
         row.optString("age_basis")!="unspecified" &&
         row.optString("character_gender")==role.gender && row.optInt("character_age") in role.ages
     /** Conservative explicit family roles; ambiguous mentions remain for user review. */
     private fun explicitHumanRoles(premise: String): List<HumanRole> {
         val clauses=premise.split(Regex("[\\n.!?。]+"))
         return humanRoles.filter { role -> clauses.any { clause ->
-            clause.contains(role.label) && !clause.contains("กล่าวถึง") && !clause.contains("เล่าถึง") &&
+            clause.contains(role.label) && !clause.contains("ผี"+role.label) && !clause.contains("วิญญาณ"+role.label) &&
+            !(role.label=="แม่" && clause.contains("แม่มด")) && !(role.label=="พ่อ" && clause.contains("พ่อค้า")) && !clause.contains("กล่าวถึง") && !clause.contains("เล่าถึง") &&
             !clause.contains("ไม่มี"+role.label) && !clause.contains("ไม่พบ"+role.label)
         } }
     }
@@ -124,7 +125,7 @@ internal object AutoCast {
             val id=row.getString("id")
             if(!used.add(id)) return
             val label=row.optString("display_name").ifBlank { id }
-            val name=if(names.add(label)) label else id
+            val name=if(names.add(label)) label else id.also { require(names.add(it)) { "ชื่อตัวละครซ้ำ: "+it } }
             cast.put(JSONObject().put("library_id",id).put("name",name).put("role",role))
         }
         pinned.forEach { id -> add(requireNotNull(rows.firstOrNull { it.optString("id")==id }) { "ไม่พบ MASTER ที่ล็อกไว้: "+id },"ตัวละครที่เลือกไว้") }
@@ -141,7 +142,10 @@ internal object AutoCast {
                 (rule==null || row.optString("character_type") in rule.second) &&
                 (if(subject=="วิญญาณ") row.optString("character_type") in setOf("ghost","spirit") else evidence(row).contains(subject))
             }
-            if(eligible.any { it.optString("id") in used }) continue
+            val pinnedMatch=(0 until cast.length()).map { cast.getJSONObject(it) }.firstOrNull { actor ->
+                actor.optString("role")=="ตัวละครที่เลือกไว้" && eligible.any { it.optString("id")==actor.optString("library_id") }
+            }
+            if(pinnedMatch!=null) { pinnedMatch.put("role",subject); continue }
             val best=eligible.filter { it.optString("id") !in used }.sortedWith(compareByDescending<JSONObject> { matchingScore(it,query) }.thenBy { it.getString("id") }).firstOrNull()
             requireNotNull(best) { "ไม่พบ MASTER ตรงกับบท: "+subject }
             add(best,subject)
