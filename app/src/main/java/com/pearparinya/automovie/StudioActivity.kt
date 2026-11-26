@@ -4093,8 +4093,7 @@ $context"""
         val record=runCatching { JSONObject(file.readText(Charsets.UTF_8)) }.getOrNull()
         val addition=record?.takeIf { it.optString("source_sha256")==promptHash(task.command) }
             ?.optString("enhancement").orEmpty()
-        return if(addition.isBlank()) task.command else task.command+
-            "\n\nAI CAMERA CLARITY (original MASTER, cast, wardrobe, props, action, story time, ambient lighting, start pose and location always override):\n"+addition
+        return SimpleProductionCommands.withCameraNote(task.command, addition)
     }
 
 

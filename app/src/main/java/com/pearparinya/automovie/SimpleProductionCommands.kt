@@ -172,6 +172,11 @@ ${scene.optString("production_image_note").takeIf { it.isNotBlank() }?.let { "Lo
             add(Task(id,"EP.$number | ซีน %03d | แนวตั้ง 9:16".format(n),"9:16",command,FlowReferencePrompt.people(scene)))
         }
     }
+    fun withCameraNote(command: String, addition: String): String {
+        return if(addition.isBlank()) command else command+
+            "\n\nAI CAMERA CLARITY (original MASTER, cast, wardrobe, props, action, story time, ambient lighting, start pose and location always override):\n"+addition
+    }
+
     fun coverPair(vertical: Task, horizontal: Task): String {
         require(vertical.id.endsWith("_COVER_9x16") && horizontal.id.endsWith("_COVER_16x9"))
         require(vertical.id.substringBeforeLast("_")==horizontal.id.substringBeforeLast("_"))
