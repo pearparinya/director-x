@@ -128,4 +128,20 @@ class CastingSelectionTest {
         assertEquals(10,AutoCast.matchingEvidence(rows.getJSONObject(1),story)[4].points)
         assertEquals(0,AutoCast.matchingEvidence(rows.getJSONObject(0),story)[4].points)
     }
+    @Test fun presenterStoryCanCastGhostFromTheBundledCatalog() {
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val catalog = context.assets.open("fantasy_masters/catalog.json").bufferedReader().use {
+            JSONObject(it.readText()).getJSONArray("records")
+        }
+        val presenter = JSONObject().put("id","P").put("display_name","ผู้ดำเนินเรื่อง")
+        catalog.put(JSONObject().put("id","ALT").put("display_name","ผู้ดำเนินเรื่อง"))
+        val choices = CastingSelection.withPresenter(presenter,catalog)
+        assertEquals(catalog.length(),choices.length())
+        val cast = AutoCast.kotlinProposal(choices,"ผู้ดำเนินเรื่องพบผีสาวที่ประตู",setOf("P")).getJSONArray("cast")
+        assertEquals(2,cast.length())
+        assertEquals("P",cast.getJSONObject(0).getString("library_id"))
+        val spiritId = cast.getJSONObject(1).getString("library_id")
+        val spirit = (0 until catalog.length()).map { catalog.getJSONObject(it) }.single { it.getString("id")==spiritId }
+        assertTrue(spirit.getString("character_type") in setOf("ghost","spirit"))
+    }
 }

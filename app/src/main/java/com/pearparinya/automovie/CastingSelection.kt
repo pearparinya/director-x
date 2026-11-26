@@ -1,9 +1,21 @@
 package com.pearparinya.automovie
 
+import org.json.JSONObject
 import org.json.JSONArray
 
 /** Empty means unrestricted; an explicit pool never silently expands to other actors. */
 internal object CastingSelection {
+    fun withPresenter(presenter: JSONObject, catalog: JSONArray): JSONArray {
+        val result = JSONArray().put(presenter)
+        val presenterName = presenter.getString("display_name")
+        for (i in 0 until catalog.length()) {
+            val actor = catalog.getJSONObject(i)
+            // Alternate presenter images represent the same person.
+            if (actor.optString("display_name") != presenterName) result.put(actor)
+        }
+        return result
+    }
+
     fun requireIncluded(cast: JSONArray, selected: Set<String>) {
         val castIds=(0 until cast.length()).map { cast.getJSONObject(it).optString("library_id") }.toSet()
         require(castIds.containsAll(selected)) { "AI ยังไม่ได้ใช้ตัวละครที่เลือกครบ กรุณาลองใหม่" }

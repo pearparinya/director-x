@@ -636,7 +636,7 @@ class StudioActivity : AppCompatActivity() {
             notice("บันทึก MASTER นายเปียแล้ว • เปิดหน้าสร้างเรื่องใหม่เพื่อตรวจภาพและเลือกกรอบใบหน้าอีกครั้ง")
         }.onFailure { notice("บันทึก MASTER ไม่สำเร็จ: ${it.message}") }
     }
-    private fun piaCatalog(includeAllTypes: Boolean = false): JSONArray {
+    private fun piaCatalog(): JSONArray {
         val migrationPrefs=getSharedPreferences("pia_master_updates", MODE_PRIVATE)
         if(!migrationPrefs.getBoolean("identity_431",false)) {
             val bytes=assets.open("pia_identity_431.png").use { it.readBytes() }
@@ -650,17 +650,7 @@ class StudioActivity : AppCompatActivity() {
             .put("file","PIA_PRESENTER.png").put("sha256",MasterLibrary.digest(bytes))
             .put("character_age",35).put("age_basis","fictional_casting_placeholder_not_real_age")
             .put("character_gender","man").put("casting_description","Use the attached original MASTER for this presenter identity.")
-        val result=JSONArray().put(row)
-        for(i in 0 until catalog.length()) {
-            val actor=catalog.getJSONObject(i)
-            val type=actor.optString("character_type","human")
-            // The channel lead is represented only by piaActorId; alternate Pia
-            // masters are outfit/identity variants, not supporting actors.
-            if(actor.optString("display_name")=="นายเปีย บ้านคลองขุด") continue
-            if(!includeAllTypes && type !in listOf("","human")) continue
-            result.put(actor)
-        }
-        return result
+        return CastingSelection.withPresenter(row, catalog)
     }
     private fun installPiaDefaults() {
         for(slot in 1..13) {
@@ -975,7 +965,7 @@ class StudioActivity : AppCompatActivity() {
                 val file=File(filesDir,"character_masters/$id.master")
                 all.add(UnifiedMasterItem(name,id.uppercase()+"_MASTER","มนุษย์",file,{ presetMaster(id,name) }))
             }
-            val records=piaCatalog(includeAllTypes=true)
+            val records=piaCatalog()
             val oldEntries=masterLibrary.entries().associateBy { it.id }
             for(i in 0 until records.length()) {
                 val item=records.getJSONObject(i)
