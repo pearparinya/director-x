@@ -5132,7 +5132,40 @@ $context"""
         }
         card.addView(progress)
         root.addView(card,LinearLayout.LayoutParams(-1,-2).apply { topMargin=dp(5); bottomMargin=dp(9) })
-        if(current!=null) root.addView(Button(this).apply { text="📱 ข้อมูลพร้อมโพสต์ • Smart Social SEO"; setOnClickListener { postDetails(current) } },LinearLayout.LayoutParams(-1,-2))
+        if(current!=null) root.addView(LinearLayout(this).apply {
+            orientation=LinearLayout.HORIZONTAL
+            gravity=Gravity.CENTER_VERTICAL
+            minimumHeight=dp(76)
+            setPadding(dp(14),dp(8),dp(14),dp(8))
+            background=GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,intArrayOf(Color.rgb(0,67,165),Color.rgb(80,35,160))).apply {
+                cornerRadius=dp(18).toFloat()
+                setStroke(dp(1),Color.rgb(67,205,255))
+            }
+            isFocusable=true
+            contentDescription="ข้อมูลพร้อมโพสต์ • SMART SOCIAL SEO"
+            androidx.core.view.ViewCompat.setAccessibilityDelegate(this,object: androidx.core.view.AccessibilityDelegateCompat() {
+                override fun onInitializeAccessibilityNodeInfo(host: android.view.View, info: androidx.core.view.accessibility.AccessibilityNodeInfoCompat) {
+                    super.onInitializeAccessibilityNodeInfo(host,info)
+                    info.className=Button::class.java.name
+                }
+            })
+            foreground=android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(0x33FFFFFF),null,GradientDrawable().apply { cornerRadius=dp(18).toFloat(); setColor(Color.WHITE) })
+            addView(TextView(this@StudioActivity).apply { text="📱"; textSize=28f; gravity=Gravity.CENTER; importantForAccessibility=android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO },LinearLayout.LayoutParams(dp(44),-2))
+            addView(LinearLayout(this@StudioActivity).apply {
+                orientation=LinearLayout.VERTICAL
+                gravity=Gravity.CENTER_VERTICAL
+                setPadding(dp(8),0,dp(8),0)
+                importantForAccessibility=android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+                addView(TextView(this@StudioActivity).apply { text="ข้อมูลพร้อมโพสต์"; textSize=19f; setTextColor(Color.WHITE); setTypeface(null,Typeface.BOLD) })
+                addView(TextView(this@StudioActivity).apply {
+                    text="SMART SOCIAL SEO"; textSize=11f; setTextColor(Color.rgb(25,20,10)); setTypeface(null,Typeface.BOLD)
+                    setPadding(dp(9),dp(3),dp(9),dp(3))
+                    background=GradientDrawable().apply { cornerRadius=dp(12).toFloat(); setColor(Color.rgb(255,204,77)) }
+                },LinearLayout.LayoutParams(-2,-2).apply { topMargin=dp(4) })
+            },LinearLayout.LayoutParams(0,-2,1f))
+            addView(TextView(this@StudioActivity).apply { text="›"; textSize=32f; setTextColor(Color.WHITE); gravity=Gravity.CENTER; importantForAccessibility=android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO },LinearLayout.LayoutParams(dp(24),-2))
+            setOnClickListener { postDetails(current) }
+        },LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(8) })
         // Compact, accessible production status: keep the original workflow visible
         // without restoring the oversized step cards removed by the dashboard redesign.
         val exportStamp=File(project,"flow_pack_exported.sha256").takeIf { it.isFile }?.let {
