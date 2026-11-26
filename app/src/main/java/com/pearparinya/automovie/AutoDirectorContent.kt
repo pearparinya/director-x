@@ -85,21 +85,17 @@ Images are generated externally in Gemini; video is generated externally in Flow
         val cue=ep?.optString("cover_incident")?.ifBlank { ep.optString("tagline") } ?: story.optString("tagline")
         return "[$heading $ratio] • ${if(ratio=="9:16") "แนวตั้ง" else "แนวนอน"} [แนบรูป: ${people.joinToString(", ") { alias(it) }}]\n${imageStart.replace("9:16",ratio)}\n" +
             ImagePromptPolicy.productionDirection+"\n"+binding(people,story)+"\n${normalize(FlowReferencePrompt.visibleCastLock(people),story)}\n$identity\n${PerformanceDirection.guide}\n${ChannelCatalog.performance(story)}\n${ChannelCatalog.genre(story)}\nFreeze one expressive story-supported instant, not a sequence.\nBoth cover orientations use the exact locked daily outfits and accessory lists. Recompose the camera only; do not redesign clothes or jewelry.\nCinematic waist-up medium close-up, zoomed in closely, ${if(ChannelCatalog.performance(story).isNotBlank()) "playful sitcom ensemble poses, distinct comic reactions and a story-relevant prop," else "dynamic dramatic editorial poses, intense eye contact,"} natural three-quarter body angles and reference proportions. NO full body, NO stiff standing. No collage. Story cue: ${normalize(cue,story)}\n"+
-            FlowVisualDirection.layout(ratio.replace(":","x"))+"\n"+CoverTypography.safeZone(ratio)+"\n"+typography+"\n"+ending(ratio)
+            FlowVisualDirection.poster+"\n"+FlowVisualDirection.layout(ratio.replace(":","x"))+"\n"+CoverTypography.safeZone(ratio)+"\n"+typography+"\n"+ending(ratio)
     }
-    private fun storyCoverPeople(story: JSONObject): List<JSONObject> =
-        FlowCast.definitions(story).map { p ->
-            val copy=JSONObject(p.toString())
-            val eps=story.getJSONArray("episodes")
-            var found: JSONObject?=null
-            for(i in 0 until eps.length()) {
-                val scenes=eps.getJSONObject(i).getJSONArray("scenes")
-                for(j in 0 until scenes.length()) if(found==null) found=FlowReferencePrompt.people(scenes.getJSONObject(j)).firstOrNull { FlowCast.id(it)==FlowCast.id(p) }
-            }
-            found ?: copy.put("outfit",if(FlowCast.id(p)=="gawin")
-                "Top: opaque cotton fitted open-collar shirt, shade=charcoal #36454F, sleeves=long-sleeve, plain, black buttons; Bottom: tailored full-length wool trousers, shade=ink black #101010; Shoes: leather dress shoes, flat sole, shade=jet black #0A0A0A; Accessories: none"
-                else "Top: opaque lined silk fitted blouse, shade=${if(FlowCast.id(p)=="rinlada") "porcelain white #F4F1EA" else "burgundy #800020"}, sleeves=long-sleeve, moderately open V-neck, tailored waist, plain fabric; Bottom: high-waisted knee-length fitted pencil skirt, shade=ink black #101010; Shoes: leather closed-toe 5 cm heels, shade=jet black #0A0A0A; Accessories: none")
+    private fun storyCoverPeople(story: JSONObject): List<JSONObject> {
+        val eps=story.getJSONArray("episodes")
+        val appearances=(0 until eps.length()).flatMap { i ->
+            val scenes=eps.getJSONObject(i).getJSONArray("scenes")
+            (0 until scenes.length()).flatMap { j -> FlowReferencePrompt.people(scenes.getJSONObject(j)) }
         }
+        return appearances.filter { FlowCast.matches(story,it) }
+            .distinctBy { FlowCast.id(it) }
+    }
     fun covers(story: JSONObject): String {
         LandscapeProduction.requirePlan(story)
         val people=storyCoverPeople(story)
