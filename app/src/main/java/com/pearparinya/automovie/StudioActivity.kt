@@ -2741,7 +2741,7 @@ class StudioActivity : AppCompatActivity() {
         ).joinToString("\n")
     }
     private fun storySceneCommand(p: JSONObject, scene: JSONObject): String {
-        val setting=listOf(scene.optString("location"),scene.optString("story_day"),scene.optString("story_time"),scene.optString("activity"),scene.optString("props")).filter { it.isNotBlank() }.joinToString(" • ")
+        val setting=listOf(scene.optString("location"),scene.optString("story_day"),SceneMoment.resolve(plan,scene.optInt("ep"),scene).time,scene.optString("activity"),scene.optString("props")).filter { it.isNotBlank() }.joinToString(" • ")
         val details=sceneCastDescription(scene)
         val people=scene.optJSONArray("characters") ?: JSONArray()
         val corrections=(0 until people.length()).mapNotNull { i ->
@@ -4094,7 +4094,7 @@ $context"""
         val addition=record?.takeIf { it.optString("source_sha256")==promptHash(task.command) }
             ?.optString("enhancement").orEmpty()
         return if(addition.isBlank()) task.command else task.command+
-            "\n\nAI CAMERA CLARITY (original MASTER, cast, wardrobe, props, action and location always override):\n"+addition
+            "\n\nAI CAMERA CLARITY (original MASTER, cast, wardrobe, props, action, story time, ambient lighting, start pose and location always override):\n"+addition
     }
 
 
@@ -8496,7 +8496,7 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         }, s.optString("speaker"), s.optString("dialogue"), s.optString("narration"),
             s.optString("flow_action").ifBlank { s.optString("action") }, s.optString("location"),
             s.optString("start_state"), s.optString("end_state"),
-            plan?.optInt("duration_seconds",8) ?: 8, plan?.optString("aspect_ratio","9:16") ?: "9:16",SoundDesign.notes(s),ProductionCommandCheck.offscreen(s),ProductionCommandCheck.dialogueTurns(s))
+            plan?.optInt("duration_seconds",8) ?: 8, plan?.optString("aspect_ratio","9:16") ?: "9:16",SoundDesign.notes(s),ProductionCommandCheck.offscreen(s),ProductionCommandCheck.dialogueTurns(s), storyTime=SceneMoment.resolve(plan,s.optInt("ep"),s).time)
     }
     private fun flowMappingCurrent(s: JSONObject): Boolean = image(s).exists() &&
         s.optLong("flow_image_revision",-1L) == image(s).lastModified()
