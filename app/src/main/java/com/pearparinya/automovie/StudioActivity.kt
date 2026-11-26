@@ -1465,7 +1465,7 @@ class StudioActivity : AppCompatActivity() {
             adjustViewBounds=true
             contentDescription="DIRECTOR X • ภาพผู้กำกับในโรงภาพยนตร์"
         }
-        root.addView(hero,LinearLayout.LayoutParams(-1,dp(140)))
+        root.addView(hero,LinearLayout.LayoutParams(-1,-2))
         val versionRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL or Gravity.END
