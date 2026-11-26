@@ -9,6 +9,15 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class CastingSelectionTest {
+    @Test fun posterCueUsesOpeningEpisodeAndEpisodeSpecificIncident() {
+        val opening = JSONObject().put("scenes",JSONArray().put(JSONObject().put("start_state","เปิดประตู").put("action","เดินเข้าไป")))
+        val later = JSONObject().put("cover_incident","พบหลักฐาน").put("tagline","ความลับ")
+        val story = JSONObject().put("title","เรื่อง").put("episodes",JSONArray().put(opening).put(later))
+        assertEquals("เปิดประตู",FlowVisualDirection.storyCue(story))
+        assertEquals("พบหลักฐาน",FlowVisualDirection.storyCue(story,later))
+        assertEquals("เรื่อง",FlowVisualDirection.storyCue(JSONObject().put("title","เรื่อง")))
+    }
+
     @Test fun confirmedCastRejectsMissingSelectedIdAndNarratedAppearance() {
         val human = JSONObject().put("id","H").put("display_name","นที").put("character_type","human")
         val ghost = JSONObject().put("id","G").put("display_name","วิญญาณหญิง").put("character_type","ghost")
