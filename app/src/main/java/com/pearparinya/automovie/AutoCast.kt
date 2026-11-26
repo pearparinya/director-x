@@ -93,6 +93,42 @@ internal object AutoCast {
             require(species==null || evidence(row).contains(species)) { "สายพันธุ์ MASTER ไม่ตรงกับบทบาท: "+role }
         }
     }
+    /** Offline proposal from explicit story subjects, without network access or invented IDs. */
+    fun kotlinProposal(catalog: JSONArray, premise: String, pinned: Set<String> = emptySet()): JSONObject {
+        require(premise.isNotBlank()) { "กรุณาระบุเนื้อเรื่องก่อนเลือก MASTER" }
+        val rows=(0 until catalog.length()).map { catalog.getJSONObject(it) }
+        val cast=JSONArray()
+        val used=linkedSetOf<String>()
+        val names=linkedSetOf<String>()
+        fun add(row: JSONObject, role: String) {
+            val id=row.getString("id")
+            if(!used.add(id)) return
+            val label=row.optString("display_name").ifBlank { id }
+            val name=if(names.add(label)) label else id
+            cast.put(JSONObject().put("library_id",id).put("name",name).put("role",role))
+        }
+        pinned.forEach { id -> add(requireNotNull(rows.firstOrNull { it.optString("id")==id }) { "ไม่พบ MASTER ที่ล็อกไว้: "+id },"ตัวละครที่เลือกไว้") }
+        val query=normalized(premise)
+        val subjects=speciesTerms.filter { query.contains(it) }.toMutableList()
+        if(subjects.none { it in listOf("กระสือ","กระหัง","ตานี") }) {
+            if(query.contains("วิญญาณหญิง")) subjects.add("วิญญาณหญิง")
+            else if(Regex("ผี|วิญญาณ|ภูต").containsMatchIn(query)) subjects.add("วิญญาณ")
+        }
+        if(Regex("อสูร|สัตว์ประหลาด").containsMatchIn(query)) subjects.add("อสูร")
+        for(subject in subjects) {
+            val rule=subjectRules.firstOrNull { it.first.containsMatchIn(subject) }
+            val eligible=rows.filter { row ->
+                (rule==null || row.optString("character_type") in rule.second) &&
+                (if(subject=="วิญญาณ") row.optString("character_type") in setOf("ghost","spirit") else evidence(row).contains(subject))
+            }
+            if(eligible.any { it.optString("id") in used }) continue
+            val best=eligible.filter { it.optString("id") !in used }.sortedWith(compareByDescending<JSONObject> { matchingScore(it,query) }.thenBy { it.getString("id") }).firstOrNull()
+            requireNotNull(best) { "ไม่พบ MASTER ตรงกับบท: "+subject }
+            add(best,subject)
+        }
+        require(cast.length() in 1..8) { "ยังระบุบทบาทจากเรื่องไม่ได้ หรือจำนวนตัวละครเกิน 8 กรุณาเลือก MASTER เอง" }
+        return JSONObject().put("story_concept",premise).put("cast",cast).also { validate(it,catalog); validateStoryRoles(it,catalog,pinned) }
+    }
     fun storyCastingBrief(): String =
         "Identify essential explicitly described nonhuman and human roles before selecting actors. " +
         "For a ghost, spirit, animal, deity or creature role use the matching catalog type and species evidence; never substitute a human merely because the protagonist is human. " +
