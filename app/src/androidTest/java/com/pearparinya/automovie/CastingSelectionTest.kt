@@ -22,6 +22,21 @@ class CastingSelectionTest {
         assertEquals(3,pinned.length())
         assertEquals(snapshot,rows.toString())
     }
+    @Test fun evidenceScoreAndSpeciesValidation() {
+        val naga=JSONObject().put("id","N").put("character_type","animal").put("display_name","พญานาค ผู้พิทักษ์")
+        val dragon=JSONObject().put("id","D").put("character_type","animal").put("display_name","มังกร")
+        val catalog=JSONArray().put(dragon).put(naga)
+        assertEquals(55,AutoCast.matchingScore(naga,"พญานาค ผู้พิทักษ์"))
+        assertEquals(30,AutoCast.matchingScore(dragon,"พญานาค ผู้พิทักษ์"))
+        assertEquals(0,AutoCast.matchingScore(naga,"เรื่องครอบครัว"))
+        val actor=JSONObject().put("library_id","D").put("role","พญานาค")
+        val proposal=JSONObject().put("cast",JSONArray().put(actor))
+        assertTrue(runCatching { AutoCast.validateStoryRoles(proposal,catalog) }.isFailure)
+        actor.put("library_id","N")
+        AutoCast.validateStoryRoles(proposal,catalog)
+        actor.put("library_id","D")
+        AutoCast.validateStoryRoles(proposal,catalog,setOf("D"))
+    }
     @Test fun explicitPoolNeverExpandsAndEmptyPreservesAll() {
         val rows=JSONArray().put(JSONObject().put("id","A")).put(JSONObject().put("id","B")).put(JSONObject().put("id","C"))
         assertEquals(3,CastingSelection.filter(rows,emptySet()).length())
