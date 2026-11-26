@@ -99,4 +99,13 @@ class CastingSelectionTest {
         assertEquals(100, criteria.sumOf { it.points })
         assertTrue(AutoCast.matchingEvidence(row, "ไม่พบพญานาค").all { it.points == 0 })
     }
+    @Test fun confirmedOfflineCastHonorsManualRemovalAndRegisteredNames() {
+        val rows = JSONArray().put(JSONObject().put("id","A").put("display_name","อรุณ"))
+            .put(JSONObject().put("id","B").put("display_name","มาลี"))
+        val roles = JSONObject().put("A","ผู้พิทักษ์").put("B","ผู้ช่วย")
+        val cast = AutoCast.confirmedKotlinCast(rows, setOf("A"), roles, "อรุณเฝ้าประตู", "").getJSONArray("cast")
+        assertEquals(1, cast.length())
+        assertEquals("อรุณ", cast.getJSONObject(0).getString("name"))
+        assertEquals("ผู้พิทักษ์", cast.getJSONObject(0).getString("role"))
+    }
 }

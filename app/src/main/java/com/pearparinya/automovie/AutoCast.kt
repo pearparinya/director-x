@@ -253,6 +253,39 @@ internal object AutoCast {
         val woman=if(olderMan) lead("younger_woman","woman",25..35) else lead("older_woman","woman",45..55)
         require(if(olderMan) man.getInt("character_age")-woman.getInt("character_age")>=15 else woman.getInt("character_age")-man.getInt("character_age")>=15) { "คู่หลักต้องอายุห่างอย่างน้อย 15 ปี" }
     }
+    /** Build the final offline cast from the reviewed selection, including manual edits. */
+    fun confirmedKotlinCast(catalog: JSONArray, selected: Set<String>, roles: JSONObject,
+                            premise: String, category: String): JSONObject {
+        require(selected.isNotEmpty()) { "กรุณายืนยันตัวละครก่อนสร้างบท" }
+        val pool = CastingSelection.filter(catalog, selected)
+        val rows = (0 until pool.length()).map { pool.getJSONObject(it) }
+        val cast = JSONArray()
+        val actors = rows.associate { row ->
+            val id = row.getString("id")
+            val actor = JSONObject().put("library_id", id)
+                .put("name", row.optString("display_name").ifBlank { id })
+                .put("role", roles.optString(id).ifBlank { "ตัวละครที่ผู้ใช้เลือก" })
+            cast.put(actor)
+            id to actor
+        }
+        val olderMan = category.startsWith("รักต่างวัย | หนุ่มรุ่นใหญ่กับสาวรุ่นน้อง")
+        if (olderMan || category.startsWith("รักต่างวัย | หนุ่มรุ่นน้องกับสาวรุ่นพี่")) {
+            val men = rows.filter { adultRomanceEligible(it) && it.optString("character_gender") == "man" &&
+                it.optInt("character_age") in (if (olderMan) 45..60 else 25..30) }
+            val women = rows.filter { adultRomanceEligible(it) && it.optString("character_gender") == "woman" &&
+                it.optInt("character_age") in (if (olderMan) 25..35 else 45..55) }
+            val pairs = men.flatMap { m -> women.filter { w ->
+                kotlin.math.abs(m.getInt("character_age") - w.getInt("character_age")) >= 15
+            }.map { w -> m to w } }
+            val (man, woman) = requireNotNull(pairs.singleOrNull()) { "กรุณาเลือก MASTER คู่หลักที่ตรงเกณฑ์อายุให้ชัดเจนหนึ่งคู่" }
+            actors.getValue(man.getString("id")).put("romance_role", if (olderMan) "older_man" else "younger_man")
+            actors.getValue(woman.getString("id")).put("romance_role", if (olderMan) "younger_woman" else "older_woman")
+        }
+        return JSONObject().put("story_concept", premise).put("cast", cast).also {
+            validate(it, catalog)
+            validateGenre(it, catalog, category)
+        }
+    }
     fun recentCasts(base: File, current: File): JSONArray {
         val casts=base.listFiles().orEmpty().filter { it.isDirectory && it.canonicalFile!=current.canonicalFile }.mapNotNull { project ->
             // The project directory timestamp may not change when an existing casting file is written.
