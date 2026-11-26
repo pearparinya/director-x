@@ -165,7 +165,7 @@ Framing: ${scene.optString("framing").ifBlank { "Show all listed people, relevan
 Lighting: Match the story time and location. Preserve ambient light across continuous shots.
 Acting: ${acting(scene).ifBlank { "Individual restrained expressions consistent with the stated action and start state." }}
 ${BodyReferencePolicy.imageIdentityLock}
-${ImagePromptPolicy.skinTone}
+${ImagePromptPolicy.sceneSkinTone}
 ${ReadingPropPolicy.forScene(scene.optString("action"), scene.optString("flow_action"), scene.optString("start_state"), scene.optString("end_state"))}
 Mouths closed in this still. Preserve all props and screen positions for the matching video.
 ${scene.optString("production_image_note").takeIf { it.isNotBlank() }?.let { "Local visual correction (keep scene lighting, identity, outfit, cast and start state): $it" }.orEmpty()}""".trim()
