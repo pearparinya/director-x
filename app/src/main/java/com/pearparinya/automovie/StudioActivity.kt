@@ -7556,7 +7556,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                                 active.set(client)
                                 val prompt="Suggest a cast for this Thai story. Channel: $channel; category: $category; situation: $situation; details: $detail. Return a nonempty story_concept and cast. For each actor use library_id from the catalog id field, a unique name and a nonempty role. Omit english_name unless it is a unique single English name. Suggest only characters suitable for the story, with a short proposed role in Thai. Do not infer occupation or identity from a face; roles are fictional suggestions for user review. Use as many as needed, from 1 to 8. "+(if(channel=="นายเปีย บ้านคลองขุด") "Include $piaActorId as central protagonist and suitable supporting roles. " else "")+AutoCast.storyCastingBrief()+"Catalog: "+AutoCast.promptCatalog(AutoCast.storyCatalog(catalog, situation+" "+detail, selectedActors.toSet())).toString()
                                 val presenterId=if(channel=="นายเปีย บ้านคลองขุด") piaActorId else ""
-                                AutoCast.propose(prompt,catalog,presenterId,{ stopped.get() }) { request ->
+                                AutoCast.propose(prompt,catalog,presenterId,{ stopped.get() },selectedActors.toSet()) { request ->
                                     client.generate(request,AutoCast.schema())
                                 }
                             }.onFailure {
