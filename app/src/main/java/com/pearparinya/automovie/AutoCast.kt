@@ -102,8 +102,9 @@ internal object AutoCast {
     }
     fun roleConflict(row: JSONObject, roleText: String): String? {
         val role = roleText.trim()
-        val human = humanRoles.firstOrNull { role == it.label }
-        if (human != null && !humanEligible(row,human)) return "วัยหรือเพศ MASTER ไม่ตรงกับบทบาท: $role"
+        val humanParts = role.split('/').map { it.trim() }
+        val human = humanRoles.firstOrNull { it.label in humanParts && !humanEligible(row,it) }
+        if (human != null) return "วัยหรือเพศ MASTER ไม่ตรงกับบทบาท: ${human.label}"
         val rule = subjectRules.firstOrNull { it.first.find(role)?.range?.first == 0 } ?: return null
         if (row.optString("character_type") !in rule.second) return "ประเภท MASTER ไม่ตรงกับบทบาท: $role"
         val species = speciesTerms.firstOrNull { role.startsWith(it) || role.startsWith("ผี"+it) }
