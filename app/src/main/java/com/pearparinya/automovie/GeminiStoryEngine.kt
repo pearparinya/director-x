@@ -235,7 +235,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                     "EP ${e+1}: "+(maxOf(0,rows.length()-(if(compact) 4 else rows.length())) until rows.length()).joinToString(" | ") { n -> rows.getJSONObject(n).let { "${it.optString("action").take(if(compact) 150 else 10000)} / ${it.optString("dialogue")} | end state=${it.optString("end_state")} | day=${it.optString("story_day")} | dialogue turns=${it.optJSONArray("dialogue_turns") ?: ""} | emotional continuity=${PerformanceDirection.continuity(it)}" } }
                 }
                 val previous=(maxOf(0,scenes.length()-(if(compact) 2 else scenes.length())) until scenes.length()).joinToString("\n") { n -> scenes.getJSONObject(n).let {
-                    "SC ${it.getInt("scene")}: ${it.optString("action")} | dialogue=${it.optString("dialogue")} | end=${it.optString("end_state")} | day=${it.optString("story_day")} | emotional continuity=${PerformanceDirection.continuity(it)} | outfits=${if(compact) (0 until it.getJSONArray("characters").length()).joinToString { n -> it.getJSONArray("characters").getJSONObject(n).let { p -> p.optString("name")+"="+p.optString("outfit") } } else it.getJSONArray("characters")}"
+                    "SC ${it.getInt("scene")}: ${it.optString("action")} | dialogue=${it.optString("dialogue")} | end=${it.optString("end_state")} | day=${it.optString("story_day")} time=${it.optString("story_time")} | emotional continuity=${PerformanceDirection.continuity(it)} | outfits=${if(compact) (0 until it.getJSONArray("characters").length()).joinToString { n -> it.getJSONArray("characters").getJSONObject(n).let { p -> p.optString("name")+"="+p.optString("outfit") } } else it.getJSONArray("characters")}"
                 } }
                 val storyOutline=if(compact) (0 until eps.length()).joinToString("\n") { e -> eps.getJSONObject(e).let { "EP ${e+1}: ${it.optString("synopsis").take(250)}; ending=${it.optString("ending").take(120)}" } } else outline.toString()
                 val priorWardrobe=(0 until output.length()).flatMap { e -> AutoDirectorWardrobe.batch(e+1,output.getJSONObject(e).getJSONArray("scenes")) }+AutoDirectorWardrobe.batch(i+1,scenes)
@@ -245,11 +245,12 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                 val recoveryHint=if(retryMarker.isFile) "\nFresh scene recovery ID: "+GeminiStoryFiles.read(retryMarker).getString("id")+". Write this scene afresh using the story outline and registered cast; use exact Thai names, keep established events and continuity; do not guess identities." else ""
                 val historyLedger=StoryContinuityLedger.summarize(output,scenes)
                 val historyContext=StoryContinuityLedger.promptContext(historyLedger,past,previous,compact)
-                val prompt=base+relationshipContext+returningContext+recoveryHint+wardrobeContext+"\n"+historyContext+"\nConfirmed story aliases (same actor only; keep exact Thai names and MASTER): "+confirmedNames.toString()+(if(compact) "\nBe concise: image_prompt and flow_prompt each <=80 English words; keep identity, outfits, action and speech complete." else "")+"\nFull story outline:\n$storyOutline\nWrite exactly scenes $start to $end for EP ${i+1}; each duration_seconds=8, scene numbers absolute within episode. This episode: ${if(compact) JSONObject(planned.toString()).apply { listOf("synopsis","cover_incident","ending").forEach { put(it,optString(it).take(250)) } } else planned}. Include continuity_group, story_day, story_time, activity, wardrobe_event. Set speaker/dialogue/narration to empty strings when unused. Characters use canonical Thai names and matching *_MASTER.png. Use screen_position and full visual_description. Copy character_age exactly from the registered cast. Age 0 is a valid explicitly assigned infant age; legacy records without an assigned age may also have 0 as unknown. Do not invent an age. characters contains only visible people. mentioned_characters lists canonical names discussed but absent; offscreen_characters lists canonical names outside the frame. Only the assigned speaker of each turn can speak at that moment; off-screen speech keeps all visible mouths closed. Never place physical on-screen actions on absent people. Write flow_action in concise English except for each visible character's exact canonical Thai name as listed in characters; do not invent Romanized aliases. Identify each action by that name. In flow_prompt identify each assigned speaker and exact Thai line in order, or closed mouths for silent/narrated scenes."
+                val clockGuide = if (spec.optInt("story_clock_version") >= 1) StoryClock.instruction else ""
+                val prompt=base+"\n"+clockGuide+relationshipContext+returningContext+recoveryHint+wardrobeContext+"\n"+historyContext+"\nConfirmed story aliases (same actor only; keep exact Thai names and MASTER): "+confirmedNames.toString()+(if(compact) "\nBe concise: image_prompt and flow_prompt each <=80 English words; keep identity, outfits, action and speech complete." else "")+"\nFull story outline:\n$storyOutline\nWrite exactly scenes $start to $end for EP ${i+1}; each duration_seconds=8, scene numbers absolute within episode. This episode: ${if(compact) JSONObject(planned.toString()).apply { listOf("synopsis","cover_incident","ending").forEach { put(it,optString(it).take(250)) } } else planned}. Include continuity_group, story_day, story_time, activity, wardrobe_event. Set speaker/dialogue/narration to empty strings when unused. Characters use canonical Thai names and matching *_MASTER.png. Use screen_position and full visual_description. Copy character_age exactly from the registered cast. Age 0 is a valid explicitly assigned infant age; legacy records without an assigned age may also have 0 as unknown. Do not invent an age. characters contains only visible people. mentioned_characters lists canonical names discussed but absent; offscreen_characters lists canonical names outside the frame. Only the assigned speaker of each turn can speak at that moment; off-screen speech keeps all visible mouths closed. Never place physical on-screen actions on absent people. Write flow_action in concise English except for each visible character's exact canonical Thai name as listed in characters; do not invent Romanized aliases. Identify each action by that name. In flow_prompt identify each assigned speaker and exact Thai line in order, or closed mouths for silent/narrated scenes."
                 val priorDialogue=linkedMapOf<String,String>()
                 for(e in 0 until output.length()) checkDialogue(output.getJSONObject(e).getJSONArray("scenes"),e+1,priorDialogue)
                 checkDialogue(scenes,i+1,priorDialogue)
-                val batch=try { cached("EP%02d_%02d.json".format(i+1,start),prompt,batchSchema()) {
+                val batch=try { cached("EP%02d_%02d.json".format(i+1,start),prompt,batchSchema(spec.optInt("story_clock_version") >= 1)) {
                     val nameRows=it.optJSONArray("scenes")
                         ?: throw IllegalArgumentException("EP ${i+1} ซีน $start: ข้อมูลซีนไม่ครบ กรุณาสร้างซีนใหม่")
                     for(n in 0 until nameRows.length()) {
@@ -280,6 +281,10 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                         for(n in 0 until sceneRows.length()) PerformanceDirection.normalizeSilentVoices(sceneRows.getJSONObject(n))
                     }
                     validateBatch(it,i+1,start,size,support)
+                    if (spec.optInt("story_clock_version") >= 1) {
+                        val prior = scenes.optJSONObject(scenes.length()-1) ?: output.optJSONObject(output.length()-1)?.optJSONArray("scenes")?.let { prev -> prev.optJSONObject(prev.length()-1) }
+                        StoryClock.validate(nameRows, prior, i+1)
+                    }
                     if(spec.optString("content_profile")==AutoDirectorContent.profile || spec.optInt("command_version")>=1) {
                         AutoDirectorContent.validateWardrobes(it,spec.optInt("autodirector_version")>=AutoDirectorContent.version)
                         val wardrobeIssues=AutoDirectorWardrobe.issues(priorWardrobe+AutoDirectorWardrobe.batch(i+1,it.getJSONArray("scenes")))
@@ -434,11 +439,12 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
             if(short) fields["social_caption"]=string()
             return obj(fields)
         }
-        fun batchSchema(): JSONObject {
+        fun batchSchema(clockEnabled: Boolean = false): JSONObject {
             val person=obj(linkedMapOf("name" to string(),"master" to string(),"outfit" to string(),"visual_description" to string(),"screen_position" to string(),"character_age" to integer(),"performance" to obj(PerformanceDirection.fields.associateWith { string() })))
             val fields=linkedMapOf("mentioned_characters" to array(string()),"offscreen_characters" to array(string()),"scene" to integer(),"duration_seconds" to integer(),"characters" to array(person),"sound_design" to obj(linkedMapOf("ambience" to string(),"sfx" to string(),"music" to string())))
             fields["dialogue_turns"]=array(obj(linkedMapOf("speaker" to string(),"text" to string())))
             listOf("story_day","story_time","activity","wardrobe_event","continuity_group","location","start_state","end_state","action","speaker","dialogue","narration","image_prompt","flow_prompt").forEach { fields[it]=string() }
+            if (clockEnabled) fields["time_transition"] = string()
             return obj(linkedMapOf("scenes" to array(obj(fields))))
         }
         fun validateOutline(value: JSONObject,requested: Int) {
