@@ -92,7 +92,12 @@ internal class AutomaticStoryRouter(
         if (cancelled()) throw CancellationException()
         val recover = sceneBatch && retainFormattedScenes
         val complete = if (recover) File(completedStages, draftFile(StoryProvider.GROQ,prompt,schema).name) else null
-        if (complete?.isFile == true) return GeminiStoryFiles.read(complete)
+        if (complete?.isFile == true) {
+            // A damaged cache must not prevent resuming the original checkpoint.
+            val cached = runCatching { GeminiStoryFiles.read(complete) }.getOrNull()
+            if (cached != null && SceneXml.hasUsableActions(cached)) return cached
+            // Leave the original file intact until a valid replacement is written.
+        }
         val range=Regex("Write exactly scenes ([0-9]+) to ([0-9]+)").find(prompt)
         val multipleScenes=range?.let { it.groupValues[1].toIntOrNull()?.let { first ->
             it.groupValues[2].toIntOrNull()?.let { last -> last>first }
