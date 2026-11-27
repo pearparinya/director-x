@@ -2214,6 +2214,9 @@ class StudioActivity : AppCompatActivity() {
                 val omittedOptional=optional.drop(remaining)
                 if(omittedOptional.any { it.first.startsWith("OUTFIT_CAST_") }) { notice("ภาพชุดที่ยืนยันและ MASTER เกิน 9 ภาพ กรุณาลดภาพครอปหรือแบ่งรายการ"); return@setPositiveButton }
                 val payload=orderedPeople+includedOptional
+                val required=primary+references.drop(task.references.size).filter { it.first.startsWith("OUTFIT_CAST_") }
+                val gate=CharacterQualityGate.referenceIssues(required.map { it.first to it.second.canonicalPath },payload.map { it.first to it.second.canonicalPath })
+                if(gate.isNotEmpty()) { notice(gate.joinToString("\n")); return@setPositiveButton }
                 if(omittedOptional.isNotEmpty()) {
                     notice("ส่ง MASTER ตัวละครครบแล้ว • จำกัดภาพอ้างอิงไว้ที่ 9 ภาพ โดยงดภาพเสริม ${omittedOptional.size} ภาพ")
                 }
@@ -2243,6 +2246,8 @@ class StudioActivity : AppCompatActivity() {
             .setNegativeButton("กลับไปตรวจ",null).showNavigationDirector()
     }
     private fun shareImageCommand(command: String, references: List<Pair<String,File>>, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false, wardrobeBatch: Boolean = false) {
+        val gate=CharacterQualityGate.referenceIssues(emptyList(),references.map { it.first to it.second.absolutePath })
+        if(gate.isNotEmpty()) { notice(gate.joinToString("\n")); return }
         val referenceDigests=runCatching { ReferenceSnapshot.capture(references) }.getOrElse { notice(it.message ?: "ตรวจภาพอ้างอิงไม่ได้"); return }
         val orderedCommand=if(bodyOnly) command else SimpleProductionCommands.orderedReferenceCommand(command,references.map { it.first })
         val preferred=prefs.getString("image_provider","ChatGPT") ?: "ChatGPT"
@@ -2772,7 +2777,7 @@ class StudioActivity : AppCompatActivity() {
         val index = scenes.indexOfFirst { key(it) == key(scene) }
         val group = scene.optString("continuity_group")
         val previous = if (group.isBlank()) null else scenes.take(index).lastOrNull {
-            it.optString("continuity_group") == group && image(it).exists()
+            it.optString("continuity_group") == group && it.optString("story_day")==scene.optString("story_day") && it.optString("location").trim().equals(scene.optString("location").trim(),true) && sceneFrameApproved(it)
         }
         val references = previous?.let { listOf(key(it) to image(it)) } ?: emptyList()
         val masterRefs = if(cast != null) (0 until cast.length()).map { cast.getJSONObject(it) }.map { person ->
@@ -2784,9 +2789,10 @@ class StudioActivity : AppCompatActivity() {
         val outfits=FlowReferencePrompt.people(scene).mapNotNull { person ->
             castOutfit(person).attachment(project)?.let { Triple(it.first,it.second,person.optString("name")) }
         }
-        if(masterRefs.size+outfits.size+references.size>9) { notice("ภาพอ้างอิงเกิน 9 ภาพ กรุณาใช้เมนูคำสั่งภาพเพื่อจัดรายการ"); return }
+        if(masterRefs.size+outfits.size>9) { notice("MASTER และชุดที่ยืนยันเกิน 9 ภาพ กรุณาแบ่งรายการ"); return }
+        val safeReferences=references.take(9-masterRefs.size-outfits.size)
         val guide=outfits.mapIndexed { i,entry -> "Reference image ${masterRefs.size+i+1}: approved wardrobe only for ${entry.third}. Preserve pockets, cuffs, buttons, pattern and accessories. Original MASTER controls identity." }.joinToString("\n")
-        shareImageCommand(storySceneCommand(p,scene)+appearanceGuide(FlowReferencePrompt.people(scene))+CharacterContinuity.guide(FlowReferencePrompt.people(scene))+"\n"+guide,masterRefs+outfits.map { it.first to it.second }+references)
+        shareImageCommand(storySceneCommand(p,scene)+appearanceGuide(FlowReferencePrompt.people(scene))+CharacterContinuity.guide(FlowReferencePrompt.people(scene))+"\n"+guide,masterRefs+outfits.map { it.first to it.second }+safeReferences)
     }
     private fun wholeStoryCommands() {
         val p = plan ?: return notice("นำเข้าแผนเรื่องก่อนครับ")
