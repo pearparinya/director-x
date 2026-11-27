@@ -45,4 +45,60 @@ class CastingContinuityRegressionTest {
             } finally { folder.deleteRecursively() }
         }
     }
+    @Test fun castingDialogShowsApprovedAndMissingActorsAfterReopen() {
+        val ins = InstrumentationRegistry.getInstrumentation()
+        val ctx = ins.targetContext
+        val prefs = ctx.getSharedPreferences("studio", 0)
+        val original = prefs.getString("project", "draft")
+        val id = java.util.UUID.randomUUID().toString()
+        val folder = File(ctx.filesDir, "studio/$id")
+        val master = "CHARACTER_TEST.png"
+        val actor = JSONObject().put("name", "นักแสดงทดสอบ").put("master", master).put("outfit", "เสื้อลายไทย")
+        val missing = JSONObject().put("name", "นักแสดงรอ MASTER")
+        val story = JSONObject().put("title", "Casting UI").put("episodes", org.json.JSONArray().put(
+            JSONObject().put("ep", 1).put("scenes", org.json.JSONArray().put(
+                JSONObject().put("scene", 1).put("characters", org.json.JSONArray().put(actor).put(missing))))))
+        fun views(v: android.view.View): List<android.view.View> = listOf(v) +
+            if (v is android.view.ViewGroup) (0 until v.childCount).flatMap { views(v.getChildAt(it)) } else emptyList()
+        try {
+            folder.mkdirs()
+            File(folder, "story.json").writeText(story.toString())
+            val bitmap = android.graphics.Bitmap.createBitmap(8, 8, android.graphics.Bitmap.Config.ARGB_8888)
+            File(folder, "masters/$master").apply {
+                parentFile!!.mkdirs()
+                outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            }
+            assertTrue(prefs.edit().putString("project", id).commit())
+            repeat(2) {
+                val activity = ins.startActivitySync(android.content.Intent(ctx, StudioActivity::class.java)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) as StudioActivity
+                try {
+                    ins.runOnMainSync {
+                        val outfitMethod = StudioActivity::class.java.getDeclaredMethod("castOutfit", JSONObject::class.java)
+                        outfitMethod.isAccessible = true
+                        val outfit = outfitMethod.invoke(activity, actor) as CastOutfit
+                        if (it == 0) outfit.file(folder).apply {
+                            parentFile!!.mkdirs()
+                            outputStream().use { stream -> bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream) }
+                        }
+                        val method = StudioActivity::class.java.getDeclaredMethod("castOutfitMenu", JSONObject::class.java)
+                        method.isAccessible = true
+                        val dialog = method.invoke(activity, story) as androidx.appcompat.app.AlertDialog
+                        try {
+                            val all = views(dialog.window!!.decorView)
+                            val labels = all.filterIsInstance<android.widget.TextView>().map { v -> v.text.toString() }
+                            assertTrue(labels.any { v -> v.contains("นักแสดงทดสอบ") && v.contains("ยืนยันชุดแล้ว") })
+                            assertTrue(labels.any { v -> v.contains("นักแสดงรอ MASTER") && v.contains("ขาด MASTER") })
+                            val images = all.filterIsInstance<android.widget.ImageView>()
+                            assertTrue(images.any { v -> v.contentDescription == "MASTER" && v.drawable != null })
+                            assertTrue(images.any { v -> v.contentDescription == "ชุดที่ยืนยัน" && v.drawable != null })
+                        } finally { dialog.dismiss() }
+                    }
+                } finally { ins.runOnMainSync { activity.finish() }; ins.waitForIdleSync() }
+            }
+        } finally {
+            prefs.edit().putString("project", original).commit()
+            folder.deleteRecursively()
+        }
+    }
 }
