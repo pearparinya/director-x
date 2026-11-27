@@ -4569,7 +4569,8 @@ $context"""
                         }
                         val picker=AlertDialog.Builder(this).setTitle("เลือกตัวละครบนปก").setView(ScrollView(this).apply { addView(list) }).setPositiveButton("บันทึก",null).setNegativeButton("ยกเลิก",null).showNavigationDirector()
                         picker.getButton(-1).setOnClickListener {
-                            if(chosen.isEmpty() || chosen.size>4) notice("กรุณาเลือกตัวละครบนปก 1–4 คน เพื่อเก็บ MASTER ต้นฉบับและภาพครอปใบหน้าของทุกคนไว้ครบ โดยไม่ต้องสร้างเรื่องใหม่")
+                            if(story.has("visible_cast_count") && chosen.size<2) notice("กรุณาเลือกตัวละครสำคัญจากบทอย่างน้อย 2 คนสำหรับปกภาพยนตร์")
+                            else if(chosen.isEmpty() || chosen.size>4) notice("กรุณาเลือกตัวละครบนปก 1–4 คน เพื่อเก็บ MASTER ต้นฉบับและภาพครอปใบหน้าของทุกคนไว้ครบ โดยไม่ต้องสร้างเรื่องใหม่")
                             else if(candidates.filter { referenceId(it.getString("master")) in chosen }.any { !masterFor(it).isFile }) notice("ภาพ MASTER บางตัวหาย กรุณาเลือกใหม่")
                             else { prefs.edit().putStringSet("cover_cast_${project.name}_$scope",chosen.toSet()).apply(); picker.dismiss(); notice("บันทึกรายการปกแล้ว • เปิดปกอีกครั้งเพื่อตรวจและส่ง") }
                         }
