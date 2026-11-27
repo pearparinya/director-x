@@ -11,7 +11,11 @@ internal object SceneRepairGuard {
         }.sortedBy { it.joinToString("\u0000") }
     }
     fun preservesCast(original: JSONObject, replacement: JSONObject): Boolean {
+        val after = bindings(replacement) ?: return false
+        // Missing characters can be reconstructed by the existing registered-cast validator.
+        // Never relax protection when an original array exists (including an empty array).
+        if (!original.has("characters")) return true
         val before = bindings(original) ?: return false
-        return before == bindings(replacement)
+        return before == after
     }
 }
