@@ -1980,7 +1980,9 @@ class StudioActivity : AppCompatActivity() {
             panel.addView(TextView(this).apply { text="${shortId?.let { "$it • " }.orEmpty()}${person.optString("name")} • $position\nชุดที่ระบุในบท: ${person.optString("outfit")}"; setTypeface(null,Typeface.BOLD) })
             val sourceKey=wardrobeSourceKey(project.name,id,masterDigests[id].orEmpty(),person)
             masterAppearance[id]=android.widget.CheckBox(this).apply {
-                isChecked=prefs.getBoolean(sourceKey,WardrobeEvidence.masterSelectedByDefault(person))
+                val approved=castOutfit(person).attachment(project)!=null
+                isChecked=!approved && prefs.getBoolean(sourceKey,WardrobeEvidence.masterSelectedByDefault(person))
+                isEnabled=!approved
                 fun refreshSourceLabel() { text=if(isChecked) "แหล่งชุด: MASTER ของตัวละครนี้ ✓\nแตะเพื่อเปลี่ยนเป็นชุดตามบท" else "แหล่งชุด: ตามบท ✓\nแตะเพื่อใช้ชุดจาก MASTER" }
                 refreshSourceLabel()
                 setOnCheckedChangeListener { _,_ -> refreshSourceLabel() }
@@ -2062,7 +2064,7 @@ class StudioActivity : AppCompatActivity() {
         }
         val extraChecks=linkedMapOf<String,android.widget.CheckBox>()
         references.drop(task.references.size).forEach { (id,file) ->
-            extraChecks[id]=android.widget.CheckBox(this).apply { text=labels[id] ?: "ภาพอ้างอิงที่ตรวจแล้ว • $id"; isChecked=!id.startsWith("OUTFIT_PIA_SELECTED_") || PiaReferencePolicy.outfitInitiallySelected(task.id); panel.addView(this) }
+            extraChecks[id]=android.widget.CheckBox(this).apply { isEnabled=!id.startsWith("OUTFIT_CAST_"); text=labels[id] ?: "ภาพอ้างอิงที่ตรวจแล้ว • $id"; isChecked=!id.startsWith("OUTFIT_PIA_SELECTED_") || PiaReferencePolicy.outfitInitiallySelected(task.id); panel.addView(this) }
             panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(180)); setOnClickListener { fullImage(file,labels[id] ?: "ภาพอ้างอิง") } })
         }
         val allowFantasyProps=ChannelFeaturePolicy.hasFantasyTools(plan?.optString("channel").orEmpty())
@@ -2191,7 +2193,7 @@ class StudioActivity : AppCompatActivity() {
                 val propInstruction=if(propRefs.isEmpty()) "" else "\n\nPROP MASTER REFERENCES: Each selected image shows multiple views of ONE object. Match each named object to its own attached MASTER. Preserve its distinctive silhouette, proportions, materials, colors, markings, gems, guard and handle across scenes. Do not invent a replacement or mix different objects. Depict only the selected props appropriate to this scene; follow the planned action and placement. Follow the provided image order and generate directly. Similarity is a target and cannot be guaranteed.\n"+propLabels.entries.joinToString("\n") { "${it.value} | MASTER ID: ${it.key}" }
                 val extras=references.drop(task.references.size).filter { extraChecks[it.first]?.isChecked == true }
                 val outfitExtras=extras.filter { extra -> extra.first.startsWith("OUTFIT_") && locked.none { (_,id) -> extra.first.endsWith(id,true) } }
-                if(mode==2 && outfitExtras.none { it.first.startsWith("OUTFIT_EP") }) { notice("ยังไม่มีภาพฉากเดี่ยวที่ตรวจผ่านและชุดตรงกัน กรุณาเลือกวิธีอื่น"); return@setPositiveButton }
+                if(mode==2 && outfitExtras.none { (it.first.startsWith("OUTFIT_EP") || it.first.startsWith("OUTFIT_CAST_")) }) { notice("ยังไม่มีภาพฉากเดี่ยวที่ตรวจผ่านและชุดตรงกัน กรุณาเลือกวิธีอื่น"); return@setPositiveButton }
                 val outfitGuide=if(outfitExtras.isEmpty()) "" else (if(mode==2) "\n\nREVIEWED SCENE REFERENCE: The checked prior single-character scene was reviewed by the user for this same character and outfit. Use it as a supplemental identity and wardrobe reference; the original MASTER remains the source of identity. " else "")+"\n\nREVIEWED OUTFIT REFERENCES: For the listed characters only, these checked images override generic instructions against copying clothing. Use each labeled frame as a clothing reference for its named character, while the original character MASTER remains the identity reference. Preserve visible garments; follow the written outfit for parts not visible. Do not copy background, pose or objects. "+outfitExtras.joinToString("; ") { "${it.first} = ${labels[it.first]}" }
                 val primary=references.take(task.references.size) // Original MASTER is mandatory in every mode.
                 val orderedPeople=if(mode==0 || mode==1 || mode==4) primary.flatMap { master ->
@@ -2201,7 +2203,7 @@ class StudioActivity : AppCompatActivity() {
                 // Always keep every required character MASTER/face crop. Optional outfit,
                 // scene and prop references must not push a share past the nine-image limit.
                 // Preserve attachment order and never substitute another character's image.
-                val optional=outfitExtras+extras.filterNot { it.first.startsWith("OUTFIT_") }+propRefs
+                val optional=outfitExtras.sortedByDescending { it.first.startsWith("OUTFIT_CAST_") }+extras.filterNot { it.first.startsWith("OUTFIT_") }+propRefs
                 if(orderedPeople.size>9) {
                     notice("แนบภาพ ${orderedPeople.size}/9 เกินกำหนด • เลือก FACE DETAIL ไม่เกิน ${9-primary.size} คน โดย MASTER ทุกคนยังแนบครบ")
                     return@setPositiveButton
@@ -2210,6 +2212,7 @@ class StudioActivity : AppCompatActivity() {
                 val remaining=9-orderedPeople.size
                 val includedOptional=optional.take(remaining)
                 val omittedOptional=optional.drop(remaining)
+                if(omittedOptional.any { it.first.startsWith("OUTFIT_CAST_") }) { notice("ภาพชุดที่ยืนยันและ MASTER เกิน 9 ภาพ กรุณาลดภาพครอปหรือแบ่งรายการ"); return@setPositiveButton }
                 val payload=orderedPeople+includedOptional
                 if(omittedOptional.isNotEmpty()) {
                     notice("ส่ง MASTER ตัวละครครบแล้ว • จำกัดภาพอ้างอิงไว้ที่ 9 ภาพ โดยงดภาพเสริม ${omittedOptional.size} ภาพ")
@@ -2226,7 +2229,7 @@ class StudioActivity : AppCompatActivity() {
                 prefs.edit().putInt("image_reference_mode_${project.name}",mode).putInt("image_attachment_order",imageOrder.selectedItemPosition).putInt("image_transfer_order",transferOrder.selectedItemPosition).apply()
                 val includedIds=payload.map { it.first }.toSet()
                 val includedOutfitExtras=outfitExtras.filter { it.first in includedIds }
-                if(mode==2 && includedOutfitExtras.none { it.first.startsWith("OUTFIT_EP") }) {
+                if(mode==2 && includedOutfitExtras.none { (it.first.startsWith("OUTFIT_EP") || it.first.startsWith("OUTFIT_CAST_")) }) {
                     notice("พื้นที่แนบภาพไม่พอสำหรับภาพชุดที่เลือก กรุณาลดภาพเสริมก่อนส่ง")
                     return@setPositiveButton
                 }
@@ -2239,7 +2242,7 @@ class StudioActivity : AppCompatActivity() {
             }
             .setNegativeButton("กลับไปตรวจ",null).showNavigationDirector()
     }
-    private fun shareImageCommand(command: String, references: List<Pair<String,File>>, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false) {
+    private fun shareImageCommand(command: String, references: List<Pair<String,File>>, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false, wardrobeBatch: Boolean = false) {
         val referenceDigests=runCatching { ReferenceSnapshot.capture(references) }.getOrElse { notice(it.message ?: "ตรวจภาพอ้างอิงไม่ได้"); return }
         val orderedCommand=if(bodyOnly) command else SimpleProductionCommands.orderedReferenceCommand(command,references.map { it.first })
         val preferred=prefs.getString("image_provider","ChatGPT") ?: "ChatGPT"
@@ -2252,14 +2255,14 @@ class StudioActivity : AppCompatActivity() {
             } else {
                 val provider=providers[selected]
                 prefs.edit().putString("image_provider",provider).apply()
-                shareText(orderedCommand,includeMasters=false,referenceImages=references,destinationLabel=provider,imagePackage=true,referenceLabels=referenceLabels,twoCovers=twoCovers,bodyOnly=bodyOnly,referenceDigests=referenceDigests)
+                shareText(orderedCommand,includeMasters=false,referenceImages=references,destinationLabel=provider,imagePackage=true,referenceLabels=referenceLabels,twoCovers=twoCovers,bodyOnly=bodyOnly,wardrobeBatch=wardrobeBatch,referenceDigests=referenceDigests)
             }
         }
     }
-    private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT", imagePackage: Boolean = false, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false, referenceDigests: Map<String,String> = emptyMap()) {
+    private fun shareText(inputText: String, lockCreation: Boolean = false, useNewMasters: Boolean = plan?.optString("character_mode") == "new", includeMasters: Boolean = true, selectedMasterKeys: List<String>? = null, referenceImages: List<Pair<String, File>> = emptyList(), destinationLabel: String = "ChatGPT", imagePackage: Boolean = false, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false, wardrobeBatch: Boolean = false, referenceDigests: Map<String,String> = emptyMap()) {
         var text = if (lockCreation && !inputText.contains("ค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง)")) inputText + "\nค่าตั้งต้นผู้ใช้ (ใช้แทนค่าตัวอย่าง): EP=${prefs.getString("plan_episodes", "").orEmpty().ifBlank { "AI ประเมิน" }} ฉาก/EP=${prefs.getString("plan_scenes", "").orEmpty().ifBlank { "AI ประเมิน" }} เวลา=${prefs.getString("plan_duration", "8")} วินาที สัดส่วน=${"9:16"} กำหนด duration_seconds และ aspect_ratio ใน story.json และคำสั่งทุกฉากตามนี้" else inputText
-        if (imagePackage && !bodyOnly && !text.contains(SimpleProductionCommands.faceOnlyMarker) && !text.contains(BodyReferencePolicy.imageIdentityLock)) text += "\n\n" + BodyReferencePolicy.imageIdentityLock
-        if (imagePackage && !bodyOnly && !text.contains(ImagePromptPolicy.skinTone)) text += "\n\n" + ImagePromptPolicy.skinTone
+        if (imagePackage && !bodyOnly && !wardrobeBatch && !text.contains(SimpleProductionCommands.faceOnlyMarker) && !text.contains(BodyReferencePolicy.imageIdentityLock)) text += "\n\n" + BodyReferencePolicy.imageIdentityLock
+        if (imagePackage && !bodyOnly && !wardrobeBatch && !text.contains(ImagePromptPolicy.skinTone)) text += "\n\n" + ImagePromptPolicy.skinTone
         if (imagePackage) for ((name,_) in referenceImages) {
             val id=referenceId(name)
             text=text.replace(Regex("(?i)"+Regex.escape(id)+"[.](png|jpe?g|webp)\\b"),id)
@@ -2303,12 +2306,12 @@ class StudioActivity : AppCompatActivity() {
         // append every granted image URI to that same ClipData payload.
         val geminiImages=destinationLabel=="Gemini" && imagePackage && uris.isNotEmpty()
         val filePackage=!geminiImages && (destinationLabel=="Gemini" || imagePackage) && uris.isNotEmpty()
-        val intent = if(geminiImages) buildGeminiImageShareIntent((if(bodyOnly) "สร้างภาพตัวละครใหม่ตามคำสั่ง ใช้ภาพแนบสำหรับรูปร่างเท่านั้น\n\n"+text else geminiImageMessage(text,twoCovers)),ArrayList(uris),prefs.getInt("image_transfer_order",0)==1) else if(filePackage) {
+        val intent = if(geminiImages) buildGeminiImageShareIntent((if(wardrobeBatch) text else if(bodyOnly) "สร้างภาพตัวละครใหม่ตามคำสั่ง ใช้ภาพแนบสำหรับรูปร่างเท่านั้น\n\n"+text else geminiImageMessage(text,twoCovers)),ArrayList(uris),prefs.getInt("image_transfer_order",0)==1) else if(filePackage) {
             val command=File(cacheDir,"scene_reference_exports/$transferId/READ_FIRST_IMAGE_COMMAND.txt")
             command.parentFile!!.mkdirs()
-            command.writeText((if(bodyOnly) "สร้างตัวละครใหม่ตามคำสั่ง ภาพแนบใช้อ้างอิงรูปร่างเท่านั้น" else if(twoCovers) "สร้างปก 2 ภาพแยกไฟล์ตามคำสั่งด้านล่าง ใช้ MASTER ที่แนบให้ตรงตัวละคร" else "สร้างภาพหนึ่งภาพตามคำสั่งด้านล่าง ใช้ MASTER ที่แนบให้ตรงตัวละคร")+" ไม่สรุปคำสั่ง ไม่สร้างวิดีโอ\n\n"+text,Charsets.UTF_8)
+            command.writeText((if(wardrobeBatch) "สร้างภาพแยกรายคนรายชุดตามรายการ ใช้ MASTER ตามหมายเลขภาพ" else if(bodyOnly) "สร้างตัวละครใหม่ตามคำสั่ง ภาพแนบใช้อ้างอิงรูปร่างเท่านั้น" else if(twoCovers) "สร้างปก 2 ภาพแยกไฟล์ตามคำสั่งด้านล่าง ใช้ MASTER ที่แนบให้ตรงตัวละคร" else "สร้างภาพหนึ่งภาพตามคำสั่งด้านล่าง ใช้ MASTER ที่แนบให้ตรงตัวละคร")+" ไม่สรุปคำสั่ง ไม่สร้างวิดีโอ\n\n"+text,Charsets.UTF_8)
             val commandUri=FileProvider.getUriForFile(this,"$packageName.fileprovider",command)
-            val shareText=if(destinationLabel=="Gemini" && imagePackage) geminiImageMessage(text,twoCovers) else text
+            val shareText=if(destinationLabel=="Gemini" && imagePackage && !wardrobeBatch) geminiImageMessage(text,twoCovers) else text
             val imagesFirst=imagePackage && prefs.getInt("image_transfer_order",0)==1
             val result=buildGeminiPackageIntent(shareText,commandUri,ArrayList(uris),imagesFirst)
             if(imagesFirst) uris.add(commandUri) else uris.add(0,commandUri)
@@ -2332,7 +2335,7 @@ class StudioActivity : AppCompatActivity() {
         fun launchShare() {
             if(geminiImages) {
                 (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
-                    .setPrimaryClip(ClipData.newPlainText("คำสั่งสร้างภาพ Gemini",geminiImageMessage(text,twoCovers)))
+                    .setPrimaryClip(ClipData.newPlainText("คำสั่งสร้างภาพ Gemini",if(wardrobeBatch) text else geminiImageMessage(text,twoCovers)))
             }
             val request = JSONObject().put("id",transferId).put("scene",sceneId).put("created_at",System.currentTimeMillis())
                 .put("text",text).put("attachments",attachments).put("status","opened_external_app")
@@ -2778,7 +2781,12 @@ class StudioActivity : AppCompatActivity() {
             exported.substringBeforeLast('.') to source
         } else keys.map { id -> val source=File(project,"original_masters/$id.master").takeIf { it.exists() } ?: File(filesDir,"character_masters/$id.master"); "${id.uppercase()}_MASTER" to source }
         rememberScene(scene)
-        shareImageCommand(storySceneCommand(p,scene),masterRefs+references)
+        val outfits=FlowReferencePrompt.people(scene).mapNotNull { person ->
+            castOutfit(person).attachment(project)?.let { Triple(it.first,it.second,person.optString("name")) }
+        }
+        if(masterRefs.size+outfits.size+references.size>9) { notice("ภาพอ้างอิงเกิน 9 ภาพ กรุณาใช้เมนูคำสั่งภาพเพื่อจัดรายการ"); return }
+        val guide=outfits.mapIndexed { i,entry -> "Reference image ${masterRefs.size+i+1}: approved wardrobe only for ${entry.third}. Preserve pockets, cuffs, buttons, pattern and accessories. Original MASTER controls identity." }.joinToString("\n")
+        shareImageCommand(storySceneCommand(p,scene)+"\n"+guide,masterRefs+outfits.map { it.first to it.second }+references)
     }
     private fun wholeStoryCommands() {
         val p = plan ?: return notice("นำเข้าแผนเรื่องก่อนครับ")
@@ -4505,6 +4513,11 @@ $context"""
                 val outfitRefs=task.references.mapNotNull { person ->
                     val anchor=scene ?: all.firstOrNull { row -> FlowReferencePrompt.people(row).any { it === person } }
                     val day=anchor?.optString("story_day").orEmpty()
+                    val approved=castOutfit(person).attachment(project)
+                    if(approved!=null) {
+                        labels[approved.first]="ชุดที่ยืนยัน • "+person.optString("name")
+                        return@mapNotNull Triple(approved.first,approved.second,person.optString("name"))
+                    }
                     val candidate=OutfitReferencePolicy.choose(candidates,task.id,referenceId(person.optString("master")),day,person.optString("outfit")) ?: return@mapNotNull null
                     val prior=all.first { key(it)==candidate.sceneId }
                     val id="OUTFIT_${candidate.sceneId}_${referenceId(person.optString("master"))}"
@@ -4513,7 +4526,7 @@ $context"""
                 }
                 val selectedPiaOutfit=File(project,"presenter_outfit_reference.image")
                 val piaPerson=task.references.firstOrNull { FlowCast.id(it)?.equals("support_%08x".format(1999999999),true)==true }
-                val piaRef=if(piaPerson!=null && selectedPiaOutfit.isFile && plan?.optString("channel")=="นายเปีย บ้านคลองขุด") {
+                val piaRef=if(piaPerson!=null && castOutfit(piaPerson).attachment(project)==null && selectedPiaOutfit.isFile && plan?.optString("channel")=="นายเปีย บ้านคลองขุด") {
                     val id="OUTFIT_PIA_SELECTED_${referenceId(piaPerson.getString("master"))}"
                     labels[id]="ชุดเริ่มต้นที่เลือก • ${piaPerson.optString("name")} • ติ๊กเฉพาะเมื่อชุดตรงกับฉากนี้"
                     listOf(id to selectedPiaOutfit)
@@ -4981,9 +4994,80 @@ $context"""
             .setNeutralButton("ตรวจฉากอื่น") { _,_ -> plan?.let { reviewSceneProps(it) } ?: notice("ไม่พบเรื่อง") }
             .setNegativeButton("กลับหน้าแรก",null).showNavigationDirector()
     }
+    private fun castOutfit(person: JSONObject) =
+        CastOutfit(referenceId(person.optString("master")), person.optString("outfit").trim())
+
+    private fun castOutfitMenu(story: JSONObject) {
+        val folder = project
+        val people = rows(story).flatMap { FlowReferencePrompt.people(it) }
+            .filter { it.optString("master").isNotBlank() && it.optString("outfit").isNotBlank() }
+            .distinctBy { castOutfit(it) }
+        if (people.isEmpty()) { notice("ยังไม่มีรายการนักแสดงพร้อมชุดในบท"); return }
+        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
+        val dialog = AlertDialog.Builder(this).setTitle("นักแสดงและชุด")
+            .setView(ScrollView(this).apply { addView(panel) }).setNegativeButton("ปิด",null).create()
+        fun generate(items: List<JSONObject>) {
+            if (project != folder || plan !== story) { notice("โครงการเปลี่ยน กรุณาเปิดรายการใหม่"); return }
+            val masters = items.distinctBy { referenceId(it.optString("master")) }
+            val refs = masters.map { referenceId(it.optString("master")) to masterFor(it) }
+            if (refs.any { !it.second.isFile }) { notice("กรุณาเพิ่ม MASTER ของนักแสดงที่ขาดก่อนสร้างชุด"); return }
+            val command = buildString {
+                appendLine("Create a separate full-length wardrobe fitting photograph for EACH item below. One named actor in one outfit per image. No collage, captions or poster. Return each image separately. Show pockets, closures, cuffs, pattern, shoes and accessories clearly. Use each specified reference solely for identity.")
+                items.forEachIndexed { index, person ->
+                    val slot = refs.indexOfFirst { it.first == referenceId(person.optString("master")) } + 1
+                    appendLine("Image ${index+1}: ${person.optString("name")} | identity reference image $slot | wardrobe: ${person.optString("outfit")}")
+                }
+            }
+            shareImageCommand(command, refs, masters.associate { referenceId(it.optString("master")) to it.optString("name") }, wardrobeBatch=true)
+        }
+        val missing = people.filter { castOutfit(it).attachment(folder) == null }
+        missing.chunked(9).forEachIndexed { index, batch ->
+            panel.addView(Button(this).apply {
+                text = if (missing.size <= 9) "สร้างภาพนักแสดงพร้อมชุด • ${batch.size} รายการ" else "สร้างภาพชุดที่ขาด • กลุ่ม ${index+1} (${batch.size} รายการ)"
+                setOnClickListener { generate(batch) }
+            })
+        }
+        people.forEach { person ->
+            val outfit = castOutfit(person)
+            val file = outfit.file(folder)
+            val name = person.optString("name")
+            panel.addView(TextView(this).apply { text = "$name • ${if (file.isFile) "ยืนยันชุดแล้ว" else "รอภาพชุด"}\n${outfit.outfit}" })
+            val refs = LinearLayout(this)
+            panel.addView(refs)
+            listOf(masterFor(person), file).filter { it.isFile }.forEach { item ->
+                refs.addView(ImageView(this).apply {
+                    setImageBitmap(castingThumbnail(item)); contentDescription = if(item == file) "ชุดที่ยืนยัน" else "MASTER"
+                    setOnClickListener { fullImage(item,name) }
+                }, LinearLayout.LayoutParams(dp(96),dp(128)))
+            }
+            panel.addView(Button(this).apply { text="สร้างใหม่เฉพาะชุดนี้"; setOnClickListener { generate(listOf(person)) } })
+            panel.addView(Button(this).apply { text="เลือกภาพและยืนยันชุด"; setOnClickListener {
+                wardrobePreviewResult = picked@{ uri ->
+                    if (project != folder || plan !== story) { notice("โครงการเปลี่ยน กรุณาเลือกใหม่"); return@picked }
+                    val bitmap = previewBitmap(uri) ?: run { notice("อ่านภาพไม่ได้"); return@picked }
+                    AlertDialog.Builder(this@StudioActivity).setTitle("ยืนยันชุดของ $name")
+                        .setView(ImageView(this@StudioActivity).apply { setImageBitmap(bitmap); adjustViewBounds=true })
+                        .setNegativeButton("กลับ",null).setPositiveButton("ยืนยันชุด") { _,_ ->
+                            if(project == folder && plan === story) runCatching {
+                                file.parentFile!!.mkdirs()
+                                val tmp = File.createTempFile("outfit-", ".tmp", file.parentFile)
+                                try {
+                                    tmp.outputStream().use { check(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)) }
+                                    android.system.Os.rename(tmp.path,file.path)
+                                } finally { tmp.delete() }
+                                dialog.dismiss(); castOutfitMenu(story)
+                            }.onFailure { notice("บันทึกภาพชุดไม่ได้") }
+                        }.showNavigationDirector()
+                }
+                wardrobePreviewPicker.launch(arrayOf("image/*"))
+            } })
+        }
+        dialog.show()
+    }
+
     private fun wardrobeMenu(story: JSONObject) {
-        choiceMenu("ขั้นตอน 1 • ตรวจชุดตัวละคร\nสถานะ: ${wardrobeReviewStatus(story)}",listOf("ดูและยืนยันชุดในบท\nตรวจชุดเดิมและยืนยันเมื่อถูกต้อง","ให้ AI เสนอชุดใหม่\nเลือกเฉพาะชุดที่ต้องการก่อนบันทึก","แก้ชุดเฉพาะฉาก\nปรับรายละเอียดในฉากที่ต้องการ")) { selected ->
-            when(selected) { 0 -> confirmAllWardrobe(story); 1 -> choiceMenu("เลือกวิธีวิเคราะห์ชุด",listOf("วิเคราะห์ภาพ MASTER ด้วย Gemini • ส่งภาพไป Google","วิเคราะห์ภาพ MASTER ด้วย OpenAI API • อาจมีค่าบริการ","วิเคราะห์จากข้อความบทเท่านั้น • ไม่ส่งภาพ")) { mode -> suggestStoryWardrobe(story,mode) }; else -> productionCheckMenu(story) }
+        choiceMenu("ขั้นตอน 1 • ตรวจชุดตัวละคร\nสถานะ: ${wardrobeReviewStatus(story)}",listOf("ดูและยืนยันชุดในบท\nตรวจชุดเดิมและยืนยันเมื่อถูกต้อง","ให้ AI เสนอชุดใหม่\nเลือกเฉพาะชุดที่ต้องการก่อนบันทึก","แก้ชุดเฉพาะฉาก\nปรับรายละเอียดในฉากที่ต้องการ","นักแสดงและชุด • สร้างภาพและยืนยัน")) { selected ->
+            when(selected) { 3 -> castOutfitMenu(story); 0 -> confirmAllWardrobe(story); 1 -> choiceMenu("เลือกวิธีวิเคราะห์ชุด",listOf("วิเคราะห์ภาพ MASTER ด้วย Gemini • ส่งภาพไป Google","วิเคราะห์ภาพ MASTER ด้วย OpenAI API • อาจมีค่าบริการ","วิเคราะห์จากข้อความบทเท่านั้น • ไม่ส่งภาพ")) { mode -> suggestStoryWardrobe(story,mode) }; else -> productionCheckMenu(story) }
         }
     }
     private fun smartPreflightReview(story: JSONObject,number: Int) {
