@@ -38,6 +38,10 @@ internal object CharacterContinuity {
             val p = previous[id]
             if (b.flashback) continue
             if (clock(b.time)==null) add("${b.scene} ${b.actor}: ตรวจเวลาให้เป็น HH:mm")
+            val dayNumber = b.day.trim().toIntOrNull()
+            val previousDay = p?.day?.trim()?.toIntOrNull()
+            if (dayNumber != null && previousDay != null && dayNumber < previousDay)
+                add("${b.scene} ${b.actor}: วันในเรื่องย้อนจาก ${p.scene} โดยไม่ระบุ flashback")
             if (p != null && b.day.isNotBlank() && norm(b.day)==norm(p.day)) {
                 val now = clock(b.time); val before = clock(p.time)
                 if (now!=null && before!=null && now<before) add("${b.scene} ${b.actor}: เวลาย้อนจาก ${p.scene}")
