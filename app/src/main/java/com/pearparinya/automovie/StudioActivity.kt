@@ -5016,7 +5016,11 @@ $context"""
 
     private fun castingStatus(story: JSONObject): String {
         val people = castingPeople(story)
-        return if (people.isEmpty()) "ยังไม่มีรายการชุด" else "ยืนยันชุด ${people.count { castOutfit(it).attachment(project)!=null }}/${people.size}"
+        val actors = rows(story).flatMap { FlowReferencePrompt.people(it) }
+            .distinctBy { referenceId(it.optString("master")).ifBlank { it.optString("name") } }
+        val ready = actors.count { it.optString("master").isNotBlank() && masterFor(it).isFile }
+        val approved = people.count { castOutfit(it).attachment(project)!=null }
+        return "นักแสดง ${actors.size} คน • MASTER พร้อม $ready/${actors.size}\nชุด ${people.size} รายการ • ยืนยันแล้ว $approved/${people.size}"
     }
 
     private fun appearanceKey(person: JSONObject): String =
@@ -5117,7 +5121,7 @@ $context"""
         val folder = project
         val people = castingPeople(story)
         val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-        val dialog = AlertDialog.Builder(this).setTitle("นักแสดงและชุด")
+        val dialog = AlertDialog.Builder(this).setTitle("นักแสดงและชุด\n${castingStatus(story)}")
             .setView(ScrollView(this).apply { addView(panel) }).setNegativeButton("ปิด",null).create()
         fun generate(items: List<JSONObject>) {
             if (project != folder || plan !== story) { notice("โครงการเปลี่ยน กรุณาเปิดรายการใหม่"); return }
