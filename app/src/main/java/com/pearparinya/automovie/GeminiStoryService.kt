@@ -32,7 +32,12 @@ class GeminiStoryService : Service() {
     private var provider=StoryProvider.GEMINI
     override fun onBind(intent: Intent?): IBinder?=null
     override fun onStartCommand(intent: Intent?,flags: Int,startId: Int): Int {
-        if(intent?.action==CANCEL) { cancelled=true; clients.forEach { it.cancel() }; return START_NOT_STICKY }
+        if(intent?.action==CANCEL) {
+            if(StoryJobControl.canCancel(intent.getStringExtra("project"),projectId,running)) {
+                cancelled=true; clients.forEach { it.cancel() }
+            } else if(!running && worker?.isAlive!=true) stopSelf(startId)
+            return START_NOT_STICKY
+        }
         if(running || worker?.isAlive==true) return START_NOT_STICKY
         val id=intent?.getStringExtra("project") ?: run { stopSelf(); return START_NOT_STICKY }
         if(!Regex("[a-zA-Z0-9-]+").matches(id)) { stopSelf(); return START_NOT_STICKY }
@@ -203,7 +208,7 @@ class GeminiStoryService : Service() {
     }
     private fun notification(message: String): Notification {
         val open=PendingIntent.getActivity(this,0,Intent(this,StudioActivity::class.java).putExtra("gemini_project",projectId),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val stop=PendingIntent.getService(this,1,Intent(this,GeminiStoryService::class.java).setAction(CANCEL),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val stop=PendingIntent.getService(this,1,Intent(this,GeminiStoryService::class.java).setAction(CANCEL).setData(android.net.Uri.parse("directorx://story/cancel/$projectId")).putExtra("project",projectId),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         return Notification.Builder(this,CHANNEL).setSmallIcon(R.drawable.studio_movie).setContentTitle("DIRECTOR X • เขียนบท")
             .setContentText(message).setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true).setProgress(100,lastPercent,false).addAction(Notification.Action.Builder(null,"หยุด",stop).build()).build()
     }
