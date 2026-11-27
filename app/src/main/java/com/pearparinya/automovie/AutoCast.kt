@@ -37,7 +37,7 @@ internal object AutoCast {
         }
         return anchor+pinned+genre+
             storyCastingBrief()+"FIRST identify the essential story roles and relationships from the premise; THEN match each role to a distinct catalog ID. "+
-            "Choose the smallest credible cast (1 to 8); never add filler actors or duplicate roles just to reach a fixed count. "+
+            "Choose the smallest credible cast (1 to 15); never add filler actors or duplicate roles just to reach a fixed count. "+
             "Use catalog character ages and types only as explicitly assigned fictional metadata, not inferred from faces. "+
             "Do not infer personality, trustworthiness or talent from appearance. "+
             "Preserve the exact catalog MASTER ID for each actor, and keep names, roles and identity stable across all scenes. "+
@@ -173,7 +173,7 @@ internal object AutoCast {
         return groups
     }
     /** Offline proposal from explicit story subjects, without network access or invented IDs. */
-    fun kotlinProposal(catalog: JSONArray, premise: String, pinned: Set<String> = emptySet(), category: String = ""): JSONObject {
+    fun kotlinProposal(catalog: JSONArray, premise: String, pinned: Set<String> = emptySet(), category: String = "", ensemble: Boolean = false): JSONObject {
         require(premise.isNotBlank()) { "กรุณาระบุเนื้อเรื่องก่อนเลือก MASTER" }
         val rows=(0 until catalog.length()).map { catalog.getJSONObject(it) }
         val cast=JSONArray()
@@ -220,7 +220,16 @@ internal object AutoCast {
             requireNotNull(best) { "ไม่พบ MASTER ที่มีวัยและเพศตรงกับบท: "+label }
             add(best,label)
         }
-        require(cast.length() in 1..8) { "ยังระบุบทบาทจากเรื่องไม่ได้ หรือจำนวนตัวละครเกิน 8 กรุณาเลือก MASTER เอง" }
+        if (ensemble) {
+            for (row in rows) {
+                val name = row.optString("display_name").trim()
+                if (name.isNotEmpty() && query.contains(normalized(name)) && row.getString("id") !in used) {
+                    add(row, "ตัวละครที่ระบุในเรื่อง: "+name)
+                }
+            }
+            StoryCastPolicy.requireCast(used)
+        }
+        require(cast.length() in 1..15) { "ยังระบุบทบาทจากเรื่องไม่ได้ หรือจำนวนตัวละครเกิน 15 กรุณาเลือก MASTER เอง" }
         return JSONObject().put("story_concept",premise).put("cast",cast).also { validate(it,catalog); validateStoryRoles(it,catalog,pinned) }
     }
     fun storyCastingBrief(): String =
@@ -231,7 +240,7 @@ internal object AutoCast {
     class ProposalError(message: String) : IllegalArgumentException(message)
 
     fun propose(prompt: String, catalog: JSONArray, presenterId: String, stopped: () -> Boolean,
-                pinned: Set<String> = emptySet(), premise: String = "", generate: (String) -> JSONObject): JSONObject {
+                pinned: Set<String> = emptySet(), premise: String = "", ensemble: Boolean = false, generate: (String) -> JSONObject): JSONObject {
         var request = prompt
         repeat(2) { attempt ->
             if (stopped()) throw java.util.concurrent.CancellationException()
@@ -241,6 +250,10 @@ internal object AutoCast {
                 requirePresenter(proposal, presenterId)
                 validateStoryRoles(proposal, catalog, pinned)
                 requireNarratedAppearances(proposal,catalog,premise)
+                if (ensemble) {
+                    val cast = proposal.getJSONArray("cast")
+                    StoryCastPolicy.requireCast((0 until cast.length()).map { cast.getJSONObject(it).getString("library_id") })
+                }
                 return proposal
             } catch (e: IllegalArgumentException) {
                 e.message ?: "รายชื่อตัวละครผิดเงื่อนไข"
@@ -256,7 +269,7 @@ internal object AutoCast {
     }
     fun validate(value: JSONObject, catalog: JSONArray) {
         require(value.optString("story_concept").isNotBlank()) { "ขาดแนวคิดเรื่อง" }
-        val cast=requireNotNull(value.optJSONArray("cast")) { "ขาดรายการ cast หรือรูปแบบรายการไม่ถูกต้อง" }; require(cast.length() in 1..8) { "เลือกนักแสดง 1–8 คนตามบท" }
+        val cast=requireNotNull(value.optJSONArray("cast")) { "ขาดรายการ cast หรือรูปแบบรายการไม่ถูกต้อง" }; require(cast.length() in 1..15) { "เลือกนักแสดง 1–15 คนตามบท" }
         val ids=(0 until catalog.length()).map { catalog.getJSONObject(it).getString("id") }.toSet()
         val names=mutableSetOf<String>(); val englishNames=mutableSetOf<String>(); val used=mutableSetOf<String>()
         for(i in 0 until cast.length()) {

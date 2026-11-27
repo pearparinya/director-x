@@ -52,7 +52,7 @@ internal object StoryContinuityLedger {
         if (byName.size < 2) return result
         val names = byName.keys.sortedByDescending(String::length).joinToString("|") { Regex.escape(it) }
         val kin = "พ่อ|แม่|ลูก|สามี|ภรรยา|พี่|น้อง|ญาติ|เพื่อน|คนรัก|คู่ขัดแย้ง|ผู้ช่วยเหลือ|ผู้พิทักษ์|เจ้าของ"
-        val statement = Regex("""^(?:($names))\s*เป็น\s*($kin)\s*(?:ของ|กับ)\s*($names)$""")
+        val statement = Regex("""^(?:($names))\s*เป็น\s*($kin)\s*(?:ของ|กับ)?\s*($names)$""")
         val recorded = mutableSetOf<Triple<String,String,String>>()
         fun inspect(text: String, source: String) {
             for (clause in text.split(Regex("""[.!。;\n]+"""))) {

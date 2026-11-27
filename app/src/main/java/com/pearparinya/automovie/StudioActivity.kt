@@ -7764,8 +7764,10 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                         notice("ไม่พบภาพ MASTER ที่ตรวจสอบได้ กรุณาเพิ่มหรือตรวจคลังตัวละคร"); return@setOnClickListener
                     }
                     val pinned=selectedActors.toSet()
+                    val ensemble=ChannelCatalog.personalCategories.none { it.label==categories[index] || it.name==categories[index] }
+                    if(ensemble && catalog.length()<StoryCastPolicy.minimum) { if(automatic) autoRunning=false; notice("คลัง MASTER ต้องมีตัวละครอย่างน้อย 2 ตัวสำหรับละคร"); return@setOnClickListener }
                     if(!castUseAi) {
-                        val result=runCatching { AutoCast.kotlinProposal(catalog,selectedStoryTopic+" "+premise.text.toString(),pinned,categories[index]) }
+                        val result=runCatching { AutoCast.kotlinProposal(catalog,selectedStoryTopic+" "+premise.text.toString(),pinned,categories[index],ensemble) }
                         autoRunning=false
                         result.onSuccess { proposal ->
                             suggestedRoles.clear()
@@ -7797,9 +7799,9 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                                 val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false,context=this@StudioActivity)
                                 client.useProposalTimeouts()
                                 active.set(client)
-                                val prompt="Suggest a cast for this Thai story. Channel: $channel; category: $category; situation: $situation; details: $detail. Return a nonempty story_concept and cast. For each actor use library_id from the catalog id field, a unique name and a nonempty role. Omit english_name unless it is a unique single English name. Suggest only characters suitable for the story, with a short proposed role in Thai. Do not infer occupation or identity from a face; roles are fictional suggestions for user review. Use as many as needed, from 1 to 8. "+(if(channel=="นายเปีย บ้านคลองขุด") "Include $piaActorId as central protagonist and suitable supporting roles. " else "")+AutoCast.storyCastingBrief()+"Catalog: "+AutoCast.promptCatalog(AutoCast.storyCatalog(catalog, situation+" "+detail, pinned,category)).toString()
+                                val prompt="Suggest a cast for this Thai story. Channel: $channel; category: $category; situation: $situation; details: $detail. Return a nonempty story_concept and cast. For each actor use library_id from the catalog id field, a unique name and a nonempty role. Omit english_name unless it is a unique single English name. Suggest only characters suitable for the story, with a short proposed role in Thai. Do not infer occupation or identity from a face; roles are fictional suggestions for user review. Use as many as needed, from 1 to 8. "+(if(ensemble) StoryCastPolicy.direction+" " else "")+(if(channel=="นายเปีย บ้านคลองขุด") "Include $piaActorId as central protagonist and suitable supporting roles. " else "")+AutoCast.storyCastingBrief()+"Catalog: "+AutoCast.promptCatalog(AutoCast.storyCatalog(catalog, situation+" "+detail, pinned,category)).toString()
                                 val presenterId=if(channel=="นายเปีย บ้านคลองขุด") piaActorId else ""
-                                AutoCast.propose(prompt,catalog,presenterId,{ stopped.get() },pinned,detail) { request ->
+                                AutoCast.propose(prompt,catalog,presenterId,{ stopped.get() },pinned,detail,ensemble) { request ->
                                     client.generate(request,AutoCast.schema())
                                 }
                             }.onFailure {
@@ -7820,7 +7822,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                                     .setMessage(failures.joinToString("\n"))
                                     .setNeutralButton("เลือกจากคลัง MASTER") { _,_ -> castButton.performClick() }
                                     .setNegativeButton("กลับ",null)
-                                if(channel=="นายเปีย บ้านคลองขุด" && presenter.selectedItemPosition>0) {
+                                if(!ensemble && channel=="นายเปีย บ้านคลองขุด" && presenter.selectedItemPosition>0) {
                                     val key=piaStoryMasterOverride ?: prefs.getString(piaChannelMasterKey,"original").orEmpty()
                                     val label=when(key) {
                                         "original" -> "MASTER ประจำช่อง"
@@ -7890,7 +7892,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                 val draft=selectedActors.toMutableSet().apply { if(castProposalPending) addAll(suggestedRoles.keys) }
                 if(chosenChannel=="นายเปีย บ้านคลองขุด") draft.add(piaActorId)
                 val grid=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-                grid.addView(TextView(this).apply { text="ติ๊กตัวละครที่ต้องการใช้ในเรื่อง สูงสุด 8 ตัว • ตรวจภาพและบทบาทก่อนยืนยัน" })
+                grid.addView(TextView(this).apply { text="ติ๊กตัวละครที่ต้องการใช้ในเรื่อง สูงสุด 15 ตัว • ตรวจภาพและบทบาทก่อนยืนยัน" })
                 val order=(0 until choices.length()).sortedBy { if(choices.getJSONObject(it).optString("id") in draft) 0 else 1 }
                 var row: LinearLayout?=null
                 for((position,n) in order.withIndex()) {
@@ -7917,7 +7919,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     box.setOnCheckedChangeListener { _,checked -> if(checked) draft.add(id) else draft.remove(id) }
                 }
                 AlertDialog.Builder(this).setTitle("เลือกภาพ MASTER ตัวละคร").setView(ScrollView(this).apply { addView(grid) }).setPositiveButton("ใช้รายการที่เลือก") { _,_ ->
-                    if(draft.size>8) { notice("เลือกตัวละครได้สูงสุด 8 คน กรุณาเลือกใหม่"); return@setPositiveButton }
+                    if(draft.size>15) { notice("เลือกตัวละครได้สูงสุด 15 คน กรุณาเลือกใหม่"); return@setPositiveButton }
                     selectedActors.clear(); selectedActors.addAll(draft)
                     castProposalPending=false
                     castButton.text=if(selectedActors.isEmpty()) "②.2 ตรวจและเลือกตัวละครจาก MASTER" else "②.2 เลือกแล้ว ${selectedActors.size} ตัว • แตะเพื่อแก้"
@@ -8153,6 +8155,8 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                         require(!automaticEquipmentUnresolved) { "การเลือกอุปกรณ์อัตโนมัติยังไม่เสร็จหรือจับคู่ไม่ได้ • ลองใหม่หรือเลือกอุปกรณ์ด้วยตนเอง" }
                         val allCatalog=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog(includeAllTypes=true) else castingCatalog()
                         val catalog=CastingSelection.filter(allCatalog,selectedActors)
+                        val fictionalProduction=ChannelCatalog.personalCategories.none { it.label==categories[index] || it.name==categories[index] }
+                        if(fictionalProduction) StoryCastPolicy.requireCast(selectedActors)
                         val presenterId=if(chosenChannel=="นายเปีย บ้านคลองขุด") {
                             require(presenter.selectedItemPosition>0) { "กรุณาเพิ่มรูป MASTER ผู้ดำเนินเรื่องในคลัง แล้วเลือกจากรายการ" }
                             presenters.getJSONObject(presenter.selectedItemPosition-1).getString("id")
@@ -8205,7 +8209,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                             put(JSONObject().put("prop_id",id).put("name",propCatalog[n]).put("owner_library_id",owner))
                         } }
                         GeminiStoryFiles.write(File(folder,"gemini_job/spec.json"),StoryProvider.configure(this,ClipPlan.apply(JSONObject(),format,seconds).put("category",categories[index]).put("channel",chosenChannel).put("presenter_library_id",presenterId)
-                            .put("secondary_genre",secondaryGenre.selectedId).put("pia_face_lock",chosenChannel=="นายเปีย บ้านคลองขุด" && piaFaceLock.isChecked).put("casting_mode",if(castUseAi) "ai_kotlin" else "kotlin").put("confirmed_kotlin_cast",confirmedCast).put("required_cast_ids",JSONArray(selectedActors.toList())).put("selected_prop_masters",reviewedPropRecords).put("presenter_outfit",if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenterOutfit.selectedItemPosition>0) presenterOutfits[presenterOutfit.selectedItemPosition] else "").put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("story_clock_version",1).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",3).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("story_situation",selectedStoryTopic).put("premise",storyPremise).put("episodes",count)))
+                            .put("secondary_genre",secondaryGenre.selectedId).put("pia_face_lock",chosenChannel=="นายเปีย บ้านคลองขุด" && piaFaceLock.isChecked).put("casting_mode",if(castUseAi) "ai_kotlin" else "kotlin").put("confirmed_kotlin_cast",confirmedCast).put("required_cast_ids",JSONArray(selectedActors.toList())).put("selected_prop_masters",reviewedPropRecords).put("presenter_outfit",if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenterOutfit.selectedItemPosition>0) presenterOutfits[presenterOutfit.selectedItemPosition] else "").put("content_profile",if(autoDirector) AutoDirectorContent.profile else "").put("autodirector_version",if(autoDirector) AutoDirectorContent.version else 0).put("story_clock_version",1).put("performance_version",1).put("audio_version",1).put("command_version",1).put("outline_review_required",false).put("creative_seed",UUID.randomUUID().toString()).put("auto_cast",true).put("casting_version",3).put("story_cast_policy",if(fictionalProduction) 1 else 0).put("recent_casts",AutoCast.recentCasts(base,folder)).put("master_catalog",catalog).put("supporting_characters",JSONArray()).put("lead_references",JSONObject()).put("story_situation",selectedStoryTopic).put("premise",storyPremise).put("episodes",count)))
                         prefs.edit().putString("project",folder.name).putBoolean("casting_api_assist_"+folder.name,castUseAi).apply(); createDialog.dismiss(); render(); startGeminiJob(folder)
                     }.onFailure { notice(it.message ?: "เริ่มงานไม่ได้") }
                 }
