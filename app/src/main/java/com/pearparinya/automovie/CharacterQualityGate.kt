@@ -1,6 +1,14 @@
 package com.pearparinya.automovie
 
 internal object CharacterQualityGate {
+    fun referenceIssues(required: List<Pair<String,String>>, actual: List<Pair<String,String>>): List<String> = buildList {
+        if(actual.size > 9) add("ภาพอ้างอิงเกิน 9 ภาพ")
+        if(actual.map { it.first }.distinct().size != actual.size) add("รหัสภาพอ้างอิงซ้ำ")
+        required.forEach { ref ->
+            if(ref !in actual) add("ขาดภาพอ้างอิงที่ตรงกับต้นฉบับ: "+ref.first)
+        }
+    }
+
     data class Check(val label: String, val passed: Int, val total: Int) {
         init { require(total >= 0 && passed in 0..total) }
         val ready get() = total > 0 && passed == total
