@@ -516,4 +516,20 @@ class AutomaticStoryRouterTest {
             assertEquals("สวัสดี",result.getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
         } finally { folder.deleteRecursively() }
     }
+
+    @Test fun formattedCacheRequiresExactRequestedSceneRange() {
+        fun batch(vararg ids: Int): JSONObject = JSONObject().put("scenes",
+            org.json.JSONArray().apply {
+                ids.forEach { id -> put(JSONObject().put("scene", id).put("flow_action", "Walk forward")) }
+            })
+        assertTrue(SceneXml.hasFormattedActions(batch(5, 6), 5, 6))
+        assertTrue(!SceneXml.hasFormattedActions(batch(5), 5, 6))
+        assertTrue(!SceneXml.hasFormattedActions(batch(5, 6, 7), 5, 6))
+        assertTrue(!SceneXml.hasFormattedActions(batch(6, 7), 5, 6))
+        assertTrue(!SceneXml.hasFormattedActions(batch(6, 5), 5, 6))
+        assertTrue(!SceneXml.hasFormattedActions(batch(5, 5), 5, 6))
+        val missingAction = batch(5)
+        missingAction.getJSONArray("scenes").getJSONObject(0).put("flow_action", JSONObject.NULL)
+        assertTrue(!SceneXml.hasFormattedActions(missingAction, 5, 5))
+    }
 }
