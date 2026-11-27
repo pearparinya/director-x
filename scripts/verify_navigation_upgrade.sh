@@ -38,4 +38,4 @@ grep -Fq 'OK (1 test)' <<< "$output"
 # Require the casting regression suite on the signed upgraded candidate.
 output="$(adb shell am instrument -w -e class "$package.CastingContinuityRegressionTest" "$runner")"
 echo "$output"
-grep -Fq 'OK (2 tests)' <<< "$output"
+grep -Fq 'OK (3 tests)' <<< "$output"
