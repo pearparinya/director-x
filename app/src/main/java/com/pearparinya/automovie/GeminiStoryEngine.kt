@@ -59,6 +59,9 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                     problem=IllegalArgumentException("ซ่อมบทต้องส่งกลับเฉพาะซีน $sceneNumber")
                     continue
                 }
+                // Preserve the pre-repair batch before replacing any scene.
+                val backup = File(folder, name + ".repair-original.json")
+                if (!backup.exists()) GeminiStoryFiles.write(backup, value)
                 rows.put(target,replacement.getJSONObject(0))
             } else if(name=="outline.json" && issue.message.orEmpty().startsWith("ชื่อเรื่อง")) {
                 // Repair only the generated title: do not rewrite the validated plot, cast or episodes.
