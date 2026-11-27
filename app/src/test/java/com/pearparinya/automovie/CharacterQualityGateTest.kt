@@ -2,6 +2,15 @@ package com.pearparinya.automovie
 import org.junit.Assert.*
 import org.junit.Test
 class CharacterQualityGateTest {
+    @Test fun requiredReferencesCannotBeSubstitutedOrDropped() {
+        val master = "MASTER_A" to "/a"
+        val outfit = "OUTFIT_CAST_A" to "/outfit"
+        assertTrue(CharacterQualityGate.referenceIssues(listOf(master,outfit),listOf(master,outfit)).isEmpty())
+        assertFalse(CharacterQualityGate.referenceIssues(listOf(master,outfit),listOf(master)).isEmpty())
+        assertFalse(CharacterQualityGate.referenceIssues(listOf(master),listOf("MASTER_A" to "/b")).isEmpty())
+        assertFalse(CharacterQualityGate.referenceIssues(listOf(master),listOf(master,master)).isEmpty())
+        assertFalse(CharacterQualityGate.referenceIssues(emptyList(),(1..10).map { it.toString() to "/$it" }).isEmpty())
+    }
     @Test fun emptyIsNotReady() {
         assertFalse(CharacterQualityGate.Report(emptyList(),emptyList(),emptyList()).ready)
         assertFalse(CharacterQualityGate.Check("MASTER",0,0).ready)
