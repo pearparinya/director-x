@@ -90,10 +90,15 @@ internal class AutomaticStoryRouter(
     fun generate(prompt: String,schema: JSONObject): JSONObject {
         val sceneBatch=schema.getJSONObject("properties").has("scenes")
         if (cancelled()) throw CancellationException()
+        val range=Regex("Write exactly scenes ([0-9]+) to ([0-9]+)").find(prompt)
         val recover = sceneBatch && retainFormattedScenes
         val complete = if (recover) File(completedStages, draftFile(StoryProvider.GROQ,prompt,schema).name) else null
-        if (complete?.isFile == true) return GeminiStoryFiles.read(complete)
-        val range=Regex("Write exactly scenes ([0-9]+) to ([0-9]+)").find(prompt)
+        if (complete?.isFile == true) {
+            // A damaged cache must not prevent resuming the original checkpoint.
+            val cached = runCatching { GeminiStoryFiles.read(complete) }.getOrNull()
+            if (cached != null && SceneXml.hasFormattedActions(cached, range?.groupValues?.get(1)?.toIntOrNull(), range?.groupValues?.get(2)?.toIntOrNull())) return cached
+            // Leave the original file intact until a valid replacement is written.
+        }
         val multipleScenes=range?.let { it.groupValues[1].toIntOrNull()?.let { first ->
             it.groupValues[2].toIntOrNull()?.let { last -> last>first }
         } } == true
@@ -277,6 +282,16 @@ internal class InvalidSceneXml(cause: Exception): IllegalArgumentException("XML 
 /** Reject DTDs, missing/duplicate IDs and changed dialogue before merging formatted actions. */
 internal object SceneXml {
     /** Reuse the writer's own complete English directions; downstream scene validation still runs. */
+    fun hasFormattedActions(draft: JSONObject, first: Int? = null, last: Int? = null): Boolean {
+        val rows = draft.optJSONArray("scenes") ?: return false
+        if (first != null && last != null && (last < first || rows.length().toLong() != last.toLong() - first + 1)) return false
+        val ids = mutableSetOf<Int>()
+        return rows.length() > 0 && (0 until rows.length()).all { index ->
+            val row = rows.optJSONObject(index) ?: return@all false
+            val id = row.optInt("scene", -1)
+            id > 0 && (first == null || id.toLong() == first.toLong() + index) && ids.add(id) && !row.isNull("flow_action") && row.optString("flow_action").isNotBlank()
+        }
+    }
     fun hasUsableActions(draft: JSONObject): Boolean {
         val rows=draft.optJSONArray("scenes") ?: return false
         if(rows.length()==0) return false

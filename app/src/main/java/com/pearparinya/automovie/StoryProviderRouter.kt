@@ -33,7 +33,8 @@ internal class StoryProviderRouter(
                 val suggested=(e as? StoryHttpFailure)?.retryAfter?.let { StoryRequestRetry.retrySeconds(it,wallNow()) }
                 // Never retry sooner than the service asks, including a daily quota reset.
                 val sampled=now()
-                val seconds=maxOf(65L,suggested ?: 0L).coerceAtMost((Long.MAX_VALUE-sampled)/1000)
+                val cooldown=if(e is StoryHttpFailure && e.status==429) 65L else 2L
+                val seconds=maxOf(cooldown,suggested ?: 0L).coerceAtMost((Long.MAX_VALUE-sampled)/1000)
                 blockedUntil[candidate]=sampled+seconds*1000
             }
         }

@@ -5074,7 +5074,7 @@ $context"""
         val blockers = missingMasters.map { "MASTER: "+it.optString("name") } +
             missingDescriptions.map { "ยังไม่ระบุชุด: "+it.optString("name") }.distinct() +
             listOfNotNull(commands.exceptionOrNull()?.let { "ตรวจคำสั่งภาพไม่ได้: "+(it.message ?: "ข้อมูลไม่ครบ") })
-        val warnings = missingOutfits.map { "รอยืนยันชุด: "+it.optString("name")+" • "+it.optString("outfit") } + continuity
+        val warnings = missingOutfits.map { "รอยืนยันชุด: "+it.optString("name")+" • "+it.optString("outfit") } + continuity + WholeStoryQualityGate.warnings(story)
         return CharacterQualityGate.Report(listOf(
             CharacterQualityGate.Check("MASTER",actors.size-missingMasters.size,actors.size),
             CharacterQualityGate.Check("ภาพชุดที่ยืนยัน",outfits.size-missingOutfits.size,outfits.size),
@@ -8386,13 +8386,14 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
             override fun handleOnBackPressed() { dialog.cancel() }
         }
         dialog.onBackPressedDispatcher.addCallback(backCallback)
-        dialog.setOnCancelListener { restoreParent() }
         dialog.setOnDismissListener {
             backCallback.remove()
-            restoreParent()
+            // Restore only after the old dialog has been dismissed, so its window cannot steal focus.
+            window.decorView.post { restoreParent() }
         }
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         dialog.show()
+        dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN or android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         edit.clearFocus()
         panel.requestFocus()
         dialog.setOnKeyListener { _, keyCode, event ->
@@ -8402,7 +8403,6 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
             } else false
         }
         dialog.getButton(-2).setOnClickListener { dialog.cancel() }
-        dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         dialog.getButton(-1).setOnClickListener {
             val value=edit.text.toString().trim()
             if(value.isBlank()) { notice("กรุณาระบุบทหรือเลือกใช้บทเดิม"); return@setOnClickListener }

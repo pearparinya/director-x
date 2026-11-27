@@ -52,13 +52,20 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                 }
                 val focused=prompt.replace(Regex("Write exactly scenes [0-9]+ to [0-9]+"),"Write exactly scenes $sceneNumber to $sceneNumber")
                 val replacement=generate(focused+marker+"Your previous JSON failed validation: "+issue.message.orEmpty().take(600)+
-                    "\nRepair ONLY scene $sceneNumber. Return scenes array with exactly this one scene. Keep its events and registered identities. Other scenes are frozen. Previous scene:\n"+rows.getJSONObject(target),schema).optJSONArray("scenes")
+                    "\nRepair ONLY scene $sceneNumber. Return scenes array with exactly this one scene. Keep its events and registered identities. Other scenes are frozen. Preserve registered MASTERs, wardrobe, location, time and continuity unless the reported defect requires a correction. Scene to repair:\n"+rows.getJSONObject(target)+ "\nPrevious adjacent scene (read-only):\n"+(rows.optJSONObject(target-1)?.toString() ?: "Not in this batch")+"\nNext adjacent scene (read-only):\n"+(rows.optJSONObject(target+1)?.toString() ?: "Not in this batch"),schema).optJSONArray("scenes")
                 if(replacement==null || replacement.length()!=1 || replacement.optJSONObject(0)?.optInt("scene")!=sceneNumber) {
                     // Keep the original pending batch and try the next route. Do not
                     // commit a malformed repair or overwrite unrelated scenes.
                     problem=IllegalArgumentException("ซ่อมบทต้องส่งกลับเฉพาะซีน $sceneNumber")
                     continue
                 }
+                if (!SceneRepairGuard.preservesCast(rows.getJSONObject(target), replacement.getJSONObject(0))) {
+                    // Identity or wardrobe corrections require explicit review, not silent replacement.
+                    throw IllegalArgumentException("ซีน $sceneNumber: ผลซ่อมบทเปลี่ยนตัวละคร MASTER หรือชุด ต้องตรวจสอบก่อน")
+                }
+                // Preserve the pre-repair batch before replacing any scene.
+                val backup = File(folder, name + ".repair-original.json")
+                if (!backup.exists()) GeminiStoryFiles.write(backup, value)
                 rows.put(target,replacement.getJSONObject(0))
             } else if(name=="outline.json" && issue.message.orEmpty().startsWith("ชื่อเรื่อง")) {
                 // Repair only the generated title: do not rewrite the validated plot, cast or episodes.
@@ -377,6 +384,9 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
             story.put("cast_size_recommendation",StoryCastPolicy.sizingGuide(output.length()*sceneCount))
             story.put("visible_cast_count",completedMasters.size)
         }
+        val structuralIssues = WholeStoryQualityGate.issues(story, count, sceneCount)
+        require(structuralIssues.isEmpty()) { "บทไม่ผ่านตรวจโครงสร้าง: " + structuralIssues.take(6).joinToString("; ") }
+        story.put("quality_review_warnings", JSONArray(WholeStoryQualityGate.warnings(story)))
         progress(100,"ตรวจบทครบแล้ว พร้อมส่งออก Flow")
         return story
     }

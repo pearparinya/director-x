@@ -11,6 +11,12 @@ class CharacterQualityGateTest {
         assertFalse(CharacterQualityGate.referenceIssues(listOf(master),listOf(master,master)).isEmpty())
         assertFalse(CharacterQualityGate.referenceIssues(emptyList(),(1..10).map { it.toString() to "/$it" }).isEmpty())
     }
+    @Test fun conflictingRequiredBindingsAndBlankAttachmentsAreRejected() {
+        assertTrue(CharacterQualityGate.referenceIssues(listOf("MASTER" to "/a", "MASTER" to "/b"), emptyList()).any { it.contains("หลายไฟล์") })
+        assertTrue(CharacterQualityGate.referenceIssues(emptyList(), listOf("" to "/a")).any { it.contains("ว่าง") })
+        assertTrue(CharacterQualityGate.referenceIssues(emptyList(), listOf("MASTER" to "")).any { it.contains("ว่าง") })
+        assertTrue(CharacterQualityGate.referenceIssues((1..10).map { it.toString() to "/$it" }, emptyList()).any { it.contains("ขีดจำกัด") })
+    }
     @Test fun emptyIsNotReady() {
         assertFalse(CharacterQualityGate.Report(emptyList(),emptyList(),emptyList()).ready)
         assertFalse(CharacterQualityGate.Check("MASTER",0,0).ready)

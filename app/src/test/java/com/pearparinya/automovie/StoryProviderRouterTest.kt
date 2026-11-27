@@ -69,6 +69,21 @@ class StoryProviderRouterTest {
         val failure=runCatching { StoryProviderRouter({stopped},{_,_ -> stopped=true},{0L}).generate(StoryProvider.GROQ) { calls++; throw StoryHttpFailure(429,null,"quota") } }.exceptionOrNull()
         assertTrue(failure is CancellationException); assertEquals(1,calls)
     }
+    @Test fun temporaryFailuresWithoutRetryAfterRecoverWithoutQuotaDelay() {
+        var time=0L
+        var calls=0
+        val router=StoryProviderRouter({false},{_,_->},{time})
+        val result=StoryRequestRetry({time},{time+=it},baseDelaySeconds=2L).execute({false},{}) {
+            router.generate(StoryProvider.GROQ) {
+                calls++
+                if(calls<=2) throw StoryHttpFailure(503,null,"temporary")
+                "completed"
+            }
+        }
+        assertEquals("completed",result)
+        assertEquals(3,calls)
+        assertEquals(2000L,time)
+    }
     @Test fun bothBusyUseBoundedCountdownAndResumeOnePendingRequest() {
         var time=0L; var calls=0
         val router=StoryProviderRouter({false},{_,_->},{time})
