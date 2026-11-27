@@ -173,12 +173,12 @@ class StudioActivity : AppCompatActivity() {
         set(value) { prefs.edit().putBoolean("backup_mode",value).apply() }
     private lateinit var updater: StudioUpdater
     private lateinit var root: LinearLayout
-    private val navy = Color.rgb(12,12,15)
+    private val navy = Color.rgb(11,19,38)
     private val gold = Color.rgb(232,180,82)
     private val electricBlue = Color.rgb(30,156,255)
     private val cyan = Color.rgb(42,220,255)
     private val ice = Color.rgb(248,246,239)
-    private val muted = Color.rgb(164,164,169)
+    private val muted = Color.rgb(195,205,229)
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
     private fun backdrop(top: Int, bottom: Int, border: Int? = null) = GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(top,bottom)).apply {
         cornerRadius = dp(16).toFloat()
@@ -188,7 +188,7 @@ class StudioActivity : AppCompatActivity() {
         intArrayOf(Color.rgb(255,218,112),Color.rgb(255,177,58)),
         intArrayOf(Color.rgb(119,232,250),Color.rgb(63,184,235)),
         intArrayOf(Color.rgb(219,195,255),Color.rgb(176,143,244)),
-        intArrayOf(Color.rgb(128,240,202),Color.rgb(63,200,160)),
+        intArrayOf(Color.rgb(145,205,255),Color.rgb(93,156,244)),
         intArrayOf(Color.rgb(255,185,209),Color.rgb(245,139,175)))
     private fun menuIcon(index: Int) = listOf("🎭", "🎨", "📚", "🎬", "💡")[index % 5]
     private var pendingMenuBack: (() -> Unit)? = null
