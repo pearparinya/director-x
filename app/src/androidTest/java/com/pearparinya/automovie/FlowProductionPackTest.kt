@@ -218,7 +218,11 @@ class FlowProductionPackTest {
                 }
                 awaitControl("ตรวจข้อเสนอบท", false)
                 if (pass == 0) awaitControl("ย้อนกลับ", true)
-                else instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+                else {
+                    instrumentation.uiAutomation.waitForIdle(300, 5000)
+                    assertTrue("System Back injection failed", instrumentation.uiAutomation.injectInputEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_BACK), true))
+                    assertTrue("System Back release failed", instrumentation.uiAutomation.injectInputEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_BACK), true))
+                }
                 instrumentation.uiAutomation.waitForIdle(300, 5000)
                 val deadline=android.os.SystemClock.uptimeMillis()+5000L
                 while(restored.get()<pass+1 && android.os.SystemClock.uptimeMillis()<deadline) {
