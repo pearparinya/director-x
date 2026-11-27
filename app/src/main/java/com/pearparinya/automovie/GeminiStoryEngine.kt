@@ -293,7 +293,9 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                     }
                     validateBatch(it,i+1,start,size,support)
                     if (spec.optInt("story_clock_version") >= 1) {
-                        val prior = scenes.optJSONObject(scenes.length()-1) ?: output.optJSONObject(output.length()-1)?.optJSONArray("scenes")?.let { prev -> prev.optJSONObject(prev.length()-1) }
+                        val prior = StoryClock.lastPresentScene(scenes) ?: (output.length()-1 downTo 0).firstNotNullOfOrNull { index ->
+                            output.getJSONObject(index).optJSONArray("scenes")?.let(StoryClock::lastPresentScene)
+                        }
                         StoryClock.validate(nameRows, prior, i+1)
                     }
                     if(spec.optString("content_profile")==AutoDirectorContent.profile || spec.optInt("command_version")>=1) {

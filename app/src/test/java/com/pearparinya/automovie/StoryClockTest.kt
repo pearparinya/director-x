@@ -26,6 +26,34 @@ class StoryClockTest {
         StoryClock.validate(JSONArray().put(scene("00.01 night", "2")), scene("23.59 night"), 1)
     }
 
+    @Test fun screenplayClockAndLightingAcrossStoryLengths() {
+        for (size in listOf(8, 20, 50, 100)) {
+            val rows = JSONArray()
+            repeat(size) { rows.put(scene("19.00 พลบค่ำ", "2").put("scene", it + 1)) }
+            val final = rows.getJSONObject(size - 1)
+            final.put("story_day", "1")
+            assertThrows(IllegalArgumentException::class.java) { StoryClock.validate(rows, null, 1) }
+            final.put("time_transition", "flashback")
+            StoryClock.validate(rows, null, 1)
+            val previous = scene("19.00 พลบค่ำ").put("lighting", "ริมคลองยามพลบค่ำ")
+                .put("location", "ริมคลอง").put("continuity_group", "A")
+            val next = JSONObject(previous.toString()).put("story_time", "19.01 พลบค่ำ").put("lighting", "แดดจัด")
+            assertEquals(previous.getString("lighting"), CharacterContinuity.imageLighting(previous, next))
+            next.put("time_transition", "flashback")
+            assertEquals("แดดจัด", CharacterContinuity.imageLighting(previous, next))
+        }
+    }
+
+    @Test fun flashbackAtBatchBoundaryDoesNotResetThePresent() {
+        val present = scene("20.00 night", "3")
+        val flashback = scene("16.00 afternoon", "1").put("time_transition", "flashback")
+        val prior = StoryClock.lastPresentScene(JSONArray().put(present).put(flashback))
+        assertSame(present, prior)
+        assertThrows(IllegalArgumentException::class.java) {
+            StoryClock.validate(JSONArray().put(scene("19.00 dusk", "3")), prior, 1)
+        }
+    }
+
     @Test fun invalidTimesAndLegacyReading() {
         for (time in listOf("24.00 night", "16.75 afternoon", "19.00", "night")) {
             assertThrows(IllegalArgumentException::class.java) {

@@ -15,6 +15,16 @@ class CastingContinuityRegressionTest {
         .put("location", "หน้าบ้าน").put("continuity_group", "dusk")
         .put("lighting", light)
 
+    @Test fun ensemblePosterUsesOnlySceneMastersAndHonorsSavedChoice() {
+        val cast = listOf("A", "B", "C").map { JSONObject().put("master", "$it.png") }
+        assertEquals(listOf(cast[2], cast[0]), SimpleProductionCommands.selectCoverCast(cast, setOf("C"), true))
+        assertTrue(SimpleProductionCommands.selectCoverCast(cast.take(1), null, true).isEmpty())
+        assertThrows(IllegalArgumentException::class.java) {
+            SimpleProductionCommands.selectCoverCast(cast, setOf("A", "unknown"), true)
+        }
+        assertEquals(cast.take(1), SimpleProductionCommands.selectCoverCast(cast, setOf("A"), false))
+    }
+
     @Test fun immediateDuskAndExplicitChange() {
         val first = scene("dusk")
         val second = scene("daylight", "18:31")
@@ -100,5 +110,34 @@ class CastingContinuityRegressionTest {
             prefs.edit().putString("project", original).commit()
             folder.deleteRecursively()
         }
+    }
+    @Test fun numericStoryDaysCannotReverseUnlessFlashback() {
+        val first = CharacterContinuity.Beat("SC001", "Actor", "MASTER", "3", "18:30",
+            "Home", "Outfit", "", "", "group", false, false)
+        val second = first.copy(scene = "SC002", day = "2")
+        assertTrue(CharacterContinuity.issues(listOf(first, second)).any { it.contains("flashback") })
+        assertTrue(CharacterContinuity.issues(listOf(first, second.copy(flashback = true))).isEmpty())
+        assertTrue(CharacterContinuity.issues(listOf(first, second.copy(day = "4"))).isEmpty())
+    }
+    @Test fun locationChangesRequireExplicitTransitionInContinuousGroup() {
+        val first = CharacterContinuity.Beat("SC001", "Actor", "MASTER", "1", "18:30",
+            "Home", "Outfit", "", "", "group", false, false)
+        val second = first.copy(scene = "SC002", location = "Market", time = "18:31")
+        assertTrue(CharacterContinuity.issues(listOf(first, second)).any { it.contains("location_change") })
+        assertTrue(CharacterContinuity.issues(listOf(first, second.copy(locationChange = true))).isEmpty())
+        assertTrue(CharacterContinuity.issues(listOf(first, second.copy(group = "new"))).isEmpty())
+    }
+    @Test fun stateTransitionsAndFlashbackLightingAcrossStorySizes() {
+        for (count in listOf(8, 20, 50, 100)) {
+            val first = CharacterContinuity.Beat("SC001", "Actor", "MASTER", "1", "18:30",
+                "Home", "Outfit", "dry", "dry", "group", false, false)
+            val beats = List(count) { first.copy(scene = "SC"+(it+1)) }
+            assertTrue(CharacterContinuity.issues(beats).isEmpty())
+            val changed = beats.last().copy(state = "wet")
+            assertTrue(CharacterContinuity.issues(beats.dropLast(1)+changed).any { it.contains("สถานะต้นฉาก") })
+            assertTrue(CharacterContinuity.issues(beats.dropLast(1)+changed.copy(stateChange = true)).isEmpty())
+        }
+        val prior = scene("dusk").put("flashback", true)
+        assertEquals("daylight", CharacterContinuity.imageLighting(prior, scene("daylight", "18:31")))
     }
 }

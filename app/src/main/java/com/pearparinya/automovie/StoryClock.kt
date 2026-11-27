@@ -8,6 +8,14 @@ internal object StoryClock {
 
     private val clock = Regex("""^([01][0-9]|2[0-3])[.:]([0-5][0-9])(?:\s|$)""")
 
+    fun lastPresentScene(rows: JSONArray): JSONObject? {
+        for (index in rows.length()-1 downTo 0) {
+            val scene = rows.optJSONObject(index) ?: continue
+            if (scene.optString("time_transition") != "flashback" && !scene.optBoolean("flashback")) return scene
+        }
+        return null
+    }
+
     fun validate(rows: JSONArray, prior: JSONObject?, ep: Int) {
         var previous = prior
         for (i in 0 until rows.length()) {
@@ -19,8 +27,14 @@ internal object StoryClock {
                 "$label กรุณาระบุเวลาและช่วงแสง เช่น 19.00 พลบค่ำ"
             }
             val before = previous
+            val flashback = scene.optString("time_transition") == "flashback" || scene.optBoolean("flashback")
+            val day = scene.optString("story_day").trim().toIntOrNull()
+            val beforeDay = before?.optString("story_day")?.trim()?.toIntOrNull()
+            require(flashback || day == null || beforeDay == null || day >= beforeDay) {
+                "$label วันในเรื่องย้อนจาก $beforeDay เป็น $day โดยไม่ระบุ flashback"
+            }
             if (before != null && before.optString("story_day") == scene.optString("story_day") &&
-                scene.optString("time_transition") != "flashback") {
+                !flashback) {
                 val earlier = clock.find(before.optString("story_time").trim())
                 require(earlier == null || minutes(current) >= minutes(earlier)) {
                     "$label เวลาย้อนจาก " + before.optString("story_time") + " เป็น " + value
@@ -28,7 +42,7 @@ internal object StoryClock {
             }
             scene.put("story_time", current.groupValues[1] + "." + current.groupValues[2] + " " +
                 value.substring(current.range.last + 1).trim())
-            previous = scene
+            if (!flashback) previous = scene
         }
     }
 

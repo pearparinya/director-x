@@ -6,10 +6,11 @@ import java.util.Locale
 internal object CharacterContinuity {
     data class Beat(val scene: String, val actor: String, val master: String, val day: String, val time: String,
         val location: String, val outfit: String, val state: String, val endState: String, val group: String,
-        val change: Boolean, val flashback: Boolean, val lighting: String = "", val lightingChange: Boolean = false)
+        val change: Boolean, val flashback: Boolean, val lighting: String = "", val lightingChange: Boolean = false,
+        val locationChange: Boolean = false, val stateChange: Boolean = false)
     private fun norm(s: String) = s.trim().lowercase(Locale.ROOT)
     private fun clock(s: String): Int? {
-        val m = Regex("^([01]?\\d|2[0-3])[:.]([0-5]\\d)(?:\\s*น\\.)?$").matchEntire(s.trim()) ?: return null
+        val m = Regex("""^([01]?\d|2[0-3])[:.]([0-5]\d)(?:\s|$)""").find(s.trim()) ?: return null
         return m.groupValues[1].toInt()*60+m.groupValues[2].toInt()
     }
     fun beats(story: JSONObject): List<Beat> = buildList {
@@ -25,7 +26,7 @@ internal object CharacterContinuity {
                     add(Beat("EP${ep.optInt("ep")} SC${s.optInt("scene")}",a.optString("name"),a.optString("master"),
                         s.optString("story_day"),s.optString("story_time"),s.optString("location"),a.optString("outfit"),
                         a.optString("character_state"),a.optString("character_end_state"),s.optString("continuity_group"),
-                        a.optBoolean("wardrobe_change"),s.optBoolean("flashback"),s.optString("lighting"),s.optBoolean("lighting_change")))
+                        a.optBoolean("wardrobe_change"),isFlashback(s),s.optString("lighting"),s.optBoolean("lighting_change"),s.optBoolean("location_change"),a.optBoolean("state_change")))
                 }
             }
         }
@@ -38,23 +39,31 @@ internal object CharacterContinuity {
             val p = previous[id]
             if (b.flashback) continue
             if (clock(b.time)==null) add("${b.scene} ${b.actor}: ตรวจเวลาให้เป็น HH:mm")
+            val dayNumber = b.day.trim().toIntOrNull()
+            val previousDay = p?.day?.trim()?.toIntOrNull()
+            if (dayNumber != null && previousDay != null && dayNumber < previousDay)
+                add("${b.scene} ${b.actor}: วันในเรื่องย้อนจาก ${p.scene} โดยไม่ระบุ flashback")
             if (p != null && b.day.isNotBlank() && norm(b.day)==norm(p.day)) {
                 val now = clock(b.time); val before = clock(p.time)
                 if (now!=null && before!=null && now<before) add("${b.scene} ${b.actor}: เวลาย้อนจาก ${p.scene}")
+                if (b.group.isNotBlank() && b.group==p.group && b.location.isNotBlank() &&
+                    p.location.isNotBlank() && norm(b.location)!=norm(p.location) && !b.locationChange)
+                    add("${b.scene} ${b.actor}: สถานที่เปลี่ยนในกลุ่มฉากต่อเนื่องโดยไม่ระบุ location_change")
                 if (b.outfit.isNotBlank() && p.outfit.isNotBlank() && norm(b.outfit)!=norm(p.outfit) && !b.change)
                     add("${b.scene} ${b.actor}: ชุดเปลี่ยนโดยไม่ระบุ wardrobe_change")
                 if (b.group.isNotBlank() && b.group==p.group && norm(b.location)==norm(p.location) &&
                     b.lighting.isNotBlank() && p.lighting.isNotBlank() && norm(b.lighting)!=norm(p.lighting) && !b.lightingChange)
                     add("${b.scene} ${b.actor}: ตรวจแสงต่อเนื่องจาก ${p.scene} หรือระบุ lighting_change")
-                if (b.group.isNotBlank() && b.group==p.group && p.endState.isNotBlank() && b.state.isNotBlank() && norm(p.endState)!=norm(b.state))
+                if (b.group.isNotBlank() && b.group==p.group && p.endState.isNotBlank() && b.state.isNotBlank() && norm(p.endState)!=norm(b.state) && !b.stateChange)
                     add("${b.scene} ${b.actor}: ตรวจสถานะต้นฉากเทียบกับท้าย ${p.scene}")
             }
             previous[id]=b
         }
     }
+    private fun isFlashback(scene: JSONObject) = scene.optBoolean("flashback") || scene.optString("time_transition") == "flashback"
     fun imageLighting(previous: JSONObject?, current: JSONObject): String {
         val own = current.optString("lighting")
-        if (previous == null || current.optBoolean("flashback") || current.optBoolean("lighting_change")) return own
+        if (previous == null || isFlashback(current) || current.optBoolean("lighting_change") || current.optBoolean("location_change") || isFlashback(previous)) return own
         val group = current.optString("continuity_group")
         val day = current.optString("story_day")
         val location = current.optString("location")
