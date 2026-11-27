@@ -377,6 +377,8 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
             story.put("cast_size_recommendation",StoryCastPolicy.sizingGuide(output.length()*sceneCount))
             story.put("visible_cast_count",completedMasters.size)
         }
+        val structuralIssues = WholeStoryQualityGate.issues(story, count, sceneCount)
+        require(structuralIssues.isEmpty()) { "บทไม่ผ่านตรวจโครงสร้าง: " + structuralIssues.take(6).joinToString("; ") }
         progress(100,"ตรวจบทครบแล้ว พร้อมส่งออก Flow")
         return story
     }
