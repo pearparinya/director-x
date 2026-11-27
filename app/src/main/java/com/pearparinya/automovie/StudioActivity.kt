@@ -4786,7 +4786,7 @@ $context"""
             setBackgroundColor(navy)
         }
         val scroll=ScrollView(this).apply { addView(prompt) }
-        panel.addView(scroll,LinearLayout.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.43f).toInt()))
+        panel.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         val navigation=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
         val previous=Button(this).apply { text="◀ ก่อนหน้า"; isAllCaps=false; setTextColor(Color.WHITE); backgroundTintList=ColorStateList.valueOf(Color.rgb(110,83,181)) }
         val next=Button(this).apply { text="ถัดไป ▶"; isAllCaps=false; setTextColor(Color.WHITE); backgroundTintList=ColorStateList.valueOf(Color.rgb(35,147,210)) }
@@ -4851,7 +4851,7 @@ $context"""
             } ?: notice("ฉากนี้ยังไม่มีคำสั่ง AI")
         }
         refresh()
-        dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(24),-2)
+        dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(24),(resources.displayMetrics.heightPixels*0.85f).toInt())
     }
 
     private fun imageCommandViewer(story: JSONObject, ep: Int, task: SimpleProductionCommands.Task,
@@ -8385,6 +8385,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         panel.isFocusableInTouchMode=true
         panel.descendantFocusability=android.view.ViewGroup.FOCUS_BEFORE_DESCENDANTS
         val edit=EditText(this).apply { setText(proposal); minLines=3; panel.addView(this) }
+        edit.showSoftInputOnFocus=false
         panel.requestFocus()
         var confirmed=false
         var restored=false
@@ -8411,6 +8412,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN or android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         edit.clearFocus()
         panel.requestFocus()
+        edit.setOnTouchListener { _, _ -> edit.showSoftInputOnFocus=true; false }
         dialog.setOnKeyListener { _, keyCode, event ->
             if(keyCode == android.view.KeyEvent.KEYCODE_BACK) {
                 if(event.action == android.view.KeyEvent.ACTION_UP && !event.isCanceled) dialog.cancel()
