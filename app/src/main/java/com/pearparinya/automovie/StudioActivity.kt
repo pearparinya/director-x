@@ -6582,13 +6582,22 @@ $context"""
     private fun geminiJobMenu() {
         val state=readGeminiStatus()?.optString("state")
         if(state=="complete" && plan!=null) { if(plan!!.optString("content_profile")==AutoDirectorContent.profile) autoDirectorMenu() else episodesMenu(); return }
+        if(GeminiStoryService.running && GeminiStoryService.projectId!=project.name) {
+            notice("AI กำลังประมวลผลอีกโครงการหนึ่ง กรุณารอหรือเปิดโครงการนั้นก่อน")
+            return
+        }
         if(GeminiStoryService.running) {
+            val jobProject=project.name
             val panel=progressPanel()
             val live=progressLine(panel,15f).apply { text=geminiStatusText(readGeminiStatus(),true); setTextIsSelectable(true) }
             geminiLiveDialog=live
             val dialog=AlertDialog.Builder(this).setTitle("เขียนบท AI")
                 .setView(panel)
-                .setPositiveButton("ย่อหน้าต่าง",null).setNeutralButton("หยุดงาน") { _,_ -> startService(Intent(this,GeminiStoryService::class.java).setAction(GeminiStoryService.CANCEL)) }
+                .setPositiveButton("ย่อหน้าต่าง",null).setNeutralButton("หยุดงาน") { _,_ ->
+                    if(project.name==jobProject && GeminiStoryService.running && GeminiStoryService.projectId==jobProject)
+                        startService(Intent(this,GeminiStoryService::class.java).setAction(GeminiStoryService.CANCEL))
+                    else notice("งานเปลี่ยนแล้ว กรุณาเปิดรายละเอียดใหม่")
+                }
                 .setNegativeButton("ปิด",null).showNavigationDirector()
             dialog.setOnDismissListener { if(geminiLiveDialog===live) geminiLiveDialog=null }
         } else {
