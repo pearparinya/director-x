@@ -8386,13 +8386,14 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
             override fun handleOnBackPressed() { dialog.cancel() }
         }
         dialog.onBackPressedDispatcher.addCallback(backCallback)
-        dialog.setOnCancelListener { restoreParent() }
         dialog.setOnDismissListener {
             backCallback.remove()
-            restoreParent()
+            // Restore only after the old dialog has been dismissed, so its window cannot steal focus.
+            panel.post { restoreParent() }
         }
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         dialog.show()
+        dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN or android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         edit.clearFocus()
         panel.requestFocus()
         dialog.setOnKeyListener { _, keyCode, event ->
@@ -8402,7 +8403,6 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
             } else false
         }
         dialog.getButton(-2).setOnClickListener { dialog.cancel() }
-        dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         dialog.getButton(-1).setOnClickListener {
             val value=edit.text.toString().trim()
             if(value.isBlank()) { notice("กรุณาระบุบทหรือเลือกใช้บทเดิม"); return@setOnClickListener }
