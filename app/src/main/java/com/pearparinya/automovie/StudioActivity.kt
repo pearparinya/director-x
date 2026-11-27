@@ -3598,6 +3598,7 @@ $context"""
                 if(verifiedFlowFile(ep.optInt("ep"))) ep.optJSONArray("scenes")?.length() ?: 0 else 0
             },allFlowScenes.size,ai && flowAiBatchRunning && flowBatchProject==project.name)
         },{ ai -> listOf(
+            Triple("ตรวจความพร้อมการผลิต",Color.rgb(181,102,0) to Color.rgb(104,47,0),{ characterQualityMenu(story) }),
             Triple("📄 ดูคำสั่ง Flow สร้างวิดีโอ",Color.rgb(0,133,220) to Color.rgb(5,55,120),{ if(ai) viewAi() else viewKotlin() }),
             Triple("✨ ประมวลผลคำสั่ง Flow",Color.rgb(171,52,185) to Color.rgb(77,28,130),{ pendingMenuBack=null; if(ai) startFlowAiBatch(allFlowScenes,direct=true) else autoFlowAllEpisodes(story) }),
             Triple("⚙ ตั้งค่า API",Color.rgb(0,133,132) to Color.rgb(4,66,80),{ flowApiSettings() }),
