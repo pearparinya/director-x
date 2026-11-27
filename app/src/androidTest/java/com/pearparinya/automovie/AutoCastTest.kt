@@ -20,6 +20,12 @@ class AutoCastTest {
                 catalog.put(JSONObject().put("id", id).put("display_name", "นักแสดง $index").put("character_type", "human"))
                 cast.put(JSONObject().put("library_id", id).put("name", "คนที่ $index").put("role", "ผู้พบหลักฐาน $index"))
             }
+            val frozen = JSONArray()
+            for (index in 1..size) {
+                frozen.put(JSONObject().put("auto_cast", true).put("name", "คนที่ $index")
+                    .put("master", "SUPPORT_%08X_MASTER.png".format(index)).put("visual_description", "ภาพที่ $index"))
+            }
+            assertTrue(FlowCast.issues(JSONObject().put("supporting_characters", frozen)).isEmpty())
             val pinned = setOf("id_1")
             val premise = "นักแสดง 1 พบ นักแสดง 2"
             val local = AutoCast.kotlinProposal(catalog, premise, pinned, ensemble = true)

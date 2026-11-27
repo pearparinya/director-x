@@ -11,7 +11,8 @@ internal object FlowCast {
     fun definitions(plan: JSONObject?): List<JSONObject> = (if(supporting(plan).isNotEmpty() && supporting(plan).all { it.optBoolean("auto_cast") }) emptyList() else FlowProductionPack.names.map { (id,name) -> JSONObject().put("name",name).put("master","${id.uppercase()}_MASTER.png").put("visual_description",plan?.optJSONObject("lead_references")?.optJSONObject(id)?.optString("visual_description")?.takeIf { it.isNotBlank() } ?: FlowProductionPack.dna.getValue(id)) })+supporting(plan)
     fun issues(plan: JSONObject): List<String> = buildList {
         val rows=supporting(plan)
-        if(rows.size>8) add("รองรับตัวละครเสริมไม่เกิน 8 คนต่อเรื่อง")
+        val limit = if (rows.all { it.optBoolean("auto_cast") }) 15 else 8
+        if(rows.size>limit) add("รองรับตัวละครเสริมไม่เกิน $limit คนต่อเรื่อง")
         rows.forEach { p ->
             if(p.optString("name").isBlank() || (StoryIdentity.keyFor(p.optString("name"))!=null && !p.optBoolean("auto_cast")) || !supportingMaster.matches(p.optString("master")) || p.optString("visual_description").isBlank()) add("ข้อมูลตัวละครเสริมต้องมีชื่อ ภาพอ้างอิงแยกรายคน และคำบรรยาย")
         }
