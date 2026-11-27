@@ -10,6 +10,31 @@ import java.io.File
 import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class AutoCastTest {
+    @Test fun scaledDramaRepairsOnlyInvalidProposalAndRetainsPinnedMaster() {
+        for (scenes in listOf(8, 20, 50, 100)) {
+            val size = StoryCastPolicy.recommended(scenes).last
+            val catalog = JSONArray()
+            val cast = JSONArray()
+            for (index in 1..size) {
+                val id = "id_$index"
+                catalog.put(JSONObject().put("id", id).put("display_name", "นักแสดง $index").put("character_type", "human"))
+                cast.put(JSONObject().put("library_id", id).put("name", "คนที่ $index").put("role", "ผู้พบหลักฐาน $index"))
+            }
+            val pinned = setOf("id_1")
+            val premise = "นักแสดง 1 พบ นักแสดง 2"
+            val local = AutoCast.kotlinProposal(catalog, premise, pinned, ensemble = true)
+            assertEquals(2, local.getJSONArray("cast").length())
+            var attempts = 0
+            val result = AutoCast.propose(StoryCastPolicy.sizingGuide(scenes), catalog, "", { false }, pinned, premise, true) { request ->
+                attempts++
+                if (attempts == 2) assertTrue(request.contains("id_1"))
+                JSONObject().put("story_concept", premise).put("cast", if (attempts == 1) JSONArray().put(cast.getJSONObject(0)) else cast)
+            }
+            assertEquals(2, attempts)
+            assertEquals(size, result.getJSONArray("cast").length())
+        }
+    }
+
     @Test fun castingBriefPreservesPinnedActorsAndAvoidsAppearanceBasedPersonality() {
         val brief=AutoCast.castingBrief("ละครสั้นสะท้อนสังคม","CHAR_001",setOf("CHAR_002","CHAR_001"))
         assertTrue(brief.contains("central protagonist"))
