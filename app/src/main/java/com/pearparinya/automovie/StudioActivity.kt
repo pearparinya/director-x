@@ -124,7 +124,7 @@ class StudioActivity : AppCompatActivity() {
                 "⚠ ${MiniStoryRecovery.reason(status)} • แตะเพื่อแก้ไข" else
                 "⏱ ${MiniStoryProgress.elapsed(status)}  •  แตะเพื่อดูรายละเอียด"
             geminiProgressView?.progress=status?.optInt("percent")?.coerceIn(0,100) ?: 0
-            geminiLiveDialog?.text=geminiStatusText(status,true)+if(status?.optString("state")=="running" && GeminiStoryService.running) "\n\nระบบจะทำต่อเองระหว่างรอ • กดหยุดเมื่อต้องการพักงาน" else ""
+            geminiLiveDialog?.text=geminiStatusText(status,true)+if(status?.optString("state")=="running" && alive) "\n\nระบบจะทำต่อเองระหว่างรอ • กดหยุดเมื่อต้องการพักงาน" else ""
             if(plan==null && File(project,"story.json").isFile && !importing) render()
             storyUiHandler.postDelayed(this,1000)
         }
