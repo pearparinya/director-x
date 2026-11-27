@@ -10,6 +10,18 @@ import java.io.File
 import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class AutoCastTest {
+    @Test fun storyRegistryCarriesReviewedRolesWithoutInventingLegacyData() {
+        val legacy = JSONObject().put("name", "เปีย").put("master", "PIA_MASTER.png")
+        val actor = JSONObject().put("name", "อร").put("master", "SUPPORT_00000001_MASTER.png")
+            .put("library_id", "CHAR_002").put("role", "พยาน")
+        val rows = FlowCast.storyRegistry(listOf(legacy, actor))
+        assertFalse(rows.getJSONObject(0).has("role"))
+        assertFalse(rows.getJSONObject(0).has("library_id"))
+        assertEquals("CHAR_002", rows.getJSONObject(1).getString("library_id"))
+        assertEquals("พยาน", rows.getJSONObject(1).getString("role"))
+        assertEquals(CharacterAliasRegistry.identityId("อร", actor.getString("master")), rows.getJSONObject(1).getString("character_id"))
+    }
+
     @Test fun scaledDramaRepairsOnlyInvalidProposalAndRetainsPinnedMaster() {
         for (scenes in listOf(8, 20, 50, 100)) {
             val size = StoryCastPolicy.recommended(scenes).last

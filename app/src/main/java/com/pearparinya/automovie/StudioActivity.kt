@@ -2236,7 +2236,7 @@ class StudioActivity : AppCompatActivity() {
                     notice("พื้นที่แนบภาพไม่พอสำหรับภาพชุดที่เลือก กรุณาลดภาพเสริมก่อนส่ง")
                     return@setPositiveButton
                 }
-                val safeOutfitGuide=if(includedOutfitExtras.isEmpty()) "" else (if(mode==2) "\n\nREVIEWED SCENE REFERENCE: This prior single-character scene was reviewed for the same character and outfit; original MASTER remains identity source. " else "")+"\n\nREVIEWED OUTFIT REFERENCES: Copy the visible clothing, accessory placement and footwear construction only from each named wearer’s attached outfit image. Preserve the written outfit where hidden. "+includedOutfitExtras.joinToString("; ") { "${it.first} = ${labels[it.first]}" }
+                val safeOutfitGuide=if(includedOutfitExtras.isEmpty()) "" else (if(mode==2) "\n\nREVIEWED SCENE REFERENCE: This prior single-character scene was reviewed for the same character and outfit; original MASTER remains identity source. " else "")+"\n\nREVIEWED OUTFIT REFERENCES: Copy the visible clothing, accessory placement and footwear construction only from each named wearer’s attached outfit image. Preserve the exact fabric pattern, sleeve length, cuffs, buttons, closures, pocket count and pocket placement. Do not redesign or swap garments between actors. Preserve the written outfit where hidden. "+includedOutfitExtras.joinToString("; ") { "${it.first} = ${labels[it.first]}" }
                 val includedPropRefs=propRefs.filter { it.first in includedIds }
                 val safePropInstruction=if(includedPropRefs.isEmpty()) "" else "\n\nPROP MASTER REFERENCES: "+includedPropRefs.joinToString("; ") { "${it.first} = ${propLabels[it.first]}" }+". Use each object's own MASTER; do not swap identities."
                 val safeOwners=if(includedPropRefs.isEmpty()) "" else owners
@@ -2762,9 +2762,12 @@ class StudioActivity : AppCompatActivity() {
         val action=scene.optString("action").ifBlank { scene.optString("image_prompt") }
         val continuity=listOf(cinematicBeatGuide(p,scene),scene.optString("start_state"),
             "ภาพก่อนหน้าใช้ดูสถานที่และสิ่งของ ชุดยึดฉากปัจจุบัน ตัวบุคคลยึด MASTER รายคน",corrections).filter { it.isNotBlank() }.joinToString(" • ")
+        val sequence = rows(p)
+        val position = sequence.indexOfFirst { key(it) == key(scene) }
+        val lighting = CharacterContinuity.imageLighting(sequence.getOrNull(position-1),scene)
         return ImagePromptPolicy.scene(details,setting,action,p.optString("aspect_ratio","9:16"),
             if(p.optString("character_mode","original")=="new") "CHARACTER MASTER ที่แนบ" else "ภาพ MASTER ที่แนบ",
-            scene.optString("framing"),scene.optString("lighting"),continuity,"${key(scene)}.png")
+            scene.optString("framing"),lighting,continuity,"${key(scene)}.png")
     }
 
     private fun sendSceneImage(p: JSONObject, scene: JSONObject) {
@@ -5109,10 +5112,9 @@ $context"""
         }
     }
 
-    private fun castOutfitMenu(story: JSONObject) {
+    private fun castOutfitMenu(story: JSONObject): AlertDialog {
         val folder = project
         val people = castingPeople(story)
-        if (people.isEmpty()) { notice("ยังไม่มีรายการนักแสดงพร้อมชุดในบท"); return }
         val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
         val dialog = AlertDialog.Builder(this).setTitle("นักแสดงและชุด")
             .setView(ScrollView(this).apply { addView(panel) }).setNegativeButton("ปิด",null).create()
@@ -5129,6 +5131,25 @@ $context"""
                 }
             }
             shareImageCommand(command, refs, masters.associate { referenceId(it.optString("master")) to it.optString("name") }, wardrobeBatch=true)
+        }
+        val registered = FlowCast.definitions(story)
+        val sceneActors = rows(story).flatMap { scene ->
+            val actors = scene.optJSONArray("characters") ?: JSONArray()
+            (0 until actors.length()).mapNotNull { actors.optJSONObject(it) }
+        }
+        val unresolved = (registered + sceneActors).distinctBy {
+            it.optString("name").trim() + "|" + it.optString("master").trim()
+        }.filter { actor ->
+            actor.optString("name").isNotBlank() && people.none {
+                it.optString("name") == actor.optString("name") &&
+                    it.optString("master") == actor.optString("master")
+            }
+        }
+        unresolved.forEach { actor ->
+            panel.addView(TextView(this).apply {
+                text = actor.optString("name") + " • " +
+                    if (actor.optString("master").isBlank()) "ขาด MASTER" else "ยังไม่มีชุดที่ระบุในฉาก"
+            })
         }
         val missing = people.filter { castOutfit(it).attachment(folder) == null }
         missing.chunked(9).forEachIndexed { index, batch ->
@@ -5173,6 +5194,7 @@ $context"""
             } })
         }
         dialog.show()
+        return dialog
     }
 
     private fun wardrobeMenu(story: JSONObject) {
