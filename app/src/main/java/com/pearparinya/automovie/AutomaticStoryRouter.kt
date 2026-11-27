@@ -95,7 +95,7 @@ internal class AutomaticStoryRouter(
         if (complete?.isFile == true) {
             // A damaged cache must not prevent resuming the original checkpoint.
             val cached = runCatching { GeminiStoryFiles.read(complete) }.getOrNull()
-            if (cached != null && SceneXml.hasUsableActions(cached)) return cached
+            if (cached != null && SceneXml.hasFormattedActions(cached)) return cached
             // Leave the original file intact until a valid replacement is written.
         }
         val range=Regex("Write exactly scenes ([0-9]+) to ([0-9]+)").find(prompt)
@@ -282,6 +282,15 @@ internal class InvalidSceneXml(cause: Exception): IllegalArgumentException("XML 
 /** Reject DTDs, missing/duplicate IDs and changed dialogue before merging formatted actions. */
 internal object SceneXml {
     /** Reuse the writer's own complete English directions; downstream scene validation still runs. */
+    fun hasFormattedActions(draft: JSONObject): Boolean {
+        val rows = draft.optJSONArray("scenes") ?: return false
+        val ids = mutableSetOf<Int>()
+        return rows.length() > 0 && (0 until rows.length()).all { index ->
+            val row = rows.optJSONObject(index) ?: return@all false
+            val id = row.optInt("scene", -1)
+            id > 0 && ids.add(id) && row.optString("flow_action").isNotBlank()
+        }
+    }
     fun hasUsableActions(draft: JSONObject): Boolean {
         val rows=draft.optJSONArray("scenes") ?: return false
         if(rows.length()==0) return false
