@@ -8,6 +8,14 @@ internal object StoryClock {
 
     private val clock = Regex("""^([01][0-9]|2[0-3])[.:]([0-5][0-9])(?:\s|$)""")
 
+    fun lastPresentScene(rows: JSONArray): JSONObject? {
+        for (index in rows.length()-1 downTo 0) {
+            val scene = rows.optJSONObject(index) ?: continue
+            if (scene.optString("time_transition") != "flashback" && !scene.optBoolean("flashback")) return scene
+        }
+        return null
+    }
+
     fun validate(rows: JSONArray, prior: JSONObject?, ep: Int) {
         var previous = prior
         for (i in 0 until rows.length()) {

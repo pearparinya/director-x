@@ -44,6 +44,16 @@ class StoryClockTest {
         }
     }
 
+    @Test fun flashbackAtBatchBoundaryDoesNotResetThePresent() {
+        val present = scene("20.00 night", "3")
+        val flashback = scene("16.00 afternoon", "1").put("time_transition", "flashback")
+        val prior = StoryClock.lastPresentScene(JSONArray().put(present).put(flashback))
+        assertSame(present, prior)
+        assertThrows(IllegalArgumentException::class.java) {
+            StoryClock.validate(JSONArray().put(scene("19.00 dusk", "3")), prior, 1)
+        }
+    }
+
     @Test fun invalidTimesAndLegacyReading() {
         for (time in listOf("24.00 night", "16.75 afternoon", "19.00", "night")) {
             assertThrows(IllegalArgumentException::class.java) {
