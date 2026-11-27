@@ -109,4 +109,12 @@ class CastingContinuityRegressionTest {
         assertTrue(CharacterContinuity.issues(listOf(first, second.copy(flashback = true))).isEmpty())
         assertTrue(CharacterContinuity.issues(listOf(first, second.copy(day = "4"))).isEmpty())
     }
+    @Test fun locationChangesRequireExplicitTransitionInContinuousGroup() {
+        val first = CharacterContinuity.Beat("SC001", "Actor", "MASTER", "1", "18:30",
+            "Home", "Outfit", "", "", "group", false, false)
+        val second = first.copy(scene = "SC002", location = "Market", time = "18:31")
+        assertTrue(CharacterContinuity.issues(listOf(first, second)).any { it.contains("location_change") })
+        assertTrue(CharacterContinuity.issues(listOf(first, second.copy(locationChange = true))).isEmpty())
+        assertTrue(CharacterContinuity.issues(listOf(first, second.copy(group = "new"))).isEmpty())
+    }
 }
