@@ -359,12 +359,13 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         val spoken=linkedMapOf<String,String>()
         for(i in 0 until output.length()) checkDialogue(output.getJSONObject(i).getJSONArray("scenes"),i+1,spoken)
         if(spec.optInt("story_cast_policy")==1) {
+            val mastersByName = FlowCast.definitions(spec).associate { it.getString("name") to it.getString("master") }
             val visible=linkedSetOf<String>()
             for(i in 0 until output.length()) {
                 val scenes=output.getJSONObject(i).getJSONArray("scenes")
                 for(j in 0 until scenes.length()) {
                     val actors=scenes.getJSONObject(j).optJSONArray("characters") ?: JSONArray()
-                    for(k in 0 until actors.length()) actors.optJSONObject(k)?.optString("name")?.trim()?.takeIf { it.isNotBlank() }?.let { visible.add(it) }
+                    for(k in 0 until actors.length()) actors.optJSONObject(k)?.optString("name")?.trim()?.takeIf { it.isNotBlank() }?.let { name -> mastersByName[name]?.let { visible.add(it) } }
                 }
             }
             StoryCastPolicy.requireCast(visible)

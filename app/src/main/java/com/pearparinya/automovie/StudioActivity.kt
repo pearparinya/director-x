@@ -7767,7 +7767,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     val ensemble=ChannelCatalog.personalCategories.none { it.label==categories[index] || it.name==categories[index] }
                     if(ensemble && catalog.length()<StoryCastPolicy.minimum) { if(automatic) autoRunning=false; notice("คลัง MASTER ต้องมีตัวละครอย่างน้อย 2 ตัวสำหรับละคร"); return@setOnClickListener }
                     if(!castUseAi) {
-                        val result=runCatching { AutoCast.kotlinProposal(catalog,selectedStoryTopic+" "+premise.text.toString(),pinned,categories[index]) }
+                        val result=runCatching { AutoCast.kotlinProposal(catalog,selectedStoryTopic+" "+premise.text.toString(),pinned,categories[index],ensemble) }
                         autoRunning=false
                         result.onSuccess { proposal ->
                             suggestedRoles.clear()
@@ -7801,10 +7801,8 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                                 active.set(client)
                                 val prompt="Suggest a cast for this Thai story. Channel: $channel; category: $category; situation: $situation; details: $detail. Return a nonempty story_concept and cast. For each actor use library_id from the catalog id field, a unique name and a nonempty role. Omit english_name unless it is a unique single English name. Suggest only characters suitable for the story, with a short proposed role in Thai. Do not infer occupation or identity from a face; roles are fictional suggestions for user review. Use as many as needed, from 1 to 8. "+(if(ensemble) StoryCastPolicy.direction+" " else "")+(if(channel=="นายเปีย บ้านคลองขุด") "Include $piaActorId as central protagonist and suitable supporting roles. " else "")+AutoCast.storyCastingBrief()+"Catalog: "+AutoCast.promptCatalog(AutoCast.storyCatalog(catalog, situation+" "+detail, pinned,category)).toString()
                                 val presenterId=if(channel=="นายเปีย บ้านคลองขุด") piaActorId else ""
-                                AutoCast.propose(prompt,catalog,presenterId,{ stopped.get() },pinned,detail) { request ->
-                                    client.generate(request,AutoCast.schema()).also { response ->
-                                        if(ensemble) { val cast=response.getJSONArray("cast"); StoryCastPolicy.requireCast((0 until cast.length()).map { cast.getJSONObject(it).getString("library_id") }) }
-                                    }
+                                AutoCast.propose(prompt,catalog,presenterId,{ stopped.get() },pinned,detail,ensemble) { request ->
+                                    client.generate(request,AutoCast.schema())
                                 }
                             }.onFailure {
                                 val reason=if(it is AutoCast.ProposalError) it.message else "ไม่ได้รับคำตอบที่อ่านได้จาก API"
@@ -7894,7 +7892,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                 val draft=selectedActors.toMutableSet().apply { if(castProposalPending) addAll(suggestedRoles.keys) }
                 if(chosenChannel=="นายเปีย บ้านคลองขุด") draft.add(piaActorId)
                 val grid=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-                grid.addView(TextView(this).apply { text="ติ๊กตัวละครที่ต้องการใช้ในเรื่อง สูงสุด 8 ตัว • ตรวจภาพและบทบาทก่อนยืนยัน" })
+                grid.addView(TextView(this).apply { text="ติ๊กตัวละครที่ต้องการใช้ในเรื่อง สูงสุด 15 ตัว • ตรวจภาพและบทบาทก่อนยืนยัน" })
                 val order=(0 until choices.length()).sortedBy { if(choices.getJSONObject(it).optString("id") in draft) 0 else 1 }
                 var row: LinearLayout?=null
                 for((position,n) in order.withIndex()) {
@@ -7921,7 +7919,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     box.setOnCheckedChangeListener { _,checked -> if(checked) draft.add(id) else draft.remove(id) }
                 }
                 AlertDialog.Builder(this).setTitle("เลือกภาพ MASTER ตัวละคร").setView(ScrollView(this).apply { addView(grid) }).setPositiveButton("ใช้รายการที่เลือก") { _,_ ->
-                    if(draft.size>8) { notice("เลือกตัวละครได้สูงสุด 8 คน กรุณาเลือกใหม่"); return@setPositiveButton }
+                    if(draft.size>15) { notice("เลือกตัวละครได้สูงสุด 15 คน กรุณาเลือกใหม่"); return@setPositiveButton }
                     selectedActors.clear(); selectedActors.addAll(draft)
                     castProposalPending=false
                     castButton.text=if(selectedActors.isEmpty()) "②.2 ตรวจและเลือกตัวละครจาก MASTER" else "②.2 เลือกแล้ว ${selectedActors.size} ตัว • แตะเพื่อแก้"
