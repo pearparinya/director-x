@@ -2238,7 +2238,7 @@ class StudioActivity : AppCompatActivity() {
                 val safePropInstruction=if(includedPropRefs.isEmpty()) "" else "\n\nPROP MASTER REFERENCES: "+includedPropRefs.joinToString("; ") { "${it.first} = ${propLabels[it.first]}" }+". Use each object's own MASTER; do not swap identities."
                 val safeOwners=if(includedPropRefs.isEmpty()) "" else owners
                 val safeCoverOwners=if(includedPropRefs.isEmpty()) "" else coverOwners
-                shareImageCommand(command+safeOutfitGuide+safePropInstruction+(if(safeOwners.isBlank()) "" else "\n$safeOwners")+(if(safeCoverOwners.isBlank()) "" else "\n$safeCoverOwners")+"\n\nATTACHMENT ORDER (verify in receiving app):\n"+exactBindings,payload,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
+                shareImageCommand(command+appearanceGuide(task.references)+safeOutfitGuide+safePropInstruction+(if(safeOwners.isBlank()) "" else "\n$safeOwners")+(if(safeCoverOwners.isBlank()) "" else "\n$safeCoverOwners")+"\n\nATTACHMENT ORDER (verify in receiving app):\n"+exactBindings,payload,labels+cropLabels.filterKeys { key -> selected.values.any { it.first==key } }+propLabels)
             }
             .setNegativeButton("กลับไปตรวจ",null).showNavigationDirector()
     }
@@ -2786,7 +2786,7 @@ class StudioActivity : AppCompatActivity() {
         }
         if(masterRefs.size+outfits.size+references.size>9) { notice("ภาพอ้างอิงเกิน 9 ภาพ กรุณาใช้เมนูคำสั่งภาพเพื่อจัดรายการ"); return }
         val guide=outfits.mapIndexed { i,entry -> "Reference image ${masterRefs.size+i+1}: approved wardrobe only for ${entry.third}. Preserve pockets, cuffs, buttons, pattern and accessories. Original MASTER controls identity." }.joinToString("\n")
-        shareImageCommand(storySceneCommand(p,scene)+"\n"+guide,masterRefs+outfits.map { it.first to it.second }+references)
+        shareImageCommand(storySceneCommand(p,scene)+appearanceGuide(FlowReferencePrompt.people(scene))+"\n"+guide,masterRefs+outfits.map { it.first to it.second }+references)
     }
     private fun wholeStoryCommands() {
         val p = plan ?: return notice("นำเข้าแผนเรื่องก่อนครับ")
@@ -5007,16 +5007,47 @@ $context"""
         return if (people.isEmpty()) "ยังไม่มีรายการชุด" else "ยืนยันชุด ${people.count { castOutfit(it).attachment(project)!=null }}/${people.size}"
     }
 
+    private fun appearanceKey(person: JSONObject): String =
+        "appearance_lock_" + project.name + "_" + referenceId(person.optString("master")).lowercase(java.util.Locale.ROOT)
+
+    private fun appearanceLock(person: JSONObject): CharacterAppearanceLock {
+        val key = appearanceKey(person)
+        return CharacterAppearanceLock(prefs.getBoolean(key+"_body",true),prefs.getBoolean(key+"_hair",true),prefs.getBoolean(key+"_wardrobe",true))
+    }
+
+    private fun appearanceGuide(people: List<JSONObject>): String =
+        "\n\nCHARACTER APPEARANCE LOCKS:\n" + people.distinctBy { appearanceKey(it) }.joinToString("\n") { appearanceLock(it).instruction(it.optString("name")) }
+
+    private fun appearanceLockMenu(story: JSONObject) {
+        val people = rows(story).flatMap { FlowReferencePrompt.people(it) }
+            .filter { it.optString("master").isNotBlank() }.distinctBy { appearanceKey(it) }
+        if(people.isEmpty()) return notice("ยังไม่มีตัวละครที่ผูก MASTER")
+        choiceMenu("ตั้งค่าล็อกตัวละคร",people.map { it.optString("name") }) { index ->
+            val person = people[index]
+            val key = appearanceKey(person)
+            val lock = appearanceLock(person)
+            val values = booleanArrayOf(lock.body,lock.hair,lock.wardrobe)
+            AlertDialog.Builder(this).setTitle(person.optString("name")+" • ใบหน้า MASTER ล็อกเสมอ")
+                .setMultiChoiceItems(arrayOf("ล็อกรูปร่าง","ล็อกทรงผมและหนวดเครา","ล็อกความต่อเนื่องของชุด"),values) { _,i,checked -> values[i]=checked }
+                .setNegativeButton("ยกเลิก",null)
+                .setPositiveButton("บันทึก") { _,_ ->
+                    prefs.edit().putBoolean(key+"_body",values[0]).putBoolean(key+"_hair",values[1]).putBoolean(key+"_wardrobe",values[2]).apply()
+                    appearanceLockMenu(story)
+                }.showNavigationDirector()
+        }
+    }
+
     private fun characterStudioMenu(story: JSONObject) {
         val people = castingPeople(story)
         val missing = rows(story).flatMap { FlowReferencePrompt.people(it) }
             .filter { it.optString("master").isBlank() || !masterFor(it).isFile }
             .map { it.optString("name") }.distinct()
         val title = "Character Studio • จัดการตัวละคร\n${castingStatus(story)}\nMASTER ที่ขาด: ${missing.size} คน"
-        choiceMenu(title,listOf("🎭 Casting นักแสดงและเครื่องแต่งกาย","ตรวจและแก้ไขชุดในบท","ตรวจรายการ MASTER ที่ขาด")) { selected ->
+        choiceMenu(title,listOf("🎭 Casting นักแสดงและเครื่องแต่งกาย","ตรวจและแก้ไขชุดในบท","ตรวจรายการ MASTER ที่ขาด","ตั้งค่าล็อกตัวละคร")) { selected ->
             when(selected) {
                 0 -> castOutfitMenu(story)
                 1 -> wardrobeMenu(story)
+                3 -> appearanceLockMenu(story)
                 else -> notice(if(missing.isEmpty()) "ไม่พบ MASTER ที่ขาดจากรายการในบท" else missing.joinToString("\n"))
             }
         }
