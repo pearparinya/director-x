@@ -3714,6 +3714,7 @@ $context"""
         promptDashboard(story,"🎬 สร้างภาพ",modeKey,false,{ imageDashboard(story) },{ ai ->
             Triple(if(ai) verifiedImagePromptCount(entries) else entries.count { it.second.command.isNotBlank() },entries.size,ai && aiPromptRunning && imageBatchProject==project.name)
         },{ ai -> listOf(
+            Triple("🎭 Character Studio • "+castingStatus(story),Color.rgb(114,46,171) to Color.rgb(51,24,96),{ characterStudioMenu(story) }),
             Triple("📄 ดูคำสั่งสร้างภาพ",Color.rgb(0,133,220) to Color.rgb(5,55,120),{ prefs.edit().putBoolean(modeKey,ai).apply(); view(ai) }),
             Triple("✨ ประมวลผลคำสั่งสร้างภาพ",Color.rgb(171,52,185) to Color.rgb(77,28,130),{ prefs.edit().putBoolean(modeKey,ai).apply(); pendingMenuBack=null; if(ai) refineImagePromptsAll(story) else processKotlin() }),
             Triple("🧩 จัดการอุปกรณ์ประกอบฉาก",Color.rgb(114,46,171) to Color.rgb(51,24,96),{ choiceMenu("จัดการอุปกรณ์",listOf("ผูกอุปกรณ์กับตัวละคร","ให้ AI เสนออุปกรณ์รายซีน")) { if(it==0) characterPropMenu(story) else suggestStoryProps(story) } }),
@@ -4997,11 +4998,33 @@ $context"""
     private fun castOutfit(person: JSONObject) =
         CastOutfit(referenceId(person.optString("master")), person.optString("outfit").trim())
 
+    private fun castingPeople(story: JSONObject) = rows(story).flatMap { FlowReferencePrompt.people(it) }
+        .filter { it.optString("master").isNotBlank() && it.optString("outfit").isNotBlank() }
+        .distinctBy { castOutfit(it) }
+
+    private fun castingStatus(story: JSONObject): String {
+        val people = castingPeople(story)
+        return if (people.isEmpty()) "ยังไม่มีรายการชุด" else "ยืนยันชุด ${people.count { castOutfit(it).attachment(project)!=null }}/${people.size}"
+    }
+
+    private fun characterStudioMenu(story: JSONObject) {
+        val people = castingPeople(story)
+        val missing = rows(story).flatMap { FlowReferencePrompt.people(it) }
+            .filter { it.optString("master").isBlank() || !masterFor(it).isFile }
+            .map { it.optString("name") }.distinct()
+        val title = "Character Studio • จัดการตัวละคร\n${castingStatus(story)}\nMASTER ที่ขาด: ${missing.size} คน"
+        choiceMenu(title,listOf("🎭 Casting นักแสดงและเครื่องแต่งกาย","ตรวจและแก้ไขชุดในบท","ตรวจรายการ MASTER ที่ขาด")) { selected ->
+            when(selected) {
+                0 -> castOutfitMenu(story)
+                1 -> wardrobeMenu(story)
+                else -> notice(if(missing.isEmpty()) "ไม่พบ MASTER ที่ขาดจากรายการในบท" else missing.joinToString("\n"))
+            }
+        }
+    }
+
     private fun castOutfitMenu(story: JSONObject) {
         val folder = project
-        val people = rows(story).flatMap { FlowReferencePrompt.people(it) }
-            .filter { it.optString("master").isNotBlank() && it.optString("outfit").isNotBlank() }
-            .distinctBy { castOutfit(it) }
+        val people = castingPeople(story)
         if (people.isEmpty()) { notice("ยังไม่มีรายการนักแสดงพร้อมชุดในบท"); return }
         val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
         val dialog = AlertDialog.Builder(this).setTitle("นักแสดงและชุด")
@@ -5274,6 +5297,9 @@ $context"""
                 isClickable=true; isFocusable=true
                 setOnClickListener { onTap() }
             })
+        }
+        statusLine("🎭 Character Studio",current?.let { castingStatus(it) } ?: "รอสร้างบท") {
+            current?.let { characterStudioMenu(it) } ?: notice("รอสร้างบท")
         }
         statusLine("ตรวจชุดตัวละคร",wardrobeDetail) {
             current?.let { wardrobeMenu(it) } ?: notice("รอสร้างบท")
