@@ -3714,6 +3714,7 @@ $context"""
         promptDashboard(story,"🎬 สร้างภาพ",modeKey,false,{ imageDashboard(story) },{ ai ->
             Triple(if(ai) verifiedImagePromptCount(entries) else entries.count { it.second.command.isNotBlank() },entries.size,ai && aiPromptRunning && imageBatchProject==project.name)
         },{ ai -> listOf(
+            Triple("ตรวจความพร้อมการผลิต",Color.rgb(181,102,0) to Color.rgb(104,47,0),{ characterQualityMenu(story) }),
             Triple("🎭 Character Studio • "+castingStatus(story),Color.rgb(114,46,171) to Color.rgb(51,24,96),{ characterStudioMenu(story) }),
             Triple("📄 ดูคำสั่งสร้างภาพ",Color.rgb(0,133,220) to Color.rgb(5,55,120),{ prefs.edit().putBoolean(modeKey,ai).apply(); view(ai) }),
             Triple("✨ ประมวลผลคำสั่งสร้างภาพ",Color.rgb(171,52,185) to Color.rgb(77,28,130),{ prefs.edit().putBoolean(modeKey,ai).apply(); pendingMenuBack=null; if(ai) refineImagePromptsAll(story) else processKotlin() }),
@@ -5049,18 +5050,53 @@ $context"""
         }
     }
 
+    private fun characterQualityReport(story: JSONObject): CharacterQualityGate.Report {
+        val people = rows(story).flatMap { FlowReferencePrompt.people(it) }
+        val actors = people.distinctBy { referenceId(it.optString("master")).ifBlank { it.optString("name") } }
+        val outfits = castingPeople(story)
+        val missingMasters = actors.filter { it.optString("master").isBlank() || !masterFor(it).isFile }
+        val missingOutfits = outfits.filter { castOutfit(it).attachment(project)==null }
+        val missingDescriptions = people.filter { it.optString("outfit").isBlank() }
+        val continuity = CharacterContinuity.issues(CharacterContinuity.beats(story))
+        val commands = runCatching { allImagePromptEntries(story) }
+        val tasks = commands.getOrDefault(emptyList())
+        val blockers = missingMasters.map { "MASTER: "+it.optString("name") } +
+            missingDescriptions.map { "ยังไม่ระบุชุด: "+it.optString("name") }.distinct() +
+            listOfNotNull(commands.exceptionOrNull()?.let { "ตรวจคำสั่งภาพไม่ได้: "+(it.message ?: "ข้อมูลไม่ครบ") })
+        val warnings = missingOutfits.map { "รอยืนยันชุด: "+it.optString("name")+" • "+it.optString("outfit") } + continuity
+        return CharacterQualityGate.Report(listOf(
+            CharacterQualityGate.Check("MASTER",actors.size-missingMasters.size,actors.size),
+            CharacterQualityGate.Check("ภาพชุดที่ยืนยัน",outfits.size-missingOutfits.size,outfits.size),
+            CharacterQualityGate.Check("รายละเอียดชุดรายฉาก",people.size-missingDescriptions.size,people.size),
+            CharacterQualityGate.Check("คำสั่งภาพปกและฉาก",tasks.count { it.second.command.isNotBlank() },tasks.size)
+        ),blockers,warnings)
+    }
+
+    private fun characterQualityMenu(story: JSONObject) {
+        val report = characterQualityReport(story)
+        choiceMenu("ตรวจความพร้อมการผลิต",listOf("ดูผลตรวจทั้งหมด","จัดการ Casting และชุด","ตรวจ Timeline","ตรวจบทและคำสั่ง Flow")) { selected ->
+            when(selected) {
+                0 -> notice(report.summary())
+                1 -> castOutfitMenu(story)
+                2 -> characterTimelineMenu(story)
+                else -> productionCheckMenu(story)
+            }
+        }
+    }
+
     private fun characterStudioMenu(story: JSONObject) {
         val people = castingPeople(story)
         val missing = rows(story).flatMap { FlowReferencePrompt.people(it) }
             .filter { it.optString("master").isBlank() || !masterFor(it).isFile }
             .map { it.optString("name") }.distinct()
         val title = "Character Studio • จัดการตัวละคร\n${castingStatus(story)}\nMASTER ที่ขาด: ${missing.size} คน"
-        choiceMenu(title,listOf("🎭 Casting นักแสดงและเครื่องแต่งกาย","ตรวจและแก้ไขชุดในบท","ตรวจรายการ MASTER ที่ขาด","ตั้งค่าล็อกตัวละคร","Timeline และตรวจความต่อเนื่อง")) { selected ->
+        choiceMenu(title,listOf("🎭 Casting นักแสดงและเครื่องแต่งกาย","ตรวจและแก้ไขชุดในบท","ตรวจรายการ MASTER ที่ขาด","ตั้งค่าล็อกตัวละคร","Timeline และตรวจความต่อเนื่อง","ตรวจความพร้อมการผลิต")) { selected ->
             when(selected) {
                 0 -> castOutfitMenu(story)
                 1 -> wardrobeMenu(story)
                 3 -> appearanceLockMenu(story)
                 4 -> characterTimelineMenu(story)
+                5 -> characterQualityMenu(story)
                 else -> notice(if(missing.isEmpty()) "ไม่พบ MASTER ที่ขาดจากรายการในบท" else missing.joinToString("\n"))
             }
         }
