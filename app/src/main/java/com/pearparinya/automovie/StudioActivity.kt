@@ -2214,6 +2214,9 @@ class StudioActivity : AppCompatActivity() {
                 val omittedOptional=optional.drop(remaining)
                 if(omittedOptional.any { it.first.startsWith("OUTFIT_CAST_") }) { notice("ภาพชุดที่ยืนยันและ MASTER เกิน 9 ภาพ กรุณาลดภาพครอปหรือแบ่งรายการ"); return@setPositiveButton }
                 val payload=orderedPeople+includedOptional
+                val required=primary+references.drop(task.references.size).filter { it.first.startsWith("OUTFIT_CAST_") }
+                val gate=CharacterQualityGate.referenceIssues(required.map { it.first to it.second.canonicalPath },payload.map { it.first to it.second.canonicalPath })
+                if(gate.isNotEmpty()) { notice(gate.joinToString("\n")); return@setPositiveButton }
                 if(omittedOptional.isNotEmpty()) {
                     notice("ส่ง MASTER ตัวละครครบแล้ว • จำกัดภาพอ้างอิงไว้ที่ 9 ภาพ โดยงดภาพเสริม ${omittedOptional.size} ภาพ")
                 }
@@ -2243,6 +2246,8 @@ class StudioActivity : AppCompatActivity() {
             .setNegativeButton("กลับไปตรวจ",null).showNavigationDirector()
     }
     private fun shareImageCommand(command: String, references: List<Pair<String,File>>, referenceLabels: Map<String,String> = emptyMap(), twoCovers: Boolean = false, bodyOnly: Boolean = false, wardrobeBatch: Boolean = false) {
+        val gate=CharacterQualityGate.referenceIssues(emptyList(),references.map { it.first to it.second.absolutePath })
+        if(gate.isNotEmpty()) { notice(gate.joinToString("\n")); return }
         val referenceDigests=runCatching { ReferenceSnapshot.capture(references) }.getOrElse { notice(it.message ?: "ตรวจภาพอ้างอิงไม่ได้"); return }
         val orderedCommand=if(bodyOnly) command else SimpleProductionCommands.orderedReferenceCommand(command,references.map { it.first })
         val preferred=prefs.getString("image_provider","ChatGPT") ?: "ChatGPT"
@@ -2772,7 +2777,7 @@ class StudioActivity : AppCompatActivity() {
         val index = scenes.indexOfFirst { key(it) == key(scene) }
         val group = scene.optString("continuity_group")
         val previous = if (group.isBlank()) null else scenes.take(index).lastOrNull {
-            it.optString("continuity_group") == group && image(it).exists()
+            it.optString("continuity_group") == group && it.optString("story_day")==scene.optString("story_day") && it.optString("location").trim().equals(scene.optString("location").trim(),true) && sceneFrameApproved(it)
         }
         val references = previous?.let { listOf(key(it) to image(it)) } ?: emptyList()
         val masterRefs = if(cast != null) (0 until cast.length()).map { cast.getJSONObject(it) }.map { person ->
@@ -2784,9 +2789,10 @@ class StudioActivity : AppCompatActivity() {
         val outfits=FlowReferencePrompt.people(scene).mapNotNull { person ->
             castOutfit(person).attachment(project)?.let { Triple(it.first,it.second,person.optString("name")) }
         }
-        if(masterRefs.size+outfits.size+references.size>9) { notice("ภาพอ้างอิงเกิน 9 ภาพ กรุณาใช้เมนูคำสั่งภาพเพื่อจัดรายการ"); return }
+        if(masterRefs.size+outfits.size>9) { notice("MASTER และชุดที่ยืนยันเกิน 9 ภาพ กรุณาแบ่งรายการ"); return }
+        val safeReferences=references.take(9-masterRefs.size-outfits.size)
         val guide=outfits.mapIndexed { i,entry -> "Reference image ${masterRefs.size+i+1}: approved wardrobe only for ${entry.third}. Preserve pockets, cuffs, buttons, pattern and accessories. Original MASTER controls identity." }.joinToString("\n")
-        shareImageCommand(storySceneCommand(p,scene)+appearanceGuide(FlowReferencePrompt.people(scene))+CharacterContinuity.guide(FlowReferencePrompt.people(scene))+"\n"+guide,masterRefs+outfits.map { it.first to it.second }+references)
+        shareImageCommand(storySceneCommand(p,scene)+appearanceGuide(FlowReferencePrompt.people(scene))+CharacterContinuity.guide(FlowReferencePrompt.people(scene))+"\n"+guide,masterRefs+outfits.map { it.first to it.second }+safeReferences)
     }
     private fun wholeStoryCommands() {
         val p = plan ?: return notice("นำเข้าแผนเรื่องก่อนครับ")
@@ -3598,6 +3604,7 @@ $context"""
                 if(verifiedFlowFile(ep.optInt("ep"))) ep.optJSONArray("scenes")?.length() ?: 0 else 0
             },allFlowScenes.size,ai && flowAiBatchRunning && flowBatchProject==project.name)
         },{ ai -> listOf(
+            Triple("ตรวจความพร้อมการผลิต",Color.rgb(181,102,0) to Color.rgb(104,47,0),{ characterQualityMenu(story) }),
             Triple("📄 ดูคำสั่ง Flow สร้างวิดีโอ",Color.rgb(0,133,220) to Color.rgb(5,55,120),{ if(ai) viewAi() else viewKotlin() }),
             Triple("✨ ประมวลผลคำสั่ง Flow",Color.rgb(171,52,185) to Color.rgb(77,28,130),{ pendingMenuBack=null; if(ai) startFlowAiBatch(allFlowScenes,direct=true) else autoFlowAllEpisodes(story) }),
             Triple("⚙ ตั้งค่า API",Color.rgb(0,133,132) to Color.rgb(4,66,80),{ flowApiSettings() }),
@@ -3714,6 +3721,7 @@ $context"""
         promptDashboard(story,"🎬 สร้างภาพ",modeKey,false,{ imageDashboard(story) },{ ai ->
             Triple(if(ai) verifiedImagePromptCount(entries) else entries.count { it.second.command.isNotBlank() },entries.size,ai && aiPromptRunning && imageBatchProject==project.name)
         },{ ai -> listOf(
+            Triple("ตรวจความพร้อมการผลิต",Color.rgb(181,102,0) to Color.rgb(104,47,0),{ characterQualityMenu(story) }),
             Triple("🎭 Character Studio • "+castingStatus(story),Color.rgb(114,46,171) to Color.rgb(51,24,96),{ characterStudioMenu(story) }),
             Triple("📄 ดูคำสั่งสร้างภาพ",Color.rgb(0,133,220) to Color.rgb(5,55,120),{ prefs.edit().putBoolean(modeKey,ai).apply(); view(ai) }),
             Triple("✨ ประมวลผลคำสั่งสร้างภาพ",Color.rgb(171,52,185) to Color.rgb(77,28,130),{ prefs.edit().putBoolean(modeKey,ai).apply(); pendingMenuBack=null; if(ai) refineImagePromptsAll(story) else processKotlin() }),
@@ -5049,18 +5057,53 @@ $context"""
         }
     }
 
+    private fun characterQualityReport(story: JSONObject): CharacterQualityGate.Report {
+        val people = rows(story).flatMap { FlowReferencePrompt.people(it) }
+        val actors = people.distinctBy { referenceId(it.optString("master")).ifBlank { it.optString("name") } }
+        val outfits = castingPeople(story)
+        val missingMasters = actors.filter { it.optString("master").isBlank() || !masterFor(it).isFile }
+        val missingOutfits = outfits.filter { castOutfit(it).attachment(project)==null }
+        val missingDescriptions = people.filter { it.optString("outfit").isBlank() }
+        val continuity = CharacterContinuity.issues(CharacterContinuity.beats(story))
+        val commands = runCatching { allImagePromptEntries(story) }
+        val tasks = commands.getOrDefault(emptyList())
+        val blockers = missingMasters.map { "MASTER: "+it.optString("name") } +
+            missingDescriptions.map { "ยังไม่ระบุชุด: "+it.optString("name") }.distinct() +
+            listOfNotNull(commands.exceptionOrNull()?.let { "ตรวจคำสั่งภาพไม่ได้: "+(it.message ?: "ข้อมูลไม่ครบ") })
+        val warnings = missingOutfits.map { "รอยืนยันชุด: "+it.optString("name")+" • "+it.optString("outfit") } + continuity
+        return CharacterQualityGate.Report(listOf(
+            CharacterQualityGate.Check("MASTER",actors.size-missingMasters.size,actors.size),
+            CharacterQualityGate.Check("ภาพชุดที่ยืนยัน",outfits.size-missingOutfits.size,outfits.size),
+            CharacterQualityGate.Check("รายละเอียดชุดรายฉาก",people.size-missingDescriptions.size,people.size),
+            CharacterQualityGate.Check("คำสั่งภาพปกและฉาก",tasks.count { it.second.command.isNotBlank() },tasks.size)
+        ),blockers,warnings)
+    }
+
+    private fun characterQualityMenu(story: JSONObject) {
+        val report = characterQualityReport(story)
+        choiceMenu("ตรวจความพร้อมการผลิต",listOf("ดูผลตรวจทั้งหมด","จัดการ Casting และชุด","ตรวจ Timeline","ตรวจบทและคำสั่ง Flow")) { selected ->
+            when(selected) {
+                0 -> notice(report.summary())
+                1 -> castOutfitMenu(story)
+                2 -> characterTimelineMenu(story)
+                else -> productionCheckMenu(story)
+            }
+        }
+    }
+
     private fun characterStudioMenu(story: JSONObject) {
         val people = castingPeople(story)
         val missing = rows(story).flatMap { FlowReferencePrompt.people(it) }
             .filter { it.optString("master").isBlank() || !masterFor(it).isFile }
             .map { it.optString("name") }.distinct()
         val title = "Character Studio • จัดการตัวละคร\n${castingStatus(story)}\nMASTER ที่ขาด: ${missing.size} คน"
-        choiceMenu(title,listOf("🎭 Casting นักแสดงและเครื่องแต่งกาย","ตรวจและแก้ไขชุดในบท","ตรวจรายการ MASTER ที่ขาด","ตั้งค่าล็อกตัวละคร","Timeline และตรวจความต่อเนื่อง")) { selected ->
+        choiceMenu(title,listOf("🎭 Casting นักแสดงและเครื่องแต่งกาย","ตรวจและแก้ไขชุดในบท","ตรวจรายการ MASTER ที่ขาด","ตั้งค่าล็อกตัวละคร","Timeline และตรวจความต่อเนื่อง","ตรวจความพร้อมการผลิต")) { selected ->
             when(selected) {
                 0 -> castOutfitMenu(story)
                 1 -> wardrobeMenu(story)
                 3 -> appearanceLockMenu(story)
                 4 -> characterTimelineMenu(story)
+                5 -> characterQualityMenu(story)
                 else -> notice(if(missing.isEmpty()) "ไม่พบ MASTER ที่ขาดจากรายการในบท" else missing.joinToString("\n"))
             }
         }
