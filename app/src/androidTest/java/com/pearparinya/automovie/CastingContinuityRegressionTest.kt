@@ -117,4 +117,17 @@ class CastingContinuityRegressionTest {
         assertTrue(CharacterContinuity.issues(listOf(first, second.copy(locationChange = true))).isEmpty())
         assertTrue(CharacterContinuity.issues(listOf(first, second.copy(group = "new"))).isEmpty())
     }
+    @Test fun stateTransitionsAndFlashbackLightingAcrossStorySizes() {
+        for (count in listOf(8, 20, 50, 100)) {
+            val first = CharacterContinuity.Beat("SC001", "Actor", "MASTER", "1", "18:30",
+                "Home", "Outfit", "dry", "dry", "group", false, false)
+            val beats = List(count) { first.copy(scene = "SC"+(it+1)) }
+            assertTrue(CharacterContinuity.issues(beats).isEmpty())
+            val changed = beats.last().copy(state = "wet")
+            assertTrue(CharacterContinuity.issues(beats.dropLast(1)+changed).any { it.contains("สถานะต้นฉาก") })
+            assertTrue(CharacterContinuity.issues(beats.dropLast(1)+changed.copy(stateChange = true)).isEmpty())
+        }
+        val prior = scene("dusk").put("flashback", true)
+        assertEquals("daylight", CharacterContinuity.imageLighting(prior, scene("daylight", "18:31")))
+    }
 }
