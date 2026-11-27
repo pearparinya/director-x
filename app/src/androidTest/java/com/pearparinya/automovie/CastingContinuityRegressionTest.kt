@@ -101,4 +101,12 @@ class CastingContinuityRegressionTest {
             folder.deleteRecursively()
         }
     }
+    @Test fun numericStoryDaysCannotReverseUnlessFlashback() {
+        val first = CharacterContinuity.Beat("SC001", "Actor", "MASTER", "3", "18:30",
+            "Home", "Outfit", "", "", "group", false, false)
+        val second = first.copy(scene = "SC002", day = "2")
+        assertTrue(CharacterContinuity.issues(listOf(first, second)).any { it.contains("flashback") })
+        assertTrue(CharacterContinuity.issues(listOf(first, second.copy(flashback = true))).isEmpty())
+        assertTrue(CharacterContinuity.issues(listOf(first, second.copy(day = "4"))).isEmpty())
+    }
 }
