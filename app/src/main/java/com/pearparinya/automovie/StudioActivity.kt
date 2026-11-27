@@ -8389,7 +8389,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         dialog.setOnDismissListener {
             backCallback.remove()
             // Restore only after the old dialog has been dismissed, so its window cannot steal focus.
-            panel.post { restoreParent() }
+            window.decorView.post { restoreParent() }
         }
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         dialog.show()
