@@ -8316,13 +8316,21 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
             override fun handleOnBackPressed() { dialog.cancel() }
         }
         dialog.onBackPressedDispatcher.addCallback(backCallback)
+        dialog.setOnCancelListener { restoreParent() }
         dialog.setOnDismissListener {
             backCallback.remove()
             restoreParent()
         }
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         dialog.show()
+        edit.clearFocus()
         panel.requestFocus()
+        dialog.setOnKeyListener { _, keyCode, event ->
+            if(keyCode == android.view.KeyEvent.KEYCODE_BACK) {
+                if(event.action == android.view.KeyEvent.ACTION_UP && !event.isCanceled) dialog.cancel()
+                true
+            } else false
+        }
         dialog.getButton(-2).setOnClickListener { dialog.cancel() }
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         dialog.getButton(-1).setOnClickListener {
