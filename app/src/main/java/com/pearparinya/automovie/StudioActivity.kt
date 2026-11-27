@@ -5074,7 +5074,7 @@ $context"""
         val blockers = missingMasters.map { "MASTER: "+it.optString("name") } +
             missingDescriptions.map { "ยังไม่ระบุชุด: "+it.optString("name") }.distinct() +
             listOfNotNull(commands.exceptionOrNull()?.let { "ตรวจคำสั่งภาพไม่ได้: "+(it.message ?: "ข้อมูลไม่ครบ") })
-        val warnings = missingOutfits.map { "รอยืนยันชุด: "+it.optString("name")+" • "+it.optString("outfit") } + continuity
+        val warnings = missingOutfits.map { "รอยืนยันชุด: "+it.optString("name")+" • "+it.optString("outfit") } + continuity + WholeStoryQualityGate.warnings(story)
         return CharacterQualityGate.Report(listOf(
             CharacterQualityGate.Check("MASTER",actors.size-missingMasters.size,actors.size),
             CharacterQualityGate.Check("ภาพชุดที่ยืนยัน",outfits.size-missingOutfits.size,outfits.size),
