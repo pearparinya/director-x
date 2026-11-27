@@ -59,6 +59,10 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                     problem=IllegalArgumentException("ซ่อมบทต้องส่งกลับเฉพาะซีน $sceneNumber")
                     continue
                 }
+                if (!SceneRepairGuard.preservesCast(rows.getJSONObject(target), replacement.getJSONObject(0))) {
+                    // Identity or wardrobe corrections require explicit review, not silent replacement.
+                    throw IllegalArgumentException("ซีน $sceneNumber: ผลซ่อมบทเปลี่ยนตัวละคร MASTER หรือชุด ต้องตรวจสอบก่อน")
+                }
                 // Preserve the pre-repair batch before replacing any scene.
                 val backup = File(folder, name + ".repair-original.json")
                 if (!backup.exists()) GeminiStoryFiles.write(backup, value)
