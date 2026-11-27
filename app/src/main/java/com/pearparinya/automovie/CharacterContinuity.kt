@@ -6,7 +6,8 @@ import java.util.Locale
 internal object CharacterContinuity {
     data class Beat(val scene: String, val actor: String, val master: String, val day: String, val time: String,
         val location: String, val outfit: String, val state: String, val endState: String, val group: String,
-        val change: Boolean, val flashback: Boolean, val lighting: String = "", val lightingChange: Boolean = false)
+        val change: Boolean, val flashback: Boolean, val lighting: String = "", val lightingChange: Boolean = false,
+        val locationChange: Boolean = false)
     private fun norm(s: String) = s.trim().lowercase(Locale.ROOT)
     private fun clock(s: String): Int? {
         val m = Regex("^([01]?\\d|2[0-3])[:.]([0-5]\\d)(?:\\s*น\\.)?$").matchEntire(s.trim()) ?: return null
@@ -25,7 +26,7 @@ internal object CharacterContinuity {
                     add(Beat("EP${ep.optInt("ep")} SC${s.optInt("scene")}",a.optString("name"),a.optString("master"),
                         s.optString("story_day"),s.optString("story_time"),s.optString("location"),a.optString("outfit"),
                         a.optString("character_state"),a.optString("character_end_state"),s.optString("continuity_group"),
-                        a.optBoolean("wardrobe_change"),s.optBoolean("flashback"),s.optString("lighting"),s.optBoolean("lighting_change")))
+                        a.optBoolean("wardrobe_change"),s.optBoolean("flashback"),s.optString("lighting"),s.optBoolean("lighting_change"),s.optBoolean("location_change")))
                 }
             }
         }
@@ -45,6 +46,9 @@ internal object CharacterContinuity {
             if (p != null && b.day.isNotBlank() && norm(b.day)==norm(p.day)) {
                 val now = clock(b.time); val before = clock(p.time)
                 if (now!=null && before!=null && now<before) add("${b.scene} ${b.actor}: เวลาย้อนจาก ${p.scene}")
+                if (b.group.isNotBlank() && b.group==p.group && b.location.isNotBlank() &&
+                    p.location.isNotBlank() && norm(b.location)!=norm(p.location) && !b.locationChange)
+                    add("${b.scene} ${b.actor}: สถานที่เปลี่ยนในกลุ่มฉากต่อเนื่องโดยไม่ระบุ location_change")
                 if (b.outfit.isNotBlank() && p.outfit.isNotBlank() && norm(b.outfit)!=norm(p.outfit) && !b.change)
                     add("${b.scene} ${b.actor}: ชุดเปลี่ยนโดยไม่ระบุ wardrobe_change")
                 if (b.group.isNotBlank() && b.group==p.group && norm(b.location)==norm(p.location) &&
