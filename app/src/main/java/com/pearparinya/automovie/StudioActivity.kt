@@ -5112,7 +5112,6 @@ $context"""
     private fun castOutfitMenu(story: JSONObject) {
         val folder = project
         val people = castingPeople(story)
-        if (people.isEmpty()) { notice("ยังไม่มีรายการนักแสดงพร้อมชุดในบท"); return }
         val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
         val dialog = AlertDialog.Builder(this).setTitle("นักแสดงและชุด")
             .setView(ScrollView(this).apply { addView(panel) }).setNegativeButton("ปิด",null).create()
@@ -5129,6 +5128,25 @@ $context"""
                 }
             }
             shareImageCommand(command, refs, masters.associate { referenceId(it.optString("master")) to it.optString("name") }, wardrobeBatch=true)
+        }
+        val registered = FlowCast.definitions(story)
+        val sceneActors = rows(story).flatMap { scene ->
+            val actors = scene.optJSONArray("characters") ?: JSONArray()
+            (0 until actors.length()).mapNotNull { actors.optJSONObject(it) }
+        }
+        val unresolved = (registered + sceneActors).distinctBy {
+            it.optString("name").trim() + "|" + it.optString("master").trim()
+        }.filter { actor ->
+            actor.optString("name").isNotBlank() && people.none {
+                it.optString("name") == actor.optString("name") &&
+                    it.optString("master") == actor.optString("master")
+            }
+        }
+        unresolved.forEach { actor ->
+            panel.addView(TextView(this).apply {
+                text = actor.optString("name") + " • " +
+                    if (actor.optString("master").isBlank()) "ขาด MASTER" else "ยังไม่มีชุดที่ระบุในฉาก"
+            })
         }
         val missing = people.filter { castOutfit(it).attachment(folder) == null }
         missing.chunked(9).forEachIndexed { index, batch ->
