@@ -6595,7 +6595,7 @@ $context"""
                 .setView(panel)
                 .setPositiveButton("ย่อหน้าต่าง",null).setNeutralButton("หยุดงาน") { _,_ ->
                     if(project.name==jobProject && GeminiStoryService.running && GeminiStoryService.projectId==jobProject)
-                        startService(Intent(this,GeminiStoryService::class.java).setAction(GeminiStoryService.CANCEL))
+                        startService(Intent(this,GeminiStoryService::class.java).setAction(GeminiStoryService.CANCEL).putExtra("project",jobProject))
                     else notice("งานเปลี่ยนแล้ว กรุณาเปิดรายละเอียดใหม่")
                 }
                 .setNegativeButton("ปิด",null).showNavigationDirector()
