@@ -7764,6 +7764,8 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                         notice("ไม่พบภาพ MASTER ที่ตรวจสอบได้ กรุณาเพิ่มหรือตรวจคลังตัวละคร"); return@setOnClickListener
                     }
                     val pinned=selectedActors.toSet()
+                    val ensemble=ChannelCatalog.personalCategories.none { it.label==categories[index] || it.name==categories[index] }
+                    if(ensemble && catalog.length()<StoryCastPolicy.minimum) { if(automatic) autoRunning=false; notice("คลัง MASTER ต้องมีตัวละครอย่างน้อย 2 ตัวสำหรับละคร"); return@setOnClickListener }
                     if(!castUseAi) {
                         val result=runCatching { AutoCast.kotlinProposal(catalog,selectedStoryTopic+" "+premise.text.toString(),pinned,categories[index]) }
                         autoRunning=false
@@ -7797,10 +7799,12 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                                 val client=StoryClientFactory.create(provider,provider.key(this@StudioActivity),provider.model(this@StudioActivity),{ stopped.get() },automaticRetry=false,context=this@StudioActivity)
                                 client.useProposalTimeouts()
                                 active.set(client)
-                                val prompt="Suggest a cast for this Thai story. Channel: $channel; category: $category; situation: $situation; details: $detail. Return a nonempty story_concept and cast. For each actor use library_id from the catalog id field, a unique name and a nonempty role. Omit english_name unless it is a unique single English name. Suggest only characters suitable for the story, with a short proposed role in Thai. Do not infer occupation or identity from a face; roles are fictional suggestions for user review. Use as many as needed, from 1 to 8. "+(if(channel=="นายเปีย บ้านคลองขุด") "Include $piaActorId as central protagonist and suitable supporting roles. " else "")+AutoCast.storyCastingBrief()+"Catalog: "+AutoCast.promptCatalog(AutoCast.storyCatalog(catalog, situation+" "+detail, pinned,category)).toString()
+                                val prompt="Suggest a cast for this Thai story. Channel: $channel; category: $category; situation: $situation; details: $detail. Return a nonempty story_concept and cast. For each actor use library_id from the catalog id field, a unique name and a nonempty role. Omit english_name unless it is a unique single English name. Suggest only characters suitable for the story, with a short proposed role in Thai. Do not infer occupation or identity from a face; roles are fictional suggestions for user review. Use as many as needed, from 1 to 8. "+(if(ensemble) StoryCastPolicy.direction+" " else "")+(if(channel=="นายเปีย บ้านคลองขุด") "Include $piaActorId as central protagonist and suitable supporting roles. " else "")+AutoCast.storyCastingBrief()+"Catalog: "+AutoCast.promptCatalog(AutoCast.storyCatalog(catalog, situation+" "+detail, pinned,category)).toString()
                                 val presenterId=if(channel=="นายเปีย บ้านคลองขุด") piaActorId else ""
                                 AutoCast.propose(prompt,catalog,presenterId,{ stopped.get() },pinned,detail) { request ->
-                                    client.generate(request,AutoCast.schema())
+                                    client.generate(request,AutoCast.schema()).also { response ->
+                                        if(ensemble) { val cast=response.getJSONArray("cast"); StoryCastPolicy.requireCast((0 until cast.length()).map { cast.getJSONObject(it).getString("library_id") }) }
+                                    }
                                 }
                             }.onFailure {
                                 val reason=if(it is AutoCast.ProposalError) it.message else "ไม่ได้รับคำตอบที่อ่านได้จาก API"
@@ -7820,7 +7824,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                                     .setMessage(failures.joinToString("\n"))
                                     .setNeutralButton("เลือกจากคลัง MASTER") { _,_ -> castButton.performClick() }
                                     .setNegativeButton("กลับ",null)
-                                if(channel=="นายเปีย บ้านคลองขุด" && presenter.selectedItemPosition>0) {
+                                if(!ensemble && channel=="นายเปีย บ้านคลองขุด" && presenter.selectedItemPosition>0) {
                                     val key=piaStoryMasterOverride ?: prefs.getString(piaChannelMasterKey,"original").orEmpty()
                                     val label=when(key) {
                                         "original" -> "MASTER ประจำช่อง"
