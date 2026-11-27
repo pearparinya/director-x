@@ -100,7 +100,7 @@ For each listed character, use only their own attached MASTER for their identity
         val selected=if(overall) (0 until eps.length()).map { eps.getJSONObject(it) } else listOf(episode(story,number))
         return selected.flatMap { people(it) }.distinctBy { referenceId(it.getString("master")).lowercase() }
     }
-    internal fun selectCoverCast(candidates: List<JSONObject>, chosen: Set<String>?, ensemble: Boolean): List<JSONObject> {
+    fun selectCoverCast(candidates: List<JSONObject>, chosen: Set<String>?, ensemble: Boolean): List<JSONObject> {
         if (chosen == null) return if (ensemble && candidates.size < StoryCastPolicy.minimum) emptyList() else candidates.take(4)
         val picked = candidates.filter { referenceId(it.getString("master")) in chosen }
         require(picked.isNotEmpty() && picked.size == chosen.size && picked.size <= 9) {
