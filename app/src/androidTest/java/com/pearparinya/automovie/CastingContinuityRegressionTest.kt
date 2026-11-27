@@ -15,6 +15,16 @@ class CastingContinuityRegressionTest {
         .put("location", "หน้าบ้าน").put("continuity_group", "dusk")
         .put("lighting", light)
 
+    @Test fun ensemblePosterUsesOnlySceneMastersAndHonorsSavedChoice() {
+        val cast = listOf("A", "B", "C").map { JSONObject().put("master", "$it.png") }
+        assertEquals(listOf(cast[2], cast[0]), SimpleProductionCommands.selectCoverCast(cast, setOf("C"), true))
+        assertTrue(SimpleProductionCommands.selectCoverCast(cast.take(1), null, true).isEmpty())
+        assertThrows(IllegalArgumentException::class.java) {
+            SimpleProductionCommands.selectCoverCast(cast, setOf("A", "unknown"), true)
+        }
+        assertEquals(cast.take(1), SimpleProductionCommands.selectCoverCast(cast, setOf("A"), false))
+    }
+
     @Test fun immediateDuskAndExplicitChange() {
         val first = scene("dusk")
         val second = scene("daylight", "18:31")

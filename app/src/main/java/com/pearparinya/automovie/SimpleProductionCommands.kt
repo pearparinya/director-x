@@ -100,6 +100,17 @@ For each listed character, use only their own attached MASTER for their identity
         val selected=if(overall) (0 until eps.length()).map { eps.getJSONObject(it) } else listOf(episode(story,number))
         return selected.flatMap { people(it) }.distinctBy { referenceId(it.getString("master")).lowercase() }
     }
+    internal fun selectCoverCast(candidates: List<JSONObject>, chosen: Set<String>?, ensemble: Boolean): List<JSONObject> {
+        if (chosen == null) return if (ensemble && candidates.size < StoryCastPolicy.minimum) emptyList() else candidates.take(4)
+        val picked = candidates.filter { referenceId(it.getString("master")) in chosen }
+        require(picked.isNotEmpty() && picked.size == chosen.size && picked.size <= 9) {
+            "ตัวละครปกเปลี่ยนหรือเกิน 9 ภาพ กรุณาเลือกรายการปกใหม่"
+        }
+        if (!ensemble || picked.size >= StoryCastPolicy.minimum) return picked
+        val partner = candidates.firstOrNull { referenceId(it.getString("master")) !in chosen } ?: return emptyList()
+        return picked + partner
+    }
+
     fun imageTasks(story: JSONObject,number: Int,coverSelection: Map<String,Set<String>> = emptyMap()): List<Task> = buildList {
         LandscapeProduction.requirePlan(story)
         val ep=episode(story,number); val rows=ep.getJSONArray("scenes"); val single=story.getJSONArray("episodes").length()==1
@@ -108,13 +119,8 @@ For each listed character, use only their own attached MASTER for their identity
             val id="${scope}_COVER_${ratio.replace(':','x')}"
             val label=if(overall) (if(single) "ปกเรื่อง" else "ปกรวมทั้งเรื่อง") else "ปก EP.$number"
             val candidates=coverCandidates(story,number,overall)
-            if (story.has("visible_cast_count") && candidates.size < StoryCastPolicy.minimum) return
-            val chosen=coverSelection[scope]
-            val selected=if(chosen==null || (story.has("visible_cast_count") && chosen.size == 1 && candidates.any { referenceId(it.getString("master")) in chosen })) candidates.sortedByDescending { chosen?.contains(referenceId(it.getString("master"))) == true }.take(4) else candidates.filter { referenceId(it.getString("master")) in chosen }
-            if (story.has("visible_cast_count") && selected.size < StoryCastPolicy.minimum) {
-                return
-            }
-            if(chosen!=null) require(selected.isNotEmpty() && selected.size<=9 && (selected.size==chosen.size || (story.has("visible_cast_count") && chosen.size==1))) { "ตัวละครปกเปลี่ยนหรือเกิน 9 ภาพ กรุณาเลือกรายการปกใหม่" }
+            val selected = selectCoverCast(candidates, coverSelection[scope], story.has("visible_cast_count"))
+            if (selected.isEmpty()) return
             val posterContext=(if(overall) (0 until story.getJSONArray("episodes").length()).map { story.getJSONArray("episodes").getJSONObject(it) } else listOf(ep))
                 .map { listOf(it.optString("synopsis"),it.optString("cover_incident")).filter(String::isNotBlank).joinToString(" • ") }.filter(String::isNotBlank).joinToString(" | ").take(1500)
             val text=listOf(ChannelCatalog.currentChannel(story.getString("channel")),story.getString("title"),if(overall) story.getString("tagline") else "ตอนที่ $number ${ep.getString("title")}")
