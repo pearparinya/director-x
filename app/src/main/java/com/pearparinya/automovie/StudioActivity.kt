@@ -8401,23 +8401,22 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         val backCallback=object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { dialog.cancel() }
         }
-        dialog.onBackPressedDispatcher.addCallback(backCallback)
         dialog.setOnDismissListener {
             backCallback.remove()
             // Restore only after the old dialog has been dismissed, so its window cannot steal focus.
-            window.decorView.post { restoreParent() }
+            android.os.Handler(android.os.Looper.getMainLooper()).post { restoreParent() }
         }
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         dialog.show()
+        dialog.onBackPressedDispatcher.addCallback(backCallback)
+        dialog.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM)
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN or android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         edit.clearFocus()
         panel.requestFocus()
-        edit.setOnTouchListener { _, _ -> edit.showSoftInputOnFocus=true; false }
-        dialog.setOnKeyListener { _, keyCode, event ->
-            if(keyCode == android.view.KeyEvent.KEYCODE_BACK) {
-                if(event.action == android.view.KeyEvent.ACTION_UP && !event.isCanceled) dialog.cancel()
-                true
-            } else false
+        edit.setOnTouchListener { _, _ ->
+            dialog.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM)
+            edit.showSoftInputOnFocus=true
+            false
         }
         dialog.getButton(-2).setOnClickListener { dialog.cancel() }
         dialog.getButton(-1).setOnClickListener {
