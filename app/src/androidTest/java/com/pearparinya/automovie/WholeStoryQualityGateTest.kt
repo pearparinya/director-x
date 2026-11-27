@@ -21,4 +21,14 @@ class WholeStoryQualityGateTest {
             assertFalse(WholeStoryQualityGate.issues(story,2,size).isEmpty())
         }
     }
+    @org.junit.Test fun repeatedDialogueAcrossEpisodesIsAdvisoryAndDoesNotMutateStory() {
+        val dialogue = "This is a deliberately long dialogue repeated across separate episodes."
+        fun episode(text: String) = org.json.JSONObject().put("scenes", org.json.JSONArray().put(org.json.JSONObject().put("dialogue", text)))
+        val story = org.json.JSONObject().put("episodes", org.json.JSONArray().put(episode(dialogue)).put(episode(dialogue)).put(episode("short")))
+        val original = story.toString()
+        val warnings = WholeStoryQualityGate.warnings(story)
+        org.junit.Assert.assertEquals(1, warnings.size)
+        org.junit.Assert.assertTrue(warnings.single().contains("EP 2"))
+        org.junit.Assert.assertEquals(original, story.toString())
+    }
 }
