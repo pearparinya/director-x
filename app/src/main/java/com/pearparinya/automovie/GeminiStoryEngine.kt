@@ -204,6 +204,18 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         val eps=outline.getJSONArray("episodes"); val output=JSONArray(); var completed=0
         val recoveryFile=File(folder,"batch_recovery.json")
         var smallerBatches=recoveryFile.isFile && runCatching { GeminiStoryFiles.read(recoveryFile).optBoolean("single_scene") }.getOrDefault(false)
+        val mastersByName = FlowCast.definitions(spec).associate { it.getString("name") to it.getString("master") }
+        fun visibleMasters(rows: JSONArray): Set<String> {
+            val visible = mutableSetOf<String>()
+            for (index in 0 until rows.length()) {
+                val actors = rows.getJSONObject(index).optJSONArray("characters") ?: continue
+                for (actor in 0 until actors.length()) {
+                    mastersByName[actors.optJSONObject(actor)?.optString("name")?.trim()]?.let { visible.add(it) }
+                }
+            }
+            return visible
+        }
+        val completedMasters = mutableSetOf<String>()
         for(i in 0 until eps.length()) {
             val planned=eps.getJSONObject(i); val scenes=JSONArray()
             val returning = StoryContinuityLedger.returningCast(output, support,
@@ -309,6 +321,9 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                             }
                         }
                     }
+                    if (spec.optInt("story_cast_policy") == 1 && i == eps.length()-1 && start+size-1 == sceneCount) {
+                        StoryCastPolicy.requireCast(completedMasters + visibleMasters(nameRows))
+                    }
                     checkDialogue(it.getJSONArray("scenes"),i+1,priorDialogue.toMutableMap())
                 } } catch(e: StoryBatchTooLarge) {
                     if(size<=1 || cachedFile.isFile) throw e
@@ -341,6 +356,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                     for(field in listOf("image_prompt","flow_prompt")) scene.put(field,LandscapeProduction.reframeText(scene.getString(field)))
                     scenes.put(scene)
                 }
+                if (spec.optInt("story_cast_policy") == 1) completedMasters.addAll(visibleMasters(rows))
                 completed+=size; start+=size
                 lastPercent=(completed*100/(eps.length()*sceneCount)).coerceAtMost(99)
                 progress(lastPercent,"บันทึกแล้ว $completed/${eps.length()*sceneCount} ซีน • ทำต่อช่วงถัดไป")
@@ -359,18 +375,9 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         val spoken=linkedMapOf<String,String>()
         for(i in 0 until output.length()) checkDialogue(output.getJSONObject(i).getJSONArray("scenes"),i+1,spoken)
         if(spec.optInt("story_cast_policy")==1) {
-            val mastersByName = FlowCast.definitions(spec).associate { it.getString("name") to it.getString("master") }
-            val visible=linkedSetOf<String>()
-            for(i in 0 until output.length()) {
-                val scenes=output.getJSONObject(i).getJSONArray("scenes")
-                for(j in 0 until scenes.length()) {
-                    val actors=scenes.getJSONObject(j).optJSONArray("characters") ?: JSONArray()
-                    for(k in 0 until actors.length()) actors.optJSONObject(k)?.optString("name")?.trim()?.takeIf { it.isNotBlank() }?.let { name -> mastersByName[name]?.let { visible.add(it) } }
-                }
-            }
-            StoryCastPolicy.requireCast(visible)
+            StoryCastPolicy.requireCast(completedMasters)
             story.put("cast_size_recommendation",StoryCastPolicy.sizingGuide(output.length()*sceneCount))
-            story.put("visible_cast_count",visible.size)
+            story.put("visible_cast_count",completedMasters.size)
         }
         progress(100,"ตรวจบทครบแล้ว พร้อมส่งออก Flow")
         return story
