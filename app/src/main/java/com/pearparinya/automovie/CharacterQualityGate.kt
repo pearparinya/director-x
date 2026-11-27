@@ -4,6 +4,10 @@ internal object CharacterQualityGate {
     fun referenceIssues(required: List<Pair<String,String>>, actual: List<Pair<String,String>>): List<String> = buildList {
         if(actual.size > 9) add("ภาพอ้างอิงเกิน 9 ภาพ")
         if(actual.map { it.first }.distinct().size != actual.size) add("รหัสภาพอ้างอิงซ้ำ")
+        if(required.size > 9) add("จำนวนภาพอ้างอิงที่จำเป็นเกินขีดจำกัด 9 ภาพ")
+        if(required.groupBy { it.first }.any { (_, refs) -> refs.map { it.second }.distinct().size > 1 })
+            add("รหัสภาพอ้างอิงที่จำเป็นผูกกับหลายไฟล์")
+        if(actual.any { it.first.isBlank() || it.second.isBlank() }) add("รหัสหรือเส้นทางภาพอ้างอิงว่าง")
         required.forEach { ref ->
             if(ref !in actual) add("ขาดภาพอ้างอิงที่ตรงกับต้นฉบับ: "+ref.first)
         }
