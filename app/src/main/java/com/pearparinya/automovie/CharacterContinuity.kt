@@ -52,6 +52,21 @@ internal object CharacterContinuity {
             previous[id]=b
         }
     }
+    fun imageLighting(previous: JSONObject?, current: JSONObject): String {
+        val own = current.optString("lighting")
+        if (previous == null || current.optBoolean("flashback") || current.optBoolean("lighting_change")) return own
+        val group = current.optString("continuity_group")
+        val day = current.optString("story_day")
+        val location = current.optString("location")
+        if (group.isBlank() || day.isBlank() || location.isBlank() ||
+            group != previous.optString("continuity_group") ||
+            norm(day) != norm(previous.optString("story_day")) ||
+            norm(location) != norm(previous.optString("location"))) return own
+        val before = clock(previous.optString("story_time"))
+        val now = clock(current.optString("story_time"))
+        if (before == null || now == null || now - before !in 0..2) return own
+        return previous.optString("lighting").ifBlank { own }
+    }
     fun guide(people: List<JSONObject>): String = people.mapNotNull { p ->
         val state = p.optString("character_state").trim()
         if (state.isBlank()) null else p.optString("name")+": "+state
