@@ -129,7 +129,7 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
         for(actor in identityDefinitions) {
             actor.put("character_id",CharacterAliasRegistry.identityId(actor.getString("name"),actor.getString("master")))
         }
-        val identityRegistry=JSONArray().apply { identityDefinitions.forEach { actor -> put(JSONObject().put("name",actor.getString("name")).put("master",actor.getString("master")).put("character_id",actor.getString("character_id"))) } }
+        val identityRegistry = FlowCast.storyRegistry(identityDefinitions)
         GeminiStoryFiles.write(File(folder,"character_identities.json"),JSONObject().put("entries",identityRegistry))
         GeminiStoryFiles.write(File(folder,"spec.json"),spec)
         require(FlowCast.issues(JSONObject().put("supporting_characters",support)).isEmpty()) { "ข้อมูลตัวละครเสริมไม่ถูกต้อง" }
@@ -152,11 +152,7 @@ Never fill unused fields with descriptions, "none", "ไม่มี", "N/A", or
         """.trimIndent()
         val factual=ChannelCatalog.personalCategories.any { it.label==category || it.name==category }
         onCompactRules(speechRules, "Use exactly one audio mode. Preserve exact Thai lines, canonical speakers and ordered dialogue_turns within eight seconds. For exchanges leave speaker/dialogue/narration empty. Narration is external with visible mouths closed. Silent scenes have empty speech fields. Match flow_prompt to the same speech mode and words.")
-        val roster=JSONArray().apply {
-            FlowCast.definitions(spec).forEach { actor ->
-                put(JSONObject().put("name",actor.getString("name")).put("master",actor.getString("master")).put("character_id",CharacterAliasRegistry.identityId(actor.getString("name"),actor.getString("master"))))
-            }
-        }
+        val roster = identityRegistry
         val base="""
 ${SceneRealism.direction} ${SceneRealism.planning}
 ${if(spec.optInt("story_cast_policy")==1) StoryCastPolicy.direction else ""}

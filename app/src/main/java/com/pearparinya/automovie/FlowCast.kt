@@ -9,6 +9,19 @@ internal object FlowCast {
     fun id(person: JSONObject): String? = person.optString("master").takeIf { supportingMaster.matches(it) }?.substringBeforeLast('.')?.replace(Regex("_MASTER$",RegexOption.IGNORE_CASE),"")?.lowercase() ?: StoryIdentity.keyFor(person.optString("name"))
     fun supporting(plan: JSONObject?): List<JSONObject> = plan?.optJSONArray("supporting_characters")?.let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.orEmpty()
     fun definitions(plan: JSONObject?): List<JSONObject> = (if(supporting(plan).isNotEmpty() && supporting(plan).all { it.optBoolean("auto_cast") }) emptyList() else FlowProductionPack.names.map { (id,name) -> JSONObject().put("name",name).put("master","${id.uppercase()}_MASTER.png").put("visual_description",plan?.optJSONObject("lead_references")?.optJSONObject(id)?.optString("visual_description")?.takeIf { it.isNotBlank() } ?: FlowProductionPack.dna.getValue(id)) })+supporting(plan)
+    fun storyRegistry(actors: List<JSONObject>): JSONArray = JSONArray().apply {
+        for (actor in actors) {
+            val name = actor.getString("name")
+            val master = actor.getString("master")
+            val row = JSONObject().put("name", name).put("master", master)
+                .put("character_id", CharacterAliasRegistry.identityId(name, master))
+            for (key in listOf("library_id", "role")) {
+                actor.optString(key).takeIf { it.isNotBlank() && !actor.isNull(key) }?.let { row.put(key, it) }
+            }
+            put(row)
+        }
+    }
+
     fun issues(plan: JSONObject): List<String> = buildList {
         val rows=supporting(plan)
         val limit = if (rows.all { it.optBoolean("auto_cast") }) 15 else 8
