@@ -5112,7 +5112,7 @@ $context"""
         }
     }
 
-    private fun castOutfitMenu(story: JSONObject) {
+    private fun castOutfitMenu(story: JSONObject): AlertDialog {
         val folder = project
         val people = castingPeople(story)
         val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
@@ -5194,6 +5194,7 @@ $context"""
             } })
         }
         dialog.show()
+        return dialog
     }
 
     private fun wardrobeMenu(story: JSONObject) {
