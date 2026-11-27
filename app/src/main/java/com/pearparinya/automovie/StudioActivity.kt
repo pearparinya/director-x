@@ -2762,9 +2762,12 @@ class StudioActivity : AppCompatActivity() {
         val action=scene.optString("action").ifBlank { scene.optString("image_prompt") }
         val continuity=listOf(cinematicBeatGuide(p,scene),scene.optString("start_state"),
             "ภาพก่อนหน้าใช้ดูสถานที่และสิ่งของ ชุดยึดฉากปัจจุบัน ตัวบุคคลยึด MASTER รายคน",corrections).filter { it.isNotBlank() }.joinToString(" • ")
+        val sequence = rows(p)
+        val position = sequence.indexOfFirst { key(it) == key(scene) }
+        val lighting = CharacterContinuity.imageLighting(sequence.getOrNull(position-1),scene)
         return ImagePromptPolicy.scene(details,setting,action,p.optString("aspect_ratio","9:16"),
             if(p.optString("character_mode","original")=="new") "CHARACTER MASTER ที่แนบ" else "ภาพ MASTER ที่แนบ",
-            scene.optString("framing"),scene.optString("lighting"),continuity,"${key(scene)}.png")
+            scene.optString("framing"),lighting,continuity,"${key(scene)}.png")
     }
 
     private fun sendSceneImage(p: JSONObject, scene: JSONObject) {
