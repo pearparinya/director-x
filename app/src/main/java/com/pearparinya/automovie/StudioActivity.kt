@@ -5100,11 +5100,10 @@ $context"""
     }
 
     private fun characterStudioMenu(story: JSONObject) {
-        val people = castingPeople(story)
         val missing = rows(story).flatMap { FlowReferencePrompt.people(it) }
             .filter { it.optString("master").isBlank() || !masterFor(it).isFile }
             .map { it.optString("name") }.distinct()
-        val title = "Character Studio • จัดการตัวละคร\n${castingStatus(story)}\nMASTER ที่ขาด: ${missing.size} คน"
+        val title = "Character Studio • จัดการตัวละคร\n${castingStatus(story)}"
         choiceMenu(title,listOf("🎭 Casting นักแสดงและเครื่องแต่งกาย","ตรวจและแก้ไขชุดในบท","ตรวจรายการ MASTER ที่ขาด","ตั้งค่าล็อกตัวละคร","Timeline และตรวจความต่อเนื่อง","ตรวจความพร้อมการผลิต")) { selected ->
             when(selected) {
                 0 -> castOutfitMenu(story)
@@ -5121,8 +5120,11 @@ $context"""
         val folder = project
         val people = castingPeople(story)
         val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
+        val back = takeMenuBack()
         val dialog = AlertDialog.Builder(this).setTitle("นักแสดงและชุด\n${castingStatus(story)}")
-            .setView(ScrollView(this).apply { addView(panel) }).setNegativeButton("ปิด",null).create()
+            .setView(ScrollView(this).apply { addView(panel) })
+            .setNegativeButton(if(back != null) "◀ ย้อนกลับ" else "ปิด") { _,_ -> back?.invoke() }.create()
+        if(back != null) dialog.setOnCancelListener { back.invoke() }
         fun generate(items: List<JSONObject>) {
             if (project != folder || plan !== story) { notice("โครงการเปลี่ยน กรุณาเปิดรายการใหม่"); return }
             val masters = items.distinctBy { referenceId(it.optString("master")) }
@@ -5191,7 +5193,7 @@ $context"""
                                     tmp.outputStream().use { check(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)) }
                                     android.system.Os.rename(tmp.path,file.path)
                                 } finally { tmp.delete() }
-                                dialog.dismiss(); castOutfitMenu(story)
+                                dialog.dismiss(); pendingMenuBack = back; castOutfitMenu(story)
                             }.onFailure { notice("บันทึกภาพชุดไม่ได้") }
                         }.showNavigationDirector()
                 }
