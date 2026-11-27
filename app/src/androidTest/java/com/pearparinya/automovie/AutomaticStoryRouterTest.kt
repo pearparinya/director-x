@@ -301,6 +301,27 @@ class AutomaticStoryRouterTest {
         } finally { folder.deleteRecursively() }
     }
 
+    @Test fun corruptFormattedCacheRecoversAndReusesReplacement() {
+        val folder = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"corrupt-stage-${UUID.randomUUID()}")
+        try {
+            var writes = 0
+            val writer = client { _,_ -> writes++; draft() }
+            val formatter = client { _,_ -> xml() }
+            fun start() = AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to writer, StoryProvider.GEMINI to formatter),{false},{_,_->}).apply {
+                retainFormattedScenes = true
+                beginScene(1,1)
+            }
+            val original = start().generate("brief",schema())
+            val cache = File(folder,"auto_formatted_scenes").listFiles()!!.single()
+            cache.writeText("{broken")
+            val recovered = start().generate("brief",schema())
+            assertEquals(original.toString(),recovered.toString())
+            assertEquals(2,writes)
+            assertEquals(recovered.toString(),start().generate("brief",schema()).toString())
+            assertEquals(2,writes)
+        } finally { folder.deleteRecursively() }
+    }
+
     @Test fun quotaRetainsDraftForResume() {
         val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"auto-resume-${UUID.randomUUID()}")
         try {
