@@ -161,4 +161,18 @@ class CharacterAliasRegistryTest {
         val other = JSONObject().put("name", "สอง").put("master", "B_MASTER.png").put("library_id", "char_170")
         assertTrue(runCatching { FlowCast.storyRegistry(listOf(actor, other), legacy) }.isFailure)
     }
+    @Test fun confirmedLegacyAliasUsesPersistedIdentityAndRejectsWrongOwner() {
+        val definition = JSONObject().put("name", "ปิ่นมณี").put("master", "P_MASTER.png")
+            .put("character_id", "legacy-id")
+        val entry = JSONObject(definition.toString()).put("alias", "Pinmanee")
+        val registry = JSONObject().put("entries", JSONArray().put(entry))
+        val row = scene()
+        CharacterAliasRegistry.applyRegistered(row, listOf(definition), registry)
+        assertEquals("ปิ่นมณี holds a letter. Pinmanee2 watches.", row.getString("flow_action"))
+        assertEquals("Pinmanee ไม่เปลี่ยนบทพูด", row.getString("dialogue"))
+        entry.put("character_id", "wrong-id")
+        val wrong = scene()
+        CharacterAliasRegistry.applyRegistered(wrong, listOf(definition), registry)
+        assertEquals("Pinmanee holds a letter. Pinmanee2 watches.", wrong.getString("flow_action"))
+    }
 }
