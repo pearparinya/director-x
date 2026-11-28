@@ -75,4 +75,31 @@ class CharacterAliasRegistryTest {
         CharacterAliasRegistry.applyRegistered(scene,defs,JSONObject())
         assertEquals("Natee stands",scene.getString("flow_action"))
     }
+    @Test fun allSixteenStandLibraryIdsResolveWithoutChangingSceneData() {
+        val defs=(170..185).map { id ->
+            JSONObject().put("library_id","CHAR_$id").put("name","สแตนด์$id").put("master","ST_${id}_MASTER.png")
+        }
+        for (definition in defs) {
+            val actor=JSONObject(definition.toString())
+            val row=JSONObject().put("scene",3).put("characters",JSONArray().put(actor))
+                .put("dialogue","บทเดิม").put("flow_action",definition.getString("library_id")+" stands.")
+            val before=row.getJSONArray("characters").toString()
+            repeat(2) { CharacterAliasRegistry.applyRegistered(row,defs,JSONObject()) }
+            assertEquals(definition.getString("name")+" stands.",row.getString("flow_action"))
+            assertEquals(before,row.getJSONArray("characters").toString())
+            assertEquals("บทเดิม",row.getString("dialogue"))
+            assertEquals(3,row.getInt("scene"))
+        }
+    }
+    @Test fun duplicateLibraryIdAndWrongMasterAreNotGuessed() {
+        val a=JSONObject().put("library_id","CHAR_170").put("name","หนึ่ง").put("master","A_MASTER.png")
+        val b=JSONObject().put("library_id","CHAR_170").put("name","สอง").put("master","B_MASTER.png")
+        val row=JSONObject().put("characters",JSONArray().put(JSONObject(a.toString())))
+            .put("flow_action","CHAR_170 stands.")
+        CharacterAliasRegistry.applyRegistered(row,listOf(a,b),JSONObject())
+        assertEquals("CHAR_170 stands.",row.getString("flow_action"))
+        row.getJSONArray("characters").getJSONObject(0).put("master","WRONG_MASTER.png")
+        CharacterAliasRegistry.applyRegistered(row,listOf(a),JSONObject())
+        assertEquals("CHAR_170 stands.",row.getString("flow_action"))
+    }
 }
