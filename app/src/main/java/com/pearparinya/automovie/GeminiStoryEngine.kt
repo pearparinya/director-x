@@ -134,9 +134,10 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                 val alias = if ((category == ChannelCatalog.piaStand.label || category == ChannelCatalog.piaStand.name || category == ChannelCatalog.piaStand.id || spec.optString("category_id") == ChannelCatalog.piaStand.id)) "Piaros" else "Pia"
                 val actors = (0 until appliedCast.length()).map { appliedCast.getJSONObject(it) }
                 val presenter = actors.singleOrNull { it.optString("library_id") == presenterId }
-                if (presenter != null && actors.none { it !== presenter && it.optString("english_name").equals(alias, true) }) {
-                    presenter.put("english_name", alias)
-                }
+                requireNotNull(presenter) { "ไม่พบผู้ดำเนินเรื่องตาม Library ID ที่ยืนยัน" }
+                require(presenter.optString("master").isNotBlank()) { "ไม่พบ MASTER ผู้ดำเนินเรื่อง" }
+                require(actors.none { it !== presenter && (it.optString("english_name").equals("Pia", true) || it.optString("english_name").equals("Piaros", true)) }) { "ชื่อผู้ดำเนินเรื่องซ้ำกับตัวละครอื่น" }
+                presenter.put("english_name", alias)
             }
             spec.put("supporting_characters",appliedCast)
             spec.put("cast_concept",casting.getString("story_concept"))
@@ -293,7 +294,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                     }
                     val confirmedAliases=CharacterAliasRegistry.read(folder)
                     for(n in 0 until nameRows.length()) {
-                        CharacterAliasRegistry.applyRegistered(nameRows.getJSONObject(n),FlowCast.definitions(spec),confirmedAliases)
+                        CharacterAliasRegistry.applyRegistered(nameRows.getJSONObject(n),identityDefinitions,confirmedAliases)
                     }
                     for(n in 0 until nameRows.length()) {
                         val people=nameRows.getJSONObject(n).optJSONArray("characters") ?: continue
