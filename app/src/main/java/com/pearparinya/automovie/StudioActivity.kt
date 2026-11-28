@@ -880,8 +880,7 @@ class StudioActivity : AppCompatActivity() {
         }
     }
     private fun standProjectMenu(channel: com.pearparinya.automovie.stand.StandChannel? = null) {
-        val projectId = prefs.getString("project", null)
-        if (projectId.isNullOrBlank()) { notice("กรุณาเปิดโครงการก่อน"); return }
+        val projectId = project.name
         val channels = com.pearparinya.automovie.stand.StandChannel.values()
         fun openChannel(chosen: com.pearparinya.automovie.stand.StandChannel) {
                 val project = com.pearparinya.automovie.stand.StandProject(chosen, projectId)
@@ -913,7 +912,7 @@ class StudioActivity : AppCompatActivity() {
             it.name == settings.getString("writing:" + project.channel.id + ":" + project.projectId, null)
         } ?: com.pearparinya.automovie.stand.StandWritingMode.KOTLIN
         AlertDialog.Builder(this).setTitle(project.channel.title)
-            .setPositiveButton("สร้างบท Kotlin") { _, _ ->
+            .setPositiveButton(if (mode == com.pearparinya.automovie.stand.StandWritingMode.KOTLIN) "สร้างบท Kotlin" else "สร้างบท AI + Kotlin") { _, _ ->
                 if (mode != com.pearparinya.automovie.stand.StandWritingMode.KOTLIN) {
                     standAiEpisode(project, store)
                 } else {
@@ -967,7 +966,8 @@ class StudioActivity : AppCompatActivity() {
                     .setPositiveButton("บันทึก") { _, _ ->
                         val saved = runCatching { store.save(store.load(project).assign(entry.id, input.text.toString().trim())) }
                         notice(if (saved.getOrDefault(false)) "บันทึกเจ้าของแล้ว" else "ไม่สามารถบันทึกเจ้าของ")
-                    }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
+                        standOwnerMenu(project)
+                    }.setNegativeButton("ยกเลิก") { _, _ -> standOwnerMenu(project) }.showNavigationDirector()
             }.setNegativeButton("กลับ", null).showNavigationDirector()
     }
     private fun standMediaFolder(project: com.pearparinya.automovie.stand.StandProject, episode: Int, scene: Int): File {
@@ -8032,9 +8032,9 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
     private fun flowPlanning(autoDirector: Boolean = false) {
         piaStoryMasterOverride=null
         if(GeminiStoryService.running) { geminiJobMenu(); return }
-        if(!StoryProvider.ready(this)) { geminiSettings { flowPlanning(autoDirector) }; return }
         var chosenChannel=originalChannel
-        val configure: (Int) -> Unit = { index ->
+        val configure: (Int) -> Unit = configure@ { index ->
+            if(!StoryProvider.ready(this)) { geminiSettings { flowPlanning(autoDirector) }; return@configure }
             chooseClip { format, seconds ->
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             panel.addView(TextView(this).apply { text="หมวด: ${categories[index]}\nสถานการณ์ตั้งต้น: $selectedStoryTopic\n${if(chosenChannel=="นายเปีย บ้านคลองขุด") "เลือกนายเปียเป็นผู้ดำเนินเรื่องและเลือกชุดเริ่มต้น" else "AI เลือกนักแสดงจากคลัง MASTER และตั้งชื่ออัตโนมัติตามบท"} ${if(format=="short") "สร้างเรื่องจบในคลิปเดียว" else "แล้วเขียนเรื่องต่อครบทุก EP"}"; textSize=14f })
