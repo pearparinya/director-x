@@ -1101,44 +1101,6 @@ class StudioActivity : AppCompatActivity() {
                 }.start()
             }.setNegativeButton("กลับ", null).showNavigationDirector()
     }
-    private fun standGeminiMediaProbe() {
-        Thread {
-            val result = runCatching {
-                val key = StoryProvider.GEMINI.key(this)
-                require(key.isNotBlank()) { "ยังไม่ได้ตั้งค่า Gemini API Key" }
-                val models = mutableListOf<String>()
-                var token = ""
-                do {
-                    val suffix = if (token.isBlank()) "" else "&pageToken=" + java.net.URLEncoder.encode(token,"UTF-8")
-                    val connection = java.net.URL("https://generativelanguage.googleapis.com/v1beta/models?pageSize=100" + suffix)
-                        .openConnection() as java.net.HttpURLConnection
-                    try {
-                        connection.connectTimeout = 15000
-                        connection.readTimeout = 20000
-                        connection.setRequestProperty("x-goog-api-key",key)
-                        connection.instanceFollowRedirects = false
-                        val code = connection.responseCode
-                        check(code in 200..299) { "Gemini HTTP " + code }
-                        val json = org.json.JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
-                        val entries = json.optJSONArray("models") ?: org.json.JSONArray()
-                        for (i in 0 until entries.length()) {
-                            val name = entries.getJSONObject(i).optString("name")
-                            if (listOf("image","imagen","veo","tts").any { name.contains(it,ignoreCase=true) }) models.add(name)
-                        }
-                        token = json.optString("nextPageToken")
-                    } finally { connection.disconnect() }
-                } while (token.isNotBlank())
-                if (models.isEmpty()) "ไม่พบโมเดลสื่อในรายการ API" else models.distinct().joinToString("\n")
-            }
-            runOnUiThread {
-                if (!isFinishing && !isDestroyed) AlertDialog.Builder(this)
-                    .setTitle("Gemini • ตรวจสอบรายการโมเดลสื่อ")
-                    .setMessage((result.getOrNull() ?: result.exceptionOrNull()?.message.orEmpty()) +
-                        "\n\nรายการโมเดลไม่ใช่หลักฐานว่าสิทธิ์ผลิตสื่อหรือโควตาผ่าน")
-                    .setPositiveButton("กลับ",null).showNavigationDirector()
-            }
-        }.start()
-    }
     private fun standMasterMenu() {
         Thread {
             val result = runCatching { standMasterImporter.audit() }
@@ -1176,7 +1138,6 @@ class StudioActivity : AppCompatActivity() {
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             panel.addView(TextView(this).apply { text=if(entries.isEmpty()) "คลังว่าง • เพิ่มภาพใหม่ผ่านเมนูตัวละคร" else "${entries.size} แผ่น • หนึ่งแผ่นต่อหนึ่งตัวละคร" })
             panel.addView(Button(this).apply { text="คลัง MASTER สแตนด์"; setOnClickListener { standMasterMenu() } })
-            panel.addView(Button(this).apply { text="ตรวจสอบ Gemini API ผลิตสื่อ"; setOnClickListener { standGeminiMediaProbe() } })
             panel.addView(Button(this).apply { text="โครงการและเจ้าของสแตนด์"; setOnClickListener { standProjectMenu() } })
             val search=EditText(this).apply { hint="ค้นหา CHAR_001 หรือชื่อไฟล์"; isSingleLine=true; panel.addView(this) }
             val list=LinearLayout(this).apply { orientation=1 }
