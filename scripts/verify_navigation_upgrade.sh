@@ -39,3 +39,11 @@ grep -Fq 'OK (1 test)' <<< "$output"
 output="$(adb shell am instrument -w -e class "$package.CastingContinuityRegressionTest" "$runner")"
 echo "$output"
 grep -Fq 'OK (7 tests)' <<< "$output"
+
+# Require actual MASTER matching and recovery regression execution.
+for suite in CharacterAliasRegistryTest AutomaticStoryRouterTest; do
+    output="$(adb shell am instrument -w -e class "$package.$suite" "$runner")"
+    echo "$output"
+    grep -Eq 'OK \([1-9][0-9]* tests?\)' <<< "$output"
+    if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED' <<< "$output"; then exit 1; fi
+done
