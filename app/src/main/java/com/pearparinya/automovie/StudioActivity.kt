@@ -4106,9 +4106,10 @@ $context"""
             panel.addView(Button(this).apply {
                 text=label; isAllCaps=false; textSize=17f; setTextColor(ice)
                 backgroundTintList=null; background=backdrop(top,bottom,Color.rgb(100,190,240))
-                setPadding(dp(12),dp(8),dp(12),dp(8))
+                minHeight=dp(60); setSingleLine(false); maxLines=Int.MAX_VALUE; ellipsize=null
+                setPadding(dp(12),dp(12),dp(12),dp(12))
                 setOnClickListener { dialog.dismiss(); pendingMenuBack=back; work() }
-            },LinearLayout.LayoutParams(-1,dp(60)).apply { topMargin=dp(10) })
+            },LinearLayout.LayoutParams(-1,LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin=dp(10) })
         }
 
         actions(useAi).forEach { (label,colors,_) ->
