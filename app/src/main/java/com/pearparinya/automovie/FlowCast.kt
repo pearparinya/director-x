@@ -22,8 +22,8 @@ internal object FlowCast {
                     val old = matches.singleOrNull()
                     val oldLibrary = old?.optString("library_id").orEmpty()
                     val newLibrary = actor.optString("library_id")
-                    require(oldLibrary.isBlank() || newLibrary.isBlank() || oldLibrary == newLibrary) { "Library ID ไม่ตรงกับทะเบียนเดิม" }
-                    require(previous.none { it !== old && newLibrary.isNotBlank() && it.optString("library_id") == newLibrary }) { "Library ID เปลี่ยนเจ้าของ" }
+                    require(oldLibrary.isBlank() || newLibrary.isBlank() || oldLibrary.equals(newLibrary, true)) { "Library ID ไม่ตรงกับทะเบียนเดิม" }
+                    require(previous.none { it !== old && newLibrary.isNotBlank() && it.optString("library_id").equals(newLibrary, true) }) { "Library ID เปลี่ยนเจ้าของ" }
                     val stored = old?.optString("character_id").orEmpty()
                     val current = actor.optString("character_id")
                     require(stored.isBlank() || current.isBlank() || stored == current) { "Character ID ไม่ตรงกับทะเบียนเดิม" }
@@ -31,9 +31,16 @@ internal object FlowCast {
                     require(used.add(identity)) { "Character ID ซ้ำ" }
                     identity
                 })
+            val old = previous.singleOrNull { it.optString("name") == name && it.optString("master").equals(master, true) }
             for (key in listOf("library_id", "role", "english_name")) {
-                actor.optString(key).takeIf { it.isNotBlank() && !actor.isNull(key) }?.let { row.put(key, it) }
+                val current = actor.optString(key).takeIf { it.isNotBlank() && !actor.isNull(key) }
+                val prior = old?.optString(key)?.takeIf { it.isNotBlank() && !old.isNull(key) }
+                (current ?: prior)?.let { row.put(key, it) }
             }
+            val library = row.optString("library_id")
+            require(library.isBlank() || (0 until length()).none {
+                getJSONObject(it).optString("library_id").equals(library, true)
+            }) { "Library ID ซ้ำ" }
             put(row)
         }
     }
