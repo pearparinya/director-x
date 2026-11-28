@@ -1,0 +1,64 @@
+package com.pearparinya.automovie.stand
+
+import android.content.SharedPreferences
+import org.json.JSONObject
+import org.json.JSONArray
+
+data class StandVitals(val health: Int, val energy: Int) {
+    init { require(health in 0..100 && energy in 0..100) }
+}
+data class StandPersistentEpisode(val number: Int, val narrative: String,
+    val owners: Map<String,String>, val vitals: Map<String,StandVitals>) {
+    init { require(number > 0 && narrative.isNotBlank()); require(vitals.keys.all { it in owners }) }
+}
+class StandUniverseArchive(private val prefs: SharedPreferences) {
+    private fun key(project: StandProject) = "universe.v1:" + project.channel.id + ":" + project.projectId
+    fun history(project: StandProject): List<StandPersistentEpisode> {
+        val array = JSONArray(prefs.getString(key(project), "[]"))
+        return (0 until array.length()).map { index ->
+            val item = array.getJSONObject(index)
+            val owners = item.getJSONObject("owners")
+            val vitals = item.getJSONObject("vitals")
+            StandPersistentEpisode(item.getInt("number"), item.getString("narrative"),
+                owners.keys().asSequence().associateWith { owners.getString(it) },
+                vitals.keys().asSequence().associateWith {
+                    val v = vitals.getJSONObject(it)
+                    StandVitals(v.getInt("health"), v.getInt("energy"))
+                }).also {
+                    require(it.number == index + 1)
+                    StandOwnership.restore(project, it.owners)
+                }
+        }
+    }
+    fun append(project: StandProject, expected: List<StandPersistentEpisode>,
+               episode: StandPersistentEpisode): Boolean = synchronized(lock) {
+        if (history(project) != expected) return@synchronized false
+        require(episode.number == expected.size + 1)
+        require(StandOwnership.restore(project, episode.owners).snapshot() == episode.owners)
+        require(expected.lastOrNull()?.owners.orEmpty().all { (id, owner) -> episode.owners[id] == owner })
+        val array = JSONArray()
+        (expected + episode).forEach { e ->
+            val vitals = JSONObject()
+            e.vitals.forEach { (id,v) -> vitals.put(id, JSONObject().put("health",v.health).put("energy",v.energy)) }
+            array.put(JSONObject().put("number",e.number).put("narrative",e.narrative)
+                .put("owners",JSONObject(e.owners)).put("vitals",vitals))
+        }
+        prefs.edit().putString(key(project),array.toString()).commit()
+    }
+    companion object { private val lock = Any() }
+}
+object StandAiStoryValidation {
+    fun validate(ownership: StandOwnership, expected: StandPersistentEpisode,
+                 response: JSONObject): Boolean = runCatching {
+        val owners = response.getJSONObject("owners")
+        val vitals = response.getJSONObject("vitals")
+        response.getInt("episode") == expected.number &&
+            response.getString("text").isNotBlank() &&
+            owners.keys().asSequence().associateWith { owners.getString(it) } == expected.owners &&
+            expected.owners == ownership.snapshot() &&
+            vitals.keys().asSequence().associateWith {
+                val v = vitals.getJSONObject(it)
+                StandVitals(v.getInt("health"),v.getInt("energy"))
+            } == expected.vitals
+    }.getOrDefault(false)
+}
