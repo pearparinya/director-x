@@ -14206,7 +14206,7 @@ $context"""
             val result=edit.text.toString()
             if(result.isBlank()) notice("ยังไม่มีข้อมูลให้คัดลอก")
             else if(result.length>field.limit) notice("ข้อความเกิน "+field.limit+" ตัวอักษร")
-            else { save(); copyCommand(result); android.widget.Toast.makeText(this,"คัดลอกข้อความแล้ว",android.widget.Toast.LENGTH_SHORT).show() }
+            else { save(); copyCommand(result, showConfirmation = false); android.widget.Toast.makeText(this,"คัดลอกข้อความแล้ว",android.widget.Toast.LENGTH_SHORT).show() }
         }
         palettes[copy]=intArrayOf(Color.rgb(145,92,12),Color.rgb(180,125,28)); paint(copy)
         action(panel,"บันทึกข้อความ",blue) { save(); notice("บันทึกข้อความแล้ว") }
@@ -16106,12 +16106,12 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             contentResolver.openInputStream(uri)!!.use { android.graphics.BitmapFactory.decodeStream(it,null,options) }
         }.getOrNull()
     }
-    private fun copyCommand(text: String) {
+    private fun copyCommand(text: String, showConfirmation: Boolean = true) {
         runCatching {
             (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
                 .setPrimaryClip(ClipData.newPlainText("DIRECTOR X",text))
         }.onSuccess {
-            android.widget.Toast.makeText(this, "คัดลอกคำสั่งแล้ว", android.widget.Toast.LENGTH_SHORT).show()
+            if (showConfirmation) notice("คัดลอกคำสั่งแล้ว • นำไปวางในเครื่องมือที่ต้องการ")
         }
             .onFailure { notice("คัดลอกไม่ได้หรือข้อความยาวเกินคลิปบอร์ด • เลือกบันทึกไฟล์แล้วแนบใน Gemini หรือเลือกเฉพาะ EP") }
     }
