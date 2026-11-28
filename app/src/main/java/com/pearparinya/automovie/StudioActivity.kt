@@ -204,12 +204,19 @@ class StudioActivity : AppCompatActivity() {
         if (back != null) {
             dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
                 text = "◀ ย้อนกลับ"
-                setOnClickListener { dialog.dismiss(); back.invoke() }
+                setOnClickListener { dialog.dismiss(); android.os.Handler(android.os.Looper.getMainLooper()).post { back.invoke() } }
             }
-            dialog.setOnCancelListener { back.invoke() }
-            dialog.onBackPressedDispatcher.addCallback(dialog, object : androidx.activity.OnBackPressedCallback(true) {
+            dialog.setOnCancelListener { dialog.window?.decorView?.post { back.invoke() } ?: back.invoke() }
+            dialog.onBackPressedDispatcher.addCallback(object : androidx.activity.OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() { dialog.cancel() }
             })
+            dialog.setOnKeyListener { _, keyCode, event ->
+                if (keyCode != android.view.KeyEvent.KEYCODE_BACK) false
+                else {
+                    if (event.action == android.view.KeyEvent.ACTION_UP && !event.isCanceled) dialog.cancel()
+                    true
+                }
+            }
         }
         return dialog
     }
