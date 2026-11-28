@@ -944,7 +944,7 @@ class StudioActivity : AppCompatActivity() {
                                         if (saved) {
                                             val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                             clipboard.setPrimaryClip(ClipData.newPlainText("Stand story", draft))
-                                            notice("บันทึกเจ้าของและคัดลอกบทแล้ว")
+                                            standScenePromptMenu(story)
                                         } else notice("ข้อมูลเจ้าของเปลี่ยนแปลง กรุณาสร้างบทใหม่")
                                     }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
                             }
@@ -971,6 +971,28 @@ class StudioActivity : AppCompatActivity() {
                         notice(if (saved.getOrDefault(false)) "บันทึกเจ้าของแล้ว" else "ไม่สามารถบันทึกเจ้าของ")
                     }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
             }.setNegativeButton("กลับ", null).showNavigationDirector()
+    }
+    private fun standScenePromptMenu(story: com.pearparinya.automovie.stand.StandProducedStory) {
+        AlertDialog.Builder(this).setTitle("ผลิตฉากสแตนด์ • ChatGPT / Google Flow")
+            .setItems(story.beats.map { "ฉาก " + it.scene.number + " • " + it.narrative }.toTypedArray()) { _, index ->
+                val beat = story.beats[index]
+                Thread {
+                    val result = runCatching {
+                        val records = com.pearparinya.automovie.stand.VerifiedStandMasters.records
+                        val masters = com.pearparinya.automovie.stand.StandMasterStore(filesDir, records)
+                        com.pearparinya.automovie.stand.StandCinematicEngine.compose(
+                            story.ownership, beat.scene, records, masters, beat.scene.presences.first().ownerId, beat.narrative, emptyList())
+                    }
+                    runOnUiThread {
+                        val request = result.getOrElse { notice("สร้าง Prompt ไม่สำเร็จ: " + it.message); return@runOnUiThread }
+                        AlertDialog.Builder(this).setTitle("ฉาก " + beat.scene.number)
+                            .setItems(arrayOf("ChatGPT • ภาพ START STATE", "Google Flow • วิดีโอ 8 วินาที")) { _, choice ->
+                                if (choice == 0) shareImageCommand(request.imagePrompt, request.references.map { it.binding.standId to it.file })
+                                else showFlowCode("GOOGLE FLOW", request.videoPrompt, "STAND_SC" + beat.scene.number + "_FLOW.txt")
+                            }.setNegativeButton("กลับ") { _, _ -> standScenePromptMenu(story) }.showNavigationDirector()
+                    }
+                }.start()
+            }.setNegativeButton("กลับ") { _, _ -> standOwnerMenu(story.ownership.project) }.showNavigationDirector()
     }
     private fun standAiEpisode(project: com.pearparinya.automovie.stand.StandProject,
                                store: com.pearparinya.automovie.stand.StandOwnershipStore) {
