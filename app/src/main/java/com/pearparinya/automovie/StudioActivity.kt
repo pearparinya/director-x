@@ -886,7 +886,16 @@ class StudioActivity : AppCompatActivity() {
         AlertDialog.Builder(this).setTitle("หมวดหมู่สแตนด์")
             .setItems(channels.map { it.title }.toTypedArray()) { _, index ->
                 val project = com.pearparinya.automovie.stand.StandProject(channels[index], projectId)
-                standOwnerMenu(project)
+                val settings = getSharedPreferences("stand_projects", MODE_PRIVATE)
+                val key = "writing:" + project.channel.id + ":" + project.projectId
+                val modes = com.pearparinya.automovie.stand.StandWritingMode.values()
+                val selected = modes.indexOfFirst { it.name == settings.getString(key, null) }.coerceAtLeast(0)
+                AlertDialog.Builder(this).setTitle("โหมดเขียนบทสแตนด์")
+                    .setSingleChoiceItems(arrayOf("Kotlin", "AI + Kotlin"), selected) { dialog, modeIndex ->
+                        settings.edit().putString(key, modes[modeIndex].name).apply()
+                        dialog.dismiss()
+                        standOwnerMenu(project)
+                    }.setNegativeButton("กลับ", null).showNavigationDirector()
             }.setNegativeButton("กลับ", null).showNavigationDirector()
     }
     private fun standOwnerMenu(project: com.pearparinya.automovie.stand.StandProject) {
@@ -896,7 +905,17 @@ class StudioActivity : AppCompatActivity() {
             notice("อ่านข้อมูลเจ้าของสแตนด์ไม่สำเร็จ"); return
         }
         val entries = com.pearparinya.automovie.stand.StandCatalog.all
+        val settings = getSharedPreferences("stand_projects", MODE_PRIVATE)
+        val mode = com.pearparinya.automovie.stand.StandWritingMode.values().firstOrNull {
+            it.name == settings.getString("writing:" + project.channel.id + ":" + project.projectId, null)
+        } ?: com.pearparinya.automovie.stand.StandWritingMode.KOTLIN
         AlertDialog.Builder(this).setTitle(project.channel.title)
+            .setNeutralButton("คำสั่งเขียนบท") { _, _ ->
+                val context = com.pearparinya.automovie.stand.StandWritingContext.build(state, mode)
+                val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("Stand writing context", context))
+                notice("คัดลอกข้อมูลประกอบการเขียนบทแล้ว")
+            }
             .setItems(entries.map { it.id + " • " + it.name + " • " +
                 (state.ownerOf(it.id) ?: "ยังไม่กำหนดเจ้าของ") }.toTypedArray()) { _, index ->
                 val entry = entries[index]
