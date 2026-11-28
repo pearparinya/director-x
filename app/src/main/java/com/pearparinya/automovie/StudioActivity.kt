@@ -1394,10 +1394,19 @@ class StudioActivity : AppCompatActivity() {
                     if(file?.isFile==true) fullImage(file,name+" • "+id) else notice("ไม่พบภาพ MASTER ของ $name • $id")
                 }))
             }
+            val standCategory = "สแตนด์และพลังพิเศษ"
+            val standStore = com.pearparinya.automovie.stand.StandMasterStore(filesDir, com.pearparinya.automovie.stand.VerifiedStandMasters.records)
+            com.pearparinya.automovie.stand.StandCatalog.all.forEach { stand ->
+                val file = runCatching { standStore.verifiedFile(stand.id) }.getOrNull()
+                all.add(UnifiedMasterItem(stand.name, stand.id, standCategory, file, {
+                    if (file?.isFile == true) fullImage(file, stand.name + " • " + stand.id)
+                    else notice("ไม่พบ MASTER ที่ผ่าน SHA-256 ของ " + stand.name + " • " + stand.id)
+                }))
+            }
             // The black outfit is another view of the presenter, not another person.
             fun legacyKey(item: UnifiedMasterItem) = if(item.id=="PIA_BLACK_OUTFIT") piaActorId else item.id
-            val shortIds=ShortCatalogIds(File(filesDir,"short_catalog_ids.json")).assign(all.map { legacyKey(it) to it.category })
-            val categories=listOf("ทั้งหมด","มนุษย์","สัตว์","อสูรและสัตว์ประหลาด","เทพและผู้พิทักษ์","ผี วิญญาณ และภูต","อาวุธและอุปกรณ์","ยังไม่ระบุประเภท")
+            val shortIds=ShortCatalogIds(File(filesDir,"short_catalog_ids.json")).assign(all.filter { it.category != standCategory }.map { legacyKey(it) to it.category })
+            val categories=listOf("ทั้งหมด","มนุษย์","สัตว์","อสูรและสัตว์ประหลาด","เทพและผู้พิทักษ์","ผี วิญญาณ และภูต","อาวุธและอุปกรณ์",standCategory,"ยังไม่ระบุประเภท")
             choiceMenu("คลัง MASTER • เลือกหมวด",categories+listOf("➕ เพิ่มตัวละคร","🎭 ตัวละครของเรื่องที่เปิด")) { selected ->
                 if(selected==categories.size) { actorCatalogMenu(); return@choiceMenu }
                 if(selected==categories.size+1) { if(plan!=null) castMenu() else notice("เปิดเรื่องที่มีบทก่อน"); return@choiceMenu }
@@ -1418,7 +1427,7 @@ class StudioActivity : AppCompatActivity() {
                         if(index%2==0) { row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }; grid.addView(row) }
                         val cell=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(4),dp(6),dp(4),dp(6)) }
                         row?.addView(cell,LinearLayout.LayoutParams(0,-2,1f))
-                        val label=shortIds[legacyKey(entry)].orEmpty()+" • "+entry.name+(if(entry.file?.isFile==true) "" else "\nไม่พบ MASTER")
+                        val label=(if(entry.category==standCategory) entry.id else shortIds[legacyKey(entry)].orEmpty())+" • "+entry.name+(if(entry.file?.isFile==true) "" else "\nไม่พบ MASTER")
                         if(entry.file?.isFile==true) cell.addView(ImageView(this).apply {
                             setImageBitmap(castingThumbnail(entry.file)); adjustViewBounds=true
                             contentDescription=label; setOnClickListener { dialog.dismiss(); entry.open() }
