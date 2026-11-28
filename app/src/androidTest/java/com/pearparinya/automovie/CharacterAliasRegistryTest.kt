@@ -102,4 +102,25 @@ class CharacterAliasRegistryTest {
         CharacterAliasRegistry.applyRegistered(row,listOf(a),JSONObject())
         assertEquals("CHAR_170 stands.",row.getString("flow_action"))
     }
+    @Test fun presenterModeRejectsOppositeLegacyAliasAndPreservesIdentity() {
+        val name = "นายเปีย บ้านคลองขุด"
+        val master = "SUPPORT_12345678_MASTER.png"
+        for (alias in listOf("Pia", "Piaros")) {
+            val opposite = if (alias == "Pia") "Piaros" else "Pia"
+            val definition = JSONObject().put("name", name).put("master", master)
+                .put("english_name", alias).put("library_id", "CHAR_169")
+                .put("character_id", CharacterAliasRegistry.identityId(name, master))
+            val confirmed = JSONObject()
+            CharacterAliasRegistry.add(confirmed, opposite, name, master)
+            val row = JSONObject().put("scene", 7)
+                .put("characters", JSONArray().put(JSONObject(definition.toString())))
+                .put("dialogue", "บทเดิม").put("flow_action", "$alias stands. $opposite watches. Khud waits.")
+            val before = row.getJSONArray("characters").toString()
+            repeat(2) { CharacterAliasRegistry.applyRegistered(row, listOf(definition), confirmed) }
+            assertEquals("$name stands. $opposite watches. Khud waits.", row.getString("flow_action"))
+            assertEquals(before, row.getJSONArray("characters").toString())
+            assertEquals("บทเดิม", row.getString("dialogue"))
+            assertEquals(7, row.getInt("scene"))
+        }
+    }
 }
