@@ -980,18 +980,34 @@ class StudioActivity : AppCompatActivity() {
                         val initial = store.load(project)
                         val history = archive.migrateLegacy(project, initial)
                         val story = com.pearparinya.automovie.stand.StandStoryProduction.generate(initial, types[index], priorVitals = history.lastOrNull()?.vitals.orEmpty())
+                        val prior = history.lastOrNull()
+                        val arc = prior?.arc ?: com.pearparinya.automovie.stand.StandLongTermArc(
+                            "คลี่คลายความขัดแย้งหลักของจักรวาล", maxOf(10, history.size + 5))
+                        val cast = story.episode.scenes.first().presences.map { it.ownerId }.distinct()
+                        val relationships = com.pearparinya.automovie.stand.StandUniverseMemory.relationships(
+                            story.ownership.snapshot(), prior?.relationships.orEmpty(), cast[0], cast[1], types[index])
                         val expected = com.pearparinya.automovie.stand.StandPersistentEpisode(history.size + 1,
-                            "pending", story.ownership.snapshot(), story.vitals)
+                            "pending", story.ownership.snapshot(), story.vitals, relationships, arc)
+                        val previousGoals = prior?.goals.orEmpty()
+                        val previousPlots = prior?.plots.orEmpty()
                         val vitals = JSONObject()
                         expected.vitals.forEach { (id,v) -> vitals.put(id, JSONObject().put("health",v.health).put("energy",v.energy)) }
                         val prompt = com.pearparinya.automovie.stand.StandAiNarrative.prompt(story, history.map { it.narrative }) +
                             "\nReturn text plus exact episode, owners and vitals: " +
                             JSONObject().put("episode",expected.number).put("owners",JSONObject(expected.owners)).put("vitals",vitals)
+                        val continuityPrompt = prompt + "\n" +
+                            com.pearparinya.automovie.stand.StandUniverseMemory.context(history, arc, relationships) +
+                            "\nPreserve prior goals and plots. Return goals array (owner, objective, achieved) and plots array (id, description, opened, resolved nullable). Final episode must resolve all. Prior goals: " +
+                            com.pearparinya.automovie.stand.StandPlotJson.encodeGoals(previousGoals) +
+                            "\nPrior plots: " + com.pearparinya.automovie.stand.StandPlotJson.encodePlots(previousPlots)
                         val schema = com.pearparinya.automovie.stand.StandAiNarrative.schema()
                         schema.getJSONObject("properties").put("episode",JSONObject().put("type","integer"))
                             .put("owners",JSONObject().put("type","object")).put("vitals",JSONObject().put("type","object"))
-                        schema.put("required",JSONArray().put("text").put("episode").put("owners").put("vitals"))
-                        var answer: String? = null
+                        schema.getJSONObject("properties")
+                            .put("goals",JSONObject().put("type","array").put("items",JSONObject().put("type","object")))
+                            .put("plots",JSONObject().put("type","array").put("items",JSONObject().put("type","object")))
+                        schema.put("required",JSONArray().put("text").put("episode").put("owners").put("vitals").put("goals").put("plots"))
+                        var answer: com.pearparinya.automovie.stand.StandPersistentEpisode? = null
                         for (provider in providers) {
                             if (stopped.get()) break
                             answer = runCatching {
@@ -999,13 +1015,17 @@ class StudioActivity : AppCompatActivity() {
                                     { stopped.get() }, automaticRetry=false, context=this@StudioActivity)
                                 active.set(client)
                                 if (stopped.get()) throw java.util.concurrent.CancellationException()
-                                val response = client.generate(prompt, schema)
+                                val response = client.generate(continuityPrompt, schema)
                                 check(com.pearparinya.automovie.stand.StandAiStoryValidation.validate(story.ownership, expected, response))
-                                response.optString("text").trim()
-                            }.getOrNull()?.takeIf { it.isNotBlank() }
+                                val goals = com.pearparinya.automovie.stand.StandPlotJson.goals(response.getJSONArray("goals"))
+                                val plots = com.pearparinya.automovie.stand.StandPlotJson.plots(response.getJSONArray("plots"))
+                                check(com.pearparinya.automovie.stand.StandPlotContinuity.validate(expected.number,
+                                    expected.owners, arc, previousGoals, goals, previousPlots, plots))
+                                expected.copy(narrative=response.getString("text").trim(), goals=goals, plots=plots)
+                            }.getOrNull()
                             if (answer != null) break
                         }
-                        Triple(initial, history, requireNotNull(answer) { "API ไม่ส่งบทกลับมา" } to story)
+                        Triple(initial, history, requireNotNull(answer) { "API ไม่ส่งบทกลับมา" })
                     }
                     runOnUiThread {
                         if (stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
@@ -1014,16 +1034,15 @@ class StudioActivity : AppCompatActivity() {
                         val value = result.getOrNull()
                         if (value == null) notice("เขียนบท AI ไม่สำเร็จ • ไม่สลับโหมด")
                         else {
-                            val (initial, history, output) = value
-                            val (draft, story) = output
+                            val (initial, history, episode) = value
+                            val draft = episode.narrative
                             AlertDialog.Builder(this).setTitle("EP " + (history.size + 1) + " • ตรวจบท AI")
                                 .setMessage(draft)
                                 .setPositiveButton("บันทึก EP") { _, _ ->
                                     val saved = runCatching {
                                         check(store.load(project).snapshot() == initial.snapshot())
                                         check(archive.history(project) == history)
-                                        archive.append(project, history, com.pearparinya.automovie.stand.StandPersistentEpisode(
-                                            history.size + 1, draft, story.ownership.snapshot(), story.vitals))
+                                        archive.append(project, history, episode)
                                     }.getOrDefault(false)
                                     notice(if (saved) "บันทึก EP แล้ว" else "บันทึกไม่สำเร็จ กรุณาตรวจข้อมูลเดิม")
                                 }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
