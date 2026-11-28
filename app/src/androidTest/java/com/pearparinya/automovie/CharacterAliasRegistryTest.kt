@@ -123,4 +123,15 @@ class CharacterAliasRegistryTest {
             assertEquals(7, row.getInt("scene"))
         }
     }
+    @Test fun standDoesNotResolveFullNormalPresenterAlias() {
+        val name = "นายเปีย บ้านคลองขุด"
+        val master = "P_MASTER.png"
+        val definition = JSONObject().put("name", name).put("master", master).put("english_name", "Piaros")
+        val confirmed = JSONObject()
+        CharacterAliasRegistry.add(confirmed, "Nai Pia Ban Khlong Khud", name, master)
+        val row = JSONObject().put("characters", JSONArray().put(JSONObject(definition.toString())))
+            .put("flow_action", "Nai Pia Ban Khlong Khud stands. Piaros waits.")
+        CharacterAliasRegistry.applyRegistered(row, listOf(definition), confirmed)
+        assertEquals("Nai Pia Ban Khlong Khud stands. $name waits.", row.getString("flow_action"))
+    }
 }
