@@ -910,6 +910,37 @@ class StudioActivity : AppCompatActivity() {
             it.name == settings.getString("writing:" + project.channel.id + ":" + project.projectId, null)
         } ?: com.pearparinya.automovie.stand.StandWritingMode.KOTLIN
         AlertDialog.Builder(this).setTitle(project.channel.title)
+            .setPositiveButton("สร้างบท Kotlin") { _, _ ->
+                if (mode != com.pearparinya.automovie.stand.StandWritingMode.KOTLIN) {
+                    notice("โหมด AI + Kotlin ยังไม่ได้เชื่อมผู้ให้บริการ กรุณาเลือกโหมด Kotlin หากต้องการสร้างบทในเครื่อง")
+                } else {
+                    val types = com.pearparinya.automovie.stand.StandStoryType.values()
+                    AlertDialog.Builder(this).setTitle("ประเภทเรื่อง")
+                        .setItems(types.map { it.name }.toTypedArray()) { _, index ->
+                            val result = runCatching {
+                                com.pearparinya.automovie.stand.StandStoryProduction.generate(store.load(project), types[index])
+                            }
+                            val story = result.getOrNull()
+                            if (story == null) notice("สร้างบทไม่สำเร็จ: " + (result.exceptionOrNull()?.message ?: "ไม่ทราบสาเหตุ"))
+                            else {
+                                val draft = story.beats.joinToString("\n\n") { "ฉาก " + it.scene.number + ": " + it.narrative }
+                                AlertDialog.Builder(this).setTitle("ตัวอย่างบทสแตนด์").setMessage(draft)
+                                    .setPositiveButton("บันทึกเจ้าของและคัดลอกบท") { _, _ ->
+                                        val saved = runCatching {
+                                            val current = store.load(project)
+                                            check(current.snapshot() == state.snapshot())
+                                            store.save(story.ownership)
+                                        }.getOrDefault(false)
+                                        if (saved) {
+                                            val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                            clipboard.setPrimaryClip(ClipData.newPlainText("Stand story", draft))
+                                            notice("บันทึกเจ้าของและคัดลอกบทแล้ว")
+                                        } else notice("ข้อมูลเจ้าของเปลี่ยนแปลง กรุณาสร้างบทใหม่")
+                                    }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
+                            }
+                        }.setNegativeButton("กลับ", null).showNavigationDirector()
+                }
+            }
             .setNeutralButton("คำสั่งเขียนบท") { _, _ ->
                 val context = com.pearparinya.automovie.stand.StandWritingContext.build(state, mode)
                 val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
