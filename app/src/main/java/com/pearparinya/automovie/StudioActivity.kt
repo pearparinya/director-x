@@ -967,6 +967,44 @@ class StudioActivity : AppCompatActivity() {
         val providers = StoryProvider.eligible(this).filter { it.hasKey(this) }
         if (providers.isEmpty()) { notice("กรุณาตั้งค่า API เขียนบทก่อน"); return }
         val archive = com.pearparinya.automovie.stand.StandUniverseArchive(getSharedPreferences("stand_projects", MODE_PRIVATE))
+        val settings = getSharedPreferences("stand_projects", MODE_PRIVATE)
+        val planKey = "series.plan:" + project.channel.id + ":" + project.projectId
+        val existing = runCatching { archive.history(project) }.getOrElse { notice("อ่านประวัติ EP ไม่สำเร็จ"); return }
+        val priorArc = existing.lastOrNull()?.arc
+        val savedPlan = runCatching { JSONObject(settings.getString(planKey, "{}") ?: "{}") }.getOrElse {
+            notice("อ่านแผนเรื่องไม่สำเร็จ"); return
+        }
+        val goal = EditText(this).apply { hint = "เป้าหมายหลัก"; setText(priorArc?.goal ?: savedPlan.optString("goal", "คลี่คลายความขัดแย้งหลักของจักรวาล")); isEnabled = priorArc == null }
+        val count = EditText(this).apply { hint = "จำนวน EP"; inputType = android.text.InputType.TYPE_CLASS_NUMBER; setText((priorArc?.finalEpisode ?: savedPlan.optInt("count",maxOf(10,existing.size+5))).toString()); isEnabled = priorArc == null }
+        val endings = com.pearparinya.automovie.stand.StandEnding.values()
+        val ending = Spinner(this).apply {
+            adapter = ArrayAdapter(this@StudioActivity, android.R.layout.simple_spinner_dropdown_item,
+                listOf("จบด้วยความหวัง","โศกนาฏกรรม","สุขปนเศร้า","เปิดทางภาคต่อ"))
+            setSelection(endings.indexOfFirst { it.name == savedPlan.optString("ending") }.coerceAtLeast(0))
+            isEnabled = priorArc == null
+        }
+        val panel = LinearLayout(this).apply { orientation = 1; setPadding(dp(16),dp(8),dp(16),dp(8)); addView(goal); addView(count); addView(ending) }
+        AlertDialog.Builder(this).setTitle("กำหนดแผนจักรวาลสแตนด์").setView(panel)
+            .setPositiveButton("ดำเนินการ") { _, _ ->
+                val n = count.text.toString().toIntOrNull()
+                if (n == null || n < 5 || n <= existing.size || goal.text.isBlank()) {
+                    notice("กรุณากำหนดเป้าหมายและจำนวน EP อย่างน้อย 5 และมากกว่าตอนที่บันทึกแล้ว")
+                } else {
+                    val series = com.pearparinya.automovie.stand.StandSeriesPlan(
+                        com.pearparinya.automovie.stand.StandLongTermArc(goal.text.toString().trim(), n), endings[ending.selectedItemPosition])
+                    if (settings.edit().putString(planKey, JSONObject().put("goal",series.arc.goal)
+                            .put("count",n).put("ending",series.ending.name).toString()).commit())
+                        standAiEpisodeWithPlan(project,store,series)
+                    else notice("บันทึกแผนไม่สำเร็จ")
+                }
+            }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
+    }
+    private fun standAiEpisodeWithPlan(project: com.pearparinya.automovie.stand.StandProject,
+        store: com.pearparinya.automovie.stand.StandOwnershipStore,
+        series: com.pearparinya.automovie.stand.StandSeriesPlan) {
+        val providers = StoryProvider.eligible(this).filter { it.hasKey(this) }
+        if (providers.isEmpty()) { notice("กรุณาตั้งค่า API เขียนบทก่อน"); return }
+        val archive = com.pearparinya.automovie.stand.StandUniverseArchive(getSharedPreferences("stand_projects", MODE_PRIVATE))
         val types = com.pearparinya.automovie.stand.StandStoryType.values()
         AlertDialog.Builder(this).setTitle("AI + Kotlin • เลือกประเภทเรื่อง")
             .setItems(types.map { it.name }.toTypedArray()) { _, index ->
@@ -981,8 +1019,9 @@ class StudioActivity : AppCompatActivity() {
                         val history = archive.migrateLegacy(project, initial)
                         val story = com.pearparinya.automovie.stand.StandStoryProduction.generate(initial, types[index], priorVitals = history.lastOrNull()?.vitals.orEmpty())
                         val prior = history.lastOrNull()
-                        val arc = prior?.arc ?: com.pearparinya.automovie.stand.StandLongTermArc(
-                            "คลี่คลายความขัดแย้งหลักของจักรวาล", maxOf(10, history.size + 5))
+                        val arc = prior?.arc ?: series.arc
+                        check(arc == series.arc)
+                        check(history.size < arc.finalEpisode)
                         val cast = story.episode.scenes.first().presences.map { it.ownerId }.distinct()
                         val relationships = com.pearparinya.automovie.stand.StandUniverseMemory.relationships(
                             story.ownership.snapshot(), prior?.relationships.orEmpty(), cast[0], cast[1], types[index])
@@ -996,7 +1035,8 @@ class StudioActivity : AppCompatActivity() {
                             "\nReturn text plus exact episode, owners and vitals: " +
                             JSONObject().put("episode",expected.number).put("owners",JSONObject(expected.owners)).put("vitals",vitals)
                         val continuityPrompt = prompt + "\n" +
-                            com.pearparinya.automovie.stand.StandUniverseMemory.context(history, arc, relationships) +
+                            com.pearparinya.automovie.stand.StandUniverseMemory.context(history, arc, relationships) + "\n" +
+                            com.pearparinya.automovie.stand.StandDynamicPlanning.context(series, history) +
                             "\nPreserve prior goals and plots. Return goals array (owner, objective, achieved) and plots array (id, description, opened, resolved nullable). Final episode must resolve all. Prior goals: " +
                             com.pearparinya.automovie.stand.StandPlotJson.encodeGoals(previousGoals) +
                             "\nPrior plots: " + com.pearparinya.automovie.stand.StandPlotJson.encodePlots(previousPlots)
