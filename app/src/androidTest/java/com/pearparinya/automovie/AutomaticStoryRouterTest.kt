@@ -487,7 +487,7 @@ class AutomaticStoryRouterTest {
         try {
             val calls=mutableListOf<StoryProvider>()
             val writer=client { _,_ -> draft() }
-            val bad=client { _,schema -> if(schema.getJSONObject("properties").has("xml")) xml("เปลี่ยนบท") else draft() }
+            val bad=client { _,schema -> if(schema.getJSONObject("properties").has("actions")) xml("เปลี่ยนบท") else draft() }
             val good=client { _,_ -> xml() }
             val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to writer,StoryProvider.GEMINI to bad,StoryProvider.DEEPSEEK to good),{false},{p,_->calls.add(p)})
             val result=router.generate("brief",schema())
@@ -500,7 +500,7 @@ class AutomaticStoryRouterTest {
         try {
             val calls=mutableListOf<StoryProvider>()
             val writer=client { _,_ -> draft() }
-            val quota=client { _,schema -> if(schema.getJSONObject("properties").has("xml")) throw StoryHttpFailure(429,"1","quota") else draft() }
+            val quota=client { _,schema -> if(schema.getJSONObject("properties").has("actions")) throw StoryHttpFailure(429,"1","quota") else draft() }
             val formatter=client { prompt,_ -> assertTrue(prompt.contains("เปิดประตู")); xml() }
             val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to writer,StoryProvider.GEMINI to quota,StoryProvider.DEEPSEEK to formatter),{false},{p,_->calls.add(p)})
             router.generate("brief",schema())
