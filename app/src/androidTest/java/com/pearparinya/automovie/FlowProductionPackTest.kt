@@ -218,7 +218,13 @@ class FlowProductionPackTest {
                 }
                 awaitControl("ตรวจข้อเสนอบท", false)
                 if (pass == 0) awaitControl("ย้อนกลับ", true)
-                else instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+                else {
+                    instrumentation.uiAutomation.waitForIdle(300, 5000)
+                    android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("input keyevent KEYCODE_BACK")).bufferedReader().use { reader ->
+                        val output = reader.readText()
+                        assertTrue("System Back shell error: $output", output.isBlank())
+                    }
+                }
                 instrumentation.uiAutomation.waitForIdle(300, 5000)
                 val deadline=android.os.SystemClock.uptimeMillis()+5000L
                 while(restored.get()<pass+1 && android.os.SystemClock.uptimeMillis()<deadline) {

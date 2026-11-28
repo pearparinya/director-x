@@ -124,7 +124,7 @@ class StudioActivity : AppCompatActivity() {
                 "⚠ ${MiniStoryRecovery.reason(status)} • แตะเพื่อแก้ไข" else
                 "⏱ ${MiniStoryProgress.elapsed(status)}  •  แตะเพื่อดูรายละเอียด"
             geminiProgressView?.progress=status?.optInt("percent")?.coerceIn(0,100) ?: 0
-            geminiLiveDialog?.text=geminiStatusText(status,true)+if(status?.optString("state")=="running" && GeminiStoryService.running) "\n\nระบบจะทำต่อเองระหว่างรอ • กดหยุดเมื่อต้องการพักงาน" else ""
+            geminiLiveDialog?.text=geminiStatusText(status,true)+if(status?.optString("state")=="running" && alive) "\n\nระบบจะทำต่อเองระหว่างรอ • กดหยุดเมื่อต้องการพักงาน" else ""
             if(plan==null && File(project,"story.json").isFile && !importing) render()
             storyUiHandler.postDelayed(this,1000)
         }
@@ -173,12 +173,12 @@ class StudioActivity : AppCompatActivity() {
         set(value) { prefs.edit().putBoolean("backup_mode",value).apply() }
     private lateinit var updater: StudioUpdater
     private lateinit var root: LinearLayout
-    private val navy = Color.rgb(12,12,15)
+    private val navy = Color.rgb(11,19,38)
     private val gold = Color.rgb(232,180,82)
     private val electricBlue = Color.rgb(30,156,255)
     private val cyan = Color.rgb(42,220,255)
     private val ice = Color.rgb(248,246,239)
-    private val muted = Color.rgb(164,164,169)
+    private val muted = Color.rgb(195,205,229)
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
     private fun backdrop(top: Int, bottom: Int, border: Int? = null) = GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(top,bottom)).apply {
         cornerRadius = dp(16).toFloat()
@@ -188,7 +188,7 @@ class StudioActivity : AppCompatActivity() {
         intArrayOf(Color.rgb(255,218,112),Color.rgb(255,177,58)),
         intArrayOf(Color.rgb(119,232,250),Color.rgb(63,184,235)),
         intArrayOf(Color.rgb(219,195,255),Color.rgb(176,143,244)),
-        intArrayOf(Color.rgb(128,240,202),Color.rgb(63,200,160)),
+        intArrayOf(Color.rgb(145,205,255),Color.rgb(93,156,244)),
         intArrayOf(Color.rgb(255,185,209),Color.rgb(245,139,175)))
     private fun menuIcon(index: Int) = listOf("🎭", "🎨", "📚", "🎬", "💡")[index % 5]
     private var pendingMenuBack: (() -> Unit)? = null
@@ -4786,7 +4786,7 @@ $context"""
             setBackgroundColor(navy)
         }
         val scroll=ScrollView(this).apply { addView(prompt) }
-        panel.addView(scroll,LinearLayout.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.43f).toInt()))
+        panel.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         val navigation=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
         val previous=Button(this).apply { text="◀ ก่อนหน้า"; isAllCaps=false; setTextColor(Color.WHITE); backgroundTintList=ColorStateList.valueOf(Color.rgb(110,83,181)) }
         val next=Button(this).apply { text="ถัดไป ▶"; isAllCaps=false; setTextColor(Color.WHITE); backgroundTintList=ColorStateList.valueOf(Color.rgb(35,147,210)) }
@@ -4851,7 +4851,7 @@ $context"""
             } ?: notice("ฉากนี้ยังไม่มีคำสั่ง AI")
         }
         refresh()
-        dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(24),-2)
+        dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(24),(resources.displayMetrics.heightPixels*0.85f).toInt())
     }
 
     private fun imageCommandViewer(story: JSONObject, ep: Int, task: SimpleProductionCommands.Task,
@@ -5016,7 +5016,11 @@ $context"""
 
     private fun castingStatus(story: JSONObject): String {
         val people = castingPeople(story)
-        return if (people.isEmpty()) "ยังไม่มีรายการชุด" else "ยืนยันชุด ${people.count { castOutfit(it).attachment(project)!=null }}/${people.size}"
+        val actors = rows(story).flatMap { FlowReferencePrompt.people(it) }
+            .distinctBy { referenceId(it.optString("master")).ifBlank { it.optString("name") } }
+        val ready = actors.count { it.optString("master").isNotBlank() && masterFor(it).isFile }
+        val approved = people.count { castOutfit(it).attachment(project)!=null }
+        return "นักแสดง ${actors.size} คน • MASTER พร้อม $ready/${actors.size}\nชุด ${people.size} รายการ • ยืนยันแล้ว $approved/${people.size}"
     }
 
     private fun appearanceKey(person: JSONObject): String =
@@ -5096,11 +5100,10 @@ $context"""
     }
 
     private fun characterStudioMenu(story: JSONObject) {
-        val people = castingPeople(story)
         val missing = rows(story).flatMap { FlowReferencePrompt.people(it) }
             .filter { it.optString("master").isBlank() || !masterFor(it).isFile }
             .map { it.optString("name") }.distinct()
-        val title = "Character Studio • จัดการตัวละคร\n${castingStatus(story)}\nMASTER ที่ขาด: ${missing.size} คน"
+        val title = "Character Studio • จัดการตัวละคร\n${castingStatus(story)}"
         choiceMenu(title,listOf("🎭 Casting นักแสดงและเครื่องแต่งกาย","ตรวจและแก้ไขชุดในบท","ตรวจรายการ MASTER ที่ขาด","ตั้งค่าล็อกตัวละคร","Timeline และตรวจความต่อเนื่อง","ตรวจความพร้อมการผลิต")) { selected ->
             when(selected) {
                 0 -> castOutfitMenu(story)
@@ -5117,8 +5120,11 @@ $context"""
         val folder = project
         val people = castingPeople(story)
         val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(8)) }
-        val dialog = AlertDialog.Builder(this).setTitle("นักแสดงและชุด")
-            .setView(ScrollView(this).apply { addView(panel) }).setNegativeButton("ปิด",null).create()
+        val back = takeMenuBack()
+        val dialog = AlertDialog.Builder(this).setTitle("นักแสดงและชุด\n${castingStatus(story)}")
+            .setView(ScrollView(this).apply { addView(panel) })
+            .setNegativeButton(if(back != null) "◀ ย้อนกลับ" else "ปิด") { _,_ -> back?.invoke() }.create()
+        if(back != null) dialog.setOnCancelListener { back.invoke() }
         fun generate(items: List<JSONObject>) {
             if (project != folder || plan !== story) { notice("โครงการเปลี่ยน กรุณาเปิดรายการใหม่"); return }
             val masters = items.distinctBy { referenceId(it.optString("master")) }
@@ -5187,7 +5193,7 @@ $context"""
                                     tmp.outputStream().use { check(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)) }
                                     android.system.Os.rename(tmp.path,file.path)
                                 } finally { tmp.delete() }
-                                dialog.dismiss(); castOutfitMenu(story)
+                                dialog.dismiss(); pendingMenuBack = back; castOutfitMenu(story)
                             }.onFailure { notice("บันทึกภาพชุดไม่ได้") }
                         }.showNavigationDirector()
                 }
@@ -6576,13 +6582,22 @@ $context"""
     private fun geminiJobMenu() {
         val state=readGeminiStatus()?.optString("state")
         if(state=="complete" && plan!=null) { if(plan!!.optString("content_profile")==AutoDirectorContent.profile) autoDirectorMenu() else episodesMenu(); return }
+        if(GeminiStoryService.running && GeminiStoryService.projectId!=project.name) {
+            notice("AI กำลังประมวลผลอีกโครงการหนึ่ง กรุณารอหรือเปิดโครงการนั้นก่อน")
+            return
+        }
         if(GeminiStoryService.running) {
+            val jobProject=project.name
             val panel=progressPanel()
             val live=progressLine(panel,15f).apply { text=geminiStatusText(readGeminiStatus(),true); setTextIsSelectable(true) }
             geminiLiveDialog=live
             val dialog=AlertDialog.Builder(this).setTitle("เขียนบท AI")
                 .setView(panel)
-                .setPositiveButton("ย่อหน้าต่าง",null).setNeutralButton("หยุดงาน") { _,_ -> startService(Intent(this,GeminiStoryService::class.java).setAction(GeminiStoryService.CANCEL)) }
+                .setPositiveButton("ย่อหน้าต่าง",null).setNeutralButton("หยุดงาน") { _,_ ->
+                    if(project.name==jobProject && GeminiStoryService.running && GeminiStoryService.projectId==jobProject)
+                        startService(Intent(this,GeminiStoryService::class.java).setAction(GeminiStoryService.CANCEL).putExtra("project",jobProject))
+                    else notice("งานเปลี่ยนแล้ว กรุณาเปิดรายละเอียดใหม่")
+                }
                 .setNegativeButton("ปิด",null).showNavigationDirector()
             dialog.setOnDismissListener { if(geminiLiveDialog===live) geminiLiveDialog=null }
         } else {
@@ -8370,6 +8385,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         panel.isFocusableInTouchMode=true
         panel.descendantFocusability=android.view.ViewGroup.FOCUS_BEFORE_DESCENDANTS
         val edit=EditText(this).apply { setText(proposal); minLines=3; panel.addView(this) }
+        edit.showSoftInputOnFocus=false
         panel.requestFocus()
         var confirmed=false
         var restored=false
@@ -8385,22 +8401,22 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         val backCallback=object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { dialog.cancel() }
         }
-        dialog.onBackPressedDispatcher.addCallback(backCallback)
         dialog.setOnDismissListener {
             backCallback.remove()
             // Restore only after the old dialog has been dismissed, so its window cannot steal focus.
-            window.decorView.post { restoreParent() }
+            android.os.Handler(android.os.Looper.getMainLooper()).post { restoreParent() }
         }
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         dialog.show()
+        dialog.onBackPressedDispatcher.addCallback(backCallback)
+        dialog.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM)
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN or android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         edit.clearFocus()
         panel.requestFocus()
-        dialog.setOnKeyListener { _, keyCode, event ->
-            if(keyCode == android.view.KeyEvent.KEYCODE_BACK) {
-                if(event.action == android.view.KeyEvent.ACTION_UP && !event.isCanceled) dialog.cancel()
-                true
-            } else false
+        edit.setOnTouchListener { _, _ ->
+            dialog.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM)
+            edit.showSoftInputOnFocus=true
+            false
         }
         dialog.getButton(-2).setOnClickListener { dialog.cancel() }
         dialog.getButton(-1).setOnClickListener {

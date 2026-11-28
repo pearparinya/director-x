@@ -3,22 +3,22 @@
 <item name="android:fontFamily">sans</item>
 <item name="colorPrimary">#FFCC65</item>
 <item name="colorPrimaryVariant">#D79532</item>
-<item name="colorSecondary">#E8B452</item>
-<item name="colorSurface">#211B16</item>
+<item name="colorSecondary">#48D9F5</item>
+<item name="colorSurface">#14213A</item>
 <item name="colorOnSurface">#F8F7FF</item>
-<item name="android:colorBackground">#0C0C0F</item>
+<item name="android:colorBackground">#0B1326</item>
 <item name="android:windowLightStatusBar">false</item>
 <item name="android:windowLightNavigationBar">false</item>
-<item name="android:navigationBarColor">#0C0C0F</item>
-<item name="android:statusBarColor">#0C0C0F</item>
+<item name="android:navigationBarColor">#0B1326</item>
+<item name="android:statusBarColor">#0B1326</item>
 <item name="alertDialogTheme">@style/DirectorDialog</item>
 </style>
 <style name="DirectorDialog" parent="ThemeOverlay.MaterialComponents.Dialog.Alert">
-<item name="colorSurface">#211B16</item>
+<item name="colorSurface">#14213A</item>
 <item name="colorOnSurface">#F8F7FF</item>
 <item name="colorPrimary">#FFCC65</item>
 <item name="android:textColorPrimary">#F8F7FF</item>
-<item name="android:textColorSecondary">#C0C4DF</item>
+<item name="android:textColorSecondary">#C3CDE5</item>
 <item name="android:colorAccent">#FFCC65</item>
 </style>
 </resources>

@@ -32,6 +32,8 @@ class StudioUpdater(private val activity: AppCompatActivity) {
     private var lastCheckThisSession = 0L
     private val reminderIntervalMs = 24 * 60 * 60 * 1000L
     fun checkAutomatically() {
+        // Debug/instrumentation builds must not open the production installer over active UI tests.
+        if ((activity.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) return
         val now = System.currentTimeMillis()
         if (lastCheckThisSession in 1..now && now - lastCheckThisSession < checkIntervalMs) return
         if (busy) return

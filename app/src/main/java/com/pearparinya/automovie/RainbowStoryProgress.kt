@@ -68,7 +68,7 @@ internal object MiniStoryProgress {
             "cerebras" -> "API อัตโนมัติ"
             else -> raw.replaceFirstChar { it.uppercaseChar() }
         }
-        return if(status?.optBoolean("hybrid")==true) "Groq + Gemini • $label" else label
+        return if(status?.optBoolean("hybrid")==true) "AI Hybrid • $label" else label
     }
     fun stage(status: JSONObject?,alive: Boolean): String = when {
         status==null -> "พร้อมเขียนบท"
@@ -83,7 +83,7 @@ internal object MiniStoryProgress {
         else -> "กำลังเขียนบท"
     }
     fun waiting(status: JSONObject?): Boolean =
-        status?.optString("phase") in setOf("waiting","retry_wait")
+        status?.optString("state") == "running" && status.optString("phase") in setOf("waiting","retry_wait")
     fun percent(status: JSONObject?): Int=status?.optInt("percent")?.coerceIn(0,100) ?: 0
-    fun elapsed(status: JSONObject?): String=StoryStatusText.duration(status?.optLong("elapsed_ms") ?: 0L)
+    fun elapsed(status: JSONObject?): String=StoryStatusText.duration((status?.optLong("elapsed_ms") ?: 0L).coerceAtLeast(0L))
 }
