@@ -8638,7 +8638,18 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                             "${propCatalog[n]} ($id)"+(if(who.isBlank()) " • ไม่ระบุผู้ใช้" else " • ผู้ใช้ที่เลือก: $who ($owner)")
                         }
                         val reviewedRoles=selectedActors.mapNotNull { id -> suggestedRoles[id]?.let { "$id: $it" } }
-                        val storyPremise=listOf("สถานการณ์ตั้งต้นที่เลือก: "+selectedStoryTopic,premise.text.toString(),if(reviewedRoles.isEmpty()) "" else "บทบาทที่เลือกจากข้อเสนอ (ตรวจความสอดคล้องกับเรื่อง): "+reviewedRoles.joinToString("; "),if(reviewedProps.isEmpty()) "" else "อุปกรณ์ MASTER ที่เลือก: "+reviewedProps.joinToString("; ")+". ใช้ตามเหตุการณ์ ระบุฉาก ผู้ถือ และความต่อเนื่อง ห้ามเดาผู้ใช้ที่ยังไม่ระบุ").filter { it.isNotBlank() }.joinToString("\n")
+                        val standCategoryId=ChannelCatalog.allCategories[index].id
+                        val standBrief=if(standCategoryId in setOf("pia_stand","cinema_stand")) {
+                            val store=com.pearparinya.automovie.stand.StandMasterStore(filesDir,com.pearparinya.automovie.stand.VerifiedStandMasters.records)
+                            require(store.ready()) { "กรุณาตรวจ MASTER สแตนด์ทั้ง 16 ตัวให้ผ่าน SHA-256 ก่อนสร้างบท" }
+                            val roster=com.pearparinya.automovie.stand.StandCatalog.all.joinToString("\n") { stand ->
+                                val profile=com.pearparinya.automovie.stand.StandCombatCatalog.profile(stand.id)
+                                val effect=com.pearparinya.automovie.stand.StandUniqueAbility.effect(stand.id)
+                                "${stand.id} ${stand.name}: power=${profile.power}, speed=${profile.speed}, defense=${profile.defense}, ability=${profile.ability}, weakness=${profile.weakness}, rank=${profile.rank}, special=$effect"
+                            }
+                            "STAND RULES: Use only the verified roster below. Assign each participating stand to a selected cast member and retain ownership across scenes and EPs. "+(if(standCategoryId=="pia_stand") "ST-013 belongs exclusively to PIEROS (cast library ID $piaActorId); no other stand belongs to PIEROS. " else "")+"Start health and energy at 100; attack costs 10 energy, guard 0, special 30. Respect weaknesses, summon/dismiss state, and carry combat consequences forward. Follow the existing requested scene count, never a fixed four-scene outline.\n"+roster
+                        } else ""
+                        val storyPremise=listOf(standBrief,"สถานการณ์ตั้งต้นที่เลือก: "+selectedStoryTopic,premise.text.toString(),if(reviewedRoles.isEmpty()) "" else "บทบาทที่เลือกจากข้อเสนอ (ตรวจความสอดคล้องกับเรื่อง): "+reviewedRoles.joinToString("; "),if(reviewedProps.isEmpty()) "" else "อุปกรณ์ MASTER ที่เลือก: "+reviewedProps.joinToString("; ")+". ใช้ตามเหตุการณ์ ระบุฉาก ผู้ถือ และความต่อเนื่อง ห้ามเดาผู้ใช้ที่ยังไม่ระบุ").filter { it.isNotBlank() }.joinToString("\n")
                         if(presenterId.isNotBlank() && presenterOutfit.selectedItemPosition>0) require(presenterOutfitFile(presenterId,presenterOutfit.selectedItemPosition).isFile) { "กรุณาเพิ่มรูปของชุดที่เลือก หรือเลือกชุดตามเนื้อเรื่อง" }
                         require(catalog.length()>0) { "คลัง MASTER ว่าง กรุณาเพิ่มตัวละครก่อน" }
                         if(ChannelCatalog.allCategories[index].id=="younger_man_older_woman") {
