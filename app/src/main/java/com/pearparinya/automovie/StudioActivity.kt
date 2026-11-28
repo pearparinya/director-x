@@ -966,7 +966,7 @@ class StudioActivity : AppCompatActivity() {
                                store: com.pearparinya.automovie.stand.StandOwnershipStore) {
         val providers = StoryProvider.eligible(this).filter { it.hasKey(this) }
         if (providers.isEmpty()) { notice("กรุณาตั้งค่า API เขียนบทก่อน"); return }
-        val archive = com.pearparinya.automovie.stand.StandEpisodeArchive(getSharedPreferences("stand_projects", MODE_PRIVATE))
+        val archive = com.pearparinya.automovie.stand.StandUniverseArchive(getSharedPreferences("stand_projects", MODE_PRIVATE))
         val types = com.pearparinya.automovie.stand.StandStoryType.values()
         AlertDialog.Builder(this).setTitle("AI + Kotlin • เลือกประเภทเรื่อง")
             .setItems(types.map { it.name }.toTypedArray()) { _, index ->
@@ -978,9 +978,19 @@ class StudioActivity : AppCompatActivity() {
                 Thread {
                     val result = runCatching {
                         val initial = store.load(project)
-                        val history = archive.history(project)
-                        val story = com.pearparinya.automovie.stand.StandStoryProduction.generate(initial, types[index])
-                        val prompt = com.pearparinya.automovie.stand.StandAiNarrative.prompt(story, history)
+                        val history = archive.migrateLegacy(project, initial)
+                        val story = com.pearparinya.automovie.stand.StandStoryProduction.generate(initial, types[index], priorVitals = history.lastOrNull()?.vitals.orEmpty())
+                        val expected = com.pearparinya.automovie.stand.StandPersistentEpisode(history.size + 1,
+                            "pending", story.ownership.snapshot(), story.vitals)
+                        val vitals = JSONObject()
+                        expected.vitals.forEach { (id,v) -> vitals.put(id, JSONObject().put("health",v.health).put("energy",v.energy)) }
+                        val prompt = com.pearparinya.automovie.stand.StandAiNarrative.prompt(story, history.map { it.narrative }) +
+                            "\nReturn text plus exact episode, owners and vitals: " +
+                            JSONObject().put("episode",expected.number).put("owners",JSONObject(expected.owners)).put("vitals",vitals)
+                        val schema = com.pearparinya.automovie.stand.StandAiNarrative.schema()
+                        schema.getJSONObject("properties").put("episode",JSONObject().put("type","integer"))
+                            .put("owners",JSONObject().put("type","object")).put("vitals",JSONObject().put("type","object"))
+                        schema.put("required",JSONArray().put("text").put("episode").put("owners").put("vitals"))
                         var answer: String? = null
                         for (provider in providers) {
                             if (stopped.get()) break
@@ -989,8 +999,9 @@ class StudioActivity : AppCompatActivity() {
                                     { stopped.get() }, automaticRetry=false, context=this@StudioActivity)
                                 active.set(client)
                                 if (stopped.get()) throw java.util.concurrent.CancellationException()
-                                client.generate(prompt, com.pearparinya.automovie.stand.StandAiNarrative.schema())
-                                    .optString("text").trim()
+                                val response = client.generate(prompt, schema)
+                                check(com.pearparinya.automovie.stand.StandAiStoryValidation.validate(story.ownership, expected, response))
+                                response.optString("text").trim()
                             }.getOrNull()?.takeIf { it.isNotBlank() }
                             if (answer != null) break
                         }
@@ -1011,8 +1022,8 @@ class StudioActivity : AppCompatActivity() {
                                     val saved = runCatching {
                                         check(store.load(project).snapshot() == initial.snapshot())
                                         check(archive.history(project) == history)
-                                        check(store.save(story.ownership))
-                                        archive.append(project, history, draft)
+                                        archive.append(project, history, com.pearparinya.automovie.stand.StandPersistentEpisode(
+                                            history.size + 1, draft, story.ownership.snapshot(), story.vitals))
                                     }.getOrDefault(false)
                                     notice(if (saved) "บันทึก EP แล้ว" else "บันทึกไม่สำเร็จ กรุณาตรวจข้อมูลเดิม")
                                 }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
