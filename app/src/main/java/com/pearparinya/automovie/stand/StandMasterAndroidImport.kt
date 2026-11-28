@@ -9,6 +9,10 @@ class StandMasterAndroidImport(
     private val store: StandMasterStore
 ) {
     companion object {
+        fun forContext(context: android.content.Context): StandMasterAndroidImport =
+            StandMasterAndroidImport(context.contentResolver,
+                StandMasterStore(context.filesDir, VerifiedStandMasters.records))
+
         fun documentContract() = ActivityResultContracts.OpenDocument()
         fun imageMimeTypes() = arrayOf("image/*")
     }
