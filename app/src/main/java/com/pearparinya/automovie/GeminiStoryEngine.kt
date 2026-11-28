@@ -131,7 +131,7 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
             // Scope the presenter's English alias to the selected channel category
             // and verified library ID. Keep saved Thai names and MASTER IDs intact.
             if (channel == "นายเปีย บ้านคลองขุด" && presenterId.isNotBlank()) {
-                val alias = if (ChannelCatalog.main(category)?.id == "pia_stand") "Piaros" else "Pia"
+                val alias = if ((category == ChannelCatalog.piaStand.label || category == ChannelCatalog.piaStand.name || category == ChannelCatalog.piaStand.id || spec.optString("category_id") == ChannelCatalog.piaStand.id)) "Piaros" else "Pia"
                 val actors = (0 until appliedCast.length()).map { appliedCast.getJSONObject(it) }
                 val presenter = actors.singleOrNull { it.optString("library_id") == presenterId }
                 if (presenter != null && actors.none { it !== presenter && it.optString("english_name").equals(alias, true) }) {
