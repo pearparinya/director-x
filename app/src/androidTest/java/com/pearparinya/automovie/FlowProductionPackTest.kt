@@ -220,8 +220,10 @@ class FlowProductionPackTest {
                 if (pass == 0) awaitControl("ย้อนกลับ", true)
                 else {
                     instrumentation.uiAutomation.waitForIdle(300, 5000)
-                    assertTrue("System Back injection failed", instrumentation.uiAutomation.injectInputEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_BACK), true))
-                    assertTrue("System Back release failed", instrumentation.uiAutomation.injectInputEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_BACK), true))
+                    android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("input keyevent KEYCODE_BACK")).bufferedReader().use { reader ->
+                        val output = reader.readText()
+                        assertTrue("System Back shell error: $output", output.isBlank())
+                    }
                 }
                 instrumentation.uiAutomation.waitForIdle(300, 5000)
                 val deadline=android.os.SystemClock.uptimeMillis()+5000L
