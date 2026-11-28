@@ -1236,7 +1236,7 @@ class StudioActivity : AppCompatActivity() {
                                         check(archive.history(project) == history)
                                         archive.append(project, history, episode)
                                     }.getOrDefault(false)
-                                    if (saved) standScenePromptMenu(story) else notice("บันทึกไม่สำเร็จ กรุณาตรวจข้อมูลเดิม")
+                                    if (saved) standScenePromptMenu(story.ownership, story.beats, episode.number) else notice("บันทึกไม่สำเร็จ กรุณาตรวจข้อมูลเดิม")
                                 }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
                         }
                     }
