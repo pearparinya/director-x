@@ -10,7 +10,8 @@ data class StandVitals(val health: Int, val energy: Int) {
 data class StandPersistentEpisode(val number: Int, val narrative: String,
     val owners: Map<String,String>, val vitals: Map<String,StandVitals>,
     val relationships: List<StandCharacterRelationship> = emptyList(), val arc: StandLongTermArc? = null,
-    val goals: List<StandCharacterGoal> = emptyList(), val plots: List<StandPlotThread> = emptyList()) {
+    val goals: List<StandCharacterGoal> = emptyList(), val plots: List<StandPlotThread> = emptyList(),
+    val beats: List<StandStoryBeat> = emptyList()) {
     init { require(number > 0 && narrative.isNotBlank()); require(vitals.keys.all { it in owners }) }
 }
 class StandUniverseArchive(private val prefs: SharedPreferences) {
@@ -31,9 +32,11 @@ class StandUniverseArchive(private val prefs: SharedPreferences) {
                         StandCharacterRelationship(rel.getString("first"),rel.getString("second"),StandRelationship.valueOf(rel.getString("relation"))) }
                 }, item.optJSONObject("arc")?.let { StandLongTermArc(it.getString("goal"),it.getInt("finalEpisode")) },
                 StandPlotJson.goals(item.optJSONArray("goals") ?: JSONArray()),
-                StandPlotJson.plots(item.optJSONArray("plots") ?: JSONArray())).also {
+                StandPlotJson.plots(item.optJSONArray("plots") ?: JSONArray()),
+                decodeBeats(item.optJSONArray("beats") ?: JSONArray())).also {
                     require(it.number == index + 1)
-                    StandOwnership.restore(project, it.owners)
+                    val ownership = StandOwnership.restore(project, it.owners)
+                    require(it.beats.isEmpty() || StandStoryRules.validate(ownership, it.beats.map { beat -> beat.scene }))
                 }
         }
     }
@@ -57,6 +60,7 @@ class StandUniverseArchive(private val prefs: SharedPreferences) {
         require(episode.number == expected.size + 1)
         require(StandOwnership.restore(project, episode.owners).snapshot() == episode.owners)
         require(expected.lastOrNull()?.owners.orEmpty().all { (id, owner) -> episode.owners[id] == owner })
+        require(episode.beats.isEmpty() || StandStoryRules.validate(StandOwnership.restore(project, episode.owners), episode.beats.map { it.scene }))
         val prior = expected.lastOrNull()
         require(prior?.arc == null || prior.arc == episode.arc)
         episode.arc?.let { require(StandPlotContinuity.validate(episode.number, episode.owners, it,
@@ -68,7 +72,7 @@ class StandUniverseArchive(private val prefs: SharedPreferences) {
             val relationships = JSONArray()
             e.relationships.forEach { rel -> relationships.put(JSONObject().put("first",rel.first)
                 .put("second",rel.second).put("relation",rel.relation.name)) }
-            array.put(JSONObject().put("goals",StandPlotJson.encodeGoals(e.goals))
+            array.put(JSONObject().put("beats",encodeBeats(e.beats)).put("goals",StandPlotJson.encodeGoals(e.goals))
                 .put("plots",StandPlotJson.encodePlots(e.plots)).put("relationships",relationships)
                 .put("arc",e.arc?.let { JSONObject().put("goal",it.goal).put("finalEpisode",it.finalEpisode) } ?: JSONObject.NULL)
                 .put("number",e.number).put("narrative",e.narrative)
@@ -77,6 +81,20 @@ class StandUniverseArchive(private val prefs: SharedPreferences) {
         prefs.edit().putString(key(project),array.toString())
             .putString("stand.ownership.v1:" + project.channel.id + ":" + project.projectId,
                 StandOwnershipCodec.encode(StandOwnership.restore(project, episode.owners))).commit()
+    }
+    private fun encodeBeats(beats: List<StandStoryBeat>) = JSONArray(beats.map { beat ->
+        JSONObject().put("number",beat.scene.number).put("narrative",beat.narrative)
+            .put("presences",JSONArray(beat.scene.presences.map { p ->
+                JSONObject().put("stand",p.standId).put("owner",p.ownerId).put("summoned",p.summoned)
+            }))
+    })
+    private fun decodeBeats(array: JSONArray): List<StandStoryBeat> = (0 until array.length()).map { i ->
+        val beat = array.getJSONObject(i)
+        val presences = beat.getJSONArray("presences")
+        StandStoryBeat(StandStoryScene(beat.getInt("number"), (0 until presences.length()).map { j ->
+            val p = presences.getJSONObject(j)
+            StandPresence(p.getString("stand"),p.getString("owner"),p.getBoolean("summoned"))
+        }),beat.getString("narrative"))
     }
     companion object { private val lock = Any() }
 }
