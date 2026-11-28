@@ -8,7 +8,8 @@ data class StandVitals(val health: Int, val energy: Int) {
     init { require(health in 0..100 && energy in 0..100) }
 }
 data class StandPersistentEpisode(val number: Int, val narrative: String,
-    val owners: Map<String,String>, val vitals: Map<String,StandVitals>) {
+    val owners: Map<String,String>, val vitals: Map<String,StandVitals>,
+    val relationships: List<StandCharacterRelationship> = emptyList(), val arc: StandLongTermArc? = null) {
     init { require(number > 0 && narrative.isNotBlank()); require(vitals.keys.all { it in owners }) }
 }
 class StandUniverseArchive(private val prefs: SharedPreferences) {
@@ -24,7 +25,10 @@ class StandUniverseArchive(private val prefs: SharedPreferences) {
                 vitals.keys().asSequence().associateWith {
                     val v = vitals.getJSONObject(it)
                     StandVitals(v.getInt("health"), v.getInt("energy"))
-                }).also {
+                }, (item.optJSONArray("relationships") ?: JSONArray()).let { arr ->
+                    (0 until arr.length()).map { i -> val rel = arr.getJSONObject(i)
+                        StandCharacterRelationship(rel.getString("first"),rel.getString("second"),StandRelationship.valueOf(rel.getString("relation"))) }
+                }, item.optJSONObject("arc")?.let { StandLongTermArc(it.getString("goal"),it.getInt("finalEpisode")) }).also {
                     require(it.number == index + 1)
                     StandOwnership.restore(project, it.owners)
                 }
@@ -54,7 +58,12 @@ class StandUniverseArchive(private val prefs: SharedPreferences) {
         (expected + episode).forEach { e ->
             val vitals = JSONObject()
             e.vitals.forEach { (id,v) -> vitals.put(id, JSONObject().put("health",v.health).put("energy",v.energy)) }
-            array.put(JSONObject().put("number",e.number).put("narrative",e.narrative)
+            val relationships = JSONArray()
+            e.relationships.forEach { rel -> relationships.put(JSONObject().put("first",rel.first)
+                .put("second",rel.second).put("relation",rel.relation.name)) }
+            array.put(JSONObject().put("relationships",relationships)
+                .put("arc",e.arc?.let { JSONObject().put("goal",it.goal).put("finalEpisode",it.finalEpisode) } ?: JSONObject.NULL)
+                .put("number",e.number).put("narrative",e.narrative)
                 .put("owners",JSONObject(e.owners)).put("vitals",vitals))
         }
         prefs.edit().putString(key(project),array.toString())
