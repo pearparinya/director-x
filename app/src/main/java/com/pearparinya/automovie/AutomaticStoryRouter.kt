@@ -16,8 +16,8 @@ internal class AutomaticStoryRouter(
     private val cancelled: () -> Boolean,
     private val progress: (StoryProvider,String)->Unit
 ) {
-    internal var verifyBeforeUse: Boolean = false
-    internal var requestTimeoutMillis: Long = 45_000L
+    var verifyBeforeUse: Boolean = false
+    var requestTimeoutMillis: Long = 45_000L
     var onFailure: (StoryProvider,String)->Unit = { _,_ -> }
     var onRequestStart: (StoryProvider, Long) -> Unit = { _, _ -> }
     var onRequestDetails: (String, Int) -> Unit = { _, _ -> }
