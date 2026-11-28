@@ -8001,7 +8001,15 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                 groups.drop(1).map { it.first }+
                 listOf("⚔️ " + com.pearparinya.automovie.stand.StandChannel.PIA.title, "⚙️ ตั้งค่า MASTER ประจำช่อง")
             choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",entries) { selected ->
-                if(selected==6) { standProjectMenu(com.pearparinya.automovie.stand.StandChannel.PIA); return@choiceMenu }
+                if(selected==6) {
+                    val index=ChannelCatalog.allCategories.indexOfFirst { it.id=="pia_stand" }
+                    require(index>=0)
+                    chooseTopicWithRandom(channel,"pia_stand",ChannelCatalog.shortTopics("pia_stand")) { topic ->
+                        selectedStoryTopic=topic
+                        done(index)
+                    }
+                    return@choiceMenu
+                }
                 if(selected==7) { piaMasterSettings(); return@choiceMenu }
                 if(selected==1) { musicMvMenu(); return@choiceMenu }
                 val group=groups[if(selected==0) 0 else selected-1]
@@ -8023,7 +8031,15 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         }
         val film=ChannelCatalog.filmCategories
         choiceMenu("ขั้นที่ 1 • เลือกหมวดหลัก • ร้อยฉาก",film.map { it.menuLabel } + ("⚔️ " + com.pearparinya.automovie.stand.StandChannel.UNIVERSE.title)) { selected ->
-            if(selected==film.size) { standProjectMenu(com.pearparinya.automovie.stand.StandChannel.UNIVERSE); return@choiceMenu }
+            if(selected==film.size) {
+                    val index=ChannelCatalog.allCategories.indexOfFirst { it.id=="cinema_stand" }
+                    require(index>=0)
+                    chooseTopicWithRandom(channel,"cinema_stand",ChannelCatalog.shortTopics("cinema_stand")) { topic ->
+                        selectedStoryTopic=topic
+                        done(index)
+                    }
+                    return@choiceMenu
+                }
             val index=ChannelCatalog.allCategories.indexOfFirst { it.id==film[selected].id }
             val topics=ChannelCatalog.shortTopics(film[selected].id)
             chooseTopicWithRandom(channel,film[selected].id,topics) { topic ->
