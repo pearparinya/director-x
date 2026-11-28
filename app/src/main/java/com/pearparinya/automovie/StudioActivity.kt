@@ -879,13 +879,12 @@ class StudioActivity : AppCompatActivity() {
             }.start()
         }
     }
-    private fun standProjectMenu() {
+    private fun standProjectMenu(channel: com.pearparinya.automovie.stand.StandChannel? = null) {
         val projectId = prefs.getString("project", null)
         if (projectId.isNullOrBlank()) { notice("กรุณาเปิดโครงการก่อน"); return }
         val channels = com.pearparinya.automovie.stand.StandChannel.values()
-        AlertDialog.Builder(this).setTitle("หมวดหมู่สแตนด์")
-            .setItems(channels.map { it.title }.toTypedArray()) { _, index ->
-                val project = com.pearparinya.automovie.stand.StandProject(channels[index], projectId)
+        fun openChannel(chosen: com.pearparinya.automovie.stand.StandChannel) {
+                val project = com.pearparinya.automovie.stand.StandProject(chosen, projectId)
                 val settings = getSharedPreferences("stand_projects", MODE_PRIVATE)
                 val key = "writing:" + project.channel.id + ":" + project.projectId
                 val modes = com.pearparinya.automovie.stand.StandWritingMode.values()
@@ -896,7 +895,11 @@ class StudioActivity : AppCompatActivity() {
                         dialog.dismiss()
                         standOwnerMenu(project)
                     }.setNegativeButton("กลับ", null).showNavigationDirector()
-            }.setNegativeButton("กลับ", null).showNavigationDirector()
+        }
+        if (channel != null) openChannel(channel)
+        else AlertDialog.Builder(this).setTitle("หมวดหมู่สแตนด์")
+            .setItems(channels.map { it.title }.toTypedArray()) { _, index -> openChannel(channels[index]) }
+            .setNegativeButton("กลับ", null).showNavigationDirector()
     }
     private fun standOwnerMenu(project: com.pearparinya.automovie.stand.StandProject) {
         val store = com.pearparinya.automovie.stand.StandOwnershipStore(
@@ -7977,9 +7980,10 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
             val entries=groups.take(1).map { it.first }+
                 listOf("🎵 เพลงและมิวสิกวิดีโอ")+
                 groups.drop(1).map { it.first }+
-                listOf("⚙️ ตั้งค่า MASTER ประจำช่อง")
+                listOf("⚔️ " + com.pearparinya.automovie.stand.StandChannel.PIA.title, "⚙️ ตั้งค่า MASTER ประจำช่อง")
             choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",entries) { selected ->
-                if(selected==6) { piaMasterSettings(); return@choiceMenu }
+                if(selected==6) { standProjectMenu(com.pearparinya.automovie.stand.StandChannel.PIA); return@choiceMenu }
+                if(selected==7) { piaMasterSettings(); return@choiceMenu }
                 if(selected==1) { musicMvMenu(); return@choiceMenu }
                 val group=groups[if(selected==0) 0 else selected-1]
                 choiceMenu("ขั้นที่ 2 • เลือกแนวย่อย",group.third) { sub ->
@@ -7999,7 +8003,8 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
             return
         }
         val film=ChannelCatalog.filmCategories
-        choiceMenu("ขั้นที่ 1 • เลือกหมวดหลัก • ร้อยฉาก",film.map { it.menuLabel }) { selected ->
+        choiceMenu("ขั้นที่ 1 • เลือกหมวดหลัก • ร้อยฉาก",film.map { it.menuLabel } + ("⚔️ " + com.pearparinya.automovie.stand.StandChannel.UNIVERSE.title)) { selected ->
+            if(selected==film.size) { standProjectMenu(com.pearparinya.automovie.stand.StandChannel.UNIVERSE); return@choiceMenu }
             val index=ChannelCatalog.allCategories.indexOfFirst { it.id==film[selected].id }
             val topics=ChannelCatalog.shortTopics(film[selected].id)
             chooseTopicWithRandom(channel,film[selected].id,topics) { topic ->
