@@ -54,4 +54,13 @@ class StandCinematicEngineTest {
         StandCinematicEngine.compose(ownership, scene, records, store(),
             "PIEROS", "street", listOf(hidden))
     }
+    @Test fun ownerReplyIncludedInVideo() {
+        val reply = StandConsciousnessEngine.ownerReply(ownership, presence, "PIEROS",
+            "understood", StandSpeech.TELEPATHIC)
+        val request = StandCinematicEngine.compose(ownership, scene, records, store(),
+            "PIEROS", "street", emptyList(), listOf(reply))
+        assertTrue(request.videoPrompt.contains("understood"))
+        assertTrue(request.videoPrompt.contains("owner-voice-PIEROS"))
+        assertTrue(request.videoPrompt.contains("No lip movement"))
+    }
 }
