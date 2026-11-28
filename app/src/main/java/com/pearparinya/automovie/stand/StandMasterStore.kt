@@ -5,6 +5,9 @@ import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
+enum class StandMasterStatus { VERIFIED, MISSING, HASH_MISMATCH, UNREADABLE }
+data class StandMasterAudit(val standId: String, val expectedSha256: String, val actualSha256: String?, val status: StandMasterStatus)
+
 class StandMasterStore(filesDir: File, records: List<StandMasterRecord>) {
     private val root = File(filesDir, "stand_masters_v1")
     private val registry = records.associateBy { it.standId }
@@ -31,5 +34,18 @@ class StandMasterStore(filesDir: File, records: List<StandMasterRecord>) {
         } }
     }
 
-    fun ready(): Boolean = registry.keys.all { verifiedFile(it) != null }
+    fun audit(): List<StandMasterAudit> = StandCatalog.all.map { stand ->
+        val record = registry.getValue(stand.id)
+        val file = File(root, stand.id + ".master")
+        if (!file.isFile) StandMasterAudit(stand.id, record.sha256, null, StandMasterStatus.MISSING)
+        else try {
+            val actual = file.inputStream().use { StandMasterIntegrity.digest(it) }
+            StandMasterAudit(stand.id, record.sha256, actual,
+                if (actual == record.sha256) StandMasterStatus.VERIFIED else StandMasterStatus.HASH_MISMATCH)
+        } catch (_: java.io.IOException) {
+            StandMasterAudit(stand.id, record.sha256, null, StandMasterStatus.UNREADABLE)
+        }
+    }
+
+    fun ready(): Boolean = audit().all { it.status == StandMasterStatus.VERIFIED }
 }
