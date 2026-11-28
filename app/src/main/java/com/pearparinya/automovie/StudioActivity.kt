@@ -1163,12 +1163,13 @@ class StudioActivity : AppCompatActivity() {
                             com.pearparinya.automovie.stand.StandPlotJson.encodeGoals(previousGoals) +
                             "\nPrior plots: " + com.pearparinya.automovie.stand.StandPlotJson.encodePlots(previousPlots)
                         val schema = com.pearparinya.automovie.stand.StandAiNarrative.schema()
+                        schema.getJSONObject("properties").put("scenes", JSONObject().put("type","array").put("items",JSONObject().put("type","object").put("properties",JSONObject().put("number",JSONObject().put("type","integer")).put("narrative",JSONObject().put("type","string"))).put("required",JSONArray().put("number").put("narrative"))))
                         schema.getJSONObject("properties").put("episode",JSONObject().put("type","integer"))
                             .put("owners",JSONObject().put("type","object")).put("vitals",JSONObject().put("type","object"))
                         schema.getJSONObject("properties")
                             .put("goals",JSONObject().put("type","array").put("items",JSONObject().put("type","object")))
                             .put("plots",JSONObject().put("type","array").put("items",JSONObject().put("type","object")))
-                        schema.put("required",JSONArray().put("text").put("episode").put("owners").put("vitals").put("goals").put("plots"))
+                        schema.put("required",JSONArray().put("text").put("episode").put("owners").put("vitals").put("goals").put("plots").put("scenes"))
                         var answer: com.pearparinya.automovie.stand.StandPersistentEpisode? = null
                         for (provider in providers) {
                             if (stopped.get()) break
@@ -1177,13 +1178,22 @@ class StudioActivity : AppCompatActivity() {
                                     { stopped.get() }, automaticRetry=false, context=this@StudioActivity)
                                 active.set(client)
                                 if (stopped.get()) throw java.util.concurrent.CancellationException()
-                                val response = client.generate(continuityPrompt, schema)
+                                val response = client.generate(continuityPrompt + "\nReturn scenes in exact planned order, one per Kotlin beat, with number (1-based) and detailed narrative including setting, visible cast, opening state, dialogue, action and ending state. Preserve all planned stand presences, owners and combat outcomes. Scene count: " + story.beats.size, schema)
                                 check(com.pearparinya.automovie.stand.StandAiStoryValidation.validate(story.ownership, expected, response))
                                 val goals = com.pearparinya.automovie.stand.StandPlotJson.goals(response.getJSONArray("goals"))
                                 val plots = com.pearparinya.automovie.stand.StandPlotJson.plots(response.getJSONArray("plots"))
                                 check(com.pearparinya.automovie.stand.StandPlotContinuity.validate(expected.number,
                                     expected.owners, arc, previousGoals, goals, previousPlots, plots))
-                                expected.copy(narrative=response.getString("text").trim(), goals=goals, plots=plots)
+                                val scenes = response.getJSONArray("scenes")
+                                check(scenes.length() == story.beats.size)
+                                val detailedBeats = story.beats.mapIndexed { i, beat ->
+                                    val scene = scenes.getJSONObject(i)
+                                    check(scene.getInt("number") == i + 1)
+                                    val narrative = scene.getString("narrative").trim()
+                                    check(narrative.isNotBlank())
+                                    beat.copy(narrative = beat.narrative + "\n" + narrative)
+                                }
+                                expected.copy(narrative=response.getString("text").trim(), goals=goals, plots=plots, beats=detailedBeats)
                             }.getOrNull()
                             if (answer != null) break
                         }
@@ -1207,7 +1217,7 @@ class StudioActivity : AppCompatActivity() {
                                         check(archive.history(project) == history)
                                         archive.append(project, history, episode)
                                     }.getOrDefault(false)
-                                    if (saved) standScenePromptMenu(story.ownership, story.beats, episode.number) else notice("บันทึกไม่สำเร็จ กรุณาตรวจข้อมูลเดิม")
+                                    if (saved) standScenePromptMenu(story.ownership, episode.beats, episode.number) else notice("บันทึกไม่สำเร็จ กรุณาตรวจข้อมูลเดิม")
                                 }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
                         }
                     }
