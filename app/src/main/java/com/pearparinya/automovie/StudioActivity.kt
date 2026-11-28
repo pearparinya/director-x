@@ -1032,6 +1032,40 @@ class StudioActivity : AppCompatActivity() {
                 else notice("ภาพหรือ MASTER เปลี่ยน กรุณาตรวจใหม่")
             }.setNegativeButton("ไม่ผ่าน") { _, _ -> File(folder,"approved.txt").delete(); File(folder,"video_stamp.txt").delete() }.showNavigationDirector()
     }
+    private fun standExportMovie(ownership: com.pearparinya.automovie.stand.StandOwnership,
+        beats: List<com.pearparinya.automovie.stand.StandStoryBeat>, episode: Int) {
+        val progress = AlertDialog.Builder(this).setMessage("ตรวจสอบและรวมคลิป MP4").setCancelable(false).create()
+        progress.show()
+        Thread {
+            val result = runCatching {
+                val records = com.pearparinya.automovie.stand.VerifiedStandMasters.records
+                val masters = com.pearparinya.automovie.stand.StandMasterStore(filesDir,records)
+                val clips = beats.sortedBy { it.scene.number }.map { beat ->
+                    val folder = standMediaFolder(ownership.project,episode,beat.scene.number)
+                    val request = com.pearparinya.automovie.stand.StandCinematicEngine.compose(
+                        ownership,beat.scene,records,masters,beat.scene.presences.first().ownerId,beat.narrative,emptyList())
+                    val stamp = requireNotNull(standFrameStamp(folder,request)) { "ขาดภาพฉาก " + beat.scene.number }
+                    require(File(folder,"approved.txt").readText() == stamp) { "ภาพยังไม่ผ่านฉาก " + beat.scene.number }
+                    val clip = File(folder,"clip.mp4")
+                    require(File(folder,"video_stamp.txt").readText() == stamp + ":" + EpisodeMedia.digest(clip)) { "วิดีโอไม่ตรงฉาก " + beat.scene.number }
+                    clip
+                }
+                val job = File(filesDir,"stand_exports/"+UUID.randomUUID()).apply { mkdirs() }
+                val output = File(job,"output.mp4")
+                try {
+                    EpisodeMedia.remux(clips,output,{ false }) { percent -> runOnUiThread { progress.setMessage("รวมคลิป " + percent + "%") } }
+                    EpisodeMedia.inspect(output)
+                    job
+                } catch(e: Exception) { job.deleteRecursively(); throw e }
+            }
+            runOnUiThread {
+                progress.dismiss()
+                val job = result.getOrElse { notice("ส่งออกไม่สำเร็จ: " + it.message); return@runOnUiThread }
+                prefs.edit().putString("movie_download_job",job.path).commit()
+                movieDownloadPicker.launch("STAND_EP"+episode+".mp4")
+            }
+        }.start()
+    }
     private fun standScenePromptMenu(ownership: com.pearparinya.automovie.stand.StandOwnership,
         beats: List<com.pearparinya.automovie.stand.StandStoryBeat>, episode: Int) {
         AlertDialog.Builder(this).setTitle("ผลิตฉากสแตนด์ • EP " + episode)
@@ -1062,7 +1096,8 @@ class StudioActivity : AppCompatActivity() {
                             }.setNegativeButton("กลับ") { _, _ -> standScenePromptMenu(ownership, beats, episode) }.showNavigationDirector()
                     }
                 }.start()
-            }.setNegativeButton("กลับ") { _, _ -> standOwnerMenu(ownership.project) }.showNavigationDirector()
+            }.setNeutralButton("รวมคลิป MP4") { _, _ -> standExportMovie(ownership,beats,episode) }
+            .setNegativeButton("กลับ") { _, _ -> standOwnerMenu(ownership.project) }.showNavigationDirector()
     }
     private fun standSavedEpisodes(project: com.pearparinya.automovie.stand.StandProject) {
         val history = runCatching { com.pearparinya.automovie.stand.StandUniverseArchive(
