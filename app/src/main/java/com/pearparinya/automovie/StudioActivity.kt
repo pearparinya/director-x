@@ -879,6 +879,39 @@ class StudioActivity : AppCompatActivity() {
             }.start()
         }
     }
+    private fun standProjectMenu() {
+        val projectId = prefs.getString("project", null)
+        if (projectId.isNullOrBlank()) { notice("กรุณาเปิดโครงการก่อน"); return }
+        val channels = com.pearparinya.automovie.stand.StandChannel.values()
+        AlertDialog.Builder(this).setTitle("หมวดหมู่สแตนด์")
+            .setItems(channels.map { it.title }.toTypedArray()) { _, index ->
+                val project = com.pearparinya.automovie.stand.StandProject(channels[index], projectId)
+                standOwnerMenu(project)
+            }.setNegativeButton("กลับ", null).showNavigationDirector()
+    }
+    private fun standOwnerMenu(project: com.pearparinya.automovie.stand.StandProject) {
+        val store = com.pearparinya.automovie.stand.StandOwnershipStore(
+            getSharedPreferences("stand_projects", MODE_PRIVATE))
+        val state = runCatching { store.load(project) }.getOrElse {
+            notice("อ่านข้อมูลเจ้าของสแตนด์ไม่สำเร็จ"); return
+        }
+        val entries = com.pearparinya.automovie.stand.StandCatalog.all
+        AlertDialog.Builder(this).setTitle(project.channel.title)
+            .setItems(entries.map { it.id + " • " + it.name + " • " +
+                (state.ownerOf(it.id) ?: "ยังไม่กำหนดเจ้าของ") }.toTypedArray()) { _, index ->
+                val entry = entries[index]
+                if (project.channel == com.pearparinya.automovie.stand.StandChannel.PIA &&
+                    entry.id == com.pearparinya.automovie.stand.StandCatalog.SUPREME_ID) {
+                    notice("ST-013 ล็อกเจ้าของ PIEROS"); return@setItems
+                }
+                val input = EditText(this).apply { hint = "รหัสเจ้าของ"; setText(state.ownerOf(entry.id).orEmpty()) }
+                AlertDialog.Builder(this).setTitle(entry.name).setView(input)
+                    .setPositiveButton("บันทึก") { _, _ ->
+                        val saved = runCatching { store.save(store.load(project).assign(entry.id, input.text.toString().trim())) }
+                        notice(if (saved.getOrDefault(false)) "บันทึกเจ้าของแล้ว" else "ไม่สามารถบันทึกเจ้าของ")
+                    }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
+            }.setNegativeButton("กลับ", null).showNavigationDirector()
+    }
     private fun standMasterMenu() {
         Thread {
             val result = runCatching { standMasterImporter.availableIds().toSet() }
@@ -908,6 +941,7 @@ class StudioActivity : AppCompatActivity() {
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             panel.addView(TextView(this).apply { text=if(entries.isEmpty()) "คลังว่าง • เพิ่มภาพใหม่ผ่านเมนูตัวละคร" else "${entries.size} แผ่น • หนึ่งแผ่นต่อหนึ่งตัวละคร" })
             panel.addView(Button(this).apply { text="คลัง MASTER สแตนด์"; setOnClickListener { standMasterMenu() } })
+            panel.addView(Button(this).apply { text="โครงการและเจ้าของสแตนด์"; setOnClickListener { standProjectMenu() } })
             val search=EditText(this).apply { hint="ค้นหา CHAR_001 หรือชื่อไฟล์"; isSingleLine=true; panel.addView(this) }
             val list=LinearLayout(this).apply { orientation=1 }
             panel.addView(ScrollView(this).apply { addView(list) },LinearLayout.LayoutParams(-1,dp(420)))
