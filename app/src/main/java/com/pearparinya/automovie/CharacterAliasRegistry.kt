@@ -68,7 +68,12 @@ internal object CharacterAliasRegistry {
             val entry=entries.getJSONObject(i)
             val alias=entry.optString("alias").trim()
             if(validAlias(alias))
-                if(!entry.has("character_id") || entry.optString("character_id")==identityId(entry.optString("name"),entry.optString("master")))
+                if(!entry.has("character_id") || definitions.filter {
+                    it.optString("name")==entry.optString("name") &&
+                        it.optString("master").equals(entry.optString("master"),true)
+                }.singleOrNull()?.let {
+                    it.optString("character_id").ifBlank { identityId(it.optString("name"),it.optString("master")) }
+                } == entry.optString("character_id"))
                     all.add(Triple(alias,entry.optString("name"),entry.optString("master")))
         }
         // Only accept the short presenter alias when the exact legacy identity is registered.
