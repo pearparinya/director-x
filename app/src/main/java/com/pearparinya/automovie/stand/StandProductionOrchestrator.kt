@@ -37,6 +37,23 @@ class StandProductionOrchestrator(private val masters: StandMasterStore,
                     stream.fd.sync()
                 }
                 require(temp.length() > 0) { "Empty production output" }
+                when (kind) {
+                    StandMediaKind.IMAGE -> {
+                        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        android.graphics.BitmapFactory.decodeFile(temp.absolutePath,bounds)
+                        require(bounds.outWidth > 0 && bounds.outHeight > 0) { "Invalid image output" }
+                    }
+                    StandMediaKind.VIDEO, StandMediaKind.VOICE -> {
+                        val extractor = android.media.MediaExtractor()
+                        try {
+                            extractor.setDataSource(temp.absolutePath)
+                            val prefix = if (kind == StandMediaKind.VIDEO) "video/" else "audio/"
+                            require((0 until extractor.trackCount).any {
+                                extractor.getTrackFormat(it).getString(android.media.MediaFormat.KEY_MIME)?.startsWith(prefix) == true
+                            }) { "Missing expected media track" }
+                        } finally { extractor.release() }
+                    }
+                }
                 java.nio.file.Files.move(temp.toPath(),target.toPath(),
                     java.nio.file.StandardCopyOption.ATOMIC_MOVE,java.nio.file.StandardCopyOption.REPLACE_EXISTING)
             } finally { temp.delete() }
