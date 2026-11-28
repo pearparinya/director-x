@@ -917,19 +917,29 @@ class StudioActivity : AppCompatActivity() {
                     val types = com.pearparinya.automovie.stand.StandStoryType.values()
                     AlertDialog.Builder(this).setTitle("ประเภทเรื่อง")
                         .setItems(types.map { it.name }.toTypedArray()) { _, index ->
+                            val archive = com.pearparinya.automovie.stand.StandUniverseArchive(settings)
                             val result = runCatching {
-                                com.pearparinya.automovie.stand.StandStoryProduction.generate(store.load(project), types[index])
+                                val initial = store.load(project)
+                                val history = archive.migrateLegacy(project, initial)
+                                check(history.lastOrNull()?.arc == null) { "โครงการมีแผน AI อยู่แล้ว กรุณาใช้โหมดเดิม" }
+                                val story = com.pearparinya.automovie.stand.StandStoryProduction.generate(initial, types[index],
+                                    priorVitals = history.lastOrNull()?.vitals.orEmpty())
+                                Triple(initial, history, story)
                             }
-                            val story = result.getOrNull()
-                            if (story == null) notice("สร้างบทไม่สำเร็จ: " + (result.exceptionOrNull()?.message ?: "ไม่ทราบสาเหตุ"))
+                            val generated = result.getOrNull()
+                            if (generated == null) notice("สร้างบทไม่สำเร็จ: " + (result.exceptionOrNull()?.message ?: "ไม่ทราบสาเหตุ"))
                             else {
+                                val (initial, history, story) = generated
                                 val draft = story.beats.joinToString("\n\n") { "ฉาก " + it.scene.number + ": " + it.narrative }
-                                AlertDialog.Builder(this).setTitle("ตัวอย่างบทสแตนด์").setMessage(draft)
-                                    .setPositiveButton("บันทึกเจ้าของและคัดลอกบท") { _, _ ->
+                                AlertDialog.Builder(this).setTitle("EP " + (history.size + 1) + " • ตัวอย่างบทสแตนด์").setMessage(draft)
+                                    .setPositiveButton("บันทึก EP และคัดลอกบท") { _, _ ->
                                         val saved = runCatching {
                                             val current = store.load(project)
-                                            check(current.snapshot() == state.snapshot())
-                                            store.save(story.ownership)
+                                            check(current.snapshot() == initial.snapshot())
+                                            archive.append(project, history, com.pearparinya.automovie.stand.StandPersistentEpisode(
+                                                history.size + 1, draft, story.ownership.snapshot(), story.vitals,
+                                                history.lastOrNull()?.relationships.orEmpty(), goals=history.lastOrNull()?.goals.orEmpty(),
+                                                plots=history.lastOrNull()?.plots.orEmpty()))
                                         }.getOrDefault(false)
                                         if (saved) {
                                             val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
