@@ -136,7 +136,12 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                 val actors = (0 until appliedCast.length()).map { appliedCast.getJSONObject(it) }
                 val presenter = actors.singleOrNull { it.optString("library_id") == presenterId }
                 requireNotNull(presenter) { "ไม่พบผู้ดำเนินเรื่องตาม Library ID ที่ยืนยัน" }
-                require(presenter.optString("master").isNotBlank()) { "ไม่พบ MASTER ผู้ดำเนินเรื่อง" }
+                val owner = (0 until catalog.length()).map { catalog.getJSONObject(it) }.singleOrNull { it.optString("id")==presenterId }
+                requireNotNull(owner) { "ทะเบียนเจ้าของ MASTER ผู้ดำเนินเรื่องไม่ชัดเจน" }
+                val key = "support_%08x".format(presenterId.substringAfter('_').toInt())
+                require(presenter.optString("master") == "${key.uppercase()}_MASTER.png") { "MASTER ผู้ดำเนินเรื่องไม่ตรงกับ Library ID" }
+                val installed = File(folder.parentFile!!,"original_masters/$key.master")
+                require(installed.isFile && MasterLibrary.digest(installed.readBytes()) == owner.getString("sha256")) { "MASTER ผู้ดำเนินเรื่องไม่ตรงกับทะเบียนเจ้าของ" }
                 require(actors.none { it !== presenter && (it.optString("english_name").equals("Pia", true) || it.optString("english_name").equals("Piaros", true)) }) { "ชื่อผู้ดำเนินเรื่องซ้ำกับตัวละครอื่น" }
                 presenter.put("english_name", alias)
             }
