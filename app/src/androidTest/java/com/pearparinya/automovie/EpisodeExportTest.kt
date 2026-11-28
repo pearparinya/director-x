@@ -56,7 +56,9 @@ class EpisodeExportTest {
         }
         export(listOf(still(red,1000)),first,tone("tone1.wav",440.0)); export(listOf(still(blue,1000)),second,tone("tone2.wav",660.0))
         // Exercise the Stand scene workflow with real portrait image and MP4 inputs.
-        verifyStandMovie(folder, listOf(red, blue), listOf(first, second))
+        for (channel in StandChannel.values()) {
+            verifyStandMovie(File(folder, channel.id).apply { mkdirs() }, listOf(red, blue), listOf(first, second), channel)
+        }
         val before=listOf(EpisodeMedia.digest(first),EpisodeMedia.digest(second))
         val job=File(folder,"job").apply { mkdirs() }
         val spec=org.json.JSONObject().put("aspect_ratio","9:16").put("ep",1).put("filename","ทดสอบ_EP01_ปกและฉาก.mp4").put("cover",cover.path)
@@ -180,8 +182,8 @@ class EpisodeExportTest {
         } finally { decoder.stop(); decoder.release(); extractor.release() }
     }
 
-    private fun verifyStandMovie(root: File, frames: List<File>, videos: List<File>) {
-        val project = StandProject(StandChannel.PIA, "stand-export-test")
+    private fun verifyStandMovie(root: File, frames: List<File>, videos: List<File>, channel: StandChannel) {
+        val project = StandProject(channel, "stand-export-test")
         val ownership = StandOwnership.restore(project).assign("ST-013", "PIEROS")
         val master = frames.first()
         val records = StandCatalog.all.map { stand ->

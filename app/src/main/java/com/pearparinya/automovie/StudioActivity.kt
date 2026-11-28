@@ -879,13 +879,11 @@ class StudioActivity : AppCompatActivity() {
             }.start()
         }
     }
-    private fun standProjectMenu() {
-        val projectId = prefs.getString("project", null)
-        if (projectId.isNullOrBlank()) { notice("กรุณาเปิดโครงการก่อน"); return }
+    private fun standProjectMenu(channel: com.pearparinya.automovie.stand.StandChannel? = null) {
+        val projectId = project.name
         val channels = com.pearparinya.automovie.stand.StandChannel.values()
-        AlertDialog.Builder(this).setTitle("หมวดหมู่สแตนด์")
-            .setItems(channels.map { it.title }.toTypedArray()) { _, index ->
-                val project = com.pearparinya.automovie.stand.StandProject(channels[index], projectId)
+        fun openChannel(chosen: com.pearparinya.automovie.stand.StandChannel) {
+                val project = com.pearparinya.automovie.stand.StandProject(chosen, projectId)
                 val settings = getSharedPreferences("stand_projects", MODE_PRIVATE)
                 val key = "writing:" + project.channel.id + ":" + project.projectId
                 val modes = com.pearparinya.automovie.stand.StandWritingMode.values()
@@ -896,7 +894,11 @@ class StudioActivity : AppCompatActivity() {
                         dialog.dismiss()
                         standOwnerMenu(project)
                     }.setNegativeButton("กลับ", null).showNavigationDirector()
-            }.setNegativeButton("กลับ", null).showNavigationDirector()
+        }
+        if (channel != null) openChannel(channel)
+        else AlertDialog.Builder(this).setTitle("หมวดหมู่สแตนด์")
+            .setItems(channels.map { it.title }.toTypedArray()) { _, index -> openChannel(channels[index]) }
+            .setNegativeButton("กลับ", null).showNavigationDirector()
     }
     private fun standOwnerMenu(project: com.pearparinya.automovie.stand.StandProject) {
         val store = com.pearparinya.automovie.stand.StandOwnershipStore(
@@ -910,7 +912,7 @@ class StudioActivity : AppCompatActivity() {
             it.name == settings.getString("writing:" + project.channel.id + ":" + project.projectId, null)
         } ?: com.pearparinya.automovie.stand.StandWritingMode.KOTLIN
         AlertDialog.Builder(this).setTitle(project.channel.title)
-            .setPositiveButton("สร้างบท Kotlin") { _, _ ->
+            .setPositiveButton(if (mode == com.pearparinya.automovie.stand.StandWritingMode.KOTLIN) "สร้างบท Kotlin" else "สร้างบท AI + Kotlin") { _, _ ->
                 if (mode != com.pearparinya.automovie.stand.StandWritingMode.KOTLIN) {
                     standAiEpisode(project, store)
                 } else {
@@ -964,7 +966,8 @@ class StudioActivity : AppCompatActivity() {
                     .setPositiveButton("บันทึก") { _, _ ->
                         val saved = runCatching { store.save(store.load(project).assign(entry.id, input.text.toString().trim())) }
                         notice(if (saved.getOrDefault(false)) "บันทึกเจ้าของแล้ว" else "ไม่สามารถบันทึกเจ้าของ")
-                    }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
+                        standOwnerMenu(project)
+                    }.setNegativeButton("ยกเลิก") { _, _ -> standOwnerMenu(project) }.showNavigationDirector()
             }.setNegativeButton("กลับ", null).showNavigationDirector()
     }
     private fun standMediaFolder(project: com.pearparinya.automovie.stand.StandProject, episode: Int, scene: Int): File {
@@ -7977,9 +7980,10 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
             val entries=groups.take(1).map { it.first }+
                 listOf("🎵 เพลงและมิวสิกวิดีโอ")+
                 groups.drop(1).map { it.first }+
-                listOf("⚙️ ตั้งค่า MASTER ประจำช่อง")
+                listOf("⚔️ " + com.pearparinya.automovie.stand.StandChannel.PIA.title, "⚙️ ตั้งค่า MASTER ประจำช่อง")
             choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",entries) { selected ->
-                if(selected==6) { piaMasterSettings(); return@choiceMenu }
+                if(selected==6) { standProjectMenu(com.pearparinya.automovie.stand.StandChannel.PIA); return@choiceMenu }
+                if(selected==7) { piaMasterSettings(); return@choiceMenu }
                 if(selected==1) { musicMvMenu(); return@choiceMenu }
                 val group=groups[if(selected==0) 0 else selected-1]
                 choiceMenu("ขั้นที่ 2 • เลือกแนวย่อย",group.third) { sub ->
@@ -7999,7 +8003,8 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
             return
         }
         val film=ChannelCatalog.filmCategories
-        choiceMenu("ขั้นที่ 1 • เลือกหมวดหลัก • ร้อยฉาก",film.map { it.menuLabel }) { selected ->
+        choiceMenu("ขั้นที่ 1 • เลือกหมวดหลัก • ร้อยฉาก",film.map { it.menuLabel } + ("⚔️ " + com.pearparinya.automovie.stand.StandChannel.UNIVERSE.title)) { selected ->
+            if(selected==film.size) { standProjectMenu(com.pearparinya.automovie.stand.StandChannel.UNIVERSE); return@choiceMenu }
             val index=ChannelCatalog.allCategories.indexOfFirst { it.id==film[selected].id }
             val topics=ChannelCatalog.shortTopics(film[selected].id)
             chooseTopicWithRandom(channel,film[selected].id,topics) { topic ->
@@ -8027,9 +8032,9 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
     private fun flowPlanning(autoDirector: Boolean = false) {
         piaStoryMasterOverride=null
         if(GeminiStoryService.running) { geminiJobMenu(); return }
-        if(!StoryProvider.ready(this)) { geminiSettings { flowPlanning(autoDirector) }; return }
         var chosenChannel=originalChannel
-        val configure: (Int) -> Unit = { index ->
+        val configure: (Int) -> Unit = configure@ { index ->
+            if(!StoryProvider.ready(this)) { geminiSettings { flowPlanning(autoDirector) }; return@configure }
             chooseClip { format, seconds ->
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             panel.addView(TextView(this).apply { text="หมวด: ${categories[index]}\nสถานการณ์ตั้งต้น: $selectedStoryTopic\n${if(chosenChannel=="นายเปีย บ้านคลองขุด") "เลือกนายเปียเป็นผู้ดำเนินเรื่องและเลือกชุดเริ่มต้น" else "AI เลือกนักแสดงจากคลัง MASTER และตั้งชื่ออัตโนมัติตามบท"} ${if(format=="short") "สร้างเรื่องจบในคลิปเดียว" else "แล้วเขียนเรื่องต่อครบทุก EP"}"; textSize=14f })
