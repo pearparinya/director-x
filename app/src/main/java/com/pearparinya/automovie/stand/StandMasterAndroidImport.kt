@@ -24,6 +24,8 @@ class StandMasterAndroidImport(
         return resolver.openInputStream(uri)?.use { store.importOriginal(standId, it) } ?: false
     }
 
+    fun audit(): List<StandMasterAudit> = store.audit()
+
     fun availableIds(): List<String> =
         StandCatalog.all.map { it.id }.filter { store.verifiedFile(it) != null }
 }
