@@ -46,23 +46,29 @@ object StandCombatEngine {
         require(first.energy >= cost(firstAction) && second.energy >= cost(secondAction))
         val a = StandCombatCatalog.profile(first.presence.standId)
         val b = StandCombatCatalog.profile(second.presence.standId)
+        val ea = if (firstAction == StandCombatAction.SPECIAL) StandUniqueAbility.effect(a.id) else StandAbilityEffect()
+        val eb = if (secondAction == StandCombatAction.SPECIAL) StandUniqueAbility.effect(b.id) else StandAbilityEffect()
         fun damage(attacker: StandCombatProfile, defender: StandCombatProfile,
-                   action: StandCombatAction, response: StandCombatAction): Int {
+                   action: StandCombatAction, response: StandCombatAction,
+                   attack: StandAbilityEffect, defense: StandAbilityEffect): Int {
             if (action == StandCombatAction.GUARD) return 0
             val raw = (attacker.power / 3 - defender.defense / 6 +
-                if (action == StandCombatAction.SPECIAL) 15 else 0).coerceAtLeast(1)
+                (if (action == StandCombatAction.SPECIAL) 15 else 0) +
+                attack.damageBonus - defense.shield).coerceAtLeast(1)
             return if (response == StandCombatAction.GUARD) (raw / 2).coerceAtLeast(1) else raw
         }
-        val firstActsFirst = a.speed >= b.speed
-        val hitA = damage(b, a, secondAction, firstAction)
-        val hitB = damage(a, b, firstAction, secondAction)
+        val firstActsFirst = a.speed + ea.initiative >= b.speed + eb.initiative
+        val hitA = damage(b, a, secondAction, firstAction, eb, ea)
+        val hitB = damage(a, b, firstAction, secondAction, ea, eb)
         val aActs = firstActsFirst || first.health > hitA
         val bActs = !firstActsFirst || second.health > hitB
         return StandCombatTurn(
             first.copy(health = (first.health - if (bActs) hitA else 0).coerceAtLeast(0),
-                energy = first.energy - if (aActs) cost(firstAction) else 0),
+                energy = (first.energy - (if (aActs) cost(firstAction) else 0) +
+                    (if (aActs) ea.recovery else 0) - (if (bActs) eb.drain else 0)).coerceIn(0,100)),
             second.copy(health = (second.health - if (aActs) hitB else 0).coerceAtLeast(0),
-                energy = second.energy - if (bActs) cost(secondAction) else 0),
+                energy = (second.energy - (if (bActs) cost(secondAction) else 0) +
+                    (if (bActs) eb.recovery else 0) - (if (aActs) ea.drain else 0)).coerceIn(0,100)),
             firstActsFirst)
     }
 }
