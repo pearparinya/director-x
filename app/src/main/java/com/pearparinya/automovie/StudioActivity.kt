@@ -1103,18 +1103,26 @@ class StudioActivity : AppCompatActivity() {
     }
     private fun standMasterMenu() {
         Thread {
-            val result = runCatching { standMasterImporter.availableIds().toSet() }
+            val result = runCatching { standMasterImporter.audit() }
             runOnUiThread {
                 if (!isFinishing && !isDestroyed) {
                     val available = result.getOrNull()
                     if (available == null) notice("ตรวจสอบคลังสแตนด์ไม่สำเร็จ")
                     else {
                         val entries = com.pearparinya.automovie.stand.StandCatalog.all
+                        val statuses = available.associateBy { it.standId }
                         val labels = entries.map {
-                            it.id + " • " + it.name + if (it.id in available) " ✓" else " • ยังไม่นำเข้า"
+                            val status = when (statuses.getValue(it.id).status) {
+                                com.pearparinya.automovie.stand.StandMasterStatus.VERIFIED -> "ผ่าน SHA-256"
+                                com.pearparinya.automovie.stand.StandMasterStatus.MISSING -> "ยังไม่นำเข้า"
+                                com.pearparinya.automovie.stand.StandMasterStatus.HASH_MISMATCH -> "ไฟล์ไม่ตรงต้นฉบับ"
+                                com.pearparinya.automovie.stand.StandMasterStatus.UNREADABLE -> "อ่านไฟล์ไม่ได้"
+                            }
+                            it.id + " • " + it.name + " • " + status
                         }.toTypedArray()
+                        val verified = available.count { it.status == com.pearparinya.automovie.stand.StandMasterStatus.VERIFIED }
                         AlertDialog.Builder(this)
-                            .setTitle("MASTER สแตนด์ ${available.size}/${entries.size}")
+                            .setTitle("MASTER สแตนด์ ${verified}/${entries.size}")
                             .setItems(labels) { _, index ->
                                 pendingStandMasterId = entries[index].id
                                 standMasterPicker.launch(arrayOf("image/png"))
