@@ -30,6 +30,20 @@ class StandUniverseArchive(private val prefs: SharedPreferences) {
                 }
         }
     }
+    fun migrateLegacy(project: StandProject, owners: StandOwnership): List<StandPersistentEpisode> = synchronized(lock) {
+        require(owners.project == project)
+        val existing = history(project)
+        if (existing.isNotEmpty()) return@synchronized existing
+        val legacy = StandEpisodeArchive(prefs).history(project)
+        if (legacy.isEmpty()) return@synchronized emptyList()
+        val array = JSONArray()
+        legacy.forEachIndexed { index, text ->
+            array.put(JSONObject().put("number",index+1).put("narrative",text)
+                .put("owners",JSONObject(owners.snapshot())).put("vitals",JSONObject()))
+        }
+        check(prefs.edit().putString(key(project),array.toString()).commit())
+        history(project)
+    }
     fun append(project: StandProject, expected: List<StandPersistentEpisode>,
                episode: StandPersistentEpisode): Boolean = synchronized(lock) {
         if (history(project) != expected) return@synchronized false
@@ -43,7 +57,9 @@ class StandUniverseArchive(private val prefs: SharedPreferences) {
             array.put(JSONObject().put("number",e.number).put("narrative",e.narrative)
                 .put("owners",JSONObject(e.owners)).put("vitals",vitals))
         }
-        prefs.edit().putString(key(project),array.toString()).commit()
+        prefs.edit().putString(key(project),array.toString())
+            .putString("stand.ownership.v1:" + project.channel.id + ":" + project.projectId,
+                StandOwnershipCodec.encode(StandOwnership.restore(project, episode.owners))).commit()
     }
     companion object { private val lock = Any() }
 }
