@@ -59,7 +59,8 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                     problem=IllegalArgumentException("ซ่อมบทต้องส่งกลับเฉพาะซีน $sceneNumber")
                     continue
                 }
-                if (!SceneRepairGuard.preservesStory(rows.getJSONObject(target), replacement.getJSONObject(0))) {
+                if (!SceneRepairGuard.preservesStory(rows.getJSONObject(target), replacement.getJSONObject(0),
+                    repairMixedAudio = problemText.contains("บทพูดกับบรรยายต้องแยกซีน"))) {
                     // Identity or wardrobe corrections require explicit review, not silent replacement.
                     throw IllegalArgumentException("ซีน $sceneNumber: ผลซ่อมบทเปลี่ยนตัวละคร MASTER ชุด บทสนทนา หรือเหตุการณ์ ต้องตรวจสอบก่อน")
                 }
