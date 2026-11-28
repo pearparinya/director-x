@@ -274,7 +274,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                 val wardrobeContext=if(spec.optString("content_profile")==AutoDirectorContent.profile || spec.optInt("command_version")>=1) "\nIMMUTABLE WARDROBE CATALOG — copy the exact four parts verbatim for the matching day/event/group:\n"+AutoDirectorWardrobe.catalog(priorWardrobe) else ""
                 val confirmedNames=CharacterAliasRegistry.read(folder).optJSONArray("entries") ?: JSONArray()
                 val retryMarker=File(folder,"regenerate_EP%02d_%02d.json".format(i+1,start))
-                val recoveryHint=if(retryMarker.isFile) "\nFresh scene recovery ID: "+GeminiStoryFiles.read(retryMarker).getString("id")+". Write this scene afresh using the story outline and registered cast; use exact Thai names, keep established events and continuity; do not guess identities." else ""
+                val recoveryHint=if(retryMarker.isFile) "\nFresh scene recovery ID: "+GeminiStoryFiles.read(retryMarker).getString("id")+". Repair only the requested invalid scene fields using the story outline and registered cast. Preserve existing characters, dialogue, events, scene numbers and continuity. Never rewrite an accepted scene or guess identities. If identity cannot be confirmed, do not substitute another actor." else ""
                 val historyLedger=StoryContinuityLedger.summarize(output,scenes)
                 val historyContext=StoryContinuityLedger.promptContext(historyLedger,past,previous,compact)
                 val clockGuide = if (spec.optInt("story_clock_version") >= 1) StoryClock.instruction else ""
