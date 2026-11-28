@@ -75,7 +75,15 @@ internal object CharacterAliasRegistry {
         // Never infer a person from a fragment such as Khud or Khlong.
         definitions.filter { it.optString("name") == piaName }.singleOrNull()?.let { definition ->
             val master = definition.optString("master")
-            if (master.isNotBlank()) all.add(Triple("Pia", piaName, master))
+            if (master.isNotBlank() && !definition.optString("english_name").equals("Piaros", true)) all.add(Triple("Pia", piaName, master))
+        }
+        // A mode-bound presenter must not inherit the opposite alias from an old registry.
+        val scopedLead = definitions.filter { it.optString("name") == piaName }.singleOrNull()
+        val scopedAlias = scopedLead?.optString("english_name").orEmpty()
+        if (scopedAlias.equals("Pia", true) || scopedAlias.equals("Piaros", true)) {
+            val opposite = if (scopedAlias.equals("Pia", true)) "Piaros" else "Pia"
+            all.removeAll { it.first.equals(opposite, true) && it.second == piaName &&
+                it.third.equals(scopedLead?.optString("master"), true) }
         }
         val grouped=all.groupBy { key(it.first) }
         val original=scene.optString("flow_action")
