@@ -12,6 +12,36 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class AutomaticStoryRouterTest {
+    @Test fun localXmlResumePreservesExactDialogueAndCompletedBatch() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"local-xml-${UUID.randomUUID()}")
+        try {
+            var writes=0
+            val source=JSONObject().put("scenes",JSONArray((3..4).map { id ->
+                JSONObject().put("scene",id).put("dialogue","บท & <เดิม> $id").put("characters",JSONArray())
+                    .put("master","SUPPORT_000000b8_MASTER.png").put("action","เปิดประตู")
+            }))
+            val writer=client { _,_ -> writes++; JSONObject(source.toString()) }
+            val invalid=client { _,_ -> JSONObject().put("actions",JSONArray()) }
+            fun start(formatter: StoryTextClient)=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to writer,StoryProvider.GEMINI to formatter),{false},{_,_->}).apply {
+                retainFormattedScenes=true; beginScene(1,3)
+            }
+            val prompt="Write exactly scenes 3 to 4"
+            assertTrue(runCatching { start(invalid).generate(prompt,schema()) }.exceptionOrNull() is SceneWorkPaused)
+            val actions=JSONArray((3..4).map { id -> JSONObject().put("scene",id).put("action","Opens the door & looks outside.") })
+            val formatter=client { _,_ -> JSONObject().put("actions",actions) }
+            val resumed=start(formatter).generate(prompt,schema())
+            assertEquals(1,writes)
+            for(i in 0..1) {
+                val row=resumed.getJSONArray("scenes").getJSONObject(i)
+                assertEquals(source.getJSONArray("scenes").getJSONObject(i).getString("dialogue"),row.getString("dialogue"))
+                assertEquals("SUPPORT_000000b8_MASTER.png",row.getString("master"))
+            }
+            assertEquals(resumed.toString(),start(invalid).generate(prompt,schema()).toString())
+            assertEquals(1,writes)
+            assertTrue(runCatching { SceneXml.fromActions(source,JSONArray().put(actions.getJSONObject(0)).put(actions.getJSONObject(0))) }.isFailure)
+        } finally { folder.deleteRecursively() }
+    }
+
     @Test fun singleSceneSizeRetryKeepsStoryAndAvoidsRepeatedOversizedRequest() {
         val folder = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"size-${UUID.randomUUID()}")
         try {
@@ -286,7 +316,7 @@ class AutomaticStoryRouterTest {
             val first = start(mapOf(StoryProvider.GROQ to writer, StoryProvider.GEMINI to offline))
             assertTrue(runCatching { first.generate("brief",schema()) }.exceptionOrNull() is SceneWorkPaused)
             val formatter = client { _, request ->
-                assertTrue(request.getJSONObject("properties").has("xml"))
+                assertTrue(request.getJSONObject("properties").has("actions"))
                 formats++
                 xml()
             }
@@ -409,7 +439,7 @@ class AutomaticStoryRouterTest {
             val groq=client { _,_ -> throw StoryHttpFailure(413,null,"large") }
             val gemini=client { _,_ -> draft() }
             val deep=client { _,_ -> deepCalls++; throw StoryHttpFailure(402,null,"balance") }
-            val open=client { _,schema -> openCalls++; if(schema.getJSONObject("properties").has("xml")) xml() else draft() }
+            val open=client { _,schema -> openCalls++; if(schema.getJSONObject("properties").has("actions")) xml() else draft() }
             val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to groq,StoryProvider.GEMINI to gemini,StoryProvider.DEEPSEEK to deep,StoryProvider.OPENROUTER to open),{false},{_,_->})
             router.generate("Write exactly scenes 5 to 5",schema())
             router.generate("Write exactly scenes 6 to 6",schema())
@@ -435,7 +465,7 @@ class AutomaticStoryRouterTest {
             val groq=client { _,_ -> writes++; draft() }
             val gemini=client { _,_ -> throw StoryHttpFailure(503,null,"temporary") }
             val deep=client { _,_ -> throw StoryHttpFailure(402,null,"balance") }
-            val open=client { prompt,schema -> formatted++; assertTrue(schema.getJSONObject("properties").has("xml")); assertTrue(prompt.contains("เปิดประตู")); xml() }
+            val open=client { prompt,schema -> formatted++; assertTrue(schema.getJSONObject("properties").has("actions")); assertTrue(prompt.contains("เปิดประตู")); xml() }
             val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to groq,StoryProvider.GEMINI to gemini,StoryProvider.DEEPSEEK to deep,StoryProvider.OPENROUTER to open),{false},{_,_->})
             assertEquals("สวัสดี",router.generate("brief",schema()).getJSONArray("scenes").getJSONObject(0).getString("dialogue"))
             assertEquals(1,writes); assertEquals(1,formatted)
@@ -457,7 +487,7 @@ class AutomaticStoryRouterTest {
         try {
             val calls=mutableListOf<StoryProvider>()
             val writer=client { _,_ -> draft() }
-            val bad=client { _,schema -> if(schema.getJSONObject("properties").has("xml")) xml("เปลี่ยนบท") else draft() }
+            val bad=client { _,schema -> if(schema.getJSONObject("properties").has("actions")) xml("เปลี่ยนบท") else draft() }
             val good=client { _,_ -> xml() }
             val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to writer,StoryProvider.GEMINI to bad,StoryProvider.DEEPSEEK to good),{false},{p,_->calls.add(p)})
             val result=router.generate("brief",schema())
@@ -470,7 +500,7 @@ class AutomaticStoryRouterTest {
         try {
             val calls=mutableListOf<StoryProvider>()
             val writer=client { _,_ -> draft() }
-            val quota=client { _,schema -> if(schema.getJSONObject("properties").has("xml")) throw StoryHttpFailure(429,"1","quota") else draft() }
+            val quota=client { _,schema -> if(schema.getJSONObject("properties").has("actions")) throw StoryHttpFailure(429,"1","quota") else draft() }
             val formatter=client { prompt,_ -> assertTrue(prompt.contains("เปิดประตู")); xml() }
             val router=AutomaticStoryRouter(folder,mapOf(StoryProvider.GROQ to writer,StoryProvider.GEMINI to quota,StoryProvider.DEEPSEEK to formatter),{false},{p,_->calls.add(p)})
             router.generate("brief",schema())
