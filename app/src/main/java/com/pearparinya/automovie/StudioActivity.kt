@@ -9117,7 +9117,9 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
         runCatching {
             (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
                 .setPrimaryClip(ClipData.newPlainText("DIRECTOR X",text))
-        }.onSuccess { notice("คัดลอกคำสั่งแล้ว • นำไปวางในเครื่องมือที่ต้องการ") }
+        }.onSuccess {
+            android.widget.Toast.makeText(this, "คัดลอกคำสั่งแล้ว", android.widget.Toast.LENGTH_SHORT).show()
+        }
             .onFailure { notice("คัดลอกไม่ได้หรือข้อความยาวเกินคลิปบอร์ด • เลือกบันทึกไฟล์แล้วแนบใน Gemini หรือเลือกเฉพาะ EP") }
     }
     private fun saveStory() {
