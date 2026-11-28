@@ -668,7 +668,28 @@ class StudioActivity : AppCompatActivity() {
             }
         }
     }
+    private fun standCastingCatalog(baseCatalog: JSONArray): JSONArray {
+        val result=JSONArray(baseCatalog.toString())
+        val store=com.pearparinya.automovie.stand.StandMasterStore(filesDir,com.pearparinya.automovie.stand.VerifiedStandMasters.records)
+        com.pearparinya.automovie.stand.StandCatalog.all.forEach { stand ->
+            val source=store.verifiedFile(stand.id)
+            if(source!=null) {
+                val profile=com.pearparinya.automovie.stand.StandCombatCatalog.profile(stand.id)
+                result.put(JSONObject().put("id",stand.id).put("display_name",stand.name)
+                    .put("file",stand.id+".master").put("sha256",MasterLibrary.digest(source.readBytes()))
+                    .put("source_type","stand_master").put("character_type","creature")
+                    .put("casting_description","Stand entity, not a human owner. Ability: "+profile.ability+"; weakness: "+profile.weakness))
+            }
+        }
+        return result
+    }
     private fun castingSource(row: JSONObject): File {
+        if(row.optString("source_type")=="stand_master") {
+            val store=com.pearparinya.automovie.stand.StandMasterStore(filesDir,com.pearparinya.automovie.stand.VerifiedStandMasters.records)
+            val source=requireNotNull(store.verifiedFile(row.getString("id"))) { "MASTER สแตนด์ไม่ผ่าน SHA-256" }
+            require(MasterLibrary.digest(source.readBytes())==row.getString("sha256"))
+            return source
+        }
         if(row.optString("source_type")=="fantasy_bundle") {
             val filename=row.getString("file")
             require(filename.matches(Regex("FANTASY_[0-9]{2}[.]png"))) { "ชื่อไฟล์ MASTER ไม่ถูกต้อง" }
@@ -8190,6 +8211,10 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                 handler.post(tick)
                 return dialog to current
             }
+            fun storyCastingCatalog(): JSONArray {
+                val rows=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog(includeAllTypes=true) else castingCatalog()
+                return if(ChannelCatalog.allCategories[index].id in setOf("pia_stand","cinema_stand")) standCastingCatalog(rows) else rows
+            }
             val selectedActors=linkedSetOf<String>().apply { if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenters.length()>0) add(piaActorId) }
             val selectedProps=linkedMapOf<String,String>()
             val proposedProps=linkedMapOf<String,String>()
@@ -8218,7 +8243,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     val automatic=automaticCastPending
                     automaticCastPending=false
                     val catalog=runCatching {
-                        val all=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog(includeAllTypes=true) else castingCatalog()
+                        val all=storyCastingCatalog()
                         JSONArray().apply {
                             for(i in 0 until all.length()) {
                                 val row=all.getJSONObject(i)
@@ -8356,7 +8381,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
             panel.addView(castButton)
             panel.addView(castSummary)
             castButton.setOnClickListener {
-                val choices=runCatching { if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog(includeAllTypes=true) else castingCatalog() }.getOrElse { notice("เปิดคลังตัวละครไม่ได้"); return@setOnClickListener }
+                val choices=runCatching { storyCastingCatalog() }.getOrElse { notice("เปิดคลังตัวละครไม่ได้"); return@setOnClickListener }
                 val draft=selectedActors.toMutableSet().apply { if(castProposalPending) addAll(suggestedRoles.keys) }
                 if(chosenChannel=="นายเปีย บ้านคลองขุด") draft.add(piaActorId)
                 val grid=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
@@ -8621,7 +8646,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                         require(!autoRunning) { "AI กำลังเลือกตัวละครและอุปกรณ์ • กรุณารอหรือยกเลิก" }
                         require(selectedActors.isNotEmpty()) { "กรุณาเลือกตัวละครด้วย AI หรือเลือกจาก MASTER ก่อนสร้างบท" }
                         require(!automaticEquipmentUnresolved) { "การเลือกอุปกรณ์อัตโนมัติยังไม่เสร็จหรือจับคู่ไม่ได้ • ลองใหม่หรือเลือกอุปกรณ์ด้วยตนเอง" }
-                        val allCatalog=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog(includeAllTypes=true) else castingCatalog()
+                        val allCatalog=storyCastingCatalog()
                         val catalog=CastingSelection.filter(allCatalog,selectedActors)
                         val fictionalProduction=ChannelCatalog.personalCategories.none { it.label==categories[index] || it.name==categories[index] }
                         if(fictionalProduction) StoryCastPolicy.requireCast(selectedActors)
