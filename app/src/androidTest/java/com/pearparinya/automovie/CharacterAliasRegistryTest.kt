@@ -148,4 +148,17 @@ class CharacterAliasRegistryTest {
         assertTrue(runCatching { FlowCast.storyRegistry(listOf(wrong), legacy) }.isFailure)
         assertTrue(runCatching { FlowCast.storyRegistry(listOf(actor, actor), legacy) }.isFailure)
     }
+    @Test fun migrationRetainsMissingMetadataAndRejectsCaseInsensitiveDuplicateOwners() {
+        val actor = JSONObject().put("name", "หนึ่ง").put("master", "A_MASTER.png")
+        val legacy = JSONArray().put(JSONObject(actor.toString()).put("character_id", "legacy-id")
+            .put("library_id", "CHAR_170").put("english_name", "One").put("role", "lead"))
+        val migrated = FlowCast.storyRegistry(listOf(actor), legacy)
+        assertEquals("legacy-id", migrated.getJSONObject(0).getString("character_id"))
+        assertEquals("CHAR_170", migrated.getJSONObject(0).getString("library_id"))
+        assertEquals("One", migrated.getJSONObject(0).getString("english_name"))
+        assertEquals("lead", migrated.getJSONObject(0).getString("role"))
+        assertEquals(migrated.toString(), FlowCast.storyRegistry(listOf(actor), migrated).toString())
+        val other = JSONObject().put("name", "สอง").put("master", "B_MASTER.png").put("library_id", "char_170")
+        assertTrue(runCatching { FlowCast.storyRegistry(listOf(actor, other), legacy) }.isFailure)
+    }
 }
