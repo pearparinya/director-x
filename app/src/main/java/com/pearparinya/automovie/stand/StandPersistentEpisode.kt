@@ -9,7 +9,8 @@ data class StandVitals(val health: Int, val energy: Int) {
 }
 data class StandPersistentEpisode(val number: Int, val narrative: String,
     val owners: Map<String,String>, val vitals: Map<String,StandVitals>,
-    val relationships: List<StandCharacterRelationship> = emptyList(), val arc: StandLongTermArc? = null) {
+    val relationships: List<StandCharacterRelationship> = emptyList(), val arc: StandLongTermArc? = null,
+    val goals: List<StandCharacterGoal> = emptyList(), val plots: List<StandPlotThread> = emptyList()) {
     init { require(number > 0 && narrative.isNotBlank()); require(vitals.keys.all { it in owners }) }
 }
 class StandUniverseArchive(private val prefs: SharedPreferences) {
@@ -28,7 +29,9 @@ class StandUniverseArchive(private val prefs: SharedPreferences) {
                 }, (item.optJSONArray("relationships") ?: JSONArray()).let { arr ->
                     (0 until arr.length()).map { i -> val rel = arr.getJSONObject(i)
                         StandCharacterRelationship(rel.getString("first"),rel.getString("second"),StandRelationship.valueOf(rel.getString("relation"))) }
-                }, item.optJSONObject("arc")?.let { StandLongTermArc(it.getString("goal"),it.getInt("finalEpisode")) }).also {
+                }, item.optJSONObject("arc")?.let { StandLongTermArc(it.getString("goal"),it.getInt("finalEpisode")) },
+                StandPlotJson.goals(item.optJSONArray("goals") ?: JSONArray()),
+                StandPlotJson.plots(item.optJSONArray("plots") ?: JSONArray())).also {
                     require(it.number == index + 1)
                     StandOwnership.restore(project, it.owners)
                 }
@@ -54,6 +57,10 @@ class StandUniverseArchive(private val prefs: SharedPreferences) {
         require(episode.number == expected.size + 1)
         require(StandOwnership.restore(project, episode.owners).snapshot() == episode.owners)
         require(expected.lastOrNull()?.owners.orEmpty().all { (id, owner) -> episode.owners[id] == owner })
+        val prior = expected.lastOrNull()
+        require(prior?.arc == null || prior.arc == episode.arc)
+        episode.arc?.let { require(StandPlotContinuity.validate(episode.number, episode.owners, it,
+            prior?.goals.orEmpty(), episode.goals, prior?.plots.orEmpty(), episode.plots)) }
         val array = JSONArray()
         (expected + episode).forEach { e ->
             val vitals = JSONObject()
@@ -61,7 +68,8 @@ class StandUniverseArchive(private val prefs: SharedPreferences) {
             val relationships = JSONArray()
             e.relationships.forEach { rel -> relationships.put(JSONObject().put("first",rel.first)
                 .put("second",rel.second).put("relation",rel.relation.name)) }
-            array.put(JSONObject().put("relationships",relationships)
+            array.put(JSONObject().put("goals",StandPlotJson.encodeGoals(e.goals))
+                .put("plots",StandPlotJson.encodePlots(e.plots)).put("relationships",relationships)
                 .put("arc",e.arc?.let { JSONObject().put("goal",it.goal).put("finalEpisode",it.finalEpisode) } ?: JSONObject.NULL)
                 .put("number",e.number).put("narrative",e.narrative)
                 .put("owners",JSONObject(e.owners)).put("vitals",vitals))
