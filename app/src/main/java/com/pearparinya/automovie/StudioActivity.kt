@@ -988,7 +988,7 @@ class StudioActivity : AppCompatActivity() {
                         AlertDialog.Builder(this).setTitle("ฉาก " + beat.scene.number)
                             .setItems(arrayOf("ChatGPT • ภาพ START STATE", "Google Flow • วิดีโอ 8 วินาที")) { _, choice ->
                                 if (choice == 0) shareImageCommand(request.imagePrompt, request.references.map { it.binding.standId to it.file })
-                                else showFlowCode("GOOGLE FLOW", request.videoPrompt, "STAND_SC" + beat.scene.number + "_FLOW.txt")
+                                else notice("ต้องนำเข้าภาพและอนุมัติ START STATE ก่อนเปิด Flow Code")
                             }.setNegativeButton("กลับ") { _, _ -> standScenePromptMenu(story) }.showNavigationDirector()
                     }
                 }.start()
