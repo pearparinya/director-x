@@ -489,7 +489,7 @@ class GeminiStoryTest {
             assertTrue(pending.isFile); assertEquals(1,repairs)
             val before=JSONObject(pending.readText()).getJSONArray("scenes").getJSONObject(0).toString()
             var calls=0
-            val story=GeminiStoryEngine(folder,{ prompt,_ -> calls++; assertTrue(prompt.contains("Repair ONLY scene 3")); batch(prompt) }).run(selected)
+            val story=GeminiStoryEngine(folder,{ prompt,_ -> calls++; assertTrue(prompt.contains("Repair ONLY scene 3")); batch(prompt).apply { getJSONArray("scenes").getJSONObject(0).put("speaker","เมย์").put("dialogue","ใครส่งมา").put("narration","") } }).run(selected)
             assertEquals(1,calls)
             assertEquals(before,JSONObject(File(folder,"EP01_01.json").readText()).getJSONArray("scenes").getJSONObject(0).toString())
             assertFalse(pending.exists()); assertEquals(4,story.getInt("scene_count"))
@@ -583,7 +583,7 @@ class GeminiStoryTest {
                 if(prompt.contains("Plan a complete story")) outline() else {
                     assertTrue(prompt.contains("AUDIO FIELDS"))
                     batch(prompt).apply {
-                        if(prompt.contains("Your previous JSON failed validation")) { repairs++; assertTrue(prompt.contains("บทพูดกับบรรยายต้องแยกซีน")) }
+                        if(prompt.contains("Your previous JSON failed validation")) { repairs++; assertTrue(prompt.contains("บทพูดกับบรรยายต้องแยกซีน")); getJSONArray("scenes").getJSONObject(0).put("speaker","เมย์").put("dialogue","ซองนี้ของใครคะ").put("narration","") }
                         else if(!bad) { bad=true; getJSONArray("scenes").getJSONObject(0)
                             .put("speaker","เมย์").put("dialogue","ซองนี้ของใครคะ").put("narration","เธอถามด้วยความสงสัย") }
                     }
