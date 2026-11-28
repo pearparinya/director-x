@@ -1331,8 +1331,14 @@ class StudioActivity : AppCompatActivity() {
     private val zipPicker = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri != null) { val backup = backupMode; backupMode = false; background { if (backup) contentResolver.openOutputStream(uri)!!.use { StudioArchive.write(project,it,File(filesDir,"short_catalog_ids.json")) } else export(uri) } }
     }
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("stand.pendingMasterId", pendingStandMasterId)
+        super.onSaveInstanceState(outState)
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingStandMasterId = savedInstanceState?.getString("stand.pendingMasterId")
+            ?.takeIf { com.pearparinya.automovie.stand.StandCatalog.find(it) != null }
         // Register the update permission launcher after Activity attachment, before STARTED.
         updater = StudioUpdater(this)
         listOf("body_02.png", "body_03.png").forEach { File(cacheDir, "body_template_sources/$it").delete() }
