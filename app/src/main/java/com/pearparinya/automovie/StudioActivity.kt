@@ -967,6 +967,71 @@ class StudioActivity : AppCompatActivity() {
                     }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
             }.setNegativeButton("กลับ", null).showNavigationDirector()
     }
+    private fun standMediaFolder(project: com.pearparinya.automovie.stand.StandProject, episode: Int, scene: Int): File {
+        val id = com.pearparinya.automovie.stand.StandMasterIntegrity.digest(project.projectId.byteInputStream())
+        return File(filesDir, "stand_media/" + project.channel.id + "/" + id + "/EP" + episode + "/SC" + scene)
+    }
+    private fun standFrameStamp(folder: File, request: com.pearparinya.automovie.stand.StandCinematicRequest): String? = runCatching {
+        val refs = request.references.map {
+            val digest = EpisodeMedia.digest(it.file)
+            require(digest == it.binding.masterSha256)
+            digest
+        }
+        com.pearparinya.automovie.stand.StandMasterIntegrity.digest(
+            JSONArray(listOf(request.imagePrompt,request.videoPrompt,EpisodeMedia.digest(File(folder,"frame.png"))) + refs).toString().byteInputStream())
+    }.getOrNull()
+    private val standMediaPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val path = prefs.getString("stand_pending_media",null)
+        val kind = prefs.getString("stand_pending_kind",null)
+        val stamp = prefs.getString("stand_pending_stamp",null)
+        prefs.edit().remove("stand_pending_media").remove("stand_pending_kind").remove("stand_pending_stamp").apply()
+        if (uri != null && path != null && kind in listOf("image","video")) {
+            val folder = File(path)
+            Thread {
+                val result = runCatching {
+                    folder.mkdirs()
+                    val temp = File.createTempFile("import-", ".tmp", folder)
+                    try {
+                        contentResolver.openInputStream(uri)!!.use { input -> temp.outputStream().use { input.copyTo(it) } }
+                        if (kind == "image") {
+                            val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                            android.graphics.BitmapFactory.decodeFile(temp.path,bounds)
+                            require(bounds.outWidth > 0 && bounds.outHeight > 0 && kotlin.math.abs(bounds.outWidth.toDouble()/bounds.outHeight - 9.0/16) < 0.02) { "ภาพต้องเป็น 9:16" }
+                        } else {
+                            val info = EpisodeMedia.inspect(temp)
+                            require(info.displayWidth < info.displayHeight)
+                            require(stamp != null && File(folder,"approved.txt").takeIf { it.isFile }?.readText() == stamp)
+                        }
+                        val target = File(folder,if(kind == "image") "frame.png" else "clip.mp4")
+                        java.nio.file.Files.move(temp.toPath(),target.toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING,java.nio.file.StandardCopyOption.ATOMIC_MOVE)
+                        if (kind == "image") {
+                            File(folder,"approved.txt").delete()
+                            File(folder,"video_stamp.txt").delete()
+                        } else File(folder,"video_stamp.txt").writeText(requireNotNull(stamp) + ":" + EpisodeMedia.digest(target))
+                    } finally { temp.delete() }
+                }
+                runOnUiThread { notice(if(result.isSuccess) "นำเข้าสำเร็จ • เปิดฉากเดิมเพื่อตรวจสอบ" else "นำเข้าไม่สำเร็จ: " + result.exceptionOrNull()?.message) }
+            }.start()
+        }
+    }
+    private fun standPickMedia(folder: File, kind: String, stamp: String? = null) {
+        prefs.edit().putString("stand_pending_media",folder.path).putString("stand_pending_kind",kind)
+            .putString("stand_pending_stamp",stamp).commit()
+        standMediaPicker.launch(arrayOf(if(kind == "image") "image/*" else "video/mp4"))
+    }
+    private fun standReviewFrame(folder: File, request: com.pearparinya.automovie.stand.StandCinematicRequest) {
+        val stamp = standFrameStamp(folder,request) ?: return notice("ยังไม่มีภาพหรือ MASTER ไม่ตรง")
+        val panel = LinearLayout(this).apply { orientation = 1 }
+        (listOf("START STATE" to File(folder,"frame.png")) + request.references.map { it.binding.standId to it.file }).forEach { (label,file) ->
+            panel.addView(TextView(this).apply { text = label })
+            panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(220)) })
+        }
+        AlertDialog.Builder(this).setTitle("ตรวจภาพและ MASTER ด้วยตนเอง").setView(ScrollView(this).apply { addView(panel) })
+            .setPositiveButton("อนุมัติภาพ") { _, _ ->
+                if (standFrameStamp(folder,request) == stamp) { File(folder,"approved.txt").writeText(stamp); notice("อนุมัติแล้ว") }
+                else notice("ภาพหรือ MASTER เปลี่ยน กรุณาตรวจใหม่")
+            }.setNegativeButton("ไม่ผ่าน") { _, _ -> File(folder,"approved.txt").delete(); File(folder,"video_stamp.txt").delete() }.showNavigationDirector()
+    }
     private fun standScenePromptMenu(ownership: com.pearparinya.automovie.stand.StandOwnership,
         beats: List<com.pearparinya.automovie.stand.StandStoryBeat>, episode: Int) {
         AlertDialog.Builder(this).setTitle("ผลิตฉากสแตนด์ • EP " + episode)
@@ -982,9 +1047,18 @@ class StudioActivity : AppCompatActivity() {
                     runOnUiThread {
                         val request = result.getOrElse { notice("สร้าง Prompt ไม่สำเร็จ: " + it.message); return@runOnUiThread }
                         AlertDialog.Builder(this).setTitle("EP " + episode + " • ฉาก " + beat.scene.number)
-                            .setItems(arrayOf("ChatGPT • ภาพ START STATE", "Google Flow • วิดีโอ 8 วินาที")) { _, choice ->
-                                if (choice == 0) shareImageCommand(request.imagePrompt, request.references.map { it.binding.standId to it.file })
-                                else notice("ต้องนำเข้าภาพและอนุมัติ START STATE ก่อนเปิด Flow Code")
+                            .setItems(arrayOf("ChatGPT • ภาพ START STATE", "นำเข้าภาพ", "ตรวจและอนุมัติภาพ", "Google Flow • วิดีโอ 8 วินาที", "นำเข้าวิดีโอ", "เล่นวิดีโอ")) { _, choice ->
+                                val folder = standMediaFolder(ownership.project,episode,beat.scene.number)
+                                val stamp = standFrameStamp(folder,request)
+                                val approved = stamp != null && File(folder,"approved.txt").takeIf { it.isFile }?.readText() == stamp
+                                when(choice) {
+                                    0 -> shareImageCommand(request.imagePrompt, request.references.map { it.binding.standId to it.file })
+                                    1 -> standPickMedia(folder,"image")
+                                    2 -> standReviewFrame(folder,request)
+                                    3 -> if(approved) showFlowCode("GOOGLE FLOW",request.videoPrompt,"EP"+episode+"_SC"+beat.scene.number+"_FLOW.txt") else notice("ต้องอนุมัติภาพก่อน")
+                                    4 -> if(approved) standPickMedia(folder,"video",stamp) else notice("ต้องอนุมัติภาพก่อน")
+                                    5 -> playMediaFile(File(folder,"clip.mp4"),"ฉาก "+beat.scene.number)
+                                }
                             }.setNegativeButton("กลับ") { _, _ -> standScenePromptMenu(ownership, beats, episode) }.showNavigationDirector()
                     }
                 }.start()
