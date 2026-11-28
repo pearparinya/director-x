@@ -42,19 +42,43 @@ object StandStoryProduction {
             return StandFighter(p, (old.health + 25).coerceAtMost(100),
                 (old.energy + 30).coerceAtMost(100))
         }
-        val turn = StandCombatEngine.resolve(state, fighter(a), fighter(b),
-            StandCombatAction.SPECIAL, StandCombatAction.GUARD)
+        val opening = when(type) {
+            StandStoryType.INVESTIGATION, StandStoryType.SUPERNATURAL_MYSTERY ->
+                "ตรวจสอบร่องรอยผิดปกติในตรอกเงียบและค้นหาต้นเหตุ"
+            StandStoryType.RESCUE -> "พบผู้ที่ต้องการความช่วยเหลือและวางแผนเปิดทางปลอดภัย"
+            StandStoryType.ALLIANCE -> "พบคู่เจรจาเพื่อทดสอบความไว้วางใจ"
+            else -> "เผชิญคู่แข่งในพื้นที่เปิดและประเมินภัยคุกคาม"
+        }
+        val firstAction = when(type) {
+            StandStoryType.INVESTIGATION, StandStoryType.SUPERNATURAL_MYSTERY -> StandCombatAction.GUARD
+            StandStoryType.RESCUE, StandStoryType.ALLIANCE -> StandCombatAction.ATTACK
+            else -> StandCombatAction.SPECIAL
+        }
+        val secondAction = when(type) {
+            StandStoryType.ALLIANCE, StandStoryType.RESCUE -> StandCombatAction.GUARD
+            StandStoryType.INVESTIGATION, StandStoryType.SUPERNATURAL_MYSTERY -> StandCombatAction.ATTACK
+            else -> StandCombatAction.SPECIAL
+        }
+        val turn = StandCombatEngine.resolve(state, fighter(a), fighter(b), firstAction, secondAction)
         val beats = listOf(
             StandStoryBeat(StandStoryScene(1, listOf(a.dismiss(), b.dismiss())),
-                "เปิดเรื่อง: " + type.name + " เจ้าของ " + protagonist + " พบ " + rival),
+                "สถานที่และเป้าหมาย: " + opening + ". " + protagonist + " พบ " + rival +
+                    " โดยยังไม่เรียกสแตนด์; เริ่มด้วยทั้งสองยืนห่างกันและจบด้วยการตัดสินใจเผชิญหน้า"),
             StandStoryBeat(StandStoryScene(2, listOf(a,b)),
-                first + " ใช้ " + pa.ability + " ขณะที่ " + second + " ตั้งรับด้วยจุดแข็งของตน"),
+                "เริ่มฉาก: สแตนด์ทั้งสองปรากฏข้างเจ้าของตาม MASTER; " +
+                    first + " เลือก " + firstAction.name + " (" + pa.ability + ") และ " +
+                    second + " เลือก " + secondAction.name + " (" + pb.ability +
+                    "); แสดงพลังเฉพาะเมื่อเลือก SPECIAL; จบเมื่อเริ่มการปะทะ"),
             StandStoryBeat(StandStoryScene(3, listOf(a,b)),
-                "ผลการปะทะ: " + first + " พลังชีวิต " + turn.first.health + " พลังงาน " +
-                    turn.first.energy + "; " + second + " พลังชีวิต " + turn.second.health +
-                    ". จุดอ่อนที่ต้องระวัง: " + pa.weakness + "; " + pb.weakness),
+                "เริ่มจากตำแหน่งท้ายฉากก่อน; " + (if(turn.firstActsFirst) first else second) +
+                    " เคลื่อนไหวก่อนตามความเร็วและพลัง; ผลการปะทะ: " + first +
+                    " พลังชีวิต " + turn.first.health + " พลังงาน " + turn.first.energy +
+                    "; " + second + " พลังชีวิต " + turn.second.health + " พลังงาน " +
+                    turn.second.energy + ". จุดอ่อน: " + pa.weakness + "; " + pb.weakness +
+                    ". จบด้วยการหยุดปะทะโดยไม่ฟื้นพลังทันที"),
             StandStoryBeat(StandStoryScene(4, listOf(a.dismiss(),b.dismiss())),
-                "ปิดเหตุการณ์และเก็บผลการปะทะเพื่อวางบทต่อไป")
+                "หลังการปะทะ เจ้าของทั้งสองยืนในพื้นที่เดิมโดยสแตนด์ถูกเก็บแล้ว; " +
+                    protagonist + " ประเมินผลและเลือกเป้าหมายต่อไป; คงบาดแผลและผลการปะทะไว้สำหรับ EP ถัดไป")
         )
         val episode = StandEpisode(state.project, 1, type, mode, beats.map { it.scene })
         check(StandStoryEngine.validate(state, episode))

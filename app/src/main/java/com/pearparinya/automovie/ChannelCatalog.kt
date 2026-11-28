@@ -63,7 +63,9 @@ internal object ChannelCatalog {
     val piaLegends = MainCategory("pia_legends","เรื่องเล่าและตำนาน","เรื่องผี • ตำนาน • ความเชื่อ","drama","👻","Create fictional or clearly attributed local legends, supernatural stories and mysteries. Never present unverified folklore as established fact. Keep character MASTER identities and continuity.")
     val piaLifestyle = MainCategory("pia_lifestyle","ชีวิตและชุมชน","ชีวิตจริง • ชุมชน • ภาคใต้","drama","🌴","Create content from user-supplied real experiences and verified community information. Do not invent real-life events, places visited, endorsements or experiences; request missing facts.")
     val personalDrama = MainCategory("personal_social_drama","ละครสั้นสะท้อนสังคม","เรื่องเล่า • สะท้อนสังคม","drama","🎬","Fictional social drama based on the selected topic with empathetic characters, clear consequences and a hopeful or thought-provoking resolution. Do not portray invented claims as verified news.")
-    val allCategories get() = mainCategories + personalCategories + filmCategories + legacyFilmCategories + listOf(personalDrama,piaLegends,piaLifestyle)
+    val piaStand = MainCategory("pia_stand","ศึกสแตนด์เหนือโชคชะตา","ศึกสแตนด์เหนือโชคชะตา","drama","⚔️","Fictional stand adventure starring the channel protagonist. Keep each stand bound to its owner, preserve MASTER identity, distinct abilities, energy costs and consequences across every requested scene and episode.")
+    val universeStand = MainCategory("cinema_stand","มหาศึกจักรวาลสแตนด์","มหาศึกจักรวาลสแตนด์","drama","⚔️","Fictional stand universe with distinct owners and stand identities, tactical combat, unique abilities, energy costs and persistent consequences. Follow the requested scene count and shared production workflow.")
+    val allCategories get() = mainCategories + personalCategories + filmCategories + legacyFilmCategories + listOf(personalDrama,piaLegends,piaLifestyle,piaStand,universeStand)
     private val genreDisplay = mapOf(
         "domestic_secrets" to ("ความลับในครอบครัว | Family Secrets" to "ความสัมพันธ์ในบ้านกับความลับที่เปลี่ยนชีวิต"),
         "betrayal_rivalry" to ("รัก ความไว้ใจ และการทรยศ | Love & Betrayal" to "ความสัมพันธ์ที่ถูกทดสอบด้วยความจริงและการตัดสินใจ"),
@@ -104,6 +106,7 @@ internal object ChannelCatalog {
     )
     // These are story seeds, not fixed scripts; users can also choose automatic selection.
     fun shortTopics(id: String): List<String> = when(id) {
+        "pia_stand", "cinema_stand" -> listOf("การค้นพบพลังครั้งแรก","ศึกคู่ปรับ","ปริศนาเหนือธรรมชาติ","ภารกิจช่วยเหลือ","พันธมิตรสแตนด์","ศึกชิงชะตา")
         "cinema_fantasy" -> listOf("ผู้มีพลังพิเศษซ่อนตัว","การค้นพบพลังครั้งแรก","เวทมนตร์และจอมเวท","อัศวินวิญญาณผู้พิทักษ์","การอัญเชิญเทพหรือวิญญาณ","วัตถุและอาวุธวิเศษ","ผู้สืบทอดพลังโบราณ","สำนักฝึกฝนพลัง","สงครามระหว่างผู้มีพลัง","พลังแห่งแสงและพลังแห่งความมืด")
         "cinema_horror" -> listOf("บ้านผีสิง","ผีอาฆาตและการทวงแค้น","วิญญาณเร่ร่อน","ผีในโรงเรียนหรือโรงพยาบาล","หมู่บ้านผีสิง","ผีที่ติดตามบุคคล","คืนหลอนในสถานที่ร้าง","วิญญาณที่ต้องการความช่วยเหลือ","ผีแฝงตัวอยู่ท่ามกลางคน","การเผชิญหน้ากับสิ่งที่มองไม่เห็น")
         "cinema_mystery" -> listOf("คดีคนหาย","คดีฆาตกรรมปริศนา","นักสืบกับความลับเหนือธรรมชาติ","หมู่บ้านที่ซ่อนความลับ","ห้องหรืออาคารปริศนา","จดหมายและข้อความลึกลับ","บุคคลนิรนาม","เหตุการณ์ที่เกิดซ้ำอย่างประหลาด","การตามหาความจริงในอดีต","ปริศนาที่มีจุดหักมุม")

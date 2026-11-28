@@ -668,7 +668,28 @@ class StudioActivity : AppCompatActivity() {
             }
         }
     }
+    private fun standCastingCatalog(baseCatalog: JSONArray): JSONArray {
+        val result=JSONArray(baseCatalog.toString())
+        val store=com.pearparinya.automovie.stand.StandMasterStore(filesDir,com.pearparinya.automovie.stand.VerifiedStandMasters.records)
+        com.pearparinya.automovie.stand.StandCatalog.all.forEach { stand ->
+            val source=store.verifiedFile(stand.id)
+            if(source!=null) {
+                val profile=com.pearparinya.automovie.stand.StandCombatCatalog.profile(stand.id)
+                result.put(JSONObject().put("id",stand.id).put("display_name",stand.name)
+                    .put("file",stand.id+".master").put("sha256",MasterLibrary.digest(source.readBytes()))
+                    .put("source_type","stand_master").put("character_type","creature")
+                    .put("casting_description","Stand entity, not a human owner. Ability: "+profile.ability+"; weakness: "+profile.weakness))
+            }
+        }
+        return result
+    }
     private fun castingSource(row: JSONObject): File {
+        if(row.optString("source_type")=="stand_master") {
+            val store=com.pearparinya.automovie.stand.StandMasterStore(filesDir,com.pearparinya.automovie.stand.VerifiedStandMasters.records)
+            val source=requireNotNull(store.verifiedFile(row.getString("id"))) { "MASTER สแตนด์ไม่ผ่าน SHA-256" }
+            require(MasterLibrary.digest(source.readBytes())==row.getString("sha256"))
+            return source
+        }
         if(row.optString("source_type")=="fantasy_bundle") {
             val filename=row.getString("file")
             require(filename.matches(Regex("FANTASY_[0-9]{2}[.]png"))) { "ชื่อไฟล์ MASTER ไม่ถูกต้อง" }
@@ -1163,12 +1184,13 @@ class StudioActivity : AppCompatActivity() {
                             com.pearparinya.automovie.stand.StandPlotJson.encodeGoals(previousGoals) +
                             "\nPrior plots: " + com.pearparinya.automovie.stand.StandPlotJson.encodePlots(previousPlots)
                         val schema = com.pearparinya.automovie.stand.StandAiNarrative.schema()
+                        schema.getJSONObject("properties").put("scenes", JSONObject().put("type","array").put("items",JSONObject().put("type","object").put("properties",JSONObject().put("number",JSONObject().put("type","integer")).put("narrative",JSONObject().put("type","string"))).put("required",JSONArray().put("number").put("narrative"))))
                         schema.getJSONObject("properties").put("episode",JSONObject().put("type","integer"))
                             .put("owners",JSONObject().put("type","object")).put("vitals",JSONObject().put("type","object"))
                         schema.getJSONObject("properties")
                             .put("goals",JSONObject().put("type","array").put("items",JSONObject().put("type","object")))
                             .put("plots",JSONObject().put("type","array").put("items",JSONObject().put("type","object")))
-                        schema.put("required",JSONArray().put("text").put("episode").put("owners").put("vitals").put("goals").put("plots"))
+                        schema.put("required",JSONArray().put("text").put("episode").put("owners").put("vitals").put("goals").put("plots").put("scenes"))
                         var answer: com.pearparinya.automovie.stand.StandPersistentEpisode? = null
                         for (provider in providers) {
                             if (stopped.get()) break
@@ -1177,13 +1199,22 @@ class StudioActivity : AppCompatActivity() {
                                     { stopped.get() }, automaticRetry=false, context=this@StudioActivity)
                                 active.set(client)
                                 if (stopped.get()) throw java.util.concurrent.CancellationException()
-                                val response = client.generate(continuityPrompt, schema)
+                                val response = client.generate(continuityPrompt + "\nReturn scenes in exact planned order, one per Kotlin beat, with number (1-based) and detailed narrative including setting, visible cast, opening state, dialogue, action and ending state. Preserve all planned stand presences, owners and combat outcomes. Scene count: " + story.beats.size, schema)
                                 check(com.pearparinya.automovie.stand.StandAiStoryValidation.validate(story.ownership, expected, response))
                                 val goals = com.pearparinya.automovie.stand.StandPlotJson.goals(response.getJSONArray("goals"))
                                 val plots = com.pearparinya.automovie.stand.StandPlotJson.plots(response.getJSONArray("plots"))
                                 check(com.pearparinya.automovie.stand.StandPlotContinuity.validate(expected.number,
                                     expected.owners, arc, previousGoals, goals, previousPlots, plots))
-                                expected.copy(narrative=response.getString("text").trim(), goals=goals, plots=plots)
+                                val scenes = response.getJSONArray("scenes")
+                                check(scenes.length() == story.beats.size)
+                                val detailedBeats = story.beats.mapIndexed { i, beat ->
+                                    val scene = scenes.getJSONObject(i)
+                                    check(scene.getInt("number") == i + 1)
+                                    val narrative = scene.getString("narrative").trim()
+                                    check(narrative.isNotBlank())
+                                    beat.copy(narrative = beat.narrative + "\n" + narrative)
+                                }
+                                expected.copy(narrative=response.getString("text").trim(), goals=goals, plots=plots, beats=detailedBeats)
                             }.getOrNull()
                             if (answer != null) break
                         }
@@ -1207,7 +1238,7 @@ class StudioActivity : AppCompatActivity() {
                                         check(archive.history(project) == history)
                                         archive.append(project, history, episode)
                                     }.getOrDefault(false)
-                                    if (saved) standScenePromptMenu(story.ownership, story.beats, episode.number) else notice("บันทึกไม่สำเร็จ กรุณาตรวจข้อมูลเดิม")
+                                    if (saved) standScenePromptMenu(story.ownership, episode.beats, episode.number) else notice("บันทึกไม่สำเร็จ กรุณาตรวจข้อมูลเดิม")
                                 }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
                         }
                     }
@@ -4075,9 +4106,10 @@ $context"""
             panel.addView(Button(this).apply {
                 text=label; isAllCaps=false; textSize=17f; setTextColor(ice)
                 backgroundTintList=null; background=backdrop(top,bottom,Color.rgb(100,190,240))
-                setPadding(dp(12),dp(8),dp(12),dp(8))
+                minHeight=dp(60); setSingleLine(false); maxLines=Int.MAX_VALUE; ellipsize=null
+                setPadding(dp(12),dp(12),dp(12),dp(12))
                 setOnClickListener { dialog.dismiss(); pendingMenuBack=back; work() }
-            },LinearLayout.LayoutParams(-1,dp(60)).apply { topMargin=dp(10) })
+            },LinearLayout.LayoutParams(-1,LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin=dp(10) })
         }
 
         actions(useAi).forEach { (label,colors,_) ->
@@ -7991,7 +8023,15 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                 groups.drop(1).map { it.first }+
                 listOf("⚔️ " + com.pearparinya.automovie.stand.StandChannel.PIA.title, "⚙️ ตั้งค่า MASTER ประจำช่อง")
             choiceMenu("หมวดช่อง • นายเปีย บ้านคลองขุด",entries) { selected ->
-                if(selected==6) { standProjectMenu(com.pearparinya.automovie.stand.StandChannel.PIA); return@choiceMenu }
+                if(selected==6) {
+                    val index=ChannelCatalog.allCategories.indexOfFirst { it.id=="pia_stand" }
+                    require(index>=0)
+                    chooseTopicWithRandom(channel,"pia_stand",ChannelCatalog.shortTopics("pia_stand")) { topic ->
+                        selectedStoryTopic=topic
+                        done(index)
+                    }
+                    return@choiceMenu
+                }
                 if(selected==7) { piaMasterSettings(); return@choiceMenu }
                 if(selected==1) { musicMvMenu(); return@choiceMenu }
                 val group=groups[if(selected==0) 0 else selected-1]
@@ -8013,7 +8053,15 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
         }
         val film=ChannelCatalog.filmCategories
         choiceMenu("ขั้นที่ 1 • เลือกหมวดหลัก • ร้อยฉาก",film.map { it.menuLabel } + ("⚔️ " + com.pearparinya.automovie.stand.StandChannel.UNIVERSE.title)) { selected ->
-            if(selected==film.size) { standProjectMenu(com.pearparinya.automovie.stand.StandChannel.UNIVERSE); return@choiceMenu }
+            if(selected==film.size) {
+                    val index=ChannelCatalog.allCategories.indexOfFirst { it.id=="cinema_stand" }
+                    require(index>=0)
+                    chooseTopicWithRandom(channel,"cinema_stand",ChannelCatalog.shortTopics("cinema_stand")) { topic ->
+                        selectedStoryTopic=topic
+                        done(index)
+                    }
+                    return@choiceMenu
+                }
             val index=ChannelCatalog.allCategories.indexOfFirst { it.id==film[selected].id }
             val topics=ChannelCatalog.shortTopics(film[selected].id)
             chooseTopicWithRandom(channel,film[selected].id,topics) { topic ->
@@ -8164,6 +8212,10 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                 handler.post(tick)
                 return dialog to current
             }
+            fun storyCastingCatalog(): JSONArray {
+                val rows=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog(includeAllTypes=true) else castingCatalog()
+                return if(ChannelCatalog.allCategories[index].id in setOf("pia_stand","cinema_stand")) standCastingCatalog(rows) else rows
+            }
             val selectedActors=linkedSetOf<String>().apply { if(chosenChannel=="นายเปีย บ้านคลองขุด" && presenters.length()>0) add(piaActorId) }
             val selectedProps=linkedMapOf<String,String>()
             val proposedProps=linkedMapOf<String,String>()
@@ -8192,7 +8244,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                     val automatic=automaticCastPending
                     automaticCastPending=false
                     val catalog=runCatching {
-                        val all=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog(includeAllTypes=true) else castingCatalog()
+                        val all=storyCastingCatalog()
                         JSONArray().apply {
                             for(i in 0 until all.length()) {
                                 val row=all.getJSONObject(i)
@@ -8330,7 +8382,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
             panel.addView(castButton)
             panel.addView(castSummary)
             castButton.setOnClickListener {
-                val choices=runCatching { if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog(includeAllTypes=true) else castingCatalog() }.getOrElse { notice("เปิดคลังตัวละครไม่ได้"); return@setOnClickListener }
+                val choices=runCatching { storyCastingCatalog() }.getOrElse { notice("เปิดคลังตัวละครไม่ได้"); return@setOnClickListener }
                 val draft=selectedActors.toMutableSet().apply { if(castProposalPending) addAll(suggestedRoles.keys) }
                 if(chosenChannel=="นายเปีย บ้านคลองขุด") draft.add(piaActorId)
                 val grid=LinearLayout(this).apply { orientation=1; setPadding(dp(12),dp(8),dp(12),dp(8)) }
@@ -8595,7 +8647,7 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                         require(!autoRunning) { "AI กำลังเลือกตัวละครและอุปกรณ์ • กรุณารอหรือยกเลิก" }
                         require(selectedActors.isNotEmpty()) { "กรุณาเลือกตัวละครด้วย AI หรือเลือกจาก MASTER ก่อนสร้างบท" }
                         require(!automaticEquipmentUnresolved) { "การเลือกอุปกรณ์อัตโนมัติยังไม่เสร็จหรือจับคู่ไม่ได้ • ลองใหม่หรือเลือกอุปกรณ์ด้วยตนเอง" }
-                        val allCatalog=if(chosenChannel=="นายเปีย บ้านคลองขุด") piaCatalog(includeAllTypes=true) else castingCatalog()
+                        val allCatalog=storyCastingCatalog()
                         val catalog=CastingSelection.filter(allCatalog,selectedActors)
                         val fictionalProduction=ChannelCatalog.personalCategories.none { it.label==categories[index] || it.name==categories[index] }
                         if(fictionalProduction) StoryCastPolicy.requireCast(selectedActors)
@@ -8612,7 +8664,18 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                             "${propCatalog[n]} ($id)"+(if(who.isBlank()) " • ไม่ระบุผู้ใช้" else " • ผู้ใช้ที่เลือก: $who ($owner)")
                         }
                         val reviewedRoles=selectedActors.mapNotNull { id -> suggestedRoles[id]?.let { "$id: $it" } }
-                        val storyPremise=listOf("สถานการณ์ตั้งต้นที่เลือก: "+selectedStoryTopic,premise.text.toString(),if(reviewedRoles.isEmpty()) "" else "บทบาทที่เลือกจากข้อเสนอ (ตรวจความสอดคล้องกับเรื่อง): "+reviewedRoles.joinToString("; "),if(reviewedProps.isEmpty()) "" else "อุปกรณ์ MASTER ที่เลือก: "+reviewedProps.joinToString("; ")+". ใช้ตามเหตุการณ์ ระบุฉาก ผู้ถือ และความต่อเนื่อง ห้ามเดาผู้ใช้ที่ยังไม่ระบุ").filter { it.isNotBlank() }.joinToString("\n")
+                        val standCategoryId=ChannelCatalog.allCategories[index].id
+                        val standBrief=if(standCategoryId in setOf("pia_stand","cinema_stand")) {
+                            val store=com.pearparinya.automovie.stand.StandMasterStore(filesDir,com.pearparinya.automovie.stand.VerifiedStandMasters.records)
+                            require(store.ready()) { "กรุณาตรวจ MASTER สแตนด์ทั้ง 16 ตัวให้ผ่าน SHA-256 ก่อนสร้างบท" }
+                            val roster=com.pearparinya.automovie.stand.StandCatalog.all.joinToString("\n") { stand ->
+                                val profile=com.pearparinya.automovie.stand.StandCombatCatalog.profile(stand.id)
+                                val effect=com.pearparinya.automovie.stand.StandUniqueAbility.effect(stand.id)
+                                "${stand.id} ${stand.name}: power=${profile.power}, speed=${profile.speed}, defense=${profile.defense}, ability=${profile.ability}, weakness=${profile.weakness}, rank=${profile.rank}, special=$effect"
+                            }
+                            "STAND RULES: Use only the verified roster below. Assign each participating stand to a selected cast member and retain ownership across scenes and EPs. "+(if(standCategoryId=="pia_stand") "ST-013 belongs exclusively to PIEROS (cast library ID $piaActorId); no other stand belongs to PIEROS. " else "")+"Start health and energy at 100; attack costs 10 energy, guard 0, special 30. Respect weaknesses, summon/dismiss state, and carry combat consequences forward. Follow the existing requested scene count, never a fixed four-scene outline.\n"+roster
+                        } else ""
+                        val storyPremise=listOf(standBrief,"สถานการณ์ตั้งต้นที่เลือก: "+selectedStoryTopic,premise.text.toString(),if(reviewedRoles.isEmpty()) "" else "บทบาทที่เลือกจากข้อเสนอ (ตรวจความสอดคล้องกับเรื่อง): "+reviewedRoles.joinToString("; "),if(reviewedProps.isEmpty()) "" else "อุปกรณ์ MASTER ที่เลือก: "+reviewedProps.joinToString("; ")+". ใช้ตามเหตุการณ์ ระบุฉาก ผู้ถือ และความต่อเนื่อง ห้ามเดาผู้ใช้ที่ยังไม่ระบุ").filter { it.isNotBlank() }.joinToString("\n")
                         if(presenterId.isNotBlank() && presenterOutfit.selectedItemPosition>0) require(presenterOutfitFile(presenterId,presenterOutfit.selectedItemPosition).isFile) { "กรุณาเพิ่มรูปของชุดที่เลือก หรือเลือกชุดตามเนื้อเรื่อง" }
                         require(catalog.length()>0) { "คลัง MASTER ว่าง กรุณาเพิ่มตัวละครก่อน" }
                         if(ChannelCatalog.allCategories[index].id=="younger_man_older_woman") {
