@@ -668,7 +668,7 @@ class StudioActivity : AppCompatActivity() {
             }
         }
     }
-    private fun standCastingId(id: String): String = "CHAR_"+(169+id.substringAfter("ST-").toInt())
+    private fun standCastingId(id: String): String = AutoCast.standCastingId(id)
     private fun standCastingCatalog(baseCatalog: JSONArray): JSONArray {
         val result=JSONArray(baseCatalog.toString())
         val store=com.pearparinya.automovie.stand.StandMasterStore(filesDir,com.pearparinya.automovie.stand.VerifiedStandMasters.records)
