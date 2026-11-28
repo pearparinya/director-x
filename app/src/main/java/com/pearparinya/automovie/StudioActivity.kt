@@ -199,34 +199,41 @@ class StudioActivity : AppCompatActivity() {
         return back
     }
 
+    // All navigable dialogs use one cancellation route. Never restore a parent
+    // from a detached window or override a caller's dismissal cleanup.
+    private fun bindDialogNavigation(dialog: AlertDialog, back: () -> Unit) {
+        var restored = false
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        dialog.setOnCancelListener {
+            if (!restored) {
+                restored = true
+                handler.post {
+                    if (!isFinishing && !isDestroyed) back()
+                }
+            }
+        }
+        dialog.onBackPressedDispatcher.addCallback(object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() { if (dialog.isShowing) dialog.cancel() }
+        })
+    }
+
     private fun AlertDialog.Builder.showNavigationDirector(back: (() -> Unit)? = takeMenuBack()): AlertDialog {
         val dialog = showDirector()
         if (back != null) {
+            bindDialogNavigation(dialog, back)
             dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
                 text = "◀ ย้อนกลับ"
-                setOnClickListener { dialog.dismiss(); android.os.Handler(android.os.Looper.getMainLooper()).post { back.invoke() } }
-            }
-            dialog.setOnCancelListener { android.os.Handler(android.os.Looper.getMainLooper()).post { back.invoke() } }
-            dialog.onBackPressedDispatcher.addCallback(object : androidx.activity.OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() { dialog.cancel() }
-            })
-            dialog.setOnKeyListener { _, keyCode, event ->
-                if (keyCode != android.view.KeyEvent.KEYCODE_BACK) false
-                else {
-                    if (event.action == android.view.KeyEvent.ACTION_UP && !event.isCanceled) dialog.cancel()
-                    true
-                }
+                setOnClickListener { dialog.cancel() }
             }
         }
         return dialog
     }
 
     private fun AlertDialog.Builder.createNavigationDirector(): AlertDialog {
-        val back = pendingMenuBack
-        pendingMenuBack = null
-        if (back != null) setNegativeButton("◀ ย้อนกลับ") { _, _ -> back.invoke() }
+        val back = takeMenuBack()
+        if (back != null) setNegativeButton("◀ ย้อนกลับ") { selected, _ -> selected.cancel() }
         val dialog = create()
-        if (back != null) dialog.setOnCancelListener { back.invoke() }
+        if (back != null) bindDialogNavigation(dialog, back)
         return dialog
     }
     private fun choiceMenu(title: String, choices: List<String>, cancel: String = "✖️ ยกเลิก",
