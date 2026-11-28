@@ -55,11 +55,7 @@ jobs:
             adb shell am force-stop com.google.android.apps.nexuslauncher
             adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.HOME
             mkdir -p app/build/emulator-diagnostics
-            status=0
-            gradle --no-daemon --stacktrace :app:connectedDebugAndroidTest || status=$?
-            adb logcat -d -t 4000 > app/build/emulator-diagnostics/logcat.txt || true
-            adb shell dumpsys activity activities > app/build/emulator-diagnostics/activities.txt || true
-            exit "$status"
+            sh -c 'status=0; gradle --no-daemon --stacktrace :app:connectedDebugAndroidTest || status=$?; adb logcat -d -t 4000 > app/build/emulator-diagnostics/logcat.txt || true; adb shell dumpsys activity activities > app/build/emulator-diagnostics/activities.txt || true; exit "$status"'
       - name: Capture emulator diagnostics
         if: failure()
         run: |
