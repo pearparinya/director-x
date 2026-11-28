@@ -1097,7 +1097,7 @@ class StudioActivity : AppCompatActivity() {
                             }.getOrNull()
                             if (answer != null) break
                         }
-                        Triple(initial, history, requireNotNull(answer) { "API ไม่ส่งบทกลับมา" })
+                        Triple(initial, history, Pair(requireNotNull(answer) { "API ไม่ส่งบทกลับมา" }, story))
                     }
                     runOnUiThread {
                         if (stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
@@ -1106,7 +1106,8 @@ class StudioActivity : AppCompatActivity() {
                         val value = result.getOrNull()
                         if (value == null) notice("เขียนบท AI ไม่สำเร็จ • ไม่สลับโหมด")
                         else {
-                            val (initial, history, episode) = value
+                            val (initial, history, production) = value
+                            val (episode, story) = production
                             val draft = episode.narrative
                             AlertDialog.Builder(this).setTitle("EP " + (history.size + 1) + " • ตรวจบท AI")
                                 .setMessage(draft)
@@ -1116,7 +1117,7 @@ class StudioActivity : AppCompatActivity() {
                                         check(archive.history(project) == history)
                                         archive.append(project, history, episode)
                                     }.getOrDefault(false)
-                                    notice(if (saved) "บันทึก EP แล้ว" else "บันทึกไม่สำเร็จ กรุณาตรวจข้อมูลเดิม")
+                                    if (saved) standScenePromptMenu(story) else notice("บันทึกไม่สำเร็จ กรุณาตรวจข้อมูลเดิม")
                                 }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
                         }
                     }
