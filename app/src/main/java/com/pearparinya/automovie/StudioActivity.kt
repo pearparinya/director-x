@@ -860,11 +860,54 @@ class StudioActivity : AppCompatActivity() {
         }.onFailure { notice("อ่านคลังไม่ได้: ${it.message}") }
     }
     private val masterLibrary by lazy { MasterLibrary(File(filesDir,"master_library")) { assets.open(it).use { stream -> stream.readBytes() } } }
+    private var pendingStandMasterId: String? = null
+    private val standMasterImporter by lazy {
+        com.pearparinya.automovie.stand.StandMasterAndroidImport.forContext(this)
+    }
+    private val standMasterPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val id = pendingStandMasterId
+        pendingStandMasterId = null
+        if (uri != null && id != null) {
+            Thread {
+                val result = runCatching { standMasterImporter.importSelected(id, uri) }
+                runOnUiThread {
+                    if (!isFinishing && !isDestroyed) {
+                        notice(if (result.getOrDefault(false)) "นำเข้า MASTER $id สำเร็จ • SHA-256 ตรงกัน"
+                            else "นำเข้า MASTER $id ไม่สำเร็จ • ตรวจสอบไฟล์ต้นฉบับ")
+                    }
+                }
+            }.start()
+        }
+    }
+    private fun standMasterMenu() {
+        Thread {
+            val result = runCatching { standMasterImporter.availableIds().toSet() }
+            runOnUiThread {
+                if (!isFinishing && !isDestroyed) {
+                    val available = result.getOrNull()
+                    if (available == null) notice("ตรวจสอบคลังสแตนด์ไม่สำเร็จ")
+                    else {
+                        val entries = com.pearparinya.automovie.stand.StandCatalog.all
+                        val labels = entries.map {
+                            it.id + " • " + it.name + if (it.id in available) " ✓" else " • ยังไม่นำเข้า"
+                        }.toTypedArray()
+                        AlertDialog.Builder(this)
+                            .setTitle("MASTER สแตนด์ ${available.size}/${entries.size}")
+                            .setItems(labels) { _, index ->
+                                pendingStandMasterId = entries[index].id
+                                standMasterPicker.launch(arrayOf("image/png"))
+                            }.setNegativeButton("กลับ", null).showNavigationDirector()
+                    }
+                }
+            }
+        }.start()
+    }
     private fun libraryMenu() {
         runCatching {
             val entries=masterLibrary.entries()
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             panel.addView(TextView(this).apply { text=if(entries.isEmpty()) "คลังว่าง • เพิ่มภาพใหม่ผ่านเมนูตัวละคร" else "${entries.size} แผ่น • หนึ่งแผ่นต่อหนึ่งตัวละคร" })
+            panel.addView(Button(this).apply { text="คลัง MASTER สแตนด์"; setOnClickListener { standMasterMenu() } })
             val search=EditText(this).apply { hint="ค้นหา CHAR_001 หรือชื่อไฟล์"; isSingleLine=true; panel.addView(this) }
             val list=LinearLayout(this).apply { orientation=1 }
             panel.addView(ScrollView(this).apply { addView(list) },LinearLayout.LayoutParams(-1,dp(420)))
