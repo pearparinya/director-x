@@ -19,7 +19,7 @@ class StandMasterStore(filesDir: File, records: List<StandMasterRecord>) {
             if (!temp.inputStream().use { StandMasterIntegrity.verify(record, it) }) return false
             Files.move(temp.toPath(), File(root, id + ".master").toPath(),
                 StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-            return true
+            return verifiedFile(id) != null
         } finally { temp.delete() }
     }
 
