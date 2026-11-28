@@ -6,6 +6,12 @@ import org.json.JSONObject
 
 /** Freeze AI casting before scene generation; retries reuse the same names and original bytes. */
 internal object AutoCast {
+    fun standCastingId(id: String): String {
+        require(id.matches(Regex("ST-[0-9]{3}")))
+        val number=id.substringAfter("ST-").toInt()
+        require(number in 1..30)
+        return "CHAR_"+(169+number)
+    }
     fun adultRomanceEligible(row: JSONObject): Boolean = row.optString("character_type") in listOf("", "human", "knight") &&
         row.optString("age_basis") != "unspecified" && row.optInt("character_age") >= 18
     /** Send only casting information; keep original files, metadata and hashes for local verification. */

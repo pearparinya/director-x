@@ -668,6 +668,7 @@ class StudioActivity : AppCompatActivity() {
             }
         }
     }
+    private fun standCastingId(id: String): String = AutoCast.standCastingId(id)
     private fun standCastingCatalog(baseCatalog: JSONArray): JSONArray {
         val result=JSONArray(baseCatalog.toString())
         val store=com.pearparinya.automovie.stand.StandMasterStore(filesDir,com.pearparinya.automovie.stand.VerifiedStandMasters.records)
@@ -675,7 +676,9 @@ class StudioActivity : AppCompatActivity() {
             val source=store.verifiedFile(stand.id)
             if(source!=null) {
                 val profile=com.pearparinya.automovie.stand.StandCombatCatalog.profile(stand.id)
-                result.put(JSONObject().put("id",stand.id).put("display_name",stand.name)
+                val castingId=standCastingId(stand.id)
+                require((0 until result.length()).none { result.getJSONObject(it).optString("id")==castingId }) { "รหัส MASTER ซ้ำ: $castingId" }
+                result.put(JSONObject().put("id",castingId).put("stand_id",stand.id).put("display_name",stand.name)
                     .put("file",stand.id+".master").put("sha256",MasterLibrary.digest(source.readBytes()))
                     .put("source_type","stand_master").put("character_type","creature")
                     .put("casting_description","Stand entity, not a human owner. Ability: "+profile.ability+"; weakness: "+profile.weakness))
@@ -686,7 +689,7 @@ class StudioActivity : AppCompatActivity() {
     private fun castingSource(row: JSONObject): File {
         if(row.optString("source_type")=="stand_master") {
             val store=com.pearparinya.automovie.stand.StandMasterStore(filesDir,com.pearparinya.automovie.stand.VerifiedStandMasters.records)
-            val source=requireNotNull(store.verifiedFile(row.getString("id"))) { "MASTER สแตนด์ไม่ผ่าน SHA-256" }
+            val source=requireNotNull(store.verifiedFile(row.optString("stand_id").ifBlank { row.getString("id") })) { "MASTER สแตนด์ไม่ผ่าน SHA-256" }
             require(MasterLibrary.digest(source.readBytes())==row.getString("sha256"))
             return source
         }
@@ -1429,8 +1432,8 @@ class StudioActivity : AppCompatActivity() {
             val standStore = com.pearparinya.automovie.stand.StandMasterStore(filesDir, com.pearparinya.automovie.stand.VerifiedStandMasters.records)
             com.pearparinya.automovie.stand.StandCatalog.all.forEach { stand ->
                 val file = runCatching { standStore.verifiedFile(stand.id) }.getOrNull()
-                all.add(UnifiedMasterItem(stand.name, stand.id, standCategory, file, {
-                    if (file?.isFile == true) fullImage(file, stand.name + " • " + stand.id)
+                all.add(UnifiedMasterItem(stand.name, standCastingId(stand.id), standCategory, file, {
+                    if (file?.isFile == true) fullImage(file, stand.name + " • " + standCastingId(stand.id))
                     else notice("ไม่พบ MASTER ที่ผ่าน SHA-256 ของ " + stand.name + " • " + stand.id)
                 }))
             }
@@ -8671,9 +8674,9 @@ Image Prompt สำหรับ ChatGPT (ภาพเริ่มต้นแน
                             val roster=com.pearparinya.automovie.stand.StandCatalog.all.joinToString("\n") { stand ->
                                 val profile=com.pearparinya.automovie.stand.StandCombatCatalog.profile(stand.id)
                                 val effect=com.pearparinya.automovie.stand.StandUniqueAbility.effect(stand.id)
-                                "${stand.id} ${stand.name}: power=${profile.power}, speed=${profile.speed}, defense=${profile.defense}, ability=${profile.ability}, weakness=${profile.weakness}, rank=${profile.rank}, special=$effect"
+                                "${standCastingId(stand.id)} ${stand.name}: power=${profile.power}, speed=${profile.speed}, defense=${profile.defense}, ability=${profile.ability}, weakness=${profile.weakness}, rank=${profile.rank}, special=$effect"
                             }
-                            "STAND RULES: Use only the verified roster below. Assign each participating stand to a selected cast member and retain ownership across scenes and EPs. "+(if(standCategoryId=="pia_stand") "ST-013 belongs exclusively to PIEROS (cast library ID $piaActorId); no other stand belongs to PIEROS. " else "")+"Start health and energy at 100; attack costs 10 energy, guard 0, special 30. Respect weaknesses, summon/dismiss state, and carry combat consequences forward. Follow the existing requested scene count, never a fixed four-scene outline.\n"+roster
+                            "STAND RULES: Use only the verified roster below. Assign each participating stand to a selected cast member and retain ownership across scenes and EPs. "+(if(standCategoryId=="pia_stand") "CHAR_182 belongs exclusively to PIEROS (cast library ID $piaActorId); no other stand belongs to PIEROS. " else "")+"Start health and energy at 100; attack costs 10 energy, guard 0, special 30. Respect weaknesses, summon/dismiss state, and carry combat consequences forward. Follow the existing requested scene count, never a fixed four-scene outline.\n"+roster
                         } else ""
                         val storyPremise=listOf(standBrief,"สถานการณ์ตั้งต้นที่เลือก: "+selectedStoryTopic,premise.text.toString(),if(reviewedRoles.isEmpty()) "" else "บทบาทที่เลือกจากข้อเสนอ (ตรวจความสอดคล้องกับเรื่อง): "+reviewedRoles.joinToString("; "),if(reviewedProps.isEmpty()) "" else "อุปกรณ์ MASTER ที่เลือก: "+reviewedProps.joinToString("; ")+". ใช้ตามเหตุการณ์ ระบุฉาก ผู้ถือ และความต่อเนื่อง ห้ามเดาผู้ใช้ที่ยังไม่ระบุ").filter { it.isNotBlank() }.joinToString("\n")
                         if(presenterId.isNotBlank() && presenterOutfit.selectedItemPosition>0) require(presenterOutfitFile(presenterId,presenterOutfit.selectedItemPosition).isFile) { "กรุณาเพิ่มรูปของชุดที่เลือก หรือเลือกชุดตามเนื้อเรื่อง" }
