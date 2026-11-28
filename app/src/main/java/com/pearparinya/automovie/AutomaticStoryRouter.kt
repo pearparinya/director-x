@@ -43,7 +43,7 @@ internal class AutomaticStoryRouter(
         val active=java.util.concurrent.atomic.AtomicBoolean(true)
         if(activeRequests.putIfAbsent(provider,active)!=null) throw java.net.SocketTimeoutException("บริการยังปิดคำขอก่อนหน้า")
         val timeout = try { sceneBudget.allow(requestTimeoutMillis) } catch(e: Exception) { activeRequests.remove(provider,active); throw e }
-        val formatting = schema.optJSONObject("properties")?.has("xml") == true
+        val formatting = schema.optJSONObject("properties")?.let { it.has("xml") || it.has("actions") } == true
         onRequestDetails(if (formatting) "จัดรูปแบบ XML" else "สร้างเนื้อหา", prompt.toByteArray(Charsets.UTF_8).size)
         onRequestStart(provider, timeout)
         val future=workers.submit<JSONObject> {
@@ -140,14 +140,16 @@ internal class AutomaticStoryRouter(
                 }
                 if(cancelled()) throw CancellationException()
                 val result=if(sceneBatch && formatter!=null && !SceneXml.hasUsableActions(draft)) {
-                    val request="""Create a well-formed XML document with root <flow>. For every input scene include exactly one <scene id="NUMBER"><prompt>ENGLISH ACTION</prompt><dialogue>EXACT THAI DIALOGUE</dialogue></scene>. The scene id and dialogue must exactly match the input; use empty dialogue for silent or narrated scenes. Escape XML special characters. The prompt must be an English visible action using only the same people and events; preserve their names and do not add speech. No other scene or tag. Return JSON with one field named xml containing the XML. Input scenes: ${draft.getJSONArray("scenes")}"""
-                    val xmlSchema=JSONObject().put("type","object").put("properties",JSONObject().put("xml",JSONObject().put("type","string"))).put("required",JSONArray().put("xml"))
+                    val request="""Return JSON with actions, an array of objects containing scene (integer) and action (English visible action). Include exactly one entry for each input scene, preserving people and events. Do not add speech or rewrite dialogue. Kotlin will construct XML and copy original dialogue. Input scenes: ${draft.getJSONArray("scenes")}"""
+                    val xmlSchema=JSONObject("""{"type":"object","properties":{"actions":{"type":"array","items":{"type":"object","properties":{"scene":{"type":"integer"},"action":{"type":"string"}},"required":["scene","action"]}}},"required":["actions"]}""")
                     fun formatWith(provider: StoryProvider): JSONObject {
                         current=provider
                         progress(provider,"กำลังจัดรูปแบบ XML • รอคำตอบสูงสุด ${requestTimeoutMillis/1000} วินาที")
                         val formatted=generateChecked(provider,request,xmlSchema)
-                        return try { SceneXml.apply(draft,SceneXml.unwrap(formatted.getString("xml"))) }
-                        catch(e: Exception) { throw InvalidSceneXml(e) }
+                        return try {
+                            if(formatted.has("actions")) SceneXml.fromActions(draft,formatted.getJSONArray("actions"))
+                            else SceneXml.apply(draft,SceneXml.unwrap(formatted.getString("xml")))
+                        } catch(e: Exception) { throw InvalidSceneXml(e) }
                     }
                     // Pass the same completed draft to available formatters; never
                     // rewrite the writer's scenes merely because formatting failed.
@@ -170,7 +172,7 @@ internal class AutomaticStoryRouter(
                     }
                     if (recover && formatted == null) {
                         formatFailure?.let { onFailure(current,failureCategory(it)) }
-                        throw SceneWorkPaused("เก็บร่างบทไว้แล้ว • จัดรูปแบบยังไม่สำเร็จ")
+                        throw SceneWorkPaused("เก็บร่างบทไว้แล้ว • จัดรูปแบบยังไม่สำเร็จ • "+(formatFailure?.let { failureCategory(it) } ?: "ไม่มี API จัดรูปแบบที่พร้อม"))
                     }
                     formatted ?: throw (formatFailure ?: IllegalStateException("ไม่มีบริการจัดรูปแบบที่พร้อม"))
                 } else draft
@@ -265,6 +267,7 @@ internal class AutomaticStoryRouter(
         is java.net.SocketTimeoutException -> "หมดเวลารอ"
         is javax.net.ssl.SSLException -> "TLS ขัดข้อง"
         is java.io.IOException -> "เครือข่ายขัดข้อง"
+        is InvalidStoryResponse -> "ตรวจคำตอบไม่ผ่าน • "+(e.message ?: "รูปแบบคำตอบไม่ถูกต้อง").take(160)
         else -> "ตรวจคำตอบไม่ผ่าน"
     }
     private fun canSwitch(e: Exception): Boolean = e is InvalidSceneXml || e is InvalidStoryResponse || StoryRequestRetry.canFallback(e) ||
@@ -311,6 +314,35 @@ internal object SceneXml {
             if(!Regex("[A-Za-z]").containsMatchIn(action)) return false
         }
         return true
+    }
+    fun fromActions(draft: JSONObject, actions: JSONArray): JSONObject {
+        val rows=draft.getJSONArray("scenes")
+        require(actions.length()==rows.length()) { "จำนวนซีน action ไม่ครบ" }
+        val byId=mutableMapOf<Int,String>()
+        for(i in 0 until actions.length()) {
+            val item=actions.getJSONObject(i)
+            val id=item.getInt("scene")
+            val action=item.getString("action")
+            require(action.isNotBlank() && byId.put(id,action)==null) { "action ว่างหรือหมายเลขซีนซ้ำ: $id" }
+        }
+        val output=java.io.StringWriter()
+        val serializer=XmlPullParserFactory.newInstance().newSerializer()
+        serializer.setOutput(output)
+        serializer.startTag(null,"flow")
+        for(i in 0 until rows.length()) {
+            val row=rows.getJSONObject(i)
+            val id=row.getInt("scene")
+            val action=requireNotNull(byId[id]) { "ขาด action ซีน $id" }
+            serializer.startTag(null,"scene").attribute(null,"id",id.toString())
+            serializer.startTag(null,"prompt").text(action).endTag(null,"prompt")
+            serializer.startTag(null,"dialogue").text(row.optString("dialogue")).endTag(null,"dialogue")
+            serializer.endTag(null,"scene")
+        }
+        serializer.endTag(null,"flow")
+        serializer.flush()
+        val result=apply(draft,output.toString())
+        require(hasUsableActions(result)) { "action ต้องเป็นภาษาอังกฤษและตรงทะเบียนตัวละคร" }
+        return result
     }
     fun unwrap(raw: String): String {
         val trimmed=raw.trim().removePrefix("\uFEFF").trim()
