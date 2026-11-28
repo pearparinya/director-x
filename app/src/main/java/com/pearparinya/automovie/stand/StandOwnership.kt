@@ -10,6 +10,17 @@ class StandOwnership private constructor(
     private val assignments: Map<String, String>
 ) {
     fun ownerOf(standId: String): String? = assignments[standId]
+    fun standsOf(ownerId: String): Set<String> =
+        assignments.filterValues { it == ownerId }.keys.toSet()
+
+    fun isOwner(standId: String, ownerId: String): Boolean =
+        ownerId.isNotBlank() && ownerOf(standId) == ownerId
+
+    /** A scene may validate ownership but cannot silently transfer it. */
+    fun requireOwner(standId: String, ownerId: String) {
+        require(isOwner(standId, ownerId)) { "Stand ownership mismatch: $standId" }
+    }
+
     fun snapshot(): Map<String, String> = assignments.toMap()
 
     fun assign(standId: String, ownerId: String): StandOwnership {
