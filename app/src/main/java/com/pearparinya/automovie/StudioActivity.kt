@@ -939,24 +939,19 @@ class StudioActivity : AppCompatActivity() {
                                             archive.append(project, history, com.pearparinya.automovie.stand.StandPersistentEpisode(
                                                 history.size + 1, draft, story.ownership.snapshot(), story.vitals,
                                                 history.lastOrNull()?.relationships.orEmpty(), goals=history.lastOrNull()?.goals.orEmpty(),
-                                                plots=history.lastOrNull()?.plots.orEmpty()))
+                                                plots=history.lastOrNull()?.plots.orEmpty(), beats=story.beats))
                                         }.getOrDefault(false)
                                         if (saved) {
                                             val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                             clipboard.setPrimaryClip(ClipData.newPlainText("Stand story", draft))
-                                            standScenePromptMenu(story)
+                                            standScenePromptMenu(story.ownership, story.beats, history.size + 1)
                                         } else notice("ข้อมูลเจ้าของเปลี่ยนแปลง กรุณาสร้างบทใหม่")
                                     }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
                             }
                         }.setNegativeButton("กลับ", null).showNavigationDirector()
                 }
             }
-            .setNeutralButton("คำสั่งเขียนบท") { _, _ ->
-                val context = com.pearparinya.automovie.stand.StandWritingContext.build(state, mode)
-                val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                clipboard.setPrimaryClip(ClipData.newPlainText("Stand writing context", context))
-                notice("คัดลอกข้อมูลประกอบการเขียนบทแล้ว")
-            }
+            .setNeutralButton("EP ที่บันทึกไว้") { _, _ -> standSavedEpisodes(project) }
             .setItems(entries.map { it.id + " • " + it.name + " • " +
                 (state.ownerOf(it.id) ?: "ยังไม่กำหนดเจ้าของ") }.toTypedArray()) { _, index ->
                 val entry = entries[index]
@@ -972,27 +967,42 @@ class StudioActivity : AppCompatActivity() {
                     }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
             }.setNegativeButton("กลับ", null).showNavigationDirector()
     }
-    private fun standScenePromptMenu(story: com.pearparinya.automovie.stand.StandProducedStory) {
-        AlertDialog.Builder(this).setTitle("ผลิตฉากสแตนด์ • ChatGPT / Google Flow")
-            .setItems(story.beats.map { "ฉาก " + it.scene.number + " • " + it.narrative }.toTypedArray()) { _, index ->
-                val beat = story.beats[index]
+    private fun standScenePromptMenu(ownership: com.pearparinya.automovie.stand.StandOwnership,
+        beats: List<com.pearparinya.automovie.stand.StandStoryBeat>, episode: Int) {
+        AlertDialog.Builder(this).setTitle("ผลิตฉากสแตนด์ • EP " + episode)
+            .setItems(beats.map { "ฉาก " + it.scene.number + " • " + it.narrative }.toTypedArray()) { _, index ->
+                val beat = beats[index]
                 Thread {
                     val result = runCatching {
                         val records = com.pearparinya.automovie.stand.VerifiedStandMasters.records
                         val masters = com.pearparinya.automovie.stand.StandMasterStore(filesDir, records)
                         com.pearparinya.automovie.stand.StandCinematicEngine.compose(
-                            story.ownership, beat.scene, records, masters, beat.scene.presences.first().ownerId, beat.narrative, emptyList())
+                            ownership, beat.scene, records, masters, beat.scene.presences.first().ownerId, beat.narrative, emptyList())
                     }
                     runOnUiThread {
                         val request = result.getOrElse { notice("สร้าง Prompt ไม่สำเร็จ: " + it.message); return@runOnUiThread }
-                        AlertDialog.Builder(this).setTitle("ฉาก " + beat.scene.number)
+                        AlertDialog.Builder(this).setTitle("EP " + episode + " • ฉาก " + beat.scene.number)
                             .setItems(arrayOf("ChatGPT • ภาพ START STATE", "Google Flow • วิดีโอ 8 วินาที")) { _, choice ->
                                 if (choice == 0) shareImageCommand(request.imagePrompt, request.references.map { it.binding.standId to it.file })
                                 else notice("ต้องนำเข้าภาพและอนุมัติ START STATE ก่อนเปิด Flow Code")
-                            }.setNegativeButton("กลับ") { _, _ -> standScenePromptMenu(story) }.showNavigationDirector()
+                            }.setNegativeButton("กลับ") { _, _ -> standScenePromptMenu(ownership, beats, episode) }.showNavigationDirector()
                     }
                 }.start()
-            }.setNegativeButton("กลับ") { _, _ -> standOwnerMenu(story.ownership.project) }.showNavigationDirector()
+            }.setNegativeButton("กลับ") { _, _ -> standOwnerMenu(ownership.project) }.showNavigationDirector()
+    }
+    private fun standSavedEpisodes(project: com.pearparinya.automovie.stand.StandProject) {
+        val history = runCatching { com.pearparinya.automovie.stand.StandUniverseArchive(
+            getSharedPreferences("stand_projects", MODE_PRIVATE)).history(project) }.getOrElse {
+            notice("อ่าน EP ไม่สำเร็จ"); return
+        }
+        if (history.isEmpty()) { notice("ยังไม่มี EP"); return }
+        AlertDialog.Builder(this).setTitle("EP ที่บันทึกไว้")
+            .setItems(history.map { "EP " + it.number + " • " + it.beats.size + " ฉาก" }.toTypedArray()) { _, index ->
+                val episode = history[index]
+                if (episode.beats.isEmpty()) notice("EP เดิมไม่มีข้อมูลฉากแบบโครงสร้าง")
+                else standScenePromptMenu(com.pearparinya.automovie.stand.StandOwnership.restore(project, episode.owners),
+                    episode.beats, episode.number)
+            }.setNegativeButton("กลับ") { _, _ -> standOwnerMenu(project) }.showNavigationDirector()
     }
     private fun standAiEpisode(project: com.pearparinya.automovie.stand.StandProject,
                                store: com.pearparinya.automovie.stand.StandOwnershipStore) {
@@ -1058,7 +1068,7 @@ class StudioActivity : AppCompatActivity() {
                         val relationships = com.pearparinya.automovie.stand.StandUniverseMemory.relationships(
                             story.ownership.snapshot(), prior?.relationships.orEmpty(), cast[0], cast[1], types[index])
                         val expected = com.pearparinya.automovie.stand.StandPersistentEpisode(history.size + 1,
-                            "pending", story.ownership.snapshot(), story.vitals, relationships, arc)
+                            "pending", story.ownership.snapshot(), story.vitals, relationships, arc, beats=story.beats)
                         val previousGoals = prior?.goals.orEmpty()
                         val previousPlots = prior?.plots.orEmpty()
                         val vitals = JSONObject()
