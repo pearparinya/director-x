@@ -294,7 +294,8 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                         }
                     }
                     if(retryMarker.isFile) {
-                        val original = requireNotNull(GeminiStoryFiles.read(retryMarker).optJSONObject("original_scene")) { "ไม่พบข้อมูลซีนเดิมสำหรับตรวจ Recovery" }
+                        val marker = GeminiStoryFiles.read(retryMarker)
+                        val original = requireNotNull(marker.optJSONObject("original_scene") ?: legacyRecoveryScene(folder,i+1,start)) { "ไม่พบข้อมูลซีนเดิมที่ยืนยันได้สำหรับตรวจ Recovery" }
                         require(nameRows.length()==1 && SceneRepairGuard.preservesStory(original,nameRows.getJSONObject(0))) { "ซีน $start: Recovery เปลี่ยนข้อมูลเดิม ต้องตรวจสอบก่อน" }
                     }
                     val confirmedAliases=CharacterAliasRegistry.read(folder)
@@ -410,6 +411,19 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         return story
     }
     companion object {
+        /** Legacy markers can resume only when all matching backups agree on the original scene. */
+        internal fun legacyRecoveryScene(folder: File, ep: Int, scene: Int): JSONObject? {
+            val pattern = Regex("EP%02d_([0-9]+)[.]json[.]pending[.]json[.]recovery-.+".format(ep))
+            val candidates = folder.listFiles().orEmpty().filter { it.isFile && pattern.matches(it.name) }
+                .flatMap { file ->
+                    val rows = runCatching { GeminiStoryFiles.read(file).getJSONArray("scenes") }.getOrNull()
+                    if (rows == null) emptyList() else (0 until rows.length()).mapNotNull { rows.optJSONObject(it) }
+                        .filter { it.optInt("scene") == scene }
+                }
+            val first = candidates.firstOrNull() ?: return null
+            if (!first.has("characters") || candidates.any { it.toString() != first.toString() }) return null
+            return first
+        }
         /** Back up the pending batch and retry one scene while leaving completed checkpoints intact. */
         fun prepareSceneRegeneration(folder: File, pending: File, ep: Int, scene: Int) {
             require(pending.parentFile.canonicalFile==folder.canonicalFile)
