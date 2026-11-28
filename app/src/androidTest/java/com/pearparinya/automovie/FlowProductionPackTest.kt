@@ -196,7 +196,18 @@ class FlowProductionPackTest {
             }
             android.os.SystemClock.sleep(250L)
         } while (android.os.SystemClock.uptimeMillis() < deadline)
-        fail("Timed out waiting for ${if (click) "enabled control" else "visible text"}: $label")
+        val active = instrumentation.uiAutomation.rootInActiveWindow
+        val visible = mutableListOf<String>()
+        fun describe(node: android.view.accessibility.AccessibilityNodeInfo) {
+            if (node.isVisibleToUser) {
+                listOfNotNull(node.text, node.contentDescription)
+                    .map { it.toString().take(100) }.filter { it.isNotBlank() }.forEach { visible.add(it) }
+            }
+            for (index in 0 until node.childCount) node.getChild(index)?.let { describe(it) }
+        }
+        active?.let { describe(it) }
+        fail("Timed out waiting for ${if (click) "enabled control" else "visible text"}: $label; " +
+            "active package=${active?.packageName}, visible=${visible.take(24)}")
     }
 
     @Test fun leavingDeferredSceneProposalPreservesTheSceneAndRestoresItsParentOnce() {
