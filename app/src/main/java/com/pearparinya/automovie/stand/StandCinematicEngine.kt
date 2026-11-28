@@ -21,8 +21,15 @@ object StandCinematicEngine {
         val ids = refs.map { it.binding.standId }.toSet()
         val visibleMovement = movement.filter { it.presence.standId in ids }
         val audible = dialogue.filter { line ->
-            line.speakerId in ids && line.recipientId == observerId &&
-                byId.getValue(line.speakerId).audibleTo(visible, observerId, line.speech)
+            val speaker = byId[line.speakerId]
+            val recipient = byId[line.recipientId]
+            when {
+                speaker != null -> line.speakerId in ids && line.recipientId == observerId &&
+                    speaker.audibleTo(visible, observerId, line.speech)
+                recipient != null -> recipient.standId in ids && recipient.ownerId == line.speakerId &&
+                    (observerId == line.speakerId || line.speech == StandSpeech.SPOKEN)
+                else -> false
+            }
         }
         val common = buildString {
             appendLine("Photorealistic cinematic Thai drama. Aspect ratio " + aspect.ratio)
@@ -42,7 +49,7 @@ object StandCinematicEngine {
             append(common)
             appendLine("8-second continuous shot. Locked camera; no zoom or pan. Preserve identities.")
             audible.forEach {
-                appendLine("Dialogue " + it.speakerId + " voice " + StandPersonas.get(it.speakerId).voiceId +
+                appendLine("Dialogue " + it.speakerId + " voice " + (if (it.speakerId in ids) StandPersonas.get(it.speakerId).voiceId else "owner-voice-" + it.speakerId) +
                     " mode " + it.speech + ": " + it.text)
                 appendLine(if (it.speech == StandSpeech.TELEPATHIC || !it.lipMovement)
                     "No lip movement." else "Natural lip movement only if present in original MASTER.")
