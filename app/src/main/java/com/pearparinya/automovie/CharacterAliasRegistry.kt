@@ -82,7 +82,7 @@ internal object CharacterAliasRegistry {
         val scopedAlias = scopedLead?.optString("english_name").orEmpty()
         if (scopedAlias.equals("Pia", true) || scopedAlias.equals("Piaros", true)) {
             val opposite = if (scopedAlias.equals("Pia", true)) "Piaros" else "Pia"
-            all.removeAll { it.first.equals(opposite, true) && it.second == piaName &&
+            all.removeAll { (it.first.equals(opposite, true) || (opposite == "Pia" && presenterPhrase.matches(it.first))) && it.second == piaName &&
                 it.third.equals(scopedLead?.optString("master"), true) }
         }
         val grouped=all.groupBy { key(it.first) }
@@ -94,7 +94,7 @@ internal object CharacterAliasRegistry {
                 actor.optString("name")==piaName && actor.optString("master").equals(lead.optString("master"),true)
             }==1
         val actionText=placePhrase.replace(original) { it.groupValues[1]+" บ้านคลองขุด" }.let { text ->
-            if(visibleLead) presenterPhrase.replace(text,piaName) else text
+            if(visibleLead && !scopedAlias.equals("Piaros", true)) presenterPhrase.replace(text,piaName) else text
         }
         for((alias,rows) in grouped) {
             val identities=rows.map { it.second to it.third.lowercase(Locale.ROOT) }.distinct()
