@@ -71,6 +71,12 @@ internal object CharacterAliasRegistry {
                 if(!entry.has("character_id") || entry.optString("character_id")==identityId(entry.optString("name"),entry.optString("master")))
                     all.add(Triple(alias,entry.optString("name"),entry.optString("master")))
         }
+        // Only accept the short presenter alias when the exact legacy identity is registered.
+        // Never infer a person from a fragment such as Khud or Khlong.
+        definitions.filter { it.optString("name") == piaName }.singleOrNull()?.let { definition ->
+            val master = definition.optString("master")
+            if (master.isNotBlank()) all.add(Triple("Pia", piaName, master))
+        }
         val grouped=all.groupBy { key(it.first) }
         val original=scene.optString("flow_action")
         val lead=definitions.filter { it.optString("name")==piaName }.singleOrNull()
