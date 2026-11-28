@@ -134,4 +134,18 @@ class CharacterAliasRegistryTest {
         CharacterAliasRegistry.applyRegistered(row, listOf(definition), confirmed)
         assertEquals("Nai Pia Ban Khlong Khud stands. $name waits.", row.getString("flow_action"))
     }
+    @Test fun persistedRegistryPreservesIdentityAndRejectsOwnerChanges() {
+        val actor = JSONObject().put("name", "หนึ่ง").put("master", "A_MASTER.png")
+            .put("library_id", "CHAR_170").put("english_name", "One")
+        val legacy = FlowCast.storyRegistry(listOf(actor))
+        val id = legacy.getJSONObject(0).getString("character_id")
+        actor.put("english_name", "NewAlias")
+        val migrated = FlowCast.storyRegistry(listOf(actor), legacy)
+        assertEquals(id, migrated.getJSONObject(0).getString("character_id"))
+        assertEquals("NewAlias", migrated.getJSONObject(0).getString("english_name"))
+        assertEquals(migrated.toString(), FlowCast.storyRegistry(listOf(actor), migrated).toString())
+        val wrong = JSONObject(actor.toString()).put("master", "B_MASTER.png")
+        assertTrue(runCatching { FlowCast.storyRegistry(listOf(wrong), legacy) }.isFailure)
+        assertTrue(runCatching { FlowCast.storyRegistry(listOf(actor, actor), legacy) }.isFailure)
+    }
 }
