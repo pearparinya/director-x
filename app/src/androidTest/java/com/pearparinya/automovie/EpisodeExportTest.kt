@@ -1,5 +1,6 @@
 package com.pearparinya.automovie
 
+import com.pearparinya.automovie.stand.*
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
@@ -54,6 +55,8 @@ class EpisodeExportTest {
             file.outputStream().use { it.write(header.array()); it.write(pcm.array()) }; return file
         }
         export(listOf(still(red,1000)),first,tone("tone1.wav",440.0)); export(listOf(still(blue,1000)),second,tone("tone2.wav",660.0))
+        // Exercise the Stand scene workflow with real portrait image and MP4 inputs.
+        verifyStandMovie(folder, listOf(red, blue), listOf(first, second))
         val before=listOf(EpisodeMedia.digest(first),EpisodeMedia.digest(second))
         val job=File(folder,"job").apply { mkdirs() }
         val spec=org.json.JSONObject().put("aspect_ratio","9:16").put("ep",1).put("filename","ทดสอบ_EP01_ปกและฉาก.mp4").put("cover",cover.path)
@@ -175,5 +178,42 @@ class EpisodeExportTest {
             }
             assertTrue(outputDone)
         } finally { decoder.stop(); decoder.release(); extractor.release() }
+    }
+
+    private fun verifyStandMovie(root: File, frames: List<File>, videos: List<File>) {
+        val project = StandProject(StandChannel.PIA, "stand-export-test")
+        val ownership = StandOwnership.restore(project).assign("ST-013", "PIEROS")
+        val master = frames.first()
+        val records = StandCatalog.all.map { stand ->
+            StandMasterRecord(stand.id, if (stand.id == "ST-013") EpisodeMedia.digest(master)
+                else StandMasterIntegrity.digest(stand.id.byteInputStream()))
+        }
+        val store = StandMasterStore(File(root, "stand-masters"), records)
+        assertTrue(master.inputStream().use { store.importOriginal("ST-013", it) })
+        val presence = StandMovementEngine.summon(ownership,
+            StandMovementEngine.initial(ownership, "ST-013", "PIEROS", StandPosition(0.0, 0.0)))
+        val beats = frames.indices.map { index ->
+            StandStoryBeat(StandStoryScene(index + 1, listOf(presence.presence)), "ฉากทดสอบ " + (index + 1))
+        }
+        val clips = StandSceneMedia.requests(ownership, beats, records, store).mapIndexed { index, (beat, request) ->
+            val scene = beat.scene
+            val folder = File(root, "stand-scenes/" + scene.number)
+            frames[index].inputStream().use { StandSceneMedia.importMedia(folder, "image", null, it) }
+            val stamp = requireNotNull(StandSceneMedia.stamp(folder, request))
+            assertFalse(StandSceneMedia.approved(folder, stamp))
+            assertTrue(runCatching { videos[index].inputStream().use {
+                StandSceneMedia.importMedia(folder, "video", stamp, it)
+            } }.isFailure)
+            assertTrue(StandSceneMedia.approve(folder, request, stamp))
+            assertTrue(StandSceneMedia.approved(folder, stamp))
+            videos[index].inputStream().use { StandSceneMedia.importMedia(folder, "video", stamp, it) }
+            StandSceneMedia.verifiedClip(folder, request)
+        }.toList()
+        val movie = File(root, "stand-movie.mp4")
+        EpisodeMedia.remux(clips, movie, { false }) { }
+        val info = EpisodeMedia.inspect(movie)
+        assertTrue(info.displayHeight > info.displayWidth)
+        assertEquals(clips.sumOf { EpisodeMedia.inspect(it).durationMs }.toDouble(),
+            info.durationMs.toDouble(), 200.0)
     }
 }

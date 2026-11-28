@@ -860,11 +860,395 @@ class StudioActivity : AppCompatActivity() {
         }.onFailure { notice("อ่านคลังไม่ได้: ${it.message}") }
     }
     private val masterLibrary by lazy { MasterLibrary(File(filesDir,"master_library")) { assets.open(it).use { stream -> stream.readBytes() } } }
+    private var pendingStandMasterId: String? = null
+    private val standMasterImporter by lazy {
+        com.pearparinya.automovie.stand.StandMasterAndroidImport.forContext(this)
+    }
+    private val standMasterPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val id = pendingStandMasterId
+        pendingStandMasterId = null
+        if (uri != null && id != null) {
+            Thread {
+                val result = runCatching { standMasterImporter.importSelected(id, uri) }
+                runOnUiThread {
+                    if (!isFinishing && !isDestroyed) {
+                        notice(if (result.getOrDefault(false)) "นำเข้า MASTER $id สำเร็จ • SHA-256 ตรงกัน"
+                            else "นำเข้า MASTER $id ไม่สำเร็จ • ตรวจสอบไฟล์ต้นฉบับ")
+                    }
+                }
+            }.start()
+        }
+    }
+    private fun standProjectMenu() {
+        val projectId = prefs.getString("project", null)
+        if (projectId.isNullOrBlank()) { notice("กรุณาเปิดโครงการก่อน"); return }
+        val channels = com.pearparinya.automovie.stand.StandChannel.values()
+        AlertDialog.Builder(this).setTitle("หมวดหมู่สแตนด์")
+            .setItems(channels.map { it.title }.toTypedArray()) { _, index ->
+                val project = com.pearparinya.automovie.stand.StandProject(channels[index], projectId)
+                val settings = getSharedPreferences("stand_projects", MODE_PRIVATE)
+                val key = "writing:" + project.channel.id + ":" + project.projectId
+                val modes = com.pearparinya.automovie.stand.StandWritingMode.values()
+                val selected = modes.indexOfFirst { it.name == settings.getString(key, null) }.coerceAtLeast(0)
+                AlertDialog.Builder(this).setTitle("โหมดเขียนบทสแตนด์")
+                    .setSingleChoiceItems(arrayOf("Kotlin", "AI + Kotlin"), selected) { dialog, modeIndex ->
+                        settings.edit().putString(key, modes[modeIndex].name).apply()
+                        dialog.dismiss()
+                        standOwnerMenu(project)
+                    }.setNegativeButton("กลับ", null).showNavigationDirector()
+            }.setNegativeButton("กลับ", null).showNavigationDirector()
+    }
+    private fun standOwnerMenu(project: com.pearparinya.automovie.stand.StandProject) {
+        val store = com.pearparinya.automovie.stand.StandOwnershipStore(
+            getSharedPreferences("stand_projects", MODE_PRIVATE))
+        val state = runCatching { store.load(project) }.getOrElse {
+            notice("อ่านข้อมูลเจ้าของสแตนด์ไม่สำเร็จ"); return
+        }
+        val entries = com.pearparinya.automovie.stand.StandCatalog.all
+        val settings = getSharedPreferences("stand_projects", MODE_PRIVATE)
+        val mode = com.pearparinya.automovie.stand.StandWritingMode.values().firstOrNull {
+            it.name == settings.getString("writing:" + project.channel.id + ":" + project.projectId, null)
+        } ?: com.pearparinya.automovie.stand.StandWritingMode.KOTLIN
+        AlertDialog.Builder(this).setTitle(project.channel.title)
+            .setPositiveButton("สร้างบท Kotlin") { _, _ ->
+                if (mode != com.pearparinya.automovie.stand.StandWritingMode.KOTLIN) {
+                    standAiEpisode(project, store)
+                } else {
+                    val types = com.pearparinya.automovie.stand.StandStoryType.values()
+                    AlertDialog.Builder(this).setTitle("ประเภทเรื่อง")
+                        .setItems(types.map { it.name }.toTypedArray()) { _, index ->
+                            val archive = com.pearparinya.automovie.stand.StandUniverseArchive(settings)
+                            val result = runCatching {
+                                val initial = store.load(project)
+                                val history = archive.migrateLegacy(project, initial)
+                                check(history.lastOrNull()?.arc == null) { "โครงการมีแผน AI อยู่แล้ว กรุณาใช้โหมดเดิม" }
+                                val story = com.pearparinya.automovie.stand.StandStoryProduction.generate(initial, types[index],
+                                    priorVitals = history.lastOrNull()?.vitals.orEmpty())
+                                Triple(initial, history, story)
+                            }
+                            val generated = result.getOrNull()
+                            if (generated == null) notice("สร้างบทไม่สำเร็จ: " + (result.exceptionOrNull()?.message ?: "ไม่ทราบสาเหตุ"))
+                            else {
+                                val (initial, history, story) = generated
+                                val draft = story.beats.joinToString("\n\n") { "ฉาก " + it.scene.number + ": " + it.narrative }
+                                AlertDialog.Builder(this).setTitle("EP " + (history.size + 1) + " • ตัวอย่างบทสแตนด์").setMessage(draft)
+                                    .setPositiveButton("บันทึก EP และคัดลอกบท") { _, _ ->
+                                        val saved = runCatching {
+                                            val current = store.load(project)
+                                            check(current.snapshot() == initial.snapshot())
+                                            archive.append(project, history, com.pearparinya.automovie.stand.StandPersistentEpisode(
+                                                history.size + 1, draft, story.ownership.snapshot(), story.vitals,
+                                                history.lastOrNull()?.relationships.orEmpty(), goals=history.lastOrNull()?.goals.orEmpty(),
+                                                plots=history.lastOrNull()?.plots.orEmpty(), beats=story.beats))
+                                        }.getOrDefault(false)
+                                        if (saved) {
+                                            val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                            clipboard.setPrimaryClip(ClipData.newPlainText("Stand story", draft))
+                                            standScenePromptMenu(story.ownership, story.beats, history.size + 1)
+                                        } else notice("ข้อมูลเจ้าของเปลี่ยนแปลง กรุณาสร้างบทใหม่")
+                                    }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
+                            }
+                        }.setNegativeButton("กลับ", null).showNavigationDirector()
+                }
+            }
+            .setNeutralButton("EP ที่บันทึกไว้") { _, _ -> standSavedEpisodes(project) }
+            .setItems(entries.map { it.id + " • " + it.name + " • " +
+                (state.ownerOf(it.id) ?: "ยังไม่กำหนดเจ้าของ") }.toTypedArray()) { _, index ->
+                val entry = entries[index]
+                if (project.channel == com.pearparinya.automovie.stand.StandChannel.PIA &&
+                    entry.id == com.pearparinya.automovie.stand.StandCatalog.SUPREME_ID) {
+                    notice("ST-013 ล็อกเจ้าของ PIEROS"); return@setItems
+                }
+                val input = EditText(this).apply { hint = "รหัสเจ้าของ"; setText(state.ownerOf(entry.id).orEmpty()) }
+                AlertDialog.Builder(this).setTitle(entry.name).setView(input)
+                    .setPositiveButton("บันทึก") { _, _ ->
+                        val saved = runCatching { store.save(store.load(project).assign(entry.id, input.text.toString().trim())) }
+                        notice(if (saved.getOrDefault(false)) "บันทึกเจ้าของแล้ว" else "ไม่สามารถบันทึกเจ้าของ")
+                    }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
+            }.setNegativeButton("กลับ", null).showNavigationDirector()
+    }
+    private fun standMediaFolder(project: com.pearparinya.automovie.stand.StandProject, episode: Int, scene: Int): File {
+        val id = com.pearparinya.automovie.stand.StandMasterIntegrity.digest(project.projectId.byteInputStream())
+        return File(filesDir, "stand_media/" + project.channel.id + "/" + id + "/EP" + episode + "/SC" + scene)
+    }
+    private val standMediaPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val path = prefs.getString("stand_pending_media",null)
+        val kind = prefs.getString("stand_pending_kind",null)
+        val stamp = prefs.getString("stand_pending_stamp",null)
+        prefs.edit().remove("stand_pending_media").remove("stand_pending_kind").remove("stand_pending_stamp").apply()
+        if (uri != null && path != null && kind in listOf("image","video")) {
+            val folder = File(path)
+            Thread {
+                val result = runCatching {
+                    requireNotNull(contentResolver.openInputStream(uri)).use { input ->
+                        StandSceneMedia.importMedia(folder, requireNotNull(kind), stamp, input)
+                    }
+                }
+                runOnUiThread { notice(if(result.isSuccess) "นำเข้าสำเร็จ • เปิดฉากเดิมเพื่อตรวจสอบ" else "นำเข้าไม่สำเร็จ: " + result.exceptionOrNull()?.message) }
+            }.start()
+        }
+    }
+    private fun standPickMedia(folder: File, kind: String, stamp: String? = null) {
+        prefs.edit().putString("stand_pending_media",folder.path).putString("stand_pending_kind",kind)
+            .putString("stand_pending_stamp",stamp).commit()
+        standMediaPicker.launch(arrayOf(if(kind == "image") "image/*" else "video/mp4"))
+    }
+    private fun standReviewFrame(folder: File, request: com.pearparinya.automovie.stand.StandCinematicRequest) {
+        val stamp = StandSceneMedia.stamp(folder,request) ?: return notice("ยังไม่มีภาพหรือ MASTER ไม่ตรง")
+        val panel = LinearLayout(this).apply { orientation = 1 }
+        (listOf("START STATE" to File(folder,"frame.png")) + request.references.map { it.binding.standId to it.file }).forEach { (label,file) ->
+            panel.addView(TextView(this).apply { text = label })
+            panel.addView(ImageView(this).apply { setImageBitmap(previewBitmap(Uri.fromFile(file))); adjustViewBounds=true; layoutParams=LinearLayout.LayoutParams(-1,dp(220)) })
+        }
+        AlertDialog.Builder(this).setTitle("ตรวจภาพและ MASTER ด้วยตนเอง").setView(ScrollView(this).apply { addView(panel) })
+            .setPositiveButton("อนุมัติภาพ") { _, _ ->
+                if (StandSceneMedia.approve(folder,request,stamp)) notice("อนุมัติแล้ว")
+                else notice("ภาพหรือ MASTER เปลี่ยน กรุณาตรวจใหม่")
+            }.setNegativeButton("ไม่ผ่าน") { _, _ -> File(folder,"approved.txt").delete(); File(folder,"video_stamp.txt").delete() }.showNavigationDirector()
+    }
+    private fun standExportMovie(ownership: com.pearparinya.automovie.stand.StandOwnership,
+        beats: List<com.pearparinya.automovie.stand.StandStoryBeat>, episode: Int) {
+        val progress = AlertDialog.Builder(this).setMessage("ตรวจสอบและรวมคลิป MP4").setCancelable(false).create()
+        progress.show()
+        Thread {
+            val result = runCatching {
+                val records = com.pearparinya.automovie.stand.VerifiedStandMasters.records
+                val masters = com.pearparinya.automovie.stand.StandMasterStore(filesDir,records)
+                val clips = StandSceneMedia.requests(ownership, beats, records, masters).map { (beat, request) ->
+                    val folder = standMediaFolder(ownership.project,episode,beat.scene.number)
+                    StandSceneMedia.verifiedClip(folder, request)
+                }.toList()
+                val job = File(filesDir,"stand_exports/"+UUID.randomUUID()).apply { mkdirs() }
+                val output = File(job,"output.mp4")
+                try {
+                    EpisodeMedia.remux(clips,output,{ false }) { percent -> runOnUiThread { progress.setMessage("รวมคลิป " + percent + "%") } }
+                    EpisodeMedia.inspect(output)
+                    job
+                } catch(e: Exception) { job.deleteRecursively(); throw e }
+            }
+            runOnUiThread {
+                progress.dismiss()
+                val job = result.getOrElse { notice("ส่งออกไม่สำเร็จ: " + it.message); return@runOnUiThread }
+                prefs.edit().putString("movie_download_job",job.path).commit()
+                movieDownloadPicker.launch("STAND_EP"+episode+".mp4")
+            }
+        }.start()
+    }
+    private fun standScenePromptMenu(ownership: com.pearparinya.automovie.stand.StandOwnership,
+        beats: List<com.pearparinya.automovie.stand.StandStoryBeat>, episode: Int) {
+        AlertDialog.Builder(this).setTitle("ผลิตฉากสแตนด์ • EP " + episode)
+            .setItems(beats.map { "ฉาก " + it.scene.number + " • " + it.narrative }.toTypedArray()) { _, index ->
+                val beat = beats[index]
+                Thread {
+                    val result = runCatching {
+                        val records = com.pearparinya.automovie.stand.VerifiedStandMasters.records
+                        val masters = com.pearparinya.automovie.stand.StandMasterStore(filesDir, records)
+                        StandSceneMedia.requests(ownership, beats, records, masters)
+                            .first { (current, _) -> current.scene.number == beat.scene.number }.second
+                    }
+                    runOnUiThread {
+                        val request = result.getOrElse { notice("สร้าง Prompt ไม่สำเร็จ: " + it.message); return@runOnUiThread }
+                        AlertDialog.Builder(this).setTitle("EP " + episode + " • ฉาก " + beat.scene.number)
+                            .setItems(arrayOf("ChatGPT • ภาพ START STATE", "นำเข้าภาพ", "ตรวจและอนุมัติภาพ", "Google Flow • วิดีโอ 8 วินาที", "นำเข้าวิดีโอ", "เล่นวิดีโอ")) { _, choice ->
+                                val folder = standMediaFolder(ownership.project,episode,beat.scene.number)
+                                val stamp = StandSceneMedia.stamp(folder,request)
+                                val approved = StandSceneMedia.approved(folder,stamp)
+                                when(choice) {
+                                    0 -> shareImageCommand(request.imagePrompt, request.references.map { it.binding.standId to it.file })
+                                    1 -> standPickMedia(folder,"image")
+                                    2 -> standReviewFrame(folder,request)
+                                    3 -> if(approved) showFlowCode("GOOGLE FLOW",request.videoPrompt,"EP"+episode+"_SC"+beat.scene.number+"_FLOW.txt") else notice("ต้องอนุมัติภาพก่อน")
+                                    4 -> if(approved) standPickMedia(folder,"video",stamp) else notice("ต้องอนุมัติภาพก่อน")
+                                    5 -> playMediaFile(File(folder,"clip.mp4"),"ฉาก "+beat.scene.number)
+                                }
+                            }.setNegativeButton("กลับ") { _, _ -> standScenePromptMenu(ownership, beats, episode) }.showNavigationDirector()
+                    }
+                }.start()
+            }.setNeutralButton("รวมคลิป MP4") { _, _ -> standExportMovie(ownership,beats,episode) }
+            .setNegativeButton("กลับ") { _, _ -> standOwnerMenu(ownership.project) }.showNavigationDirector()
+    }
+    private fun standSavedEpisodes(project: com.pearparinya.automovie.stand.StandProject) {
+        val history = runCatching { com.pearparinya.automovie.stand.StandUniverseArchive(
+            getSharedPreferences("stand_projects", MODE_PRIVATE)).history(project) }.getOrElse {
+            notice("อ่าน EP ไม่สำเร็จ"); return
+        }
+        if (history.isEmpty()) { notice("ยังไม่มี EP"); return }
+        AlertDialog.Builder(this).setTitle("EP ที่บันทึกไว้")
+            .setItems(history.map { "EP " + it.number + " • " + it.beats.size + " ฉาก" }.toTypedArray()) { _, index ->
+                val episode = history[index]
+                if (episode.beats.isEmpty()) notice("EP เดิมไม่มีข้อมูลฉากแบบโครงสร้าง")
+                else standScenePromptMenu(com.pearparinya.automovie.stand.StandOwnership.restore(project, episode.owners),
+                    episode.beats, episode.number)
+            }.setNegativeButton("กลับ") { _, _ -> standOwnerMenu(project) }.showNavigationDirector()
+    }
+    private fun standAiEpisode(project: com.pearparinya.automovie.stand.StandProject,
+                               store: com.pearparinya.automovie.stand.StandOwnershipStore) {
+        val providers = StoryProvider.eligible(this).filter { it.hasKey(this) }
+        if (providers.isEmpty()) { notice("กรุณาตั้งค่า API เขียนบทก่อน"); return }
+        val archive = com.pearparinya.automovie.stand.StandUniverseArchive(getSharedPreferences("stand_projects", MODE_PRIVATE))
+        val settings = getSharedPreferences("stand_projects", MODE_PRIVATE)
+        val planKey = "series.plan:" + project.channel.id + ":" + project.projectId
+        val existing = runCatching { archive.history(project) }.getOrElse { notice("อ่านประวัติ EP ไม่สำเร็จ"); return }
+        val priorArc = existing.lastOrNull()?.arc
+        val savedPlan = runCatching { JSONObject(settings.getString(planKey, "{}") ?: "{}") }.getOrElse {
+            notice("อ่านแผนเรื่องไม่สำเร็จ"); return
+        }
+        val goal = EditText(this).apply { hint = "เป้าหมายหลัก"; setText(priorArc?.goal ?: savedPlan.optString("goal", "คลี่คลายความขัดแย้งหลักของจักรวาล")); isEnabled = priorArc == null }
+        val count = EditText(this).apply { hint = "จำนวน EP"; inputType = android.text.InputType.TYPE_CLASS_NUMBER; setText((priorArc?.finalEpisode ?: savedPlan.optInt("count",maxOf(10,existing.size+5))).toString()); isEnabled = priorArc == null }
+        val endings = com.pearparinya.automovie.stand.StandEnding.values()
+        val ending = Spinner(this).apply {
+            adapter = ArrayAdapter(this@StudioActivity, android.R.layout.simple_spinner_dropdown_item,
+                listOf("จบด้วยความหวัง","โศกนาฏกรรม","สุขปนเศร้า","เปิดทางภาคต่อ"))
+            setSelection(endings.indexOfFirst { it.name == savedPlan.optString("ending") }.coerceAtLeast(0))
+            isEnabled = priorArc == null
+        }
+        val panel = LinearLayout(this).apply { orientation = 1; setPadding(dp(16),dp(8),dp(16),dp(8)); addView(goal); addView(count); addView(ending) }
+        AlertDialog.Builder(this).setTitle("กำหนดแผนจักรวาลสแตนด์").setView(panel)
+            .setPositiveButton("ดำเนินการ") { _, _ ->
+                val n = count.text.toString().toIntOrNull()
+                if (n == null || n < 5 || n <= existing.size || goal.text.isBlank()) {
+                    notice("กรุณากำหนดเป้าหมายและจำนวน EP อย่างน้อย 5 และมากกว่าตอนที่บันทึกแล้ว")
+                } else {
+                    val series = com.pearparinya.automovie.stand.StandSeriesPlan(
+                        com.pearparinya.automovie.stand.StandLongTermArc(goal.text.toString().trim(), n), endings[ending.selectedItemPosition])
+                    if (settings.edit().putString(planKey, JSONObject().put("goal",series.arc.goal)
+                            .put("count",n).put("ending",series.ending.name).toString()).commit())
+                        standAiEpisodeWithPlan(project,store,series)
+                    else notice("บันทึกแผนไม่สำเร็จ")
+                }
+            }.setNegativeButton("ยกเลิก",null).showNavigationDirector()
+    }
+    private fun standAiEpisodeWithPlan(project: com.pearparinya.automovie.stand.StandProject,
+        store: com.pearparinya.automovie.stand.StandOwnershipStore,
+        series: com.pearparinya.automovie.stand.StandSeriesPlan) {
+        val providers = StoryProvider.eligible(this).filter { it.hasKey(this) }
+        if (providers.isEmpty()) { notice("กรุณาตั้งค่า API เขียนบทก่อน"); return }
+        val archive = com.pearparinya.automovie.stand.StandUniverseArchive(getSharedPreferences("stand_projects", MODE_PRIVATE))
+        val types = com.pearparinya.automovie.stand.StandStoryType.values()
+        AlertDialog.Builder(this).setTitle("AI + Kotlin • เลือกประเภทเรื่อง")
+            .setItems(types.map { it.name }.toTypedArray()) { _, index ->
+                val stopped = java.util.concurrent.atomic.AtomicBoolean(false)
+                val active = java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
+                val progress = AlertDialog.Builder(this).setMessage("กำลังเขียนบท AI + Kotlin")
+                    .setNegativeButton("หยุด", null).showNavigationDirector()
+                progress.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
+                Thread {
+                    val result = runCatching {
+                        val initial = store.load(project)
+                        val history = archive.migrateLegacy(project, initial)
+                        val story = com.pearparinya.automovie.stand.StandStoryProduction.generate(initial, types[index], priorVitals = history.lastOrNull()?.vitals.orEmpty())
+                        val prior = history.lastOrNull()
+                        val arc = prior?.arc ?: series.arc
+                        check(arc == series.arc)
+                        check(history.size < arc.finalEpisode)
+                        val cast = story.episode.scenes.first().presences.map { it.ownerId }.distinct()
+                        val relationships = com.pearparinya.automovie.stand.StandUniverseMemory.relationships(
+                            story.ownership.snapshot(), prior?.relationships.orEmpty(), cast[0], cast[1], types[index])
+                        val expected = com.pearparinya.automovie.stand.StandPersistentEpisode(history.size + 1,
+                            "pending", story.ownership.snapshot(), story.vitals, relationships, arc, beats=story.beats)
+                        val previousGoals = prior?.goals.orEmpty()
+                        val previousPlots = prior?.plots.orEmpty()
+                        val vitals = JSONObject()
+                        expected.vitals.forEach { (id,v) -> vitals.put(id, JSONObject().put("health",v.health).put("energy",v.energy)) }
+                        val prompt = com.pearparinya.automovie.stand.StandAiNarrative.prompt(story, history.map { it.narrative }) +
+                            "\nReturn text plus exact episode, owners and vitals: " +
+                            JSONObject().put("episode",expected.number).put("owners",JSONObject(expected.owners)).put("vitals",vitals)
+                        val continuityPrompt = prompt + "\n" +
+                            com.pearparinya.automovie.stand.StandUniverseMemory.context(history, arc, relationships) + "\n" +
+                            com.pearparinya.automovie.stand.StandDynamicPlanning.context(series, history) +
+                            "\nPreserve prior goals and plots. Return goals array (owner, objective, achieved) and plots array (id, description, opened, resolved nullable). Final episode must resolve all. Prior goals: " +
+                            com.pearparinya.automovie.stand.StandPlotJson.encodeGoals(previousGoals) +
+                            "\nPrior plots: " + com.pearparinya.automovie.stand.StandPlotJson.encodePlots(previousPlots)
+                        val schema = com.pearparinya.automovie.stand.StandAiNarrative.schema()
+                        schema.getJSONObject("properties").put("episode",JSONObject().put("type","integer"))
+                            .put("owners",JSONObject().put("type","object")).put("vitals",JSONObject().put("type","object"))
+                        schema.getJSONObject("properties")
+                            .put("goals",JSONObject().put("type","array").put("items",JSONObject().put("type","object")))
+                            .put("plots",JSONObject().put("type","array").put("items",JSONObject().put("type","object")))
+                        schema.put("required",JSONArray().put("text").put("episode").put("owners").put("vitals").put("goals").put("plots"))
+                        var answer: com.pearparinya.automovie.stand.StandPersistentEpisode? = null
+                        for (provider in providers) {
+                            if (stopped.get()) break
+                            answer = runCatching {
+                                val client = StoryClientFactory.create(provider, provider.key(this), provider.model(this),
+                                    { stopped.get() }, automaticRetry=false, context=this@StudioActivity)
+                                active.set(client)
+                                if (stopped.get()) throw java.util.concurrent.CancellationException()
+                                val response = client.generate(continuityPrompt, schema)
+                                check(com.pearparinya.automovie.stand.StandAiStoryValidation.validate(story.ownership, expected, response))
+                                val goals = com.pearparinya.automovie.stand.StandPlotJson.goals(response.getJSONArray("goals"))
+                                val plots = com.pearparinya.automovie.stand.StandPlotJson.plots(response.getJSONArray("plots"))
+                                check(com.pearparinya.automovie.stand.StandPlotContinuity.validate(expected.number,
+                                    expected.owners, arc, previousGoals, goals, previousPlots, plots))
+                                expected.copy(narrative=response.getString("text").trim(), goals=goals, plots=plots)
+                            }.getOrNull()
+                            if (answer != null) break
+                        }
+                        Triple(initial, history, Pair(requireNotNull(answer) { "API ไม่ส่งบทกลับมา" }, story))
+                    }
+                    runOnUiThread {
+                        if (stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
+                        active.set(null)
+                        progress.dismiss()
+                        val value = result.getOrNull()
+                        if (value == null) notice("เขียนบท AI ไม่สำเร็จ • ไม่สลับโหมด")
+                        else {
+                            val (initial, history, production) = value
+                            val (episode, story) = production
+                            val draft = episode.narrative
+                            AlertDialog.Builder(this).setTitle("EP " + (history.size + 1) + " • ตรวจบท AI")
+                                .setMessage(draft)
+                                .setPositiveButton("บันทึก EP") { _, _ ->
+                                    val saved = runCatching {
+                                        check(store.load(project).snapshot() == initial.snapshot())
+                                        check(archive.history(project) == history)
+                                        archive.append(project, history, episode)
+                                    }.getOrDefault(false)
+                                    if (saved) standScenePromptMenu(story.ownership, story.beats, episode.number) else notice("บันทึกไม่สำเร็จ กรุณาตรวจข้อมูลเดิม")
+                                }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
+                        }
+                    }
+                }.start()
+            }.setNegativeButton("กลับ", null).showNavigationDirector()
+    }
+    private fun standMasterMenu() {
+        Thread {
+            val result = runCatching { standMasterImporter.audit() }
+            runOnUiThread {
+                if (!isFinishing && !isDestroyed) {
+                    val available = result.getOrNull()
+                    if (available == null) notice("ตรวจสอบคลังสแตนด์ไม่สำเร็จ")
+                    else {
+                        val entries = com.pearparinya.automovie.stand.StandCatalog.all
+                        val statuses = available.associateBy { it.standId }
+                        val labels = entries.map {
+                            val status = when (statuses.getValue(it.id).status) {
+                                com.pearparinya.automovie.stand.StandMasterStatus.VERIFIED -> "ผ่าน SHA-256"
+                                com.pearparinya.automovie.stand.StandMasterStatus.MISSING -> "ยังไม่นำเข้า"
+                                com.pearparinya.automovie.stand.StandMasterStatus.HASH_MISMATCH -> "ไฟล์ไม่ตรงต้นฉบับ"
+                                com.pearparinya.automovie.stand.StandMasterStatus.UNREADABLE -> "อ่านไฟล์ไม่ได้"
+                            }
+                            it.id + " • " + it.name + " • " + status
+                        }.toTypedArray()
+                        val verified = available.count { it.status == com.pearparinya.automovie.stand.StandMasterStatus.VERIFIED }
+                        AlertDialog.Builder(this)
+                            .setTitle("MASTER สแตนด์ ${verified}/${entries.size}")
+                            .setItems(labels) { _, index ->
+                                pendingStandMasterId = entries[index].id
+                                standMasterPicker.launch(arrayOf("image/png"))
+                            }.setNegativeButton("กลับ", null).showNavigationDirector()
+                    }
+                }
+            }
+        }.start()
+    }
     private fun libraryMenu() {
         runCatching {
             val entries=masterLibrary.entries()
             val panel=LinearLayout(this).apply { orientation=1; setPadding(dp(16),dp(8),dp(16),dp(8)) }
             panel.addView(TextView(this).apply { text=if(entries.isEmpty()) "คลังว่าง • เพิ่มภาพใหม่ผ่านเมนูตัวละคร" else "${entries.size} แผ่น • หนึ่งแผ่นต่อหนึ่งตัวละคร" })
+            panel.addView(Button(this).apply { text="คลัง MASTER สแตนด์"; setOnClickListener { standMasterMenu() } })
+            panel.addView(Button(this).apply { text="โครงการและเจ้าของสแตนด์"; setOnClickListener { standProjectMenu() } })
             val search=EditText(this).apply { hint="ค้นหา CHAR_001 หรือชื่อไฟล์"; isSingleLine=true; panel.addView(this) }
             val list=LinearLayout(this).apply { orientation=1 }
             panel.addView(ScrollView(this).apply { addView(list) },LinearLayout.LayoutParams(-1,dp(420)))
@@ -1288,8 +1672,14 @@ class StudioActivity : AppCompatActivity() {
     private val zipPicker = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri != null) { val backup = backupMode; backupMode = false; background { if (backup) contentResolver.openOutputStream(uri)!!.use { StudioArchive.write(project,it,File(filesDir,"short_catalog_ids.json")) } else export(uri) } }
     }
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("stand.pendingMasterId", pendingStandMasterId)
+        super.onSaveInstanceState(outState)
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingStandMasterId = savedInstanceState?.getString("stand.pendingMasterId")
+            ?.takeIf { com.pearparinya.automovie.stand.StandCatalog.find(it) != null }
         // Register the update permission launcher after Activity attachment, before STARTED.
         updater = StudioUpdater(this)
         listOf("body_02.png", "body_03.png").forEach { File(cacheDir, "body_template_sources/$it").delete() }
@@ -6791,7 +7181,7 @@ $context"""
             val result=edit.text.toString()
             if(result.isBlank()) notice("ยังไม่มีข้อมูลให้คัดลอก")
             else if(result.length>field.limit) notice("ข้อความเกิน "+field.limit+" ตัวอักษร")
-            else { save(); copyCommand(result); android.widget.Toast.makeText(this,"คัดลอกข้อความแล้ว",android.widget.Toast.LENGTH_SHORT).show() }
+            else { save(); copyCommand(result, showConfirmation = false); android.widget.Toast.makeText(this,"คัดลอกข้อความแล้ว",android.widget.Toast.LENGTH_SHORT).show() }
         }
         palettes[copy]=intArrayOf(Color.rgb(145,92,12),Color.rgb(180,125,28)); paint(copy)
         action(panel,"บันทึกข้อความ",blue) { save(); notice("บันทึกข้อความแล้ว") }
@@ -8691,11 +9081,13 @@ ${if(mode=="original") listOf("gawin" to "กวิน","rinlada" to "ริน�
             contentResolver.openInputStream(uri)!!.use { android.graphics.BitmapFactory.decodeStream(it,null,options) }
         }.getOrNull()
     }
-    private fun copyCommand(text: String) {
+    private fun copyCommand(text: String, showConfirmation: Boolean = true) {
         runCatching {
             (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
                 .setPrimaryClip(ClipData.newPlainText("DIRECTOR X",text))
-        }.onSuccess { notice("คัดลอกคำสั่งแล้ว • นำไปวางในเครื่องมือที่ต้องการ") }
+        }.onSuccess {
+            if (showConfirmation) notice("คัดลอกคำสั่งแล้ว • นำไปวางในเครื่องมือที่ต้องการ")
+        }
             .onFailure { notice("คัดลอกไม่ได้หรือข้อความยาวเกินคลิปบอร์ด • เลือกบันทึกไฟล์แล้วแนบใน Gemini หรือเลือกเฉพาะ EP") }
     }
     private fun saveStory() {
