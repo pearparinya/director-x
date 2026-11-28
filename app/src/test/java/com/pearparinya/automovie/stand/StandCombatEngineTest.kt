@@ -26,7 +26,14 @@ class StandCombatEngineTest {
         assertTrue(guarded.second.health > open.second.health)
     }
     @Test fun specialCostsEnergy() {
-        assertEquals(70, StandCombatEngine.resolve(ownership, a, b, special, guard).first.energy)
+        val result = StandCombatEngine.resolve(ownership, a, b, special, guard)
+        assertEquals(80, result.first.energy) // 100 - 30 cost + 10 Oracle recovery
+        assertEquals(90, result.second.energy) // Oracle drains 10
+        val ordinary = StandCombatEngine.resolve(ownership, a, b, guard, special)
+        assertEquals(70, ordinary.second.energy)
+    }
+    @Test fun everyStandHasDistinctAbilityEffect() {
+        assertEquals(16, StandCatalog.all.map { StandUniqueAbility.effect(it.id) }.toSet().size)
     }
     @Test fun defeatedOpponentCannotCounter() {
         val result = StandCombatEngine.resolve(ownership, a, b.copy(health = 1), attack, attack)
