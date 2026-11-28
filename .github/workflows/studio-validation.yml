@@ -42,7 +42,12 @@ jobs:
           arch: x86_64
           target: google_apis
           disable-animations: true
-          script: gradle --no-daemon --stacktrace :app:connectedDebugAndroidTest
+          script: |
+            adb shell svc power stayon true
+            adb shell settings put system screen_off_timeout 3600000
+            adb shell input keyevent KEYCODE_WAKEUP
+            adb shell wm dismiss-keyguard
+            gradle --no-daemon --stacktrace :app:connectedDebugAndroidTest
       - name: Upload instrumentation reports
         if: always()
         uses: actions/upload-artifact@v4
