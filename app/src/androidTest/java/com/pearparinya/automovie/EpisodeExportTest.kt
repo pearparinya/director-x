@@ -192,10 +192,11 @@ class EpisodeExportTest {
         assertTrue(master.inputStream().use { store.importOriginal("ST-013", it) })
         val presence = StandMovementEngine.summon(ownership,
             StandMovementEngine.initial(ownership, "ST-013", "PIEROS", StandPosition(0.0, 0.0)))
-        val clips = frames.indices.map { index ->
-            val scene = StandStoryScene(index + 1, listOf(presence.presence))
-            val request = StandCinematicEngine.compose(ownership, scene, records, store,
-                "PIEROS", "ฉากทดสอบ " + scene.number, listOf(presence))
+        val beats = frames.indices.map { index ->
+            StandStoryBeat(StandStoryScene(index + 1, listOf(presence.presence)), "ฉากทดสอบ " + (index + 1))
+        }
+        val clips = StandSceneMedia.requests(ownership, beats, records, store).mapIndexed { index, (beat, request) ->
+            val scene = beat.scene
             val folder = File(root, "stand-scenes/" + scene.number)
             frames[index].inputStream().use { StandSceneMedia.importMedia(folder, "image", null, it) }
             val stamp = requireNotNull(StandSceneMedia.stamp(folder, request))
@@ -207,7 +208,7 @@ class EpisodeExportTest {
             assertTrue(StandSceneMedia.approved(folder, stamp))
             videos[index].inputStream().use { StandSceneMedia.importMedia(folder, "video", stamp, it) }
             StandSceneMedia.verifiedClip(folder, request)
-        }
+        }.toList()
         val movie = File(root, "stand-movie.mp4")
         EpisodeMedia.remux(clips, movie, { false }) { }
         val info = EpisodeMedia.inspect(movie)

@@ -1,11 +1,22 @@
 package com.pearparinya.automovie
 
-import com.pearparinya.automovie.stand.StandCinematicRequest
+import com.pearparinya.automovie.stand.*
 import java.io.File
 import java.io.InputStream
 import org.json.JSONArray
 
 internal object StandSceneMedia {
+    fun requests(ownership: StandOwnership, beats: List<StandStoryBeat>,
+                 records: List<StandMasterRecord>, masters: StandMasterStore) = sequence {
+        var previous: StandContinuityFrame? = null
+        for (beat in beats.sortedBy { it.scene.number }) {
+            val request = StandCinematicEngine.compose(ownership, beat.scene, records, masters,
+                beat.scene.presences.first().ownerId, beat.narrative, emptyList(), previous = previous)
+            yield(beat to request)
+            previous = request.continuity
+        }
+    }
+
     fun stamp(folder: File, request: com.pearparinya.automovie.stand.StandCinematicRequest): String? = runCatching {
         val refs = request.references.map {
             val digest = EpisodeMedia.digest(it.file)

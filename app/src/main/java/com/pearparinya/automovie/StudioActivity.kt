@@ -1014,12 +1014,10 @@ class StudioActivity : AppCompatActivity() {
             val result = runCatching {
                 val records = com.pearparinya.automovie.stand.VerifiedStandMasters.records
                 val masters = com.pearparinya.automovie.stand.StandMasterStore(filesDir,records)
-                val clips = beats.sortedBy { it.scene.number }.map { beat ->
+                val clips = StandSceneMedia.requests(ownership, beats, records, masters).map { (beat, request) ->
                     val folder = standMediaFolder(ownership.project,episode,beat.scene.number)
-                    val request = com.pearparinya.automovie.stand.StandCinematicEngine.compose(
-                        ownership,beat.scene,records,masters,beat.scene.presences.first().ownerId,beat.narrative,emptyList())
                     StandSceneMedia.verifiedClip(folder, request)
-                }
+                }.toList()
                 val job = File(filesDir,"stand_exports/"+UUID.randomUUID()).apply { mkdirs() }
                 val output = File(job,"output.mp4")
                 try {
@@ -1045,8 +1043,8 @@ class StudioActivity : AppCompatActivity() {
                     val result = runCatching {
                         val records = com.pearparinya.automovie.stand.VerifiedStandMasters.records
                         val masters = com.pearparinya.automovie.stand.StandMasterStore(filesDir, records)
-                        com.pearparinya.automovie.stand.StandCinematicEngine.compose(
-                            ownership, beat.scene, records, masters, beat.scene.presences.first().ownerId, beat.narrative, emptyList())
+                        StandSceneMedia.requests(ownership, beats, records, masters)
+                            .first { (current, _) -> current.scene.number == beat.scene.number }.second
                     }
                     runOnUiThread {
                         val request = result.getOrElse { notice("สร้าง Prompt ไม่สำเร็จ: " + it.message); return@runOnUiThread }
