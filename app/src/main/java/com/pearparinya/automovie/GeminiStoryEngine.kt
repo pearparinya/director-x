@@ -144,11 +144,13 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
         }
         val support=spec.optJSONArray("supporting_characters") ?: JSONArray()
         val identityDefinitions=FlowCast.definitions(spec)
-        for(actor in identityDefinitions) {
-            actor.put("character_id",CharacterAliasRegistry.identityId(actor.getString("name"),actor.getString("master")))
+        val identityFile = File(folder,"character_identities.json")
+        val persisted = if (identityFile.isFile) GeminiStoryFiles.read(identityFile) else JSONObject()
+        val identityRegistry = FlowCast.storyRegistry(identityDefinitions, persisted.optJSONArray("entries") ?: JSONArray())
+        for ((index, actor) in identityDefinitions.withIndex()) {
+            actor.put("character_id", identityRegistry.getJSONObject(index).getString("character_id"))
         }
-        val identityRegistry = FlowCast.storyRegistry(identityDefinitions)
-        GeminiStoryFiles.write(File(folder,"character_identities.json"),JSONObject().put("entries",identityRegistry))
+        GeminiStoryFiles.write(identityFile,persisted.put("entries",identityRegistry))
         GeminiStoryFiles.write(File(folder,"spec.json"),spec)
         require(FlowCast.issues(JSONObject().put("supporting_characters",support)).isEmpty()) { "ข้อมูลตัวละครเสริมไม่ถูกต้อง" }
         val compact=spec.optString("provider") in setOf("groq","cerebras","deepseek","openrouter") || spec.optBoolean("hybrid") || spec.optBoolean("auto_pipeline")
