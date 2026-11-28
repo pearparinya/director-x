@@ -18,4 +18,14 @@ internal object SceneRepairGuard {
         val before = bindings(original) ?: return false
         return before == after
     }
+    fun preservesStory(original: JSONObject, replacement: JSONObject): Boolean {
+        if (!preservesCast(original, replacement)) return false
+        return listOf("scene", "action", "dialogue", "speaker", "narration", "dialogue_turns",
+            "start_state", "end_state", "story_day", "story_time", "location",
+            "activity", "continuity_group", "wardrobe_event", "mentioned_characters",
+            "offscreen_characters").all { key ->
+            !original.has(key) || (replacement.has(key) &&
+                original.opt(key).toString() == replacement.opt(key).toString())
+        }
+    }
 }
