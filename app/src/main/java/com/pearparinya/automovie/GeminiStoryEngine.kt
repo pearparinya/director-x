@@ -59,9 +59,9 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                     problem=IllegalArgumentException("ซ่อมบทต้องส่งกลับเฉพาะซีน $sceneNumber")
                     continue
                 }
-                if (!SceneRepairGuard.preservesCast(rows.getJSONObject(target), replacement.getJSONObject(0))) {
+                if (!SceneRepairGuard.preservesStory(rows.getJSONObject(target), replacement.getJSONObject(0))) {
                     // Identity or wardrobe corrections require explicit review, not silent replacement.
-                    throw IllegalArgumentException("ซีน $sceneNumber: ผลซ่อมบทเปลี่ยนตัวละคร MASTER หรือชุด ต้องตรวจสอบก่อน")
+                    throw IllegalArgumentException("ซีน $sceneNumber: ผลซ่อมบทเปลี่ยนตัวละคร MASTER ชุด บทสนทนา หรือเหตุการณ์ ต้องตรวจสอบก่อน")
                 }
                 // Preserve the pre-repair batch before replacing any scene.
                 val backup = File(folder, name + ".repair-original.json")
@@ -292,6 +292,10 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                             "EP ${i+1} ซีน ${row.optInt("scene",start+n)}: ขาดรายการ characters กรุณาเติมตัวละครที่ปรากฏตามทะเบียนเรื่อง โดยรักษาเหตุการณ์เดิม"
                         }
                     }
+                    if(retryMarker.isFile) {
+                        val original = requireNotNull(GeminiStoryFiles.read(retryMarker).optJSONObject("original_scene")) { "ไม่พบข้อมูลซีนเดิมสำหรับตรวจ Recovery" }
+                        require(nameRows.length()==1 && SceneRepairGuard.preservesStory(original,nameRows.getJSONObject(0))) { "ซีน $start: Recovery เปลี่ยนข้อมูลเดิม ต้องตรวจสอบก่อน" }
+                    }
                     val confirmedAliases=CharacterAliasRegistry.read(folder)
                     for(n in 0 until nameRows.length()) {
                         CharacterAliasRegistry.applyRegistered(nameRows.getJSONObject(n),identityDefinitions,confirmedAliases)
@@ -421,7 +425,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
             val retry=File(folder,"EP%02d_%02d.json.pending.json".format(ep,scene))
             require(retry.isFile && GeminiStoryFiles.read(retry).getJSONArray("scenes").length()==1) { "เตรียมซีนเดี่ยวไม่สำเร็จ" }
             GeminiStoryFiles.write(File(folder,"batch_recovery.json"),JSONObject().put("single_scene",true))
-            GeminiStoryFiles.write(File(folder,"regenerate_EP%02d_%02d.json".format(ep,scene)),JSONObject().put("id",java.util.UUID.randomUUID().toString()))
+            GeminiStoryFiles.write(File(folder,"regenerate_EP%02d_%02d.json".format(ep,scene)),JSONObject().put("id",java.util.UUID.randomUUID().toString()).put("original_scene",GeminiStoryFiles.read(retry).getJSONArray("scenes").getJSONObject(0)))
             check(retry.delete()) { "เตรียมซีนสำหรับเขียนใหม่ไม่สำเร็จ" }
         }
         /** Preserve the original before splitting an unvalidated batch into resumable scenes. */
