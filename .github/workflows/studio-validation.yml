@@ -43,11 +43,18 @@ jobs:
           target: google_apis
           disable-animations: true
           script: |
+            # Stabilize the test device before running the full suite.
+            adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.HOME
             adb shell svc power stayon true
             adb shell settings put system screen_off_timeout 3600000
             adb shell input keyevent KEYCODE_WAKEUP
             adb shell wm dismiss-keyguard
+            adb shell am wait-for-broadcast-idle
             gradle --no-daemon --stacktrace :app:connectedDebugAndroidTest
+      - name: Capture emulator diagnostics
+        if: failure()
+        run: |
+          echo "Instrumentation failed; inspect the uploaded test reports for foreground-window and clipboard failures."
       - name: Upload instrumentation reports
         if: always()
         uses: actions/upload-artifact@v4
