@@ -45,10 +45,25 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
             if(target!=null && rows!=null) {
                 val problemText=issue.message.orEmpty()
                 if(problemText.contains("พบชื่อภาษาอังกฤษ") && problemText.contains("flow_action")) {
-                    // Validation has already applied every unambiguous story alias.
-                    // Persist that progress even when another name still needs review.
+                    // Preserve the pending batch and ask only for a corrected action.
+                    // Never replace cast, dialogue, wardrobe or other scene fields.
                     GeminiStoryFiles.write(pending,value)
-                    throw issue
+                    val original = rows.getJSONObject(target)
+                    val actionSchema = JSONObject("""{"type":"object","properties":{"action":{"type":"string"}},"required":["action"]}""")
+                    val corrected = generate(
+                        "Correct ONLY the English visible action for scene $sceneNumber. Use only exact registered character names from the scene and preserve all events. Do not invent or substitute identities. If identity is ambiguous, return the original action unchanged. Validation error: " +
+                            problemText.take(600) + "\nScene (read-only): " + original + marker,
+                        actionSchema
+                    ).optString("action").trim()
+                    check()
+                    if (corrected.isNotBlank() && corrected != original.optString("flow_action")) {
+                        val backup = File(folder, name + ".repair-original.json")
+                        if (!backup.exists()) GeminiStoryFiles.write(backup,value)
+                        original.put("flow_action",corrected)
+                        GeminiStoryFiles.write(pending,value)
+                    }
+                    problem = validateWithSpeechRecovery()
+                    continue
                 }
                 val focused=prompt.replace(Regex("Write exactly scenes [0-9]+ to [0-9]+"),"Write exactly scenes $sceneNumber to $sceneNumber")
                 val replacement=generate(focused+marker+"Your previous JSON failed validation: "+issue.message.orEmpty().take(600)+

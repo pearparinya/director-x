@@ -38,6 +38,11 @@ class AutomaticStoryRouterTest {
             }
             assertEquals(resumed.toString(),start(invalid).generate(prompt,schema()).toString())
             assertEquals(1,writes)
+            val ids=(0 until resumed.getJSONArray("scenes").length()).map {
+                resumed.getJSONArray("scenes").getJSONObject(it).getInt("scene")
+            }
+            assertEquals(listOf(3,4),ids)
+            assertEquals(ids.size,ids.distinct().size)
             assertTrue(runCatching { SceneXml.fromActions(source,JSONArray().put(actions.getJSONObject(0)).put(actions.getJSONObject(0))) }.isFailure)
         } finally { folder.deleteRecursively() }
     }

@@ -54,6 +54,16 @@ internal object CharacterAliasRegistry {
             if(validAlias(alias) && name.isNotBlank() && master.isNotBlank())
                 all.add(Triple(alias,name,master))
         }
+        // Accept explicit library IDs only when the registered identity is unique.
+        for (definition in definitions) {
+            val name = definition.optString("name")
+            val master = definition.optString("master")
+            val libraryId = definition.optString("library_id").trim()
+            if (Regex("CHAR_[0-9]+").matches(libraryId) && name.isNotBlank() && master.isNotBlank() &&
+                definitions.count { it.optString("library_id").equals(libraryId, true) } == 1) {
+                all.add(Triple(libraryId, name, master))
+            }
+        }
         for(i in 0 until entries.length()) {
             val entry=entries.getJSONObject(i)
             val alias=entry.optString("alias").trim()
