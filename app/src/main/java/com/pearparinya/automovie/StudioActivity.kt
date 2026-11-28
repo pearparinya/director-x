@@ -912,7 +912,7 @@ class StudioActivity : AppCompatActivity() {
         AlertDialog.Builder(this).setTitle(project.channel.title)
             .setPositiveButton("สร้างบท Kotlin") { _, _ ->
                 if (mode != com.pearparinya.automovie.stand.StandWritingMode.KOTLIN) {
-                    notice("โหมด AI + Kotlin ยังไม่ได้เชื่อมผู้ให้บริการ กรุณาเลือกโหมด Kotlin หากต้องการสร้างบทในเครื่อง")
+                    standAiEpisode(project, store)
                 } else {
                     val types = com.pearparinya.automovie.stand.StandStoryType.values()
                     AlertDialog.Builder(this).setTitle("ประเภทเรื่อง")
@@ -960,6 +960,65 @@ class StudioActivity : AppCompatActivity() {
                         val saved = runCatching { store.save(store.load(project).assign(entry.id, input.text.toString().trim())) }
                         notice(if (saved.getOrDefault(false)) "บันทึกเจ้าของแล้ว" else "ไม่สามารถบันทึกเจ้าของ")
                     }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
+            }.setNegativeButton("กลับ", null).showNavigationDirector()
+    }
+    private fun standAiEpisode(project: com.pearparinya.automovie.stand.StandProject,
+                               store: com.pearparinya.automovie.stand.StandOwnershipStore) {
+        val providers = StoryProvider.eligible(this).filter { it.hasKey(this) }
+        if (providers.isEmpty()) { notice("กรุณาตั้งค่า API เขียนบทก่อน"); return }
+        val archive = com.pearparinya.automovie.stand.StandEpisodeArchive(getSharedPreferences("stand_projects", MODE_PRIVATE))
+        val types = com.pearparinya.automovie.stand.StandStoryType.values()
+        AlertDialog.Builder(this).setTitle("AI + Kotlin • เลือกประเภทเรื่อง")
+            .setItems(types.map { it.name }.toTypedArray()) { _, index ->
+                val stopped = java.util.concurrent.atomic.AtomicBoolean(false)
+                val active = java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
+                val progress = AlertDialog.Builder(this).setMessage("กำลังเขียนบท AI + Kotlin")
+                    .setNegativeButton("หยุด", null).showNavigationDirector()
+                progress.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
+                Thread {
+                    val result = runCatching {
+                        val initial = store.load(project)
+                        val history = archive.history(project)
+                        val story = com.pearparinya.automovie.stand.StandStoryProduction.generate(initial, types[index])
+                        val prompt = com.pearparinya.automovie.stand.StandAiNarrative.prompt(story, history)
+                        var answer: String? = null
+                        for (provider in providers) {
+                            if (stopped.get()) break
+                            answer = runCatching {
+                                val client = StoryClientFactory.create(provider, provider.key(this), provider.model(this),
+                                    { stopped.get() }, automaticRetry=false, context=this@StudioActivity)
+                                active.set(client)
+                                if (stopped.get()) throw java.util.concurrent.CancellationException()
+                                client.generate(prompt, com.pearparinya.automovie.stand.StandAiNarrative.schema())
+                                    .optString("text").trim()
+                            }.getOrNull()?.takeIf { it.isNotBlank() }
+                            if (answer != null) break
+                        }
+                        Triple(initial, history, requireNotNull(answer) { "API ไม่ส่งบทกลับมา" } to story)
+                    }
+                    runOnUiThread {
+                        if (stopped.get() || isFinishing || isDestroyed) return@runOnUiThread
+                        active.set(null)
+                        progress.dismiss()
+                        val value = result.getOrNull()
+                        if (value == null) notice("เขียนบท AI ไม่สำเร็จ • ไม่สลับโหมด")
+                        else {
+                            val (initial, history, output) = value
+                            val (draft, story) = output
+                            AlertDialog.Builder(this).setTitle("EP " + (history.size + 1) + " • ตรวจบท AI")
+                                .setMessage(draft)
+                                .setPositiveButton("บันทึก EP") { _, _ ->
+                                    val saved = runCatching {
+                                        check(store.load(project).snapshot() == initial.snapshot())
+                                        check(archive.history(project) == history)
+                                        check(store.save(story.ownership))
+                                        archive.append(project, history, draft)
+                                    }.getOrDefault(false)
+                                    notice(if (saved) "บันทึก EP แล้ว" else "บันทึกไม่สำเร็จ กรุณาตรวจข้อมูลเดิม")
+                                }.setNegativeButton("ยกเลิก", null).showNavigationDirector()
+                        }
+                    }
+                }.start()
             }.setNegativeButton("กลับ", null).showNavigationDirector()
     }
     private fun standMasterMenu() {
