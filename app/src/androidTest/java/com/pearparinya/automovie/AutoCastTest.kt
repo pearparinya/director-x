@@ -10,6 +10,29 @@ import java.io.File
 import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class AutoCastTest {
+    @Test fun standIdsFreezeOriginalMastersThroughExistingCasting() {
+        val root=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,UUID.randomUUID().toString()).apply { mkdirs() }
+        try {
+            val ids=(1..16).map { AutoCast.standCastingId("ST-%03d".format(it)) }
+            assertEquals((170..185).map { "CHAR_$it" },ids)
+            assertEquals("CHAR_199",AutoCast.standCastingId("ST-030"))
+            for (number in 1..16) {
+                val original="ST-%03d".format(number)
+                val id=ids[number-1]
+                val source=File(root,"master_candidates/$original.master").apply { parentFile!!.mkdirs(); writeText(original) }
+                val catalog=JSONArray().put(JSONObject().put("id",id).put("display_name",original).put("file",source.name)
+                    .put("sha256",MasterLibrary.digest(source.readBytes())).put("character_type","creature"))
+                val proposal=JSONObject().put("story_concept","stand").put("cast",JSONArray().put(JSONObject().put("library_id",id).put("name",original).put("role","stand")))
+                val cast=AutoCast.apply(proposal,catalog,root)
+                val actor=cast.getJSONObject(0)
+                assertEquals(id,actor.getString("library_id"))
+                val key="support_%08x".format(169+number)
+                assertEquals(key,FlowCast.id(actor))
+                assertArrayEquals(source.readBytes(),File(root,"original_masters/$key.master").readBytes())
+            }
+        } finally { root.deleteRecursively() }
+    }
+
     @Test fun storyRegistryCarriesReviewedRolesWithoutInventingLegacyData() {
         val legacy = JSONObject().put("name", "เปีย").put("master", "PIA_MASTER.png")
         val actor = JSONObject().put("name", "อร").put("master", "SUPPORT_00000001_MASTER.png")
