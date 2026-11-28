@@ -9,15 +9,38 @@ internal object FlowCast {
     fun id(person: JSONObject): String? = person.optString("master").takeIf { supportingMaster.matches(it) }?.substringBeforeLast('.')?.replace(Regex("_MASTER$",RegexOption.IGNORE_CASE),"")?.lowercase() ?: StoryIdentity.keyFor(person.optString("name"))
     fun supporting(plan: JSONObject?): List<JSONObject> = plan?.optJSONArray("supporting_characters")?.let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.orEmpty()
     fun definitions(plan: JSONObject?): List<JSONObject> = (if(supporting(plan).isNotEmpty() && supporting(plan).all { it.optBoolean("auto_cast") }) emptyList() else FlowProductionPack.names.map { (id,name) -> JSONObject().put("name",name).put("master","${id.uppercase()}_MASTER.png").put("visual_description",plan?.optJSONObject("lead_references")?.optJSONObject(id)?.optString("visual_description")?.takeIf { it.isNotBlank() } ?: FlowProductionPack.dna.getValue(id)) })+supporting(plan)
-    fun storyRegistry(actors: List<JSONObject>): JSONArray = JSONArray().apply {
+    fun storyRegistry(actors: List<JSONObject>, persisted: JSONArray = JSONArray()): JSONArray = JSONArray().apply {
+        val previous = (0 until persisted.length()).map { persisted.getJSONObject(it) }
+        val used = mutableSetOf<String>()
         for (actor in actors) {
             val name = actor.getString("name")
             val master = actor.getString("master")
             val row = JSONObject().put("name", name).put("master", master)
-                .put("character_id", CharacterAliasRegistry.identityId(name, master))
-            for (key in listOf("library_id", "role")) {
-                actor.optString(key).takeIf { it.isNotBlank() && !actor.isNull(key) }?.let { row.put(key, it) }
+                .put("character_id", run {
+                    val matches = previous.filter { it.optString("name") == name && it.optString("master").equals(master, true) }
+                    require(matches.size <= 1) { "ทะเบียนตัวละครเดิมซ้ำ" }
+                    val old = matches.singleOrNull()
+                    val oldLibrary = old?.optString("library_id").orEmpty()
+                    val newLibrary = actor.optString("library_id")
+                    require(oldLibrary.isBlank() || newLibrary.isBlank() || oldLibrary.equals(newLibrary, true)) { "Library ID ไม่ตรงกับทะเบียนเดิม" }
+                    require(previous.none { it !== old && newLibrary.isNotBlank() && it.optString("library_id").equals(newLibrary, true) }) { "Library ID เปลี่ยนเจ้าของ" }
+                    val stored = old?.optString("character_id").orEmpty()
+                    val current = actor.optString("character_id")
+                    require(stored.isBlank() || current.isBlank() || stored == current) { "Character ID ไม่ตรงกับทะเบียนเดิม" }
+                    val identity = stored.ifBlank { current.ifBlank { CharacterAliasRegistry.identityId(name, master) } }
+                    require(used.add(identity)) { "Character ID ซ้ำ" }
+                    identity
+                })
+            val old = previous.singleOrNull { it.optString("name") == name && it.optString("master").equals(master, true) }
+            for (key in listOf("library_id", "role", "english_name")) {
+                val current = actor.optString(key).takeIf { it.isNotBlank() && !actor.isNull(key) }
+                val prior = old?.optString(key)?.takeIf { it.isNotBlank() && !old.isNull(key) }
+                (current ?: prior)?.let { row.put(key, it) }
             }
+            val library = row.optString("library_id")
+            require(library.isBlank() || (0 until length()).none {
+                getJSONObject(it).optString("library_id").equals(library, true)
+            }) { "Library ID ซ้ำ" }
             put(row)
         }
     }

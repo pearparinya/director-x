@@ -489,7 +489,7 @@ class GeminiStoryTest {
             assertTrue(pending.isFile); assertEquals(1,repairs)
             val before=JSONObject(pending.readText()).getJSONArray("scenes").getJSONObject(0).toString()
             var calls=0
-            val story=GeminiStoryEngine(folder,{ prompt,_ -> calls++; assertTrue(prompt.contains("Repair ONLY scene 3")); batch(prompt) }).run(selected)
+            val story=GeminiStoryEngine(folder,{ prompt,_ -> calls++; assertTrue(prompt.contains("Repair ONLY scene 3")); batch(prompt).apply { getJSONArray("scenes").getJSONObject(0).put("speaker","เมย์").put("dialogue","ใครส่งมา").put("narration","") } }).run(selected)
             assertEquals(1,calls)
             assertEquals(before,JSONObject(File(folder,"EP01_01.json").readText()).getJSONArray("scenes").getJSONObject(0).toString())
             assertFalse(pending.exists()); assertEquals(4,story.getInt("scene_count"))
@@ -583,7 +583,7 @@ class GeminiStoryTest {
                 if(prompt.contains("Plan a complete story")) outline() else {
                     assertTrue(prompt.contains("AUDIO FIELDS"))
                     batch(prompt).apply {
-                        if(prompt.contains("Your previous JSON failed validation")) { repairs++; assertTrue(prompt.contains("บทพูดกับบรรยายต้องแยกซีน")) }
+                        if(prompt.contains("Your previous JSON failed validation")) { repairs++; assertTrue(prompt.contains("บทพูดกับบรรยายต้องแยกซีน")); getJSONArray("scenes").getJSONObject(0).put("speaker","เมย์").put("dialogue","ซองนี้ของใครคะ").put("narration","") }
                         else if(!bad) { bad=true; getJSONArray("scenes").getJSONObject(0)
                             .put("speaker","เมย์").put("dialogue","ซองนี้ของใครคะ").put("narration","เธอถามด้วยความสงสัย") }
                     }
@@ -715,5 +715,24 @@ class GeminiStoryTest {
             assertFalse(file.readText().contains(fake)); assertFalse(file.canonicalPath.startsWith(context.filesDir.canonicalPath+"/"))
             settings.clear(); assertFalse(settings.hasKey())
         } finally { if(old!=null) { file.parentFile!!.mkdirs(); file.writeBytes(old) } else settings.clear() }
+    }
+    @Test fun legacyRecoverySceneSevenRejectsConflictingBackupsAndPreservesCheckpoint() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"legacy-sc7-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val checkpoint=File(folder,"EP01_06.json")
+            val accepted=batch("Write exactly scenes 6 to 6 for EP 1")
+            GeminiStoryFiles.write(checkpoint,accepted)
+            val before=checkpoint.readBytes().toList()
+            val original=batch("Write exactly scenes 7 to 7 for EP 1")
+            val row=original.getJSONArray("scenes").getJSONObject(0)
+            GeminiStoryFiles.write(File(folder,"EP01_07.json.pending.json.recovery-first"),original)
+            val restored=GeminiStoryEngine.legacyRecoveryScene(folder,1,7)
+            assertEquals(row.toString(),restored.toString())
+            val changed=JSONObject(row.toString()).put("dialogue","เปลี่ยนบทเดิม")
+            assertFalse(SceneRepairGuard.preservesStory(row,changed))
+            GeminiStoryFiles.write(File(folder,"EP01_07.json.pending.json.recovery-second"),JSONObject().put("scenes",JSONArray().put(changed)))
+            assertTrue(GeminiStoryEngine.legacyRecoveryScene(folder,1,7)==null)
+            assertEquals(before,checkpoint.readBytes().toList())
+        } finally { folder.deleteRecursively() }
     }
 }

@@ -102,4 +102,77 @@ class CharacterAliasRegistryTest {
         CharacterAliasRegistry.applyRegistered(row,listOf(a),JSONObject())
         assertEquals("CHAR_170 stands.",row.getString("flow_action"))
     }
+    @Test fun presenterModeRejectsOppositeLegacyAliasAndPreservesIdentity() {
+        val name = "นายเปีย บ้านคลองขุด"
+        val master = "SUPPORT_12345678_MASTER.png"
+        for (alias in listOf("Pia", "Piaros")) {
+            val opposite = if (alias == "Pia") "Piaros" else "Pia"
+            val definition = JSONObject().put("name", name).put("master", master)
+                .put("english_name", alias).put("library_id", "CHAR_169")
+                .put("character_id", CharacterAliasRegistry.identityId(name, master))
+            val confirmed = JSONObject()
+            CharacterAliasRegistry.add(confirmed, opposite, name, master)
+            val row = JSONObject().put("scene", 7)
+                .put("characters", JSONArray().put(JSONObject(definition.toString())))
+                .put("dialogue", "บทเดิม").put("flow_action", "$alias stands. $opposite watches. Khud waits.")
+            val before = row.getJSONArray("characters").toString()
+            repeat(2) { CharacterAliasRegistry.applyRegistered(row, listOf(definition), confirmed) }
+            assertEquals("$name stands. $opposite watches. Khud waits.", row.getString("flow_action"))
+            assertEquals(before, row.getJSONArray("characters").toString())
+            assertEquals("บทเดิม", row.getString("dialogue"))
+            assertEquals(7, row.getInt("scene"))
+        }
+    }
+    @Test fun standDoesNotResolveFullNormalPresenterAlias() {
+        val name = "นายเปีย บ้านคลองขุด"
+        val master = "P_MASTER.png"
+        val definition = JSONObject().put("name", name).put("master", master).put("english_name", "Piaros")
+        val confirmed = JSONObject()
+        CharacterAliasRegistry.add(confirmed, "Nai Pia Ban Khlong Khud", name, master)
+        val row = JSONObject().put("characters", JSONArray().put(JSONObject(definition.toString())))
+            .put("flow_action", "Nai Pia Ban Khlong Khud stands. Piaros waits.")
+        CharacterAliasRegistry.applyRegistered(row, listOf(definition), confirmed)
+        assertEquals("Nai Pia Ban Khlong Khud stands. $name waits.", row.getString("flow_action"))
+    }
+    @Test fun persistedRegistryPreservesIdentityAndRejectsOwnerChanges() {
+        val actor = JSONObject().put("name", "หนึ่ง").put("master", "A_MASTER.png")
+            .put("library_id", "CHAR_170").put("english_name", "One")
+        val legacy = FlowCast.storyRegistry(listOf(actor))
+        val id = legacy.getJSONObject(0).getString("character_id")
+        actor.put("english_name", "NewAlias")
+        val migrated = FlowCast.storyRegistry(listOf(actor), legacy)
+        assertEquals(id, migrated.getJSONObject(0).getString("character_id"))
+        assertEquals("NewAlias", migrated.getJSONObject(0).getString("english_name"))
+        assertEquals(migrated.toString(), FlowCast.storyRegistry(listOf(actor), migrated).toString())
+        val wrong = JSONObject(actor.toString()).put("master", "B_MASTER.png")
+        assertTrue(runCatching { FlowCast.storyRegistry(listOf(wrong), legacy) }.isFailure)
+        assertTrue(runCatching { FlowCast.storyRegistry(listOf(actor, actor), legacy) }.isFailure)
+    }
+    @Test fun migrationRetainsMissingMetadataAndRejectsCaseInsensitiveDuplicateOwners() {
+        val actor = JSONObject().put("name", "หนึ่ง").put("master", "A_MASTER.png")
+        val legacy = JSONArray().put(JSONObject(actor.toString()).put("character_id", "legacy-id")
+            .put("library_id", "CHAR_170").put("english_name", "One").put("role", "lead"))
+        val migrated = FlowCast.storyRegistry(listOf(actor), legacy)
+        assertEquals("legacy-id", migrated.getJSONObject(0).getString("character_id"))
+        assertEquals("CHAR_170", migrated.getJSONObject(0).getString("library_id"))
+        assertEquals("One", migrated.getJSONObject(0).getString("english_name"))
+        assertEquals("lead", migrated.getJSONObject(0).getString("role"))
+        assertEquals(migrated.toString(), FlowCast.storyRegistry(listOf(actor), migrated).toString())
+        val other = JSONObject().put("name", "สอง").put("master", "B_MASTER.png").put("library_id", "char_170")
+        assertTrue(runCatching { FlowCast.storyRegistry(listOf(actor, other), legacy) }.isFailure)
+    }
+    @Test fun confirmedLegacyAliasUsesPersistedIdentityAndRejectsWrongOwner() {
+        val definition = JSONObject().put("name", "ปิ่นมณี").put("master", "P_MASTER.png")
+            .put("character_id", "legacy-id")
+        val entry = JSONObject(definition.toString()).put("alias", "Pinmanee")
+        val registry = JSONObject().put("entries", JSONArray().put(entry))
+        val row = scene()
+        CharacterAliasRegistry.applyRegistered(row, listOf(definition), registry)
+        assertEquals("ปิ่นมณี holds a letter. Pinmanee2 watches.", row.getString("flow_action"))
+        assertEquals("Pinmanee ไม่เปลี่ยนบทพูด", row.getString("dialogue"))
+        entry.put("character_id", "wrong-id")
+        val wrong = scene()
+        CharacterAliasRegistry.applyRegistered(wrong, listOf(definition), registry)
+        assertEquals("Pinmanee holds a letter. Pinmanee2 watches.", wrong.getString("flow_action"))
+    }
 }

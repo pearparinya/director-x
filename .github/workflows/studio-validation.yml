@@ -41,13 +41,28 @@ jobs:
           api-level: 35
           arch: x86_64
           target: google_apis
+          cores: 4
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
           disable-animations: true
           script: |
+            # Stabilize the test device before running the full suite.
+            adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.HOME
             adb shell svc power stayon true
             adb shell settings put system screen_off_timeout 3600000
             adb shell input keyevent KEYCODE_WAKEUP
             adb shell wm dismiss-keyguard
-            gradle --no-daemon --stacktrace :app:connectedDebugAndroidTest
+            # Bound boot broadcast settling; Google background jobs need not become globally idle.
+            timeout 60s adb shell am wait-for-broadcast-idle || echo "Broadcast settling exceeded 60 seconds"
+            # Restart the launcher before instrumentation, not during a test.
+            adb shell am force-stop com.google.android.apps.nexuslauncher
+            adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.HOME
+            mkdir -p app/build/emulator-diagnostics
+            sh -c 'status=0; gradle --no-daemon --stacktrace :app:connectedDebugAndroidTest || status=$?; adb logcat -d -t 4000 > app/build/emulator-diagnostics/logcat.txt || true; adb shell dumpsys activity activities > app/build/emulator-diagnostics/activities.txt || true; exit "$status"'
+      - name: Capture emulator diagnostics
+        if: failure()
+        run: |
+          echo "Instrumentation failed; inspect the uploaded test reports for foreground-window and clipboard failures."
       - name: Upload instrumentation reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -56,4 +71,5 @@ jobs:
           path: |
             app/build/outputs/androidTest-results/connected/**
             app/build/reports/androidTests/connected/**
+            app/build/emulator-diagnostics/**
           if-no-files-found: warn

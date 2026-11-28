@@ -45,25 +45,10 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
             if(target!=null && rows!=null) {
                 val problemText=issue.message.orEmpty()
                 if(problemText.contains("พบชื่อภาษาอังกฤษ") && problemText.contains("flow_action")) {
-                    // Preserve the pending batch and ask only for a corrected action.
-                    // Never replace cast, dialogue, wardrobe or other scene fields.
+                    // Registered aliases have already been normalized by validate().
+                    // An unresolved identity must never trigger an AI rewrite of events.
                     GeminiStoryFiles.write(pending,value)
-                    val original = rows.getJSONObject(target)
-                    val actionSchema = JSONObject("""{"type":"object","properties":{"action":{"type":"string"}},"required":["action"]}""")
-                    val corrected = generate(
-                        "Correct ONLY the English visible action for scene $sceneNumber. Use only exact registered character names from the scene and preserve all events. Do not invent or substitute identities. If identity is ambiguous, return the original action unchanged. Validation error: " +
-                            problemText.take(600) + "\nScene (read-only): " + original + marker,
-                        actionSchema
-                    ).optString("action").trim()
-                    check()
-                    if (corrected.isNotBlank() && corrected != original.optString("flow_action")) {
-                        val backup = File(folder, name + ".repair-original.json")
-                        if (!backup.exists()) GeminiStoryFiles.write(backup,value)
-                        original.put("flow_action",corrected)
-                        GeminiStoryFiles.write(pending,value)
-                    }
-                    problem = validateWithSpeechRecovery()
-                    continue
+                    throw issue
                 }
                 val focused=prompt.replace(Regex("Write exactly scenes [0-9]+ to [0-9]+"),"Write exactly scenes $sceneNumber to $sceneNumber")
                 val replacement=generate(focused+marker+"Your previous JSON failed validation: "+issue.message.orEmpty().take(600)+
@@ -74,9 +59,10 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                     problem=IllegalArgumentException("ซ่อมบทต้องส่งกลับเฉพาะซีน $sceneNumber")
                     continue
                 }
-                if (!SceneRepairGuard.preservesCast(rows.getJSONObject(target), replacement.getJSONObject(0))) {
+                if (!SceneRepairGuard.preservesStory(rows.getJSONObject(target), replacement.getJSONObject(0),
+                    repairMixedAudio = problemText.contains("บทพูดกับบรรยายต้องแยกซีน"))) {
                     // Identity or wardrobe corrections require explicit review, not silent replacement.
-                    throw IllegalArgumentException("ซีน $sceneNumber: ผลซ่อมบทเปลี่ยนตัวละคร MASTER หรือชุด ต้องตรวจสอบก่อน")
+                    throw IllegalArgumentException("ซีน $sceneNumber: ผลซ่อมบทเปลี่ยนตัวละคร MASTER ชุด บทสนทนา หรือเหตุการณ์ ต้องตรวจสอบก่อน")
                 }
                 // Preserve the pre-repair batch before replacing any scene.
                 val backup = File(folder, name + ".repair-original.json")
@@ -142,17 +128,36 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                 confirmed
             } else cached("casting.json", "Plan the concept and cast for a Thai film/drama. Category: "+spec.optString("category")+"; premise: "+spec.optString("premise")+(if(ensemble) " "+StoryCastPolicy.direction+" "+StoryCastPolicy.sizingGuide(if(count>0) count*ClipPlan.count(spec) else 0) else "")+
                 ChannelCatalog.direction(spec.optString("category"))+" "+AutoDirectorContent.storyEnergy+" "+AutoCast.castingBrief(category,presenterId,selectedIds)+(if(selectedIds.isEmpty()) "" else " Required cast: include every one of these selected library IDs exactly once: "+selectedIds.joinToString(", ")+".")+presenterRule+outfitRule+" For younger-man/older-woman set romance_role=younger_man and older_woman; for older-man/younger-woman set romance_role=older_man and younger_woman. Mark others supporting. "+variety+". Choose 1–15 fictional roles as needed, matching assigned ages and age-appropriate roles, matching reference styling to the production. Use display_name from the catalog when provided as the canonical Thai character name; otherwise invent distinct Thai names. Provide a consistent distinct english_name for each Thai name and describe each role and relationships. Choose only library IDs below. Use character_age from the catalog as the assigned fictional age, never as a verified real age. Match age requirements and age gaps in the requested story using these numeric ages; do not invent or change ages. Do not infer personality from looks or invent measurements. Hair/appearance come from each reference; costume changes by story. Return story_concept and cast. Catalog: "+AutoCast.promptCatalog(AutoCast.storyCatalog(catalog,spec.optString("premise"),selectedIds,category)).toString(), AutoCast.schema()) { if(spec.optInt("casting_version")>=2) AutoCast.validateVariety(it,catalog,recent) else AutoCast.validate(it,catalog); AutoCast.validateGenre(it,catalog,spec.optString("category")); AutoCast.requirePresenter(it,presenterId); AutoCast.validateStoryRoles(it,catalog,selectedIds); AutoCast.requireNarratedAppearances(it,catalog,spec.optString("premise")); if(ensemble) { val cast=it.getJSONArray("cast"); StoryCastPolicy.requireCast((0 until cast.length()).map { i -> cast.getJSONObject(i).getString("library_id") }) } }
-            spec.put("supporting_characters",AutoCast.apply(casting,catalog,folder.parentFile!!))
+            val appliedCast = AutoCast.apply(casting,catalog,folder.parentFile!!)
+            // Scope the presenter's English alias to the selected channel category
+            // and verified library ID. Keep saved Thai names and MASTER IDs intact.
+            if (channel == "นายเปีย บ้านคลองขุด" && presenterId.isNotBlank()) {
+                val alias = if ((category == ChannelCatalog.piaStand.label || category == ChannelCatalog.piaStand.name || category == ChannelCatalog.piaStand.id || spec.optString("category_id") == ChannelCatalog.piaStand.id)) "Piaros" else "Pia"
+                val actors = (0 until appliedCast.length()).map { appliedCast.getJSONObject(it) }
+                val presenter = actors.singleOrNull { it.optString("library_id") == presenterId }
+                requireNotNull(presenter) { "ไม่พบผู้ดำเนินเรื่องตาม Library ID ที่ยืนยัน" }
+                val owner = (0 until catalog.length()).map { catalog.getJSONObject(it) }.singleOrNull { it.optString("id")==presenterId }
+                requireNotNull(owner) { "ทะเบียนเจ้าของ MASTER ผู้ดำเนินเรื่องไม่ชัดเจน" }
+                val key = "support_%08x".format(presenterId.substringAfter('_').toInt())
+                require(presenter.optString("master") == "${key.uppercase()}_MASTER.png") { "MASTER ผู้ดำเนินเรื่องไม่ตรงกับ Library ID" }
+                val installed = File(folder.parentFile!!,"original_masters/$key.master")
+                require(installed.isFile && MasterLibrary.digest(installed.readBytes()) == owner.getString("sha256")) { "MASTER ผู้ดำเนินเรื่องไม่ตรงกับทะเบียนเจ้าของ" }
+                require(actors.none { it !== presenter && (it.optString("english_name").equals("Pia", true) || it.optString("english_name").equals("Piaros", true)) }) { "ชื่อผู้ดำเนินเรื่องซ้ำกับตัวละครอื่น" }
+                presenter.put("english_name", alias)
+            }
+            spec.put("supporting_characters",appliedCast)
             spec.put("cast_concept",casting.getString("story_concept"))
             GeminiStoryFiles.write(File(folder,"spec.json"),spec)
         }
         val support=spec.optJSONArray("supporting_characters") ?: JSONArray()
         val identityDefinitions=FlowCast.definitions(spec)
-        for(actor in identityDefinitions) {
-            actor.put("character_id",CharacterAliasRegistry.identityId(actor.getString("name"),actor.getString("master")))
+        val identityFile = File(folder,"character_identities.json")
+        val persisted = if (identityFile.isFile) GeminiStoryFiles.read(identityFile) else JSONObject()
+        val identityRegistry = FlowCast.storyRegistry(identityDefinitions, persisted.optJSONArray("entries") ?: JSONArray())
+        for ((index, actor) in identityDefinitions.withIndex()) {
+            actor.put("character_id", identityRegistry.getJSONObject(index).getString("character_id"))
         }
-        val identityRegistry = FlowCast.storyRegistry(identityDefinitions)
-        GeminiStoryFiles.write(File(folder,"character_identities.json"),JSONObject().put("entries",identityRegistry))
+        GeminiStoryFiles.write(identityFile,persisted.put("entries",identityRegistry))
         GeminiStoryFiles.write(File(folder,"spec.json"),spec)
         require(FlowCast.issues(JSONObject().put("supporting_characters",support)).isEmpty()) { "ข้อมูลตัวละครเสริมไม่ถูกต้อง" }
         val compact=spec.optString("provider") in setOf("groq","cerebras","deepseek","openrouter") || spec.optBoolean("hybrid") || spec.optBoolean("auto_pipeline")
@@ -275,7 +280,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                 val wardrobeContext=if(spec.optString("content_profile")==AutoDirectorContent.profile || spec.optInt("command_version")>=1) "\nIMMUTABLE WARDROBE CATALOG — copy the exact four parts verbatim for the matching day/event/group:\n"+AutoDirectorWardrobe.catalog(priorWardrobe) else ""
                 val confirmedNames=CharacterAliasRegistry.read(folder).optJSONArray("entries") ?: JSONArray()
                 val retryMarker=File(folder,"regenerate_EP%02d_%02d.json".format(i+1,start))
-                val recoveryHint=if(retryMarker.isFile) "\nFresh scene recovery ID: "+GeminiStoryFiles.read(retryMarker).getString("id")+". Write this scene afresh using the story outline and registered cast; use exact Thai names, keep established events and continuity; do not guess identities." else ""
+                val recoveryHint=if(retryMarker.isFile) "\nFresh scene recovery ID: "+GeminiStoryFiles.read(retryMarker).getString("id")+". Repair only the requested invalid scene fields using the story outline and registered cast. Preserve existing characters, dialogue, events, scene numbers and continuity. Never rewrite an accepted scene or guess identities. If identity cannot be confirmed, do not substitute another actor." else ""
                 val historyLedger=StoryContinuityLedger.summarize(output,scenes)
                 val historyContext=StoryContinuityLedger.promptContext(historyLedger,past,previous,compact)
                 val clockGuide = if (spec.optInt("story_clock_version") >= 1) StoryClock.instruction else ""
@@ -293,9 +298,14 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
                             "EP ${i+1} ซีน ${row.optInt("scene",start+n)}: ขาดรายการ characters กรุณาเติมตัวละครที่ปรากฏตามทะเบียนเรื่อง โดยรักษาเหตุการณ์เดิม"
                         }
                     }
+                    if(retryMarker.isFile) {
+                        val marker = GeminiStoryFiles.read(retryMarker)
+                        val original = requireNotNull(marker.optJSONObject("original_scene") ?: legacyRecoveryScene(folder,i+1,start)) { "ไม่พบข้อมูลซีนเดิมที่ยืนยันได้สำหรับตรวจ Recovery" }
+                        require(nameRows.length()==1 && SceneRepairGuard.preservesStory(original,nameRows.getJSONObject(0))) { "ซีน $start: Recovery เปลี่ยนข้อมูลเดิม ต้องตรวจสอบก่อน" }
+                    }
                     val confirmedAliases=CharacterAliasRegistry.read(folder)
                     for(n in 0 until nameRows.length()) {
-                        CharacterAliasRegistry.applyRegistered(nameRows.getJSONObject(n),FlowCast.definitions(spec),confirmedAliases)
+                        CharacterAliasRegistry.applyRegistered(nameRows.getJSONObject(n),identityDefinitions,confirmedAliases)
                     }
                     for(n in 0 until nameRows.length()) {
                         val people=nameRows.getJSONObject(n).optJSONArray("characters") ?: continue
@@ -406,6 +416,19 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
         return story
     }
     companion object {
+        /** Legacy markers can resume only when all matching backups agree on the original scene. */
+        internal fun legacyRecoveryScene(folder: File, ep: Int, scene: Int): JSONObject? {
+            val pattern = Regex("EP%02d_([0-9]+)[.]json[.]pending[.]json[.]recovery-.+".format(ep))
+            val candidates = folder.listFiles().orEmpty().filter { it.isFile && pattern.matches(it.name) }
+                .flatMap { file ->
+                    val rows = runCatching { GeminiStoryFiles.read(file).getJSONArray("scenes") }.getOrNull()
+                    if (rows == null) emptyList() else (0 until rows.length()).mapNotNull { rows.optJSONObject(it) }
+                        .filter { it.optInt("scene") == scene }
+                }
+            val first = candidates.firstOrNull() ?: return null
+            if (!first.has("characters") || candidates.any { it.toString() != first.toString() }) return null
+            return first
+        }
         /** Back up the pending batch and retry one scene while leaving completed checkpoints intact. */
         fun prepareSceneRegeneration(folder: File, pending: File, ep: Int, scene: Int) {
             require(pending.parentFile.canonicalFile==folder.canonicalFile)
@@ -422,7 +445,7 @@ Exactly $sceneCount scenes per episode, 8 seconds each (${sceneCount*8} seconds 
             val retry=File(folder,"EP%02d_%02d.json.pending.json".format(ep,scene))
             require(retry.isFile && GeminiStoryFiles.read(retry).getJSONArray("scenes").length()==1) { "เตรียมซีนเดี่ยวไม่สำเร็จ" }
             GeminiStoryFiles.write(File(folder,"batch_recovery.json"),JSONObject().put("single_scene",true))
-            GeminiStoryFiles.write(File(folder,"regenerate_EP%02d_%02d.json".format(ep,scene)),JSONObject().put("id",java.util.UUID.randomUUID().toString()))
+            GeminiStoryFiles.write(File(folder,"regenerate_EP%02d_%02d.json".format(ep,scene)),JSONObject().put("id",java.util.UUID.randomUUID().toString()).put("original_scene",GeminiStoryFiles.read(retry).getJSONArray("scenes").getJSONObject(0)))
             check(retry.delete()) { "เตรียมซีนสำหรับเขียนใหม่ไม่สำเร็จ" }
         }
         /** Preserve the original before splitting an unvalidated batch into resumable scenes. */

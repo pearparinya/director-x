@@ -199,27 +199,41 @@ class StudioActivity : AppCompatActivity() {
         return back
     }
 
+    // All navigable dialogs use one cancellation route. Never restore a parent
+    // from a detached window or override a caller's dismissal cleanup.
+    private fun bindDialogNavigation(dialog: AlertDialog, back: () -> Unit) {
+        var restored = false
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        dialog.setOnCancelListener {
+            if (!restored) {
+                restored = true
+                handler.post {
+                    if (!isFinishing && !isDestroyed) back()
+                }
+            }
+        }
+        dialog.onBackPressedDispatcher.addCallback(object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() { if (dialog.isShowing) dialog.cancel() }
+        })
+    }
+
     private fun AlertDialog.Builder.showNavigationDirector(back: (() -> Unit)? = takeMenuBack()): AlertDialog {
         val dialog = showDirector()
         if (back != null) {
+            bindDialogNavigation(dialog, back)
             dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
                 text = "◀ ย้อนกลับ"
-                setOnClickListener { dialog.dismiss(); back.invoke() }
+                setOnClickListener { dialog.cancel() }
             }
-            dialog.setOnCancelListener { back.invoke() }
-            dialog.onBackPressedDispatcher.addCallback(dialog, object : androidx.activity.OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() { dialog.cancel() }
-            })
         }
         return dialog
     }
 
     private fun AlertDialog.Builder.createNavigationDirector(): AlertDialog {
-        val back = pendingMenuBack
-        pendingMenuBack = null
-        if (back != null) setNegativeButton("◀ ย้อนกลับ") { _, _ -> back.invoke() }
+        val back = takeMenuBack()
+        if (back != null) setNegativeButton("◀ ย้อนกลับ") { selected, _ -> selected.cancel() }
         val dialog = create()
-        if (back != null) dialog.setOnCancelListener { back.invoke() }
+        if (back != null) bindDialogNavigation(dialog, back)
         return dialog
     }
     private fun choiceMenu(title: String, choices: List<String>, cancel: String = "✖️ ยกเลิก",
@@ -6548,7 +6562,7 @@ $context"""
             listOf("☑️ เลือก API ที่อนุญาต", "🔍 ตรวจ API ที่เลือก", "🛡️ อนุญาต API สำรอง (ยังไม่เปิดสลับอัตโนมัติ)")
         choiceMenu("ตั้งค่าคีย์ API • ใช้อัตโนมัติ",choices) { index ->
             if(index==providers.size) selectStoryApiProviders(afterSave)
-            else if(index==providers.size+1) { val selected=StoryProvider.eligible(this); if(selected.isEmpty()) notice("ยังไม่มี API ที่เลือกในโหมดปัจจุบัน") else testStoryApis(selected) }
+            else if(index==providers.size+1) { val selected=StoryProvider.eligible(this); if(selected.isEmpty()) notice("ยังไม่มี API ที่เลือกในโหมดปัจจุบัน") else testStoryApis(selected, takeMenuBack() ?: { geminiSettings(afterSave) }) }
             else if(index==providers.size+2) selectStoryFallbackConsent()
             else if(providers[index].extra()==null) storyProviderSettings(providers[index],afterSave)
             else extraApiKeyDialog(providers[index].extra()!!,afterSave)
@@ -6662,14 +6676,14 @@ $context"""
             runOnUiThread { if(!stopped.get() && !isFinishing && !isDestroyed) view.text=result }
         }.apply { name="director-extra-api-probe"; start() }
     }
-    private fun testStoryApis(providers: List<StoryProvider>) {
+    private fun testStoryApis(providers: List<StoryProvider>, returnToSettings: (() -> Unit)? = takeMenuBack()) {
         if(StoryProvider.freeOnly(this) && providers.any { it!=StoryProvider.OPENROUTER }) { notice("โหมดฟรีเปิดอยู่ • ทดสอบได้เฉพาะ OpenRouter โมเดลฟรี"); return }
         if(GeminiStoryService.running) { notice("กรุณารอหรือหยุดงานเขียนบทก่อนทดสอบ API"); return }
         val stopped=java.util.concurrent.atomic.AtomicBoolean(false)
         val active=java.util.concurrent.atomic.AtomicReference<StoryTextClient?>(null)
         val view=TextView(this).apply { setPadding(dp(20),dp(16),dp(20),dp(16)); text="กำลังตรวจคีย์และโมเดลที่บันทึกไว้…\nส่งคำขอทดสอบสั้นจริงไปแต่ละบริการ ใช้โควตาของบัญชีนั้น ไม่ส่งบทหรือรูป"; setTextIsSelectable(true) }
         val dialog=AlertDialog.Builder(this).setTitle("ทดสอบ API • ไม่สลับบริการแทนผลทดสอบ")
-            .setView(ScrollView(this).apply { addView(view) }).setNegativeButton("ปิด / หยุด",null).showNavigationDirector()
+            .setView(ScrollView(this).apply { addView(view) }).setNegativeButton("ปิด / หยุด",null).showNavigationDirector(returnToSettings)
         dialog.setOnDismissListener { stopped.set(true); active.get()?.cancel() }
         Thread {
             val results=mutableListOf<String>()

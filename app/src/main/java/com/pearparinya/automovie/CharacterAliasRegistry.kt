@@ -68,8 +68,27 @@ internal object CharacterAliasRegistry {
             val entry=entries.getJSONObject(i)
             val alias=entry.optString("alias").trim()
             if(validAlias(alias))
-                if(!entry.has("character_id") || entry.optString("character_id")==identityId(entry.optString("name"),entry.optString("master")))
+                if(!entry.has("character_id") || definitions.filter {
+                    it.optString("name")==entry.optString("name") &&
+                        it.optString("master").equals(entry.optString("master"),true)
+                }.singleOrNull()?.let {
+                    it.optString("character_id").ifBlank { identityId(it.optString("name"),it.optString("master")) }
+                } == entry.optString("character_id"))
                     all.add(Triple(alias,entry.optString("name"),entry.optString("master")))
+        }
+        // Only accept the short presenter alias when the exact legacy identity is registered.
+        // Never infer a person from a fragment such as Khud or Khlong.
+        definitions.filter { it.optString("name") == piaName }.singleOrNull()?.let { definition ->
+            val master = definition.optString("master")
+            if (master.isNotBlank() && !definition.optString("english_name").equals("Piaros", true)) all.add(Triple("Pia", piaName, master))
+        }
+        // A mode-bound presenter must not inherit the opposite alias from an old registry.
+        val scopedLead = definitions.filter { it.optString("name") == piaName }.singleOrNull()
+        val scopedAlias = scopedLead?.optString("english_name").orEmpty()
+        if (scopedAlias.equals("Pia", true) || scopedAlias.equals("Piaros", true)) {
+            val opposite = if (scopedAlias.equals("Pia", true)) "Piaros" else "Pia"
+            all.removeAll { (it.first.equals(opposite, true) || (opposite == "Pia" && presenterPhrase.matches(it.first))) && it.second == piaName &&
+                it.third.equals(scopedLead?.optString("master"), true) }
         }
         val grouped=all.groupBy { key(it.first) }
         val original=scene.optString("flow_action")
@@ -80,7 +99,7 @@ internal object CharacterAliasRegistry {
                 actor.optString("name")==piaName && actor.optString("master").equals(lead.optString("master"),true)
             }==1
         val actionText=placePhrase.replace(original) { it.groupValues[1]+" บ้านคลองขุด" }.let { text ->
-            if(visibleLead) presenterPhrase.replace(text,piaName) else text
+            if(visibleLead && !scopedAlias.equals("Piaros", true)) presenterPhrase.replace(text,piaName) else text
         }
         for((alias,rows) in grouped) {
             val identities=rows.map { it.second to it.third.lowercase(Locale.ROOT) }.distinct()
