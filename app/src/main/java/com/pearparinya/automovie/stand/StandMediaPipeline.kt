@@ -13,6 +13,17 @@ object StandMediaPipeline {
     fun missingMasters(store: StandMasterStore): List<String> =
         StandCatalog.all.map { it.id }.filter { store.verifiedFile(it) == null }
 
+    fun requireReady(store: StandMasterStore) {
+        val failures = store.audit().filter { it.status != StandMasterStatus.VERIFIED }
+        require(failures.isEmpty()) { failures.joinToString("; ") { it.standId + ": " + it.status.name } }
+    }
+
+    fun produceVerified(store: StandMasterStore, request: StandCinematicRequest,
+                        voices: List<StandVoiceRequest>, provider: StandMediaProvider): StandMediaResult {
+        requireReady(store)
+        return produce(request, voices, provider)
+    }
+
     fun assets(request: StandCinematicRequest): List<StandMediaAsset> =
         request.references.map { ref ->
             val bytes = ref.file.readBytes()
