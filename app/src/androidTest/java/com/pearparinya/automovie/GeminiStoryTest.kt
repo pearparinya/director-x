@@ -716,4 +716,23 @@ class GeminiStoryTest {
             settings.clear(); assertFalse(settings.hasKey())
         } finally { if(old!=null) { file.parentFile!!.mkdirs(); file.writeBytes(old) } else settings.clear() }
     }
+    @Test fun legacyRecoverySceneSevenRejectsConflictingBackupsAndPreservesCheckpoint() {
+        val folder=File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,"legacy-sc7-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val checkpoint=File(folder,"EP01_06.json")
+            val accepted=batch("Write exactly scenes 6 to 6 for EP 1")
+            GeminiStoryFiles.write(checkpoint,accepted)
+            val before=checkpoint.readBytes().toList()
+            val original=batch("Write exactly scenes 7 to 7 for EP 1")
+            val row=original.getJSONArray("scenes").getJSONObject(0)
+            GeminiStoryFiles.write(File(folder,"EP01_07.json.pending.json.recovery-first"),original)
+            val restored=GeminiStoryEngine.legacyRecoveryScene(folder,1,7)
+            assertEquals(row.toString(),restored.toString())
+            val changed=JSONObject(row.toString()).put("dialogue","เปลี่ยนบทเดิม")
+            assertFalse(SceneRepairGuard.preservesStory(row,changed))
+            GeminiStoryFiles.write(File(folder,"EP01_07.json.pending.json.recovery-second"),JSONObject().put("scenes",JSONArray().put(changed)))
+            assertTrue(GeminiStoryEngine.legacyRecoveryScene(folder,1,7)==null)
+            assertEquals(before,checkpoint.readBytes().toList())
+        } finally { folder.deleteRecursively() }
+    }
 }
