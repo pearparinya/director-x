@@ -127,7 +127,18 @@ internal class GeminiStoryEngine(private val folder: File, private val generate:
                 confirmed
             } else cached("casting.json", "Plan the concept and cast for a Thai film/drama. Category: "+spec.optString("category")+"; premise: "+spec.optString("premise")+(if(ensemble) " "+StoryCastPolicy.direction+" "+StoryCastPolicy.sizingGuide(if(count>0) count*ClipPlan.count(spec) else 0) else "")+
                 ChannelCatalog.direction(spec.optString("category"))+" "+AutoDirectorContent.storyEnergy+" "+AutoCast.castingBrief(category,presenterId,selectedIds)+(if(selectedIds.isEmpty()) "" else " Required cast: include every one of these selected library IDs exactly once: "+selectedIds.joinToString(", ")+".")+presenterRule+outfitRule+" For younger-man/older-woman set romance_role=younger_man and older_woman; for older-man/younger-woman set romance_role=older_man and younger_woman. Mark others supporting. "+variety+". Choose 1–15 fictional roles as needed, matching assigned ages and age-appropriate roles, matching reference styling to the production. Use display_name from the catalog when provided as the canonical Thai character name; otherwise invent distinct Thai names. Provide a consistent distinct english_name for each Thai name and describe each role and relationships. Choose only library IDs below. Use character_age from the catalog as the assigned fictional age, never as a verified real age. Match age requirements and age gaps in the requested story using these numeric ages; do not invent or change ages. Do not infer personality from looks or invent measurements. Hair/appearance come from each reference; costume changes by story. Return story_concept and cast. Catalog: "+AutoCast.promptCatalog(AutoCast.storyCatalog(catalog,spec.optString("premise"),selectedIds,category)).toString(), AutoCast.schema()) { if(spec.optInt("casting_version")>=2) AutoCast.validateVariety(it,catalog,recent) else AutoCast.validate(it,catalog); AutoCast.validateGenre(it,catalog,spec.optString("category")); AutoCast.requirePresenter(it,presenterId); AutoCast.validateStoryRoles(it,catalog,selectedIds); AutoCast.requireNarratedAppearances(it,catalog,spec.optString("premise")); if(ensemble) { val cast=it.getJSONArray("cast"); StoryCastPolicy.requireCast((0 until cast.length()).map { i -> cast.getJSONObject(i).getString("library_id") }) } }
-            spec.put("supporting_characters",AutoCast.apply(casting,catalog,folder.parentFile!!))
+            val appliedCast = AutoCast.apply(casting,catalog,folder.parentFile!!)
+            // Scope the presenter's English alias to the selected channel category
+            // and verified library ID. Keep saved Thai names and MASTER IDs intact.
+            if (channel == "นายเปีย บ้านคลองขุด" && presenterId.isNotBlank()) {
+                val alias = if (ChannelCatalog.main(category)?.id == "pia_stand") "Piaros" else "Pia"
+                val actors = (0 until appliedCast.length()).map { appliedCast.getJSONObject(it) }
+                val presenter = actors.singleOrNull { it.optString("library_id") == presenterId }
+                if (presenter != null && actors.none { it !== presenter && it.optString("english_name").equals(alias, true) }) {
+                    presenter.put("english_name", alias)
+                }
+            }
+            spec.put("supporting_characters",appliedCast)
             spec.put("cast_concept",casting.getString("story_concept"))
             GeminiStoryFiles.write(File(folder,"spec.json"),spec)
         }
