@@ -37,17 +37,17 @@ object StandCinematicEngine {
             appendLine(StandContinuityEngine.VISUAL_LOCK)
             appendLine("Only render the explicitly bound stands. No text, captions or watermark.")
             refs.forEach {
-                appendLine("MASTER " + it.binding.standId + " owner " + it.binding.ownerId +
+                appendLine("MASTER " + it.binding.standId + " (" + StandCatalog.find(it.binding.standId)?.name + ") owner " + it.binding.ownerId +
                     " SHA-256 " + it.binding.masterSha256)
             }
             visibleMovement.forEach {
                 appendLine(it.presence.standId + " position " + it.position + " movement " + it.movement)
             }
         }
-        val image = common + "START STATE: first frame only; no completed action or collage."
+        val image = common + "Attach the original MASTER files in the listed order; match each stand to its own reference. Generate ONE image. START STATE: first frame only; no completed action or collage."
         val video = buildString {
             append(common)
-            appendLine("8-second continuous shot. Locked camera; no zoom or pan. Preserve identities.")
+            appendLine("Use the reviewed scene image as the exact start frame in Google Flow. 8-second continuous shot. Locked camera; no zoom or pan. Preserve identities, armor, clothing and scene continuity. No added text or logos.")
             audible.forEach {
                 appendLine("Dialogue " + it.speakerId + " voice " + (if (it.speakerId in ids) StandPersonas.get(it.speakerId).voiceId else "owner-voice-" + it.speakerId) +
                     " mode " + it.speech + ": " + it.text)
